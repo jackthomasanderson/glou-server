@@ -59,6 +59,13 @@ describe('useKnownWine', () => {
     await waitFor(() => expect(match).toHaveBeenCalledTimes(2));
   });
 
+  it('asks every vitola of a cigar wished for without one', async () => {
+    renderHook(() => useKnownWine({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', anyFormat: true }), { wrapper });
+    await waitFor(() => expect(match).toHaveBeenCalledWith({
+      category: 'cigar', producer: 'Montecristo', name: 'No. 2', vintage: null, format: null, anyFormat: true,
+    }));
+  });
+
   it('proposes nothing when the lookup fails', async () => {
     match.mockRejectedValue(new Error('NETWORK_ERROR'));
     const { result } = renderHook(() => useKnownWine({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', format: 'Robusto' }), { wrapper });

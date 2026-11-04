@@ -103,7 +103,7 @@ describe('InventoryForm — "Vous avez déjà ce vin" (FEAT-97)', () => {
     type('Nom', 'Cuvée X');
     type('Producteur', 'Domaine Y');
     type('Millésime', '2020');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter des bouteilles à ce vin' }));
+    fireEvent.click(within(dialog).getByTestId('known-wine-add'));
 
     // Only what tells the bottles apart: no name, no region.
     expect(within(dialog).queryByLabelText('Nom')).toBeNull();
@@ -132,7 +132,7 @@ describe('InventoryForm — "Vous avez déjà ce vin" (FEAT-97)', () => {
     type('Millésime', '2020');
     type('Nombre de bouteilles', '2');
     type("Date d'achat", '2026-06-10');
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter des bouteilles à ce vin' }));
+    fireEvent.click(within(dialog).getByTestId('known-wine-add'));
 
     expect(within(dialog).getByLabelText('Nombre de bouteilles')).toHaveValue(2);
     expect(within(dialog).getByLabelText("Date d'achat")).toHaveValue('2026-06-10');

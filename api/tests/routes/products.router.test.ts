@@ -280,7 +280,7 @@ describe('GET /api/products/match (FEAT-97)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ data: [{ id: 'p1', items: [] }] });
-    expect(productService.matching).toHaveBeenCalledWith({ category: 'wine', producer: 'Domaine Y', name: 'Cuvée X', vintage: 2020, format: null });
+    expect(productService.matching).toHaveBeenCalledWith({ category: 'wine', producer: 'Domaine Y', name: 'Cuvée X', vintage: 2020, format: null, anyFormat: false });
     expect(productService.get).not.toHaveBeenCalled();
   });
 
@@ -288,8 +288,10 @@ describe('GET /api/products/match (FEAT-97)', () => {
     vi.mocked(productService.matching).mockResolvedValue([] as never);
 
     await request(app).get('/api/products/match').query({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', format: 'Robusto' });
+    await request(app).get('/api/products/match').query({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', anyFormat: 'true' });
 
-    expect(productService.matching).toHaveBeenCalledWith({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', vintage: null, format: 'Robusto' });
+    expect(productService.matching).toHaveBeenNthCalledWith(1, { category: 'cigar', producer: 'Montecristo', name: 'No. 2', vintage: null, format: 'Robusto', anyFormat: false });
+    expect(productService.matching).toHaveBeenNthCalledWith(2, { category: 'cigar', producer: 'Montecristo', name: 'No. 2', vintage: null, format: null, anyFormat: true });
   });
 
   it.each([

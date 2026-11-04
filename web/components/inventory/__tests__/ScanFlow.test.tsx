@@ -205,7 +205,7 @@ describe('ScanFlow — a wine already known (FEAT-97)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'reduced-add Talbot' }));
 
     expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
-    expect(screen.getByText('scan.cart.incremented')).toBeInTheDocument();
+    expect(screen.getByText('scan.cart.addedWine')).toBeInTheDocument();
     expect(createItem).not.toHaveBeenCalled();
   });
 

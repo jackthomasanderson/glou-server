@@ -16,6 +16,8 @@ export interface KnownWineFields {
   name?: string | null;
   vintage?: number | null;
   format?: string | null;
+  /** A cigar asked without its vitola (a wish has none): every vitola of the reference. */
+  anyFormat?: boolean;
 }
 
 /** The wine to look up once category, producer and name are typed; null before. */
@@ -23,7 +25,10 @@ function knownWineQuery(fields: KnownWineFields): KnownWineQuery | null {
   const producer = fields.producer?.trim();
   const name = fields.name?.trim();
   if (!fields.category || !producer || !name) return null;
-  return { category: fields.category, producer, name, vintage: fields.vintage ?? null, format: fields.format?.trim() || null };
+  return {
+    category: fields.category, producer, name, vintage: fields.vintage ?? null, format: fields.format?.trim() || null,
+    ...(fields.anyFormat ? { anyFormat: true } : {}),
+  };
 }
 
 /**
@@ -35,7 +40,7 @@ function knownWineQuery(fields: KnownWineFields): KnownWineQuery | null {
  */
 export function useKnownWine(fields: KnownWineFields, enabled = true): Product[] {
   const query = enabled ? knownWineQuery(fields) : null;
-  const key = query ? productKey(query) : null;
+  const key = query ? `${productKey(query)}${query.anyFormat ? '|any vitola' : ''}` : null;
   const [settled, setSettled] = useState<{ key: string; query: KnownWineQuery } | null>(null);
 
   useEffect(() => {

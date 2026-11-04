@@ -337,7 +337,7 @@
       "opened": "Entamées",
       "openedCigar": "Cigares entamés"
     },
-    "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche, ni dans la détection des doublons.",
+    "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche.",
     "alerts": {
       "reminderDone": "Rappel traité",
       "title": "Rappels à consommer",
@@ -2096,7 +2096,9 @@
     "cart": {
       "title": "À Ranger ({{count}})",
       "created": "Créé",
-      "incremented": "Ajouté à votre vin"
+      "addedWine": "Ajouté à votre vin",
+      "addedSpirit": "Ajouté à votre spiritueux",
+      "addedCigar": "Ajouté à votre cigare"
     }
   },
   "unsavedChanges": {
@@ -2457,6 +2459,7 @@
     "distinctNotedSpirit": "Ce sera un nouveau spiritueux : Glou ne vous proposera plus de le regrouper avec celui-ci.",
     "distinctNotedCigar": "Ce sera une nouvelle référence : Glou ne vous proposera plus de la regrouper avec celle-ci.",
     "joining": "Ces bouteilles rejoindront {{name}}.",
-    "joiningCigar": "Ces cigares rejoindront {{name}}."
+    "joiningCigar": "Ces cigares rejoindront {{name}}.",
+    "addAria": "{{action}} : {{wine}}, {{stock}}"
   }
 }

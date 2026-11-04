@@ -8,14 +8,19 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 vi.mock('../../src/services/inventory.service', () => ({ inventoryService: { createItem: vi.fn() } }));
 vi.mock('../../src/services/notification.service', () => ({ notificationService: { send: vi.fn() } }));
-vi.mock('../../src/services/stock.service', () => ({ addUnitsIn: vi.fn() }));
+vi.mock('../../src/services/stock.service', () => ({ addUnitsIn: vi.fn(), lockedListedFamily: vi.fn() }));
 vi.mock('../../src/services/review.service', () => ({ rememberDistinct: vi.fn() }));
 
 import { prisma } from '../../src/lib/prisma';
 import { inventoryService } from '../../src/services/inventory.service';
 import { convertToInventory } from '../../src/services/wishlist.service';
-import { addUnitsIn } from '../../src/services/stock.service';
+import { addUnitsIn, lockedListedFamily } from '../../src/services/stock.service';
 import { rememberDistinct } from '../../src/services/review.service';
+
+/** The family « Talbot 2015 » of Château Talbot, as Prisma returns it (the key fields only). */
+const talbot = (fields: Record<string, unknown> = {}) => ({
+  id: 'p1', category: 'wine', name: 'Talbot', producer: 'Château Talbot', vintage: 2015, format: null, ...fields,
+});
 
 const wish = (fields: Record<string, unknown> = {}) => ({
   id: 'w1', userId: 'u1', name: 'Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2015,
@@ -90,6 +95,7 @@ describe('convertToInventory — a wine already known (FEAT-97)', () => {
     vi.mocked(prisma.wishlistItem.update).mockResolvedValue(wish({ status: 'acquired' }) as never);
     vi.mocked(inventoryService.createItem).mockResolvedValue({ id: 'i2', productId: 'p2' } as never);
     vi.mocked(addUnitsIn).mockResolvedValue({ result: { data: { id: 'g1', productId: 'p1' }, changed: [], removedIds: [] } } as never);
+    vi.mocked(lockedListedFamily).mockResolvedValue(talbot() as never);
   });
 
   it('adds the bottles bought to the known wine, bought today, once the wish is claimed', async () => {
@@ -103,6 +109,30 @@ describe('convertToInventory — a wine already known (FEAT-97)', () => {
       .toBeLessThan(vi.mocked(addUnitsIn).mock.invocationCallOrder[0]);
     expect(prisma.wishlistItem.update).toHaveBeenCalledWith({ where: { id: 'w1' }, data: { acquiredItemId: 'g1' } });
     expect(result?.inventoryItem).toEqual({ id: 'g1', productId: 'p1' });
+  });
+
+  it('refuses a known wine that is not the wine wished for, before writing anything (review #817)', async () => {
+    vi.mocked(lockedListedFamily).mockResolvedValue(talbot({ category: 'cigar', name: 'No. 2', producer: 'Montecristo', vintage: null }) as never);
+
+    await expect(convertToInventory('u1', 'w1', { productId: 'p9' })).rejects.toMatchObject({ status: 400, code: 'NOT_SAME_WINE' });
+    expect(addUnitsIn).not.toHaveBeenCalled();
+    expect(lockedListedFamily).toHaveBeenCalledWith(prisma, 'p9');
+  });
+
+  it('joins a cigar reference whatever its vitola (a wish has none), in boxes of the size given', async () => {
+    vi.mocked(prisma.wishlistItem.findFirst).mockResolvedValue(wish({ category: 'cigar', name: 'No. 2', producer: 'Montecristo', vintage: null }) as never);
+    vi.mocked(lockedListedFamily).mockResolvedValue(talbot({ category: 'cigar', name: 'no. 2', producer: 'Montecristo', vintage: null, format: 'Robusto' }) as never);
+
+    await convertToInventory('u1', 'w1', { productId: 'p1', quantity: 2, cigarsPerBox: 25, bottleSize: '75cl' });
+
+    expect(addUnitsIn).toHaveBeenCalledWith(prisma, 'u1', 'p1', expect.objectContaining({ quantity: 2, cigarsPerBox: 25 }));
+    // A cigar never carries a bottle size.
+    expect(vi.mocked(addUnitsIn).mock.calls[0][3]).not.toHaveProperty('bottleSize');
+  });
+
+  it('refuses a box size for bottles', async () => {
+    await expect(convertToInventory('u1', 'w1', { productId: 'p1', cigarsPerBox: 25 })).rejects.toMatchObject({ status: 400, code: 'CIGARS_PER_BOX_FOR_CIGARS_ONLY' });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('takes the number wished for and the price last seen when none is given', async () => {

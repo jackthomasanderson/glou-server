@@ -59,6 +59,8 @@ export const productMatchQuerySchema = z.object({
   vintage: z.preprocess((v) => (v === '' ? undefined : v), z.coerce.number().int().min(1000).max(3000).optional())
     .transform((v) => v ?? null),
   format: z.string().max(100).optional().transform((v) => v ?? null),
+  // A cigar asked without its vitola (a wish has none): every vitola of the reference.
+  anyFormat: z.enum(['true', 'false']).optional().transform((v) => v === 'true'),
 });
 
 export type ProductMatchQuery = z.infer<typeof productMatchQuerySchema>;

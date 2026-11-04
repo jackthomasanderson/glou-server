@@ -1,6 +1,8 @@
 import { prisma } from '../lib/prisma';
 import { inventoryService } from './inventory.service';
-import { addUnitsIn } from './stock.service';
+import { addUnitsIn, lockedListedFamily } from './stock.service';
+import { badRequest } from '../lib/errors';
+import { namesSameWine } from '../../../shared/units';
 import { rememberDistinct } from './review.service';
 import { notificationService } from './notification.service';
 import { escapeHtml } from '../lib/html';
@@ -157,6 +159,9 @@ export async function convertToInventory(userId: string, id: string, additionalF
   };
   const bottleSize = additionalFields.bottleSize ?? undefined;
   const quantity = additionalFields.quantity ?? wish.targetQuantity;
+  // FEAT-95: closed boxes of M cigars, else single cigars (never on bottles).
+  const cigarsPerBox = additionalFields.cigarsPerBox ?? null;
+  if (cigarsPerBox !== null && wish.category !== 'cigar') throw badRequest('CIGARS_PER_BOX_FOR_CIGARS_ONLY');
 
   let inventoryInput: InventoryInput;
   switch (wish.category) {
@@ -170,7 +175,7 @@ export async function convertToInventory(userId: string, id: string, additionalF
       inventoryInput = { ...base, category: 'spirit', alcoholDegree: 0, bottleSize, quantity };
       break;
     case 'cigar':
-      inventoryInput = { ...base, category: 'cigar', quantity };
+      inventoryInput = { ...base, category: 'cigar', quantity, cigarsPerBox };
       break;
   }
 
@@ -185,9 +190,13 @@ export async function convertToInventory(userId: string, id: string, additionalF
     if (productId !== undefined) {
       // FEAT-97 c4: the bottles join the known wine, bought today (its lock
       // taken there, before any bottle is written).
+      // Only the wine wished for (a cigar wish has no vitola: any vitola of it).
+      const family = await lockedListedFamily(tx, productId);
+      const wished = { category: wish.category, producer: wish.producer ?? '', name: wish.name, vintage: wish.vintage ?? null, format: null };
+      if (!namesSameWine(wished, family, true)) throw badRequest('NOT_SAME_WINE');
       const added = await addUnitsIn(tx, userId, productId, {
         quantity, cellarId: base.cellarId, purchasePrice: base.purchasePrice,
-        bottleSize: wish.category === 'cigar' ? undefined : bottleSize,
+        ...(wish.category === 'cigar' ? { cigarsPerBox } : { bottleSize }),
       });
       created = added.result.data;
     } else {

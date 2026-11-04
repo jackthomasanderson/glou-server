@@ -24,6 +24,9 @@ import { MAX_COPIES } from '@shared/product';
 import { KnownWineBanner } from '@/components/inventory/KnownWineBanner';
 import { useKnownWine } from '@/hooks/useKnownWine';
 import { wineName } from '@/lib/products/stock';
+import { latestLine } from '@/components/inventory/AddUnitsDialog';
+import { CigarGroupFields } from '@/components/inventory/CigarGroupFields';
+import { cigarGroupInput, cigarPriceKey, draftFrom, isCigarGroupValid, type CigarGroupDraft } from '@/lib/products/cigarGroup';
 import type { Product } from '@/lib/products/types';
 
 const CATEGORIES: WishlistCategory[] = [...CATEGORY_VALUES];
@@ -69,11 +72,34 @@ export function WishlistDashboard() {
   // known wine the bottles join, and the wines answered "C'est un autre vin".
   const [joining, setJoining] = useState<Product | null>(null);
   const [distinctFrom, setDistinctFrom] = useState<string[]>([]);
-  const sameName = useKnownWine(convertTarget ?? {}, convertTarget !== null && joining === null);
+  // FEAT-95: a cigar joining a known reference is kept in closed boxes of M, or as single cigars.
+  const [cigars, setCigars] = useState<CigarGroupDraft>(() => draftFrom(undefined));
+  // A wish has no vitola: every vitola of the cigar wished for is proposed.
+  const sameName = useKnownWine({ ...(convertTarget ?? {}), anyFormat: true }, convertTarget !== null && joining === null);
+  const joinsCigars = joining?.category === 'cigar';
   const knownWines = sameName.filter((product) => !distinctFrom.includes(product.id));
   const toldApart = sameName.filter((product) => distinctFrom.includes(product.id)).map((product) => product.id);
-  const convertCountInvalid = convertForm.quantity == null || !Number.isInteger(convertForm.quantity)
-    || convertForm.quantity < 1 || convertForm.quantity > MAX_COPIES;
+  const convertCountInvalid = joinsCigars
+    ? !isCigarGroupValid(cigars)
+    : convertForm.quantity == null || !Number.isInteger(convertForm.quantity)
+      || convertForm.quantity < 1 || convertForm.quantity > MAX_COPIES;
+
+  /**
+   * "Ajouter des bouteilles à ce vin": the reduced form starts from the wine's
+   * latest line — its size (ux-ui.md §10.4.1), and its cellar and price when
+   * none was typed — so that the same purchase completes it (D5).
+   */
+  const joinKnownWine = (product: Product) => {
+    const line = latestLine(product.items);
+    setJoining(product);
+    setConvertForm((f) => ({
+      ...f,
+      bottleSize: line?.bottleSize ?? '',
+      cellarId: f.cellarId || line?.cellarId || '',
+      purchasePrice: f.purchasePrice ?? line?.purchasePrice ?? undefined,
+    }));
+    setCigars({ ...draftFrom(line?.cigarsPerBox), quantity: convertForm.quantity ?? 1 });
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -160,8 +186,7 @@ export function WishlistDashboard() {
         data: {
           purchasePrice: convertForm.purchasePrice ?? null,
           cellarId: convertForm.cellarId || null,
-          bottleSize: convertForm.bottleSize || null,
-          quantity: convertForm.quantity,
+          ...(joinsCigars ? cigarGroupInput(cigars) : { bottleSize: convertForm.bottleSize || null, quantity: convertForm.quantity }),
           // A known wine takes only what tells its bottles apart (ux-ui.md §10.4.1).
           ...(joining
             ? { productId: joining.id }
@@ -404,7 +429,7 @@ export function WishlistDashboard() {
                 </p>
                 <KnownWineBanner
                   matches={knownWines}
-                  onAdd={setJoining}
+                  onAdd={joinKnownWine}
                   onDistinct={() => setDistinctFrom((prev) => [...prev, ...knownWines.map((product) => product.id)])}
                   isDisabled={convertMutation.isPending}
                   t={t}
@@ -420,7 +445,8 @@ export function WishlistDashboard() {
                     decimal
                     data-testid="wishlist-convert-price"
                     // #471: the price of ONE bottle (or cigar), for the whole group bought.
-                    label={t(convertTarget?.category === 'cigar' ? 'wishlist.convert.purchasePrice' : 'inventory.fields.unitPrice')}
+                    label={t(joinsCigars ? cigarPriceKey(cigars.storage)
+                      : convertTarget?.category === 'cigar' ? 'wishlist.convert.purchasePrice' : 'inventory.fields.unitPrice')}
                     value={convertForm.purchasePrice}
                     onValueChange={(v) => setConvertForm((f) => ({ ...f, purchasePrice: v }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
@@ -443,6 +469,12 @@ export function WishlistDashboard() {
                 >
                   {(cellars ?? []).map((c) => <SelectItem key={c.id}>{c.name}</SelectItem>)}
                 </Select>
+                {joinsCigars ? (
+                  // FEAT-95: closed boxes of M cigars or single cigars, so that the purchase can complete a box line.
+                  <div className="grid grid-cols-2 gap-4">
+                    <CigarGroupFields draft={cigars} onChange={setCigars} submitted={convertTried} t={t} />
+                  </div>
+                ) : (
                 <div className="grid grid-cols-2 gap-4">
                   <Input
                     label={t('wishlist.convert.bottleSize')}
@@ -463,6 +495,7 @@ export function WishlistDashboard() {
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
                 </div>
+                )}
               </ModalBody>
               <ModalFooter>
                 <Button color="danger" variant="light" onPress={() => setConvertTarget(null)}>{t('actions.cancel')}</Button>

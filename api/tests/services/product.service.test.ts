@@ -456,7 +456,7 @@ describe('productService.rollbackField (FEAT-05 on a wine)', () => {
 // being typed (`productKey`: category, producer, name, vintage; the vitola
 // for a cigar), wines known without bottle included, the trash excluded.
 describe('productService.matching (FEAT-97)', () => {
-  const asked = { category: 'wine' as const, producer: '  domaine y ', name: 'CUVÉE X', vintage: 2020, format: null };
+  const asked = { category: 'wine' as const, producer: '  domaine y ', name: 'CUVÉE X', vintage: 2020, format: null, anyFormat: false };
 
   it('finds the family of the same wine, case and edge spaces ignored, without bottle included', async () => {
     vi.mocked(prisma.product.findMany)
@@ -483,6 +483,20 @@ describe('productService.matching (FEAT-97)', () => {
     expect(prisma.product.findMany).toHaveBeenCalledTimes(1);
   });
 
+  it('finds every vitola of a cigar asked without one, when told to (a wish has no vitola)', async () => {
+    vi.mocked(prisma.product.findMany)
+      .mockResolvedValueOnce([
+        family({ category: 'cigar', name: 'No. 2', producer: 'Montecristo', format: 'Robusto' }),
+        family({ id: 'p2', category: 'cigar', name: 'No. 2', producer: 'Montecristo', format: null }),
+        family({ id: 'p3', category: 'cigar', name: 'No. 2', producer: 'Partagás', format: 'Robusto' }),
+      ] as never)
+      .mockResolvedValueOnce([] as never);
+
+    await productService.matching({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', vintage: null, format: null, anyFormat: true });
+
+    expect(vi.mocked(prisma.product.findMany).mock.calls[1][0]).toMatchObject({ where: { id: { in: ['p1', 'p2'] } } });
+  });
+
   it('compares the vitola, not the vintage, for a cigar', async () => {
     vi.mocked(prisma.product.findMany)
       .mockResolvedValueOnce([
@@ -491,7 +505,7 @@ describe('productService.matching (FEAT-97)', () => {
       ] as never)
       .mockResolvedValueOnce([{ ...family({ category: 'cigar' }), items: [] }] as never);
 
-    const found = await productService.matching({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', vintage: 2020, format: ' robusto' });
+    const found = await productService.matching({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', vintage: 2020, format: ' robusto', anyFormat: false });
 
     expect(found.map((view) => view.id)).toEqual(['p1']);
     expect(vi.mocked(prisma.product.findMany).mock.calls[1][0]).toMatchObject({ where: { id: { in: ['p1'] } } });

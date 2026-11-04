@@ -28,6 +28,8 @@ export interface KnownWineQuery {
   name: string;
   vintage: number | null;
   format: string | null;
+  /** A cigar asked without its vitola (a wish has none): every vitola of the reference. */
+  anyFormat?: boolean;
 }
 
 /** D8: the line completed or created (`data`), and anything else the write changed. */
@@ -57,6 +59,7 @@ export const productsClient = {
     const query = new URLSearchParams({ category: wine.category, producer: wine.producer, name: wine.name });
     if (wine.vintage != null) query.set('vintage', String(wine.vintage));
     if (wine.format) query.set('format', wine.format);
+    if (wine.anyFormat) query.set('anyFormat', 'true');
     const { data } = await client.get<Product[]>(`/products/match?${query.toString()}`);
     return data;
   },

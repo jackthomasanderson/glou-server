@@ -1,6 +1,7 @@
 import { Prisma, type Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
-import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER, productKey } from '../lib/finished-item';
+import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { namesSameWine } from '../../../shared/units';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import {
   fieldSourcesOf, isProductField, lockFamily, nextLocksAndSources, toUnitView, writeProductFields,
@@ -267,15 +268,15 @@ export const productService = {
    * #471 (FEAT-97 c1, c3): "Vous avez déjà ce vin" — the listed families of
    * the wine typed (`productKey`: same category, producer, name and vintage,
    * the vitola for a cigar; case and edge spaces ignored), wines known
-   * without bottle included (FEAT-101). Narrowed in the database by category
-   * and name, the key compared here as everywhere else (shared/units.ts).
+   * without bottle included (FEAT-101); `anyFormat`: every vitola of a cigar
+   * asked without one. Narrowed in the database by category and name, the
+   * key compared here as everywhere else (shared/units.ts).
    */
   async matching(asked: ProductMatchQuery): Promise<ProductView[]> {
-    const key = productKey(asked);
     const candidates = await prisma.product.findMany({
       where: { category: asked.category, ...LISTED_PRODUCT_FILTER, name: { contains: asked.name.trim(), mode: 'insensitive' } },
     });
-    const ids = candidates.filter((family) => productKey(family) === key).map((family) => family.id);
+    const ids = candidates.filter((family) => namesSameWine(asked, family, asked.anyFormat)).map((family) => family.id);
     return this.views(ids);
   },
 

@@ -27,7 +27,7 @@ const latestFirst = (a: ProductItem, b: ProductItem) =>
  * wine with none left starts from its latest bottle, drunk or gone (its
  * cellar, price and size), to buy it again.
  */
-function latestLine(items: readonly ProductItem[]): ProductItem | undefined {
+export function latestLine(items: readonly ProductItem[]): ProductItem | undefined {
   const kept = items.filter((item) => !item.deletedAt);
   const inCellar = kept.filter((item) => isIntactItem(item) && !item.writtenOffAt && itemUnits(item) > 0);
   return [...inCellar].sort(latestFirst)[0] ?? [...kept].sort(latestFirst)[0];

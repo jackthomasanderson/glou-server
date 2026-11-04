@@ -26,7 +26,9 @@ interface CartEntry {
   key: string;
   name: string;
   producer: string;
-  mode: 'created' | 'incremented';
+  mode: 'created' | 'added';
+  /** FEAT-97: "Ajouté à votre vin / spiritueux / cigare". */
+  category?: InventoryCategory;
 }
 
 /**
@@ -37,6 +39,10 @@ interface CartEntry {
  * (FEAT-05 provenance), never trusting a client-supplied source map.
  */
 type InventoryCreateWithScanHint = InventoryEntry & { scanJobId?: string };
+
+/** "Ajouté à votre vin / spiritueux / cigare" (ux-ui.md §10.1). */
+const addedKey = (category?: InventoryCategory) =>
+  category === 'cigar' ? 'scan.cart.addedCigar' : category === 'spirit' ? 'scan.cart.addedSpirit' : 'scan.cart.addedWine';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
@@ -50,7 +56,7 @@ interface ScanFlowProps {
   onClose: () => void;
   /** Fallback cellar (e.g. the cellar just created in the onboarding wizard) used when no per-category default is set. */
   defaultCellarId?: string | null;
-  /** Fired every time an item is created or incremented — lets embedding callers (e.g. the onboarding wizard's item counter) track progress without duplicating the cart state. */
+  /** Fired every time an item is created or bottles are added to a known wine — lets embedding callers (e.g. the onboarding wizard's item counter) track progress without duplicating the cart state. */
   onItemCommitted?: () => void;
   t: (key: string, options?: Record<string, unknown>) => string;
 }
@@ -194,8 +200,8 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     setPhase('error');
   };
 
-  const pushCartEntry = (item: Pick<InventoryItem, 'id' | 'name' | 'producer'>, mode: CartEntry['mode']) => {
-    setCart((prev) => [...prev, { key: `${item.id}-${prev.length}`, name: item.name, producer: item.producer, mode }]);
+  const pushCartEntry = (item: Pick<InventoryItem, 'id' | 'name' | 'producer' | 'category'>, mode: CartEntry['mode']) => {
+    setCart((prev) => [...prev, { key: `${item.id}-${prev.length}`, name: item.name, producer: item.producer, mode, category: item.category }]);
     onItemCommitted?.();
   };
 
@@ -210,7 +216,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   /** The bottles were added to a known wine: as committed as a creation. */
   const afterJoin = (product: Product) => {
     setJoining(null);
-    pushCartEntry({ id: product.id, name: product.name, producer: product.producer }, 'incremented');
+    pushCartEntry(product, 'added');
     afterCommit();
   };
 
@@ -509,8 +515,8 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                     {cart.map((entry, i) => (
                       <li key={entry.key} className="text-sm flex items-center justify-between gap-2">
                         <span className="truncate">{i + 1}. {entry.name} — {entry.producer}</span>
-                        <Chip size="sm" variant="flat" color={entry.mode === 'incremented' ? 'secondary' : 'success'}>
-                          {t(entry.mode === 'incremented' ? 'scan.cart.incremented' : 'scan.cart.created')}
+                        <Chip size="sm" variant="flat" color={entry.mode === 'added' ? 'secondary' : 'success'}>
+                          {t(entry.mode === 'added' ? addedKey(entry.category) : 'scan.cart.created')}
                         </Chip>
                       </li>
                     ))}
@@ -528,7 +534,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
         onSubmit={handleAdvancedSubmit}
         onClose={() => setFullFormOpen(false)}
         onJoined={(_write, product) => {
-          pushCartEntry({ id: product.id, name: product.name, producer: product.producer }, 'incremented');
+          pushCartEntry(product, 'added');
           afterCommit();
         }}
         isSubmitting={isSubmitting}

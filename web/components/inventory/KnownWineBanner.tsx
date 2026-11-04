@@ -54,14 +54,16 @@ export function KnownWineBanner({ matches, onAdd, onDistinct, isDisabled = false
               units: summarizeStock(product.items.filter((item) => item.cellarId === cellarId), { kind }).units,
             }))
             .filter((cellar) => cellar.units > 0);
+          const stockText = [
+            stock.gone ? stock.spoken : t(kind === 'cigar' ? 'knownWine.stockCigars' : 'knownWine.stockBottles', { count: stock.units }),
+            ...(perCellar.length > 0 ? [perCellar.map((cellar) => t('knownWine.inCellar', { cellar: cellar.name, count: cellar.units })).join(', ')] : []),
+          ].join(' · ');
+          const label = `${product.producer} · ${wineName(product)}`;
           return (
             <li key={product.id} data-testid="known-wine-match" className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 text-sm">
-                <p className="font-medium truncate">{product.producer} · {wineName(product)}</p>
-                <p data-testid="known-wine-stock" className="text-foreground-600">
-                  {stock.gone ? stock.spoken : t(kind === 'cigar' ? 'knownWine.stockCigars' : 'knownWine.stockBottles', { count: stock.units })}
-                  {perCellar.length > 0 && ` · ${perCellar.map((cellar) => t('knownWine.inCellar', { cellar: cellar.name, count: cellar.units })).join(', ')}`}
-                </p>
+                <p className="font-medium truncate">{label}</p>
+                <p data-testid="known-wine-stock" className="text-foreground-600">{stockText}</p>
               </div>
               <Button
                 data-testid="known-wine-add"
@@ -70,6 +72,8 @@ export function KnownWineBanner({ matches, onAdd, onDistinct, isDisabled = false
                 startContent={<Plus size={15} />}
                 className="shrink-0"
                 isDisabled={isDisabled}
+                // Several wines of the same name: each button says which one.
+                aria-label={t('knownWine.addAria', { action: t(`knownWine.add${noun}`), wine: label, stock: stockText })}
                 onPress={() => onAdd(product)}
               >
                 {t(`knownWine.add${noun}`)}

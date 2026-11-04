@@ -337,7 +337,7 @@
       "opened": "Opened",
       "openedCigar": "Opened cigars"
     },
-    "truncated": "Only the {{limit}} most recent items are loaded: older ones do not appear in this list, the search or duplicate detection.",
+    "truncated": "Only the {{limit}} most recent items are loaded: older ones do not appear in this list or the search.",
     "alerts": {
       "reminderDone": "Reminder done",
       "title": "Reminders to consume",
@@ -2094,7 +2094,9 @@
     "cart": {
       "title": "To Shelve ({{count}})",
       "created": "Created",
-      "incremented": "Added to your wine"
+      "addedWine": "Added to your wine",
+      "addedSpirit": "Added to your spirit",
+      "addedCigar": "Added to your cigar"
     }
   },
   "unsavedChanges": {
@@ -2455,6 +2457,7 @@
     "distinctNotedSpirit": "This will be a new spirit: Glou will no longer suggest grouping it with that one.",
     "distinctNotedCigar": "This will be a new reference: Glou will no longer suggest grouping it with that one.",
     "joining": "These bottles will join {{name}}.",
-    "joiningCigar": "These cigars will join {{name}}."
+    "joiningCigar": "These cigars will join {{name}}.",
+    "addAria": "{{action}}: {{wine}}, {{stock}}"
   }
 }
