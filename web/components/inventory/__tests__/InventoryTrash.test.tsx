@@ -51,4 +51,19 @@ describe('InventoryTrash with wines', () => {
     expect(screen.getByText(/Goûté Ailleurs/)).toBeInTheDocument();
     expect(screen.queryByText('La corbeille est vide.')).toBeNull();
   });
+
+  // Recette #471: a line of several bottles (boxes) says how many went to the trash.
+  it('a line of several bottles or boxes says how many; a single one says nothing', () => {
+    data.wines = [];
+    data.items = [
+      { id: 'six', productId: 'w4', deletedAt: when, category: 'wine', name: 'Six', producer: 'D', quantity: 6, isOpened: false },
+      { id: 'boxes', productId: 'w5', deletedAt: when, category: 'cigar', name: 'Robusto', producer: 'M', quantity: 2, cigarsPerBox: 25, isOpened: false },
+      { id: 'one', productId: 'w6', deletedAt: when, category: 'wine', name: 'Seule', producer: 'D', quantity: 1, isOpened: false },
+    ];
+    render(<InventoryTrash t={t} />);
+    const [six, boxes, one] = screen.getAllByRole('listitem');
+    expect(six).toHaveTextContent('6 bouteilles');
+    expect(boxes).toHaveTextContent('2 boîtes');
+    expect(one).not.toHaveTextContent('1 bouteille');
+  });
 });

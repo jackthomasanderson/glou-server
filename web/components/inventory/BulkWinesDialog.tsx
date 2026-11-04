@@ -9,7 +9,8 @@ import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/Of
 import { notifySuccess } from '@/lib/toast';
 import { wineName } from '@/lib/products/stock';
 import {
-  bulkSummary, DEFAULT_DRINK_ANSWER, drinkChoices, drinkRequest, winesInStock, type DrinkAnswer, type DrinkChoice,
+  bulkSummary, bulkWineNames, DEFAULT_DRINK_ANSWER, drinkChoices, drinkRequest, unitsAlreadyIn, unitsInStock, winesInStock,
+  type DrinkAnswer, type DrinkChoice,
 } from '@/lib/products/bulk';
 import type { BulkWinesAction } from '@shared/product';
 import type { Product } from '@/lib/products/types';
@@ -61,6 +62,14 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
   const choices = useMemo(() => drinkChoices(products, selectedIds), [products, selectedIds]);
   const unitsKey = cigars ? 'familyList.stock.spoken.cigars' : 'familyList.stock.spoken.bottles';
   const summary = bulkSummary(products, selectedIds, cigars, t);
+  // Recette #471: which wines, and — for a move — what is already where it goes.
+  const names = bulkWineNames(products, selectedIds, t);
+  const destinationId = destination === NO_CELLAR ? null : destination;
+  const already = action === 'move' && destination !== null ? unitsAlreadyIn(products, selectedIds, destinationId) : 0;
+  const destinationName = destinationId === null
+    ? t('familyDrawer.lines.noCellar')
+    : (cellars ?? []).find((cellar) => cellar.id === destinationId)?.name ?? '';
+  const total = unitsInStock(products, selectedIds);
   const answerOf = (id: string) => answers[id] ?? DEFAULT_DRINK_ANSWER;
   const answer = (id: string, change: Partial<DrinkAnswer>) =>
     setAnswers((previous) => ({ ...previous, [id]: { ...answerOf(id), ...previous[id], ...change } }));
@@ -74,7 +83,7 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
     if (!action || !canConfirm) return;
     const productIds = wines.map((product) => product.id);
     const request: BulkWinesAction = action === 'move'
-      ? { action, productIds, cellarId: destination === NO_CELLAR ? null : destination }
+      ? { action, productIds, cellarId: destinationId }
       : action === 'trash'
         ? { action, productIds }
         : drinkRequest(choices, answers, viewedCellarIds);
@@ -102,6 +111,7 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
             <ModalHeader className="flex flex-col gap-0.5 pb-1">
               <span>{title}</span>
               <span className="text-xs font-normal text-foreground-500" data-testid="bulk-wines-summary">{summary}</span>
+              {names && <span className="text-xs font-normal text-foreground-500" data-testid="bulk-wines-names">{names}</span>}
             </ModalHeader>
             <ModalBody className="py-2 flex flex-col gap-3">
               {action === 'move' && (
@@ -109,6 +119,17 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
                   {(cellars ?? []).map((cellar) => <Radio key={cellar.id} value={cellar.id}>{cellar.name}</Radio>)}
                   <Radio value={NO_CELLAR}>{t('familyDrawer.lines.noCellar')}</Radio>
                 </RadioGroup>
+              )}
+              {already > 0 && (
+                <p className="text-sm text-foreground-600" data-testid="bulk-wines-already">
+                  {already >= total
+                    ? t('bulkWines.move.alreadyAll', { cellar: destinationName })
+                    : t('bulkWines.move.alreadyThere', {
+                      units: t(unitsKey, { count: already }),
+                      cellar: destinationName,
+                      moved: t(unitsKey, { count: total - already }),
+                    })}
+                </p>
               )}
               {action === 'trash' && (
                 <p className="text-sm text-foreground-600">{t('bulkWines.trash.body', { context: cigars ? 'cigar' : undefined })}</p>

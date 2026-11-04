@@ -6,6 +6,7 @@ import { useInventoryTrash, useRestoreInventoryItem } from '@/hooks/useInventory
 import { useProductsTrash, useRestoreProduct } from '@/hooks/useProducts';
 import { itemUnits, unitKind } from '@shared/units';
 import type { TrashedProduct } from '@/lib/products/types';
+import type { InventoryItem } from '@/lib/inventory/types';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { InventoryListRowSkeleton } from './InventoryListRow';
@@ -23,6 +24,11 @@ function daysLeft(deletedAt: string): number {
   const expiresAt = new Date(deletedAt).getTime() + TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000;
   return Math.max(0, Math.ceil((expiresAt - Date.now()) / (24 * 60 * 60 * 1000)));
 }
+
+type TrashedLine = Pick<InventoryItem, 'category' | 'quantity' | 'isOpened' | 'cigarsPerBox'>;
+/** Copies of a line in the trash: a group's number, one for an opened bottle or box. */
+const lineCopies = (item: TrashedLine) => (item.isOpened ? 1 : Math.max(item.quantity ?? 1, 0));
+const lineNoun = (item: TrashedLine) => (unitKind(item.category) === 'bottle' ? 'bottle' : item.cigarsPerBox != null ? 'box' : 'cigar');
 
 // ISSUE_072: the trash route/service/client/hook already existed end to end
 // (listTrash, restore) but no screen called useInventoryTrash — deleted
@@ -130,6 +136,8 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
             </div>
             {item.deletedAt && (
               <p className="text-xs text-foreground-400">
+                {/* Recette #471: how many went with a line of several bottles (boxes). */}
+                {lineCopies(item) > 1 && `${t('familyList.trash.lineCount', { context: lineNoun(item), count: lineCopies(item) })} · `}
                 {t('inventory.trashDaysLeft', { count: daysLeft(item.deletedAt) })}
               </p>
             )}

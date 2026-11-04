@@ -21,6 +21,11 @@ async function okData<T>(res: APIResponse): Promise<T> {
   return (await res.json()).data as T;
 }
 
+/** The wine's history entries other than its creation: an action taken back at once leaves none (recette #471). */
+const changesTold = async (api: APIRequestContext, productId: string) =>
+  (await okData<{ history: { action: string }[] }>(await api.get(`/api/products/${productId}`))).history
+    .filter((entry) => entry.action !== 'CREATE').map((entry) => entry.action);
+
 const unitsOf = async (api: APIRequestContext, productId: string) =>
   (await okData<{ items: Unit[] }>(await api.get(`/api/products/${productId}`))).items.filter((unit) => unit.deletedAt == null);
 
@@ -72,6 +77,8 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     await expect(drawer.getByTestId('family-drawer-stock')).toContainText('6 bouteilles');
     await expect(drawer.getByTestId('family-line')).toHaveCount(1);
     expect((await unitsOf(api, group.productId)).map((unit) => [unit.id, unit.quantity, unit.isOpened])).toEqual([[group.id, 6, false]]);
+    // Opened then put back at once: not one of the four entries it wrote is told (recette #471).
+    await expect.poll(() => changesTold(api, group.productId)).toEqual([]);
   });
 
   test('garage ×4 and kitchen ×2: "J\'en bois une" asks which, the one bought first preselected', async ({ page }) => {
@@ -134,5 +141,7 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     await page.locator('button', { hasText: /^Annuler$/ }).last().click();
     expect((await undone).status()).toBe(200);
     expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ id: bottle.id, isOpened: false, fillLevel: 100, slotColumn: 2, slotRow: 3 });
+    // Only its placing in the slot is told, not the drink taken back (recette #471).
+    await expect.poll(() => changesTold(api, bottle.productId)).toEqual(['UPDATE']);
   });
 });

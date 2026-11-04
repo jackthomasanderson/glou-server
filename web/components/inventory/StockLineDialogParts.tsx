@@ -55,10 +55,12 @@ export function CountField({ label, value, onChange, min, max, testId }: {
 }
 
 /** The frame of a line's dialog: the question, the line it is about, Annuler / the action. */
-export function LineDialogFrame({ isOpen, onClose, title, line, children, confirmLabel, onConfirm, canConfirm, isPending, danger = false, testId }: {
+export function LineDialogFrame({ isOpen, onClose, title, wine, line, children, confirmLabel, onConfirm, canConfirm, isPending, danger = false, testId }: {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  /** The wine the line is of: a line alone ("×1 · Garage") does not say it (recette #471). */
+  wine?: string;
   /** The line as the drawer shows it: "×6 · Garage · 20 € / bouteille". */
   line: string;
   children?: React.ReactNode;
@@ -82,6 +84,7 @@ export function LineDialogFrame({ isOpen, onClose, title, line, children, confir
           >
             <ModalHeader className="flex flex-col gap-0.5 pb-1">
               <span>{title}</span>
+              {wine && <span className="text-sm font-semibold" data-testid="line-dialog-wine">{wine}</span>}
               <span className="text-xs font-normal text-foreground-500">{line}</span>
             </ModalHeader>
             <ModalBody className="py-2 flex flex-col gap-3">{children}</ModalBody>

@@ -207,7 +207,7 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium leading-snug">
-                      {join(lineParts(item, ctx, lines.showPurchaseMonth))}
+                      {join(lineParts(item, ctx))}
                       {item.purchasePrice != null && (
                         <span className="ml-1.5 inline-flex align-middle">
                           <FieldSourceBadge source={item.fieldSources?.purchasePrice} t={t} />

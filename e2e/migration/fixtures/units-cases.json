@@ -1,5 +1,5 @@
 {
-  "_comment": "#471: cases of the counting rule and the keys (shared/units.ts, the reference). The single case table read both by api/tests/lib/units.test.ts and by the migration bench (e2e/migration/parity/families-rules.sql), which checks the SQL copy of these rules in the families migration. `sqlMaySplit`: TypeScript sees one key, SQL may see two (no-break spaces are not trimmed in SQL; accented capitals depend on the server locale), never the reverse, so no silent merge. A count of 0 counts 0 here; only the transformation of old records turns a legacy count of 0 or less into 1 (design.md, rule 3). Unit fields left out of an `item` are: quantity 1, isOpened false, fillLevel null, cigarsPerBox null, cigarsLeft null, writtenOffAt null, purchasePrice null, estimatedValue null.",
+  "_comment": "#471: cases of the counting rule and the keys (shared/units.ts, the reference). The single case table read both by api/tests/lib/units.test.ts and by the migration bench (e2e/migration/parity/families-rules.sql), which checks the SQL copy of these rules in the families migration. `sqlMaySplit`: TypeScript sees one key, SQL may see two (no-break spaces are not trimmed in SQL; accented capitals depend on the server locale), never the reverse, so no silent merge. A count of 0 counts 0 here; only the transformation of old records turns a legacy count of 0 or less into 1 (design.md, rule 3). Unit fields left out of an `item` are: quantity 1, isOpened false, fillLevel null, cigarsPerBox null, cigarsLeft null, writtenOffAt null, purchasePrice null, estimatedValue null. `migrationValue`, when given, is the value the SQL copy of the families migration computes instead: it values an opened box whole, as every opened box it creates still holds all its cigars (its size is taken equal to the cigars left, design.md rule 3); the prorated value of a box (recette RC) applies from then on.",
   "units": [
     { "case": "group of 6 bottles at 20, no estimate", "item": { "quantity": 6, "purchasePrice": 20 }, "intact": true, "units": 6, "value": 120, "spend": 120 },
     { "case": "group of 2 bought 30, estimated 40", "item": { "quantity": 2, "purchasePrice": 30, "estimatedValue": 40 }, "intact": true, "units": 2, "value": 80, "spend": 60 },
@@ -13,7 +13,9 @@
     { "case": "no price: value and spend are 0", "item": { "quantity": 3 }, "intact": true, "units": 3, "value": 0, "spend": 0 },
     { "case": "price 0 is a price", "item": { "quantity": 3, "purchasePrice": 0, "estimatedValue": 5 }, "intact": true, "units": 3, "value": 15, "spend": 0 },
     { "case": "3 closed boxes of 25 at 250 a box", "item": { "quantity": 3, "cigarsPerBox": 25, "purchasePrice": 250 }, "intact": true, "units": 75, "value": 750, "spend": 750 },
-    { "case": "opened box of 25 with 10 left keeps its whole value", "item": { "isOpened": true, "cigarsPerBox": 25, "cigarsLeft": 10, "purchasePrice": 250 }, "intact": false, "units": 10, "value": 250, "spend": 250 },
+    { "case": "opened box of 25 with 10 left is worth 10/25 of a box", "item": { "isOpened": true, "cigarsPerBox": 25, "cigarsLeft": 10, "purchasePrice": 250 }, "intact": false, "units": 10, "value": 100, "migrationValue": 250, "spend": 250 },
+    { "case": "opened box of 25 with 23 left, estimated 300", "item": { "isOpened": true, "cigarsPerBox": 25, "cigarsLeft": 23, "purchasePrice": 200, "estimatedValue": 300 }, "intact": false, "units": 23, "value": 276, "migrationValue": 300, "spend": 200 },
+    { "case": "opened box with all its cigars left keeps its whole value", "item": { "isOpened": true, "cigarsPerBox": 25, "cigarsLeft": 25, "purchasePrice": 250 }, "intact": false, "units": 25, "value": 250, "spend": 250 },
     { "case": "4 single cigars at 12", "item": { "quantity": 4, "purchasePrice": 12 }, "intact": true, "units": 4, "value": 48, "spend": 48 },
     { "case": "box smoked to its last cigar is finished", "item": { "isOpened": true, "fillLevel": 0, "cigarsPerBox": 25, "cigarsLeft": 0, "purchasePrice": 250 }, "intact": false, "units": 0, "value": 0, "spend": 250 },
     { "case": "a count of 0 counts nothing", "item": { "quantity": 0, "purchasePrice": 10 }, "intact": true, "units": 0, "value": 0, "spend": 0 },
@@ -41,7 +43,16 @@
         { "isOpened": true, "cigarsPerBox": 25, "cigarsLeft": 10, "purchasePrice": 250 },
         { "quantity": 4, "purchasePrice": 12 }
       ],
-      "units": 89, "value": 1048, "intactUnits": 79, "closedBoxes": 3, "singleCigars": 4, "opened": 1
+      "units": 89, "value": 898, "intactUnits": 79, "closedBoxes": 3, "singleCigars": 4, "opened": 1
+    },
+    {
+      "case": "recette RC: 2 boxes of 25 at 200, 2 cigars smoked out of one = 48 cigars worth 384",
+      "kind": "cigar",
+      "items": [
+        { "quantity": 1, "cigarsPerBox": 25, "purchasePrice": 200 },
+        { "isOpened": true, "cigarsPerBox": 25, "cigarsLeft": 23, "purchasePrice": 200 }
+      ],
+      "units": 48, "value": 384, "intactUnits": 25, "closedBoxes": 1, "singleCigars": 0, "opened": 1
     },
     {
       "case": "FEAT-96 c3: 2 here, 9 in all",

@@ -60,7 +60,7 @@ const ctx = (kind: LineContext['kind'] = 'bottle'): LineContext => ({
   t: (key, options) => t(key, options),
   cellarName: (id) => ({ garage: 'Garage', kitchen: 'Cuisine' } as Record<string, string>)[id],
   formatPrice: (value) => `${value} €`,
-  formatMonth: (day) => day.slice(0, 7),
+  formatDay: (day) => day,
   formatDate: (iso) => iso.slice(0, 10),
 });
 

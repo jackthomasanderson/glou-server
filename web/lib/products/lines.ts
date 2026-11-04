@@ -1,4 +1,5 @@
 import { isFinishedState, isIntactItem, itemUnits, type UnitKind } from '@shared/units';
+import { formatDate } from '@/lib/format';
 import type { ProductItem } from './types';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
@@ -12,8 +13,6 @@ export interface FamilyLines {
   inCellar: ProductItem[];
   /** Drunk, smoked or gone (broken, given away, lost): most recent first. */
   gone: ProductItem[];
-  /** Several lines in the cellar: each one shows its purchase month (§10.3). */
-  showPurchaseMonth: boolean;
   /** Copies drunk or smoked, and copies written off ("3 bues · 1 cassée, offerte ou perdue"). */
   finished: number;
   writtenOff: number;
@@ -24,10 +23,21 @@ export interface LineContext {
   t: Translate;
   cellarName: (id: string) => string | undefined;
   formatPrice: (value: number) => string;
-  /** A `YYYY-MM-DD` day as "janv. 2026" (never through a local Date, D6). */
-  formatMonth: (day: string) => string;
+  /** A purchase day as "3 nov. 2026" ({@link formatPurchaseDay}). */
+  formatDay: (day: string) => string;
   formatDate: (iso: string) => string;
+  /** The wine the lines are of ("Cuvée X 2020"), named by a line's dialogs (recette #471). */
+  wineName?: string;
 }
+
+/**
+ * A purchase day (`@db.Date`, midnight UTC) in full — "3 nov. 2026" — read in
+ * UTC, never through a local Date (D6), its parts held together by no-break
+ * spaces so a line never splits it ("nov. ⏎ 2026").
+ */
+export const formatPurchaseDay = (day: string, lang: string | undefined) =>
+  formatDate(day, lang, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+    .replace(/\s/g, '\u00a0');
 
 const byText = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base' });
 /** Empty last: a line without a cellar or a purchase day comes after the others. */
@@ -59,7 +69,6 @@ export function familyLines(items: readonly ProductItem[], cellarName: (id: stri
   return {
     inCellar: [...groups, ...opened],
     gone,
-    showPurchaseMonth: groups.length + opened.length > 1,
     finished: gone.filter((item) => !isWrittenOff(item)).length,
     writtenOff: gone.filter(isWrittenOff).reduce((sum, item) => sum + Math.max(item.quantity ?? 1, 0), 0),
   };
@@ -82,23 +91,27 @@ function where(item: ProductItem, ctx: LineContext): string[] {
   return location ? [cellar, location] : [cellar];
 }
 
-/** Where the copy is, its price, its size if not standard, its purchase month on a multi-line wine. */
-function whereAndWhat(item: ProductItem, ctx: LineContext, showPurchaseMonth: boolean): string[] {
+/**
+ * Where the copy is, its price, its size if not standard, and its purchase day:
+ * part of what tells a line from another (D5), shown in full on every line,
+ * even alone (recette #471, KO 5.6 / 7.1).
+ */
+function whereAndWhat(item: ProductItem, ctx: LineContext, withDay: boolean): string[] {
   const size = ctx.kind === 'bottle' ? item.bottleSize?.trim() : '';
   return [
     ...where(item, ctx),
     priceOf(item, ctx),
     size || null,
-    showPurchaseMonth && item.purchasedAt ? ctx.formatMonth(item.purchasedAt) : null,
+    withDay && item.purchasedAt ? ctx.formatDay(item.purchasedAt) : null,
   ].filter((part): part is string => Boolean(part));
 }
 
 /**
  * The parts of one line in the cellar, joined by " · " on screen:
- * "×4 · Garage · 20 € / bouteille · janv. 2026", "Entamée · Garage · ouverte le 3 oct.",
+ * "×4 · Garage · 20 € / bouteille · 3 janv. 2026", "Entamée · Garage · ouverte le 3 oct.",
  * "3 boîtes fermées de 25 · Humidor", "Boîte entamée · 10 restants", "4 cigares à l'unité".
  */
-export function lineParts(item: ProductItem, ctx: LineContext, showPurchaseMonth: boolean): string[] {
+export function lineParts(item: ProductItem, ctx: LineContext): string[] {
   const { t } = ctx;
   if (!isIntactItem(item)) {
     // An opened one: where it is and since when; its level is drawn beside.
@@ -108,7 +121,7 @@ export function lineParts(item: ProductItem, ctx: LineContext, showPurchaseMonth
       : [t('familyDrawer.lines.opened')];
     return [...head, ...where(item, ctx), ...(opened ? [opened] : [])];
   }
-  const place = whereAndWhat(item, ctx, showPurchaseMonth);
+  const place = whereAndWhat(item, ctx, true);
   const count = Math.max(item.quantity ?? 1, 0);
   if (ctx.kind === 'cigar') {
     const head = item.cigarsPerBox != null

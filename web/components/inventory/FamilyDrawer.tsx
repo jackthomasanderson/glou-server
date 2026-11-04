@@ -17,12 +17,13 @@ import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { CollectionPickerInline } from '@/components/collections/CollectionPickerInline';
 import { TastingForm } from '@/components/tastings/TastingForm';
 import { guestSignature } from '@/lib/shares/guestSignature';
+import { isTastedElsewhere } from '@/lib/tastings/onWine';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { DEFAULT_CURVE_SHAPE, curveShapeDescriptionKey, curveShapeLabelKey } from '@/lib/maturity-references/curve';
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
 import { describeStock, keepNumbersWhole, wineName } from '@/lib/products/stock';
-import { bottleLabel, familyLines, hasOwnLevel, type LineContext } from '@/lib/products/lines';
+import { bottleLabel, familyLines, formatPurchaseDay, hasOwnLevel, type LineContext } from '@/lib/products/lines';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { QrCodeModal } from './QrCodeModal';
@@ -142,14 +143,16 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
   const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
   const kind = unitKind(product?.category ?? 'wine');
+  const name = product ? wineName(product) : undefined;
   const ctx: LineContext = useMemo(() => ({
     kind,
     t,
     cellarName,
     formatPrice: (value) => formatCurrency(value, lang),
-    formatMonth: (day) => formatDate(day, lang, { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+    formatDay: (day) => formatPurchaseDay(day, lang),
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
-  }), [kind, t, cellarName, lang]);
+    wineName: name,
+  }), [kind, t, cellarName, lang, name]);
   const lines = useMemo(() => familyLines(product?.items ?? [], cellarName), [product?.items, cellarName]);
   // FEAT-108: the lines with a change waiting for the network ("en attente").
   const syncQueue = useSyncQueue();
@@ -359,9 +362,11 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                 const bottle = tasting.itemId ? p.items.find((item) => item.id === tasting.itemId) : undefined;
                 // "Garage · 20 € / bouteille": where the bottle tasted was, and its price.
                 // FEAT-109: noted through a guest link — "Marie (invité)"; without a
-                // bottle, on a wine of the shared cellar, not "tasted elsewhere".
+                // bottle, on a wine of the shared cellar, not "tasted elsewhere" — nor
+                // one of a bottle no longer listed (in the trash): only a tasting
+                // without any bottle was noted elsewhere (recette #471, KO 8.4).
                 const guest = guestSignature(tasting.guestName, t);
-                const which = bottle ? bottleLabel(bottle, ctx) : guest ? null : t('familyDrawer.tastings.elsewhere');
+                const which = bottle ? bottleLabel(bottle, ctx) : isTastedElsewhere(tasting) ? t('familyDrawer.tastings.elsewhere') : null;
                 return (
                   <li key={tasting.id} className="p-3 rounded-xl border border-divider">
                     <div className="flex items-center justify-between gap-2 text-xs text-foreground-500">

@@ -37,10 +37,11 @@ export function TrashLineDialog({ item, ctx, isOpen, onClose }: TrashLineDialogP
 
   return (
     <LineDialogFrame
+      wine={ctx.wineName}
       isOpen={isOpen}
       onClose={onClose}
       title={t('stockLine.trash.title')}
-      line={lineParts(item, ctx, false).join(' · ')}
+      line={lineParts(item, ctx).join(' · ')}
       confirmLabel={t('stockLine.trash.confirm')}
       danger
       onConfirm={confirm}

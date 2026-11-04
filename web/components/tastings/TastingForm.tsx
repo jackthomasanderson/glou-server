@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { InventoryCategory, InventoryItem } from '@/lib/inventory/types';
 import { CATEGORY_VALUES } from '@shared/inventory';
 import { unitKind } from '@shared/units';
-import { familyLines, lineParts, type LineContext } from '@/lib/products/lines';
+import { familyLines, formatPurchaseDay, lineParts, type LineContext } from '@/lib/products/lines';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { isValidVintage, parseYear, tastingLinePreset, tastingPayload, wineOptionLabel } from '@/lib/tastings/onWine';
 import { useExpertMode } from '@/hooks/useExpertMode';
@@ -117,7 +117,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
     t,
     cellarName,
     formatPrice: (value) => formatCurrency(value, lang),
-    formatMonth: (day) => formatDate(day, lang, { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+    formatDay: (day) => formatPurchaseDay(day, lang),
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
   }), [product?.category, t, cellarName, lang]);
   const lines = useMemo(() => familyLines(product?.items ?? [], cellarName), [product?.items, cellarName]);
@@ -377,7 +377,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                         variant="bordered"
                       >
                         {lines.inCellar.map((line) => (
-                          <SelectItem key={line.id}>{lineParts(line, lineCtx, lines.showPurchaseMonth).join(' · ')}</SelectItem>
+                          <SelectItem key={line.id}>{lineParts(line, lineCtx).join(' · ')}</SelectItem>
                         ))}
                       </Select>
                     )}

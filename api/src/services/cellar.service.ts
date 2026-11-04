@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
 import type { Prisma } from '@prisma/client';
-import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { IN_STOCK_ITEM_FILTER, itemUnits } from '../lib/finished-item';
 import { lockFamilies } from '../lib/product-fields';
 import { UNIT_COUNT_SELECT, sumTotals, type UnitTotalsRow } from '../lib/stock-units';
 import type { CellarStats } from '../../../shared/cellar';
@@ -124,8 +124,9 @@ export class CellarService {
         id: true,
         slotColumn: true,
         slotRow: true,
-        quantity: true,
-        isOpened: true,
+        ...UNIT_COUNT_SELECT,
+        purchasePrice: true,
+        purchasedAt: true,
         product: { select: { name: true, producer: true, category: true, color: true, vintage: true } },
       },
       orderBy: { createdAt: 'asc' },
@@ -133,12 +134,23 @@ export class CellarService {
 
     // #471 (W4): a group of N bottles holds one slot for now (several slots: step 3);
     // the map says "×N" on it. An opened bottle is a record of its own: one.
+    // Recette #471 (KO 13.2): `units` (bottles, or the cigars of a box) for the
+    // badge, and what tells two lines of the same wine apart in "Assigner"
+    // (closed box or opened, price, purchase day).
     return {
       cellar,
-      items: items.map(({ quantity, isOpened, product, ...item }) => ({
-        ...item,
+      items: items.map(({ id, slotColumn, slotRow, quantity, isOpened, cigarsPerBox, cigarsLeft, purchasePrice, purchasedAt, product, ...state }) => ({
+        id,
+        slotColumn,
+        slotRow,
         ...product,
         quantity: isOpened ? 1 : Math.max(quantity ?? 1, 1),
+        units: itemUnits({ quantity, isOpened, cigarsPerBox, cigarsLeft, ...state }),
+        isOpened,
+        cigarsPerBox,
+        cigarsLeft,
+        purchasePrice: purchasePrice == null ? null : Number(purchasePrice),
+        purchasedAt: purchasedAt ? purchasedAt.toISOString().slice(0, 10) : null,
       })),
     };
   }

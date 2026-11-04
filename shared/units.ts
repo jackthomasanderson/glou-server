@@ -67,12 +67,24 @@ export function itemUnits(item: UnitState): number {
 }
 
 /**
+ * Share of a copy still held: an opened box is worth the cigars left in it
+ * (`cigarsLeft / cigarsPerBox`, recette #471), an opened bottle its whole
+ * value whatever its level, any other copy all of it.
+ */
+function heldShare(item: Pick<UnitState, 'isOpened' | 'cigarsPerBox' | 'cigarsLeft'>): number {
+  if (!item.isOpened || item.cigarsPerBox == null || item.cigarsPerBox <= 0 || item.cigarsLeft == null) return 1;
+  return Math.min(Math.max(item.cigarsLeft, 0), item.cigarsPerBox) / item.cigarsPerBox;
+}
+
+/**
  * Value rule (#594): the value of one copy (bottle, box, single cigar) is its
- * estimated value, else its purchase price, else 0; an opened bottle or box
- * keeps its whole value; finished or written off is worth nothing.
+ * estimated value, else its purchase price, else 0; an opened bottle keeps
+ * its whole value, an opened box the share of its cigars left (2 cigars
+ * smoked out of a box of 25 at 200: 184); finished or written off is worth
+ * nothing. What was spent does not change ({@link itemSpend}).
  */
 export function itemValue(item: UnitState & UnitPrices): number {
-  return (item.estimatedValue ?? item.purchasePrice ?? 0) * copiesInStock(item);
+  return (item.estimatedValue ?? item.purchasePrice ?? 0) * copiesInStock(item) * heldShare(item);
 }
 
 /**

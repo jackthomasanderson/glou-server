@@ -9,7 +9,7 @@ import { preselectGroup, type Preselection } from '@shared/stock-choice';
 import { OpenedLevel } from '@/components/inventory/FamilyStockLines';
 import { WhichBottlesDialog } from '@/components/inventory/WhichBottlesDialog';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { familyLines, hasOwnLevel, lineParts, type LineContext } from '@/lib/products/lines';
+import { familyLines, formatPurchaseDay, hasOwnLevel, lineParts, type LineContext } from '@/lib/products/lines';
 import { movePatch, movesFor, type StockMove } from '@/lib/products/openDrink';
 import { describeStock, wineName } from '@/lib/products/stock';
 import type { ProductItem } from '@/lib/products/types';
@@ -80,7 +80,7 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
     t,
     cellarName,
     formatPrice: (value) => formatCurrency(value, lang, 2),
-    formatMonth: (day) => formatDate(day, lang, { month: 'short', year: 'numeric', timeZone: 'UTC' }),
+    formatDay: (day) => formatPurchaseDay(day, lang),
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
   }), [family.kind, t, cellarName, lang]);
 
@@ -189,7 +189,7 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
               data-testid="guest-family-line"
               className={`px-2.5 py-1.5 rounded-lg border text-xs ${opened ? 'border-warning-300 bg-warning-50/40' : 'border-divider'}`}
             >
-              {lineParts(item, ctx, lines.showPurchaseMonth).join(' · ')}
+              {lineParts(item, ctx).join(' · ')}
               {family.kind === 'bottle' && hasOwnLevel(item) && guestCanTouch(item, meta.writeCellarIds) && (
                 <OpenedLevel item={item} t={t} onCommit={(level) => setLevel(item, level)} />
               )}

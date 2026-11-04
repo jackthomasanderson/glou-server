@@ -36,6 +36,7 @@ import { client } from '@/lib/api';
 import { notifyError } from '@/lib/toast';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import { gridCoordinateGetter } from '@/lib/cellars/gridKeyboard';
+import { gridLineParts, slotUnits } from '@/lib/cellars/gridLine';
 
 // ─── Color mapping ────────────────────────────────────────────────────────────
 // Wine gets its own per-varietal-color dots (red/white/rosé/orange — that's
@@ -79,10 +80,13 @@ const ZONE_BG: Record<ZoneType, string> = {
   temperate: 'transparent',
 };
 
-/** "×4" on a slot that holds a group of several bottles (#471, FEAT-96); nothing for one. */
+/**
+ * "×4" on a slot that holds a group of several bottles (#471, FEAT-96), "×25"
+ * on a box of 25 cigars (recette #471, KO 13.2); nothing for one.
+ */
 function CopiesBadge({ item }: { item: GridItem }) {
   const { t } = useTranslation();
-  const copies = item.quantity ?? 1;
+  const copies = slotUnits(item);
   if (copies <= 1) return null;
   return (
     <span
@@ -131,14 +135,16 @@ interface DraggableBottleProps {
 }
 
 function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: DraggableBottleProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `bottle-${item.id}`,
     data: { item, fromCol, fromRow },
   });
 
-  const copies = item.quantity ?? 1;
-  const tooltipContent = [item.name, item.producer, item.vintage, copies > 1 ? t('cellars.grid.copies', { number: copies }) : null]
+  const copies = slotUnits(item);
+  // Recette #471 (KO 13.2): which line is on the slot (a closed box, an opened one…).
+  const line = item.isOpened !== undefined ? gridLineParts(item, t, i18n?.language) : [];
+  const tooltipContent = [item.name, item.producer, item.vintage, ...(line.length > 0 ? line : [copies > 1 ? t('cellars.grid.copies', { number: copies }) : null])]
     .filter(Boolean).join(' · ');
 
   const outlineStyle = zone !== 'temperate'
@@ -298,7 +304,7 @@ interface AssignDialogProps {
 }
 
 function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, onClose }: AssignDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const assignSlot = useAssignSlot(cellarId);
   const [error, setError] = useState<string | null>(null);
 
@@ -346,6 +352,12 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
                     <div className="text-xs text-foreground-500 truncate">
                       {[item.producer, item.vintage].filter(Boolean).join(' · ')}
                     </div>
+                    {/* Recette #471 (KO 13.2): two lines of the same wine read apart. */}
+                    {item.isOpened !== undefined && (
+                      <div className="text-xs text-foreground-500" data-testid="assign-line">
+                        {gridLineParts(item, t, i18n?.language).join(' · ')}
+                      </div>
+                    )}
                   </div>
                   {assignSlot.isPending && (
                     <span role="status" aria-live="polite"><CircularProgress size="sm" aria-label={t('status.loading')} /></span>

@@ -546,12 +546,13 @@ describe('applyState — reattach (FEAT-106)', () => {
       expect(db.get('g').quantity).toBe(5);
     });
 
-    it('kept: the tasting stays on the family, the bottle goes back into its group', async () => {
+    it('kept: the tasting follows the bottle into its group, never "tasted elsewhere" (recette #471, KO 8.4)', async () => {
       const { db, subId } = await withTasting();
 
       await apply(db, subId, { state: { isOpened: false, fillLevel: 100 }, keepTastings: true });
 
-      expect(db.tastings).toEqual([{ id: 't1', itemId: null, productId: 'p1' }]);
+      // On the line the bottle went back to: still a tasting of a bottle of the cellar.
+      expect(db.tastings).toEqual([{ id: 't1', itemId: 'g', productId: 'p1' }]);
       expect(db.get('g').quantity).toBe(6);
     });
 

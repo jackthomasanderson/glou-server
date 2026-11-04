@@ -185,10 +185,11 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
 
   it('getGridData only places the bottles still in stock on the map', async () => {
     const cave = { id: 'c1', name: 'Cave A' };
+    const state = { fillLevel: null, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null, purchasePrice: null, purchasedAt: null };
     const placed = [
-      { id: 'a', product: { name: 'Chambertin' }, slotColumn: 1, slotRow: 1, quantity: 4, isOpened: false },
-      { id: 'b', product: { name: 'Musigny' }, slotColumn: 2, slotRow: 1, quantity: null, isOpened: false },
-      { id: 'c', product: { name: 'Opened' }, slotColumn: 3, slotRow: 1, quantity: 1, isOpened: true },
+      { id: 'a', product: { name: 'Chambertin' }, slotColumn: 1, slotRow: 1, quantity: 4, isOpened: false, ...state },
+      { id: 'b', product: { name: 'Musigny' }, slotColumn: 2, slotRow: 1, quantity: null, isOpened: false, ...state },
+      { id: 'c', product: { name: 'Opened' }, slotColumn: 3, slotRow: 1, quantity: 1, isOpened: true, ...state, fillLevel: 60 },
     ];
     vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cave as never);
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(placed as never);
@@ -200,9 +201,9 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
     expect(grid).toEqual({
       cellar: cave,
       items: [
-        { id: 'a', name: 'Chambertin', slotColumn: 1, slotRow: 1, quantity: 4 },
-        { id: 'b', name: 'Musigny', slotColumn: 2, slotRow: 1, quantity: 1 },
-        { id: 'c', name: 'Opened', slotColumn: 3, slotRow: 1, quantity: 1 },
+        { id: 'a', name: 'Chambertin', slotColumn: 1, slotRow: 1, quantity: 4, units: 4, isOpened: false, cigarsPerBox: null, cigarsLeft: null, purchasePrice: null, purchasedAt: null },
+        { id: 'b', name: 'Musigny', slotColumn: 2, slotRow: 1, quantity: 1, units: 1, isOpened: false, cigarsPerBox: null, cigarsLeft: null, purchasePrice: null, purchasedAt: null },
+        { id: 'c', name: 'Opened', slotColumn: 3, slotRow: 1, quantity: 1, units: 1, isOpened: true, cigarsPerBox: null, cigarsLeft: null, purchasePrice: null, purchasedAt: null },
       ],
     });
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
@@ -210,6 +211,23 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
       select: expect.objectContaining({ product: { select: { name: true, producer: true, category: true, color: true, vintage: true } } }),
       orderBy: { createdAt: 'asc' },
     });
+  });
+
+  // Recette #471 (KO 13.2): a box of 25 on a slot says its cigars, and a closed box reads apart from an opened one.
+  it('getGridData tells the cigars of a box and what tells two lines of the same cigar apart', async () => {
+    const state = { fillLevel: null, cigarsLeft: null, writtenOffAt: null, purchasePrice: 200, purchasedAt: new Date('2026-11-03T00:00:00Z') };
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue({ id: 'c1' } as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'closed', product: { name: 'Robusto' }, slotColumn: 1, slotRow: 1, quantity: 1, isOpened: false, cigarsPerBox: 25, ...state },
+      { id: 'opened', product: { name: 'Robusto' }, slotColumn: null, slotRow: null, quantity: 1, isOpened: true, cigarsPerBox: 25, ...state, cigarsLeft: 23 },
+    ] as never);
+
+    const grid = await CellarService.getGridData('u1', 'c1');
+
+    expect(grid?.items).toEqual([
+      expect.objectContaining({ id: 'closed', quantity: 1, units: 25, isOpened: false, cigarsPerBox: 25, cigarsLeft: null, purchasePrice: 200, purchasedAt: '2026-11-03' }),
+      expect.objectContaining({ id: 'opened', quantity: 1, units: 23, isOpened: true, cigarsPerBox: 25, cigarsLeft: 23 }),
+    ]);
   });
 });
 

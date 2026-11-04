@@ -58,10 +58,11 @@ export function CorrectQuantityDialog({ item, ctx, isOpen, onClose, onTrashInste
 
   return (
     <LineDialogFrame
+      wine={ctx.wineName}
       isOpen={isOpen}
       onClose={onClose}
       title={t('stockLine.correct.title')}
-      line={lineParts(item, ctx, false).join(' · ')}
+      line={lineParts(item, ctx).join(' · ')}
       confirmLabel={toTrash ? t('stockLine.correct.trashInstead', { context: noun }) : t('stockLine.correct.confirm')}
       danger={toTrash}
       onConfirm={confirm}

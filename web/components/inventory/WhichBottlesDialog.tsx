@@ -57,7 +57,7 @@ export function WhichBottlesDialog({ wine, move, groups, preselection, ctx, isPe
               ? t(`openDrink.which.${ctx.kind === 'cigar' ? 'reasonCigar' : 'reason'}.${preselection.reason}`)
               : undefined}
           >
-            {lineParts(group, ctx, true).join(' · ')}
+            {lineParts(group, ctx).join(' · ')}
           </Radio>
         ))}
       </RadioGroup>

@@ -251,6 +251,21 @@ describe('getAnalytics — finished bottles are not valued', () => {
     expect(stats.regionBreakdown.find((r) => r.region === 'Bordeaux')).toMatchObject({ count: 1, valuation: 100 });
     expect(stats.caveDistribution.find((c) => c.cellarId === 'c1')).toMatchObject({ count: 1, valuation: 100 });
   });
+
+  it('values an opened box by its cigars left, the spending unchanged (recette #471)', async () => {
+    // 2 boxes of 25 at 200 €, 2 cigars smoked out of one: 200 + 200 × 23/25.
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ category: 'cigar', cellarId: 'c1', cigarsPerBox: 25, purchasePrice: 200 }),
+      item({ category: 'cigar', cellarId: 'c1', cigarsPerBox: 25, cigarsLeft: 23, isOpened: true, purchasePrice: 200 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.totalValuation).toBe(384);
+    expect(stats.totalPurchasePrice).toBe(400);
+    expect(stats.categoryBreakdown.find((c) => c.category === 'cigar')).toMatchObject({ count: 48, valuation: 384 });
+    expect(stats.caveDistribution.find((c) => c.cellarId === 'c1')).toMatchObject({ count: 48, valuation: 384 });
+  });
 });
 
 // #573: a finished bottle has been drunk. It stays an inventory row (in the
@@ -391,7 +406,7 @@ describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)',
     expect(stats.totalLiquidLiters).toBe(6.45);
   });
 
-  it('counts cigars in cigars: 3 boxes of 25, an opened box of 10, 4 single ones (89)', async () => {
+  it('counts cigars in cigars: 3 boxes of 25, an opened box of 10, 4 single ones (89), the opened box worth its 10/25', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       item({ category: 'cigar', quantity: 3, cigarsPerBox: 25, purchasePrice: 200 }),
       item({ category: 'cigar', isOpened: true, cigarsPerBox: 25, cigarsLeft: 10, purchasePrice: 200 }),
@@ -401,7 +416,7 @@ describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)',
     const stats = await getAnalytics();
 
     expect(stats.cigarCount).toBe(89);
-    expect(stats.categoryBreakdown).toEqual([{ category: 'cigar', count: 89, valuation: 836 }]);
+    expect(stats.categoryBreakdown).toEqual([{ category: 'cigar', count: 89, valuation: 716 }]);
     expect(stats.totalLiquidLiters).toBe(0);
   });
 

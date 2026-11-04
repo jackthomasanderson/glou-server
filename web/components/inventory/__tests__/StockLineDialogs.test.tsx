@@ -49,7 +49,7 @@ const ctx = (kind: LineContext['kind'] = 'bottle'): LineContext => ({
   t: (key, options) => t(key, options),
   cellarName: (id) => ({ garage: 'Garage', kitchen: 'Cuisine' } as Record<string, string>)[id],
   formatPrice: (value) => `${value} €`,
-  formatMonth: (day) => day,
+  formatDay: (day) => day,
   formatDate: (iso) => iso.slice(0, 10),
 });
 
@@ -352,6 +352,12 @@ describe('TrashLineDialog (§10.4.7)', () => {
     expect(toast.notifySuccess).toHaveBeenCalledWith('stockLine.trash.done', { context: 'bottle', count: 4 });
     // The line leaves the open drawer at once.
     expect(queryClient.getQueryData<ProductDetailView>(['inventory', 'product', 'p1'])?.items.map((item) => item.id)).toEqual(['other']);
+  });
+
+  // Recette #471: "×1 · ZZ Recette B" named a cellar, not the wine.
+  it('names the wine above its line', () => {
+    renderIn(<TrashLineDialog item={group({ quantity: 1 })} ctx={{ ...ctx(), wineName: 'Cuvée X 2020' }} isOpen onClose={vi.fn()} />);
+    expect(screen.getByTestId('line-dialog-wine')).toHaveTextContent('Cuvée X 2020');
   });
 
   it('an opened bottle is one bottle', () => {

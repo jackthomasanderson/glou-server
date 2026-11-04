@@ -283,7 +283,7 @@ function changedColumns(item: StateItem, next: StateItem): Record<string, unknow
  * The sub-record goes back into its group: one more copy there, the
  * sub-record deleted. What pointed at it follows the group — its history,
  * its rotating-inventory entries, a wishlist conversion — and its tastings
- * stay on the family when kept.
+ * too, when kept (still tastings of a bottle of the cellar).
  */
 async function absorb<I extends Prisma.InventoryItemInclude, R>(
   tx: PrismaClientOrTx,
@@ -301,7 +301,10 @@ async function absorb<I extends Prisma.InventoryItemInclude, R>(
   const tastings = await tx.tastingNote.count({ where: { itemId: item.id } });
   if (tastings > 0 && keepTastings === undefined) throw stateError(409, TASTINGS_ON_ITEM, { count: tastings });
   if (tastings > 0 && keepTastings) {
-    await tx.tastingNote.updateMany({ where: { itemId: item.id }, data: { itemId: null, productId: item.productId } });
+    // Onto the group the bottle went back to (as absorbGroups does): it was
+    // tasted from a bottle of the cellar — an empty `itemId` would read
+    // "tasted elsewhere" (recette #471, KO 8.4).
+    await tx.tastingNote.updateMany({ where: { itemId: item.id }, data: { itemId: parent.id, productId: item.productId } });
   } else if (tastings > 0) {
     await tx.tastingNote.deleteMany({ where: { itemId: item.id } });
   }

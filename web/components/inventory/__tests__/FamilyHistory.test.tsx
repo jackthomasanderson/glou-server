@@ -173,4 +173,18 @@ describe('FamilyHistory — review after the update (#471, FEAT-102)', () => {
     expect(restoreButtons()).toHaveLength(1);
     expect(restoreButtons()[0].closest('li')).toHaveTextContent('Rack B');
   });
+
+  // Recette #471 (KO 4.2): bottles added as a new line of their own.
+  it('says "Bouteilles ajoutées : 2" for an add that made a new line, never "Quantité : 2"', () => {
+    renderHistory([
+      entry({ id: 1, action: 'ADD_UNITS', itemId: 'b2', changes: [{ field: 'quantity', from: null, to: 2 }] }),
+      entry({ id: 2, action: 'ADD_UNITS', itemId: 'b1', changes: [{ field: 'quantity', from: 4, to: 6 }] }),
+    ], ['b1', 'b2']);
+
+    const [created, completed] = within(screen.getByTestId('family-history')).getAllByRole('listitem');
+    expect(created).toHaveTextContent('Bouteilles ajoutées : 2');
+    expect(created).not.toHaveTextContent('Quantité');
+    expect(completed).toHaveTextContent('Bouteilles ajoutées : 4 → 6');
+    expect(restoreButtons()).toHaveLength(0);
+  });
 });

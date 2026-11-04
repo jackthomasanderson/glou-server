@@ -28,7 +28,7 @@ async function okWrite(res: APIResponse): Promise<Write> {
 }
 
 const productOf = async (api: APIRequestContext, productId: string) =>
-  okData<{ items: Unit[]; tastings: { id: string }[] }>(await api.get(`/api/products/${productId}`));
+  okData<{ items: Unit[]; tastings: { id: string; itemId: string | null }[] }>(await api.get(`/api/products/${productId}`));
 const unitsOf = async (api: APIRequestContext, productId: string) =>
   (await productOf(api, productId)).items.filter((unit) => unit.deletedAt == null);
 
@@ -131,8 +131,11 @@ test.describe('the opened bottle first (#471, L2)', () => {
     const product = await productOf(api, group.productId);
     expect(product.items.filter((unit) => unit.deletedAt == null).map((unit) => [unit.id, unit.quantity, unit.isOpened]))
       .toEqual([[group.id, 6, false]]);
-    // Kept: still on the wine.
-    expect(product.tastings).toHaveLength(1);
+    // Kept: still on the wine, on the line the bottle went back to (recette #471, KO 8.4).
+    expect(product.tastings).toEqual([expect.objectContaining({ itemId: group.id })]);
+    const tastings = drawer.getByTestId('family-tastings');
+    await expect(tastings).toBeVisible();
+    await expect(tastings).not.toContainText('Goûté ailleurs');
   });
 
   test('a cigar with an opened box of 10 and two closed boxes: "Dans la boîte entamée" leaves 9, the closed boxes alone (FEAT-105 c4)', async ({ page }) => {

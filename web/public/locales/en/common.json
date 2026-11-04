@@ -976,10 +976,14 @@
       "CELLAR_NOT_FOUND": "This cellar no longer exists. Nothing was changed."
     },
     "partHint": "For part of a wine only, open it.",
+    "andOthers_one": "{{names}} and {{count}} more",
+    "andOthers_other": "{{names}} and {{count}} more",
     "move": {
       "action": "Move",
       "title": "Move to a cellar",
       "where": "To which cellar?",
+      "alreadyThere": "{{units}} already in {{cellar}} stay there: {{moved}} to move.",
+      "alreadyAll": "Everything is already in {{cellar}}: nothing to move.",
       "confirm": "Move",
       "done": "Moved: {{units}}"
     },
@@ -2427,6 +2431,12 @@
       "withBottles_other": "with {{count}} bottles",
       "withCigars_one": "with {{count}} cigar",
       "withCigars_other": "with {{count}} cigars",
+      "lineCount_bottle_one": "{{count}} bottle",
+      "lineCount_bottle_other": "{{count}} bottles",
+      "lineCount_box_one": "{{count}} box",
+      "lineCount_box_other": "{{count}} boxes",
+      "lineCount_cigar_one": "{{count}} cigar",
+      "lineCount_cigar_other": "{{count}} cigars",
       "restore": "Restore"
     },
     "selectWine": "Select {{name}}",
@@ -2501,6 +2511,7 @@
       "add_units": "Bottles added",
       "correct_quantity": "Number corrected",
       "numberChange": "{{what}}: {{from}} → {{to}}",
+      "numberAdded": "{{what}}: {{number}}",
       "merge_products": "Wines merged",
       "review_ok": "Number checked",
       "merge_products_cigar": "References merged"
