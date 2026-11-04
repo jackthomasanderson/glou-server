@@ -26,6 +26,16 @@ import { safeReadStorage, safeWriteStorage } from './safe-storage';
 // so raw keys never flash.
 const LANG_STORAGE_KEY = 'glou:lang';
 
+// #471 (recette v2): a fixed URL let the previous version's service worker
+// answer with the previous translations on the first visit after an update
+// (raw keys, old labels until a reload). NEXT_PUBLIC_LOCALES_VERSION is a
+// fingerprint of public/locales/, set at build time by next.config.mjs
+// (lib/locales-version.mjs): new translations, new URL, never a stale copy.
+// The service worker keeps the fetched file for offline use (FEAT-108).
+export const LOCALES_LOAD_PATH = `/locales/{{lng}}/{{ns}}.json?v=${encodeURIComponent(
+  process.env.NEXT_PUBLIC_LOCALES_VERSION || 'dev',
+)}`;
+
 function initialLanguage(): 'fr' | 'en' {
   if (typeof window === 'undefined') return 'fr';
   // Runs at import, before any page renders: must never throw (#584).
@@ -40,7 +50,7 @@ i18n
   .use(initReactI18next)
   .init({
     backend: {
-      loadPath: '/locales/{{lng}}/{{ns}}.json',
+      loadPath: LOCALES_LOAD_PATH,
     },
     lng: initialLanguage(),
     fallbackLng: false,

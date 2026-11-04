@@ -36,6 +36,7 @@ import { client } from '@/lib/api';
 import { notifyError } from '@/lib/toast';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import { gridCoordinateGetter } from '@/lib/cellars/gridKeyboard';
+import { gridWording, type GridWording } from '@/lib/cellars/gridWording';
 
 // ─── Color mapping ────────────────────────────────────────────────────────────
 // Wine gets its own per-varietal-color dots (red/white/rosé/orange — that's
@@ -194,9 +195,10 @@ interface DroppableSlotProps {
   item: GridItem | null;
   onClickEmpty: () => void;
   onClickOccupied: (item: GridItem) => void;
+  wording: GridWording;
 }
 
-function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied }: DroppableSlotProps) {
+function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied, wording }: DroppableSlotProps) {
   const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${col}:${row}`,
@@ -231,7 +233,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied }: 
         <div
           role="button"
           tabIndex={0}
-          aria-label={t('cellars.grid.cellLabelEmpty', { col, row })}
+          aria-label={t('cellars.grid.cellLabelEmpty', { col, row, ...wording })}
           onClick={onClickEmpty}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -295,9 +297,10 @@ interface AssignDialogProps {
   unassignedItems: GridItem[];
   cellarId: string;
   onClose: () => void;
+  wording: GridWording;
 }
 
-function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, onClose }: AssignDialogProps) {
+function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, onClose, wording }: AssignDialogProps) {
   const { t } = useTranslation();
   const assignSlot = useAssignSlot(cellarId);
   const [error, setError] = useState<string | null>(null);
@@ -316,7 +319,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
     <ResponsiveModal isOpen={open} onClose={onClose} size="xs">
       <ModalContent>
         <ModalHeader>
-          {t('cellars.grid.assignTitle', { col: targetCol, row: targetRow })}
+          {t('cellars.grid.assignTitle', { col: targetCol, row: targetRow, ...wording })}
         </ModalHeader>
         <ModalBody className="px-0 py-0">
           {error && (
@@ -326,7 +329,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
           )}
           {unassignedItems.length === 0 ? (
             <p className="px-4 py-4 text-sm text-foreground-500">
-              {t('cellars.grid.noUnassignedBottles')}
+              {t('cellars.grid.noUnassignedBottles', wording)}
             </p>
           ) : (
             <div className="flex flex-col max-h-80 overflow-y-auto">
@@ -474,6 +477,8 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   const assignedCount = slotMap.size;
   const totalSlots = cols * rows;
   const freeSlots = totalSlots - assignedCount;
+
+  const wording = useMemo(() => gridWording(cellar.type, localItems), [cellar.type, localItems]);
 
   const unassignedItems = useMemo(
     () => localItems.filter((item) => item.slotColumn == null || item.slotRow == null),
@@ -637,7 +642,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
         onDragEnd={handleDragEnd}
         accessibility={{
           announcements,
-          screenReaderInstructions: { draggable: t('cellars.grid.dragInstructions') },
+          screenReaderInstructions: { draggable: t('cellars.grid.dragInstructions', wording) },
         }}
       >
         <div className="overflow-x-auto pb-1">
@@ -663,6 +668,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
                     item={item}
                     onClickEmpty={() => setAssignTarget({ col, row })}
                     onClickOccupied={(it) => setOccupiedTarget(it)}
+                    wording={wording}
                   />
                 );
               });
@@ -718,6 +724,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
         unassignedItems={unassignedItems}
         cellarId={cellar.id}
         onClose={() => setAssignTarget(null)}
+        wording={wording}
       />
       <OccupiedDialog
         open={!!occupiedTarget}

@@ -10,6 +10,8 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { InventoryListRowSkeleton } from './InventoryListRow';
 import { TRASH_RETENTION_DAYS } from '@shared/inventory';
+import { unitNoun } from '@/lib/products/stockActions';
+import type { InventoryItem } from '@/lib/inventory/types';
 
 interface InventoryTrashProps {
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -43,6 +45,17 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
   );
   const unitsOf = (wine: TrashedProduct) =>
     wine.items.reduce((sum, unit) => sum + itemUnits(unit), 0);
+  // #471 (recette v2): a box or a cigar thrown away is called so, with how
+  // many copies went to the trash (a box: also its size).
+  const unitLabels = (item: InventoryItem) => {
+    const noun = unitNoun({ cigarsPerBox: item.cigarsPerBox ?? null }, unitKind(item.category));
+    const context = noun === 'bottle' ? undefined : noun;
+    const copies = item.isOpened ? 1 : Math.max(item.quantity ?? 1, 1);
+    return {
+      copies: t('inventory.trashCopies', { count: copies, size: item.cigarsPerBox, context }),
+      restore: t('inventory.restore', { context }),
+    };
+  };
 
   if (isLoading || winesTrash.isLoading) {
     return (
@@ -115,7 +128,9 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
     <section aria-label={t('familyList.trash.bottles')}>
     {both && <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{t('familyList.trash.bottles')}</h2>}
     <ul className="flex flex-col gap-2">
-      {visibleItems.map((item) => (
+      {visibleItems.map((item) => {
+        const label = unitLabels(item);
+        return (
         <li
           key={item.id}
           className="flex items-center justify-between gap-3 bg-content1 border border-divider rounded-xl px-4 py-3"
@@ -128,11 +143,10 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
               </p>
               <Chip size="sm" variant="flat">{t(`categories.${item.category}`)}</Chip>
             </div>
-            {item.deletedAt && (
-              <p className="text-xs text-foreground-400">
-                {t('inventory.trashDaysLeft', { count: daysLeft(item.deletedAt) })}
-              </p>
-            )}
+            <p className="text-xs text-foreground-400">
+              {label.copies}
+              {item.deletedAt && ` · ${t('inventory.trashDaysLeft', { count: daysLeft(item.deletedAt) })}`}
+            </p>
           </div>
           <Button
             size="sm"
@@ -141,10 +155,11 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
             isLoading={restoreMutation.isPending && restoreMutation.variables === item.id}
             onPress={() => restoreMutation.mutate(item.id)}
           >
-            {t('inventory.restore')}
+            {label.restore}
           </Button>
         </li>
-      ))}
+        );
+      })}
     </ul>
     </section>
     )}
