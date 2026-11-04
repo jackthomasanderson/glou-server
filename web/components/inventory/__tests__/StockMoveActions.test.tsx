@@ -308,8 +308,8 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
     expect(toast.notifyUndoable).not.toHaveBeenCalled();
   });
 
-  it('nothing to open when no line of full bottles is left', () => {
-    drawFooter(detailOf([openedBottle(60, { id: 'sub' })]));
+  it('nothing to open when no line of full bottles is left, nor anything to drink when no bottle is left', () => {
+    drawFooter(detailOf([unit({ id: 'drunk', isOpened: true, fillLevel: 0 })]));
     expect(screen.queryByTestId('stock-move-open')).toBeNull();
     expect(screen.queryByTestId('stock-move-drink')).toBeNull();
   });
@@ -395,7 +395,7 @@ describe('a line\'s menu: open, drink, smoke from that very line', () => {
     expect(screen.queryByText('Quelles bouteilles ?')).toBeNull();
   });
 
-  it('a line of cigars offers "J\'en fume un"; an opened bottle offers none of them', async () => {
+  it('a line of cigars offers "J\'en fume un"; an opened bottle offers none of them but its own', async () => {
     const { unmount } = drawMenu(unit({ id: 'boxes', quantity: 3, cigarsPerBox: 25 }), 'cigar');
     fireEvent.click(screen.getByTestId('stock-line-menu'));
     await waitFor(() => expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0));
@@ -405,6 +405,7 @@ describe('a line\'s menu: open, drink, smoke from that very line', () => {
     drawMenu(openedBottle(60, { id: 'sub' }));
     fireEvent.click(screen.getByTestId('stock-line-menu'));
     await waitFor(() => expect(screen.getAllByRole('menuitem').length).toBeGreaterThan(0));
-    expect(menuItems()).toEqual(['Modifier', 'Mettre à la corbeille']);
+    // §10.3: an opened bottle is finished or put back, never opened again.
+    expect(menuItems()).toEqual(['Je la finis', "Annuler l'ouverture", 'Modifier', 'Mettre à la corbeille']);
   });
 });

@@ -172,4 +172,24 @@ describe('FamilyStockLines', () => {
     draw([unit({ quantity: 2 }), openedBottle(40)], { lineActions: (item) => <button type="button">menu {item.quantity}</button> });
     expect(screen.getAllByRole('button', { name: /^menu/ })).toHaveLength(2);
   });
+
+  it('"Finir l\'entamée" leads to the opened bottle, even behind "Voir les N autres": shown and focused (FEAT-105 c2)', () => {
+    const items = [...Array.from({ length: 6 }, (_, i) => unit({ quantity: 2, purchasePrice: 10 + i })), openedBottle(60, { id: 'sub' })];
+    const lines = familyLines(items, ctx.cellarName);
+    const { rerender } = render(<FamilyStockLines lines={lines} ctx={ctx} />);
+    expect(screen.getAllByTestId('family-line')).toHaveLength(5);
+
+    rerender(<FamilyStockLines lines={lines} ctx={ctx} focus={{ id: 'sub', nonce: 1 }} />);
+    expect(screen.getAllByTestId('family-line')).toHaveLength(7);
+    const opened = screen.getAllByTestId('family-line').find((line) => line.dataset.lineId === 'sub');
+    expect(opened).toHaveFocus();
+  });
+
+  it('a line "à vérifier" carries its mention and the review actions (§10.3)', () => {
+    draw([unit({ quantity: 5, needsReview: true }), unit({ quantity: 2 })], {
+      reviewActions: (item) => <button type="button">review {item.quantity}</button>,
+    });
+    expect(screen.getByText('À vérifier après la mise à jour')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^review/ }).map((button) => button.textContent)).toEqual(['review 5']);
+  });
 });

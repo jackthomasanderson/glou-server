@@ -1168,7 +1168,10 @@
       "emptyHint": "Bottles at their peak or already opened will appear here.",
       "loadError": "Could not load suggestions.",
       "consume": "Drink",
-      "postpone": "Postpone"
+      "postpone": "Postpone",
+      "finishOpened": "Finish the opened one ({{level}}%)",
+      "finishOpenedBox_one": "Finish the opened box ({{count}} left)",
+      "finishOpenedBox_other": "Finish the opened box ({{count}} left)"
     },
     "reasons": {
       "peak_window": "Peak window",
@@ -2518,6 +2521,49 @@
       "open": "1 bottle opened",
       "drink": "1 bottle drunk",
       "smoke": "1 cigar smoked"
+    }
+  },
+  "openedReminder": {
+    "actions": {
+      "finish": "I've finished it",
+      "putBack": "Undo the opening"
+    },
+    "opened": {
+      "one": "A bottle is already opened ({{level}}%).",
+      "oneNoLevel": "A bottle is already opened.",
+      "several_one": "{{count}} bottle is already opened.",
+      "several_other": "{{count}} bottles are already opened."
+    },
+    "open": {
+      "finish": "Finish the opened one",
+      "new": "Open a new one"
+    },
+    "drink": {
+      "question": "Is it the one you finished?",
+      "questionSeveral": "Did you finish one of them?",
+      "which": "Which one did you finish?",
+      "yes": "Yes",
+      "no": "No",
+      "finish": "I've finished it"
+    },
+    "smoke": {
+      "one_one": "From the opened box ({{count}} left) or open a new one?",
+      "one_other": "From the opened box ({{count}} left) or open a new one?",
+      "several_one": "From an opened box ({{count}} box) or open a new one?",
+      "several_other": "From one of the {{count}} opened boxes or open a new one?",
+      "inOpened": "From the opened box",
+      "new": "Open a new one",
+      "single": "A single cigar"
+    },
+    "putBack": {
+      "rejoined": "Bottle put back with the others ({{line}})",
+      "alone": "Bottle put back in the cellar"
+    },
+    "keepTasting": {
+      "title": "A tasting was noted on this bottle.",
+      "question": "Keep it? Kept, it stays on the wine.",
+      "keep": "Keep the tasting",
+      "drop": "Don't keep it"
     }
   },
   "review": {

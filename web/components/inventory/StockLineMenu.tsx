@@ -2,12 +2,15 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from '@heroui/react';
-import { ArrowRightLeft, Euro, Flame, GlassWater, Hash, MoreVertical, Pencil, Trash2, Wine } from 'lucide-react';
+import { ArrowRightLeft, Euro, Flame, GlassWater, Hash, MoreVertical, Pencil, Trash2, Undo2, Wine } from 'lucide-react';
 import { isIntactItem } from '@shared/units';
 import { useStockMove } from '@/hooks/useStockMove';
-import type { LineContext } from '@/lib/products/lines';
+import { hasOwnLevel, type LineContext } from '@/lib/products/lines';
 import { movesFor, type StockMove } from '@/lib/products/openDrink';
-import type { ProductItem } from '@/lib/products/types';
+import { wineName } from '@/lib/products/stock';
+import type { ProductDetailView, ProductItem } from '@/lib/products/types';
+import { usePutBackOpened } from './PutBackOpened';
+import { useStockMoveFlow } from './StockMoveFlow';
 import { CorrectQuantityDialog } from './CorrectQuantityDialog';
 import { MoveUnitsDialog } from './MoveUnitsDialog';
 import { RepriceDialog } from './RepriceDialog';
@@ -15,21 +18,35 @@ import { EditLineDialog } from './EditLineDialog';
 import { TrashLineDialog } from './TrashLineDialog';
 
 type DialogAction = 'move' | 'reprice' | 'correct' | 'edit' | 'trash';
-type LineAction = StockMove | DialogAction;
+/** On an opened bottle: "Je la finis", "Annuler l'ouverture" (§10.3, §10.4.6). */
+type OpenedAction = 'finish' | 'putBack';
+type LineAction = StockMove | OpenedAction | DialogAction;
 
 /**
  * The actions of a line of full bottles (§10.3): first "J'en ouvre une" /
- * "J'en bois une" ("J'en fume un"), on this very line — no question; an
- * opened one is only edited or trashed here.
+ * "J'en bois une" ("J'en fume un"), on this very line — no "Quelles
+ * bouteilles ?", but the reminder of an opened one (FEAT-105). An opened
+ * bottle: "Je la finis", "Annuler l'ouverture"; an opened box: "J'en fume
+ * un" in it; both edited or trashed.
  */
 const GROUP_ACTIONS: readonly DialogAction[] = ['move', 'reprice', 'correct', 'edit', 'trash'];
 const OPENED_ACTIONS: readonly DialogAction[] = ['edit', 'trash'];
 const isMove = (action: LineAction): action is StockMove => action === 'open' || action === 'drink' || action === 'smoke';
 
+/** The first actions of a line, before a divider: its moves, or what is done with an opened copy. */
+function headActions(item: ProductItem, kind: LineContext['kind']): readonly (StockMove | OpenedAction)[] {
+  if (isIntactItem(item)) return movesFor(kind);
+  if (kind === 'cigar') return ['smoke'];
+  // A line of several shown opened (an offline opening merged) is never written as one bottle.
+  return hasOwnLevel(item) ? ['finish', 'putBack'] : [];
+}
+
 const ICONS: Record<LineAction, React.ReactElement> = {
   open: <Wine size={15} />,
   drink: <GlassWater size={15} />,
   smoke: <Flame size={15} />,
+  finish: <GlassWater size={15} />,
+  putBack: <Undo2 size={15} />,
   move: <ArrowRightLeft size={15} />,
   reprice: <Euro size={15} />,
   correct: <Hash size={15} />,
@@ -44,18 +61,36 @@ const ICONS: Record<LineAction, React.ReactElement> = {
  * other action opens its own dialog, mounted only while open so it always
  * starts from the line as shown.
  */
-export function StockLineMenu({ item, ctx }: { item: ProductItem; ctx: LineContext }) {
+export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
+  item: ProductItem;
+  ctx: LineContext;
+  /** The wine: its other copies (an opened bottle to remind of) and its name. */
+  product?: ProductDetailView;
+  /** "Finir l'entamée": leads to the opened bottle in the drawer. */
+  onFinishOpened?: (item: ProductItem) => void;
+}) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<DialogAction | null>(null);
   const { run } = useStockMove();
-  const actions: readonly LineAction[] = isIntactItem(item) ? [...movesFor(ctx.kind), ...GROUP_ACTIONS] : OPENED_ACTIONS;
+  const flow = useStockMoveFlow({ wine: product ? wineName(product) : '', ctx, onFinishOpened });
+  const putBack = usePutBackOpened(ctx);
+  const head = headActions(item, ctx.kind);
+  const actions: readonly LineAction[] = [...head, ...(isIntactItem(item) ? GROUP_ACTIONS : OPENED_ACTIONS)];
   const close = () => setOpen(null);
   const choose = (action: LineAction) => {
-    if (isMove(action)) void run(item, action, ctx.kind);
+    if (action === 'putBack') void putBack.putBack(item);
+    // An opened copy: finished, or a cigar smoked out of it — no question.
+    else if (action === 'finish') void run(item, 'drink', ctx.kind);
+    else if (isMove(action) && !isIntactItem(item)) void run(item, action, ctx.kind);
+    else if (isMove(action)) flow.start(action, product?.items ?? [item], item);
     else setOpen(action);
   };
   const dialog = { item, ctx, isOpen: true, onClose: close };
-  const label = (action: LineAction) => t(isMove(action) ? `openDrink.actions.${action}` : `stockLine.actions.${action}`);
+  const label = (action: LineAction) => t(
+    action === 'finish' || action === 'putBack'
+      ? `openedReminder.actions.${action}`
+      : isMove(action) ? `openDrink.actions.${action}` : `stockLine.actions.${action}`,
+  );
 
   return (
     <>
@@ -75,7 +110,7 @@ export function StockLineMenu({ item, ctx }: { item: ProductItem; ctx: LineConte
               startContent={ICONS[action]}
               color={action === 'trash' ? 'danger' : 'default'}
               className={action === 'trash' ? 'text-danger' : undefined}
-              showDivider={action === movesFor(ctx.kind).at(-1)}
+              showDivider={action === head.at(-1)}
             >
               {label(action)}
             </DropdownItem>
@@ -88,6 +123,8 @@ export function StockLineMenu({ item, ctx }: { item: ProductItem; ctx: LineConte
       {open === 'reprice' && <RepriceDialog {...dialog} />}
       {open === 'edit' && <EditLineDialog {...dialog} />}
       {open === 'trash' && <TrashLineDialog {...dialog} />}
+      {flow.dialogs}
+      {putBack.dialog}
     </>
   );
 }

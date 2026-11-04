@@ -94,9 +94,15 @@ function mockFindManyByShape(opts: {
   alertExtra?: ReturnType<typeof sourceItem>[];
   opened?: ReturnType<typeof sourceItem>[];
   rotation?: ReturnType<typeof sourceItem>[];
+  /** #471: the full lines of the wines suggested, read to preselect one (FEAT-104). */
+  groups?: Record<string, unknown>[];
 }) {
   vi.mocked(prisma.inventoryItem.findMany).mockImplementation(((args: unknown) => {
     const where = (args as { where?: Record<string, unknown> })?.where ?? {};
+    if (where.productId && typeof where.productId === 'object' && 'in' in (where.productId as object)) {
+      const families = (where.productId as { in: string[] }).in;
+      return Promise.resolve((opts.groups ?? []).filter((group) => families.includes(group.productId as string)));
+    }
     if (where.id && typeof where.id === 'object' && 'in' in (where.id as object)) {
       return Promise.resolve(opts.alertExtra ?? []);
     }
@@ -204,9 +210,14 @@ describe('getSuggestions', () => {
 
     expect(result).toHaveLength(2);
     expect(result.map((r) => r.id)).toEqual(['p1', 'p2']);
-    // Only the two Promise.all queries (alertExtra, opened) should have run —
-    // the rotation query is conditional on `result.length < limit`.
-    expect(prisma.inventoryItem.findMany).toHaveBeenCalledTimes(2);
+    // Only the two Promise.all queries (alertExtra, opened) and the lines to
+    // preselect from should have run — the rotation query is conditional on
+    // `result.length < limit`.
+    expect(prisma.inventoryItem.findMany).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls.some(
+      ([args]) => (args as { where: Record<string, unknown> }).where.isOpened === false
+        && !('productId' in (args as { where: Record<string, unknown> }).where),
+    )).toBe(false);
   });
 
   it('does not enumerate alert ids in the opened-items query, and excludes them in memory instead (#162)', async () => {
@@ -312,7 +323,8 @@ describe('getSuggestions', () => {
     const result = await getSuggestions(10);
 
     expect(result.map((r) => ({ id: r.id, productId: r.productId, reason: r.reason }))).toEqual([
-      { id: 'garage-x4', productId: 'p-cuvee', reason: 'peak_window' },
+      // FEAT-105 c3: listed for its peak window, through its opened bottle.
+      { id: 'cuvee-opened', productId: 'p-cuvee', reason: 'peak_window' },
       { id: 'other-opened-1', productId: 'p-other', reason: 'opened' },
       { id: 'old1', productId: 'p-old', reason: 'rotation' },
     ]);
@@ -329,6 +341,66 @@ describe('getSuggestions', () => {
       isOwned: true,
       product: { OR: [{ consumptionPostponedUntil: null }, { consumptionPostponedUntil: { lte: NOW } }] },
     });
+  });
+
+  // #471 (FEAT-105 c3): a wine with an opened bottle proposes to finish it first.
+  it('a wine at its peak with an opened bottle is suggested through that bottle, to finish it first', async () => {
+    vi.mocked(getAlerts).mockResolvedValue([
+      { id: 'garage-x5', productId: 'p-cuvee', alertStatus: 'peak', readiness: 50 },
+    ] as never);
+    mockFindManyByShape({
+      alertExtra: [sourceItem({ id: 'garage-x5', productId: 'p-cuvee' })],
+      opened: [
+        sourceItem({ id: 'cuvee-first', productId: 'p-cuvee', isOpened: true, fillLevel: 60 }),
+        sourceItem({ id: 'cuvee-second', productId: 'p-cuvee', isOpened: true, fillLevel: 90 }),
+      ],
+      rotation: [],
+    });
+
+    const result = await getSuggestions(10);
+
+    expect(result.map((r) => ({ id: r.id, reason: r.reason, isOpened: r.isOpened, fillLevel: r.fillLevel }))).toEqual([
+      { id: 'cuvee-first', reason: 'peak_window', isOpened: true, fillLevel: 60 },
+    ]);
+  });
+
+  it('an opened box says how many cigars are left', async () => {
+    vi.mocked(getAlerts).mockResolvedValue([]);
+    mockFindManyByShape({ opened: [sourceItem({ id: 'box', category: 'cigar', isOpened: true, cigarsLeft: 10 })] });
+    const [suggestion] = await getSuggestions(1);
+    expect(suggestion).toMatchObject({ id: 'box', isOpened: true, cigarsLeft: 10, reason: 'opened' });
+  });
+
+  // #471 (FEAT-104): the plan starts on the line "J'en ouvre une" would preselect.
+  it('a full wine of several lines is suggested through the line bought first, else the cheapest, else the largest', async () => {
+    vi.mocked(getAlerts).mockResolvedValue([
+      { id: 'kitchen', productId: 'p-cuvee', alertStatus: 'peak', readiness: 50 },
+    ] as never);
+    const line = (over: Record<string, unknown>) => ({
+      productId: 'p-cuvee', cellarId: 'c1', purchasePrice: 20, purchasedAt: null, quantity: 1, isOpened: false,
+      fillLevel: null, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null, deletedAt: null, ...over,
+    });
+    mockFindManyByShape({
+      alertExtra: [sourceItem({ id: 'kitchen', productId: 'p-cuvee' })],
+      rotation: [sourceItem({ id: 'other-a', productId: 'p-other' })],
+      groups: [
+        line({ id: 'kitchen', cellarId: 'c2', purchasedAt: new Date('2026-06-01'), purchasePrice: 15 }),
+        line({ id: 'garage', cellarId: 'c1', purchasedAt: new Date('2026-01-10'), purchasePrice: 20 }),
+        line({ id: 'other-a', productId: 'p-other', purchasePrice: 30, quantity: 2 }),
+        line({ id: 'other-b', productId: 'p-other', purchasePrice: 25, quantity: 1 }),
+      ],
+    });
+
+    const result = await getSuggestions(2);
+
+    expect(result.map((r) => ({ id: r.id, cellarId: r.cellarId, productId: r.productId }))).toEqual([
+      { id: 'garage', cellarId: 'c1', productId: 'p-cuvee' },
+      { id: 'other-b', cellarId: 'c1', productId: 'p-other' },
+    ]);
+    const linesCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls.find(
+      ([args]) => 'productId' in (args as { where: Record<string, unknown> }).where,
+    )?.[0] as unknown as { where: Record<string, unknown> };
+    expect(linesCall.where).toMatchObject({ deletedAt: null, writtenOffAt: null, isOpened: false, productId: { in: ['p-cuvee', 'p-other'] } });
   });
 
   it('propagates a failure from the underlying alert lookup rather than swallowing it (error case)', async () => {

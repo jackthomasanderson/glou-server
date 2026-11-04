@@ -6,6 +6,7 @@ import { SetGoalInput } from '../schemas/consumption-plan.schema';
 import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { writeProductFields } from '../lib/product-fields';
 import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { preselectGroup } from '../../../shared/stock-choice';
 
 /**
  * FEAT-08: Plan de Consommation Intelligent & Rotation de Stock.
@@ -39,8 +40,11 @@ export interface ConsumptionSuggestion {
   cellarId: string | null;
   collection: string | null;
   alertStatus: string | null;
+  /** #471 (FEAT-105 c3): an opened bottle (box) of the wine, suggested first: "Finir l'entamée (60 %)". */
   isOpened: boolean;
   fillLevel: number | null;
+  /** Cigars left in an opened box. */
+  cigarsLeft: number | null;
   reason: SuggestionReason;
 }
 
@@ -52,6 +56,7 @@ const SUGGESTION_SELECT = {
   cellarId: true,
   isOpened: true,
   fillLevel: true,
+  cigarsLeft: true,
   createdAt: true,
   product: {
     select: {
@@ -106,8 +111,52 @@ function toSuggestion(item: SourceItem, reason: SuggestionReason): ConsumptionSu
     alertStatus: computeAlertStatus(product.peakMaturityFrom, product.peakMaturityTo),
     isOpened: item.isOpened,
     fillLevel: item.fillLevel,
+    cigarsLeft: item.cigarsLeft,
     reason,
   };
+}
+
+/** What `preselectGroup` reads of a line. */
+const GROUP_SELECT = {
+  id: true,
+  productId: true,
+  cellarId: true,
+  purchasePrice: true,
+  purchasedAt: true,
+  quantity: true,
+  isOpened: true,
+  fillLevel: true,
+  cigarsPerBox: true,
+  cigarsLeft: true,
+  writtenOffAt: true,
+  deletedAt: true,
+} satisfies Prisma.InventoryItemSelect;
+
+/**
+ * #471 (FEAT-104, ux-ui.md §10.4.2): the line a full wine is suggested from
+ * is the one "J'en ouvre une" would preselect — bought first, then the
+ * cheapest, then the largest — so the tasting form opened from the plan
+ * starts on it ("Quelles bouteilles ?" there lets the member pick another).
+ * One query for the few wines suggested; an opened bottle is left as it is.
+ */
+async function onPreselectedLines(suggestions: ConsumptionSuggestion[]): Promise<ConsumptionSuggestion[]> {
+  const families = [...new Set(suggestions.filter((s) => !s.isOpened).map((s) => s.productId))];
+  if (families.length === 0) return suggestions;
+  const rows = await prisma.inventoryItem.findMany({
+    where: { ...IN_STOCK_ITEM_FILTER, isOpened: false, productId: { in: families } },
+    select: GROUP_SELECT,
+  });
+  const byFamily = new Map<string, typeof rows>();
+  for (const row of rows) byFamily.set(row.productId, [...(byFamily.get(row.productId) ?? []), row]);
+  return suggestions.map((suggestion) => {
+    if (suggestion.isOpened) return suggestion;
+    const lines = (byFamily.get(suggestion.productId) ?? []).map((row) => ({
+      ...row,
+      purchasePrice: row.purchasePrice == null ? null : Number(row.purchasePrice),
+    }));
+    const chosen = preselectGroup(lines)?.line;
+    return chosen ? { ...suggestion, id: chosen.id, cellarId: chosen.cellarId } : suggestion;
+  });
 }
 
 /**
@@ -117,7 +166,9 @@ function toSuggestion(item: SourceItem, reason: SuggestionReason): ConsumptionSu
  * 3) rotation fillers (oldest untouched stock) if slots remain up to `limit`
  *
  * #471 (FEAT-96 c4): one line per wine (family), whatever its number of
- * bottles and groups. Wines whose `consumptionPostponedUntil` is still in the
+ * bottles and groups. FEAT-105 c3: a wine with an opened bottle (box) is
+ * suggested through it — finish it first — whatever its reason; a full one
+ * through the line "J'en ouvre une" would preselect (FEAT-104). Wines whose `consumptionPostponedUntil` is still in the
  * future are excluded from all three sources. No userId filter anywhere — the
  * shared inventory is visible to every member (design.md invariant).
  */
@@ -150,9 +201,14 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
       orderBy: [{ openedAt: { sort: 'asc', nulls: 'last' } }, { createdAt: 'asc' }, { id: 'asc' }],
     }),
   ]);
+  // The first opened bottle of each wine: the one to finish first (FEAT-105 c3).
+  const firstOpened = new Map<string, SourceItem>();
+  for (const item of openedItemsRaw) {
+    if (!firstOpened.has(item.productId)) firstOpened.set(item.productId, item);
+  }
   // One opened bottle per wine, and none of a wine already listed.
   const openedItems: SourceItem[] = [];
-  for (const item of openedItemsRaw) {
+  for (const item of firstOpened.values()) {
     if (listedFamilies.has(item.productId)) continue;
     listedFamilies.add(item.productId);
     openedItems.push(item);
@@ -171,7 +227,8 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
     const extra = alertExtraMap.get(alert.id);
     if (!extra || isPostponed(extra, now)) continue;
     weighted.push({
-      suggestion: toSuggestion(extra, 'peak_window'),
+      // At its peak and already opened: the opened bottle, to finish first.
+      suggestion: toSuggestion(firstOpened.get(extra.productId) ?? extra, 'peak_window'),
       weight: REASON_WEIGHT[alert.alertStatus] ?? REASON_WEIGHT.approaching,
       readiness: alert.readiness ?? -1,
     });
@@ -219,7 +276,7 @@ export async function getSuggestions(limit = DEFAULT_SUGGESTIONS_LIMIT): Promise
     result = result.concat(rotationItems.map((item) => toSuggestion(item, 'rotation')));
   }
 
-  return result;
+  return onPreselectedLines(result);
 }
 
 /**

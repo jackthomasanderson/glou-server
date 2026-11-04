@@ -20,7 +20,6 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { DEFAULT_CURVE_SHAPE, curveShapeDescriptionKey, curveShapeLabelKey } from '@/lib/maturity-references/curve';
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
-import { notifySuccess } from '@/lib/toast';
 import { describeStock, keepNumbersWhole, wineName } from '@/lib/products/stock';
 import { bottleLabel, familyLines, hasOwnLevel, type LineContext } from '@/lib/products/lines';
 import type { InventoryCategory } from '@/lib/inventory/types';
@@ -32,6 +31,8 @@ import { FamilyStockLines } from './FamilyStockLines';
 import { FamilyHistory } from './FamilyHistory';
 import { StockLineMenu } from './StockLineMenu';
 import { StockMoveActions } from './StockMoveActions';
+import { usePutBackOpened } from './PutBackOpened';
+import { ReviewLineActions } from './ReviewLineActions';
 import { unitNoun } from '@/lib/products/stockActions';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
@@ -130,6 +131,11 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const togglePause = useToggleAlertPause();
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  // "Finir l'entamée" (FEAT-105 c2): the opened bottle led to.
+  const [focusLine, setFocusLine] = useState<{ id: string; nonce: number } | null>(null);
+  const finishOpened = useCallback((item: ProductItem) => {
+    setFocusLine((previous) => ({ id: item.id, nonce: (previous?.nonce ?? 0) + 1 }));
+  }, []);
 
   const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
   const kind = unitKind(product?.category ?? 'wine');
@@ -142,6 +148,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
   }), [kind, t, cellarName, lang]);
   const lines = useMemo(() => familyLines(product?.items ?? [], cellarName), [product?.items, cellarName]);
+  const { putBack: putBackOpened, dialog: putBackDialog } = usePutBackOpened(ctx);
 
   // One opened bottle: its own level, no copy detached. Put back full, it
   // rejoins its group (K): the answer is then that group.
@@ -152,13 +159,17 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
       ?.items.find((unit) => unit.id === item.id) ?? item;
     // Never a level on a line of more than one bottle: it would open one more.
     if (!hasOwnLevel(current)) throw new Error('NOT_ONE_BOTTLE');
-    const saved = await updateItem.mutateAsync({
+    // "Pleine": put back with the others, asking about a tasting noted on it (§10.4.6).
+    if (level >= 100) {
+      if (!(await putBackOpened(current))) throw new Error('NOT_PUT_BACK');
+      return;
+    }
+    await updateItem.mutateAsync({
       id: item.id,
-      patch: level >= 100 ? { fillLevel: 100, isOpened: false } : { fillLevel: level },
+      patch: { fillLevel: level },
       expectedUpdatedAt: current.updatedAt as string,
     });
-    if (saved.id !== item.id) notifySuccess('familyDrawer.lines.reattached');
-  }, [updateItem, queryClient]);
+  }, [updateItem, queryClient, putBackOpened]);
 
   const isOpen = productId !== null;
   // A copy in stock, for the alert pause (it acts on the wine, through any of its bottles).
@@ -208,7 +219,11 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           lines={lines}
           ctx={ctx}
           onLevelCommit={handleLevel}
-          lineActions={(item) => (lineActions ? lineActions(item, p) : <StockLineMenu item={item} ctx={ctx} />)}
+          lineActions={(item) => (lineActions
+            ? lineActions(item, p)
+            : <StockLineMenu item={item} ctx={ctx} product={p} onFinishOpened={finishOpened} />)}
+          reviewActions={(item) => <ReviewLineActions item={item} ctx={ctx} />}
+          focus={focusLine}
         />
 
         {/* 4. The wine's description, shared by all its bottles */}
@@ -429,7 +444,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
             {product && (
               <div className="px-5 py-3 border-t border-divider flex flex-wrap gap-2 shrink-0">
-                <StockMoveActions product={product} ctx={ctx} viewedCellarIds={viewedCellarIds} />
+                <StockMoveActions product={product} ctx={ctx} viewedCellarIds={viewedCellarIds} onFinishOpened={finishOpened} />
                 {primaryAction?.(product)}
                 <Button
                   variant="bordered"
@@ -451,6 +466,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           </>
         </DrawerContent>
       </Drawer>
+
+      {putBackDialog}
 
       {/* FEAT-107: on this wine — one of its bottles, or tasted elsewhere (a wine without any bottle). */}
       <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialProductId={product?.id} initialItemId={tastingPreset?.id} />

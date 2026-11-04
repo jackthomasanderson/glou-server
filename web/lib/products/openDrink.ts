@@ -31,3 +31,19 @@ export function undoPatch(written: Pick<ProductItem, 'cigarsPerBox'>, kind: Unit
   if (written.cigarsPerBox != null) return { isOpened: false, fillLevel: null, cigarsLeft: written.cigarsPerBox };
   return { isOpened: false, fillLevel: null };
 }
+
+/**
+ * "Annuler" a move made on an opened copy (an opened bottle finished, a
+ * cigar smoked out of an opened box): its state as it was before — still
+ * opened, at its level, with its cigars. Nothing to reattach.
+ */
+export function restorePatch(before: Pick<ProductItem, 'isOpened' | 'fillLevel' | 'cigarsLeft'>): InventoryItemPatch {
+  return { isOpened: before.isOpened, fillLevel: before.fillLevel, cigarsLeft: before.cigarsLeft };
+}
+
+/**
+ * "Annuler l'ouverture" (§10.4.6): the opened bottle put back closed and
+ * full, which the API puts back into its line of origin (FEAT-106). Bottles
+ * only: a box with cigars smoked out of it cannot be closed again.
+ */
+export const putBackPatch = (): InventoryItemPatch => ({ isOpened: false, fillLevel: 100 });
