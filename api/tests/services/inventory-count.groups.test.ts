@@ -457,3 +457,13 @@ describe('completeSession — a closure applies once', () => {
     expect(calls).toEqual(['take', 'lock:p-g1', 'finish:g1x3']);
   });
 });
+
+// W4: the report words a cigar group in boxes or in cigars, so each line carries the box size.
+describe('countLine — cigar groups', () => {
+  it('keeps cigarsPerBox: a group of boxes (25) differs from single cigars (null)', () => {
+    const boxes = countLine(group('b', 3, { category: 'cigar', cigarsPerBox: 25 }) as never, { foundQuantity: 5 });
+    const singles = countLine(group('s', 3, { category: 'cigar' }) as never, { foundQuantity: 5 });
+    expect(boxes).toMatchObject({ cigarsPerBox: 25, surplusQuantity: 2 });
+    expect(singles.cigarsPerBox).toBeNull();
+  });
+});

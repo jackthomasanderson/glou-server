@@ -79,6 +79,21 @@ const ZONE_BG: Record<ZoneType, string> = {
   temperate: 'transparent',
 };
 
+/** "×4" on a slot that holds a group of several bottles (#471, FEAT-96); nothing for one. */
+function CopiesBadge({ item }: { item: GridItem }) {
+  const { t } = useTranslation();
+  const copies = item.quantity ?? 1;
+  if (copies <= 1) return null;
+  return (
+    <span
+      data-testid="slot-copies"
+      className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-foreground text-background text-[10px] font-bold leading-4 text-center pointer-events-none"
+    >
+      {t('cellars.grid.copies', { number: copies })}
+    </span>
+  );
+}
+
 // ─── Bottle visual (shared between cell and DragOverlay) ──────────────────────
 
 interface BottleVisualProps {
@@ -91,9 +106,10 @@ function BottleVisual({ item }: BottleVisualProps) {
 
   return (
     <div
-      className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center"
+      className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center"
       style={{ backgroundColor: getCellColor(item) }}
     >
+      <CopiesBadge item={item} />
       <span
         className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
         style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
@@ -121,7 +137,9 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
     data: { item, fromCol, fromRow },
   });
 
-  const tooltipContent = [item.name, item.producer, item.vintage].filter(Boolean).join(' · ');
+  const copies = item.quantity ?? 1;
+  const tooltipContent = [item.name, item.producer, item.vintage, copies > 1 ? t('cellars.grid.copies', { number: copies }) : null]
+    .filter(Boolean).join(' · ');
 
   const outlineStyle = zone !== 'temperate'
     ? { outline: `2px solid ${zone === 'hot' ? 'rgba(255,167,38,0.7)' : 'rgba(33,150,243,0.7)'}`, outlineOffset: '-2px' }
@@ -145,7 +163,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
             onClickOccupied(item);
           }
         }}
-        className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-primary"
         style={{
           backgroundColor: getCellColor(item),
           cursor: isDragging ? 'grabbing' : 'grab',
@@ -155,6 +173,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
           ...outlineStyle,
         }}
       >
+        <CopiesBadge item={item} />
         <span
           className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
           style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}

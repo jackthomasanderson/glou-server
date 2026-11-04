@@ -1,11 +1,12 @@
 'use client';
 import { Button } from '@heroui/react';
-import { Users, Warehouse, Wine } from 'lucide-react';
+import { Leaf, Users, Warehouse, Wine } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface JoiningStepProps {
   cellarCount: number;
-  inStockCount: number;
+  bottleCount: number;
+  cigarCount: number;
   onExplore: () => void;
   onAddBottles: () => void;
   onBack: () => void;
@@ -15,7 +16,7 @@ interface JoiningStepProps {
  * Step 2/5 for a member joining an instance filled by others (FEAT-89): what
  * the household already holds, instead of "Create your first cellar".
  */
-export function JoiningStep({ cellarCount, inStockCount, onExplore, onAddBottles, onBack }: JoiningStepProps) {
+export function JoiningStep({ cellarCount, bottleCount, cigarCount, onExplore, onAddBottles, onBack }: JoiningStepProps) {
   const { t } = useTranslation();
 
   return (
@@ -31,10 +32,19 @@ export function JoiningStep({ cellarCount, inStockCount, onExplore, onAddBottles
           <Warehouse size={18} className="text-primary shrink-0" />
           <span className="text-sm text-left">{t('onboarding.joining.cellars', { count: cellarCount })}</span>
         </div>
-        <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
-          <Wine size={18} className="text-primary shrink-0" />
-          <span className="text-sm text-left">{t('onboarding.joining.items', { count: inStockCount })}</span>
-        </div>
+        {/* Bottles and cigars are counted apart (W4): never "N bottles" for a mix. */}
+        {(bottleCount > 0 || cigarCount === 0) && (
+          <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
+            <Wine size={18} className="text-primary shrink-0" />
+            <span className="text-sm text-left">{t('onboarding.joining.bottles', { count: bottleCount })}</span>
+          </div>
+        )}
+        {cigarCount > 0 && (
+          <div className="flex items-center gap-3 bg-default-50 rounded-lg px-4 py-3">
+            <Leaf size={18} className="text-primary shrink-0" />
+            <span className="text-sm text-left">{t('onboarding.joining.cigars', { count: cigarCount })}</span>
+          </div>
+        )}
       </div>
 
       <Button color="primary" variant="solid" radius="md" fullWidth className="max-w-sm" onPress={onExplore}>
