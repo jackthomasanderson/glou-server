@@ -666,6 +666,29 @@ describe('FEAT-108 — shown at once, sent once', () => {
     expect(drawer().map((u) => u.id)).toEqual(['g', 's-3', 'w-2']);
   });
 
+  it('a put-back replayed offline that joins an identical line (D8: survivor in data, the bottle in removedIds) leaves one line', async () => {
+    const qc = new QueryClient();
+    const sub = { id: 's', productId: 'p1', quantity: 1, isOpened: true, fillLevel: 60, parentItemId: null, updatedAt: 's-1' };
+    const other = { id: 'h', productId: 'p1', quantity: 3, isOpened: false, fillLevel: 100, updatedAt: 'h-1' };
+    qc.setQueryData(['inventory', 'products'], [{ id: 'p1', items: [other, sub] }]);
+    qc.setQueryData(['inventory', 'product', 'p1'], { id: 'p1', items: [other, sub], tastings: [], history: [] });
+    const m = await enqueueMutation(qc, 's', { isOpened: false, fillLevel: 100 }, 's-1', { productId: 'p1' });
+    // A later change of that bottle: it no longer exists once joined.
+    const later = await enqueueMutation(qc, 's', { purchasePrice: 12 }, 's-1', { productId: 'p1' });
+    const joined = { ...other, quantity: 4, updatedAt: 'h-2' };
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => (url.endsWith('/s') && !store.has(m.id)
+      ? errResponse(404, { error: 'ITEM_NOT_FOUND' })
+      : ({ ok: true, status: 200, json: async () => ({ data: joined, changed: [], removedIds: ['s'] }) } as Response))));
+
+    await flushQueue(qc);
+
+    const drawer = (qc.getQueryData(['inventory', 'product', 'p1']) as { items: Array<Record<string, unknown>> }).items;
+    const card = (qc.getQueryData(['inventory', 'products']) as Array<{ items: Array<Record<string, unknown>> }>)[0].items;
+    for (const shown of [drawer, card]) expect(shown.map((u) => [u.id, u.quantity])).toEqual([['h', 4]]);
+    // Not carried to the absorbed bottle's version: the later change is refused, said in words.
+    expect(store.get(later.id)).toMatchObject({ status: 'failed', errorCode: 'ITEM_NOT_FOUND', expectedUpdatedAt: 's-1' });
+  });
+
   it('a refusal said by its code (a tasting on the bottle) is kept for the panel', async () => {
     queue({ id: 'p1', itemId: 's', createdAt: 't1', patch: { isOpened: false, fillLevel: 100 } });
     vi.stubGlobal('fetch', vi.fn(async () => errResponse(409, { error: 'TASTINGS_ON_ITEM' })));
