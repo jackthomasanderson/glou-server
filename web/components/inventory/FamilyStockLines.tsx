@@ -173,6 +173,8 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
     if (!line) return;
     focused.current = focus.nonce;
     line.scrollIntoView?.({ block: 'center' });
+    // The ring marks the line « Finir l'entamée » led to, until it loses focus; a plain click does not draw it.
+    line.dataset.ringed = 'true';
     line.focus();
   }, [focus, showAll]);
   const visible = showAll ? lines.inCellar : lines.inCellar.slice(0, VISIBLE_LINES);
@@ -198,9 +200,10 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
                   key={item.id}
                   ref={(node) => { if (node) lineRefs.current.set(item.id, node); else lineRefs.current.delete(item.id); }}
                   tabIndex={-1}
+                  onBlur={(event) => { delete event.currentTarget.dataset.ringed; }}
                   data-testid="family-line"
                   data-line-id={item.id}
-                  className={`px-3 py-2 rounded-xl border outline-none focus-visible:ring-2 focus:ring-2 ring-primary ${opened ? 'border-warning-300 bg-warning-50/40' : 'border-divider'}`}
+                  className={`px-3 py-2 rounded-xl border outline-none data-[ringed=true]:ring-2 ring-primary ${opened ? 'border-warning-300 bg-warning-50/40' : 'border-divider'}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium leading-snug">

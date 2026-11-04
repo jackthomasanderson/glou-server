@@ -5,6 +5,7 @@ import { ArrowRightLeft, GlassWater, List, Pencil, Trash2, X } from 'lucide-reac
 import { InventoryItem } from '@/lib/inventory/types';
 import type { BulkWinesActionName } from './BulkWinesDialog';
 import dynamic from 'next/dynamic';
+import { useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 
 const BulkActionDialog = dynamic(() => import('./BulkActionDialog').then((m) => m.BulkActionDialog), { ssr: false, loading: () => null });
 
@@ -92,6 +93,8 @@ export function InventoryBulkBar({
   cigars = false,
 }: InventoryBulkBarProps) {
   const context = cigars ? 'cigar' : undefined;
+  // FEAT-108 (§10.8): the bulk actions are written at once, never queued: offline they are listed but disabled, with the reason.
+  const offline = useOfflineBlocked();
   return (
     <>
       {/* Bulk floating bar */}
@@ -107,6 +110,7 @@ export function InventoryBulkBar({
             </DropdownTrigger>
             <DropdownMenu
               aria-label={t('bulk.title')}
+              disabledKeys={offline ? WINES_ACTIONS.map(({ key }) => key) : []}
               onAction={(key) => (key === 'edit' ? onOpenDialog() : onWinesAction(key as BulkWinesActionName))}
             >
               {WINES_ACTIONS.map(({ key, icon }) => (
@@ -115,6 +119,7 @@ export function InventoryBulkBar({
                   startContent={icon}
                   color={key === 'trash' ? 'danger' : 'default'}
                   className={key === 'trash' ? 'text-danger' : undefined}
+                  description={offline ? t('offline.blocked') : undefined}
                 >
                   {t(`bulkWines.${key}.action`, { context })}
                 </DropdownItem>

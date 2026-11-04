@@ -17,6 +17,9 @@ vi.mock('react-i18next', () => ({
 }));
 const toast = vi.hoisted(() => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
 vi.mock('@/lib/toast', () => toast);
+// Connectivity is probed by a GET of its own: kept out of the stubbed API.
+const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
+vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('@/hooks/useCellars', () => ({
   useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }, { id: 'kitchen', name: 'Cuisine' }] }),
 }));
@@ -46,6 +49,7 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
 let queryClient: QueryClient;
 beforeEach(() => {
   requests = [];
+  connectivity.online = true;
   answer = { status: 200, body: { data: { wines: 3, units: 14 } } };
   vi.stubGlobal('fetch', fetchMock);
   toast.notifySuccess.mockClear();
@@ -74,6 +78,16 @@ function open(action: BulkWinesActionName, selected: string[], onDone = vi.fn())
 const confirmButton = (name: string) => screen.getByRole('button', { name });
 
 describe('BulkWinesDialog (FEAT-111)', () => {
+  it('offline (FEAT-108, ux-ui.md §10.8): the action is unavailable, says why, and nothing is sent', async () => {
+    connectivity.online = false;
+    open('trash', ['a', 'b', 'c']);
+    expect(screen.getByText('Disponible au retour de la connexion')).toBeInTheDocument();
+    fireEvent.click(confirmButton('Mettre à la corbeille'));
+    fireEvent.submit(screen.getByRole('dialog').querySelector('form')!);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(requests).toEqual([]);
+  });
+
   it('c1: "Déplacer" says "3 vins, 14 bouteilles" before validation, then moves them all to the kitchen', async () => {
     const onDone = open('move', ['a', 'b', 'c']);
     expect(screen.getByTestId('bulk-wines-summary')).toHaveTextContent('3 vins, 14 bouteilles');

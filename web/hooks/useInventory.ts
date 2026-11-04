@@ -140,6 +140,25 @@ export function useInventoryItemLookup() {
   );
 }
 
+/**
+ * FEAT-112: a message about a unit says « bouteille » or, for a cigar,
+ * « cigare ». Returned as the i18next options, or none for a bottle, so a
+ * call without options stays the plain one.
+ */
+function unitCtx(category: string | undefined): [Record<string, unknown>] | [] {
+  return category === 'cigar' ? [{ context: 'cigar' }] : [];
+}
+
+/** The category of a unit the caches know (the flat list, its own entry, or a wine's card). */
+function cachedCategory(queryClient: ReturnType<typeof useQueryClient>, id: string): string | undefined {
+  return (
+    queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((item) => item.id === id) ??
+    queryClient.getQueryData<InventoryItem>(['inventory', id]) ??
+    queryClient.getQueryData<InventoryItem[]>(TRASH_KEY)?.find((item) => item.id === id) ??
+    unitOfWines(queryClient, id)
+  )?.category;
+}
+
 /** A bottle as a wine's card or drawer knows it, when the flat list does not hold it. */
 function unitOfWines(queryClient: ReturnType<typeof useQueryClient>, id: string): InventoryItem | undefined {
   for (const product of queryClient.getQueryData<Product[]>(PRODUCTS_KEY) ?? []) {
@@ -163,12 +182,12 @@ export function useCreateInventoryItem() {
       queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
         old ? [...old, newItem] : [newItem]
       );
-      notifySuccess('toast.createSuccess');
+      notifySuccess('toast.createSuccess', ...unitCtx(newItem.category));
     },
-    onError: (error) => {
+    onError: (error, variables) => {
       // #683: say when the server refused a value, so the user can tell a
       // form problem from a connection problem.
-      notifyError(error.message === 'VALIDATION_ERROR' ? 'toast.createRejected' : 'toast.createError');
+      notifyError(error.message === 'VALIDATION_ERROR' ? 'toast.createRejected' : 'toast.createError', ...unitCtx(variables.category));
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
@@ -281,7 +300,7 @@ export function useUpdateInventoryItem() {
           detailWithUnitWrite(old, updatedItem));
       }
     },
-    onError: (error, { quiet }) => {
+    onError: (error, { quiet, id }) => {
       if (quiet?.includes(error.message)) return;
       // #471 (K): putting a bottle back full refuses to lose its tastings
       // unasked (409), or another field written with it (400); a box
@@ -291,12 +310,12 @@ export function useUpdateInventoryItem() {
         return;
       }
       if (error.message !== 'CONFLICT') {
-        notifyError('toast.updateError');
+        notifyError('toast.updateError', ...unitCtx(cachedCategory(queryClient, id)));
         return;
       }
       // #572: changed meanwhile. Nothing was written; fetch the current
       // version so the bottle opens with it next time.
-      notifyError('toast.updateConflict');
+      notifyError('toast.updateConflict', ...unitCtx(cachedCategory(queryClient, id)));
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
     },
     onSettled: () => {
@@ -354,7 +373,7 @@ export function useDeleteInventoryItem() {
       queryClient.setQueriesData<ProductDetailView>({ queryKey: productDetailKey(null).slice(0, 2) }, (old) =>
         old?.items.some((unit) => unit.id === id) ? { ...old, items: old.items.filter((unit) => unit.id !== id) } : old);
     },
-    onError: () => notifyError('toast.deleteError'),
+    onError: (_error, id) => notifyError('toast.deleteError', ...unitCtx(cachedCategory(queryClient, id))),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
       void queryClient.invalidateQueries({ queryKey: productDetailKey(null).slice(0, 2) });
@@ -372,8 +391,8 @@ export function useRestoreInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, string>({
     mutationFn: inventoryClient.restore,
-    onSuccess: () => notifySuccess('toast.restoreSuccess'),
-    onError: () => notifyError('toast.restoreError'),
+    onSuccess: (restored) => notifySuccess('toast.restoreSuccess', ...unitCtx(restored.category)),
+    onError: (_error, id) => notifyError('toast.restoreError', ...unitCtx(cachedCategory(queryClient, id))),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
       void queryClient.invalidateQueries({ queryKey: TRASH_KEY });

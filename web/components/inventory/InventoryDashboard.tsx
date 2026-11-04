@@ -423,6 +423,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     }),
     [t, selectedCellars, i18n.language],
   );
+  // A cigars-only page speaks of cigars and the humidor, not of bottles.
+  const emptyCtx = lockedCategories?.length === 1 && lockedCategories[0] === 'cigar' ? { context: 'cigar' } : undefined;
   const categoryLabel = (cat: string) => t(`categories.${cat}`);
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
 
@@ -654,8 +656,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               {products && baseItems.length === 0 && !hasActiveFilters ? (
                 <EmptyState
                   bordered
-                  title={t('inventory.noBottles')}
-                  description={t('inventory.noBottlesDesc')}
+                  title={t('inventory.noBottles', emptyCtx)}
+                  description={t('inventory.noBottlesDesc', emptyCtx)}
                   action={
                     <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
                       {t('inventory.add')}

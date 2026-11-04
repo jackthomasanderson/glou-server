@@ -139,6 +139,18 @@ async function knownWine(queryClient: ReturnType<typeof useQueryClient>, id: str
   return product ? ({ ...product, tastings: [], history: [] } as unknown as ProductDetailView) : undefined;
 }
 
+/**
+ * FEAT-112: a wine's messages name what it is (« ce vin », « ce spiritueux »,
+ * « ce cigare »), read from the cached list; the wine wording by default.
+ */
+function productCtx(queryClient: ReturnType<typeof useQueryClient>, id: string, known?: string): { context: string } | undefined {
+  // A wine in the trash has left the list: its category is read from the trash too.
+  const category = known
+    ?? queryClient.getQueryData<Product[]>(PRODUCTS_KEY)?.find((product) => product.id === id)?.category
+    ?? queryClient.getQueryData<TrashedProduct[]>(['inventory', 'products-trash'])?.find((product) => product.id === id)?.category;
+  return category === 'cigar' || category === 'spirit' ? { context: category } : undefined;
+}
+
 /** Wines in the trash (D10), refreshed with every bottle change (`inventory` prefix). */
 export function useProductsTrash() {
   return useQuery<TrashedProduct[]>({
@@ -156,7 +168,7 @@ export function useTrashProduct() {
     onSuccess: (_result, id) => {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => old?.filter((product) => product.id !== id));
     },
-    onError: () => notifyError('toast.deleteError'),
+    onError: (_error, id) => notifyError('toast.product.deleteError', productCtx(queryClient, id)),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });
@@ -169,8 +181,8 @@ export function useRestoreProduct() {
   const queryClient = useQueryClient();
   return useMutation<Product, Error, string>({
     mutationFn: productsClient.restore,
-    onSuccess: () => notifySuccess('toast.restoreSuccess'),
-    onError: () => notifyError('toast.restoreError'),
+    onSuccess: (product) => notifySuccess('toast.product.restoreSuccess', productCtx(queryClient, product.id, product.category)),
+    onError: (_error, id) => notifyError('toast.product.restoreError', productCtx(queryClient, id)),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });
       void queryClient.invalidateQueries({ queryKey: ['cellars'] });

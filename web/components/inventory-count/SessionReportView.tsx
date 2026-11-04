@@ -162,7 +162,7 @@ export function SessionReportView({ session }: SessionReportViewProps) {
                   >
                     {missingChoices(line).map((choice) => (
                       <Radio key={choice} value={choice}>
-                        {t(`inventoryCount.report.choice.${choice}`, { count: line.missingQuantity })}
+                        {t(`inventoryCount.report.choice.${choice}`, { count: line.missingQuantity, ...unitContext(line) })}
                       </Radio>
                     ))}
                   </RadioGroup>

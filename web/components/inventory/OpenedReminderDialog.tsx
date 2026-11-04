@@ -54,6 +54,8 @@ export function OpenedReminderDialog({
 
   const sentence = (() => {
     if (move === 'smoke') {
+      // Several opened boxes and no closed one: the question has no "or open a new one" half.
+      if (several && !hasFull) return t('openedReminder.smoke.which');
       return several
         ? t('openedReminder.smoke.several', { count: opened.length })
         : t('openedReminder.smoke.one', { count: first?.cigarsLeft ?? 0 });

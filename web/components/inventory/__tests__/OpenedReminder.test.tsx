@@ -305,6 +305,14 @@ describe('cigars: "J\'en fume un" with an opened box (FEAT-105 c4)', () => {
     expect(cachedDetail().items.find((item) => item.id === 'closed')?.quantity).toBe(2);
   });
 
+  it('two opened boxes and no closed one: asked "Dans laquelle ?", with no "ou en ouvrir une nouvelle" and no such button', () => {
+    drawFooter(detailOf([box(), { ...box(), id: 'box2' }], cigar));
+    fireEvent.click(screen.getByTestId('stock-move-smoke'));
+    expect(reminder()).toHaveTextContent('Dans laquelle ?');
+    expect(reminder()).not.toHaveTextContent('en ouvrir une nouvelle');
+    expect(within(reminder()).queryByTestId('opened-reminder-new')).toBeNull();
+  });
+
   it('"En ouvrir une nouvelle" opens a closed box', async () => {
     const boxes = closed();
     answer = () => detachAnswer(boxes, { isOpened: true, cigarsLeft: 24 });
