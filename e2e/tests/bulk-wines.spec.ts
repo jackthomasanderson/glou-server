@@ -21,8 +21,13 @@ async function okData<T>(res: APIResponse): Promise<T> {
   return (await res.json()).data as T;
 }
 
+/** The cellars this spec created, deleted after each test (an empty one would be the newest for the next specs). */
+const cellars: string[] = [];
+
 async function createCellar(api: APIRequestContext, label: string): Promise<string> {
-  return (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E #471 P ${label} ${stamp()}` } }))).id;
+  const { id } = await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E #471 P ${label} ${stamp()}` } }));
+  cellars.push(id);
+  return id;
 }
 
 /** A wine of `quantity` bottles in `cellarId`, bought today at 20 €. */
@@ -63,6 +68,7 @@ test.describe('bulk actions on wines (FEAT-111)', () => {
   const families: string[] = [];
   test.afterEach(async ({ page }) => {
     for (const productId of families.splice(0)) await page.request.delete(`/api/products/${productId}`).catch(() => {});
+    for (const cellarId of cellars.splice(0)) await page.request.delete(`/api/cellars/${cellarId}`).catch(() => {});
   });
 
   test('c1, c4: "Déplacer" from the selection says "3 vins, 14 bouteilles", then the 14 are in the kitchen; the drunk one stays', async ({ page }, testInfo) => {
