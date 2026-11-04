@@ -137,9 +137,14 @@ describe('InventoryForm — adding cigars', () => {
 
   it('sends 3 closed boxes of 25 at 200 € a box (FEAT-95 c1), and says it makes 75 cigars', () => {
     const { dialog, onSubmit, sent } = draw({ defaultCategory: 'cigar' });
+    // Recette #471: the line of the total holds its place before it is known,
+    // so the form does not jump when it appears.
+    const totalLine = () => document.getElementById(within(dialog).getByLabelText('Nombre de boîtes').getAttribute('aria-describedby')?.split(' ')[0] ?? '');
+    expect(totalLine()).not.toBeNull();
     type(dialog, 'Nombre de boîtes', '3');
     type(dialog, 'Cigares par boîte', '25');
     expect(within(dialog).getByText('soit 75 cigares')).toBeInTheDocument();
+    expect(totalLine()).toHaveTextContent('soit 75 cigares');
     type(dialog, "Prix d'une boîte", '200');
     submit(dialog);
     expect(onSubmit).toHaveBeenCalledTimes(1);

@@ -51,7 +51,8 @@ export function CigarGroupFields({ draft, onChange, submitted, t, autoFocus }: C
         isInvalid={submitted && errors.quantity}
         errorMessage={t(boxes ? 'cigarGroup.invalidBoxCount' : 'cigarGroup.invalidCigarCount', { max: MAX_COPIES })}
         // The total in cigars, what the counters show (FEAT-95: 3 boxes of 25 = 75).
-        description={boxes && cigars != null ? t('cigarGroup.total', { count: cigars }) : undefined}
+        // Its line is kept, empty, until it is known: the form does not jump (recette #471).
+        description={boxes ? (cigars != null ? t('cigarGroup.total', { count: cigars }) : '\u00a0') : undefined}
         value={draft.quantity ?? undefined}
         onValueChange={(quantity) => onChange({ ...draft, quantity })}
         min={1} max={MAX_COPIES}
