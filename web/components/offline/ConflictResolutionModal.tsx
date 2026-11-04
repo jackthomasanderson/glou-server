@@ -9,7 +9,7 @@ import { useCellars } from '@/hooks/useCellars';
 import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
 import { conflictingFields } from '@/lib/offline/conflictFields';
 import { actionOf } from '@/lib/offline/optimistic';
-import { changeLabel } from '@/lib/offline/describe';
+import { changeLabel, mayAlreadyBeRecorded } from '@/lib/offline/describe';
 
 // ─── FEAT-16/23 — offline sync conflict resolution ─────────────────────────
 // Surfaces whenever a queued offline mutation comes back from the server
@@ -49,9 +49,7 @@ export function ConflictResolutionModal() {
   // Review of #823 (N1): the line moved exactly as the action would have
   // moved it — the connection may have dropped while it was being sent, so
   // it may already be recorded. Keeping the server's version comes first.
-  const maybeRecorded = action !== 'edit' && typeof numberNow === 'number' && (action === 'correct'
-    ? numberNow === Number(current.patch.quantity)
-    : typeof numberThen === 'number' && numberNow === numberThen - 1);
+  const maybeRecorded = mayAlreadyBeRecorded(current, serverItem);
   const valueContext = {
     lang: i18n.language,
     cellarName: (id: string) => cellars?.find((c) => c.id === id)?.name,

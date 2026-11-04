@@ -47,7 +47,7 @@ import { QueryClient } from '@tanstack/react-query';
 import {
   flushQueue, cancelSyncRetry, deferConflict, undeferConflict, getDeferredConflictIds,
   overlayQueuedChanges, MAX_TEMPORARY_FAILURES, enqueueMutation, discardQueuedMutation,
-  resolveConflictKeepLocal, SYNC_LOCK_NAME,
+  resolveConflictKeepLocal, SYNC_LOCK_NAME, removeQueuedMutation,
 } from './syncEngine';
 import { provisionalIdOf } from './optimistic';
 import type { InventoryItem } from '@/lib/inventory/types';
@@ -783,6 +783,17 @@ describe('FEAT-108 — "Annuler" before the network is back', () => {
     expect(dropped).toBe(false);
     expect(server.group().quantity).toBe(5);
     expect(store.size).toBe(0);
+  });
+
+  it('review of #823: « Supprimer » in the panel on a change being sent leaves it — it is sent and recorded', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
+    store.set(m.id, { ...store.get(m.id)!, status: 'syncing' });
+
+    expect(await removeQueuedMutation(m.id, qc)).toBe(false);
+    expect(store.get(m.id)?.status).toBe('syncing');
+    expect(await removeQueuedMutation(m.id)).toBe(false);
+    expect(store.has(m.id)).toBe(true);
   });
 
   it('a change dropped while the replay runs is never sent', async () => {

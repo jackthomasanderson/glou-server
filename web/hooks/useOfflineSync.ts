@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useConnectivity } from './useConnectivity';
 import type { QueuedMutation } from '@/lib/offline/db';
+import { notifyError } from '@/lib/toast';
 import {
   getQueuedMutations,
   subscribeToSyncQueueChanges,
@@ -114,7 +115,10 @@ export function useOfflineSync() {
     undeferConflict,
     isSyncing: syncingCount > 0,
     hasPendingWork: pendingCount + syncingCount + failedCount + conflictMutations.length > 0,
-    removeMutation: (id: string) => removeQueuedMutation(id, queryClient),
+    // Review of #823: a change already being sent cannot be dropped — said, not hidden.
+    removeMutation: async (id: string) => {
+      if (!(await removeQueuedMutation(id, queryClient))) notifyError('offline.undoTooLate');
+    },
     retryMutation: (id: string) => retryFailedMutation(id, queryClient),
     retrySync: () => flushQueue(queryClient),
     resolveKeepLocal: (id: string) => resolveConflictKeepLocal(id, queryClient),

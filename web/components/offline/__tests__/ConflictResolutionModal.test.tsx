@@ -35,6 +35,7 @@ vi.mock('@/lib/offline/db', () => ({
   rewriteCachedItems: vi.fn(async () => {}),
 }));
 vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => true }));
+vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn(), notifyUndoable: vi.fn() }));
 vi.mock('@/hooks/useCellars', () => ({
   useCellars: () => ({ data: [{ id: 'c-up', name: 'Cave du haut' }, { id: 'c-down', name: 'Cave du bas' }] }),
 }));
@@ -194,6 +195,18 @@ describe('ConflictResolutionModal — a drink that may already be recorded (revi
     expect(within(dialog).getByTestId('conflict-maybe-recorded')).toHaveTextContent(fr.offline.conflict.maybeRecorded);
     expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepServer })).toHaveAttribute('data-primary', 'true');
     expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepLocal })).toHaveAttribute('data-primary', 'false');
+  });
+
+  it('« J\'en fume un » in an opened box (×1, 10 → 9): the hint too, « Garder la version serveur » first', async () => {
+    store.set('A', {
+      ...conflict('A', 't1', { smokeOne: true }),
+      before: { quantity: 1, isOpened: true, fillLevel: null, cigarsLeft: 10 },
+      conflictServerItem: { ...serverItem, quantity: 1, isOpened: true, fillLevel: null, cigarsLeft: 9, cigarsPerBox: 25 } as unknown as QueuedMutation['conflictServerItem'],
+    });
+    page();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByTestId('conflict-maybe-recorded')).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepServer })).toHaveAttribute('data-primary', 'true');
   });
 
   it('×6 then, ×4 now (changed elsewhere): no such hint, « Garder ma version » stays first', async () => {

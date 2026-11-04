@@ -301,16 +301,19 @@ export async function discardQueuedMutation(id: string, queryClient: QueryClient
 
 /** Lets the user discard an action that hasn't synced yet (explicit
  * acceptance criterion of FEAT-16/23); the list is then read again so the
- * server's state comes back. */
-export async function removeQueuedMutation(id: string, queryClient?: QueryClient): Promise<void> {
+ * server's state comes back. False when it is being sent (review of #823):
+ * it is then recorded — never hidden from the panel while it goes through. */
+export async function removeQueuedMutation(id: string, queryClient?: QueryClient): Promise<boolean> {
+  let dropped: boolean;
   if (queryClient) {
     // FEAT-108: its effect is taken back on screen at once, even offline.
-    if (!(await discardQueuedMutation(id, queryClient))) await deleteQueuedMutation(id);
-    void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
+    dropped = await discardQueuedMutation(id, queryClient);
+    if (dropped) void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
   } else {
-    await deleteQueuedMutation(id);
+    dropped = (await takeQueuedMutationUnlessSyncing(id)) !== undefined;
   }
   notifyListeners();
+  return dropped;
 }
 
 /** Puts a `failed` mutation back in the queue so the next flush retries it
