@@ -18,6 +18,13 @@ interface FamilyStockLinesProps {
   onLevelCommit?: (item: ProductItem, level: number) => Promise<unknown>;
   /** The menu of a line (W3: "J'en ouvre une", "Déplacer", "Corriger le nombre"…). */
   lineActions?: (item: ProductItem) => React.ReactNode;
+  /** Under a line marked "à vérifier": "C'est bon" / "Corriger le nombre" (§10.3, §10.7). */
+  reviewActions?: (item: ProductItem) => React.ReactNode;
+  /**
+   * A line to lead to ("Finir l'entamée", FEAT-105 c2): shown even behind
+   * "Voir les N autres", scrolled to and focused. A new `nonce` leads to it again.
+   */
+  focus?: { id: string; nonce: number } | null;
 }
 
 const join = (parts: string[]) => parts.join(' · ');
@@ -128,10 +135,26 @@ function OpenedLevel({ item, t, onCommit }: {
  * then the opened bottles, the first five then "Voir les N autres"; below,
  * "Déjà bues ou parties", folded.
  */
-export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions }: FamilyStockLinesProps) {
+export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, reviewActions, focus }: FamilyStockLinesProps) {
   const { t, kind } = ctx;
   const [showAll, setShowAll] = useState(false);
   const [showGone, setShowGone] = useState(false);
+  const lineRefs = useRef(new Map<string, HTMLLIElement>());
+  // A line led to behind "Voir les N autres" is shown first (adjusted during render).
+  const [prevFocus, setPrevFocus] = useState(focus);
+  if (focus !== prevFocus) {
+    setPrevFocus(focus);
+    if (focus && lines.inCellar.findIndex((item) => item.id === focus.id) >= VISIBLE_LINES) setShowAll(true);
+  }
+  const focused = useRef<number | null>(null);
+  useEffect(() => {
+    if (!focus || focused.current === focus.nonce) return;
+    const line = lineRefs.current.get(focus.id);
+    if (!line) return;
+    focused.current = focus.nonce;
+    line.scrollIntoView?.({ block: 'center' });
+    line.focus();
+  }, [focus, showAll]);
   const visible = showAll ? lines.inCellar : lines.inCellar.slice(0, VISIBLE_LINES);
   const hidden = lines.inCellar.length - VISIBLE_LINES;
 
@@ -152,8 +175,11 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions }: Fam
               return (
                 <li
                   key={item.id}
+                  ref={(node) => { if (node) lineRefs.current.set(item.id, node); else lineRefs.current.delete(item.id); }}
+                  tabIndex={-1}
                   data-testid="family-line"
-                  className={`px-3 py-2 rounded-xl border ${opened ? 'border-warning-300 bg-warning-50/40' : 'border-divider'}`}
+                  data-line-id={item.id}
+                  className={`px-3 py-2 rounded-xl border outline-none focus-visible:ring-2 focus:ring-2 ring-primary ${opened ? 'border-warning-300 bg-warning-50/40' : 'border-divider'}`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium leading-snug">
@@ -167,7 +193,10 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions }: Fam
                     {lineActions?.(item)}
                   </div>
                   {item.needsReview && (
-                    <Chip size="sm" variant="flat" color="primary" className="mt-1">{t('familyDrawer.lines.needsReview')}</Chip>
+                    <>
+                      <Chip size="sm" variant="flat" color="primary" className="mt-1">{t('familyDrawer.lines.needsReview')}</Chip>
+                      {reviewActions?.(item)}
+                    </>
                   )}
                   {hasOwnLevel(item) && kind === 'bottle' && onLevelCommit && (
                     <OpenedLevel item={item} t={t} onCommit={(level) => onLevelCommit(item, level)} />

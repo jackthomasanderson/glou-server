@@ -1127,7 +1127,10 @@
       "emptyHint": "Vos actifs à apogée ou entamés apparaîtront ici.",
       "loadError": "Impossible de charger les suggestions.",
       "consume": "Consommer",
-      "postpone": "Reporter"
+      "postpone": "Reporter",
+      "finishOpened": "Finir l'entamée ({{level}} %)",
+      "finishOpenedBox_one": "Finir la boîte entamée ({{count}} restant)",
+      "finishOpenedBox_other": "Finir la boîte entamée ({{count}} restants)"
     },
     "reasons": {
       "peak_window": "Apogée",
@@ -2401,6 +2404,11 @@
       "error": "Impossible d'enregistrer ce vin.",
       "thisWine": "ce vin",
       "thisSpirit": "ce spiritueux"
+    },
+    "review": {
+      "ok": "C'est bon",
+      "confirmed": "Nombre confirmé",
+      "failed": "Impossible d'enregistrer. Rechargez puis réessayez."
     }
   },
   "cigarGroup": {
@@ -2472,6 +2480,49 @@
       "open": "1 bouteille ouverte",
       "drink": "1 bouteille bue",
       "smoke": "1 cigare fumé"
+    }
+  },
+  "openedReminder": {
+    "actions": {
+      "finish": "Je la finis",
+      "putBack": "Annuler l'ouverture"
+    },
+    "opened": {
+      "one": "Une bouteille est déjà entamée ({{level}} %).",
+      "oneNoLevel": "Une bouteille est déjà entamée.",
+      "several_one": "{{count}} bouteille est déjà entamée.",
+      "several_other": "{{count}} bouteilles sont déjà entamées."
+    },
+    "open": {
+      "finish": "Finir l'entamée",
+      "new": "En ouvrir une nouvelle"
+    },
+    "drink": {
+      "question": "C'est elle que vous avez finie ?",
+      "questionSeveral": "Avez-vous fini l'une d'elles ?",
+      "which": "Laquelle avez-vous finie ?",
+      "yes": "Oui",
+      "no": "Non",
+      "finish": "Je la finis"
+    },
+    "smoke": {
+      "one_one": "Dans la boîte entamée ({{count}} restant) ou en ouvrir une nouvelle ?",
+      "one_other": "Dans la boîte entamée ({{count}} restants) ou en ouvrir une nouvelle ?",
+      "several_one": "Dans une boîte entamée ({{count}} boîte) ou en ouvrir une nouvelle ?",
+      "several_other": "Dans une des {{count}} boîtes entamées ou en ouvrir une nouvelle ?",
+      "inOpened": "Dans la boîte entamée",
+      "new": "En ouvrir une nouvelle",
+      "single": "Un cigare à l'unité"
+    },
+    "putBack": {
+      "rejoined": "Bouteille remise avec les autres ({{line}})",
+      "alone": "Bouteille remise en cave"
+    },
+    "keepTasting": {
+      "title": "Une dégustation a été notée sur cette bouteille.",
+      "question": "La garder ? Gardée, elle reste sur le vin.",
+      "keep": "Garder la dégustation",
+      "drop": "Ne pas la garder"
     }
   }
 }

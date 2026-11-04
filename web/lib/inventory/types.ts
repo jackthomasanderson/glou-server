@@ -132,9 +132,11 @@ export interface InventoryItem {
 /**
  * A write to one bottle or cigar line (PATCH /api/inventory/:id): its own
  * fields, or an instruction to the detach rule (#471, K): `smokeOne` smokes
- * one cigar — the first of a closed box opens it, a single cigar is finished.
+ * one cigar — the first of a closed box opens it, a single cigar is finished;
+ * `keepTastings` answers "keep the tasting?" when a bottle holding one is
+ * put back with the others (FEAT-106).
  */
-export type InventoryItemPatch = Partial<InventoryItem> & { smokeOne?: true };
+export type InventoryItemPatch = Partial<InventoryItem> & { smokeOne?: true; keepTastings?: boolean };
 
 export interface InventoryFieldChange {
   field: string;

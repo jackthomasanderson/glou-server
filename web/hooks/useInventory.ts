@@ -173,6 +173,8 @@ export interface UpdateInventoryItemVariables {
   id: string;
   patch: InventoryItemPatch;
   expectedUpdatedAt?: string;
+  /** Refusals the caller answers itself (a question asked instead): no message for them. */
+  quiet?: readonly string[];
 }
 
 /** Refusals of a state write that already have their own message (no generic toast on top). */
@@ -249,7 +251,8 @@ export function useUpdateInventoryItem() {
           detailWithUnitWrite(old, updatedItem));
       }
     },
-    onError: (error) => {
+    onError: (error, { quiet }) => {
+      if (quiet?.includes(error.message)) return;
       // #471 (K): putting a bottle back full refuses to lose its tastings
       // unasked (409), or another field written with it (400); a box
       // refuses to close again once cigars were smoked out of it (400).
