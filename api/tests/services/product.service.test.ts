@@ -47,7 +47,7 @@ function unit(fields: Record<string, unknown> = {}) {
     location: null, purchasePrice: new Prisma.Decimal('20.00'), estimatedValue: null, purchasePlace: null,
     purchasedAt: new Date('2026-01-15T00:00:00Z'), bottleSize: null, quantity: 6, cigarsPerBox: null, cigarsLeft: null,
     isOpened: false, fillLevel: null, openedAt: null, parentItemId: null, writtenOffAt: null, needsReview: false,
-    fieldSources: null, lockedFields: [], isOwned: true, deletedAt: null,
+    fieldSources: null, lockedFields: [], deletedAt: null,
     createdAt: new Date('2026-01-15T09:00:00Z'), updatedAt: new Date('2026-01-15T09:00:00Z'),
     // Mirror of the description, never served by /api/products.
     name: 'stale mirror', region: 'stale', notes: 'stale',
@@ -173,7 +173,7 @@ describe('productService.get (D9)', () => {
     const detail = await productService.get('p1');
 
     // FEAT-87 references (until the transformation removes them) are not bottles of the wine.
-    expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.include).toMatchObject({ items: { where: { deletedAt: null, isOwned: true } } });
+    expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.include).toMatchObject({ items: { where: { deletedAt: null } } });
     expect(detail?.items.map((item) => item.id)).toEqual(['b1', 'b2']);
     // Tastings are read on the family, whichever bottle (or none) they were noted on.
     expect(prisma.tastingNote.findMany).toHaveBeenCalledWith({ where: { productId: 'p1' }, orderBy: { tastedAt: 'desc' } });
@@ -218,15 +218,14 @@ describe('productService.updateDescription (FEAT-92 c4)', () => {
     vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family() as never);
   });
 
-  it('writes the family once, mirrored onto its units without touching their updatedAt (D22)', async () => {
+  it('writes the family once, its units untouched (D22, no copy since lot Z)', async () => {
     const result = await productService.updateDescription('u2', 'p1', { region: 'Médoc' });
 
     expect(prisma.product.update).toHaveBeenCalledWith({
       where: { id: 'p1' },
       data: { region: 'Médoc', lockedFields: ['region'], updatedBy: 'u2' },
     });
-    const [sql] = vi.mocked(prisma.$executeRaw).mock.calls[0] as unknown as [string[]];
-    expect(sql.join('?')).toContain('UPDATE "bottles"');
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
     expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
     expect(prisma.inventoryItem.updateMany).not.toHaveBeenCalled();
     expect(result).toMatchObject({ changes: [{ field: 'region', from: null, to: 'Médoc' }] });
@@ -351,7 +350,7 @@ describe('productService.trash / restore (D10)', () => {
 
     const [trashed] = await productService.listTrash();
 
-    expect(vi.mocked(prisma.product.findMany).mock.calls[0][0]!.include).toMatchObject({ items: { where: { deletedAt: { not: null }, isOwned: true } } });
+    expect(vi.mocked(prisma.product.findMany).mock.calls[0][0]!.include).toMatchObject({ items: { where: { deletedAt: { not: null } } } });
     expect(trashed).toMatchObject({ id: 'p1', deletedAt });
     expect(trashed.items.map((item) => item.id)).toEqual(['b1']);
   });
@@ -372,7 +371,7 @@ describe('productService.rollbackField (FEAT-05 on a wine)', () => {
     vi.mocked(prisma.auditLog.findMany).mockResolvedValue([logged([{ field: 'region', from: 'Bordeaux', to: 'Médoc' }])] as never);
   });
 
-  it('writes a value of the wine\'s history back on the family and its bottles, locked as a manual entry', async () => {
+  it('writes a value of the wine\'s history back on the family, locked as a manual entry', async () => {
     const result = await productService.rollbackField('u2', 'p1', restore('region', 'Bordeaux'));
 
     expect(vi.mocked(prisma.auditLog.findMany).mock.calls[0][0]!.where).toMatchObject({ productId: 'p1' });
@@ -380,9 +379,8 @@ describe('productService.rollbackField (FEAT-05 on a wine)', () => {
       where: { id: 'p1' },
       data: { region: 'Bordeaux', lockedFields: ['region'], updatedBy: 'u2' },
     });
-    // D22: the copy onto the bottles, their updatedAt untouched.
-    const [sql] = vi.mocked(prisma.$executeRaw).mock.calls[0] as unknown as [string[]];
-    expect(sql.join('?')).toContain('UPDATE "bottles"');
+    // D22: the bottles are not written (no copy of the description since lot Z).
+    expect(prisma.$executeRaw).not.toHaveBeenCalled();
     expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
     expect(result).toMatchObject({ status: 'success', changes: [{ field: 'region', from: 'Médoc', to: 'Bordeaux' }] });
   });

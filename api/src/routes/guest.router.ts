@@ -159,8 +159,8 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       // #471 (FEAT-109): one copy opened, drunk or smoked, a level set — never
       // a number changed; decided on the unit as read under its family's lock.
       result = await inventoryService.updateItem(share.userId, itemId, patch, {
-        guard: (unit, planned) => {
-          checkGuestWrite(share, patch, unit, planned);
+        guard: (unit, planned, kind) => {
+          checkGuestWrite(share, patch, unit, planned, kind);
           before = unit;
         },
       });

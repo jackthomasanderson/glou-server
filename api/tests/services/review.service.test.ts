@@ -43,7 +43,7 @@ function unit(fields: Record<string, unknown> = {}) {
     location: null, purchasePrice: 20, estimatedValue: null, purchasePlace: null,
     purchasedAt: new Date('2026-01-15T00:00:00Z'), bottleSize: null, quantity: 1, cigarsPerBox: null, cigarsLeft: null,
     isOpened: false, fillLevel: null, openedAt: null, parentItemId: null, writtenOffAt: null, needsReview: false,
-    fieldSources: null, lockedFields: [], isOwned: true, deletedAt: null,
+    fieldSources: null, lockedFields: [], deletedAt: null,
     createdAt: new Date('2026-01-15T09:00:00Z'), updatedAt: new Date('2026-01-15T09:00:00Z'),
     ...fields,
   };
@@ -297,7 +297,7 @@ describe('reviewService.merge (FEAT-102 c2)', () => {
     const outcome = await reviewService.merge('u2', { productIds: ['p1', 'p2'] });
 
     expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]).toMatchObject({
-      where: { productId: 'p1', deletedAt: null, writtenOffAt: null, needsReview: false, slotColumn: null, slotRow: null, isOwned: true },
+      where: { productId: 'p1', deletedAt: null, writtenOffAt: null, needsReview: false, slotColumn: null, slotRow: null },
     });
     expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
       where: { id: 'b1' },

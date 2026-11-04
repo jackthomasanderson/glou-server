@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   inventoryInputSchema,
+  inventoryPatchSchema,
   guestInventoryUpdateSchema,
 } from '../src/schemas/inventory.schema';
 
@@ -104,38 +105,40 @@ describe('inventoryInputSchema', () => {
   });
 });
 
-// FEAT-87: ownership is a structural field — it defaults to owned, and a
-// guest with write access may not touch it.
-describe('isOwned (FEAT-87)', () => {
-  it('defaults a newly created item to owned', () => {
-    const result = inventoryInputSchema.safeParse({
-      category: 'wine',
-      name: 'Pétrus',
-      producer: 'Château Pétrus',
-    });
-    expect(result.success).toBe(true);
-    expect(result.success && result.data.isOwned).toBe(true);
-  });
-
-  it('accepts an item explicitly created as a non-owned reference', () => {
+// #471 (FEAT-94): a non-owned reference is now a wine without bottles; a
+// bottle is always held, so `isOwned` is no column and no input any more.
+describe('isOwned is gone (FEAT-87, #471)', () => {
+  it('refuses a bottle created as a reference by an older client: it would be counted in stock', () => {
     const result = inventoryInputSchema.safeParse({
       category: 'wine',
       name: 'Pétrus',
       producer: 'Château Pétrus',
       isOwned: false,
     });
-    expect(result.success).toBe(true);
-    expect(result.success && result.data.isOwned).toBe(false);
+    expect(result.success).toBe(false);
   });
 
-  // #683: the form's "Reference" button clears the level and opening date to
-  // null; the create schema used to reject that null, so no item could be added.
-  it('accepts a reference sent by the form with a cleared level and opening date', () => {
+  it('ignores the flag of a bottle held, sent by an older client', () => {
+    const result = inventoryInputSchema.safeParse({
+      category: 'wine',
+      name: 'Pétrus',
+      producer: 'Château Pétrus',
+      isOwned: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('refuses a bottle patched into a reference, ignores one patched as held', () => {
+    expect(inventoryPatchSchema.safeParse({ isOwned: false }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ isOwned: true }).success).toBe(true);
+  });
+
+  // #683: the form's level and opening date may be cleared to null.
+  it('accepts a bottle sent with a cleared level and opening date', () => {
     const result = inventoryInputSchema.safeParse({
       category: 'wine',
       name: 'Sylvaner Tradition',
       producer: 'Bott Frères',
-      isOwned: false,
       isOpened: false,
       fillLevel: null,
       openedAt: null,
@@ -143,18 +146,7 @@ describe('isOwned (FEAT-87)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('accepts an owned item whose level was cleared by toggling Reference then back', () => {
-    const result = inventoryInputSchema.safeParse({
-      category: 'wine',
-      name: 'Sylvaner Tradition',
-      producer: 'Bott Frères',
-      isOwned: true,
-      fillLevel: null,
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects a guest trying to flip ownership', () => {
+  it('rejects a guest sending an ownership flag', () => {
     const result = guestInventoryUpdateSchema.safeParse({ isOwned: false });
     expect(result.success).toBe(false);
   });

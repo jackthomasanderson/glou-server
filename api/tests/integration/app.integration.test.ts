@@ -503,6 +503,17 @@ describe('POST /api/admin/backups/:id/restore', () => {
     expect(res.body.error).toBe('BACKUP_BEFORE_RESTORE_FAILED');
   });
 
+  // #471 (lot Z): a backup of another version is refused with a code the dialog translates.
+  it.each(['BACKUP_FROM_OLDER_VERSION', 'BACKUP_FROM_NEWER_VERSION'])('answers 409 %s', async (code) => {
+    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error(code)));
+
+    const res = await restore();
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: code });
+  });
+
   it('takes no backup at all on a wrong password', async () => {
     spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(false));
     const runSpy = vi.spyOn(backupService, 'runBackup');

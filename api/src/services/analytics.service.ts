@@ -1,7 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessIndex } from '../lib/maturity-curve';
 import { FINISHED_ITEM_STATE, itemSpend, itemUnits, itemValue } from '../lib/finished-item';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { UNIT_COUNT_SELECT } from '../lib/stock-units';
 import { ANALYTICS_PERIOD_SCOPE, type AnalyticsStats, type CavePoint, type MovementStats } from '../../../shared/analytics';
 
@@ -49,9 +48,9 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // still in the cellar today, so leaving it out of the valuation would mislead.
   const [items, cellars, auditMovements, consumedCount] = await Promise.all([
     prisma.inventoryItem.findMany({
-      // FEAT-87: analytics describe what the instance holds, so non-owned
-      // references are out of every figure here — valuation and counts alike.
-      where: { deletedAt: null, ...OWNED_ITEM_FILTER },
+      // FEAT-87: analytics describe what the instance holds; a non-owned
+      // reference is a wine without bottles (#471), out of every figure here.
+      where: { deletedAt: null },
       // #471: what is true of every bottle of the wine (category, region,
       // drinking window) is read on its family.
       select: {
@@ -90,7 +89,6 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     prisma.inventoryItem.count({
       where: {
         deletedAt: null,
-        ...OWNED_ITEM_FILTER,
         ...FINISHED_ITEM_STATE,
         ...consumedDateFilter,
       },

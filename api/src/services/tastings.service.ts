@@ -6,8 +6,8 @@ import { TastingCreateInput, TastingPatchInput, TastedWineInput } from '../schem
 import { computeAlertStatus } from './alert.service';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 
-const ITEM_SELECT = {
-  id: true,
+/** #471 (lot Z): the bottle's description is its family's, served flat on `item` as before. */
+const ITEM_DESCRIPTION_SELECT = {
   name: true,
   producer: true,
   category: true,
@@ -16,7 +16,12 @@ const ITEM_SELECT = {
   spiritType: true,
   sparklingType: true,
   format: true,
-} as const;
+} as const satisfies Prisma.ProductSelect;
+
+const ITEM_SELECT = {
+  id: true,
+  product: { select: ITEM_DESCRIPTION_SELECT },
+} as const satisfies Prisma.InventoryItemSelect;
 
 /** #471: the wine (family) a tasting is of — the only one when it was tasted elsewhere. */
 const PRODUCT_SELECT = {
@@ -32,7 +37,14 @@ const PRODUCT_SELECT = {
   format: true,
 } as const;
 
-const NOTE_INCLUDE = { item: { select: ITEM_SELECT }, product: { select: PRODUCT_SELECT } } as const;
+const NOTE_INCLUDE = { item: { select: ITEM_SELECT }, product: { select: PRODUCT_SELECT } } as const satisfies Prisma.TastingNoteInclude;
+
+type NoteRow = Prisma.TastingNoteGetPayload<{ include: typeof NOTE_INCLUDE }>;
+
+/** A tasting as served: its bottle (if any) with its family's description, flat. */
+function servedNote({ item, ...note }: NoteRow) {
+  return { ...note, item: item ? { id: item.id, ...item.product } : null };
+}
 
 /**
  * Key space of the advisory lock taken while a wine tasted elsewhere is
@@ -105,8 +117,6 @@ export const tastingsService = {
         ? {
             OR: [
               { foodPairing: contains(trimmedSearch) },
-              { item: { is: { name: contains(trimmedSearch) } } },
-              { item: { is: { producer: contains(trimmedSearch) } } },
               { product: { is: { name: contains(trimmedSearch) } } },
               { product: { is: { producer: contains(trimmedSearch) } } },
             ],
@@ -123,7 +133,7 @@ export const tastingsService = {
       }),
       prisma.tastingNote.count({ where }),
     ]);
-    return { notes, total, page, limit };
+    return { notes: notes.map(servedNote), total, page, limit };
   },
 
   /**
@@ -135,7 +145,7 @@ export const tastingsService = {
    */
   async create(userId: string, data: TastingCreateInput) {
     const { wine, productId: givenProductId, ...fields } = data;
-    const write = async (client: PrismaClientOrTx, productId: string | undefined) => client.tastingNote.create({
+    const write = async (client: PrismaClientOrTx, productId: string | undefined) => servedNote(await client.tastingNote.create({
       data: {
         userId, // audit: who logged this tasting note
         ...fields,
@@ -143,7 +153,7 @@ export const tastingsService = {
         tastedAt: fields.tastedAt ? new Date(fields.tastedAt) : new Date(),
       },
       include: NOTE_INCLUDE,
-    });
+    }));
 
     if (wine) return prisma.$transaction(async (tx) => write(tx, await tastedWine(tx, userId, wine)));
 
@@ -182,7 +192,7 @@ export const tastingsService = {
       : null;
     if (moved && !item) throw new AppError(404, 'ITEM_NOT_FOUND');
     if (item && existing.productId && item.productId !== existing.productId) throw badRequest('ITEM_NOT_IN_PRODUCT');
-    return prisma.tastingNote.update({
+    return servedNote(await prisma.tastingNote.update({
       where: { id },
       data: {
         ...data,
@@ -190,7 +200,7 @@ export const tastingsService = {
         tastedAt: data.tastedAt ? new Date(data.tastedAt) : undefined,
       },
       include: NOTE_INCLUDE,
-    });
+    }));
   },
 
   async delete(id: string, _userId: string) {

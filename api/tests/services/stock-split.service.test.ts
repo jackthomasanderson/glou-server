@@ -38,7 +38,7 @@ function unit(fields: Record<string, unknown> = {}) {
     location: null, purchasePrice: 20, estimatedValue: null, purchasePlace: 'Caviste',
     purchasedAt: new Date('2026-01-15T00:00:00Z'), bottleSize: null, quantity: 6, cigarsPerBox: null, cigarsLeft: null,
     isOpened: false, fillLevel: null, openedAt: null, parentItemId: null, writtenOffAt: null, needsReview: false,
-    fieldSources: null, lockedFields: [], isOwned: true, deletedAt: null,
+    fieldSources: null, lockedFields: [], deletedAt: null,
     createdAt: new Date('2026-01-15T09:00:00Z'), updatedAt: new Date('2026-01-15T09:00:00Z'),
     category: 'wine', name: 'Cuvée X', producer: 'Domaine Y',
     ...fields,
@@ -95,7 +95,7 @@ beforeEach(() => {
   vi.mocked(prisma.inventoryItem.findFirst).mockImplementation(((args: { where: { id: string } }) =>
     Promise.resolve(copy(rows.find((row) => row.id === args.where.id && row.deletedAt === null)))) as never);
   vi.mocked(prisma.inventoryItem.findMany).mockImplementation(((args: { where: { id: { not: string }; needsReview?: boolean } }) =>
-    Promise.resolve(rows.filter((row) => row.id !== args.where.id.not && row.deletedAt === null && row.writtenOffAt === null && row.isOwned
+    Promise.resolve(rows.filter((row) => row.id !== args.where.id.not && row.deletedAt === null && row.writtenOffAt === null
       && (args.where.needsReview === undefined || row.needsReview === args.where.needsReview))
       .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime()).map(copy))) as never);
   vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string }; data: Record<string, unknown> }) => {
@@ -367,7 +367,6 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
       ['a finished bottle', { quantity: 1, isOpened: true, fillLevel: 0 }],
       ['an opened box', { quantity: 1, cigarsPerBox: 25, cigarsLeft: 10, isOpened: true }],
       ['a write-off', { writtenOffAt: new Date('2026-05-01T00:00:00Z') }],
-      ['a reference (FEAT-87)', { isOwned: false }],
     ])('%s is not a group → 409 NOT_A_GROUP', async (_label, fields) => {
       rows = [unit(fields)];
 

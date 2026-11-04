@@ -36,7 +36,7 @@ function unit(fields: Record<string, unknown> = {}) {
     location: null, purchasePrice: 20, estimatedValue: null, purchasePlace: null,
     purchasedAt: new Date('2026-01-15T00:00:00Z'), bottleSize: null, quantity: 6, cigarsPerBox: null, cigarsLeft: null,
     isOpened: false, fillLevel: null, openedAt: null, parentItemId: null, writtenOffAt: null, needsReview: false,
-    fieldSources: null, lockedFields: [], isOwned: true, deletedAt: null,
+    fieldSources: null, lockedFields: [], deletedAt: null,
     createdAt: new Date('2026-01-15T09:00:00Z'), updatedAt: new Date('2026-01-15T09:00:00Z'),
     // Transitional mirror of the description.
     category: 'wine', name: 'Cuvée X', producer: 'Domaine Y', region: 'Bordeaux',
@@ -158,11 +158,11 @@ describe('stockService.addUnits (FEAT-92 c1-c2, D5)', () => {
     expect(outcome.merged).toBe(false);
     // Write-offs, trashed units and FEAT-87 references are not even read.
     expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]).toMatchObject({
-      where: { productId: 'p1', deletedAt: null, writtenOffAt: null, isOwned: true },
+      where: { productId: 'p1', deletedAt: null, writtenOffAt: null },
     });
   });
 
-  it('creates the line with the family description on its mirror columns, purchased today by default (D6)', async () => {
+  it('creates the line with its own columns only, purchased today by default (D6)', async () => {
     vi.mocked(prisma.product.findFirst).mockResolvedValue(family({ name: 'Cuvée X', region: 'Médoc', vintage: 2020 }) as never);
 
     const outcome = await stockService.addUnits('u2', 'p1', { quantity: 6, purchasePrice: 20 });
@@ -171,8 +171,8 @@ describe('stockService.addUnits (FEAT-92 c1-c2, D5)', () => {
     expect(data).toMatchObject({
       productId: 'p1', userId: 'u2', quantity: 6, purchasePrice: 20, cellarId: null,
       bottleSize: null, cigarsPerBox: null,
-      category: 'wine', name: 'Cuvée X', producer: 'Domaine Y', region: 'Médoc', vintage: 2020,
     });
+    for (const field of ['category', 'name', 'producer', 'region', 'vintage']) expect(data).not.toHaveProperty(field);
     expect(data.id).toEqual(expect.any(String));
     const today = new Date();
     expect(data.purchasedAt).toEqual(new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate())));
@@ -351,7 +351,6 @@ describe('stockService.correctQuantity (FEAT-92 c3, point 34)', () => {
     ['an opened bottle', { quantity: 1, isOpened: true, fillLevel: 50 }],
     ['an opened box', { quantity: 1, isOpened: true, cigarsLeft: 10 }],
     ['a write-off', { quantity: 2, writtenOffAt: new Date() }],
-    ['a former reference not owned (FEAT-87)', { quantity: 2, isOwned: false }],
   ])('refuses %s: only a group has a number', async (_label, fields) => {
     storeGroup(fields);
 

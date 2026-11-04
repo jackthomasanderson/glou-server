@@ -323,108 +323,20 @@ model InventoryItem {
   // #471: a split guessed by the families transformation, to be confirmed.
   needsReview   Boolean         @default(false)
 
-  // Transitional mirror (#471): every description column below also lives on
-  // Product, which is the source of truth for them; this copy is kept until
-  // the end of the families work so unmigrated readers keep working.
-  // Common fields
-  category       BottleCategory
-  name           String
-  producer       String // producer/house/distillery/brand
+  // #471: the unit's own columns. Its description (name, producer, vintage,
+  // drinking window, alerts, photo, notes, tags...) lives on its family
+  // (Product) only — design.md "Où vit une donnée".
   location       String? // cave/clayette reference
-  collection     String?
-  tags           String[]       @default([])
-  photoUrl       String?
-  notes          String?
   purchasePrice  Decimal? @db.Decimal(12, 2)
   purchasePlace  String?
   estimatedValue Decimal? @db.Decimal(12, 2)
-
-  // Contextual — Wine & Sparkling
-  vintage        Int? // millésime, null = sans année
-  color          String? // red/white/rosé/orange (shared WINE_COLORS)
-  region         String?
-  grapeVarieties String[]  @default([])
-  alcoholDegree  Float?
   bottleSize     String? // 75cl, magnum...
-  needsAeration  Boolean?
-  serviceTemp    String?
-  lotNumber      String?
-  batchDate      DateTime?
+  // Copies held: bottles, boxes of cigars, or single cigars (#471).
+  quantity       Int?
 
-  // Wine collector fields (Task 2 audit, expert mode only) — free text on
-  // purpose: appellations/classifications are far too numerous and
-  // jurisdiction-specific (AOC/AOP, DOCG, Grand Cru, 1er Cru...) for a
-  // closed enum, same reasoning as `region` just above.
-  appellation    String?
-  classification String?
-
-  // Contextual — Sparkling extras
-  sparklingType  String? // Champagne, Crémant, Prosecco...
-  sugarLevel     String? // extra-brut, brut, extra-sec, sec, demi-sec, doux
-  disgorgingDate DateTime?
-  baseYear       Int?
-
-  // Contextual — Spirit
-  spiritType      String? // whisky, rhum, gin, cognac...
-  edition         String?
-  declaredAge     Int?    // âge en années
-  caskType        String?
-  additions       String?
-  aromaticProfile String?
-
-  // Spirit cask/batch collector fields (Task 3 audit, expert mode only) —
-  // `lotNumber`/`batchDate`/`caskType` above already existed on this model
-  // but `lotNumber` was only ever surfaced in the UI for category='wine' and
-  // `batchDate` for no category at all (dead column since the very first
-  // migration). The three below are net-new, single-cask-specific.
-  isSingleCask Boolean? // true = single cask bottling, false/null = vatted/blended
-  caskNumber   String?
-  caskProof    Float?   // ABV at cask strength, when different from the bottled alcoholDegree
-
-  // Contextual — Cigar
-  format               String? // Corona, Robusto...
-  quantity             Int?
-  manufactureYear      Int?
-  leafOrigin           String?
-  factoryCode          String?
-  recommendedHumidity  Float?
-  humidificationSystem String?
-
-  // Peak maturity window (structured, year-based)
-  peakMaturityFrom Int?    // Start year of optimal drinking window
-  peakMaturityTo   Int?    // End year of optimal drinking window
-  // FEAT-86: consumption-curve shape for this bottle's drinking window.
-  // Copied from the matching MaturityReference when the bottle is added
-  // (FEAT-63 semantics: a later reference edit never retroactively rewrites
-  // stored bottles), then freely user-overridable. null = treated as LINEAR.
-  // See api/src/lib/maturity-curve.ts.
-  curveShape       CurveShape?
-  alertsPaused     Boolean @default(false) // User-paused alerts for this bottle
-
-  // FEAT-08: Consumption Plan — "reporter" a suggestion. Same pattern as
-  // alertsPaused (per-item suppression) but self-expiring instead of a
-  // manual toggle: an item is excluded from consumption suggestions while
-  // this timestamp is in the future, then reappears automatically.
-  consumptionPostponedUntil DateTime?
-
-  // Cross-cutting fields
-  // FEAT-87: false = non-owned reference — an item described without being
-  // possessed (a wine tasted elsewhere, a producer's range tracked without
-  // buying it). A reference is excluded from valuation, counters, alerts,
-  // consumption suggestions, inventory counts and the guest showcase, but
-  // stays a valid tasting target. Default true: every pre-existing item is
-  // owned, and the ordinary "add a bottle" path is unchanged.
-  isOwned      Boolean   @default(true)
   isOpened     Boolean   @default(false)
   fillLevel    Int?      // 0-100 (%)
   openedAt     DateTime?
-  reminderDate DateTime?
-  // Denormalised drinking-window status, auto-computed from
-  // peakMaturityFrom/To — see alert.service.ts#computeAlertStatus. It is
-  // year-dependent, so it is written on create/update AND realigned by the
-  // daily maintenance pass (alert.service.ts#recomputeAlertStatuses); read
-  // paths that must be exact compute it instead of reading this column.
-  alertStatus  AlertStatus?
 
   // Traceability
   updatedBy    String?   // userId of the last editor (null = no edits yet)
@@ -440,7 +352,6 @@ model InventoryItem {
   updatedAt DateTime @updatedAt
 
   auditLogs    AuditLog[]
-  collections  Collection[] @relation("CollectionItems")
   tastingNotes TastingNote[]
   countEntries InventoryCountEntry[]
 
@@ -453,11 +364,6 @@ model InventoryItem {
   // `deletedAt`) had no index at all.
   @@index([deletedAt])
   @@index([cellarId, deletedAt])
-  @@index([category, deletedAt])
-  @@index([alertStatus])
-  @@index([name])
-  @@index([vintage])
-  @@index([producer])
   @@index([productId])
   @@index([parentItemId])
   // #173: a partial UNIQUE INDEX on (cellarId, slotColumn, slotRow) WHERE
@@ -577,7 +483,6 @@ model Collection {
   icon      String?
   userId    String
   user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items     InventoryItem[] @relation("CollectionItems")
   products  Product[]       @relation("CollectionProducts")
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt

@@ -5,7 +5,7 @@ import { AppError } from '../lib/errors';
 import {
   FINISHED_ITEM_STATE, NO_SLOT, groupKey, isFinishedState, isGroupableItem, isIntactItem, unitKind, type UnitKind,
 } from '../lib/finished-item';
-import { lockFamily, mirrorFamilyOnto } from '../lib/product-fields';
+import { lockFamily } from '../lib/product-fields';
 import { followDetach, moveCountEntry } from '../lib/count-entries';
 import { moveHistoryOnto } from '../lib/audit-history';
 import { TASTINGS_ON_ITEM } from '../../../shared/product';
@@ -232,8 +232,6 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
       ...NO_SLOT,
     };
     await tx.inventoryItem.create({ data: writable(sub) as never });
-    // The description columns of the new row come from its family (the transitional mirror).
-    await mirrorFamilyOnto(tx, subId);
     const created = await tx.inventoryItem.findUniqueOrThrow({ where: { id: subId }, include });
     const from = next.quantity ?? 1;
     // A count in progress follows the copy that left (FEAT-100).

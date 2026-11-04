@@ -27,7 +27,6 @@ const db = prisma as unknown as {
 const IN_STOCK = {
   deletedAt: null,
   writtenOffAt: null,
-  isOwned: true,
   // `not: null` keeps an opened bottle with no recorded level counted.
   NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
 };

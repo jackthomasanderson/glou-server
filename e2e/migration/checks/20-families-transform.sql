@@ -1,4 +1,4 @@
--- #471 migration bench: what the families_transform migration (FEAT-94) must
+-- #471 migration bench: what the families migration (FEAT-94) must
 -- have made of fixtures/before-families.sql, one block per acceptance
 -- criterion, then the edge cases of D2-D5, D26 and QP6. Every failed
 -- expectation is listed, then the script fails.
@@ -25,15 +25,16 @@ CREATE FUNCTION pg_temp.fam(n TEXT) RETURNS TEXT AS $$
   SELECT "productId" FROM "bottles" WHERE "id" = pg_temp.id(n)
 $$ LANGUAGE sql;
 
--- Units of a family as itemUnits counts them (in stock only).
+-- Units of a family as itemUnits counts them (in stock only); the category
+-- is the family's.
 CREATE FUNCTION pg_temp.units(family TEXT) RETURNS BIGINT AS $$
   SELECT coalesce(sum(CASE
-    WHEN "deletedAt" IS NOT NULL OR "writtenOffAt" IS NOT NULL OR ("isOpened" AND "fillLevel" = 0) THEN 0
-    WHEN "isOpened" OR ("fillLevel" IS NOT NULL AND "fillLevel" <> 100) OR "cigarsLeft" IS NOT NULL THEN
-      CASE WHEN "category" = 'cigar' THEN "cigarsLeft" ELSE 1 END
-    WHEN "category" = 'cigar' THEN "quantity" * coalesce("cigarsPerBox", 1)
-    ELSE "quantity" END), 0)
-  FROM "bottles" WHERE "productId" = family
+    WHEN b."deletedAt" IS NOT NULL OR b."writtenOffAt" IS NOT NULL OR (b."isOpened" AND b."fillLevel" = 0) THEN 0
+    WHEN b."isOpened" OR (b."fillLevel" IS NOT NULL AND b."fillLevel" <> 100) OR b."cigarsLeft" IS NOT NULL THEN
+      CASE WHEN p."category" = 'cigar' THEN b."cigarsLeft" ELSE 1 END
+    WHEN p."category" = 'cigar' THEN b."quantity" * coalesce(b."cigarsPerBox", 1)
+    ELSE b."quantity" END), 0)
+  FROM "bottles" b JOIN "products" p ON p."id" = b."productId" WHERE b."productId" = family
 $$ LANGUAGE sql;
 
 -- ---------------------------------------------------------------------------
@@ -99,9 +100,8 @@ SELECT pg_temp.expect(
   (SELECT "fieldSources" = '{"color": "ocr", "region": "ocr"}' FROM "products" WHERE "id" = pg_temp.id('101')),
   'c1/D3: each field keeps the source of the record whose value was kept');
 SELECT pg_temp.expect(
-  (SELECT "consumptionPostponedUntil" IS NULL FROM "bottles" WHERE "id" = pg_temp.id('101'))
-  AND (SELECT "photoUrl" = '/uploads/products/margaux-new.jpg' FROM "bottles" WHERE "id" = pg_temp.id('101')),
-  'c1: the unit mirrors the merged family');
+  (SELECT "productId" = pg_temp.id('101') FROM "bottles" WHERE "id" = pg_temp.id('101')),
+  'c1: the unit reads its description on the merged family');
 
 -- Everything attached to the absorbed records followed them.
 SELECT pg_temp.expect(
@@ -120,9 +120,8 @@ SELECT pg_temp.expect(
   (SELECT "acquiredItemId" = pg_temp.id('101') FROM "wishlist_items" WHERE "id" = pg_temp.id('ac')),
   'c1: the wishlist link of an absorbed record is on the surviving group');
 SELECT pg_temp.expect(
-  EXISTS (SELECT 1 FROM "_CollectionProducts" WHERE "A" = pg_temp.id('e1') AND "B" = pg_temp.id('101'))
-  AND EXISTS (SELECT 1 FROM "_CollectionItems" WHERE "A" = pg_temp.id('e1') AND "B" = pg_temp.id('101')),
-  'c1: the collection of an absorbed record holds the family (and the surviving group)');
+  EXISTS (SELECT 1 FROM "_CollectionProducts" WHERE "A" = pg_temp.id('e1') AND "B" = pg_temp.id('101')),
+  'c1: the collection of an absorbed record holds the family');
 
 -- ---------------------------------------------------------------------------
 -- Criterion 2 and D2: an empty value is no disagreement; different values
@@ -205,8 +204,9 @@ SELECT pg_temp.expect(
 -- ---------------------------------------------------------------------------
 SELECT pg_temp.expect(
   NOT EXISTS (SELECT 1 FROM "bottles" WHERE "id" IN (pg_temp.id('b6'), pg_temp.id('401'), pg_temp.id('402')))
-  AND NOT EXISTS (SELECT 1 FROM "bottles" WHERE NOT "isOwned"),
-  'c4: no reference is left as a unit');
+  AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = current_schema() AND table_name = 'bottles' AND column_name = 'isOwned'),
+  'c4: no reference is left as a unit, and no ownership flag');
 SELECT pg_temp.expect(
   (SELECT "name" = 'Clos Rougeard' AND "deletedAt" IS NULL FROM "products" WHERE "id" = pg_temp.id('b6'))
   AND NOT EXISTS (SELECT 1 FROM "bottles" WHERE "productId" = pg_temp.id('b6'))
@@ -291,10 +291,8 @@ SELECT pg_temp.expect(
   AND (SELECT count(*) FROM "bottles" WHERE "productId" = pg_temp.id('601')) = 6,
   'D5: another estimated value or another price is another group of the same family');
 SELECT pg_temp.expect(
-  EXISTS (SELECT 1 FROM "_CollectionProducts" WHERE "A" = pg_temp.id('e2') AND "B" = pg_temp.id('601'))
-  AND (SELECT count(*) FROM "_CollectionItems" WHERE "A" = pg_temp.id('e2') AND "B" IN (
-         SELECT "id" FROM "bottles" WHERE "productId" = pg_temp.id('601'))) = 6,
-  'rule 4: a collection holding an absorbed record holds the family, and the mirror every group of it');
+  EXISTS (SELECT 1 FROM "_CollectionProducts" WHERE "A" = pg_temp.id('e2') AND "B" = pg_temp.id('601')),
+  'rule 4: a collection holding an absorbed record holds the family');
 
 -- Guards of the fusion and of the walk.
 SELECT pg_temp.expect(
@@ -314,8 +312,7 @@ SELECT pg_temp.expect(
   (SELECT "consumptionPostponedUntil" = '2027-02-01' FROM "products" WHERE "id" = pg_temp.id('201')),
   'D3: when every record was postponed, the family is postponed until the nearest date');
 SELECT pg_temp.expect(
-  (SELECT "collection" = 'Cave de Paul / Mariage' FROM "products" WHERE "id" = pg_temp.id('101'))
-  AND (SELECT "collection" = 'Cave de Paul / Mariage' FROM "bottles" WHERE "id" = pg_temp.id('101')),
+  (SELECT "collection" = 'Cave de Paul / Mariage' FROM "products" WHERE "id" = pg_temp.id('101')),
   'legacy label: the distinct labels of the records are joined, in order, once each');
 SELECT pg_temp.expect(
   (SELECT "collection" = repeat('A', 150)
@@ -339,6 +336,6 @@ DECLARE
 BEGIN
   SELECT string_agg(what, E'\n  ') INTO failed FROM failures;
   IF failed IS NOT NULL THEN
-    RAISE EXCEPTION E'families_transform bench failed:\n  %', failed;
+    RAISE EXCEPTION E'families transform bench failed:\n  %', failed;
   END IF;
 END $$;

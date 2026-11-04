@@ -2,7 +2,6 @@ import { Prisma, type Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { isIntactItem, productKey, summarizeStock, unitKind } from '../lib/finished-item';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { compareFamilyIds, fieldSourcesOf, lockFamilies, lockFamily, toUnitView, writeProductFields, type ProductWrite } from '../lib/product-fields';
 import { peakWindowSchema } from '../schemas/inventory.schema';
 import { moveHistoryOnto } from '../lib/audit-history';
@@ -159,7 +158,7 @@ function changesOn(survivor: Product, data: ProductWrite): FieldChange[] {
  */
 export async function fuseIdenticalGroups(tx: PrismaClientOrTx, productId: string, kind: ReturnType<typeof unitKind>, userId: string): Promise<string[]> {
   const units = (await tx.inventoryItem.findMany({
-    where: { productId, deletedAt: null, writtenOffAt: null, needsReview: false, slotColumn: null, slotRow: null, ...OWNED_ITEM_FILTER },
+    where: { productId, deletedAt: null, writtenOffAt: null, needsReview: false, slotColumn: null, slotRow: null },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   })).filter(isIntactItem);
   if (units.length < 2) return [];
@@ -331,7 +330,7 @@ export const reviewService = {
       const otherIds = others.map((family) => family.id);
       const data = mergedFamily(walk, input.choices);
 
-      // In SQL like the description mirror (D22): a unit only changes family.
+      // In SQL (D22): a unit only changes family; its `updatedAt` stays, so no pending offline change conflicts.
       const absorbed = Prisma.join(otherIds);
       await tx.$executeRaw`UPDATE "bottles" SET "productId" = ${survivor.id} WHERE "productId" IN (${absorbed})`;
       await tx.$executeRaw`UPDATE "tasting_notes" SET "productId" = ${survivor.id} WHERE "productId" IN (${absorbed})`;

@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * The SQL filters themselves run on a real database in e2e/tests/csv-import.spec.ts.
  */
 interface FakeProduct { id: string; category: string; name: string; producer: string; vintage: number | null; format: string | null; deletedAt: Date | null; createdAt: Date; [field: string]: unknown }
-interface FakeUnit { id: string; productId: string; quantity: number; isOpened: boolean; fillLevel: number | null; cigarsPerBox: number | null; cigarsLeft: number | null; writtenOffAt: Date | null; deletedAt: Date | null; isOwned: boolean; cellarId: string | null; purchasePrice: number | null; purchasedAt: Date | null; bottleSize: string | null; createdAt: Date; [field: string]: unknown }
+interface FakeUnit { id: string; productId: string; quantity: number; isOpened: boolean; fillLevel: number | null; cigarsPerBox: number | null; cigarsLeft: number | null; writtenOffAt: Date | null; deletedAt: Date | null; cellarId: string | null; purchasePrice: number | null; purchasedAt: Date | null; bottleSize: string | null; createdAt: Date; [field: string]: unknown }
 
 const db = {
   products: [] as FakeProduct[],
@@ -39,7 +39,7 @@ const tx = {
         && (typeof where.productId === 'string' ? u.productId === where.productId : where.productId.in.includes(u.productId)))),
     create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
       const unit = {
-        isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null, deletedAt: null, isOwned: true,
+        isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null, deletedAt: null,
         createdAt: new Date(), ...data,
       } as FakeUnit;
       db.units.push(unit);
@@ -96,7 +96,7 @@ function existingWine(name: string, units: number, fields: Partial<FakeProduct> 
   if (units > 0) {
     db.units.push({
       id: `unit-${name}`, productId: product.id, quantity: units, isOpened: false, fillLevel: null, cigarsPerBox: null,
-      cigarsLeft: null, writtenOffAt: null, deletedAt: null, isOwned: true, cellarId: 'cellar-1', purchasePrice: 20,
+      cigarsLeft: null, writtenOffAt: null, deletedAt: null, cellarId: 'cellar-1', purchasePrice: 20,
       purchasedAt: new Date('2025-01-01T00:00:00Z'), bottleSize: null, createdAt: new Date('2025-01-01'),
       purchasePlace: null, location: null, estimatedValue: null, needsReview: false,
     });

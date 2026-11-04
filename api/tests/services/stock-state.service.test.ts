@@ -16,14 +16,15 @@ const DAY = new Date('2026-01-15T00:00:00.000Z');
 const NOW = new Date('2026-10-31T12:00:00.000Z');
 
 /** A unit as the transaction reads it: an intact bottle of family p1, 20 € each, bought on DAY. */
-function unit(fields: Partial<StateItem> & { id: string }): Row {
+/** `category` stands for its family's (read through the `product` include). */
+function unit(fields: Partial<StateItem> & { id: string; category?: string }): Row {
   return {
     userId: 'creator', productId: 'p1', cellarId: 'c1', slotColumn: null, slotRow: null,
     purchasedAt: DAY, cigarsPerBox: null, cigarsLeft: null, parentItemId: null, writtenOffAt: null,
-    needsReview: false, category: 'wine', name: 'Talbot', producer: 'Château Talbot', location: null,
+    needsReview: false, category: 'wine', location: null,
     purchasePrice: 20, estimatedValue: null, purchasePlace: null, bottleSize: '75cl', quantity: 1,
     isOpened: false, fillLevel: null, openedAt: null, lockedFields: [], fieldSources: null,
-    deletedAt: null, createdAt: DAY, updatedAt: DAY, updatedBy: null, isOwned: true,
+    deletedAt: null, createdAt: DAY, updatedAt: DAY, updatedBy: null,
     ...fields,
   };
 }
@@ -182,10 +183,8 @@ describe('applyState — detach (FEAT-103)', () => {
     expect(result.removedIds).toEqual([]);
     expect(db.unitsInStock()).toBe(6);
     expect(db.copies()).toBe(6);
-    // The new row's description mirror is copied from its family.
-    const [sql, ...values] = db.raw.$executeRaw.mock.calls[0] as unknown as [string[], ...unknown[]];
-    expect(sql.join('?')).toContain('UPDATE "bottles"');
-    expect(values).toContain(sub.id);
+    // Its description is its family's: nothing is copied onto the new row (lot Z).
+    expect(db.raw.$executeRaw).not.toHaveBeenCalled();
   });
 
   it('c2: drinking one bottle of a group of 6 at 20 € leaves 5 in stock and one finished bottle, 120 € spent', async () => {
@@ -289,7 +288,7 @@ describe('applyState — detach (FEAT-103)', () => {
 });
 
 describe('applyState — cigars (FEAT-103 c4-c5, decision 28)', () => {
-  const box = (fields: Partial<StateItem> & { id: string }) =>
+  const box = (fields: Partial<StateItem> & { id: string; category?: string }) =>
     unit({ category: 'cigar', bottleSize: null, cigarsPerBox: 25, purchasePrice: 250, ...fields });
 
   it('c4: smoking one cigar of 3 closed boxes of 25 leaves 2 boxes and an opened box of 24 — 75 → 74', async () => {

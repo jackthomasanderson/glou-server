@@ -21,7 +21,11 @@ type FieldChange = NonNullable<HistoryEntry['changes']>[number];
  * correct the number), never by restoring an old value: on a group, it would
  * open or drop a bottle that was never touched.
  */
-const NOT_RESTORABLE = new Set(['fillLevel', 'isOpened', 'openedAt', 'quantity', 'cigarsLeft', 'writtenOffAt', 'parentItemId', 'needsReview']);
+const NOT_RESTORABLE = new Set([
+  'fillLevel', 'isOpened', 'openedAt', 'quantity', 'cigarsLeft', 'writtenOffAt', 'parentItemId', 'needsReview',
+  // FEAT-87's reference flag, gone with lot Z (#471): a reference is a wine without bottles.
+  'isOwned',
+]);
 
 /** Actions said by the drawer's own words (#471); the others keep the traceability labels. */
 const DRAWER_ACTIONS = new Set(['add_units', 'correct_quantity', 'merge_products', 'review_ok']);

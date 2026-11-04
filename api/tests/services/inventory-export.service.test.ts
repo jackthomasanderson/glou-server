@@ -66,7 +66,7 @@ describe('InventoryExportService.exportCsv', () => {
   it('reads only what is in stock and listed, through the shared scope filters', async () => {
     await inventoryExportService.exportCsv('en');
     const { where } = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as { where: Record<string, unknown> };
-    expect(where).toMatchObject({ deletedAt: null, writtenOffAt: null, isOwned: true });
+    expect(where).toMatchObject({ deletedAt: null, writtenOffAt: null });
     expect(where.product).toBeDefined();
   });
 

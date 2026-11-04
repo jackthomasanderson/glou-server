@@ -5,7 +5,6 @@ import { CurveShape } from '../lib/maturity-curve';
 import { SetGoalInput } from '../schemas/consumption-plan.schema';
 import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { writeProductFields } from '../lib/product-fields';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { preselectGroup } from '../../../shared/stock-choice';
 
 /**
@@ -377,7 +376,6 @@ export async function getGoalProgress(userId: string): Promise<GoalProgress> {
   const consumedCount = await prisma.inventoryItem.count({
     where: {
       deletedAt: null,
-      ...OWNED_ITEM_FILTER,
       ...FINISHED_ITEM_STATE,
       updatedBy: userId,
       updatedAt: { gte: goal.periodStart, lte: goal.periodEnd },

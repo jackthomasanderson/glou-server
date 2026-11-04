@@ -136,7 +136,7 @@ export async function joinIdenticalGroup(
   kind: ReturnType<typeof unitKind>,
   userId: string,
 ): Promise<{ survivorId: string; from: number; to: number } | null> {
-  if (!isGroupableItem(group) || !group.isOwned || group.needsReview) return null;
+  if (!isGroupableItem(group) || group.needsReview) return null;
   const target = await findGroupFor(tx, group, kind, {
     excludeId: group.id, estimatedValue: group.estimatedValue, settledOnly: true, placesOf: group,
   });
@@ -184,7 +184,7 @@ async function splitUnits(
     const stale = expectedUpdatedAt !== undefined && new Date(expectedUpdatedAt).getTime() !== group.updatedAt.getTime();
     // Moved to another family meanwhile (a merge): its lock was not the one taken.
     if (stale || group.productId !== head.productId) return { conflict: true, item: toUnitView(group) };
-    if (!isGroupableItem(group) || !group.isOwned) throw conflict('NOT_A_GROUP');
+    if (!isGroupableItem(group)) throw conflict('NOT_A_GROUP');
 
     const from = group.quantity ?? 1;
     if (count > from) throw badRequest('COUNT_ABOVE_GROUP');

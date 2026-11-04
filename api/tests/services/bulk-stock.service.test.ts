@@ -94,7 +94,7 @@ function unit(fields: Partial<Row> & { id: string }): Row {
     userId: 'u1', productId: 'p1', cellarId: 'garage', slotColumn: null, slotRow: null, location: null,
     purchasePrice: 20, estimatedValue: null, purchasePlace: null, purchasedAt: DAY, bottleSize: null,
     quantity: 1, cigarsPerBox: null, cigarsLeft: null, isOpened: false, fillLevel: null, openedAt: null,
-    parentItemId: null, writtenOffAt: null, needsReview: false, isOwned: true, deletedAt: null,
+    parentItemId: null, writtenOffAt: null, needsReview: false, deletedAt: null,
     lockedFields: [], fieldSources: null, category: 'wine', name: 'Cuvée', producer: 'Domaine',
     createdAt: DAY, updatedAt: DAY, updatedBy: null,
     ...fields,

@@ -1,8 +1,7 @@
 import crypto from 'crypto';
-import { GuestShare } from '@prisma/client';
+import { GuestShare, type Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ShareCreateInput } from '../schemas/shares.schema';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import type { GuestUndoMarker } from '../lib/guest-write';
 
@@ -66,43 +65,22 @@ const SHOWCASE_SCOPE = IN_STOCK_ITEM_FILTER;
  * bottle as drunk gets it back from the write route (guest.router.ts), but a
  * written-off one is out of the cellar for good (FEAT-87: references never).
  */
-const SHARED_ITEM_SCOPE = { deletedAt: null, writtenOffAt: null, ...OWNED_ITEM_FILTER } as const;
+const SHARED_ITEM_SCOPE = { deletedAt: null, writtenOffAt: null } as const;
 
 function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
   return {
     id: true,
-    category: true,
-    name: true,
-    producer: true,
     location: true,
-    collection: true,
-    tags: true,
-    photoUrl: true,
-    // notes conditionally included below
-    notes: !hideNotes,
     // price fields conditionally included below
     purchasePrice: !hidePrices,
     purchasePlace: !hidePrices,
     estimatedValue: !hidePrices,
-    vintage: true,
-    color: true,
-    region: true,
-    grapeVarieties: true,
-    alcoholDegree: true,
     bottleSize: true,
-    sparklingType: true,
-    sugarLevel: true,
-    spiritType: true,
-    edition: true,
-    declaredAge: true,
-    format: true,
     quantity: true,
     // #471: a group of cigar boxes, or an opened box (shared/units.ts `itemUnits`).
     cigarsPerBox: true,
     cigarsLeft: true,
     productId: true,
-    manufactureYear: true,
-    leafOrigin: true,
     isOpened: true,
     fillLevel: true,
     // #471 (FEAT-109): "Entamée · ouverte le 3 oct." on the guest's lines.
@@ -110,13 +88,44 @@ function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
     // The purchase day picks the line a bottle is taken from (FEAT-104):
     // purchase information, hidden with the prices.
     purchasedAt: !hidePrices,
-    peakMaturityFrom: true,
-    peakMaturityTo: true,
-    alertStatus: true,
     cellarId: true,
     createdAt: true,
     updatedAt: true,
-  } as const;
+    // #471 (lot Z): the description is the family's, served flat on the line.
+    product: {
+      select: {
+        category: true,
+        name: true,
+        producer: true,
+        collection: true,
+        tags: true,
+        photoUrl: true,
+        // notes conditionally included
+        notes: !hideNotes,
+        vintage: true,
+        color: true,
+        region: true,
+        grapeVarieties: true,
+        alcoholDegree: true,
+        sparklingType: true,
+        sugarLevel: true,
+        spiritType: true,
+        edition: true,
+        declaredAge: true,
+        format: true,
+        manufactureYear: true,
+        leafOrigin: true,
+        peakMaturityFrom: true,
+        peakMaturityTo: true,
+        alertStatus: true,
+      },
+    },
+  } as const satisfies Prisma.InventoryItemSelect;
+}
+
+/** A shared line as the guest reads it: the unit with its family's description, flat. */
+function servedLine<T extends { product: Record<string, unknown> }>({ product, ...unit }: T) {
+  return { ...unit, ...product } as Omit<T, 'product'> & T['product'];
 }
 
 /**
@@ -224,7 +233,7 @@ export const sharesService = {
       where: buildShareWhere(share, SHOWCASE_SCOPE),
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
-    return redactPrices(items, share.hidePrices);
+    return redactPrices(items.map(servedLine), share.hidePrices);
   },
 
   /**
@@ -247,7 +256,7 @@ export const sharesService = {
       where: { ...where, id: itemId },
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
-    return item ? redactPrices([item], share.hidePrices)[0] : item;
+    return item ? redactPrices([servedLine(item)], share.hidePrices)[0] : item;
   },
 
   /**

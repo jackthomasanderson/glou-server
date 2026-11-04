@@ -172,7 +172,7 @@ const expertTasting: TastingNote = {
 const editNoteOf = (note: TastingNote) => ({ id: note.id, values: tastingToFormValues(note) });
 
 const item = (fields: Partial<InventoryItem>) =>
-  ({ name: 'Item', producer: 'Producer', isOwned: true, isOpened: false, ...fields }) as unknown as InventoryItem;
+  ({ name: 'Item', producer: 'Producer', isOpened: false, ...fields }) as unknown as InventoryItem;
 
 const field = (label: string) => screen.getByLabelText(label);
 
@@ -366,16 +366,6 @@ describe('stock question after a new tasting (#595, #586)', () => {
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
     expect(inventoryUpdate).not.toHaveBeenCalled();
-  });
-
-  it('asks nothing for a non-owned reference', async () => {
-    inventory = [item({ id: 'wine-1', category: 'wine', isOwned: false })];
-    lookedUp = inventory;
-    const onClose = vi.fn();
-    await saveNewTastingOf('wine-1', onClose);
-
-    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
   });
 
   it('asks nothing for an empty cigar box', async () => {

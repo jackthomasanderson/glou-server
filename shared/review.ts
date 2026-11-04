@@ -162,7 +162,7 @@ export function placesAgree(
 }
 
 /**
- * Design.md rule 4 (D5), as the families_transform migration applies it:
+ * Design.md rule 4 (D5), as the families migration applies it:
  * groups of a family that are identical — intact, out of the trash, not
  * written off, same `groupKey` and the same estimated value (empty equals
  * empty only: an empty value falls back on the price and the total value

@@ -48,11 +48,6 @@ export interface CountSessionDTO {
 const REPORT_ITEM_SELECT = {
   id: true,
   productId: true,
-  name: true,
-  producer: true,
-  category: true,
-  vintage: true,
-  photoUrl: true,
   cellarId: true,
   quantity: true,
   isOpened: true,
@@ -60,19 +55,23 @@ const REPORT_ITEM_SELECT = {
   cigarsLeft: true,
   // A cigar group counts boxes (cigarsPerBox set) or single cigars (null): the report words it so.
   cigarsPerBox: true,
+  // #471: the description is the family's.
+  product: { select: { name: true, producer: true, category: true, vintage: true, photoUrl: true } },
 } satisfies Prisma.InventoryItemSelect;
 
-type ReportItemRow = Prisma.InventoryItemGetPayload<{ select: typeof REPORT_ITEM_SELECT }>;
+type ReportUnitRow = Prisma.InventoryItemGetPayload<{ select: typeof REPORT_ITEM_SELECT }>;
+/** A line of the report as served: the unit with its family's description. */
+type ReportItemRow = Omit<ReportUnitRow, 'product'> & ReportUnitRow['product'];
+const reportRow = ({ product, ...unit }: ReportUnitRow): ReportItemRow => ({ ...unit, ...product });
 
 /** What a count entry says of its line: for a group, the number found. */
 type CountedEntry = { foundQuantity: number | null };
 
-/**
- * #471 (FEAT-100, D15): a line of the count — a group of N intact copies,
- * answered with a number, or a single unit (an opened bottle, a box in
- * progress) pointed on its own.
- */
-export interface CountLine extends ReportItemRow {
+/** What {@link countLine} reads of a unit. */
+type CountedUnit = Pick<ReportItemRow, 'quantity' | 'isOpened' | 'fillLevel' | 'cigarsLeft'>;
+
+/** The numbers of a count line. */
+interface CountNumbers {
   /** An intact group, counted with "Combien en avez-vous trouvé ?". */
   isGroup: boolean;
   /** Copies the line holds (×6). */
@@ -84,12 +83,19 @@ export interface CountLine extends ReportItemRow {
 }
 
 /**
+ * #471 (FEAT-100, D15): a line of the count — a group of N intact copies,
+ * answered with a number, or a single unit (an opened bottle, a box in
+ * progress) pointed on its own.
+ */
+export type CountLine = ReportItemRow & CountNumbers;
+
+/**
  * The numbers of a line: expected = its copies; found = the entry's
  * `foundQuantity`, the whole line when the entry has none (a one-tap
  * confirmation, or a count recorded before #471). `foundQuantity` may also
  * have been set by the families transformation on a merged group (F3).
  */
-export function countLine(row: ReportItemRow, entry: CountedEntry | undefined): CountLine {
+export function countLine<R extends CountedUnit>(row: R, entry: CountedEntry | undefined): R & CountNumbers {
   const expectedQuantity = Math.max(row.quantity ?? 1, 1);
   // Any entry was found somewhere: one recorded elsewhere ('unexpected', the
   // line then moved) is not missing either.
@@ -396,8 +402,8 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
           // missing bottle off the list.
           where: { cellarId: session.cellarId, ...IN_STOCK_ITEM_FILTER },
           select: REPORT_ITEM_SELECT,
-          orderBy: { name: 'asc' },
-        })
+          orderBy: [{ product: { name: 'asc' } }, { id: 'asc' }],
+        }).then((rows) => rows.map(reportRow))
       : Promise.resolve([] as ReportItemRow[]),
     // `OR: [{ itemId: null }, ...]` is required so unlisted finds (itemId
     // null, "add_to_stock" candidates) aren't dropped: Prisma's relation
@@ -417,7 +423,7 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
   const expected = theoretical.map((row) => countLine(row, entryByItem.get(row.id)));
   const confirmed = entries
     .filter((e) => e.status === 'confirmed' && e.item !== null)
-    .map((e) => countLine(e.item as ReportItemRow, e))
+    .map((e) => countLine(reportRow(e.item as ReportUnitRow), e))
     // "None found" is an answer, not a confirmation.
     .filter((line) => line.foundQuantity !== 0);
 
@@ -433,11 +439,11 @@ export async function getSessionReport(sessionId: string): Promise<SessionReport
         ? {
             entryId: e.id,
             itemId: e.item.id,
-            name: e.item.name,
-            producer: e.item.producer,
-            category: e.item.category,
-            vintage: e.item.vintage,
-            photoUrl: e.item.photoUrl,
+            name: e.item.product.name,
+            producer: e.item.product.producer,
+            category: e.item.product.category,
+            vintage: e.item.product.vintage,
+            photoUrl: e.item.product.photoUrl,
             cellarId: e.item.cellarId,
             quantity: e.foundQuantity,
             scannedAt: e.scannedAt,
@@ -531,7 +537,6 @@ function toInventoryInputForFound(
     name: entry.newItemName,
     producer: '',
     tags: [] as string[],
-    isOwned: true,
     isOpened: false,
     alertStatus: 'none' as const,
     cellarId,
@@ -725,7 +730,7 @@ async function applyCorrectionsInternal(
     if (correction.action === 'correct_quantity') {
       // #471 (FEAT-100, FEAT-92): "Corriger le nombre" of a group, by its
       // missing copies, with its reason. An opened bottle has no number.
-      if (!line.isGroup || !item.isOwned) {
+      if (!line.isGroup) {
         skip(item.id, correction.action, 'not_a_group');
         continue;
       }

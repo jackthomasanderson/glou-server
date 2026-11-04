@@ -6,7 +6,7 @@ import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
-import { isFinishedItem, isGroupableItem, NO_SLOT, unitKind } from '../lib/finished-item';
+import { isFinishedItem, isGroupableItem, NO_SLOT, unitKind, type UnitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
@@ -111,6 +111,17 @@ type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> 
 // #471: every read of /api/inventory* joins the unit's family, which holds
 // the description and the collections (see `toItemView`). Using Prisma's
 // GetPayload helper keeps this in sync with the schema automatically.
+/**
+ * #471 (lot Z): the unit's own columns a history value may be restored to —
+ * every column but its identity and bookkeeping. Description fields are the
+ * family's ({@link isProductField}), restored on it.
+ */
+const RESTORABLE_UNIT_FIELDS: ReadonlySet<string> = new Set(
+  Object.values(Prisma.InventoryItemScalarFieldEnum).filter((field) => ![
+    'id', 'userId', 'productId', 'createdAt', 'updatedAt', 'deletedAt', 'updatedBy', 'lockedFields', 'fieldSources',
+  ].includes(field)),
+);
+
 const INVENTORY_ITEM_INCLUDE = {
   product: { include: { collections: { select: { id: true, name: true, color: true, icon: true } } } },
 } satisfies Prisma.InventoryItemInclude;
@@ -268,15 +279,17 @@ export class InventoryService {
       patch.peakMaturityTo ?? undefined,
     );
     const extra: Record<string, unknown> = {};
-    if (fieldSources && Object.keys(fieldSources).length > 0) {
-      extra.fieldSources = fieldSources;
+    const unitSources = Object.fromEntries(Object.entries(fieldSources ?? {}).filter(([key]) => !isProductField(key)));
+    if (Object.keys(unitSources).length > 0) {
+      extra.fieldSources = unitSources;
     }
 
     // #471: the unit is created with its own family, in the same write. The
-    // description is still written on the unit too (transitional mirror read
-    // by every existing path); the family keeps its own locks and sources.
-    // The purchase day is the group's (D5), stored as a day (D6).
-    const { cellarId, purchasedAt: _day, ...itemData } = dbData as typeof dbData & { purchasedAt?: string | null };
+    // description goes to the family only; each keeps its own locks and
+    // sources. The purchase day is the group's (D5), stored as a day (D6).
+    const { cellarId, purchasedAt: _day, ...rest } = dbData as typeof dbData & { purchasedAt?: string | null };
+    const itemData = Object.fromEntries(Object.entries(rest).filter(([key]) => !isProductField(key) && key !== 'lockedFields'));
+    const unitLocks = (data.lockedFields ?? []).filter((field) => !isProductField(field));
     const { category, name, producer } = data;
     const productSources = pickProductFields(fieldSources ?? {});
     const product = {
@@ -294,10 +307,7 @@ export class InventoryService {
         ...itemData,
         purchasedAt: purchaseDayFromInput(data.purchasedAt),
         ...extra,
-        category,
-        name,
-        producer,
-        alertStatus,
+        ...(unitLocks.length > 0 ? { lockedFields: unitLocks } : {}),
         user: { connect: { id: userId } },
         ...(cellarId ? { cellar: { connect: { id: cellarId } } } : {}),
         product: { create: product },
@@ -343,7 +353,7 @@ export class InventoryService {
        * the guest route refuses there what would change a number. Throws an
        * AppError to refuse; nothing is written then.
        */
-      guard?: (unit: StateItem, planned: () => StateOutcome) => void;
+      guard?: (unit: StateItem, planned: () => StateOutcome, kind: UnitKind) => void;
     },
   ): Promise<UpdateItemResult | null> {
     const { fieldSources, isManualEdit = true, bypassFieldLock = false } = options ?? {};
@@ -354,7 +364,8 @@ export class InventoryService {
     // #471: `smokeOne` and `keepTastings` are instructions to the detach /
     // reattach rule (stock-state.service.ts), not columns either; nor is
     // `tastingId`, the tasting that follows a detached copy (FEAT-107).
-    const { expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, ...patch } = rawPatch;
+    // #471 (lot Z): `isOwned` is only an older client's leftover (schema: `true` ignored, `false` refused).
+    const { expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, isOwned: _legacy, ...patch } = rawPatch;
     const row = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
@@ -427,7 +438,7 @@ export class InventoryService {
       if (conflict) return { item: existing, changes: [], changed: [], removedIds: [], slotConflict: true };
     }
 
-    // #471: the family's fields go to the family (and its mirror), the rest
+    // #471: the family's fields go to the family, the rest
     // to the unit — each with its own locks and field sources (D1).
     // #798: a unit moved to another cellar gives its slot back with the move
     // (its coordinates mean nothing in the new cellar); recorded in the
@@ -463,8 +474,9 @@ export class InventoryService {
         const fresh = await tx.inventoryItem.findUnique({ where: { id } });
         if (!fresh || fresh.deletedAt) return null;
         if (isStale(fresh.updatedAt)) return { conflict: true as const };
+        const kind = unitKind(safePatch.category ?? row.product.category);
         options?.guard?.(fresh as StateItem, () =>
-          planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, unitKind(safePatch.category ?? row.product.category)).outcome);
+          planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, kind).outcome, kind);
         // Also when the patch holds no family field: the derived alert may
         // need realigning, and that is decided on the locked family (#706
         // window check included — a ZodError, answered with 400).
@@ -473,7 +485,6 @@ export class InventoryService {
         });
         familyChanges = new Map(family.changes.map((change) => [change.field, change]));
         // The unit is always stamped: the flat record it stands for changed.
-        const kind = unitKind(safePatch.category ?? row.product.category);
         const result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
           tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
           { userId, kind, include: INVENTORY_ITEM_INCLUDE },
@@ -564,6 +575,10 @@ export class InventoryService {
     if (!existing) return { status: 'not_found' };
     // #471 (FEAT-102): a guessed number is settled by "C'est bon" or "Corriger le nombre", never marked again from the history.
     if (field === 'needsReview') return { status: 'invalid_value' };
+    // #471 (lot Z): only a column of the unit or of its family can be written
+    // back. An older history line may name one that is gone (FEAT-87's
+    // `isOwned`, "Stocker cette référence"): refused, never sent to Prisma.
+    if (!isProductField(field) && !RESTORABLE_UNIT_FIELDS.has(field)) return { status: 'invalid_value' };
 
     const history = await this.getItemHistory(itemId);
     const seenValues = new Set<string>();
@@ -657,7 +672,7 @@ export class InventoryService {
         if (!fresh) continue;
 
         const changed = Object.fromEntries(changedEntries) as InventoryPatch;
-        if (changed.cellarId !== undefined && isGroupableItem(fresh) && fresh.isOwned) {
+        if (changed.cellarId !== undefined && isGroupableItem(fresh)) {
           // #471 (FEAT-111): a whole group moved to another cellar joins the
           // identical group there, as "Déplacer" does (a preset or the bulk
           // edit's cellar): never a line apart that should be one. Its other
@@ -767,7 +782,7 @@ export class InventoryService {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const toPurge = await client.inventoryItem.findMany({
       where: { deletedAt: { lt: cutoff } },
-      select: { id: true, photoUrl: true, productId: true },
+      select: { id: true, productId: true },
     });
     const result = toPurge.length > 0
       ? await client.inventoryItem.deleteMany({ where: { id: { in: toPurge.map((item) => item.id) } } })
@@ -792,17 +807,14 @@ export class InventoryService {
       await client.product.deleteMany({ where: { id: ids } });
     }
 
-    const candidates = [
-      ...toPurge.map((item) => item.photoUrl),
-      ...purgedFamilies.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]),
-    ].filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX));
+    const candidates = purgedFamilies.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]).filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX));
     const photos = [...new Set(candidates)];
     const stillReferenced = await this.referencedProductPhotos(client, photos);
     return { count: result.count, photoPaths: photos.filter((url) => !stillReferenced.has(url)) };
   }
 
   /**
-   * The local product photos referenced by a unit, a family (its photo or its
+   * The local product photos referenced by a family (its photo or its
    * other photos) or a tasting (#471, FEAT-107). A tasting's photo is stored
    * as an absolute URL: its path is what names the file. A deleted tasting
    * (by hand, by a reattach answered "Ne pas la garder", or with its wine at
@@ -811,7 +823,6 @@ export class InventoryService {
   private async referencedProductPhotos(client: PrismaClientOrTx, among?: string[]): Promise<Set<string>> {
     if (among?.length === 0) return new Set();
     const urls = among ? { in: among } : { startsWith: LOCAL_PRODUCT_PHOTO_PREFIX };
-    const items = await client.inventoryItem.findMany({ where: { photoUrl: urls }, select: { photoUrl: true } });
     const families = await client.product.findMany({
       where: { OR: [{ photoUrl: urls }, among ? { otherPhotoUrls: { hasSome: among } } : { otherPhotoUrls: { isEmpty: false } }] },
       select: { photoUrl: true, otherPhotoUrls: true },
@@ -823,7 +834,7 @@ export class InventoryService {
     const tastingPaths = tastings.map((tasting) => localPhotoPath(tasting.photoUrl))
       .filter((url) => url !== null && (!among || among.includes(url)));
     return new Set(
-      [...items.map((item) => item.photoUrl), ...families.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]), ...tastingPaths]
+      [...families.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]), ...tastingPaths]
         .filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX)),
     );
   }
@@ -889,7 +900,8 @@ export class InventoryService {
 
   private mapInputToDb(data: Partial<InventoryPatch>): Partial<InventoryPatch> {
     return Object.fromEntries(
-      Object.entries(data).filter(([, v]) => v !== undefined)
+      // #471 (lot Z): `isOwned` is no column any more (an older client's `true`, see the schema).
+      Object.entries(data).filter(([key, v]) => v !== undefined && key !== 'isOwned')
     ) as Partial<InventoryPatch>;
   }
 

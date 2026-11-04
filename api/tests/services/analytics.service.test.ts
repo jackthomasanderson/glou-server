@@ -168,7 +168,7 @@ describe('getAnalytics — aggregation invariants', () => {
     const findCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(findCall.where).toEqual({ deletedAt: null, isOwned: true });
+    expect(findCall.where).toEqual({ deletedAt: null });
   });
 
   // ISSUE_035/ISSUE_104: the payload states which part of itself the range
@@ -340,12 +340,12 @@ describe('getAnalytics excludes non-owned references (FEAT-87)', () => {
     const itemsCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(itemsCall.where).toMatchObject({ deletedAt: null, isOwned: true });
+    expect(itemsCall.where).toMatchObject({ deletedAt: null });
 
     const consumedCall = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(consumedCall.where).toMatchObject({ deletedAt: null, isOwned: true });
+    expect(consumedCall.where).toMatchObject({ deletedAt: null });
   });
 });
 

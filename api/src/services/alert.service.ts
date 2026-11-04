@@ -145,8 +145,8 @@ export interface AlertStatusRecomputeResult {
  * written, which in practice is a handful per year.
  *
  * #471: one pass per family, not per unit — a wine of 9 bottles is written
- * once and notified once. No `updatedAt` moves (`writeAlertStatus`, in SQL,
- * with its mirror on the units), so this maintenance pass never looks like a
+ * once and notified once. No `updatedAt` moves (`writeAlertStatus`, in SQL),
+ * so this maintenance pass never looks like a
  * user edit: bumping it would reorder user-facing lists and trigger spurious
  * conflicts in the FEAT-16/23 offline-sync concurrency check — and carrying
  * over an `updatedAt` read before could move it back past a concurrent edit.
