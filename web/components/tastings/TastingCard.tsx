@@ -6,6 +6,7 @@ import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
 import { isTastedElsewhere, tastedPhoto, tastedWineTitle } from '@/lib/tastings/onWine';
 import { formatDate } from '@/lib/format';
+import { guestSignature } from '@/lib/shares/guestSignature';
 
 interface TastingCardProps {
   note: TastingNote;
@@ -37,6 +38,7 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
                 {formatDate(note.tastedAt, i18n.language)}
                 {note.context ? ` · ${note.context}` : ''}
                 {isTastedElsewhere(note) ? ` · ${t('familyDrawer.tastings.elsewhere')}` : ''}
+                {note.guestName != null ? ` · ${guestSignature(note.guestName, t)}` : ''}
               </p>
             </div>
           </div>

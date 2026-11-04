@@ -53,24 +53,32 @@ export const UNDO_TIMEOUT_MS = 5000;
  * A success that can be taken back (#471, ux-ui.md §10.4: "1 bouteille
  * ouverte · Annuler"). The toast region is a top layer: its button works
  * above an open drawer without closing it. Pressing "Annuler" closes the
- * message and calls `onUndo` once.
+ * message and calls `onUndo` once. `extra`, a second action of the same
+ * message (FEAT-109: « Noter une dégustation » after « J'en bois une »),
+ * also closes it.
  */
-export function notifyUndoable(messageKey: string, values: Record<string, unknown> | undefined, onUndo: () => void): void {
-  let undone = false;
+export function notifyUndoable(
+  messageKey: string,
+  values: Record<string, unknown> | undefined,
+  onUndo: () => void,
+  extra?: { labelKey: string; onPress: () => void },
+): void {
+  let done = false;
+  const once = (action: () => void) => () => {
+    if (done) return;
+    done = true;
+    if (key) closeToast(key);
+    action();
+  };
+  const button = (label: string, onPress: () => void) =>
+    createElement(Button, { key: label, size: 'sm', variant: 'flat', color: 'success', onPress }, label);
+  const undo = button(translate('actions.undo'), once(onUndo));
   const key = addToast({
     title: translate(messageKey, values),
     color: 'success',
     timeout: UNDO_TIMEOUT_MS,
-    endContent: createElement(Button, {
-      size: 'sm',
-      variant: 'flat',
-      color: 'success',
-      onPress: () => {
-        if (undone) return;
-        undone = true;
-        if (key) closeToast(key);
-        onUndo();
-      },
-    }, translate('actions.undo')),
+    endContent: extra
+      ? createElement('div', { className: 'flex gap-1' }, button(translate(extra.labelKey), once(extra.onPress)), undo)
+      : undo,
   });
 }
