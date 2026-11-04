@@ -18,6 +18,7 @@ import {
   applyState, isStateField, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
 } from './stock-state.service';
 import { writeFamilyDescription } from './product.service';
+import { rememberDistinct } from './review.service';
 import { GROUP_KEY_FIELDS, joinIdenticalGroup } from './stock-split.service';
 import { isSlotTaken } from '../lib/slots';
 
@@ -150,35 +151,6 @@ function attachReadiness<
   };
 }
 
-/** What the FEAT-65 "same bottle" rule compares. */
-type DuplicateKey = Pick<InventoryPatch, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>;
-
-/**
- * FEAT-65 "same bottle" rule, mirroring the client's `isDuplicateOf`
- * (`web/lib/inventory/duplicate.ts`). Pure, so a caller holding a list of
- * candidates (the CSV import, FEAT-91) does not re-read the database per row.
- */
-export function isDuplicateOf(
-  item: Pick<InventoryItem, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>,
-  data: DuplicateKey,
-): boolean {
-  const normalize = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
-  if (!data.category || !data.producer || !data.name || item.category !== data.category) return false;
-  if (normalize(item.producer) !== normalize(data.producer)) return false;
-  if (normalize(item.name) !== normalize(data.name)) return false;
-
-  if (data.category === 'cigar') {
-    return normalize(item.format) === normalize(data.format);
-  }
-  if (data.category === 'spirit') {
-    return normalize(item.bottleSize) === normalize(data.bottleSize);
-  }
-  // wine / sparkling — a missing vintage on either side is a potential
-  // match (let the caller decide), same as the client's vintageMatch.
-  const vintageMatches = data.vintage == null || item.vintage == null || item.vintage === data.vintage;
-  return vintageMatches && normalize(item.bottleSize) === normalize(data.bottleSize);
-}
-
 export class InventoryService {
   /**
    * ISSUE_083: an unbounded `findMany` here loads the entire inventory into
@@ -250,26 +222,21 @@ export class InventoryService {
   }
 
   /**
-   * ISSUE_141/ISSUE_068: the FEAT-65 "is this the same bottle" rule
-   * (`web/lib/inventory/duplicate.ts`'s `isDuplicateOf`) existed only in the
-   * browser — CSV import, the offline queue and two members creating the
-   * same bottle concurrently from two devices all bypassed it entirely.
-   * Ported here so server-side creation paths can apply the identical rule.
-   * Scans by category only (indexed, small result set for a self-hosted
-   * single-household inventory) then compares in JS — mirrors the client
-   * logic exactly rather than re-deriving an equivalent SQL predicate.
+   * #471 (FEAT-97 c5): "C'est un autre vin" — a new wine of the same name as
+   * `distinctFrom`, remembered as a different wine from each of them, in one
+   * transaction (rememberDistinct, review.service.ts).
    */
-  async findDuplicateCandidate(
-    data: DuplicateKey,
-    client: PrismaClientOrTx = prisma,
-  ): Promise<InventoryItem | null> {
-    if (!data.category || !data.producer || !data.name) return null;
-
-    const candidates = await client.inventoryItem.findMany({
-      where: { category: data.category, deletedAt: null },
+  async createApart(
+    userId: string,
+    data: InventoryInput,
+    distinctFrom: string[],
+    fieldSources?: Partial<Record<string, FieldSource>>,
+  ): Promise<InventoryItemView> {
+    return prisma.$transaction(async (tx) => {
+      const created = await this.createItem(userId, data, tx, fieldSources);
+      await rememberDistinct(tx, created.productId, distinctFrom);
+      return created;
     });
-
-    return candidates.find((item) => isDuplicateOf(item, data)) ?? null;
   }
 
   /**

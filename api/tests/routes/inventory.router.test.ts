@@ -10,7 +10,7 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
   getClientIp: () => '127.0.0.1',
 }));
 vi.mock('../../src/services/inventory.service', () => ({
-  inventoryService: { updateItem: vi.fn(), rollbackField: vi.fn() },
+  inventoryService: { updateItem: vi.fn(), rollbackField: vi.fn(), createItem: vi.fn(), createApart: vi.fn() },
 }));
 vi.mock('../../src/services/scan.service', () => ({ scanService: {} }));
 vi.mock('../../src/services/system-config.service', () => ({ systemConfigService: {} }));
@@ -26,6 +26,44 @@ app.use(express.json());
 app.use('/api/inventory', inventoryRouter);
 
 beforeEach(() => vi.clearAllMocks());
+
+const wine = { category: 'wine', name: 'Cuvée X', producer: 'Domaine Y', vintage: 2020 };
+
+// #471 (FEAT-97): the duplicate refusal (409 DUPLICATE_CANDIDATE) is gone —
+// "Vous avez déjà ce vin" is asked while typing; a creation creates a wine.
+describe('POST /api/inventory (FEAT-97)', () => {
+  it('creates the wine even when one of the same name exists, without looking for it', async () => {
+    vi.mocked(inventoryService.createItem).mockResolvedValue({ id: 'b2', productId: 'p2' } as never);
+
+    const res = await request(app).post('/api/inventory').send({ ...wine, confirmDuplicate: true });
+
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ data: { id: 'b2', productId: 'p2' } });
+    expect(inventoryService.createApart).not.toHaveBeenCalled();
+  });
+
+  it('c5: "C\'est un autre vin" creates the wine apart from the ones named', async () => {
+    vi.mocked(inventoryService.createApart).mockResolvedValue({ id: 'b2', productId: 'p2' } as never);
+
+    const res = await request(app).post('/api/inventory').send({ ...wine, distinctFrom: ['p1'] });
+
+    expect(res.status).toBe(201);
+    expect(inventoryService.createApart).toHaveBeenCalledWith('u1', expect.objectContaining({ name: 'Cuvée X' }), ['p1'], undefined);
+    expect(inventoryService.createItem).not.toHaveBeenCalled();
+    expect(vi.mocked(auditLog).mock.calls[0]?.[0]).toMatchObject({ action: 'CREATE', status: 'success', productId: 'p2', details: { distinctFrom: ['p1'] } });
+  });
+
+  it.each([
+    ['not a list', 'p1'],
+    ['too many', Array.from({ length: 51 }, (_, i) => `p${i}`)],
+  ])('answers 400 when the wines told apart are %s', async (_label, distinctFrom) => {
+    const res = await request(app).post('/api/inventory').send({ ...wine, distinctFrom });
+
+    expect(res.status).toBe(400);
+    expect(inventoryService.createItem).not.toHaveBeenCalled();
+    expect(inventoryService.createApart).not.toHaveBeenCalled();
+  });
+});
 
 // #471 (D8, FEAT-103/106): what the PATCH answers and logs when the detach /
 // reattach rule applies.

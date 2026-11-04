@@ -220,6 +220,34 @@ export async function absorbGroups(tx: PrismaClientOrTx, survivorId: string, abs
   await tx.inventoryItem.deleteMany({ where: { id: { in: absorbedIds } } });
 }
 
+/**
+ * #471 (FEAT-97 c5): "C'est un autre vin" when adding — the new family
+ * `productId` and each of `otherIds` are remembered as different wines, so
+ * "À regrouper ?" never proposes them together. Only the listed families
+ * still of the same wine are kept: one merged or trashed meanwhile does not
+ * cancel the creation. The other families are locked in the one order (lock
+ * rule, #787 review); the new one, created by the caller's transaction, is
+ * held by no one else. Returns the pairs remembered.
+ */
+export async function rememberDistinct(tx: PrismaClientOrTx, productId: string, otherIds: string[]): Promise<Array<[string, string]>> {
+  const others = [...new Set(otherIds)].filter((id) => id !== productId);
+  if (others.length === 0) return [];
+  await lockFamilies(tx, others);
+  const families = await tx.product.findMany({ where: { id: { in: [productId, ...others] }, ...LISTED_PRODUCT_FILTER } });
+  const created = families.find((family) => family.id === productId);
+  if (!created) return [];
+  const key = productKey(created);
+  const sameWine = new Set(families.filter((family) => family.id !== productId && productKey(family) === key).map((family) => family.id));
+  const pairs = others.filter((id) => sameWine.has(id)).map((id) => orderedPair(productId, id));
+  if (pairs.length > 0) {
+    await tx.productDistinction.createMany({
+      data: pairs.map(([first, second]) => ({ productId: first, otherProductId: second })),
+      skipDuplicates: true,
+    });
+  }
+  return pairs;
+}
+
 export interface MergeOutcome {
   productId: string;
   removedProductIds: string[];

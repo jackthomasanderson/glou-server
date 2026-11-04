@@ -37,14 +37,25 @@ import {
 import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '@shared/inventory';
 import { MAX_COPIES } from '@shared/product';
 import { CigarGroupFields } from './CigarGroupFields';
+import { KnownWineBanner } from './KnownWineBanner';
+import { AddUnitsForm } from './AddUnitsDialog';
+import { useKnownWine } from '@/hooks/useKnownWine';
+import type { UnitWrite } from '@/lib/products/client';
+import type { Product } from '@/lib/products/types';
 import {
   cigarGroupInput, cigarPriceKey, cigarValueKey, isCigarGroupValid, type CigarGroupDraft, type CigarStorage,
 } from '@/lib/products/cigarGroup';
 
+/**
+ * What a new entry sends. `distinctFrom` (#471, FEAT-97 c5): the wines of the
+ * same name the member answered "C'est un autre vin" to.
+ */
+export type InventoryEntry = Partial<InventoryItem> & { distinctFrom?: string[] };
+
 interface InventoryFormProps {
   open: boolean;
   initialValues?: Partial<InventoryItem>;
-  onSubmit: (values: Partial<InventoryItem>, collectionIds: string[]) => void;
+  onSubmit: (values: InventoryEntry, collectionIds: string[]) => void;
   onClose: () => void;
   isSubmitting?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -67,6 +78,12 @@ interface InventoryFormProps {
    * how many bottles the change applies to.
    */
   descriptionOf?: { units: number; kind: UnitKind };
+  /**
+   * #471 (FEAT-97): "Vous avez déjà ce vin" was accepted and the bottles were
+   * added to that wine (the reduced form) — the entry is done; the form
+   * closes right after (`onClose`).
+   */
+  onJoined?: (write: UnitWrite, product: Product) => void;
 }
 
 const EMPTY_FORM: Partial<InventoryItem> = {
@@ -105,6 +122,7 @@ const CATEGORY_COLORS = CATEGORY_CHIP_COLOR;
 
 export function InventoryForm({
   open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory, defaultCellarId, descriptionOf,
+  onJoined,
 }: InventoryFormProps) {
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
@@ -144,6 +162,10 @@ export function InventoryForm({
   const isEditing = Boolean(initialValues?.id);
   // A bottle's own fields (cellar, price, number, state): not in a wine's description.
   const showsBottle = !descriptionOf;
+  // #471 (FEAT-97): "Vous avez déjà ce vin" — the wine whose reduced form is
+  // shown, and the wines answered "C'est un autre vin".
+  const [joining, setJoining] = useState<Product | null>(null);
+  const [distinctFrom, setDistinctFrom] = useState<string[]>([]);
 
   const setField = (field: string, value: unknown) =>
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -175,8 +197,23 @@ export function InventoryForm({
       setPrefetchedImages([]);
       setIsAutoLoading(false);
       setAutoPhoto(null);
+      setJoining(null);
+      setDistinctFrom([]);
     }
   }
+
+  // FEAT-97 c1, c3: the wines of the same name as the one typed (a new entry only).
+  const sameName = useKnownWine(
+    { category: values.category, producer: values.producer, name: values.name, vintage: values.vintage, format: values.format },
+    open && !isEditing && showsBottle,
+  );
+  const knownWines = sameName.filter((product) => !distinctFrom.includes(product.id));
+  // "C'est un autre vin", for the wine still typed: sent with the entry (c5).
+  const toldApart = sameName.filter((product) => distinctFrom.includes(product.id)).map((product) => product.id);
+  const finishJoin = () => {
+    setJoining(null);
+    onClose();
+  };
 
   // The automatic photo (#227) follows the name until the user picks one.
   // It used to be fetched once, after the first 1.2 s pause, so a pause while
@@ -277,7 +314,7 @@ export function InventoryForm({
     const patch = 'cellarId' in sent
       ? { ...sent, cellarId: sent.cellarId === ('none' as string) || sent.cellarId === '' ? null : sent.cellarId }
       : sent;
-    onSubmit(patch, selectedCollections.map(c => c.id));
+    onSubmit(toldApart.length > 0 ? { ...patch, distinctFrom: toldApart } : patch, selectedCollections.map(c => c.id));
   };
 
   const hasPeakCategories = ['wine', 'sparkling'].includes(values.category ?? '');
@@ -303,7 +340,24 @@ export function InventoryForm({
       hideCloseButton
     >
       <ModalContent>
-        {() => (
+        {() => joining ? (
+          // FEAT-97 c2 (ux-ui.md §10.4.1): the form reduced to the bottles —
+          // number, size, cellar, price and day; what was typed is kept.
+          <AddUnitsForm
+            product={joining}
+            start={{
+              quantity: category === 'cigar' ? undefined : values.quantity ?? undefined,
+              cellarId: values.cellarId,
+              purchasePrice: values.purchasePrice ?? undefined,
+              bottleSize: values.bottleSize ?? undefined,
+              purchasedAt: values.purchasedAt ?? undefined,
+            }}
+            cancelLabel={t('knownWine.backToEntry')}
+            onCancel={() => setJoining(null)}
+            onAdded={(write) => onJoined?.(write, joining)}
+            onDone={finishJoin}
+          />
+        ) : (
           <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
             <ModalHeader className="flex items-center justify-between gap-3 pr-4 pb-2 shrink-0">
               <div className="flex items-center gap-2">
@@ -454,6 +508,24 @@ export function InventoryForm({
                       </Select>
                       )}
                     </div>
+
+                    {/* #471 (FEAT-97, ux-ui.md §10.4.1): under the name fields, never covering them. */}
+                    {knownWines.length > 0 && (
+                      <div className="mt-3">
+                        <KnownWineBanner
+                          matches={knownWines}
+                          onAdd={setJoining}
+                          onDistinct={() => setDistinctFrom((prev) => [...prev, ...knownWines.map((product) => product.id)])}
+                          isDisabled={isSubmitting}
+                          t={t}
+                        />
+                      </div>
+                    )}
+                    {knownWines.length === 0 && toldApart.length > 0 && (
+                      <p data-testid="known-wine-distinct-noted" className="mt-3 text-sm text-foreground-500">
+                        {t(category === 'cigar' ? 'knownWine.distinctNotedCigar' : category === 'spirit' ? 'knownWine.distinctNotedSpirit' : 'knownWine.distinctNoted')}
+                      </p>
+                    )}
 
                     {/* #471 (FEAT-92 c1, ux-ui.md §10.4.1): what is stored, with the
                         cellar — how many identical bottles, their size, the price of

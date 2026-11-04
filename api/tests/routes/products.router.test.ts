@@ -12,7 +12,7 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
 }));
 vi.mock('../../src/services/product.service', () => ({
   productService: {
-    list: vi.fn(), listTrash: vi.fn(), get: vi.fn(), updateDescription: vi.fn(), rollbackField: vi.fn(), trash: vi.fn(), restore: vi.fn(),
+    list: vi.fn(), listTrash: vi.fn(), get: vi.fn(), matching: vi.fn(), updateDescription: vi.fn(), rollbackField: vi.fn(), trash: vi.fn(), restore: vi.fn(),
   },
 }));
 vi.mock('../../src/services/inventory.service', () => ({
@@ -267,5 +267,41 @@ describe('POST /api/products/:id/rollback (FEAT-05 on a wine)', () => {
       action: 'RESTORE_FIELD', status: 'validation_error', productId: 'p1', details: { issues: expect.stringContaining(issue) },
     }));
     expect(auditLog).toHaveBeenCalledTimes(1);
+  });
+});
+
+// #471 (FEAT-97 c1): GET /api/products/match — "Vous avez déjà ce vin".
+describe('GET /api/products/match (FEAT-97)', () => {
+  it('answers the families of the wine typed, read from the query', async () => {
+    vi.mocked(productService.matching).mockResolvedValue([{ id: 'p1', items: [] }] as never);
+
+    const res = await request(app).get('/api/products/match')
+      .query({ category: 'wine', producer: 'Domaine Y', name: 'Cuvée X', vintage: '2020' });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: [{ id: 'p1', items: [] }] });
+    expect(productService.matching).toHaveBeenCalledWith({ category: 'wine', producer: 'Domaine Y', name: 'Cuvée X', vintage: 2020, format: null, anyFormat: false });
+    expect(productService.get).not.toHaveBeenCalled();
+  });
+
+  it('reads an absent vintage as "no year" and passes the vitola of a cigar', async () => {
+    vi.mocked(productService.matching).mockResolvedValue([] as never);
+
+    await request(app).get('/api/products/match').query({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', format: 'Robusto' });
+    await request(app).get('/api/products/match').query({ category: 'cigar', producer: 'Montecristo', name: 'No. 2', anyFormat: 'true' });
+
+    expect(productService.matching).toHaveBeenNthCalledWith(1, { category: 'cigar', producer: 'Montecristo', name: 'No. 2', vintage: null, format: 'Robusto', anyFormat: false });
+    expect(productService.matching).toHaveBeenNthCalledWith(2, { category: 'cigar', producer: 'Montecristo', name: 'No. 2', vintage: null, format: null, anyFormat: true });
+  });
+
+  it.each([
+    ['no name', { category: 'wine', producer: 'Domaine Y' }],
+    ['an unknown category', { category: 'beer', producer: 'Y', name: 'X' }],
+    ['a vintage that is not a year', { category: 'wine', producer: 'Y', name: 'X', vintage: 'abc' }],
+  ])('answers 400 for %s', async (_label, query) => {
+    const res = await request(app).get('/api/products/match').query(query);
+
+    expect(res.status).toBe(400);
+    expect(productService.matching).not.toHaveBeenCalled();
   });
 });

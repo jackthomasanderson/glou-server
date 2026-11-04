@@ -165,8 +165,8 @@ test.describe('CSV import by groups (#471, FEAT-99)', () => {
       // The older family: its only bottle was drunk.
       const older = await okData<{ id: string; productId: string }>(await api.post('/api/inventory', { data: wine }));
       await okData(await api.patch(`/api/inventory/${older.id}`, { data: { isOpened: true, fillLevel: 0 } }));
-      // The newer one, kept apart ("Create anyway"), with 6 bottles.
-      const newer = await okData<{ productId: string }>(await api.post('/api/inventory', { data: { ...wine, confirmDuplicate: true } }));
+      // The newer one, a second wine of the same name (FEAT-97: a creation is a new wine), with 6 bottles.
+      const newer = await okData<{ productId: string }>(await api.post('/api/inventory', { data: wine }));
       await okData(await api.post(`/api/products/${newer.productId}/items`, { data: { quantity: 5, cellarId } }));
       expect(newer.productId).not.toBe(older.productId);
 

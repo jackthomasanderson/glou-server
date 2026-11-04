@@ -139,7 +139,7 @@ export function useInventoryItemLookup() {
 
 export function useCreateInventoryItem() {
   const queryClient = useQueryClient();
-  return useMutation<InventoryItem, Error, Partial<InventoryItem> & { confirmDuplicate?: boolean }>({
+  return useMutation<InventoryItem, Error, Parameters<typeof inventoryClient.create>[0]>({
     mutationFn: inventoryClient.create,
     onSuccess: (newItem) => {
       queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
@@ -148,9 +148,6 @@ export function useCreateInventoryItem() {
       notifySuccess('toast.createSuccess');
     },
     onError: (error) => {
-      // DUPLICATE_CANDIDATE is not a failure: the caller turns it into the
-      // duplicate-resolution dialog.
-      if (error.message === 'DUPLICATE_CANDIDATE') return;
       // #683: say when the server refused a value, so the user can tell a
       // form problem from a connection problem.
       notifyError(error.message === 'VALIDATION_ERROR' ? 'toast.createRejected' : 'toast.createError');
