@@ -72,14 +72,10 @@ migrations_before() {
   chmod -R a+rX "$1"
 }
 families=$(find "$migrations" -mindepth 1 -maxdepth 1 -type d -name '*_families_*' -printf '%f\n' | sort)
-# Lot Z (D7): one migration only, the last one of the folder (dated after the
-# last migration of `dev`), so the bench replays it from the schema of `dev`.
-# TO RELAX once the families migration has shipped: later migrations will
-# follow it, and the bench must then replay up to it, not require it last.
+# One families migration only. Migrations dated after it (shipped later) are
+# applied by the update step as well, as on a real instance.
 [ "$(wc -l <<<"$families")" = 1 ] && [ -n "$families" ] \
   || { echo "Expected exactly one *_families_* migration in $migrations, found: $families"; exit 1; }
-last=$(find "$migrations" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort | tail -n 1)
-[ "$families" = "$last" ] || { echo "The families migration ($families) must be the last one (found $last after it)."; exit 1; }
 first_families=$families
 # The shared rules block lives in it.
 rules_file="$migrations/$families/migration.sql"

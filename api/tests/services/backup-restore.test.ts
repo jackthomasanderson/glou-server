@@ -247,11 +247,8 @@ describe('backupService.restoreBackup — a backup of another version of Glou (#
   ].join('\n');
   const applied = (names: string[]) => names.map((name): [string, boolean, boolean] => [name, true, false]);
 
-  // TO RELAX once the families migration has shipped: later migrations will
-  // follow it; the cases below then need the families one by name, not last.
-  it('ships the families migration as its last one', () => {
-    expect(families).toBeDefined();
-    expect(shipped[shipped.length - 1]).toBe(families);
+  it('ships one families migration', () => {
+    expect(shipped.filter((name) => name.endsWith('_families_model'))).toEqual([families]);
   });
 
   it('reads the applied migrations of a dump, a failed or rolled back one left out', async () => {
