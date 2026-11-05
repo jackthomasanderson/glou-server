@@ -166,6 +166,14 @@ describe('slotService.swap (POST /api/cellars/:id/swap-slots, ISSUE_037)', () =>
     expect(b.change).toEqual({ field: 'slot', from: { column: 2, row: 1 }, to: { column: 1, row: 1 } });
   });
 
+  it('refuses two cells of the same line: nothing written, nothing for the history', async () => {
+    slots.rows.push(slot({ id: 'sa', itemId: 'g', column: 1, row: 1 }), slot({ id: 'sb', itemId: 'g', column: 2, row: 1 }));
+
+    expect(await rejection(slotService.swap('c1', 'sa', 'sb'))).toMatchObject({ status: 400, code: 'SAME_LINE_SLOTS' });
+    expect(slots.delegate.update).not.toHaveBeenCalled();
+    expect(slots.cellsOf('g')).toBe('1:1 2:1');
+  });
+
   it('refuses slots of another cellar, or gone', async () => {
     slots.rows.push(slot({ id: 'sa', itemId: 'a', column: 1, row: 1 }), slot({ id: 'sb', itemId: 'b', cellarId: 'c2', column: 2, row: 1 }));
 

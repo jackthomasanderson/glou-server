@@ -1042,6 +1042,18 @@ describe('InventoryService', () => {
       expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
     });
 
+    it('review 856 (b): a lower number sent with a state is judged on the number — 409, never the database guard', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      const cells = [1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 }));
+      slots.rows.push(...cells);
+
+      const error = await rejected(service.updateItem('u1', 'b1', { quantity: 2, isOpened: true, fromSlotId: cells[0].id }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    });
+
     it('a number lowered that still holds the cells goes through', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
       slots.rows.push(...[1, 2].map((column) => slot({ itemId: 'b1', column, row: 1 })));
