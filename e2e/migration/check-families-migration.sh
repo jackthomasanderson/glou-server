@@ -7,8 +7,11 @@
 #      `*_families_*` migration (truncated copy of the migrations folder):
 #      the schema of `dev`, which every instance runs before this update;
 #   2. fixtures/before-families.sql loads a small instance into it;
-#   3. the image's own `prisma migrate deploy` applies the rest, as on an
-#      update;
+#   3. the image's own `prisma migrate deploy` applies the families
+#      migration, as on an update. Migrations shipped after it are left out
+#      (copy of the folder up to and including it) here and in the steps
+#      below, except the backup step: a later one may change what the checks
+#      read (FEAT-93 drops bottles.slotColumn/slotRow), and has its own bench;
 #   4. checks/*.sql verify the result (each lists its failures, then fails):
 #      the data transformed, and the columns the contraction removed gone;
 #   5. parity/: the SQL copy of the shared rules (units, value, spending,
@@ -30,50 +33,25 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
-root=$(cd "$here/../.." && pwd)
-export COMPOSE_FILE="$root/docker-compose.e2e.yml"
+# root, migrations, COMPOSE_FILE, stack_url, psql_on, migrate_on,
+# fresh_database, migrations_before, migrations_through.
+source "$here/lib.sh"
 database=glou_migration_bench
 failing=glou_migration_bench_failure
 timed=glou_migration_bench_duration
 records=5000
 max_seconds=30
 
-# Same server and credentials as the stack, other databases.
-stack_url=$(docker compose exec -T api printenv DATABASE_URL </dev/null)
-
-# Single statements or a file on stdin; stops at the first SQL error.
-psql_on() { local db=$1; shift; docker compose exec -T db psql -U glou -d "$db" -v ON_ERROR_STOP=1 -q "$@"; }
 psql_bench() { psql_on "$database" "$@"; }
-# stdin closed: `run`/`exec` would otherwise wait on it.
-migrate_on() {
-  local db=$1; shift
-  docker compose run --rm --no-deps -T -e DATABASE_URL="${stack_url%/*}/$db" "$@" api npx prisma migrate deploy </dev/null
-}
 migrate() { migrate_on "$database" "$@"; }
-fresh_database() {
-  docker compose exec -T db psql -U glou -d postgres -v ON_ERROR_STOP=1 -q \
-    -c "DROP DATABASE IF EXISTS $1" -c "CREATE DATABASE $1" </dev/null
-}
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 chmod a+rX "$work"
 
-migrations="$root/api/prisma/migrations"
-# A copy of the migrations folder holding only the migrations before $2, in $1.
-migrations_before() {
-  mkdir "$1"
-  cp "$migrations/migration_lock.toml" "$1/"
-  for dir in "$migrations"/*/; do
-    name=$(basename "$dir")
-    if [[ "$name" < "$2" ]]; then cp -r "$dir" "$1/$name"; fi
-  done
-  # Read by the API image's user (uid 1001).
-  chmod -R a+rX "$1"
-}
 families=$(find "$migrations" -mindepth 1 -maxdepth 1 -type d -name '*_families_*' -printf '%f\n' | sort)
-# One families migration only. Migrations dated after it (shipped later) are
-# applied by the update step as well, as on a real instance.
+# One families migration only, found by name: migrations dated after it
+# (shipped later) may exist, the bench stops at it (step 3).
 [ "$(wc -l <<<"$families")" = 1 ] && [ -n "$families" ] \
   || { echo "Expected exactly one *_families_* migration in $migrations, found: $families"; exit 1; }
 first_families=$families
@@ -81,18 +59,22 @@ first_families=$families
 rules_file="$migrations/$families/migration.sql"
 grep -q '^-- >>> families rules' "$rules_file" || { echo "$families holds no '>>> families rules' block."; exit 1; }
 migrations_before "$work/before-families" "$first_families"
+migrations_through "$work/through-families" "$first_families"
+# Mounted over the image's migrations: the schema up to the families.
+before_families=(-v "$work/before-families:/app/prisma/migrations:ro")
+through_families=(-v "$work/through-families:/app/prisma/migrations:ro")
 
 echo "::group::Schema before $first_families"
 fresh_database "$database"
-migrate -v "$work/before-families:/app/prisma/migrations:ro"
+migrate "${before_families[@]}"
 echo "::endgroup::"
 
 echo "::group::Instance data"
 psql_bench < "$here/fixtures/before-families.sql"
 echo "::endgroup::"
 
-echo "::group::Update: the image's migrations"
-migrate
+echo "::group::Update: the image's migrations up to $first_families"
+migrate "${through_families[@]}"
 echo "::endgroup::"
 
 for check in "$here"/checks/*.sql; do
@@ -126,7 +108,7 @@ fingerprint() {
     (SELECT count(*) FROM _prisma_migrations)::TEXT))"
 }
 before=$(fingerprint)
-second=$(migrate 2>&1) || { echo "$second"; exit 1; }
+second=$(migrate "${through_families[@]}" 2>&1) || { echo "$second"; exit 1; }
 echo "$second"
 after=$(fingerprint)
 if [ "$before" != "$after" ] || ! grep -q 'No pending migrations' <<<"$second"; then
@@ -143,7 +125,7 @@ echo "::group::Failure path: an inconsistency rolls the whole migration back"
 # another wine than its bottle's, which the final checks refuse (FEAT-94
 # criterion 4). Everything must be rolled back, the expansion included.
 fresh_database "$failing"
-migrate_on "$failing" -v "$work/before-families:/app/prisma/migrations:ro" >/dev/null
+migrate_on "$failing" "${before_families[@]}" >/dev/null
 psql_on "$failing" < "$here/fixtures/before-families.sql"
 psql_on "$failing" <<'SQL'
 CREATE FUNCTION bench_misplace_tasting() RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -169,7 +151,7 @@ state() {
 }
 untouched=$(state)
 echo "Before: $untouched"
-if failed=$(migrate_on "$failing" 2>&1); then
+if failed=$(migrate_on "$failing" "${through_families[@]}" 2>&1); then
   echo "$failed"
   echo "The migration applied over an inconsistent tasting: it must refuse."
   exit 1
@@ -183,7 +165,7 @@ if [ "$(state)" != "$untouched" ]; then
   echo "The failed migration left changes behind: $untouched -> $(state)"
   exit 1
 fi
-again=$(migrate_on "$failing" 2>&1) && { echo "$again"; echo "A restart after the failure must not migrate."; exit 1; }
+again=$(migrate_on "$failing" "${through_families[@]}" 2>&1) && { echo "$again"; echo "A restart after the failure must not migrate."; exit 1; }
 echo "$again"
 if ! grep -q 'P3009' <<<"$again"; then
   echo "A restart after the failure must report the failed migration (P3009)."
@@ -199,7 +181,7 @@ echo "::group::A backup taken before the migration: refused by the in-app restor
 # on tables it does not know (lib/backup-version.ts, wiki 30/31).
 versions=glou_migration_bench_versions
 fresh_database "$versions"
-migrate_on "$versions" -v "$work/before-families:/app/prisma/migrations:ro" >/dev/null
+migrate_on "$versions" "${before_families[@]}" >/dev/null
 psql_on "$versions" < "$here/fixtures/before-families.sql"
 mkdir "$work/dumps"
 docker compose exec -T db pg_dump -U glou -d "$versions" </dev/null | gzip > "$work/dumps/before.sql.gz"
@@ -218,10 +200,10 @@ echo "::endgroup::"
 
 echo "::group::Duration: $records records"
 fresh_database "$timed"
-migrate_on "$timed" -v "$work/before-families:/app/prisma/migrations:ro" >/dev/null
+migrate_on "$timed" "${before_families[@]}" >/dev/null
 sed "s/:N/$records/g" "$here/fixtures/perf-families.sql" | psql_on "$timed"
 start=$(date +%s%N)
-migrate_on "$timed" >/dev/null
+migrate_on "$timed" "${through_families[@]}" >/dev/null
 seconds=$(( ($(date +%s%N) - start) / 1000000000 ))
 psql_on "$timed" -tA </dev/null -c 'SELECT count(*) || $$ families, $$ || (SELECT count(*) FROM bottles) || $$ units$$ FROM products'
 echo "The families migration took ${seconds} s for $records records (limit ${max_seconds} s)."
