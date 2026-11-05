@@ -49,6 +49,16 @@ interface FamilyHistoryProps {
   nounOf?: (itemId: string | null) => UnitNoun;
 }
 
+/**
+ * Recette #847: the state columns a gesture ("1 bouteille ouverte", "bue",
+ * "1 cigare fumé") says in its own words — never "Bouteille entamée /
+ * ouverte : Oui · Niveau ajusté à Vide".
+ */
+const GESTURE_FIELDS = new Set(['isOpened', 'fillLevel', 'openedAt', 'cigarsLeft']);
+
+/** A cell of the plan freed for good (not moved, not placed). */
+const isCellFreed = (change: FieldChange) => change.field === 'slot' && change.from != null && change.to == null;
+
 /** FEAT-98 (point 57): the field a move or a new price changes on the copies taken. */
 const SPLIT_FIELD: Record<string, string> = { MOVE_UNITS: 'cellarId', REPRICE_UNITS: 'purchasePrice' };
 
@@ -99,31 +109,52 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
     }
     // "Vins regroupés · Région : Graves": the values the merge chose (FEAT-102 c2).
     const merged = entry.action === 'MERGE_PRODUCTS' ? [actionLabel(entry.action)] : [];
-    return merged.concat(entry.changes
-      .map((change) => {
-        // §10.3: "Nombre corrigé : 2 → 1", "Bouteilles ajoutées : 1 → 3".
-        if (change.field === 'quantity' && typeof change.from === 'number' && typeof change.to === 'number') {
-          const what = entry.action === 'ADD_UNITS' || entry.action === 'CORRECT_QUANTITY' ? actionLabel(entry.action) : fieldLabel('quantity');
-          const line = t('familyDrawer.history.numberChange', { what, from: change.from, to: change.to });
-          // §10.3: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)".
-          return entry.reason ? `${line} (${t(`stockLine.history.reasons.${entry.reason}`)})` : line;
-        }
-        // Recette #471 (KO 4.2): an add that made a new line has no number before it.
-        if (change.field === 'quantity' && entry.action === 'ADD_UNITS' && change.from == null && typeof change.to === 'number') {
-          return t('familyDrawer.history.numberAdded', { what: actionLabel(entry.action), number: change.to });
-        }
-        if (change.field === 'slot') return formatSlotChange(change.from, change.to, t);
-        if (change.field === 'fillLevel' && typeof change.to === 'number') {
-          const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;
-          return `${t('inventory.detail.levelAdjusted')} ${level}`;
-        }
-        return t('traceability.changeLine', {
-          field: fieldLabel(change.field),
-          value: formatHistoryValue(change.field, change.to, t, context),
-        });
-      }))
-      .join(' · ');
+    const gesture = describeGesture(entry);
+    if (gesture) return [gesture, ...gestureRest(entry).map(describeChange(entry))].join(' · ');
+    return merged.concat(entry.changes.map(describeChange(entry))).join(' · ');
   };
+
+  /** Recette #847: "1 bouteille ouverte", "1 bouteille bue", "1 cigare fumé". */
+  function describeGesture(entry: HistoryEntry): string | null {
+    if (!entry.gesture) return null;
+    if (entry.gesture === 'smoked') return t('stockLine.history.smoked', { count: 1 });
+    return t(`stockLine.history.${entry.gesture}`, { context: nounOf(entry.itemId), count: 1 });
+  }
+
+  /**
+   * What a gesture's entry says besides it: the cells freed ("Case C2·R1
+   * libérée"), any other field — and the level of a bottle opened short of full.
+   */
+  function gestureRest(entry: HistoryEntry): FieldChange[] {
+    return (entry.changes ?? []).filter((change) => !GESTURE_FIELDS.has(change.field) || (
+      entry.gesture === 'opened' && change.field === 'fillLevel' && typeof change.to === 'number' && change.to > 0 && change.to < 100
+    ));
+  }
+
+  function describeChange(entry: HistoryEntry) {
+    return (change: FieldChange): string => {
+      // §10.3: "Nombre corrigé : 2 → 1", "Bouteilles ajoutées : 1 → 3".
+      if (change.field === 'quantity' && typeof change.from === 'number' && typeof change.to === 'number') {
+        const what = entry.action === 'ADD_UNITS' || entry.action === 'CORRECT_QUANTITY' ? actionLabel(entry.action) : fieldLabel('quantity');
+        const line = t('familyDrawer.history.numberChange', { what, from: change.from, to: change.to });
+        // §10.3: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)".
+        return entry.reason ? `${line} (${t(`stockLine.history.reasons.${entry.reason}`)})` : line;
+      }
+      // Recette #471 (KO 4.2): an add that made a new line has no number before it.
+      if (change.field === 'quantity' && entry.action === 'ADD_UNITS' && change.from == null && typeof change.to === 'number') {
+        return t('familyDrawer.history.numberAdded', { what: actionLabel(entry.action), number: change.to });
+      }
+      if (change.field === 'slot') return formatSlotChange(change.from, change.to, t);
+      if (change.field === 'fillLevel' && typeof change.to === 'number') {
+        const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;
+        return `${t('inventory.detail.levelAdjusted')} ${level}`;
+      }
+      return t('traceability.changeLine', {
+        field: fieldLabel(change.field),
+        value: formatHistoryValue(change.field, change.to, t, context),
+      });
+    };
+  }
 
   /** "2 bouteilles déplacées vers Cuisine", "Prix de 2 bouteilles : 20 € → 25 €". */
   function describeSplit(entry: HistoryEntry): string | null {
@@ -135,7 +166,9 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
     const options = { context: nounOf(entry.itemId), count };
     if (moved.field === 'cellarId') {
       const cellar = typeof moved.to === 'string' ? cellarName(moved.to) ?? '—' : t('familyDrawer.lines.noCellar');
-      return t('stockLine.history.moved', { ...options, cellar });
+      // Recette #847 (KO 6.6): "· Case C2·R2 libérée", the cells left in the old cellar's plan.
+      const freed = (entry.changes ?? []).filter(isCellFreed).map((change) => formatSlotChange(change.from, change.to, t));
+      return [t('stockLine.history.moved', { ...options, cellar }), ...freed].join(' · ');
     }
     const price = (value: unknown) =>
       value == null ? t('stockLine.reprice.noPrice') : formatHistoryValue('purchasePrice', value, t, context);

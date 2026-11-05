@@ -240,7 +240,8 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     // (never a field to restore there, the survivor's own values did not move).
     const details = result.joined
       ? { changes: [{ field: 'quantity', from: result.joined.from, to: result.joined.to }], joinedItemId: id, joinedChanges: result.changes }
-      : { changes: result.changes, ...outcome, ...deleted };
+      // Recette #847: told "1 cigare fumé" (the first of a box only opens it in its changes).
+      : { changes: result.changes, ...outcome, ...deleted, ...(patch.smokeOne ? { smokeOne: true } : {}) };
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId, details });
     // The group's own history: one copy fewer (detached) or one more (reattached).
     if (result.groupChange) {

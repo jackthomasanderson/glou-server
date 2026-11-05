@@ -379,6 +379,21 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     expect(totals()).toEqual(before);
   });
 
+  it('a whole group placed joining an identical one tells the cells it freed on the line it joined (recette #847, KO 6.6)', async () => {
+    rows = [unit({ quantity: 2 }), unit({ id: 'k1', cellarId: 'kitchen', quantity: 1 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 2 }));
+
+    const outcome = applied(await stockSplitService.moveUnits('u2', 'g1', { count: 2, cellarId: 'kitchen' }));
+
+    expect(slots.cellsOf('g1')).toBe('');
+    expect(outcome.entries).toEqual([{
+      itemId: 'k1', fromItemId: 'g1', changes: [
+        { field: 'quantity', from: 1, to: 3 }, { field: 'cellarId', from: 'garage', to: 'kitchen' },
+        { field: 'slot', from: { column: 2, row: 2 }, to: null },
+      ],
+    }]);
+  });
+
   it('a whole group counted in the same inventory session as the identical one simply changes cellar', async () => {
     rows.push(unit({ id: 'k1', cellarId: 'kitchen', quantity: 1 }));
     vi.mocked(prisma.inventoryCountEntry.findMany).mockResolvedValue([

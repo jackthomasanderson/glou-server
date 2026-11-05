@@ -181,6 +181,8 @@ export const bulkStockService = {
             details: {
               changes: [...stateChanges(target, done.state), ...done.slotChanges],
               outcome: done.outcome, targetItemId: target.id, bulk: true,
+              // Recette #847: told "1 cigare fumé" (the first of a box only opens it in its changes).
+              ...(family.kind === 'cigar' ? { smokeOne: true } : {}),
             },
           });
           // The group's own history: one copy fewer.

@@ -112,6 +112,8 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // from the same loop/values — no second pass over `items`.
   const regionCategoryMap: Record<string, Record<string, { count: number; valuation: number }>> = {};
   const caveMap: Record<string, { count: number; valuation: number }> = {};
+  // The key of the units in no cellar (a cellar id is a uuid, never empty).
+  const NO_CELLAR = '';
   const currentYear = new Date().getFullYear();
   const gardeMap: Record<number, number> = {};
   const GARDE_HORIZON_PAST = 3;
@@ -153,12 +155,12 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       regionCategoryMap[key][product.category].valuation += value;
     }
 
-    // Cave distribution
-    if (item.cellarId) {
-      if (!caveMap[item.cellarId]) caveMap[item.cellarId] = { count: 0, valuation: 0 };
-      caveMap[item.cellarId].count += units;
-      caveMap[item.cellarId].valuation += value;
-    }
+    // Cave distribution. Recette #847 (KO 10.2): a unit in no cellar counts
+    // too, under its own entry — the distribution sums to the stock.
+    const cave = item.cellarId ?? NO_CELLAR;
+    if (!caveMap[cave]) caveMap[cave] = { count: 0, valuation: 0 };
+    caveMap[cave].count += units;
+    caveMap[cave].valuation += value;
 
     // #573: a finished bottle has been drunk — it no longer calls for a
     // tasting, has no place in the maturity planning and no ageing ahead
@@ -222,14 +224,19 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // Build cave distribution with names from cellars list
   const cellarById = Object.fromEntries(cellars.map(c => [c.id, c]));
   const caveDistribution: CavePoint[] = Object.entries(caveMap)
-    .map(([cellarId, { count, valuation }]) => ({
-      cellarId,
-      cellarName: cellarById[cellarId]?.name ?? cellarId,
-      cellarType: cellarById[cellarId]?.type ?? 'VINTAGE',
-      count,
-      valuation: Math.round(valuation),
-    }))
-    .sort((a, b) => b.count - a.count);
+    .map(([key, { count, valuation }]) => {
+      // The units in no cellar: no id, no name (the client says "Sans cave").
+      const cellarId = key === NO_CELLAR ? null : key;
+      return {
+        cellarId,
+        cellarName: cellarId === null ? '' : cellarById[cellarId]?.name ?? cellarId,
+        cellarType: cellarId === null ? 'VINTAGE' : cellarById[cellarId]?.type ?? 'VINTAGE',
+        count,
+        valuation: Math.round(valuation),
+      };
+    })
+    // Most stocked first; the units in no cellar last, after every cellar.
+    .sort((a, b) => Number(a.cellarId === null) - Number(b.cellarId === null) || b.count - a.count);
 
   return {
     period: {
