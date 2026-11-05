@@ -168,6 +168,22 @@ describe('FamilyStockLines', () => {
     expect(screen.getByText('Plus aucune bouteille en cave.')).toBeInTheDocument();
   });
 
+  it('in a cellar with a plan, a line ×1 without a cell says "1 non rangée" like the others; nothing without a plan (recette n°5 of #847)', () => {
+    const planned = { ...ctx, hasPlan: (id: string) => id === 'garage' };
+    render(<FamilyStockLines
+      lines={familyLines([
+        unit({ id: 'placed', quantity: 2, cellarId: 'garage', purchasedAt: '2026-01-01', slots: [{ id: 's1', column: 1, row: 1 }] }),
+        unit({ id: 'alone', quantity: 1, cellarId: 'garage', purchasedAt: '2026-02-01', slots: [] }),
+        unit({ id: 'noPlan', quantity: 1, cellarId: 'kitchen', slots: [] }),
+      ], ctx.cellarName)}
+      ctx={planned}
+    />);
+    const slotsOf = (id: string) => document.querySelector(`[data-line-id="${id}"] [data-testid="line-slots"]`)?.textContent ?? null;
+    expect(slotsOf('placed')).toBe('1 rangée, 1 non rangée · C1·R1');
+    expect(slotsOf('alone')).toBe('1 non rangée');
+    expect(slotsOf('noPlan')).toBeNull();
+  });
+
   it('offers the line menu slot of the next lots on every line', () => {
     draw([unit({ quantity: 2 }), openedBottle(40)], { lineActions: (item) => <button type="button">menu {item.quantity}</button> });
     expect(screen.getAllByRole('button', { name: /^menu/ })).toHaveLength(2);

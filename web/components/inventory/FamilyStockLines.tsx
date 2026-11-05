@@ -223,9 +223,9 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
                     </p>
                     {!provisional && lineActions?.(item)}
                   </div>
-                  {/* FEAT-93: where its copies are on the plan — nothing when none is placed. */}
+                  {/* FEAT-93: where its copies are on the plan — in a cellar without a plan, nothing. */}
                   {(() => {
-                    const cells = slotSummary(item, kind, t);
+                    const cells = slotSummary(item, kind, t, item.cellarId != null && (ctx.hasPlan?.(item.cellarId) ?? false));
                     return cells ? <p className="text-xs text-foreground-500 mt-0.5" data-testid="line-slots">{cells}</p> : null;
                   })()}
                   {item.needsReview && (

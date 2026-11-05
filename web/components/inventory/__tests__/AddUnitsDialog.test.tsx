@@ -100,6 +100,15 @@ describe('AddUnitsAction', () => {
     expect(sent().input.cellarId).toBe('garage');
   });
 
+  it('opened from a cell of a cellar\'s plan, offers that cellar rather than the latest line\'s (recette n°5 of #847)', () => {
+    render(<AddUnitsAction product={detail([unit({ quantity: 6, cellarId: 'garage', purchasePrice: 20 })])} start={{ cellarId: 'kitchen' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ajouter des bouteilles' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: /Caves/ })).toHaveTextContent('Cuisine');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(sent().input).toMatchObject({ cellarId: 'kitchen', purchasePrice: 20 });
+  });
+
   it('adds bottles to a wine without any bottle left, as its main action (FEAT-101 c3, §10.5)', () => {
     render(<AddUnitsAction product={detail([])} />);
     const button = screen.getByRole('button', { name: 'Ajouter des bouteilles' });

@@ -212,6 +212,8 @@ export function AddUnitsModal({ isOpen, ...form }: AddUnitsModalProps) {
 
 export interface AddUnitsActionProps {
   product: Product;
+  /** What the form starts from over the wine's latest line: the cellar of the cell the drawer was opened from (recette n°5 of #847). */
+  start?: AddUnitsStart;
 }
 
 /**
@@ -222,7 +224,7 @@ export interface AddUnitsActionProps {
  * description. A cigar ("Ajouter des cigares", FEAT-95): closed boxes of M
  * cigars or single cigars instead of the size, the price of one box or cigar.
  */
-export function AddUnitsAction({ product }: AddUnitsActionProps) {
+export function AddUnitsAction({ product, start }: AddUnitsActionProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const isMain = !product.items.some((item) => !item.writtenOffAt && !item.deletedAt && itemUnits(item) > 0);
@@ -243,7 +245,7 @@ export function AddUnitsAction({ product }: AddUnitsActionProps) {
       >
         {t(product.category === 'cigar' ? 'addUnits.actionCigar' : 'addUnits.action')}
       </OfflineBlockedButton>
-      <AddUnitsModal isOpen={isOpen} product={product} onDone={() => setIsOpen(false)} />
+      <AddUnitsModal isOpen={isOpen} product={product} start={start} onDone={() => setIsOpen(false)} />
     </>
   );
 }

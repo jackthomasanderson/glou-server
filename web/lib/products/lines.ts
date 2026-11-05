@@ -28,6 +28,8 @@ export interface LineContext {
   formatDate: (iso: string) => string;
   /** The wine the lines are of ("Cuvée X 2020"), named by a line's dialogs (recette #471). */
   wineName?: string;
+  /** Whether a cellar has a plan: a line there without any cell says "1 non rangée" (recette n°5 of #847). */
+  hasPlan?: (cellarId: string) => boolean;
 }
 
 /**

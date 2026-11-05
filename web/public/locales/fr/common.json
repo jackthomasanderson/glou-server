@@ -2440,6 +2440,8 @@
       "followTitle": "Quelles cases passent au nouveau prix ?",
       "followHint_one": "Les non rangées ne suffisent pas : choisissez la case qui passe au nouveau prix. Elle reste occupée.",
       "followHint_other": "Les non rangées ne suffisent pas : choisissez les {{count}} cases qui passent au nouveau prix. Elles restent occupées.",
+      "followHintAllPlaced_one": "Toute la ligne est rangée : choisissez la case qui passe au nouveau prix. Elle reste occupée.",
+      "followHintAllPlaced_other": "Toute la ligne est rangée : choisissez les {{count}} cases qui passent au nouveau prix. Elles restent occupées.",
       "pickCount_one": "Case choisie : {{chosen}} sur {{count}}",
       "pickCount_other": "Cases choisies : {{chosen}} sur {{count}}",
       "hintFreed": "La case {{cell}} sera libérée.",
@@ -2624,7 +2626,8 @@
       "unplaced_one": "{{count}} non rangée",
       "unplaced_other": "{{count}} non rangées",
       "summary": "{{counts}} · {{cells}}",
-      "groupCell": "Rangés en {{cells}}"
+      "groupCell": "Rangés en {{cells}}",
+      "groupUnplaced": "Non rangés"
     }
   },
   "cigarGroup": {

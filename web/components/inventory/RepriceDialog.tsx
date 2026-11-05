@@ -9,6 +9,7 @@ import { lineCopies, unitNoun } from '@/lib/products/stockActions';
 import type { ProductItem } from '@/lib/products/types';
 import { CountField, isCountIn, isPrice, LineDialogFrame } from './StockLineDialogParts';
 import { SlotPicker, useCellsToName } from '@/components/cellars/SlotPicker';
+import { unplacedCopies } from '@/lib/products/cells';
 
 interface RepriceDialogProps {
   item: ProductItem;
@@ -95,7 +96,8 @@ export function RepriceDialog({ item, ctx, isOpen, onClose }: RepriceDialogProps
           onChange={cells.setSelected}
           title={t('stockLine.slots.followTitle')}
           tone="primary"
-          hint={t('stockLine.slots.followHint', { count: cells.needed })}
+          // Recette n°5 of #847: "the unplaced ones are not enough" only said when the line has some.
+          hint={t(unplacedCopies(item, ctx.kind) > 0 ? 'stockLine.slots.followHint' : 'stockLine.slots.followHintAllPlaced', { count: cells.needed })}
         />
       )}
     </LineDialogFrame>

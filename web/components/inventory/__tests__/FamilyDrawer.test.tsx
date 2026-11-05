@@ -390,6 +390,20 @@ describe('FamilyDrawer — opened from a cell of the plan (FEAT-93)', () => {
     await waitFor(() => expect(removeSlot).toHaveBeenCalledWith({ slotId: 's23' }));
   });
 
+  it('while open, messages keep clear of the drawer and its « Retirer de la case » (recette n°5 of #847)', async () => {
+    const { useToastLayout } = await import('@/lib/toastClearance');
+    function Where() {
+      const layout = useToastLayout();
+      return <output data-testid="toast-layout">{layout.placement}</output>;
+    }
+    detail = detailOf({ items: [placed()] });
+    const { rerender } = render(<><Where /><FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} /></>);
+    // jsdom: a drawer of no width leaves the whole window beside it.
+    expect(screen.getByTestId('toast-layout')).toHaveTextContent('top-left');
+    rerender(<><Where /><FamilyDrawer productId={null} onClose={() => {}} slotContext={null} /></>);
+    await waitFor(() => expect(screen.getByTestId('toast-layout')).toHaveTextContent('top-right'));
+  });
+
   it('the removal is said, and the focus stays in the drawer (review of #855)', async () => {
     removeSlot.mockClear();
     detail = detailOf({ items: [placed()] });

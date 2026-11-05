@@ -306,7 +306,8 @@ export function CellarDetailClient() {
         viewedCellarIds={[cellarId]}
         // Recette #471: the same actions as from the list of wines.
         onEdit={(product) => { viewWine(null); setEditing(product); }}
-        primaryAction={(product) => <AddUnitsAction product={product} />}
+        // Recette n°5 of #847: opened from a cell, new bottles are offered that cell's cellar, not the latest line's.
+        primaryAction={(product) => <AddUnitsAction product={product} start={slotContext ? { cellarId: slotContext.at?.cellarId ?? cellarId } : undefined} />}
       />
       <EditWineDialog
         product={editing}

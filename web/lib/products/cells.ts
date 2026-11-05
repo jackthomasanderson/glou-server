@@ -27,18 +27,29 @@ export const cellShort = (cell: Pick<ItemSlotView, 'column' | 'row'>, t: Transla
 export const cellTitle = (cell: Pick<ItemSlotView, 'column' | 'row'>, t: Translate) =>
   t('cellars.grid.slotTitle', { col: cell.column, row: cell.row });
 
+/** The copies of a line that hold no cell of the plan (a group of single cigars: 1 while it has no cell). */
+export const unplacedCopies = (line: CellLine, kind: UnitKind): number =>
+  Math.max(0, slotCapacity(line, kind) - cellsOf(line).length);
+
 /**
  * Plan §5 (tiroir): "4 rangées, 2 non rangées · C1·R1, C1·R2, …" — the
- * copies of a line placed on the plan and those not, and where. Nothing when
- * the line holds no cell (no noise for a cellar without a plan). A group of
- * single cigars holds one cell for all of them: just where.
+ * copies of a line placed on the plan and those not, and where. A group of
+ * single cigars holds one cell for all of them: just where. A line without
+ * any cell says "1 non rangée" like the others when its cellar has a plan
+ * (`onPlan`, recette n°5 of #847), nothing otherwise (no noise for a cellar
+ * without a plan).
  */
-export function slotSummary(line: CellLine, kind: UnitKind, t: Translate): string | null {
+export function slotSummary(line: CellLine, kind: UnitKind, t: Translate, onPlan = false): string | null {
   const cells = cellsOf(line);
-  if (cells.length === 0) return null;
+  const unplaced = unplacedCopies(line, kind);
+  if (cells.length === 0) {
+    if (!onPlan || unplaced === 0) return null;
+    return isSingleCigars(line, kind) && isIntactItem(line)
+      ? t('familyDrawer.slots.groupUnplaced')
+      : t('familyDrawer.slots.unplaced', { count: unplaced });
+  }
   const where = cells.map((cell) => cellShort(cell, t)).join(', ');
   if (isSingleCigars(line, kind) && isIntactItem(line)) return t('familyDrawer.slots.groupCell', { cells: where });
-  const unplaced = Math.max(0, slotCapacity(line, kind) - cells.length);
   const counts = [
     t('familyDrawer.slots.placed', { count: cells.length }),
     ...(unplaced > 0 ? [t('familyDrawer.slots.unplaced', { count: unplaced })] : []),

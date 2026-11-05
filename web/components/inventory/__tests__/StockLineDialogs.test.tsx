@@ -482,4 +482,16 @@ describe('the cells a dialog names (FEAT-93 c4)', () => {
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(requests[0].body).toMatchObject({ count: 2, purchasePrice: 25, slotIds: ['s5'] });
   });
+
+  it('the hint matches the line: "Les non rangées ne suffisent pas" only when the line has unplaced copies (recette n°5 of #847)', () => {
+    const { unmount } = renderIn(<RepriceDialog item={group({ slots: cells(5) })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    typeNumber(numberField('reprice-count-input'), '2');
+    expect(screen.getByTestId('slot-picker')).toHaveTextContent('Les non rangées ne suffisent pas : choisissez la case qui passe au nouveau prix.');
+    unmount();
+    renderIn(<RepriceDialog item={group({ slots: cells(6) })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    typeNumber(numberField('reprice-count-input'), '2');
+    const picker = screen.getByTestId('slot-picker');
+    expect(picker).not.toHaveTextContent('non rangées');
+    expect(picker).toHaveTextContent('Toute la ligne est rangée : choisissez les 2 cases qui passent au nouveau prix. Elles restent occupées.');
+  });
 });
