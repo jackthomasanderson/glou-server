@@ -144,8 +144,11 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     await page.locator('button', { hasText: /^Annuler$/ }).last().click();
     expect((await undone).status()).toBe(200);
     expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ id: bottle.id, isOpened: false, fillLevel: 100, slots: [] });
-    // Only its placing in the slot is told, not the drink taken back (recette #471).
-    await expect.poll(() => changesTold(api, bottle.productId)).toEqual(['UPDATE']);
+    // FEAT-93: the drink freed the cell and « Annuler » does not give it back
+    // yet, so the drink and its undo are both told, after the placing. Lot S2
+    // (`placeAt`) puts the cell back: then only the placing is told again
+    // (recette #471).
+    await expect.poll(() => changesTold(api, bottle.productId)).toEqual(['UPDATE', 'UPDATE', 'UPDATE']);
   });
 
   // Recette v3 of #471: the message covered the drawer's close button —
