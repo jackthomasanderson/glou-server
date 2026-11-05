@@ -640,6 +640,7 @@ export function AnalyticsDashboard() {
               </p>
             </div>
             <Select
+              disallowEmptySelection
               size="sm"
               radius="md"
               variant="bordered"

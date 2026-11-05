@@ -22,13 +22,6 @@ import i18n from '@/lib/i18n';
  */
 export const TOAST_PROPS = { classNames: { title: 'whitespace-normal break-words' } };
 
-/**
- * Messages start this far below the top edge: at the top, a message covered
- * the close button of a drawer, so pressing the cross closed the message
- * instead of the drawer (recette v3 of #471). Still top-right (ux-ui.md 9.4).
- */
-export const TOAST_OFFSET_PX = 64;
-
 /** Success notifications are transient (ux-ui.md 9.4: 3 seconds). */
 const SUCCESS_TIMEOUT_MS = 3000;
 

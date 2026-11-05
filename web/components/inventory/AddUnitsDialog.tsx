@@ -140,14 +140,18 @@ export function AddUnitsForm({ product, onDone, onCancel = onDone, onAdded, star
           />
           )}
           <Select
+            disallowEmptySelection
             label={t('nav.caves')}
             variant="bordered"
             size="sm"
             items={[{ id: NO_CELLAR, name: t('inventory.noCellar') }, ...(cellars ?? [])]}
             selectedKeys={[cellarId ?? NO_CELLAR]}
+            // Recette n°5: picking the chosen cellar again emptied the field and the
+            // bottles went "Sans cave". "Aucune cave" is a choice of the list, never an emptied field.
             onSelectionChange={(keys) => {
               const [key] = Array.from(keys);
-              setCellarId(!key || key === NO_CELLAR ? null : String(key));
+              if (key == null) return;
+              setCellarId(key === NO_CELLAR ? null : String(key));
             }}
           >
             {(cellar) => <SelectItem key={cellar.id} textValue={cellar.name}>{cellar.name}</SelectItem>}
@@ -206,8 +210,18 @@ export function AddUnitsModal({ isOpen, ...form }: AddUnitsModalProps) {
   );
 }
 
+/**
+ * On a cellar's page (recette n°5 of #847), new bottles are offered that
+ * cellar — or that of the cell the drawer was opened from — rather than the
+ * cellar of the wine's latest line.
+ */
+export const cellarPageStart = (cellarId: string, slot?: { at?: { cellarId: string } } | null): AddUnitsStart =>
+  ({ cellarId: slot?.at?.cellarId ?? cellarId });
+
 export interface AddUnitsActionProps {
   product: Product;
+  /** What the form starts from over the wine's latest line: the cellar of the cell the drawer was opened from (recette n°5 of #847). */
+  start?: AddUnitsStart;
 }
 
 /**
@@ -218,7 +232,7 @@ export interface AddUnitsActionProps {
  * description. A cigar ("Ajouter des cigares", FEAT-95): closed boxes of M
  * cigars or single cigars instead of the size, the price of one box or cigar.
  */
-export function AddUnitsAction({ product }: AddUnitsActionProps) {
+export function AddUnitsAction({ product, start }: AddUnitsActionProps) {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const isMain = !product.items.some((item) => !item.writtenOffAt && !item.deletedAt && itemUnits(item) > 0);
@@ -239,7 +253,7 @@ export function AddUnitsAction({ product }: AddUnitsActionProps) {
       >
         {t(product.category === 'cigar' ? 'addUnits.actionCigar' : 'addUnits.action')}
       </OfflineBlockedButton>
-      <AddUnitsModal isOpen={isOpen} product={product} onDone={() => setIsOpen(false)} />
+      <AddUnitsModal isOpen={isOpen} product={product} start={start} onDone={() => setIsOpen(false)} />
     </>
   );
 }

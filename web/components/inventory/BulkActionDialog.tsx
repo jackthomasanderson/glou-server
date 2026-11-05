@@ -178,6 +178,7 @@ export function BulkActionDialog({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold uppercase tracking-widest text-primary">{t('bulk.presets')}</span>
                   <Select
+                    // select-may-empty: a list of presets to load, not a field: nothing stays selected.
                     aria-label={t('bulk.loadPreset')}
                     placeholder={t('bulk.loadPreset')}
                     variant="bordered"
@@ -225,6 +226,7 @@ export function BulkActionDialog({
                   </Checkbox>
                   {enabledFields.cellarId && (
                     <Select
+                      disallowEmptySelection
                       aria-label={t('nav.caves')}
                       label={t('nav.caves')}
                       variant="bordered"
@@ -286,6 +288,7 @@ export function BulkActionDialog({
                   </Checkbox>
                   {enabledFields.isOpened && (
                     <Select
+                      disallowEmptySelection
                       aria-label={t('inventory.fields.isOpened')}
                       label={t('inventory.fields.isOpened')}
                       variant="bordered"

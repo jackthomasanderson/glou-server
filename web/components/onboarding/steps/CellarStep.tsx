@@ -67,6 +67,7 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
           isDisabled={createCellar.isPending}
         />
         <Select
+          disallowEmptySelection
           label={t('cellars.type')}
           selectedKeys={[type]}
           onSelectionChange={(keys) => {

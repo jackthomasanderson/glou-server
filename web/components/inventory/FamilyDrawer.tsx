@@ -24,6 +24,7 @@ import { DEFAULT_CURVE_SHAPE, curveShapeDescriptionKey, curveShapeLabelKey } fro
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
 import { describeStock, keepNumbersWhole, wineName } from '@/lib/products/stock';
+import { toastClearanceRef } from '@/lib/toastClearance';
 import { bottleLabel, familyLines, formatPurchaseDay, hasOwnLevel, type LineContext } from '@/lib/products/lines';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
@@ -202,6 +203,10 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   };
 
   const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
+  const hasPlan = useCallback((id: string) => {
+    const cellar = cellars?.find((candidate) => candidate.id === id);
+    return !!(cellar?.columns && cellar?.rows);
+  }, [cellars]);
   const kind = unitKind(product?.category ?? 'wine');
   const name = product ? wineName(product) : undefined;
   const ctx: LineContext = useMemo(() => ({
@@ -212,7 +217,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
     formatDay: (day) => formatPurchaseDay(day, lang),
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
     wineName: name,
-  }), [kind, t, cellarName, lang, name]);
+    hasPlan,
+  }), [kind, t, cellarName, lang, name, hasPlan]);
   const lines = useMemo(() => familyLines(product?.items ?? [], cellarName), [product?.items, cellarName]);
   // FEAT-108: the lines with a change waiting for the network ("en attente").
   const syncQueue = useSyncQueue();
@@ -472,7 +478,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
       <Drawer isOpen={isOpen} onClose={onClose} placement="right" backdrop="opaque" hideCloseButton classNames={{ base: 'max-w-[440px] shadow-xl' }}>
         <DrawerContent>
           <>
-            <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
+            {/* Messages keep clear of this header and its actions (recette n°5 of #847). */}
+            <div ref={toastClearanceRef} data-testid="family-drawer-header" className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
               <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-0.5">
                 {product ? t(`categories.${product.category}`) : ' '}
               </p>

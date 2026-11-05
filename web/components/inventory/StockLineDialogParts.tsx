@@ -73,7 +73,10 @@ export function LineDialogFrame({ isOpen, onClose, title, wine, line, children, 
 }) {
   const { t } = useTranslation();
   return (
-    <ResponsiveModal isOpen={isOpen} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center">
+    // Anchored to the top: a dialog that grows (the plan shown once the number
+    // is lowered) grows downwards, and nothing above the cursor moves
+    // (recette n°5 of #847, as the forms of #709). A sheet on phones.
+    <ResponsiveModal isOpen={isOpen} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="top">
       <ModalContent data-testid={testId}>
         {() => (
           <form

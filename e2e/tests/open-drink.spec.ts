@@ -175,6 +175,17 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     const onTop = () => page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.getAttribute('aria-label') ?? null,
       [box.x + box.width / 2, box.y + box.height / 2] as const);
     await expect.poll(onTop, { timeout: 3000 }).toBe('Fermer');
+    // Recette n°5 of #847: nor the header's actions (« Retirer de la case »):
+    // beside the drawer when the window leaves room, below its header otherwise.
+    const header = (await drawer.getByTestId('family-drawer-header').boundingBox())!;
+    // The message is an alertdialog, outside the drawer's modal tree (aria-hidden): found by CSS, not by role.
+    const shown = page.locator('[role="alertdialog"]').filter({ hasText: '1 bouteille ouverte' });
+    const clear = async () => {
+      const toast = await shown.boundingBox();
+      if (!toast) return false;
+      return toast.x + toast.width <= header.x || toast.y >= header.y + header.height;
+    };
+    await expect.poll(clear, { timeout: 3000 }).toBe(true);
     await close.click();
     await expect(drawer).toBeHidden();
   });

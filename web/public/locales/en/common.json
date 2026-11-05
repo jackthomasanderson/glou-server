@@ -2453,6 +2453,8 @@
       "followTitle": "Which slots take the new price?",
       "followHint_one": "The unplaced ones are not enough: choose the slot that takes the new price. It stays occupied.",
       "followHint_other": "The unplaced ones are not enough: choose the {{count}} slots that take the new price. They stay occupied.",
+      "followHintAllPlaced_one": "The whole line is placed: choose the slot that takes the new price. It stays occupied.",
+      "followHintAllPlaced_other": "The whole line is placed: choose the {{count}} slots that take the new price. They stay occupied.",
       "pickCount_one": "{{chosen}} of {{count}} slot chosen",
       "pickCount_other": "{{chosen}} of {{count}} slots chosen",
       "hintFreed": "Slot {{cell}} will be freed.",
@@ -2637,7 +2639,8 @@
       "unplaced_one": "{{count}} unplaced",
       "unplaced_other": "{{count}} unplaced",
       "summary": "{{counts}} · {{cells}}",
-      "groupCell": "Placed in {{cells}}"
+      "groupCell": "Placed in {{cells}}",
+      "groupUnplaced": "Unplaced"
     }
   },
   "cigarGroup": {

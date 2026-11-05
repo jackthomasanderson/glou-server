@@ -24,8 +24,16 @@ describe('slotSummary — "4 rangées, 2 non rangées · C1·R1, …"', () => {
     expect(slotSummary(unit({ quantity: 2, slots: cells(1) }), 'bottle', t)).toBe('1 rangée, 1 non rangée · C1·R1');
   });
 
-  it('nothing when no copy is placed (no noise)', () => {
+  it('nothing when no copy is placed in a cellar without a plan (no noise)', () => {
     expect(slotSummary(unit({ quantity: 6, slots: [] }), 'bottle', t)).toBeNull();
+  });
+
+  it('in a cellar with a plan, a line without any cell says its copies are unplaced, like the others (recette n°5 of #847)', () => {
+    expect(slotSummary(unit({ quantity: 1, slots: [] }), 'bottle', t, true)).toBe('1 non rangée');
+    expect(slotSummary(unit({ quantity: 6, slots: [] }), 'bottle', t, true)).toBe('6 non rangées');
+    expect(slotSummary(openedBottle(40, { slots: [] }), 'bottle', t, true)).toBe('1 non rangée');
+    expect(slotSummary(unit({ quantity: 2, cigarsPerBox: 25, slots: [] }), 'cigar', t, true)).toBe('2 non rangées');
+    expect(slotSummary(unit({ quantity: 10, cigarsPerBox: null, slots: [] }), 'cigar', t, true)).toBe('Non rangés');
   });
 
   it('an opened bottle in its cell; a group of single cigars in its one cell', () => {

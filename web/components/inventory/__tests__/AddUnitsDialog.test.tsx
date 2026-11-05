@@ -21,7 +21,7 @@ const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
 vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, o?: Record<string, unknown>) => t(key, o), i18n: { language: 'fr' } }) }));
 
-import { AddUnitsAction } from '../AddUnitsDialog';
+import { AddUnitsAction, cellarPageStart } from '../AddUnitsDialog';
 
 const detail = (items: ProductDetailView['items']) => ({ ...product({ items }), tastings: [], history: [] }) as ProductDetailView;
 
@@ -86,6 +86,33 @@ describe('AddUnitsAction', () => {
       product: { id: 'p1' },
       input: { quantity: 3, cellarId: 'garage', purchasePrice: 20, bottleSize: '75cl', purchasedAt: todayLocalIso() },
     });
+  });
+
+  it('keeps the cellar when the one already chosen is picked again (recette n°5: it was emptied, the bottles went "Sans cave")', async () => {
+    const dialog = open(detail([unit({ quantity: 6, cellarId: 'garage' })]));
+    const trigger = within(dialog).getByRole('button', { name: /Caves/ });
+    expect(trigger).toHaveTextContent('Garage');
+    fireEvent.click(trigger);
+    const garage = (await screen.findAllByRole('option')).find((option) => option.textContent === 'Garage') as HTMLElement;
+    fireEvent.click(garage);
+    expect(trigger).toHaveTextContent('Garage');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(sent().input.cellarId).toBe('garage');
+  });
+
+  it('opened from a cell of a cellar\'s plan, offers that cellar rather than the latest line\'s (recette n°5 of #847)', () => {
+    render(<AddUnitsAction product={detail([unit({ quantity: 6, cellarId: 'garage', purchasePrice: 20 })])} start={{ cellarId: 'kitchen' }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Ajouter des bouteilles' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: /Caves/ })).toHaveTextContent('Cuisine');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(sent().input).toMatchObject({ cellarId: 'kitchen', purchasePrice: 20 });
+  });
+
+  it('on a cellar\'s page, offers that cellar, or the cell\'s when opened from one (recette n°5 of #847)', () => {
+    expect(cellarPageStart('kitchen', null)).toEqual({ cellarId: 'kitchen' });
+    expect(cellarPageStart('kitchen', { at: { cellarId: 'garage' } })).toEqual({ cellarId: 'garage' });
+    expect(cellarPageStart('kitchen', {})).toEqual({ cellarId: 'kitchen' });
   });
 
   it('adds bottles to a wine without any bottle left, as its main action (FEAT-101 c3, §10.5)', () => {

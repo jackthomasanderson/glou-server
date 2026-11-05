@@ -70,6 +70,7 @@ export function StartSessionScreen() {
           {mode === 'cellar' ? (
             (cellars?.length ?? 0) > 0 ? (
               <Select
+                disallowEmptySelection
                 label={t('inventoryCount.start.cellarLabel')}
                 placeholder={t('inventoryCount.start.cellarPlaceholder')}
                 variant="bordered"

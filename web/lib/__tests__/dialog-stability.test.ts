@@ -79,3 +79,13 @@ describe('Form dialogs keep their fields still while you fill them (#709, ux-ui.
     expect(form?.[1].split(' ')).toEqual(expect.arrayContaining(['min-h-0', 'overflow-hidden']));
   });
 });
+
+describe('The dialogs of a stock line keep what is above still when the plan appears (recette n°5 of #847)', () => {
+  // "Corriger le nombre", "Déplacer", "Changer le prix": lowering the number
+  // shows the plan (which cells to free). Centred, the dialog grew and moved
+  // up, and the reasons moved under the cursor — a click on « Cassée, offerte
+  // ou perdue » was lost. Anchored to the top, it grows downwards only.
+  it('LineDialogFrame is anchored to the top', () => {
+    expect(dialogProps('components/inventory/StockLineDialogParts.tsx', 'isOpen')).toContain('placement="top"');
+  });
+});

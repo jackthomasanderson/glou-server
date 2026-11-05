@@ -86,6 +86,7 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
               isRequired
             />
             <Select
+              disallowEmptySelection
               label={t('inventoryCount.session.foundNew.categoryLabel')}
               selectedKeys={[category]}
               onSelectionChange={(keys) => setCategory(Array.from(keys)[0] as InventoryCategory)}

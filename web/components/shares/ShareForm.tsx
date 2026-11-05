@@ -119,6 +119,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
       {/* Duration */}
       <div className="flex flex-col gap-2">
         <Select
+          disallowEmptySelection
           label={t('shares.fields.duration')}
           selectedKeys={[duration]}
           onSelectionChange={(keys) => setDuration(Array.from(keys)[0] as DurationKey)}

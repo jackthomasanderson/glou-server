@@ -204,6 +204,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
 
         {mode === 'heatmap' && (
           <Select
+            disallowEmptySelection
             size="sm"
             radius="md"
             variant="flat"
