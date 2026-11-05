@@ -165,9 +165,10 @@ describe('readFieldHistory', () => {
     });
 
     it('a bottle put back later, by someone else, or with its tasting deleted is told', async () => {
-      expect(await read(openedThenPutBack(600))).toEqual([4, 3, 2, 1]);
-      expect(await read(openedThenPutBack(5, 'u2'))).toEqual([4, 3, 2, 1]);
-      expect(await read(openedThenPutBack(5, 'u1', { deletedTastings: 1 }))).toEqual([4, 3, 2, 1]);
+      // The opening itself is one entry (its group's "6 → 5" folded into it, recette #847).
+      expect(await read(openedThenPutBack(600))).toEqual([4, 3, 1]);
+      expect(await read(openedThenPutBack(5, 'u2'))).toEqual([4, 3, 1]);
+      expect(await read(openedThenPutBack(5, 'u1', { deletedTastings: 1 }))).toEqual([4, 3, 1]);
     });
 
     // Review of #830: an entry of someone else on that bottle meanwhile (a
@@ -177,9 +178,9 @@ describe('readFieldHistory', () => {
         ...log(7, 3, 's', { changes: [{ field: 'fillLevel', from: 100, to: 80 }], ...details }, userId), action,
       });
       const [back4, back3, open2, open1] = openedThenPutBack(5);
-      expect(await read([back4, back3, levelBy('u2'), open2, open1])).toEqual([4, 3, 7, 2, 1]);
+      expect(await read([back4, back3, levelBy('u2'), open2, open1])).toEqual([4, 3, 7, 1]);
       expect(await read([back4, back3, levelBy('u1', 'GUEST_UPDATE', { via: 'guest_share', shareId: 'sh1' }), open2, open1]))
-        .toEqual([4, 3, 7, 2, 1]);
+        .toEqual([4, 3, 7, 1]);
     });
 
     it('a guest\'s own opening taken back at once leaves nothing', async () => {
@@ -201,6 +202,96 @@ describe('readFieldHistory', () => {
         log(2, 4, 'b', { changes: [{ field: 'fillLevel', from: 50, to: 30 }] }),
         log(1, 0, 'b', { changes: [{ field: 'fillLevel', from: 100, to: 50 }] }),
       ])).toEqual([2, 1]);
+    });
+  });
+
+  // Recette #847: "1 bouteille ouverte", "1 bouteille bue · Case C2·R1 libérée",
+  // "1 bouteille déplacée vers Cuisine · Case C2·R2 libérée" — one entry per gesture.
+  describe('one gesture, one entry (recette #847)', () => {
+    const at = (seconds: number) => new Date(Date.UTC(2026, 10, 5, 10, 0, seconds));
+    const log = (id: number, seconds: number, bottleId: string, details: Record<string, unknown>, action = 'UPDATE') => ({
+      id, action, status: 'success', userId: 'u1', bottleId, productId: 'p1', details, createdAt: at(seconds),
+    });
+    const cell = (column: number, row: number) => ({ column, row });
+    const read = async (rows: unknown[]) => {
+      vi.mocked(prisma.auditLog.findMany).mockResolvedValue(rows as never);
+      vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', displayName: 'Marie', username: 'marie' }] as never);
+      return readFieldHistory({ productId: 'p1' });
+    };
+    const opened = [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 100 }];
+    const drunk = [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 0 }];
+
+    it('a bottle opened out of a placed line: one entry, "opened", and no cell freed (it keeps its cell)', async () => {
+      const history = await read([
+        log(2, 0, 'g', { changes: [{ field: 'quantity', from: 6, to: 5 }, { field: 'slot', from: cell(4, 1), to: null }], outcome: 'detached', subItemId: 's' }),
+        log(1, 0, 's', { changes: [...opened, { field: 'slot', from: null, to: cell(4, 1) }], outcome: 'detached', targetItemId: 'g' }),
+      ]);
+      expect(history).toHaveLength(1);
+      expect(history[0]).toMatchObject({ id: 1, itemId: 's', gesture: 'opened', changes: opened });
+    });
+
+    it('a bottle drunk out of a placed line: one entry, "finished", with the cell its line freed', async () => {
+      const history = await read([
+        log(1, 0, 's', { changes: drunk, outcome: 'detached', targetItemId: 'g' }),
+        log(2, 1, 'g', { changes: [{ field: 'quantity', from: 4, to: 3 }, { field: 'slot', from: cell(2, 1), to: null }], outcome: 'detached', subItemId: 's' }),
+      ]);
+      expect(history).toEqual([expect.objectContaining({
+        id: 1, gesture: 'finished', changes: [...drunk, { field: 'slot', from: cell(2, 1), to: null }],
+      })]);
+    });
+
+    it('a guest\'s drink (its line\'s entry names no copy) is folded the same way', async () => {
+      const guest = { via: 'guest_share', shareId: 'sh1', inviteeName: 'Paul' };
+      const history = await read([
+        log(2, 0, 'g', { ...guest, changes: [{ field: 'quantity', from: 4, to: 3 }, { field: 'slot', from: cell(2, 1), to: null }], outcome: 'detached' }, 'GUEST_UPDATE'),
+        log(1, 0, 's', { ...guest, changes: drunk, outcome: 'detached', targetItemId: 'g' }, 'GUEST_UPDATE'),
+      ]);
+      expect(history).toEqual([expect.objectContaining({ id: 1, gesture: 'finished', viaGuest: true, actorName: 'Paul' })]);
+      expect(history[0].changes).toContainEqual({ field: 'slot', from: cell(2, 1), to: null });
+    });
+
+    it('entries written far apart, or of another copy, are never folded', async () => {
+      expect((await read([
+        log(2, 30, 'g', { changes: [{ field: 'quantity', from: 4, to: 3 }], outcome: 'detached', subItemId: 's' }),
+        log(1, 0, 's', { changes: drunk, outcome: 'detached', targetItemId: 'g' }),
+      ])).map((entry) => entry.id)).toEqual([2, 1]);
+      expect((await read([
+        log(2, 0, 'g', { changes: [{ field: 'quantity', from: 4, to: 3 }], outcome: 'detached', subItemId: 'other' }),
+        log(1, 0, 's', { changes: drunk, outcome: 'detached', targetItemId: 'g' }),
+      ])).map((entry) => entry.id)).toEqual([2, 1]);
+    });
+
+    it('a lone bottle drunk, a cigar smoked, a level adjusted', async () => {
+      const [drink, smoke, smokedOld, level, edit] = await read([
+        log(5, 0, 'b', { changes: [...drunk, { field: 'slot', from: cell(1, 1), to: null }] }),
+        // The first cigar of a box only opens it in its changes: `smokeOne` says it.
+        log(4, 20, 'x', { changes: [{ field: 'isOpened', from: false, to: true }, { field: 'cigarsLeft', from: null, to: 24 }], smokeOne: true }),
+        // Recorded before the mark: one cigar fewer in an opened box.
+        log(3, 40, 'y', { changes: [{ field: 'cigarsLeft', from: 10, to: 9 }] }),
+        log(2, 60, 'z', { changes: [{ field: 'fillLevel', from: 100, to: 40 }] }),
+        log(1, 80, 'w', { changes: [{ field: 'purchasePrice', from: 20, to: 25 }] }),
+      ]);
+      expect(drink).toMatchObject({ gesture: 'finished' });
+      expect(smoke).toMatchObject({ gesture: 'smoked' });
+      expect(smokedOld).toMatchObject({ gesture: 'smoked' });
+      expect(level).not.toHaveProperty('gesture');
+      expect(edit).not.toHaveProperty('gesture');
+    });
+
+    it('part of a line moved to another cellar: the line it went to tells the cells its line freed, both entries stay', async () => {
+      const history = await read([
+        log(2, 0, 'g', { count: 1, cellarId: { from: 'c1', to: 'c2' }, toItemId: 'l', changes: [{ field: 'quantity', from: 3, to: 2 }, { field: 'slot', from: cell(2, 2), to: null }] }, 'MOVE_UNITS'),
+        log(1, 0, 'l', { count: 1, cellarId: { from: 'c1', to: 'c2' }, fromItemId: 'g', changes: [{ field: 'quantity', from: null, to: 1 }, { field: 'cellarId', from: 'c1', to: 'c2' }] }, 'MOVE_UNITS'),
+      ]);
+      expect(history).toEqual([
+        expect.objectContaining({ id: 2, itemId: 'g', changes: [{ field: 'quantity', from: 3, to: 2 }, { field: 'slot', from: cell(2, 2), to: null }] }),
+        expect.objectContaining({
+          id: 1, itemId: 'l', count: 1, changes: [
+            { field: 'quantity', from: null, to: 1 }, { field: 'cellarId', from: 'c1', to: 'c2' }, { field: 'slot', from: cell(2, 2), to: null },
+          ],
+        }),
+      ]);
+      expect(history[1]).not.toHaveProperty('gesture');
     });
   });
 });

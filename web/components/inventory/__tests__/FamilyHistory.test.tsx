@@ -213,3 +213,77 @@ describe('FamilyHistory — cells of the plan (FEAT-93)', () => {
     expect(restoreButtons()).toEqual([]);
   });
 });
+
+// Recette #847: a gesture is said in its own words — "1 bouteille ouverte",
+// "1 bouteille bue", "1 cigare fumé" — never as the columns it wrote; a cell
+// is said freed only when it was (an opened bottle keeps its cell).
+describe('FamilyHistory — gestures (recette #847)', () => {
+  const lines = () => within(screen.getByTestId('family-history')).getAllByRole('listitem');
+  const opened = [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 100 }, { field: 'openedAt', from: null, to: '2026-11-05T10:00:00.000Z' }];
+  const drunk = [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 0 }];
+
+  it('says "1 bouteille ouverte", without a cell freed nor the columns written', () => {
+    renderHistory([entry({ itemId: 's', gesture: 'opened', changes: opened })]);
+    const [line] = lines();
+    expect(line).toHaveTextContent('1 bouteille ouverte');
+    expect(line).not.toHaveTextContent('libérée');
+    expect(line).not.toHaveTextContent('Bouteille entamée');
+    expect(line).not.toHaveTextContent('Niveau');
+  });
+
+  it('says the level of a bottle opened short of full', () => {
+    renderHistory([entry({ itemId: 's', gesture: 'opened', changes: [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 50 }] })]);
+    expect(lines()[0]).toHaveTextContent('1 bouteille ouverte · Niveau ajusté à 50%');
+  });
+
+  it('says "1 bouteille bue" and the cell it freed', () => {
+    renderHistory([entry({ itemId: 's', gesture: 'finished', changes: [...drunk, { field: 'slot', from: { column: 2, row: 1 }, to: null }] })]);
+    const [line] = lines();
+    expect(line).toHaveTextContent('1 bouteille bue · Case C2·R1 libérée');
+    expect(line).not.toHaveTextContent('Vide');
+    expect(restoreButtons()).toEqual([]);
+  });
+
+  it('says "1 cigare fumé" for a cigar smoked, from a box or single', () => {
+    render(
+      <FamilyHistory
+        productId="p1"
+        productUpdatedAt="2026-10-30T10:00:00.000Z"
+        history={[
+          entry({ id: 1, itemId: 'box', gesture: 'smoked', changes: [{ field: 'isOpened', from: false, to: true }, { field: 'cigarsLeft', from: null, to: 24 }] }),
+          entry({ id: 2, itemId: 'single', gesture: 'finished', changes: drunk }),
+        ]}
+        itemIds={new Set()}
+        cellarName={() => undefined}
+        nounOf={(itemId) => (itemId === 'box' ? 'box' : 'cigar')}
+      />,
+    );
+    const [box, single] = lines();
+    expect(box).toHaveTextContent('1 cigare fumé');
+    expect(box).not.toHaveTextContent('Cigares restants');
+    expect(single).toHaveTextContent('1 cigare fumé');
+  });
+
+  it('still reads an entry without gesture as before (a level adjusted)', () => {
+    renderHistory([entry({ itemId: 'b1', changes: [{ field: 'fillLevel', from: 100, to: 40 }] })]);
+    expect(lines()[0]).toHaveTextContent('Niveau ajusté à 40%');
+  });
+
+  it('says the cell a bottle moved to another cellar left (KO 6.6)', () => {
+    render(
+      <FamilyHistory
+        productId="p1"
+        productUpdatedAt="2026-10-30T10:00:00.000Z"
+        history={[entry({
+          action: 'MOVE_UNITS', itemId: 'l', count: 1, changes: [
+            { field: 'quantity', from: null, to: 1 }, { field: 'cellarId', from: 'c1', to: 'c2' },
+            { field: 'slot', from: { column: 2, row: 2 }, to: null },
+          ],
+        })]}
+        itemIds={new Set(['l'])}
+        cellarName={(id) => (id === 'c2' ? 'ZZ C5 B' : undefined)}
+      />,
+    );
+    expect(lines()[0]).toHaveTextContent('1 bouteille déplacée vers ZZ C5 B · Case C2·R2 libérée');
+  });
+});

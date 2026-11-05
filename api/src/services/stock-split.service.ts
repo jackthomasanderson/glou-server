@@ -289,7 +289,8 @@ export async function splitLockedGroup(
       { data: toUnitView(completed), changed: [], removedIds: [group.id] },
       [{
         itemId: target.id, fromItemId: group.id,
-        changes: [{ field: 'quantity', from: target.quantity ?? 1, to }, moved, ...(moving ? [] : slotsPlaced(taken))],
+        // Moved, the group's cells were freed: told here, the group is gone (recette #847, KO 6.6).
+        changes: [{ field: 'quantity', from: target.quantity ?? 1, to }, moved, ...(moving ? groupSlots : slotsPlaced(taken))],
       }],
     );
   }

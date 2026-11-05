@@ -353,6 +353,10 @@ describe('bulkStockService.drink (FEAT-111 c3)', () => {
     expect(opened).toHaveLength(1);
     expect(opened[0]).toMatchObject({ isOpened: true, cigarsLeft: 22 });
     expect(unitsOf(P1)).toBe(47);
+    // Recette #847: each one told "1 cigare fumé" in the history, the first one too (it only opens the box in its changes).
+    const smoked = outcome.entries.filter((entry) => (entry.details as { targetItemId?: string }).targetItemId);
+    expect(smoked).toHaveLength(3);
+    for (const entry of smoked) expect(entry.details).toMatchObject({ smokeOne: true });
   });
 
   it('more than the wine has in the cellar is refused, and nothing is written', async () => {

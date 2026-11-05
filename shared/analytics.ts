@@ -37,7 +37,9 @@ export interface GardePoint {
 }
 
 export interface CavePoint {
-  cellarId: string;
+  /** Null: the units in no cellar ("Sans cave"), so the distribution sums to the stock (recette #847, KO 10.2). */
+  cellarId: string | null;
+  /** Empty for the units in no cellar: the client names them. */
   cellarName: string;
   cellarType: string;
   count: number;

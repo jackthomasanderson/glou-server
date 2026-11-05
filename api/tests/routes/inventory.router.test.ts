@@ -87,6 +87,20 @@ describe('PATCH /api/inventory/:id', () => {
     ]);
   });
 
+  it('marks a cigar smoked in its history (recette #847: the first of a box only opens it in its changes)', async () => {
+    vi.mocked(inventoryService.updateItem).mockResolvedValue({
+      item: { id: 'box', productId: 'p1' }, changes: [{ field: 'isOpened', from: false, to: true }, { field: 'cigarsLeft', from: null, to: 24 }],
+      changed: [], removedIds: [],
+    } as never);
+
+    await request(app).patch('/api/inventory/box').send({ smokeOne: true });
+    await request(app).patch('/api/inventory/box').send({ isOpened: true });
+
+    const [smoked, opened] = vi.mocked(auditLog).mock.calls.map(([entry]) => entry);
+    expect(smoked).toMatchObject({ bottleId: 'box', details: { smokeOne: true } });
+    expect(opened.details).not.toHaveProperty('smokeOne');
+  });
+
   it('logs the tastings a reattach deleted', async () => {
     vi.mocked(inventoryService.updateItem).mockResolvedValue({
       item: { id: 'g', productId: 'p1' }, changes: [], changed: [], removedIds: ['sub'],

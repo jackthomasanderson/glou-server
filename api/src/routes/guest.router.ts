@@ -200,6 +200,8 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       details: {
         via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes,
         ...(result.outcome ? { outcome: result.outcome, targetItemId: itemId } : {}),
+        // Recette #847: told "1 cigare fumé" (the first of a box only opens it in its changes).
+        ...(patch.smokeOne ? { smokeOne: true } : {}),
         ...(marker ? { undo: marker } : {}),
         ...(undone ? { undoOf: undone.stampedAt } : {}),
       },

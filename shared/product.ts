@@ -236,6 +236,9 @@ export interface FieldChange {
 }
 
 /** One line of a family's history: a change of its description or of one of its units. */
+/** Recette #847: what was done to a copy, said in one word ("1 bouteille ouverte", "1 bouteille bue", "1 cigare fumé"). */
+export type HistoryGesture = 'opened' | 'finished' | 'smoked';
+
 export interface ProductHistoryEntry {
   id: number;
   action: string;
@@ -259,6 +262,8 @@ export interface ProductHistoryEntry {
    * rewrite every copy of this line — never offered, refused by the API.
    */
   absorbed?: boolean;
+  /** Recette #847: the entry tells a copy opened, finished (drunk) or a cigar smoked. */
+  gesture?: HistoryGesture;
   createdAt: Date;
 }
 

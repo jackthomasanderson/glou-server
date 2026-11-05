@@ -483,7 +483,7 @@ function GardePlanningSection({
 
 // ─── Cave distribution ────────────────────────────────────────────────────────
 
-function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => string }) {
+export function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => string }) {
   if (caves.length === 0) return null;
   const maxCount = Math.max(...caves.map((c) => c.count), 1);
 
@@ -497,9 +497,10 @@ function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => 
           </p>
         </div>
         {caves.map((cave) => (
-          <div key={cave.cellarId} className="mb-4">
+          <div key={cave.cellarId ?? ''} className="mb-4" data-testid="analytics-cave">
             <div className="flex justify-between mb-1">
-              <span className="text-xs font-semibold truncate">{cave.cellarName}</span>
+              {/* Recette #847 (KO 10.2): the units in no cellar have their own row. */}
+              <span className="text-xs font-semibold truncate">{cave.cellarId === null ? t('analytics.caves.noCellar') : cave.cellarName}</span>
               <span className="text-xs text-foreground-500 shrink-0 ml-2">
                 {cave.count} — {fmtCurrency(cave.valuation)}
               </span>
