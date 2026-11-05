@@ -12,10 +12,11 @@ import { useCellar, useCellarGrid } from '@/hooks/useCellars';
 import { useInventory } from '@/hooks/useInventory';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
 import { HumidorPanel } from '@/components/cellars/HumidorPanel';
-import { FamilyDrawer } from '@/components/inventory/FamilyDrawer';
+import { FamilyDrawer, type SlotContext } from '@/components/inventory/FamilyDrawer';
 import { AddUnitsAction } from '@/components/inventory/AddUnitsDialog';
 import { EditWineDialog } from '@/components/inventory/EditWineDialog';
 import { InventoryItem } from '@/lib/inventory/types';
+import type { GridCell } from '@/lib/cellars/types';
 import type { Product } from '@/lib/products/types';
 import { describeStock, keepNumbersWhole } from '@/lib/products/stock';
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
@@ -69,8 +70,23 @@ export function CellarDetailClient() {
   const [view, setView] = useState<DetailView>('map');
   // #471: a bottle opens the drawer of its wine.
   const [viewingProductId, setViewingProductId] = useState<string | null>(null);
+  // FEAT-93: the drawer opened from a cell of the plan, on that cell's line.
+  const [slotContext, setSlotContext] = useState<SlotContext | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
-  const viewItem = (item: InventoryItem) => setViewingProductId(item.productId ?? item.id);
+  const viewWine = (productId: string | null) => {
+    setSlotContext(null);
+    setViewingProductId(productId);
+  };
+  const viewItem = (item: InventoryItem) => viewWine(item.productId ?? item.id);
+  const openSlot = (cell: GridCell) => {
+    const slot = cell.slots.find((s) => s.id === cell.slotId);
+    setSlotContext({
+      itemId: cell.id,
+      slotId: cell.slotId,
+      label: slot ? t('cellars.grid.slotTitle', { col: slot.column, row: slot.row }) : '',
+    });
+    setViewingProductId(cell.productId);
+  };
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
   const { data: allInventory } = useInventory();
@@ -178,7 +194,7 @@ export function CellarDetailClient() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {cellarProducts.map((product) => (
-                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => setViewingProductId(product.id)} />
+                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => viewWine(product.id)} />
               ))}
             </div>
           )
@@ -214,7 +230,7 @@ export function CellarDetailClient() {
                       {item.slots && item.slots.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {item.slots.map((slot) => (
-                            <Chip key={slot.id} size="sm" variant="bordered">{`C${slot.column}·R${slot.row}`}</Chip>
+                            <Chip key={slot.id} size="sm" variant="bordered">{t('cellars.grid.cellShort', { col: slot.column, row: slot.row })}</Chip>
                           ))}
                         </div>
                       ) : <span className="text-foreground-400">—</span>}
@@ -233,7 +249,7 @@ export function CellarDetailClient() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {cellarProducts.map((product) => (
-                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => setViewingProductId(product.id)} />
+                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => viewWine(product.id)} />
               ))}
             </div>
           )
@@ -244,7 +260,7 @@ export function CellarDetailClient() {
               <CircularProgress isIndeterminate color="primary" aria-label={t('status.loading')} />
             </div>
           ) : gridData ? (
-            <CellarGridPlan data={gridData} />
+            <CellarGridPlan data={gridData} onOpenSlot={openSlot} />
           ) : (
             <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
           )
@@ -256,17 +272,18 @@ export function CellarDetailClient() {
 
       <FamilyDrawer
         productId={viewingProductId}
-        onClose={() => setViewingProductId(null)}
+        onClose={() => viewWine(null)}
+        slotContext={slotContext}
         // FEAT-104 c3: from a cellar's page, its line is preselected.
         viewedCellarIds={[cellarId]}
         // Recette #471: the same actions as from the list of wines.
-        onEdit={(product) => { setViewingProductId(null); setEditing(product); }}
+        onEdit={(product) => { viewWine(null); setEditing(product); }}
         primaryAction={(product) => <AddUnitsAction product={product} />}
       />
       <EditWineDialog
         product={editing}
-        onClose={() => { if (editing) setViewingProductId(editing.id); setEditing(null); }}
-        onSaved={(product) => { setEditing(null); setViewingProductId(product.id); }}
+        onClose={() => { if (editing) viewWine(editing.id); setEditing(null); }}
+        onSaved={(product) => { setEditing(null); viewWine(product.id); }}
       />
     </MainLayout>
   );

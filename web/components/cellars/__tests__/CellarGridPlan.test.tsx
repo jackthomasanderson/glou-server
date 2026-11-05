@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CellarGridPlan } from '../CellarGridPlan';
 import type { CellarGridData } from '@/lib/cellars/types';
@@ -31,9 +31,9 @@ vi.mock('@heroui/react', async (importActual) => {
     ModalFooter: Box,
   };
 });
+const { assign } = vi.hoisted(() => ({ assign: vi.fn() }));
 vi.mock('@/hooks/useCellars', () => ({
-  useAssignSlot: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useRemoveSlot: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useAssignSlot: () => ({ mutateAsync: assign, isPending: false }),
 }));
 // ResponsiveModal (ISSUE_328) calls useIsMobile(), which reads
 // window.matchMedia — not implemented in this file's jsdom env.
@@ -52,11 +52,11 @@ const data = {
   ],
 } as unknown as CellarGridData;
 
-function renderGrid(gridData: CellarGridData = data) {
+function renderGrid(gridData: CellarGridData = data, onOpenSlot = vi.fn()) {
   const qc = new QueryClient();
   return render(
     <QueryClientProvider client={qc}>
-      <CellarGridPlan data={gridData} />
+      <CellarGridPlan data={gridData} onOpenSlot={onOpenSlot} />
     </QueryClientProvider>,
   );
 }
@@ -83,10 +83,11 @@ describe('CellarGridPlan keyboard access (#199)', () => {
     expect(screen.getByText(/cellars\.grid\.assignTitle/)).toBeTruthy();
   });
 
-  it('opens the bottle details with Enter (Space is reserved for moving)', () => {
-    renderGrid();
+  it('opens the wine of the cell with Enter (Space is reserved for moving)', () => {
+    const onOpenSlot = vi.fn();
+    renderGrid(data, onOpenSlot);
     fireEvent.keyDown(screen.getByLabelText(/^cellars\.grid\.cellLabelOccupied\|/), { key: 'Enter' });
-    expect(screen.getByText('cellars.grid.removeFromSlot')).toBeTruthy();
+    expect(onOpenSlot).toHaveBeenCalledWith(expect.objectContaining({ id: 'i1', productId: 'p1', slotId: 's1' }));
   });
 
   it('describes the keyboard drag for screen readers', () => {
@@ -120,6 +121,28 @@ describe('CellarGridPlan, one cell per bottle placed (FEAT-93)', () => {
     fireEvent.keyDown(screen.getByLabelText(/^cellars\.grid\.cellLabelEmpty\|2,1/), { key: 'Enter' });
     expect(screen.queryAllByTestId('assign-line')).toHaveLength(0);
   });
+
+  it('says in "Assigner" how many are placed and still to place (c2)', () => {
+    renderGrid(group);
+    fireEvent.keyDown(screen.getByLabelText(/^cellars\.grid\.cellLabelEmpty\|3,1/), { key: 'Enter' });
+    expect(screen.getByTestId('assign-placement')).toHaveTextContent('cellars.grid.placed|2, cellars.grid.unplaced|2');
+  });
+
+  it('touching a cell opens its line, with the slot touched', () => {
+    const onOpenSlot = vi.fn();
+    renderGrid(group, onOpenSlot);
+    fireEvent.click(screen.getAllByLabelText(/^cellars\.grid\.cellLabelOccupied\|/)[1]);
+    expect(onOpenSlot).toHaveBeenCalledWith(expect.objectContaining({ id: 'i1', slotId: 's2' }));
+  });
+
+  it('a copy refused because every copy is placed is explained (c2)', async () => {
+    assign.mockRejectedValueOnce(new Error('NO_UNPLACED_COPY'));
+    renderGrid(group);
+    fireEvent.keyDown(screen.getByLabelText(/^cellars\.grid\.cellLabelEmpty\|3,1/), { key: 'Enter' });
+    fireEvent.click(screen.getByTestId('assign-line').closest('button') as HTMLElement);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(/cellars\.grid\.noUnplacedCopy\|4/));
+    expect(screen.getByRole('alert')).toHaveTextContent('Pétrus');
+  });
 });
 
 // Recette #471 (KO 13.2): a box of cigars on a slot, and two lines of the same cigar to choose from.
@@ -134,9 +157,18 @@ describe('CellarGridPlan and boxes of cigars (recette #471)', () => {
     ],
   } as unknown as CellarGridData;
 
-  it('a box of 25 on a slot shows "×25"', () => {
+  it('a box of 25 on a slot has no badge: its cell says "Boîte fermée de 25" (FEAT-93)', () => {
     renderGrid(boxes);
-    expect(screen.getByTestId('slot-copies')).toHaveTextContent('cellars.grid.copies|25');
+    expect(screen.queryByTestId('slot-copies')).toBeNull();
+    expect(screen.getByLabelText(/^cellars\.grid\.cellLabelOccupied\|/).getAttribute('aria-label')).toContain('cellars.grid.closedBox|25');
+  });
+
+  it('a group of single cigars shows all its cigars on its one cell', () => {
+    renderGrid({
+      ...boxes,
+      items: [{ ...boxes.items[0], cigarsPerBox: null, quantity: 4, units: 4, purchasePrice: null }],
+    } as unknown as CellarGridData);
+    expect(screen.getByTestId('slot-copies')).toHaveTextContent('cellars.grid.copies|4');
   });
 
   it('"Assigner" tells the closed box from the opened one', () => {

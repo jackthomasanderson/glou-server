@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { Button, Chip, Drawer, DrawerContent, Spinner, Tooltip } from '@heroui/react';
 import {
   X, Pencil, Flame, Thermometer, Droplets, Wine, BookMarked, GlassWater, Leaf, Sparkles, QrCode,
-  TrendingUp, Bell, BellOff, Star, Grape,
+  TrendingUp, Bell, BellOff, Star, Grape, LayoutGrid,
 } from 'lucide-react';
 import { isIntactItem, unitKind } from '@shared/units';
-import { useCellars } from '@/hooks/useCellars';
+import { useCellars, useRemoveSlot } from '@/hooks/useCellars';
+import { notifyError } from '@/lib/toast';
 import { productDetailKey, useProductDetail } from '@/hooks/useProducts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
@@ -89,6 +90,17 @@ function averageRating(tastings: ProductDetailView['tastings']): number | null {
   return ratings.length > 0 ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : null;
 }
 
+/**
+ * FEAT-93: the cell of the cellar plan the drawer was opened from — the
+ * line it holds a bottle of, the slot, and how the cell is named ("Case
+ * C2·R3").
+ */
+export interface SlotContext {
+  itemId: string;
+  slotId: string;
+  label: string;
+}
+
 const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
   <div className="flex items-center gap-1.5 mb-2">
     {icon}
@@ -115,6 +127,8 @@ export interface FamilyDrawerProps {
    * page): "Quelles bouteilles ?" preselects their line (FEAT-104 c3).
    */
   viewedCellarIds?: readonly string[];
+  /** FEAT-93: opened from a cell of the cellar plan: its line is led to, and the cell named. */
+  slotContext?: SlotContext | null;
 }
 
 /**
@@ -124,7 +138,7 @@ export interface FamilyDrawerProps {
  * The state of a group of bottles is never set from here: only the level
  * of a bottle already opened (a single copy, nothing detached).
  */
-export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryAction, viewedCellarIds }: FamilyDrawerProps) {
+export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryAction, viewedCellarIds, slotContext }: FamilyDrawerProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const hasMounted = useHasMounted();
@@ -140,6 +154,23 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const finishOpened = useCallback((item: ProductItem) => {
     setFocusLine((previous) => ({ id: item.id, nonce: (previous?.nonce ?? 0) + 1 }));
   }, []);
+  // FEAT-93: a cell of the plan touched leads to the line it holds (adjusted during render).
+  const [prevSlot, setPrevSlot] = useState<SlotContext | null>(null);
+  if ((slotContext ?? null) !== prevSlot) {
+    setPrevSlot(slotContext ?? null);
+    if (slotContext) setFocusLine((previous) => ({ id: slotContext.itemId, nonce: (previous?.nonce ?? 0) + 1 }));
+  }
+  // The cell, while it still holds a bottle of that line (not once taken out or drunk).
+  const slotLine = slotContext ? product?.items.find((item) => item.id === slotContext.itemId) : undefined;
+  const cell = slotContext && slotLine?.slots.some((slot) => slot.id === slotContext.slotId) ? slotContext : null;
+  const removeSlot = useRemoveSlot(slotLine?.cellarId ?? '');
+  const removeFromCell = async (slotId: string) => {
+    try {
+      await removeSlot.mutateAsync({ slotId });
+    } catch {
+      notifyError('status.error');
+    }
+  };
 
   const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
   const kind = unitKind(product?.category ?? 'wine');
@@ -213,6 +244,19 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
     return (
       <div className="flex flex-col gap-6 px-5 py-5">
+        {/* FEAT-93: the cell of the plan this drawer was opened from. */}
+        {cell && (
+          <div className="flex items-center justify-between gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2" data-testid="slot-context">
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-primary-700">
+              <LayoutGrid size={14} aria-hidden />
+              {cell.label}
+            </span>
+            <Button size="sm" variant="flat" color="warning" onPress={() => removeFromCell(cell.slotId)} isLoading={removeSlot.isPending}>
+              {t('cellars.grid.removeFromSlot')}
+            </Button>
+          </div>
+        )}
+
         {/* 1. Photo, stock and value */}
         <div>
           <div

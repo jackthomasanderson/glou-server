@@ -110,7 +110,8 @@ export function useAssignSlot(cellarId: string) {
     mutationFn: async ({ itemId, column, row }) => {
       await client.post(`/inventory/${itemId}/slots`, { column, row });
     },
-    onSuccess: () => {
+    // A refusal too: the plan was out of date (a cell or a copy taken from another device).
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['cellars', cellarId, 'grid'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },
