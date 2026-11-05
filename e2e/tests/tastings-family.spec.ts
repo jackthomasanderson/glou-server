@@ -151,3 +151,39 @@ test('"Nouvelle dégustation" of a wine never had adds it without any bottle', a
     if (productId) await api.delete(`/api/products/${productId}`).catch(() => {});
   }
 });
+
+// Acceptance run v3 of #471: « 202 » refused, then corrected to « 2020 » — the
+// message stayed and the save was blocked; « 2020 » typed at once passed.
+test('a vintage corrected from 202 to 2020 in "Nouvelle dégustation" saves', async ({ page }) => {
+  const name = `E2E RE vintage ${stamp()}`;
+  let productId = '';
+  try {
+    await page.goto('/cellar-journal');
+    await page.getByRole('button', { name: 'Nouvelle dégustation' }).first().click();
+    const form = page.getByRole('dialog').filter({ hasText: 'Nouvelle dégustation' });
+    await form.getByRole('button', { name: "Ce vin n'est pas dans la liste" }).click();
+    await form.getByLabel(/^Producteur/).fill('E2E Domaine Ailleurs');
+    await form.getByLabel(/^Nom/).fill(name);
+    const vintage = form.getByLabel(/^Millésime/);
+    await vintage.pressSequentially('202');
+    await form.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    const message = form.getByText(/^Millésime sur 4 chiffres/);
+    await expect(message).toBeVisible();
+
+    // As a person would: back in the field, at the end of what was typed.
+    await vintage.focus();
+    await vintage.press('End');
+    await vintage.pressSequentially('0');
+    await expect(vintage).toHaveValue('2020');
+    await expect(message).toHaveCount(0);
+    const created = page.waitForResponse((r) => /\/api\/tastings\/?$/.test(r.url()) && r.request().method() === 'POST');
+    await form.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+    const res = await created;
+    expect(res.status(), await res.text()).toBe(201);
+    expect(res.request().postDataJSON()).toMatchObject({ wine: { name, vintage: 2020 } });
+    productId = ((await res.json()).data as Tasting).productId ?? '';
+    await expect(form).toBeHidden();
+  } finally {
+    if (productId) await page.request.delete(`/api/products/${productId}`).catch(() => {});
+  }
+});
