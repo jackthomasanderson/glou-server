@@ -1,7 +1,7 @@
 import { test, expect, type APIRequestContext, type APIResponse } from '@playwright/test';
 
 /**
- * FEAT-93 (#847, lot S1): several cells of the cellar plan per line, at the
+ * FEAT-93 (#847, lots S1-S2): several cells of the cellar plan per line, at the
  * API level on the real PostgreSQL — the partial unique index of live cells,
  * the key holding a cell in its bottle's cellar and the deferred guard (no
  * more cells than bottles, none once out of stock or in the trash) are only
@@ -98,23 +98,119 @@ test.describe('cells of the cellar plan (FEAT-93)', () => {
     expect((await unit(api, b.id)).slots).toEqual([]);
   });
 
-  test('copies leaving free their cells, the most recently placed first (automatic rule until the choice of lot S2)', async ({ page }) => {
+  // FEAT-93 criterion 4 (lot S2): when the copies left cannot hold every cell, the member names those freed.
+  test('c4: copies corrected away or moved name the cells they free when it matters', async ({ page }) => {
     const api = page.request;
     const cellarId = await cellar(api);
     const four = await group(api, cellarId, 4);
     for (let column = 1; column <= 4; column++) expect((await place(api, four.id, column, 1)).status()).toBe(201);
+    const slotAt = async (column: number) => (await unit(api, four.id)).slots.find((slot) => slot.column === column)!.id;
 
-    // c4's numbers: corrected from 4 to 2 frees the two cells placed last.
-    await okData(await api.post(`/api/inventory/${four.id}/correct`, { data: { quantity: 2, reason: 'input_error' } }));
-    expect(cells((await unit(api, four.id)).slots)).toEqual(['1:1', '2:1']);
+    // Corrected from 4 to 2 without naming the cells: refused, with what to choose from.
+    const asked = await api.post(`/api/inventory/${four.id}/correct`, { data: { quantity: 2, reason: 'input_error' } });
+    expect(asked.status()).toBe(409);
+    const body = await asked.json();
+    expect(body).toMatchObject({ error: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 2 } });
+    expect(cells(body.details.slots)).toEqual(['1:1', '2:1', '3:1', '4:1']);
+    expect((await unit(api, four.id)).quantity).toBe(4);
 
-    // Moved to another cellar: the copies arrive unplaced, the cells they held freed.
+    // The two cells named are the ones freed.
+    await okData(await api.post(`/api/inventory/${four.id}/correct`, {
+      data: { quantity: 2, reason: 'input_error', slotIds: [await slotAt(1), await slotAt(3)] },
+    }));
+    expect(cells((await unit(api, four.id)).slots)).toEqual(['2:1', '4:1']);
+
+    // Moved to another cellar: one copy of two placed — its cell is named, freed.
     const other = await cellar(api);
-    await okData(await api.post(`/api/inventory/${four.id}/move`, { data: { count: 1, cellarId: other } }));
-    expect(cells((await unit(api, four.id)).slots)).toEqual(['1:1']);
+    expect((await api.post(`/api/inventory/${four.id}/move`, { data: { count: 1, cellarId: other } })).status()).toBe(409);
+    await okData(await api.post(`/api/inventory/${four.id}/move`, { data: { count: 1, cellarId: other, slotIds: [await slotAt(4)] } }));
+    expect(cells((await unit(api, four.id)).slots)).toEqual(['2:1']);
     // The rest follows to the same cellar: its cell freed, it joins the identical line there.
     const joined = await okData<Unit>(await api.patch(`/api/inventory/${four.id}`, { data: { cellarId: other } }));
     expect(joined).toMatchObject({ cellarId: other, quantity: 2, slots: [] });
+  });
+
+  test('c4: copies leaving from unplaced ones need no choice', async ({ page }) => {
+    const api = page.request;
+    const cellarId = await cellar(api);
+    const four = await group(api, cellarId, 4);
+    expect((await place(api, four.id, 1, 1)).status()).toBe(201);
+
+    await okData(await api.post(`/api/inventory/${four.id}/correct`, { data: { quantity: 2, reason: 'written_off' } }));
+    expect(cells((await unit(api, four.id)).slots)).toEqual(['1:1']);
+  });
+
+  // Decision #471 point 74: repriced copies are unplaced ones first; a cell follows the new line only when unavoidable.
+  test('a new price for part of a line: unplaced copies first, then the cells named follow the new line', async ({ page }) => {
+    const api = page.request;
+    const cellarId = await cellar(api);
+    const three = await group(api, cellarId, 3);
+    for (let column = 1; column <= 2; column++) expect((await place(api, three.id, column, 1)).status()).toBe(201);
+
+    const asked = await api.post(`/api/inventory/${three.id}/reprice`, { data: { count: 2, purchasePrice: 25 } });
+    expect(asked.status()).toBe(409);
+    expect(await asked.json()).toMatchObject({ error: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
+
+    const [first] = (await unit(api, three.id)).slots.filter((slot) => slot.column === 1);
+    const repriced = await okData<Unit>(await api.post(`/api/inventory/${three.id}/reprice`, { data: { count: 2, purchasePrice: 25, slotIds: [first.id] } }));
+    expect(repriced).toMatchObject({ quantity: 2 });
+    expect(cells(repriced.slots)).toEqual(['1:1']);
+    expect(cells((await unit(api, three.id)).slots)).toEqual(['2:1']);
+  });
+
+  // FEAT-93 lot S2 (ux-ui.md §10.4.2): "De quelle case ?" — asked only when it matters.
+  test('opening or drinking one of a placed line: asked which cell; from a cell, that cell; from an unplaced one, none', async ({ page }) => {
+    const api = page.request;
+    const cellarId = await cellar(api);
+    const three = await group(api, cellarId, 3);
+    for (let column = 1; column <= 2; column++) expect((await place(api, three.id, column, 1)).status()).toBe(201);
+    const [first, second] = (await unit(api, three.id)).slots.sort((a, b) => a.column - b.column);
+
+    const asked = await api.patch(`/api/inventory/${three.id}`, { data: { isOpened: true } });
+    expect(asked.status()).toBe(409);
+    const body = await asked.json();
+    expect(body).toMatchObject({ error: 'SLOT_CHOICE_REQUIRED', details: { unplaced: 1 } });
+    expect(cells(body.details.slots)).toEqual(['1:1', '2:1']);
+
+    // Opened from the first cell: the opened bottle holds it.
+    const opened = await api.patch(`/api/inventory/${three.id}`, { data: { isOpened: true, fromSlotId: first.id } });
+    expect(opened.status(), await opened.text()).toBe(200);
+    const write = await opened.json() as { data: Unit; changed: Unit[] };
+    expect(cells(write.data.slots)).toEqual(['1:1']);
+    expect(cells(write.changed[0].slots)).toEqual(['2:1']);
+
+    // The same cell again (a replay): it is no longer the line's.
+    const stale = await api.patch(`/api/inventory/${three.id}`, { data: { isOpened: true, fillLevel: 0, fromSlotId: first.id } });
+    expect(stale.status()).toBe(409);
+    expect(await stale.json()).toMatchObject({ error: 'SLOT_CHANGED', details: { unplaced: 1 } });
+
+    // Drunk from the unplaced copy: the line keeps its cell.
+    await okData(await api.patch(`/api/inventory/${three.id}`, { data: { isOpened: true, fillLevel: 0, fromUnplaced: true } }));
+    expect(cells((await unit(api, three.id)).slots)).toEqual(['2:1']);
+    expect((await unit(api, three.id)).quantity).toBe(1);
+    // A line of one is the bottle itself: never asked; drunk from its cell, the cell is freed.
+    const last = await okData<Unit>(await api.patch(`/api/inventory/${three.id}`, { data: { isOpened: true, fillLevel: 0, fromSlotId: second.id } }));
+    expect(last.slots).toEqual([]);
+  });
+
+  test('« Annuler » of a bottle alone drunk in its cell puts it back there; a cell taken since leaves it unplaced', async ({ page }) => {
+    const api = page.request;
+    const cellarId = await cellar(api);
+    const one = await group(api, cellarId, 1);
+    expect((await place(api, one.id, 3, 2)).status()).toBe(201);
+    const undo = { isOpened: false, fillLevel: null, openedAt: null, placeAt: { column: 3, row: 2 } };
+
+    await okData(await api.patch(`/api/inventory/${one.id}`, { data: { isOpened: true, fillLevel: 0 } }));
+    const back = await okData<Unit>(await api.patch(`/api/inventory/${one.id}`, { data: undo }));
+    expect(cells(back.slots)).toEqual(['3:2']);
+
+    await okData(await api.patch(`/api/inventory/${one.id}`, { data: { isOpened: true, fillLevel: 0 } }));
+    const newcomer = await group(api, cellarId, 1);
+    expect((await place(api, newcomer.id, 3, 2)).status()).toBe(201);
+    const unplaced = await api.patch(`/api/inventory/${one.id}`, { data: undo });
+    expect(unplaced.status(), await unplaced.text()).toBe(200);
+    expect((await unplaced.json()).data).toMatchObject({ isOpened: false, slots: [] });
+    expect(cells((await unit(api, newcomer.id)).slots)).toEqual(['3:2']);
   });
 
   // Review of #854: the answer of a write never lists a cell the bottle just gave up.
@@ -129,9 +225,51 @@ test.describe('cells of the cellar plan (FEAT-93)', () => {
 
     const three = await group(api, cellarId, 3);
     for (let column = 1; column <= 3; column++) expect((await place(api, three.id, column, 2)).status()).toBe(201);
-    const lowered = await okData<Unit>(await api.patch(`/api/inventory/${three.id}`, { data: { quantity: 1 } }));
-    expect(cells(lowered.slots)).toEqual(['1:2']);
+    // Lot S2: a number written below the cells is refused — "Corriger le nombre" names the cells to free.
+    const lowered = await api.patch(`/api/inventory/${three.id}`, { data: { quantity: 1 } });
+    expect(lowered.status()).toBe(409);
+    expect(await lowered.json()).toMatchObject({ error: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 2 } });
+    const kept = (await unit(api, three.id)).slots.filter((slot) => slot.column !== 1).map((slot) => slot.id);
+    const corrected = await okData<Unit>(await api.post(`/api/inventory/${three.id}/correct`, { data: { quantity: 1, reason: 'input_error', slotIds: kept } }));
+    expect(cells(corrected.slots)).toEqual(['1:2']);
     expect(cells((await unit(api, three.id)).slots)).toEqual(['1:2']);
+  });
+
+  test('a number restored from the history below the cells is refused, not a 500', async ({ page }) => {
+    const api = page.request;
+    const cellarId = await cellar(api);
+    // ×3, corrected to 2 by hand, then back to 3: « 2 » is in its history.
+    const three = await group(api, cellarId, 3);
+    await okData(await api.patch(`/api/inventory/${three.id}`, { data: { quantity: 2 } }));
+    await okData(await api.patch(`/api/inventory/${three.id}`, { data: { quantity: 3 } }));
+    for (let column = 1; column <= 3; column++) expect((await place(api, three.id, column, 1)).status()).toBe(201);
+
+    const restored = await api.post(`/api/inventory/${three.id}/rollback`, { data: { field: 'quantity', toValue: 2 } });
+    expect(restored.status(), await restored.text()).toBe(409);
+    expect(await restored.json()).toMatchObject({ error: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
+  });
+
+  // Review of #854 (nits): a category and a box size changed together; a restore after the family became single cigars.
+  test('a wine made boxes of cigars in one write keeps its cells; a bottle trashed meanwhile comes back with what it may hold', async ({ page }) => {
+    const api = page.request;
+    const cellarId = await cellar(api);
+    const three = await group(api, cellarId, 3);
+    for (let column = 1; column <= 3; column++) expect((await place(api, three.id, column, 1)).status()).toBe(201);
+    const boxes = await api.patch(`/api/inventory/${three.id}`, { data: { category: 'cigar', cigarsPerBox: 25 } });
+    expect(boxes.status(), await boxes.text()).toBe(200);
+    expect(cells((await unit(api, three.id)).slots)).toEqual(['1:1', '2:1', '3:1']);
+
+    // A wine of two lines: ×1 and ×2 at another price, the ×2 in two cells, then trashed alone.
+    const kept = await group(api, cellarId, 1);
+    const trashed = await okData<Unit>(await api.post(`/api/products/${kept.productId}/items`, { data: { quantity: 2, cellarId, purchasePrice: 30 } }));
+    for (let column = 1; column <= 2; column++) expect((await place(api, trashed.id, column, 3)).status()).toBe(201);
+    await okData(await api.delete(`/api/inventory/${trashed.id}`));
+    // Its wine made single cigars meanwhile: one cell for a whole line.
+    const made = await api.patch(`/api/products/${kept.productId}`, { data: { category: 'cigar' } });
+    expect(made.status(), await made.text()).toBe(200);
+    const back = await api.post(`/api/inventory/${trashed.id}/restore`);
+    expect(back.status(), await back.text()).toBe(200);
+    expect((await back.json()).data.slots).toHaveLength(1);
   });
 
   test('a bulk count lowered and a wine made a cigar free the cells beyond, never a refused commit', async ({ page }) => {

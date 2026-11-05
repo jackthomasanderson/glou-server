@@ -20,7 +20,11 @@ import {
 import { writeFamilyDescription, type UnitSlotChanges } from './product.service';
 import { rememberDistinct } from './review.service';
 import { GROUP_KEY_FIELDS, joinIdenticalGroup, splitLockedGroup } from './stock-split.service';
-import { fitSlotsTo, freeSlots, reviveSlots, slotsFreed, trashSlots } from '../lib/slots';
+import {
+  fitSlotsTo, freeSlots, liveSlotsOf, placeBack, reviveSlots, slotsFreed, slotsLeaving, slotsPlaced, trashSlots,
+  type SlotChoice,
+} from '../lib/slots';
+import { slotCapacity } from '../../../shared/units';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
 // endpoints (uploads/products/*) is ever safe to delete from disk — an
@@ -356,6 +360,14 @@ export class InventoryService {
        * AppError to refuse; nothing is written then.
        */
       guard?: (unit: StateItem, planned: () => StateOutcome, kind: UnitKind) => void;
+      /**
+       * FEAT-93 (lot S2): which copy an opening, a drink or a smoke takes off
+       * a line holding cells when the patch names none (`fromSlotId`,
+       * `fromUnplaced`): `'ask'` (a member's write, the default — 409
+       * SLOT_CHOICE_REQUIRED when it matters) or `'auto'` (a guest, who has
+       * no plan in sight, decision #471 point 75).
+       */
+      slotChoice?: 'ask' | 'auto';
     },
   ): Promise<UpdateItemResult | null> {
     const { fieldSources, isManualEdit = true, bypassFieldLock = false } = options ?? {};
@@ -367,7 +379,15 @@ export class InventoryService {
     // reattach rule (stock-state.service.ts), not columns either; nor is
     // `tastingId`, the tasting that follows a detached copy (FEAT-107).
     // #471 (lot Z): `isOwned` is only an older client's leftover (schema: `true` ignored, `false` refused).
-    const { expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, isOwned: _legacy, ...patch } = rawPatch;
+    // FEAT-93 (lot S2): `fromSlotId`/`fromUnplaced` (the copy taken) and
+    // `placeAt` (the cell given back by "Annuler") are instructions too.
+    const {
+      expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, isOwned: _legacy,
+      fromSlotId, fromUnplaced, placeAt, ...patch
+    } = rawPatch;
+    const slotChoice: SlotChoice = fromSlotId !== undefined ? { fromSlotId }
+      : fromUnplaced ? { fromUnplaced: true }
+      : options?.slotChoice ?? 'ask';
     const row = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
@@ -441,19 +461,32 @@ export class InventoryService {
       const kind = unitKind(safePatch.category ?? row.product.category);
       options?.guard?.(fresh as StateItem, () =>
         planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, kind).outcome, kind);
+      // FEAT-93 (lot S2): a number lowered below the line's cells is refused
+      // — "Corriger le nombre" asks which cells to free (`slotIds`).
+      await assertNumberHoldsSlots(tx, fresh as StateItem, { ...fresh, ...unit, ...state } as StateItem, kind);
       // Also when the patch holds no family field: the derived alert may
       // need realigning, and that is decided on the locked family (#706
-      // window check included — a ZodError, answered with 400).
+      // window check included — a ZodError, answered with 400). Its cells
+      // fitted to a new category are judged on the unit as this patch
+      // leaves it (a box size written with the category).
       const family = await writeFamilyDescription(tx, row.productId, familyPatch, {
-        userId, touched, fieldSources, isManualEdit, autoLock, respectLocks,
+        userId, touched, fieldSources, isManualEdit, autoLock, respectLocks, unitPatch: { ids: [id], columns: unit },
       });
       familyChanges = new Map(family.changes.map((change) => [change.field, change]));
       familySlots = family.unitSlotChanges;
       // The unit is always stamped: the flat record it stands for changed.
-      const result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
+      let result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
         tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
-        { userId, kind, include: INVENTORY_ITEM_INCLUDE },
+        { userId, kind, include: INVENTORY_ITEM_INCLUDE, slotChoice },
       );
+      // "Annuler" of a line finished in place: the copy put back takes its
+      // cell again if nobody took it since (FEAT-93 lot S2), before a join
+      // carries the cells to the survivor.
+      const placed = placeAt ? await placeBack(tx, result.data as unknown as StateItem, kind, placeAt) : null;
+      if (placed) {
+        result.slotChanges.push(...slotsPlaced([placed]));
+        result = { ...result, data: await tx.inventoryItem.findUniqueOrThrow({ where: { id: result.data.id }, include: INVENTORY_ITEM_INCLUDE }) as InventoryItemRow };
+      }
       // FEAT-107 c3: the tasting noted on the group goes with the copy taken
       // off it — the finished bottle is the one that was tasted.
       if (tastingId && result.outcome === 'detached') {
@@ -562,7 +595,10 @@ export class InventoryService {
     // is validated at runtime just above against the item's real change
     // history, and `updateItem` re-filters by `lockedFields`/known columns.
     const patch = { [field]: toValue } as InventoryPatch;
-    const result = await this.updateItem(userId, itemId, patch, { isManualEdit: true, bypassFieldLock: true });
+    // A state restored on a group takes its copy by the automatic rule (no
+    // cell can be chosen from the history); a number restored below the
+    // line's cells is refused all the same (assertNumberHoldsSlots).
+    const result = await this.updateItem(userId, itemId, patch, { isManualEdit: true, bypassFieldLock: true, slotChoice: 'auto' });
     if (!result) return { status: 'not_found' };
     if ('conflict' in result) {
       // Defensive narrowing only: rollbackField never sets `expectedUpdatedAt`
@@ -619,6 +655,8 @@ export class InventoryService {
               // the patch here silently turned a bulk edit into a no-op on every
               // field once adjusted by hand — and still counted it (ISSUE_034).
               userId, isManualEdit: false, autoLock: false, respectLocks: false, onlyChanged: true,
+              // FEAT-93: the selection's cells fitted to what this edit makes of them.
+              unitPatch: { ids, columns: unitPatch },
             })
             : null;
           slotChanges.push(...(family?.unitSlotChanges ?? []));
@@ -693,7 +731,12 @@ export class InventoryService {
     return toItemView(trashed);
   }
 
-  async restore(_userId: string, id: string): Promise<InventoryItemView | null> {
+  async restore(
+    _userId: string,
+    id: string,
+    /** FEAT-93: filled with the cells it could not take back (see restoreOnce), for its history. */
+    slotChanges: FieldChange[] = [],
+  ): Promise<InventoryItemView | null> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const existing = await prisma.inventoryItem.findFirst({
       where: {
@@ -710,15 +753,20 @@ export class InventoryService {
     // another bottle since: that copy comes back unplaced. #173: the partial
     // unique index is the real guarantee against a cell taken between the
     // check and the write — tried once more, the check then sees it.
+    let restored: { item: InventoryItemView; freed: FieldChange[] };
     try {
-      return await this.restoreOnce(existing);
+      restored = await this.restoreOnce(existing);
     } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return this.restoreOnce(existing);
-      throw err;
+      if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err;
+      restored = await this.restoreOnce(existing);
     }
+    slotChanges.push(...restored.freed);
+    return restored.item;
   }
 
-  private restoreOnce(existing: { productId: string; id: string; product: { deletedAt: Date | null } }): Promise<InventoryItemView> {
+  private restoreOnce(
+    existing: { productId: string; id: string; product: { deletedAt: Date | null } },
+  ): Promise<{ item: InventoryItemView; freed: FieldChange[] }> {
     const { id } = existing;
     return prisma.$transaction(async (tx) => {
       // The locking rule: the family first, then its unit.
@@ -728,7 +776,13 @@ export class InventoryService {
       }
       await tx.inventoryItem.update({ where: { id }, data: { deletedAt: null } });
       await reviveSlots(tx, [id]);
-      return toItemView(await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE }));
+      // Its family may have changed meanwhile (made single cigars: one cell
+      // for the line): the cells beyond what it may hold now are freed, the
+      // automatic rule (review of #854).
+      const unit = await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE });
+      const freed = slotsFreed(await fitSlotsTo(tx, id, unit, unitKind(unit.product.category)));
+      if (freed.length === 0) return { item: toItemView(unit), freed };
+      return { item: toItemView(await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE })), freed };
     });
   }
 
@@ -890,6 +944,19 @@ export class InventoryService {
   private getField(item: object, key: string): unknown {
     return (item as Record<string, unknown>)[key];
   }
+}
+
+/**
+ * FEAT-93 (lot S2, criterion 4): a line's number written lower (PATCH
+ * `quantity`, its rollback) so that its copies cannot hold its cells any
+ * more is refused, 409 SLOTS_TO_FREE_REQUIRED — "Corriger le nombre" asks
+ * which cells to free. Only the number is judged: a line finished, written
+ * off or made single cigars frees its cells itself.
+ */
+async function assertNumberHoldsSlots(tx: PrismaClientOrTx, item: StateItem, next: StateItem, kind: UnitKind): Promise<void> {
+  const keep = slotCapacity(next, kind);
+  if (keep >= slotCapacity({ ...next, quantity: item.quantity }, kind)) return;
+  slotsLeaving(await liveSlotsOf(tx, item.id), keep, 0, {});
 }
 
 export const inventoryService = new InventoryService();

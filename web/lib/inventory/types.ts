@@ -1,4 +1,4 @@
-import type { ItemSlotView } from '@shared/product';
+import type { ItemSlotView, SlotCell, SlotChoiceFields } from '@shared/product';
 import { z } from 'zod';
 import {
   ALERT_STATUSES, CATEGORY_VALUES, CURVE_SHAPES,
@@ -133,11 +133,13 @@ export interface InventoryItem {
  * `keepTastings` answers "keep the tasting?" when a bottle holding one is
  * put back with the others (FEAT-106).
  */
-export type InventoryItemPatch = Partial<InventoryItem> & {
+export type InventoryItemPatch = Partial<InventoryItem> & SlotChoiceFields & {
   smokeOne?: true;
   keepTastings?: boolean;
   /** #471 (FEAT-107 c3): the tasting noted with this state follows the bottle detached from its group. */
   tastingId?: string;
+  /** FEAT-93: "Annuler" of a line finished in place — its cell back, if nobody took it since. */
+  placeAt?: SlotCell;
 };
 
 export interface InventoryFieldChange {

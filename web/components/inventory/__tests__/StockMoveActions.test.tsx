@@ -264,9 +264,9 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
   });
 
   // Review of L1: a line of one drunk in place gave its grid slot back (#573).
-  // FEAT-93: the cell is no column of the bottle any more — "Annuler" puts
-  // the state back; the cell itself comes back with lot S2 (`placeAt`).
-  it('"Annuler" a line of one drunk in its cell puts the state back, sending no coordinates', async () => {
+  // FEAT-93 (lot S2): "Annuler" puts the state back and asks for the cell
+  // back (`placeAt`: the API puts it back if nobody took it since).
+  it('"Annuler" a line of one drunk in its cell puts the state back and asks for its cell (placeAt)', async () => {
     const only = unit({ id: 'one', quantity: 1, cellarId: 'garage', slots: [{ id: 's1', column: 2, row: 3 }], updatedAt: VERSION });
     answer = () => ({ status: 200, body: { data: { ...only, isOpened: true, fillLevel: 0, slots: [], updatedAt: LATER }, changed: [], removedIds: [] } });
     drawFooter(detailOf([only]));
@@ -279,7 +279,7 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
     await waitFor(() => expect(patches()).toHaveLength(2));
     expect(patches()[1]).toMatchObject({
       url: '/api/inventory/one',
-      body: { isOpened: false, fillLevel: 100, expectedUpdatedAt: LATER },
+      body: { isOpened: false, fillLevel: 100, placeAt: { column: 2, row: 3 }, expectedUpdatedAt: LATER },
     });
     expect(patches()[1].body).not.toHaveProperty('slotColumn');
   });
@@ -294,6 +294,7 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
     await act(async () => { undo(); });
     await waitFor(() => expect(patches()).toHaveLength(2));
     expect(patches()[1].body).not.toHaveProperty('slotColumn');
+    expect(patches()[1].body).not.toHaveProperty('placeAt');
   });
 
   it('a refused write says so (by the mutation) and keeps the question open', async () => {

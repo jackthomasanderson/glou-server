@@ -874,3 +874,121 @@ describe('the counts never move (FEAT-103/106: total bought and spending)', () =
     expect(db.unitsInStock()).toBe(6);
   });
 });
+
+// FEAT-93 lot S2 (ux-ui.md §10.4.2, decision #471 points 75-77): which copy
+// a member's opening, drink or smoke takes off a line holding cells — asked
+// only when it matters (a line of several with at least one cell).
+describe('applyState — the explicit choice of a cell (FEAT-93, lot S2)', () => {
+  type Choice = Parameters<typeof applyState>[3]['slotChoice'];
+  async function chose(db: ReturnType<typeof fakeDb>, id: string, write: StateWrite, slotChoice: Choice, kind: 'bottle' | 'cigar' = 'bottle') {
+    return applyState<typeof INCLUDE, Row>(db.tx, db.get(id) as unknown as StateItem, write, { userId: 'member', kind, include: INCLUDE, now: NOW, slotChoice });
+  }
+  const DRINK: StateWrite = { state: { isOpened: true, fillLevel: 0 } };
+  const OPEN: StateWrite = { state: { isOpened: true } };
+  const cellsOfRow = (itemId: string, columns: number[]) => columns.map((column) => slot({ itemId, column, row: 1 }));
+
+  it.each([
+    ['q=3, s=1', 3, 1, 2],
+    ['q=3, s=3', 3, 3, 0],
+    ['q=2, s=1', 2, 1, 1],
+  ])('%s, no choice: 409 SLOT_CHOICE_REQUIRED with the cells and the copies unplaced, nothing written', async (_label, quantity, placed, unplaced) => {
+    const db = fakeDb([unit({ id: 'g', quantity })], { slots: cellsOfRow('g', Array.from({ length: placed }, (_, i) => i + 1)) });
+
+    const error = await chose(db, 'g', DRINK, 'ask').then(() => null, (err: AppError) => err);
+
+    expect(error).toMatchObject({ status: 409, code: 'SLOT_CHOICE_REQUIRED', details: { unplaced } });
+    expect((error?.details as { slots: unknown[] }).slots).toHaveLength(placed);
+    expect(db.raw.inventoryItem.create).not.toHaveBeenCalled();
+    expect(db.get('g').quantity).toBe(quantity);
+  });
+
+  it('q=3, s=0: no cell, no question', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })]);
+
+    const result = await chose(db, 'g', DRINK, 'ask');
+
+    expect(result.outcome).toBe('detached');
+  });
+
+  it('q=1, s=1: the bottle is the copy — no question, drunk it frees its cell', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 1 })], { slots: cellsOfRow('g', [4]) });
+
+    const result = await chose(db, 'g', DRINK, 'ask');
+
+    expect(result.slotChanges).toEqual([{ field: 'slot', from: { column: 4, row: 1 }, to: null }]);
+    expect(db.cells('g')).toBe('');
+  });
+
+  it('q=1, s=1: opened, it keeps its cell', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 1 })], { slots: cellsOfRow('g', [4]) });
+
+    await chose(db, 'g', OPEN, 'ask');
+
+    expect(db.cells('g')).toBe('4:1');
+  });
+
+  it('q=3, s=2, opened from a cell: that cell goes to the opened bottle, the other stays with the line', async () => {
+    const [first, second] = cellsOfRow('g', [1, 2]);
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })], { slots: [first, second] });
+
+    const result = await chose(db, 'g', OPEN, { fromSlotId: first.id });
+
+    expect(db.cells(result.data.id)).toBe('1:1');
+    expect(db.cells('g')).toBe('2:1');
+    expect(result.slotChanges).toEqual([{ field: 'slot', from: null, to: { column: 1, row: 1 } }]);
+  });
+
+  it('q=3, s=2, drunk from a cell: that cell is freed', async () => {
+    const [first, second] = cellsOfRow('g', [1, 2]);
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })], { slots: [first, second] });
+
+    const result = await chose(db, 'g', DRINK, { fromSlotId: first.id });
+
+    expect(db.cells('g')).toBe('2:1');
+    expect(db.cells(result.data.id)).toBe('');
+    expect(result.groupChange?.slotChanges).toEqual([{ field: 'slot', from: { column: 1, row: 1 }, to: null }]);
+  });
+
+  it('q=3, s=2, from an unplaced copy: the cells are left alone', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })], { slots: cellsOfRow('g', [1, 2]) });
+
+    const result = await chose(db, 'g', DRINK, { fromUnplaced: true });
+
+    expect(db.cells('g')).toBe('1:1 2:1');
+    expect(result.groupChange?.slotChanges).toBeUndefined();
+  });
+
+  it('q=2, s=2, from an unplaced copy: none is left — 409 SLOT_CHANGED', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 2 })], { slots: cellsOfRow('g', [1, 2]) });
+
+    await expectAppError(chose(db, 'g', DRINK, { fromUnplaced: true }), 409, 'SLOT_CHANGED');
+    expect(db.raw.inventoryItem.create).not.toHaveBeenCalled();
+  });
+
+  it('a cell that is not (any more) the line\'s: 409 SLOT_CHANGED {slots, unplaced}', async () => {
+    const other = slot({ itemId: 'h', column: 9, row: 9 });
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })], { slots: [...cellsOfRow('g', [1]), other] });
+
+    const error = await chose(db, 'g', DRINK, { fromSlotId: other.id }).then(() => null, (err: AppError) => err);
+
+    expect(error).toMatchObject({ status: 409, code: 'SLOT_CHANGED', details: { slots: [expect.objectContaining({ column: 1, row: 1 })], unplaced: 2 } });
+  });
+
+  it('a group of single cigars is never asked: its one cell stays with the group', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 5, category: 'cigar' })], { slots: cellsOfRow('g', [3]) });
+
+    const result = await chose(db, 'g', { smokeOne: true }, 'ask', 'cigar');
+
+    expect(result.outcome).toBe('detached');
+    expect(db.cells('g')).toBe('3:1');
+  });
+
+  it('the automatic rule (bulk, guests) still takes an unplaced copy first, then the most recent cell', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 2 })], { slots: cellsOfRow('g', [1, 2]) });
+
+    const result = await chose(db, 'g', DRINK, 'auto');
+
+    expect(db.cells('g')).toBe('1:1');
+    expect(result.groupChange?.slotChanges).toEqual([{ field: 'slot', from: { column: 2, row: 1 }, to: null }]);
+  });
+});

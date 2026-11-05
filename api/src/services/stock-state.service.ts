@@ -6,8 +6,10 @@ import {
   FINISHED_ITEM_STATE, groupKey, isFinishedState, isGroupableItem, isIntactItem, unitKind, type UnitKind,
 } from '../lib/finished-item';
 import {
-  fitSlotsTo, freeSlots, liveSlotsOf, moveSlots, pickSlots, slotsFreed, slotsPlaced, type SlotChange,
+  fitSlotsTo, freeSlots, liveSlotsOf, moveSlots, pickSlots, slotChoiceError, slotsFreed, slotsPlaced,
+  type SlotChange, type SlotChoice, type SlotRow,
 } from '../lib/slots';
+import { SLOT_CHANGED, SLOT_CHOICE_REQUIRED } from '../../../shared/product';
 import { slotCapacity } from '../../../shared/units';
 import { lockFamily } from '../lib/product-fields';
 import { followDetach, moveCountEntry } from '../lib/count-entries';
@@ -21,13 +23,18 @@ import { TASTINGS_ON_ITEM } from '../../../shared/product';
 //   written on a group of more than one takes one copy off the group and
 //   puts the state on a new sub-record (`parentItemId` = the group), in the
 //   same transaction. A group of one takes the state itself.
-// - Slots (FEAT-93): the copy taken off a group comes from an unplaced copy
-//   first, else from the cell placed most recently (decision #471 point 75,
-//   the automatic rule until the explicit choice of lot S2): the opened
-//   sub-record takes that cell, a finished one frees it. A group of single
-//   cigars keeps its one cell until its last cigar. A unit finished or
-//   written off frees its cells; a unit changing cellar frees them first
-//   (they mean nothing in the other cellar).
+// - Slots (FEAT-93): the copy taken off a group holding cells comes from
+//   the cell the member chose (`fromSlotId`) or from an unplaced copy
+//   (`fromUnplaced`) — a member's write without a choice is refused, 409
+//   SLOT_CHOICE_REQUIRED; gestures made without the plan in sight take an
+//   unplaced copy first, else the cell placed most recently (decision #471
+//   point 75, `'auto'`). The opened sub-record takes that cell, a finished
+//   one frees it. A group of single cigars keeps its one cell until its last
+//   cigar: never a question there. A line of one is the copy itself: opened
+//   it keeps its cell, finished it frees it. A unit finished or written off
+//   frees its cells; a unit changing cellar frees them first (they mean
+//   nothing in the other cellar). A cell chosen that is no longer the
+//   line's, or an unplaced copy chosen when none is left: 409 SLOT_CHANGED.
 // - Reattach: a sub-record put back intact (closed and full) goes back into
 //   its group of origin if that group still exists, out of the trash, and is
 //   still the same group (`groupKey`, D5); otherwise it becomes a group of
@@ -210,15 +217,32 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   tx: PrismaClientOrTx,
   item: StateItem,
   write: StateWrite,
-  context: { userId: string; kind: UnitKind; include: I; now?: Date },
+  context: {
+    userId: string; kind: UnitKind; include: I; now?: Date;
+    /** Which copy leaves a group holding cells (FEAT-93); the automatic rule when absent. */
+    slotChoice?: SlotChoice;
+  },
 ): Promise<ApplyStateResult<R>> {
   const now = context.now ?? new Date();
   const { include, userId } = context;
+  const choice = context.slotChoice ?? 'auto';
   const stamp = { updatedAt: now, updatedBy: userId };
   const { outcome, next } = planState(item, write, context.kind, now);
   const state = Object.fromEntries(STATE_FIELDS.map((field) => [field, next[field]])) as Pick<StateItem, StateField>;
   const slotChanges: SlotChange[] = [];
   const done = { state, slotChanges };
+  // The cell or the unplaced copy chosen must still be the line's (a choice
+  // made on a plan, or queued offline, before someone else changed it).
+  const single = context.kind === 'cigar' && item.cigarsPerBox == null;
+  const chosen = choice === 'auto' || choice === 'ask' ? null : choice;
+  const lineSlots = chosen ? await liveSlotsOf(tx, item.id) : null;
+  if (chosen && lineSlots) {
+    const copies = item.quantity ?? 1;
+    const stale = 'fromSlotId' in chosen
+      ? !lineSlots.some((slot) => slot.id === chosen.fromSlotId)
+      : !single && lineSlots.length >= copies;
+    if (stale) throw slotChoiceError(SLOT_CHANGED, lineSlots, (single ? 1 : copies) - lineSlots.length);
+  }
   // The composite key keeps a slot in its unit's cellar: a unit changing
   // cellar gives its cells back before the cellar is written (#798).
   if (next.cellarId !== item.cellarId) slotChanges.push(...slotsFreed(await freeSlots(tx, item.id)));
@@ -230,6 +254,12 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     const { quantity: _q, ...unit } = Object.fromEntries(
       Object.entries(write.unit ?? {}).filter(([field]) => !isStateField(field)),
     );
+    const from = next.quantity ?? 1;
+    // The copy taken: from the cell chosen, an unplaced one, or by the
+    // automatic rule. Single cigars share the group's one cell, which stays
+    // with the group: never asked.
+    const slots = single ? [] : lineSlots ?? await liveSlotsOf(tx, item.id);
+    const taken = takenSlot(slots, from, choice);
     const subId = uuidv4();
     const sub = {
       ...own(next),
@@ -242,15 +272,9 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
       writtenOffAt: null,
     };
     await tx.inventoryItem.create({ data: writable(sub) as never });
-    const from = next.quantity ?? 1;
     // Cells freed so far were the group's (a cellar change).
     const groupSlots = slotChanges.splice(0);
-    // The copy comes from an unplaced one, else from the most recent cell:
-    // opened, it takes that cell; finished, it frees it. Single cigars share
-    // the group's one cell, which stays with the group.
-    const single = context.kind === 'cigar' && item.cigarsPerBox == null;
-    const slots = single ? [] : await liveSlotsOf(tx, item.id);
-    const [taken] = pickSlots(slots, from - slots.length, 1);
+    // Opened, the copy takes the cell it came from; finished, it frees it.
     if (taken) {
       if (isFinishedState(next)) await freeSlots(tx, item.id, [taken.id]);
       else await moveSlots(tx, [taken.id], subId);
@@ -301,6 +325,19 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     include,
   });
   return { outcome, ...done, data: updated as R, changed: [], removedIds: [] };
+}
+
+/**
+ * The cell the copy taken off a group of `copies` holding `slots` comes
+ * from (undefined: an unplaced copy). See {@link applyState}.
+ */
+function takenSlot(slots: SlotRow[], copies: number, choice: SlotChoice): SlotRow | undefined {
+  if (choice === 'auto') return pickSlots(slots, copies - slots.length, 1)[0];
+  if (choice === 'ask') {
+    if (slots.length > 0) throw slotChoiceError(SLOT_CHOICE_REQUIRED, slots, copies - slots.length);
+    return undefined;
+  }
+  return 'fromSlotId' in choice ? slots.find((slot) => slot.id === choice.fromSlotId) : undefined;
 }
 
 /**

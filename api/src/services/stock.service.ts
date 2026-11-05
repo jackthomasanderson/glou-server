@@ -4,7 +4,7 @@ import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { groupKey, isGroupableItem, slotCapacity, unitKind, type UnitKind } from '../lib/finished-item';
 import { lockFamily, purchaseDayFromInput, toUnitView, unitViewOf, UNIT_SLOTS } from '../lib/product-fields';
-import { fitSlots, freeSlots, slotsFreed } from '../lib/slots';
+import { freeSlots, liveSlotsOf, slotsFreed, slotsLeaving, type SlotsToFree } from '../lib/slots';
 import { MAX_COPIES, type AddUnitsInput, type CorrectQuantityInput } from '../schemas/stock.schema';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/product';
@@ -208,6 +208,8 @@ export const stockService = {
    * - `written_off` (broken / given away / lost): k copies leave the stock
    *   but stay in the spending — detached as a write-off line of k copies
    *   (no slot, never put back), or the whole group marked when all go.
+   * FEAT-93 criterion 4: when the copies left cannot hold the group's
+   * cells, `slotIds` names those freed (else 409 SLOTS_TO_FREE_REQUIRED).
    * Either way the guessed split of the transformation is settled
    * (`needsReview`, point 55). `expectedUpdatedAt` is checked against the
    * group once its family is locked. Null when the unit is unknown or in
@@ -217,7 +219,8 @@ export const stockService = {
     const head = await prisma.inventoryItem.findFirst({ where: { id: itemId, deletedAt: null }, select: { productId: true } });
     if (!head) return null;
 
-    return prisma.$transaction((tx) => correctQuantityIn(tx, userId, itemId, head.productId, input));
+    // FEAT-93 (lot S2): the member names the cells freed when it matters.
+    return prisma.$transaction((tx) => correctQuantityIn(tx, userId, itemId, head.productId, input, { slotIds: input.slotIds }));
   },
 };
 
@@ -256,13 +259,17 @@ export async function addUnitsIn(
  * The body of `correctQuantity`, inside a transaction of the caller's.
  * `productId` is the family read before the transaction: it is the one
  * locked, and a group that moved to another family meanwhile is a conflict.
+ * `slotsToFree`: the cells the copies leaving free — the member's choice,
+ * or the automatic rule (the rotating inventory's closure, decision #471
+ * point 75).
  */
 export async function correctQuantityIn(
   tx: PrismaClientOrTx,
   userId: string,
   itemId: string,
   productId: string,
-  input: CorrectQuantityInput,
+  input: Pick<CorrectQuantityInput, 'quantity' | 'reason' | 'expectedUpdatedAt'>,
+  slotsToFree: SlotsToFree,
 ): Promise<CorrectQuantityOutcome | null> {
   await lockFamily(tx, productId);
   const group = await tx.inventoryItem.findFirst({ where: { id: itemId, deletedAt: null } });
@@ -272,10 +279,17 @@ export async function correctQuantityIn(
   // Moved to another family meanwhile (a merge): its lock was not the one taken.
   if (stale || group.productId !== productId) return { conflict: true, item: await unitViewOf(tx, group) };
   const { category } = await tx.product.findUniqueOrThrow({ where: { id: productId }, select: { category: true } });
-  // FEAT-93: the copies that leave free their cells — unplaced ones first,
-  // then the most recently placed (automatic rule until lot S2's choice).
-  const fitTo = async (quantity: number) =>
-    slotsFreed(await fitSlots(tx, itemId, slotCapacity({ ...group, quantity }, unitKind(category))));
+  // FEAT-93: the copies that leave free the cells the rest cannot hold —
+  // those the member named, or by the automatic rule unplaced copies
+  // first, then the most recently placed. A group of single cigars keeps
+  // its one cell while a cigar is left.
+  const kind = unitKind(category);
+  const fitTo = async (quantity: number) => {
+    const slots = await liveSlotsOf(tx, itemId);
+    const single = kind === 'cigar' && group.cigarsPerBox == null;
+    const leaving = slotsLeaving(slots, slotCapacity({ ...group, quantity }, kind), single ? 0 : from - quantity, slotsToFree);
+    return slotsFreed(await freeSlots(tx, itemId, leaving.map((slot) => slot.id)));
+  };
   if (!isGroupableItem(group)) throw conflict('NOT_A_GROUP');
 
   const from = group.quantity ?? 1;

@@ -108,7 +108,67 @@ describe('PATCH /api/inventory/:id', () => {
   });
 });
 
+// FEAT-93 (lot S2): the choice of a cell, and its refusals.
+describe('PATCH /api/inventory/:id — the cells of the plan (FEAT-93, lot S2)', () => {
+  const SLOT = '33333333-3333-4333-8333-333333333333';
+  const answered = () => vi.mocked(inventoryService.updateItem).mockResolvedValue({
+    item: { id: 'sub', productId: 'p1' }, changes: [], changed: [], removedIds: [],
+  } as never);
+
+  it.each([
+    ['fromSlotId', { isOpened: true, fillLevel: 0, fromSlotId: SLOT }],
+    ['fromUnplaced', { isOpened: true, fromUnplaced: true }],
+    ['placeAt', { isOpened: false, fillLevel: 100, placeAt: { column: 2, row: 3 } }],
+  ])('passes %s to the service', async (_label, body) => {
+    answered();
+
+    expect((await request(app).patch('/api/inventory/g').send(body)).status).toBe(200);
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('u1', 'g', body);
+  });
+
+  it.each([
+    ['both a cell and an unplaced copy', { isOpened: true, fromSlotId: SLOT, fromUnplaced: true }],
+    ['a cell that is no slot id', { isOpened: true, fromSlotId: 'C2R3' }],
+    ['fromUnplaced false', { isOpened: true, fromUnplaced: false }],
+    ['a cell outside any plan', { isOpened: false, placeAt: { column: 0, row: 3 } }],
+  ])('refuses %s with 400', async (_label, body) => {
+    const res = await request(app).patch('/api/inventory/g').send(body);
+
+    expect(res.status).toBe(400);
+    expect(inventoryService.updateItem).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['SLOT_CHOICE_REQUIRED', { slots: [{ id: SLOT, column: 1, row: 1 }], unplaced: 2 }],
+    ['SLOT_CHANGED', { slots: [], unplaced: 3 }],
+    ['SLOTS_TO_FREE_REQUIRED', { needed: 1, slots: [{ id: SLOT, column: 1, row: 1 }] }],
+  ])('answers 409 %s with its details', async (code, details) => {
+    vi.mocked(inventoryService.updateItem).mockRejectedValue(new AppError(409, code, { details }));
+
+    const res = await request(app).patch('/api/inventory/g').send({ isOpened: true, fillLevel: 0 });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: code, details });
+  });
+
+  it('refuses a cell chosen in a bulk edit (a cell is one line\'s)', async () => {
+    const res = await request(app).post('/api/inventory/bulk').send({ ids: ['11111111-1111-4111-8111-111111111111'], patch: { fromSlotId: SLOT } });
+
+    expect(res.status).toBe(400);
+  });
+});
+
 describe('POST /api/inventory/:id/rollback', () => {
+  // FEAT-93 (lot S2): a number restored below the line's cells — "Corriger le nombre" asks which to free.
+  it('answers 409 SLOTS_TO_FREE_REQUIRED for a number restored below the cells, not 500', async () => {
+    vi.mocked(inventoryService.rollbackField).mockRejectedValue(new AppError(409, 'SLOTS_TO_FREE_REQUIRED', { details: { needed: 2, slots: [] } }));
+
+    const res = await request(app).post('/api/inventory/g/rollback').send({ field: 'quantity', toValue: 1 });
+
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 2, slots: [] } });
+  });
+
   it('answers a refusal of the rule with its own status, not 500', async () => {
     vi.mocked(inventoryService.rollbackField).mockRejectedValue(new AppError(400, 'BOX_NOT_COMPLETE'));
 

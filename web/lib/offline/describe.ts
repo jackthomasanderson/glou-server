@@ -20,6 +20,12 @@ const REFUSALS: Record<string, string> = {
   ITEM_NOT_FOUND: 'offline.errors.gone',
   VALIDATION_ERROR: 'offline.errors.rejected',
   CONFLICT: 'offline.errors.changed',
+  // FEAT-93 (lot S2): the cells of the line changed since the change was
+  // made (the cell chosen is gone, a cell now asks which one, cells must be
+  // named): a conflict like any other, said the same way.
+  SLOT_CHANGED: 'offline.errors.changed',
+  SLOT_CHOICE_REQUIRED: 'offline.errors.changed',
+  SLOTS_TO_FREE_REQUIRED: 'offline.errors.changed',
 };
 
 /** What a queued change does, in words: "J'en ouvre une", "Nombre corrigé : 6 → 5". */

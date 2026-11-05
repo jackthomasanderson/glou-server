@@ -13,7 +13,7 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 
 import { prisma } from '../../src/lib/prisma';
-import { stockService } from '../../src/services/stock.service';
+import { correctQuantityIn, stockService } from '../../src/services/stock.service';
 import { PRODUCT_FIELDS } from '../../src/lib/product-fields';
 import { AppError } from '../../src/lib/errors';
 import { fakeSlots, slot } from '../support/fake-slots';
@@ -277,29 +277,126 @@ describe('stockService.addUnits (FEAT-92 c1-c2, D5)', () => {
   });
 });
 
-describe('stockService.correctQuantity — cells of the plan (FEAT-93, automatic rule until lot S2)', () => {
-  it('an input error under the cells occupied frees the most recently placed ones', async () => {
-    storeGroup({ quantity: 6 });
-    slots.rows.push(...[1, 2, 3, 4, 5, 6].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+describe('stockService.correctQuantity — cells of the plan (FEAT-93 criterion 4, lot S2)', () => {
+  /** A group of `quantity` with a cell in columns 1..`placed` of row 1 (the last one placed most recently). */
+  function placedGroup(quantity: number, placed: number, fields: Record<string, unknown> = {}) {
+    storeGroup({ quantity, ...fields });
+    const rows = Array.from({ length: placed }, (_, i) => slot({ itemId: 'b1', column: i + 1, row: 1 }));
+    slots.rows.push(...rows);
+    return rows;
+  }
 
-    const outcome = applied(await stockService.correctQuantity('u1', 'b1', { quantity: 4, reason: 'input_error' }));
+  it('q=6, s=6, input error to 4 without slotIds: 409 SLOTS_TO_FREE_REQUIRED {needed: 2, slots}, nothing written', async () => {
+    placedGroup(6, 6);
+
+    const error = await rejection(stockService.correctQuantity('u1', 'b1', { quantity: 4, reason: 'input_error' }));
+
+    expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED' });
+    expect(error.details).toEqual({
+      needed: 2,
+      slots: [1, 2, 3, 4, 5, 6].map((column) => ({ id: expect.any(String), column, row: 1 })),
+    });
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    expect(slots.cellsOf('b1')).toBe('1:1 2:1 3:1 4:1 5:1 6:1');
+  });
+
+  it('q=6, s=6, input error to 4 with the two cells named: exactly those are freed and told', async () => {
+    const rows = placedGroup(6, 6);
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', {
+      quantity: 4, reason: 'input_error', slotIds: [rows[0].id, rows[2].id],
+    }));
+
+    expect(slots.cellsOf('b1')).toBe('2:1 4:1 5:1 6:1');
+    expect(outcome.changes).toEqual([
+      { field: 'quantity', from: 6, to: 4 },
+      { field: 'slot', from: { column: 3, row: 1 }, to: null },
+      { field: 'slot', from: { column: 1, row: 1 }, to: null },
+    ]);
+  });
+
+  it.each([
+    ['too few cells', (ids: string[]) => [ids[0]]],
+    ['more cells than copies leaving', (ids: string[]) => [ids[0], ids[1], ids[2]]],
+    ['a cell named twice', (ids: string[]) => [ids[0], ids[0]]],
+    ['a cell of another line', (ids: string[]) => [ids[0], '00000000-0000-4000-8000-000000000000']],
+  ])('q=6, s=6, input error to 4 with %s: 409 SLOTS_TO_FREE_REQUIRED', async (_label, choose) => {
+    const rows = placedGroup(6, 6);
+
+    const error = await rejection(stockService.correctQuantity('u1', 'b1', {
+      quantity: 4, reason: 'input_error', slotIds: choose(rows.map((row) => row.id)),
+    }));
+
+    expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 2 } });
+    expect(slots.rows).toHaveLength(6);
+  });
+
+  it('q=6, s=5, written off 2 with one cell named (the other copy was unplaced): the write-off detaches, one cell freed', async () => {
+    const rows = placedGroup(6, 5);
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', {
+      quantity: 4, reason: 'written_off', slotIds: [rows[4].id],
+    }));
 
     expect(slots.cellsOf('b1')).toBe('1:1 2:1 3:1 4:1');
     expect(outcome.changes).toEqual([
       { field: 'quantity', from: 6, to: 4 },
-      { field: 'slot', from: { column: 6, row: 1 }, to: null },
       { field: 'slot', from: { column: 5, row: 1 }, to: null },
     ]);
+    expect(createData()).toMatchObject({ quantity: 2, writtenOffAt: expect.any(Date) });
   });
 
-  it('copies corrected away come from the unplaced ones first: no cell freed', async () => {
-    storeGroup({ quantity: 6 });
-    slots.rows.push(slot({ itemId: 'b1', column: 1, row: 1 }), slot({ itemId: 'b1', column: 2, row: 1 }));
+  it('q=6, s=2, written off 4: the copies leaving are unplaced ones, no question, no cell freed', async () => {
+    placedGroup(6, 2);
 
     const outcome = applied(await stockService.correctQuantity('u1', 'b1', { quantity: 2, reason: 'written_off' }));
 
     expect(slots.cellsOf('b1')).toBe('1:1 2:1');
     expect(outcome.changes).toEqual([{ field: 'quantity', from: 6, to: 2 }]);
+  });
+
+  it('q=6, s=2, written off 1 from a cell (the member named it although not needed): that cell is freed', async () => {
+    const rows = placedGroup(6, 2);
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', { quantity: 5, reason: 'written_off', slotIds: [rows[0].id] }));
+
+    expect(slots.cellsOf('b1')).toBe('2:1');
+    expect(outcome.changes).toEqual([{ field: 'quantity', from: 6, to: 5 }, { field: 'slot', from: { column: 1, row: 1 }, to: null }]);
+  });
+
+  it('a whole group written off frees every cell without asking', async () => {
+    placedGroup(3, 3);
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', { quantity: 0, reason: 'written_off' }));
+
+    expect(slots.cellsOf('b1')).toBe('');
+    expect(outcome.changes).toHaveLength(4);
+  });
+
+  it('a group of single cigars keeps its one cell: never asked while a cigar is left', async () => {
+    vi.mocked(prisma.product.findUniqueOrThrow).mockImplementation((() => Promise.resolve(family({ category: 'cigar' }))) as never);
+    placedGroup(10, 1, { category: 'cigar' });
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', { quantity: 3, reason: 'input_error' }));
+
+    expect(slots.cellsOf('b1')).toBe('1:1');
+    expect(outcome.changes).toEqual([{ field: 'quantity', from: 10, to: 3 }]);
+  });
+});
+
+describe('correctQuantityIn — the rotating inventory\'s closure (automatic rule, decision #471 point 75)', () => {
+  it('frees the most recently placed cells without asking', async () => {
+    storeGroup({ quantity: 6 });
+    slots.rows.push(...[1, 2, 3, 4, 5, 6].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+    const outcome = await correctQuantityIn(prisma as never, 'u1', 'b1', 'p1', { quantity: 4, reason: 'input_error' }, 'auto');
+
+    expect(slots.cellsOf('b1')).toBe('1:1 2:1 3:1 4:1');
+    expect(outcome && 'changes' in outcome ? outcome.changes : null).toEqual([
+      { field: 'quantity', from: 6, to: 4 },
+      { field: 'slot', from: { column: 6, row: 1 }, to: null },
+      { field: 'slot', from: { column: 5, row: 1 }, to: null },
+    ]);
   });
 });
 
