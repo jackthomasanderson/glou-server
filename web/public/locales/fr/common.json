@@ -442,7 +442,8 @@
       "roleSuccess": "Membre mis à jour",
       "statusSuccess": "Statut du membre mis à jour",
       "roleError": "Impossible de modifier le rôle du membre",
-      "statusError": "Impossible de modifier le statut du membre"
+      "statusError": "Impossible de modifier le statut du membre",
+      "resetPasswordError": "Impossible de réinitialiser le mot de passe du membre"
     },
     "onboarding": {
       "completeError": "Impossible de terminer la configuration",

@@ -49,6 +49,9 @@ describe('keys built from a state', () => {
   });
 });
 
+/** t('a.b'), notifySuccess / notifyError / notifyWarning / notifyUndoable('a.b'), translate('a.b'), labelKey: 'a.b'. */
+const KEY_WRITTEN = /(?:\b(?:t|translate|notify(?:Success|Error|Warning|Undoable))\(\s*|\blabelKey:\s*)'([a-zA-Z]\w*(?:\.\w+)+)'/g;
+
 describe('keys written whole', () => {
   const root = path.join(import.meta.dirname, '..', '..');
   const sources = ['app', 'components', 'hooks', 'lib'].flatMap((dir) =>
@@ -56,10 +59,11 @@ describe('keys written whole', () => {
       .filter((file) => /\.tsx?$/.test(file) && !/__tests__/.test(file))
       .map((file) => path.join(root, dir, file)));
 
-  it.each(Object.keys(LOCALES) as (keyof typeof LOCALES)[])('every t(\'…\') key of the code has its %s text', (lng) => {
+  it.each(Object.keys(LOCALES) as (keyof typeof LOCALES)[])('every key written in the code has its %s text', (lng) => {
     const missing = new Set<string>();
     for (const file of sources) {
-      for (const [, key] of readFileSync(file, 'utf8').matchAll(/\bt\(\s*'([a-zA-Z]\w*(?:\.\w+)+)'/g)) {
+      // t('…'), and the keys handed to the message helpers (they translate at call time).
+      for (const [, key] of readFileSync(file, 'utf8').matchAll(KEY_WRITTEN)) {
         if (!exists(LOCALES[lng], key)) missing.add(`${path.relative(root, file)}: ${key}`);
       }
     }

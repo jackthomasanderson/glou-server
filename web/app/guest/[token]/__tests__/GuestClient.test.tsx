@@ -42,6 +42,8 @@ const OPENED = { ...BOTTLE, id: 'o', isOpened: true, fillLevel: 40, openedAt: T 
 let requests: { url: string; method: string; body: Record<string, unknown> }[];
 let metaStatus: number;
 let inventory: unknown[];
+/** When set, what opening the full bottle `g` answers (and leaves in the inventory). */
+let openG: (() => unknown) | null;
 const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
   const body = init?.body ? JSON.parse(init.body as string) as Record<string, unknown> : {};
   const method = init?.method ?? 'GET';
@@ -49,6 +51,7 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
   const reply = (status: number, payload: unknown) => new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
   if (url === '/api/guest/tok') return metaStatus === 200 ? reply(200, { data: META }) : reply(metaStatus, { error: 'SHARE_EXPIRED_OR_REVOKED' });
   if (url === '/api/guest/tok/inventory') return reply(200, { data: inventory });
+  if (url.endsWith('/inventory/g') && openG) return reply(200, { data: openG() });
   if (url.endsWith('/inventory/g')) {
     inventory = []; // the last bottle drunk: its wine leaves the showcase
     return reply(200, { data: { ...BOTTLE, id: 'sub', isOpened: true, fillLevel: 0 } });
@@ -65,6 +68,7 @@ beforeEach(() => {
   requests = [];
   metaStatus = 200;
   inventory = [BOTTLE];
+  openG = null;
   vi.stubGlobal('fetch', fetchMock);
   Object.values(toast).forEach((fn) => fn.mockClear());
 });
@@ -136,6 +140,30 @@ describe('GuestPageContent', () => {
       url: '/api/guest/tok/tastings', body: { productId: 'p1', itemId: 'o' },
     }));
     await waitFor(() => expect(screen.queryByTestId('guest-just-drunk')).toBeNull());
+  });
+
+  // Review of #832: finished A, then opened B of the same wine — the card's
+  // « Noter une dégustation » means B, the opened one it shows.
+  it('from the card, the opened bottle it shows wins over the one finished before', async () => {
+    inventory = [OPENED, BOTTLE];
+    openG = () => {
+      inventory = [{ ...BOTTLE, isOpened: true, fillLevel: 100, openedAt: T }];
+      return inventory[0];
+    };
+    draw();
+    fireEvent.click(await screen.findByTestId('guest-move-drink'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Oui' }));
+    await screen.findByTestId('guest-just-drunk');
+    await waitFor(() => expect(screen.getAllByTestId('guest-family-line')).toHaveLength(1));
+
+    fireEvent.click(screen.getByTestId('guest-move-open'));
+    await waitFor(() => expect(screen.getByTestId('guest-family-line')).toHaveTextContent('Entamée'));
+
+    fireEvent.click(screen.getByTestId('guest-tasting'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(requests.find((request) => request.method === 'POST')).toMatchObject({
+      url: '/api/guest/tok/tastings', body: { productId: 'p1', itemId: 'g' },
+    }));
   });
 
   it('the offer goes away once dismissed', async () => {

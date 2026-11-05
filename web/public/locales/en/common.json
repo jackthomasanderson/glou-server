@@ -442,7 +442,8 @@
       "roleSuccess": "Member role updated",
       "statusSuccess": "Member status updated",
       "roleError": "Could not change the member's role",
-      "statusError": "Could not change the member's status"
+      "statusError": "Could not change the member's status",
+      "resetPasswordError": "Could not reset the member's password"
     },
     "onboarding": {
       "completeError": "Could not complete the setup",
