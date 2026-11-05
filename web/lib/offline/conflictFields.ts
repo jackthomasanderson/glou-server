@@ -20,6 +20,12 @@ const TECHNICAL_FIELDS = new Set([
   'readiness',
   '_creator',
   '_lastEditor',
+  // FEAT-93: which copy, which cells — part of the gesture, never a value of the bottle.
+  'fromSlotId',
+  'fromUnplaced',
+  'placeAt',
+  'slotIds',
+  'slots',
 ]);
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/;

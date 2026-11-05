@@ -8,7 +8,7 @@ import { useRollbackField } from '@/hooks/useInventory';
 import { useRollbackProductField } from '@/hooks/useRollbackProductField';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { formatDate } from '@/lib/format';
-import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
+import { formatHistoryValue, formatSlotChange, historyFieldLabel } from '@/lib/inventory/history-format';
 import { isRestorableDescriptionField } from '@shared/product';
 import type { UnitNoun } from '@/lib/products/stockActions';
 import type { ProductDetailView } from '@/lib/products/types';
@@ -25,6 +25,10 @@ const NOT_RESTORABLE = new Set([
   'fillLevel', 'isOpened', 'openedAt', 'quantity', 'cigarsLeft', 'writtenOffAt', 'parentItemId', 'needsReview',
   // FEAT-87's reference flag, gone with lot Z (#471): a reference is a wine without bottles.
   'isOwned',
+  // FEAT-93: a cell is placed, moved or freed on the plan, never restored
+  // from here — nor the coordinates written before the plan held several
+  // cells per line (still read, `slotColumn`/`slotRow`).
+  'slot', 'slotColumn', 'slotRow',
 ]);
 
 /** Actions said by the drawer's own words (#471); the others keep the traceability labels. */
@@ -108,6 +112,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
         if (change.field === 'quantity' && entry.action === 'ADD_UNITS' && change.from == null && typeof change.to === 'number') {
           return t('familyDrawer.history.numberAdded', { what: actionLabel(entry.action), number: change.to });
         }
+        if (change.field === 'slot') return formatSlotChange(change.from, change.to, t);
         if (change.field === 'fillLevel' && typeof change.to === 'number') {
           const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;
           return `${t('inventory.detail.levelAdjusted')} ${level}`;

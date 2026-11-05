@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { applyStockChoice, smokeOutcome, stockChoicesFor, stockPatchFor, type TastedItemStock } from '../stockChoice';
+import { applyStockChoice, cellQuestionFor, choiceMove, smokeOutcome, stockChoicesFor, stockPatchFor, type TastedItemStock } from '../stockChoice';
 
 const closedBottle: TastedItemStock = { category: 'wine', isOpened: false };
 const openedBottle: TastedItemStock = { category: 'wine', isOpened: true, fillLevel: 20 };
@@ -159,5 +159,34 @@ describe('applyStockChoice (#196)', () => {
     const onError = vi.fn();
     await expect(applyStockChoice('opened', closedBottle, update, onError)).resolves.toBe(false);
     expect(onError).toHaveBeenCalledWith(boom);
+  });
+});
+
+// Decision #471 point 79 (FEAT-93): "Mettre à jour le stock ?" on a line of
+// several placed on the plan asks "De quelle case ?", like the drawer.
+describe('cellQuestionFor (FEAT-93)', () => {
+  const cells = [{ id: 's1', column: 1, row: 1 }];
+  const placedBottles: TastedItemStock = { category: 'wine', isOpened: false, fillLevel: 100, quantity: 3, slots: cells };
+
+  it('asks for "opened" and "consumed" on a placed line of several, with "Non rangée" left', () => {
+    expect(cellQuestionFor('consumed', placedBottles)).toEqual({ slots: cells, unplaced: 2 });
+    expect(cellQuestionFor('opened', placedBottles)).toEqual({ slots: cells, unplaced: 2 });
+    expect(cellQuestionFor('smokeOne', { ...closedBoxes(3), slots: cells })).toEqual({ slots: cells, unplaced: 2 });
+  });
+
+  it('never when the stock is left alone, nor on a line of one, unplaced, or single cigars', () => {
+    expect(cellQuestionFor('ignore', placedBottles)).toBeNull();
+    expect(cellQuestionFor('consumed', { ...placedBottles, quantity: 1 })).toBeNull();
+    expect(cellQuestionFor('consumed', { ...placedBottles, slots: [] })).toBeNull();
+    expect(cellQuestionFor('smokeOne', { ...singles(5), slots: cells })).toBeNull();
+    expect(cellQuestionFor('consumed', undefined)).toBeNull();
+  });
+
+  it('sends the cell chosen with the stock update', async () => {
+    const update = vi.fn().mockResolvedValue(undefined);
+    await applyStockChoice('consumed', placedBottles, update, vi.fn(), { fromSlotId: 's1' });
+    expect(update).toHaveBeenCalledWith({ isOpened: true, fillLevel: 0, fromSlotId: 's1' });
+    expect(choiceMove('opened')).toBe('open');
+    expect(choiceMove('smokeOne')).toBe('smoke');
   });
 });

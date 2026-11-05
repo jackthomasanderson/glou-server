@@ -188,3 +188,27 @@ describe('FamilyHistory — review after the update (#471, FEAT-102)', () => {
     expect(restoreButtons()).toHaveLength(0);
   });
 });
+
+// FEAT-93 (#847, lot S4): the cells of the plan in a wine's history — said
+// in words, never restored from here; older coordinates still read.
+describe('FamilyHistory — cells of the plan (FEAT-93)', () => {
+  it('says a cell freed, placed or moved, with no « Restaurer »', () => {
+    renderHistory([
+      entry({ id: 1, itemId: 'b1', changes: [{ field: 'slot', from: { column: 2, row: 3 }, to: null }] }),
+      entry({ id: 2, itemId: 'b1', changes: [{ field: 'slot', from: null, to: { column: 1, row: 1 } }] }),
+      entry({ id: 3, itemId: 'b1', changes: [{ field: 'slot', from: { column: 1, row: 1 }, to: { column: 2, row: 1 } }] }),
+    ]);
+    const history = screen.getByTestId('family-history');
+    expect(history).toHaveTextContent('Case C2·R3 → aucune');
+    expect(history).toHaveTextContent('Case aucune → C1·R1');
+    expect(history).toHaveTextContent('Case C1·R1 → C2·R1');
+    expect(history).not.toHaveTextContent('column');
+    expect(restoreButtons()).toEqual([]);
+  });
+
+  it('still reads the coordinates written before, without « Restaurer »', () => {
+    renderHistory([entry({ itemId: 'b1', changes: [{ field: 'slotColumn', from: null, to: 3 }, { field: 'slotRow', from: null, to: 2 }] })]);
+    expect(screen.getByTestId('family-history')).toHaveTextContent('Colonne : 3 · Rangée : 2');
+    expect(restoreButtons()).toEqual([]);
+  });
+});

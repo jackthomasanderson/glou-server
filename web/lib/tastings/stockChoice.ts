@@ -1,11 +1,13 @@
 import type { InventoryItem } from '@/lib/inventory/types';
-import { isFinishedState, itemUnits } from '@shared/units';
+import type { SlotChoiceFields } from '@shared/product';
+import { isFinishedState, itemUnits, unitKind } from '@shared/units';
+import { cellChoiceFor, type CellAsk } from '@/lib/products/cells';
 
 export type StockChoice = 'opened' | 'consumed' | 'smokeOne' | 'ignore';
 
 /** Stock state of the tasted item; undefined when it is not known. */
 export type TastedItemStock = Pick<InventoryItem, 'category' | 'isOpened' | 'fillLevel' | 'quantity'
-  | 'cigarsPerBox' | 'cigarsLeft' | 'writtenOffAt'>;
+  | 'cigarsPerBox' | 'cigarsLeft' | 'writtenOffAt'> & Partial<Pick<InventoryItem, 'slots'>>;
 
 export type StockPatch =
   | { isOpened: true; fillLevel: number; openedAt?: string }
@@ -69,20 +71,44 @@ export function stockPatchFor(
 }
 
 /**
- * Apply a stock choice. Resolves true when the dialog may close (nothing to
+ * FEAT-93, decision #471 point 79: "De quelle case ?" before updating the
+ * stock of a line of several placed on the plan — as from the drawer (the
+ * tasting is saved whatever the answer). Null: nothing to ask.
+ */
+export function cellQuestionFor(choice: StockChoice, item?: TastedItemStock): CellAsk | null {
+  if (!item || !stockPatchFor(choice, item)) return null;
+  return cellChoiceFor({
+    quantity: item.quantity ?? null,
+    isOpened: item.isOpened,
+    fillLevel: item.fillLevel ?? null,
+    cigarsPerBox: item.cigarsPerBox ?? null,
+    cigarsLeft: item.cigarsLeft ?? null,
+    writtenOffAt: item.writtenOffAt ?? null,
+    slots: item.slots,
+  }, unitKind(item.category));
+}
+
+/** The move a stock choice stands for, as "De quelle case ?" says it. */
+export const choiceMove = (choice: StockChoice): 'open' | 'drink' | 'smoke' =>
+  (choice === 'opened' ? 'open' : choice === 'smokeOne' ? 'smoke' : 'drink');
+
+/**
+ * Apply a stock choice (with the cell chosen, FEAT-93). Resolves true when the dialog may close (nothing to
  * update, or the update succeeded) and false when the update failed — the
  * caller must then keep the dialog open and tell the user (#196).
  */
 export async function applyStockChoice(
   choice: StockChoice,
   item: TastedItemStock | undefined,
-  update: (patch: StockPatch) => Promise<unknown>,
+  update: (patch: StockPatch & SlotChoiceFields) => Promise<unknown>,
   onError: (error: unknown) => void,
+  /** FEAT-93: the cell the copy comes from ("De quelle case ?"). */
+  cell?: SlotChoiceFields,
 ): Promise<boolean> {
   const patch = stockPatchFor(choice, item);
   if (!patch) return true;
   try {
-    await update(patch);
+    await update({ ...patch, ...cell });
     return true;
   } catch (error) {
     onError(error);

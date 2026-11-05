@@ -289,10 +289,10 @@ describe('stock question after a new tasting (#595, #586)', () => {
     expect(await screen.findByRole('button', { name: 'tastings.stockUpdate.opened' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'tastings.stockUpdate.opened' }));
     await waitFor(() => expect(inventoryUpdate).toHaveBeenCalledTimes(1));
-    expect(inventoryUpdate).toHaveBeenCalledWith({
+    expect(inventoryUpdate).toHaveBeenCalledWith(expect.objectContaining({
       id: 'wine-1',
       patch: expect.objectContaining({ isOpened: true, fillLevel: 50, tastingId: 'new-note' }),
-    });
+    }));
   });
 
   it('never offers to reopen an already opened bottle (#595)', async () => {
@@ -321,7 +321,7 @@ describe('stock question after a new tasting (#595, #586)', () => {
     fireEvent.click(removeOne);
 
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(inventoryUpdate).toHaveBeenCalledWith({ id: 'cigar-1', patch: { smokeOne: true, tastingId: 'new-note' } });
+    expect(inventoryUpdate).toHaveBeenCalledWith(expect.objectContaining({ id: 'cigar-1', patch: { smokeOne: true, tastingId: 'new-note' } }));
   });
 
   // Review #807: a refusal the update already explained gets no generic toast on top.
@@ -426,7 +426,7 @@ describe('the wine tasted (FEAT-107)', () => {
 
     await waitFor(() => expect(inventoryUpdate).toHaveBeenCalledTimes(1));
     expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'g6' }));
-    expect(inventoryUpdate).toHaveBeenCalledWith({ id: 'g6', patch: { isOpened: true, fillLevel: 0, tastingId: 'new-note' } });
+    expect(inventoryUpdate).toHaveBeenCalledWith(expect.objectContaining({ id: 'g6', patch: { isOpened: true, fillLevel: 0, tastingId: 'new-note' } }));
   });
 
   it('presets the opened bottle among several lines', async () => {
@@ -558,3 +558,63 @@ describe('the wine tasted (FEAT-107)', () => {
     expect(createMutateAsync).not.toHaveBeenCalled();
   });
 });
+
+// FEAT-93 (decision #471 point 79): "Mettre à jour le stock ?" on a line of
+// several placed on the plan asks "De quelle case ?" — the tasting is saved anyway.
+describe('stock question on a line placed on the plan (FEAT-93)', () => {
+  const line = (fields: Record<string, unknown>) => ({
+    cellarId: 'c1', deletedAt: null, writtenOffAt: null, isOpened: false, fillLevel: null, cigarsLeft: null, cigarsPerBox: null,
+    quantity: 1, purchasedAt: '2026-01-15', purchasePrice: 20, createdAt: '2026-01-15', productId: 'talbot', slots: [], ...fields,
+  });
+  const talbot = (lines: Record<string, unknown>[]) =>
+    ({ id: 'talbot', name: 'Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2015, format: null, items: lines }) as unknown as Product;
+  beforeEach(() => {
+    createMutateAsync.mockImplementation(async (values: { itemId?: string; productId?: string }) => ({
+      ...expertTasting, id: 'new-note', itemId: values.itemId ?? null, productId: values.productId ?? 'created',
+    }));
+  });
+  const save = () => fireEvent.click(screen.getByRole('button', { name: 'actions.save' }));
+  const placedLine = () => item({
+    id: 'g3', category: 'wine', quantity: 3, isOpened: false, fillLevel: 100,
+    slots: [{ id: 's1', column: 1, row: 2 }],
+  });
+
+  it('"Bue" asks which cell, "Non rangée" preselected, and sends the answer with the tasting', async () => {
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    lookedUp = [placedLine()];
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('g3'));
+    save();
+    fireEvent.click(await screen.findByRole('button', { name: 'tastings.stockUpdate.consumed' }));
+
+    expect(await screen.findByText('stockLine.slots.whichTitle')).toBeInTheDocument();
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+    expect(screen.getByRole('radio', { name: /stockLine.slots.unplacedChoice/ })).toBeChecked();
+    fireEvent.click(screen.getByRole('radio', { name: /cellars.grid.slotTitle/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'tastings.stockUpdate.consumed' }));
+
+    await waitFor(() => expect(inventoryUpdate).toHaveBeenCalledTimes(1));
+    expect(inventoryUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'g3', patch: { isOpened: true, fillLevel: 0, fromSlotId: 's1', tastingId: 'new-note' },
+    }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('the API asks (cells placed meanwhile): the question opens from its answer', async () => {
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    lookedUp = [{ ...placedLine(), slots: [] }];
+    const asked = Object.assign(new Error('SLOT_CHOICE_REQUIRED'), { details: { slots: [{ id: 's9', column: 3, row: 1 }], unplaced: 2 } });
+    inventoryUpdate.mockRejectedValueOnce(asked);
+    render(<TastingForm open onClose={vi.fn()} initialProductId="talbot" />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('g3'));
+    save();
+    fireEvent.click(await screen.findByRole('button', { name: 'tastings.stockUpdate.consumed' }));
+
+    expect(await screen.findByText('stockLine.slots.whichTitle')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'tastings.stockUpdate.consumed' }));
+    await waitFor(() => expect(inventoryUpdate).toHaveBeenCalledTimes(2));
+    expect(inventoryUpdate.mock.calls[1][0]).toMatchObject({ patch: { fromUnplaced: true } });
+  });
+});
+

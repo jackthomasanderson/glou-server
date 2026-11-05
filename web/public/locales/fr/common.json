@@ -659,7 +659,9 @@
       "slotNotFound": "Cette case ne tient plus cette bouteille : elle a changé sur un autre appareil.",
       "removedFromSlot": "Bouteille retirée de la case.",
       "removedFromSlot_box": "Boîte retirée de la case.",
-      "removedFromSlot_cigar": "Cigares retirés de la case."
+      "removedFromSlot_cigar": "Cigares retirés de la case.",
+      "offline": "Hors connexion, le plan se consulte seulement. Ranger, déplacer ou retirer une bouteille : disponible au retour de la connexion.",
+      "notInStock_cigar": "Cette ligne n'est plus en cave : elle a été fumée ou sortie entre-temps."
     },
     "filterByType": "Filtrer par type",
     "filterByStatus": "Filtrer par état",
@@ -2240,7 +2242,8 @@
       "belowOne": "Non enregistré : une erreur de saisie ne descend pas sous 1 ; mettez plutôt la ligne à la corbeille.",
       "gone": "Non enregistré : cette bouteille n'existe plus (remise avec les autres ou supprimée entre-temps).",
       "rejected": "Non enregistré : le serveur a refusé cette valeur.",
-      "changed": "Non enregistré : la ligne a changé entre-temps."
+      "changed": "Non enregistré : la ligne a changé entre-temps.",
+      "slotChoice": "Non enregistré : cette ligne est rangée dans des cases du plan. Refaites le geste depuis la fiche du vin pour dire de quelle case vient la bouteille."
     }
   },
   "scan": {
@@ -2419,7 +2422,28 @@
       "tooLarge": "Non enregistré : la ligne d'arrivée dépasserait 1 000 exemplaires.",
       "cellarGone": "Non enregistré : cette cave n'existe plus.",
       "offline": "Sans réseau, cette action n'est pas possible. Réessayez une fois la connexion revenue.",
-      "failed": "Impossible d'enregistrer cette action."
+      "failed": "Impossible d'enregistrer cette action.",
+      "slotChanged": "Les cases de cette ligne ont changé entre-temps, sur un autre appareil ou par un autre membre : choisissez à nouveau.",
+      "slotChoice": "Cette ligne est rangée dans des cases du plan : dites de quelle case vient la bouteille.",
+      "slotsToFree": "Les cases de cette ligne ont changé entre-temps : choisissez à nouveau les cases."
+    },
+    "slots": {
+      "whichTitle": "De quelle case ?",
+      "whichHint": "Sa case sera libérée.",
+      "whichHint_open": "La bouteille ouverte garde sa case.",
+      "whichHint_drink": "Sa case sera libérée.",
+      "whichHint_smoke": "La boîte ouverte garde sa case.",
+      "unplacedChoice": "Non rangée",
+      "unplacedCount_one": "{{count}} non rangée sur cette ligne",
+      "unplacedCount_other": "{{count}} non rangées sur cette ligne",
+      "freeTitle": "Quelles cases libérer ?",
+      "freeHint_one": "Choisissez sur le plan la case à libérer.",
+      "freeHint_other": "Choisissez sur le plan les {{count}} cases à libérer.",
+      "followTitle": "Quelles cases passent au nouveau prix ?",
+      "followHint_one": "Les non rangées ne suffisent pas : choisissez la case qui passe au nouveau prix. Elle reste occupée.",
+      "followHint_other": "Les non rangées ne suffisent pas : choisissez les {{count}} cases qui passent au nouveau prix. Elles restent occupées.",
+      "pickCount_one": "Case choisie : {{chosen}} sur {{count}}",
+      "pickCount_other": "Cases choisies : {{chosen}} sur {{count}}"
     }
   },
   "familyList": {
@@ -2590,6 +2614,14 @@
       "error": "Impossible d'enregistrer ce vin.",
       "thisWine": "ce vin",
       "thisSpirit": "ce spiritueux"
+    },
+    "slots": {
+      "placed_one": "{{count}} rangée",
+      "placed_other": "{{count}} rangées",
+      "unplaced_one": "{{count}} non rangée",
+      "unplaced_other": "{{count}} non rangées",
+      "summary": "{{counts}} · {{cells}}",
+      "groupCell": "Rangés en {{cells}}"
     }
   },
   "cigarGroup": {
@@ -2817,5 +2849,12 @@
     "joining": "Ces bouteilles rejoindront {{name}}.",
     "joiningCigar": "Ces cigares rejoindront {{name}}.",
     "addAria": "{{action}} : {{wine}}, {{stock}}"
+  },
+  "history": {
+    "fields": {
+      "slot": "Case"
+    },
+    "slotChange": "Case {{from}} → {{to}}",
+    "slotNone": "aucune"
   }
 }

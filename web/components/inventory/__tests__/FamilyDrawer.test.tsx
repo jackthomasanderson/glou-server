@@ -25,7 +25,7 @@ vi.mock('@/hooks/useProducts', () => ({
 }));
 // ResponsiveModal (the history's restore confirmation) reads window.matchMedia.
 vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
-vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
+vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn(), notifyUndoable: vi.fn() }));
 const removeSlot = vi.fn<(vars: { slotId: string }) => Promise<void>>(async () => undefined);
 vi.mock('@/hooks/useCellars', () => ({
   useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }] }),
@@ -36,6 +36,9 @@ vi.mock('@/hooks/useInventory', () => ({
   useRollbackField: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, isError: false }),
 }));
 vi.mock('@/hooks/useAlerts', () => ({ useToggleAlertPause: () => ({ mutate: vi.fn(), isPending: false }) }));
+// Connectivity is probed by a GET of its own (FEAT-108): set by the test.
+const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
+vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('@/components/collections/CollectionPickerInline', () => ({ CollectionPickerInline: () => null }));
 vi.mock('@/components/tastings/TastingForm', () => ({
   TastingForm: ({ initialItemId }: { initialItemId?: string }) => { tastingPreset.id = initialItemId; return null; },
@@ -66,7 +69,7 @@ const tasting = (over: Partial<ProductDetailView['tastings'][number]>) => ({
   createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z', ...over,
 });
 
-beforeEach(() => { mutate.mockClear(); queryClient = new QueryClient(); });
+beforeEach(() => { mutate.mockClear(); queryClient = new QueryClient(); connectivity.online = true; });
 
 describe('FamilyDrawer', () => {
   it('opens a wine known without any bottle: its name, no line, its tastings', () => {
@@ -416,5 +419,43 @@ describe('FamilyDrawer — opened from a cell of the plan (FEAT-93)', () => {
     detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage', slots: [{ id: 's24', column: 2, row: 4 }] })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
     expect(screen.queryByTestId('slot-context')).toBeNull();
+  });
+
+  // FEAT-93 c3 / decision #471 point 77: from a cell, the footer takes that very copy.
+  it('from a full cell: "J\'en ouvre une" opens the bottle of that cell, no question', async () => {
+    detail = detailOf({ items: [placed(), openedBottle(40, { id: 'o', cellarId: 'garage' })] });
+    queryClient.setQueryData(['inventory', 'product', 'p1'], detail);
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    fireEvent.click(screen.getByTestId('stock-move-open'));
+    await waitFor(() => expect(mutate).toHaveBeenCalled());
+    expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'group', patch: expect.objectContaining({ isOpened: true, fromSlotId: 's23' }) }));
+    expect(screen.queryByText(/déjà entamée/)).toBeNull();
+  });
+
+  it('c3: the bottle opened from the cell took it along — the banner stays, "Finir l\'entamée" comes first', () => {
+    detail = detailOf({
+      items: [
+        unit({ id: 'group', quantity: 5, cellarId: 'garage', slots: [{ id: 's24', column: 2, row: 4 }] }),
+        openedBottle(100, { id: 'sub', cellarId: 'garage', parentItemId: 'group', slots: [{ id: 's23', column: 2, row: 3 }] }),
+      ],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    expect(screen.getByTestId('slot-context')).toHaveTextContent('Case C2·R3');
+    const finish = screen.getByTestId('stock-move-finish');
+    expect(finish).toHaveTextContent("Finir l'entamée");
+    expect(finish).toHaveAttribute('data-primary', 'true');
+  });
+
+  it('offline: "Retirer de la case" stays visible, says why, and does nothing (FEAT-108)', async () => {
+    connectivity.online = false;
+    removeSlot.mockClear();
+    detail = detailOf({ items: [placed()] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    const remove = within(screen.getByTestId('slot-context')).getByRole('button', { name: 'Retirer de la case' });
+    expect(remove).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Disponible au retour de la connexion')).toBeInTheDocument();
+    fireEvent.click(remove);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(removeSlot).not.toHaveBeenCalled();
   });
 });

@@ -40,6 +40,9 @@ vi.mock('@/hooks/useCellars', () => ({
 vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
 vi.mock('@/lib/api', () => ({ client: { patch: vi.fn(), post: vi.fn() } }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
+// Connectivity is probed by a GET of its own (FEAT-108): set by the test.
+const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
+vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 
 const data = {
   cellar: { id: 'c1', name: 'Cave', columns: 2, rows: 1, hotZoneRows: 0, coldZoneRows: 0 },
@@ -138,6 +141,15 @@ describe('CellarGridPlan, one cell per bottle placed (FEAT-93)', () => {
     }
   });
 
+  it('cigars smoked elsewhere are said smoked, not drunk (review of #855)', async () => {
+    const cigars = { ...group, items: [{ ...group.items[0], category: 'cigar', cigarsPerBox: 25 }] } as unknown as CellarGridData;
+    renderGrid(cigars);
+    assign.mockRejectedValueOnce(new Error('NOT_IN_STOCK'));
+    fireEvent.keyDown(screen.getByLabelText(/^cellars\.grid\.cellLabelEmpty\|3,1/), { key: 'Enter' });
+    fireEvent.click(screen.getByTestId('assign-line').closest('button') as HTMLElement);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('cellars.grid.notInStock|cigar'));
+  });
+
   it('every cell says where it is, for the focus to come back to it', () => {
     const { container } = renderGrid(group);
     expect(Array.from(container.querySelectorAll('[data-cell]')).map((el) => el.getAttribute('data-cell'))).toEqual(['1:1', '2:1', '3:1']);
@@ -196,3 +208,33 @@ describe('CellarGridPlan and boxes of cigars (recette #471)', () => {
     expect(closed).not.toBe(opened);
   });
 });
+
+// FEAT-93 (plan §4): offline the plan is read only — placing, moving or
+// taking out a bottle waits for the network, and says so.
+describe('CellarGridPlan offline (FEAT-93, FEAT-108)', () => {
+  it('says why, opens no assign dialog, and still opens the wine of a cell', () => {
+    connectivity.online = false;
+    try {
+      const onOpenSlot = vi.fn();
+      renderGrid(data, onOpenSlot);
+      expect(screen.getByTestId('grid-offline')).toHaveTextContent('cellars.grid.offline');
+      const empty = screen.getByLabelText('cellars.grid.cellLabelEmpty|2,1');
+      expect(empty).toHaveAttribute('aria-disabled', 'true');
+      expect(empty.getAttribute('aria-describedby')).toBe(screen.getByTestId('grid-offline').id);
+      fireEvent.click(empty);
+      fireEvent.keyDown(empty, { key: 'Enter' });
+      expect(screen.queryByText(/cellars\.grid\.assignTitle/)).toBeNull();
+      fireEvent.keyDown(screen.getByLabelText(/^cellars\.grid\.cellLabelOccupied\|/), { key: 'Enter' });
+      expect(onOpenSlot).toHaveBeenCalled();
+    } finally {
+      connectivity.online = true;
+    }
+  });
+
+  it('online: no notice, the gestures are there', () => {
+    renderGrid();
+    expect(screen.queryByTestId('grid-offline')).toBeNull();
+    expect(screen.getByLabelText('cellars.grid.cellLabelEmpty|2,1')).not.toHaveAttribute('aria-disabled');
+  });
+});
+

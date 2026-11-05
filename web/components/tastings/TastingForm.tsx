@@ -24,7 +24,12 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
-import { applyStockChoice, smokeOutcome, stockChoicesFor, type StockChoice } from '@/lib/tastings/stockChoice';
+import {
+  applyStockChoice, cellQuestionFor, choiceMove, smokeOutcome, stockChoicesFor, type StockChoice,
+} from '@/lib/tastings/stockChoice';
+import { cellAskOf, type CellAsk } from '@/lib/products/cells';
+import { SLOT_CHANGED, SLOT_CHOICE_REQUIRED, type SlotChoiceFields } from '@shared/product';
+import { WhichCellDialog } from '@/components/inventory/WhichCellDialog';
 import { blankTastingValues } from '@/lib/tastings/formValues';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
@@ -56,6 +61,8 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
   // The tasted item as it was when the stock question was asked, and the
   // tasting it was noted with (it follows a bottle taken off its group).
   const [stockQuestion, setStockQuestion] = useState<{ itemId: string; item?: InventoryItem; tastingId: string } | null>(null);
+  // FEAT-93 (decision #471 point 79): "De quelle case ?" after a stock choice on a placed line.
+  const [cellQuestion, setCellQuestion] = useState<{ choice: StockChoice; ask: CellAsk } | null>(null);
   // #471 (FEAT-107): a wine named instead of picked ("not in the list"), and
   // whether the tasting is of a bottle of the cellar.
   const [naming, setNaming] = useState(false);
@@ -173,18 +180,39 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
     }
   };
 
-  const handleStockChoice = async (choice: StockChoice) => {
+  const handleStockChoice = async (choice: StockChoice, cell?: SlotChoiceFields) => {
+    // FEAT-93: a line of several placed on the plan — which cell, first (the tasting is saved already).
+    const ask = stockQuestion && !cell ? cellQuestionFor(choice, stockQuestion.item) : null;
+    if (ask) {
+      setCellQuestion({ choice, ask });
+      return;
+    }
     const canClose = stockQuestion
       ? await applyStockChoice(
           choice,
           stockQuestion.item,
           // FEAT-107 c3: "Bue" on a bottle of a ×6 leaves a ×5 and a finished bottle holding the tasting.
-          (patch) => updateInventory.mutateAsync({ id: stockQuestion.itemId, patch: { ...patch, tastingId: stockQuestion.tastingId } }),
-          // A refusal with its own message (a cigar already smoked…) was told by the mutation.
-          (error) => { if (!(error instanceof Error && error.message in REATTACH_REFUSALS)) notifyError('tastings.stockUpdate.error'); },
+          (patch) => updateInventory.mutateAsync({
+            id: stockQuestion.itemId,
+            patch: { ...patch, tastingId: stockQuestion.tastingId },
+            quiet: [SLOT_CHOICE_REQUIRED, SLOT_CHANGED],
+          }),
+          (error) => {
+            // The line's cells as the API knows them: asked (again).
+            const asked = cellAskOf(error);
+            if (asked) {
+              if (error instanceof Error && error.message === SLOT_CHANGED) notifyError('stockLine.errors.slotChanged');
+              setCellQuestion({ choice, ask: asked });
+              return;
+            }
+            // A refusal with its own message (a cigar already smoked…) was told by the mutation.
+            if (!(error instanceof Error && error.message in REATTACH_REFUSALS)) notifyError('tastings.stockUpdate.error');
+          },
+          cell,
         )
       : true;
     if (!canClose) return;
+    setCellQuestion(null);
     setStockQuestion(null);
     onClose();
   };
@@ -617,7 +645,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
 
       {/* FEAT-77: Stock update suggestion after tasting creation */}
       <ResponsiveModal
-        isOpen={showStockDialog}
+        isOpen={showStockDialog && !cellQuestion}
         onClose={() => handleStockChoice('ignore')}
         size="sm"
         radius="lg"
@@ -662,6 +690,26 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
           )}
         </ModalContent>
       </ResponsiveModal>
+
+      {cellQuestion && stockQuestion && (
+        <WhichCellDialog
+          key={cellQuestion.ask.slots.map((slot) => slot.id).join('|') + cellQuestion.ask.unplaced}
+          wine={product ? wineOptionLabel(product) : undefined}
+          line={(() => {
+            const line = lines.inCellar.find((item) => item.id === stockQuestion.itemId);
+            return line ? lineParts(line, lineCtx).join(' · ') : '';
+          })()}
+          ask={cellQuestion.ask}
+          move={choiceMove(cellQuestion.choice)}
+          confirmLabel={cellQuestion.choice === 'smokeOne' && smoke
+            ? t(`tastings.stockUpdate.smokeOne.${smoke.kind}`, { count: smoke.left })
+            : t(`tastings.stockUpdate.${cellQuestion.choice}`)}
+          isPending={updateInventory.isPending}
+          // Back to "Mettre à jour le stock ?": the stock may still be left alone.
+          onClose={() => setCellQuestion(null)}
+          onConfirm={(answer) => { void handleStockChoice(cellQuestion.choice, answer); }}
+        />
+      )}
 
       <DiscardChangesDialog
         isOpen={guard.isConfirmOpen}
