@@ -66,8 +66,14 @@ export function GuestPageContent({ token }: { token: string }) {
     }
     notifySuccess('shares.guest.tasting.done');
     setTastingTarget(null);
-    if (target.itemId) undone(target.itemId);
+    // Noted on the wine just drunk: its offer has done its job (acceptance run v3).
+    setDrunk((current) => (current?.productId === target.productId ? null : current));
   };
+  // « Noter une dégustation » on a card, right after a bottle of its wine was
+  // finished: on that bottle, as from its message or the offer above — the
+  // card no longer lists a finished bottle (acceptance run v3 of #471).
+  const noteFromCard = (target: GuestTastingTarget) =>
+    setTastingTarget(drunk?.productId === target.productId ? drunk : target);
 
   // Only a server answer saying the link is unusable means "expired or revoked";
   // network drops, 5xx and rate limits are transient and deserve a retry.
@@ -229,7 +235,7 @@ export function GuestPageContent({ token }: { token: string }) {
                 family={family}
                 token={token}
                 meta={meta}
-                onNoteTasting={setTastingTarget}
+                onNoteTasting={noteFromCard}
                 onLinkGone={linkGone}
                 onDrunk={setDrunk}
                 onUndone={undone}

@@ -37,6 +37,7 @@ import { GuestPageContent } from '../GuestClient';
 const T = '2026-10-02T00:00:00.000Z';
 const META = { id: 's1', label: 'Chez nous', expiresAt: null, hidePrices: false, hideNotes: false, cellarIds: ['garage'], writeCellarIds: ['garage'], collectionIds: [], cellars: [{ id: 'garage', name: 'Garage' }] };
 const BOTTLE = { id: 'g', productId: 'p1', name: 'Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2018, quantity: 1, isOpened: false, fillLevel: null, cellarId: 'garage', createdAt: T, updatedAt: T };
+const OPENED = { ...BOTTLE, id: 'o', isOpened: true, fillLevel: 40, openedAt: T };
 
 let requests: { url: string; method: string; body: Record<string, unknown> }[];
 let metaStatus: number;
@@ -51,6 +52,10 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
   if (url.endsWith('/inventory/g')) {
     inventory = []; // the last bottle drunk: its wine leaves the showcase
     return reply(200, { data: { ...BOTTLE, id: 'sub', isOpened: true, fillLevel: 0 } });
+  }
+  if (url.endsWith('/inventory/o')) {
+    inventory = [BOTTLE]; // the opened bottle finished: the full one stays
+    return reply(200, { data: { ...OPENED, fillLevel: 0 } });
   }
   if (url.endsWith('/tastings')) return reply(201, { data: { id: 't1' } });
   return reply(404, { error: 'NOT_FOUND' });
@@ -110,6 +115,26 @@ describe('GuestPageContent', () => {
       url: '/api/guest/tok/tastings', body: { productId: 'p1', itemId: 'sub', tastedAt: todayLocalIso() },
     }));
     // Noted: the offer is gone.
+    await waitFor(() => expect(screen.queryByTestId('guest-just-drunk')).toBeNull());
+  });
+
+  // Acceptance run v3 of #471: « C'est elle que vous avez finie ? Oui », then
+  // « Noter une dégustation » on the card: the tasting went on the wine alone,
+  // and the offer of the page stayed once it was noted.
+  it('a tasting noted from the card right after finishing a bottle goes on that bottle; the offer goes away', async () => {
+    inventory = [OPENED, BOTTLE];
+    draw();
+    fireEvent.click(await screen.findByTestId('guest-move-drink'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Oui' }));
+    await screen.findByTestId('guest-just-drunk');
+    await waitFor(() => expect(screen.getAllByTestId('guest-family-line')).toHaveLength(1));
+
+    fireEvent.click(screen.getByTestId('guest-tasting'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Enregistrer' }));
+
+    await waitFor(() => expect(requests.find((request) => request.method === 'POST')).toMatchObject({
+      url: '/api/guest/tok/tastings', body: { productId: 'p1', itemId: 'o' },
+    }));
     await waitFor(() => expect(screen.queryByTestId('guest-just-drunk')).toBeNull());
   });
 
