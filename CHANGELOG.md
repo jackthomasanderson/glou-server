@@ -11,7 +11,7 @@ Entries start with the pull request that introduced them where there is one.
 ## Unreleased
 
 ### Added
-- Each bottle of a line can now have its own cell on the cellar plan: a line of 6 can occupy 6 cells, a bottle drunk, broken or moved to another cellar frees its cell, and identical lines kept apart until now because each had a cell become one line holding all their cells (a group of single cigars still takes one cell). The update keeps every occupied cell and backs up your database before it runs (#847).
+- Each bottle of a line can now have its own cell on the cellar plan: a line of 6 can occupy 6 cells, a bottle drunk, broken or moved to another cellar frees its cell, and identical lines kept apart until now because each had a cell become one line holding all their cells (a group of single cigars still takes one cell). On the plan, **Assign** says how many bottles of each line are placed ("2 placed, 4 unplaced"), and touching a cell opens the wine on its line, with **Remove from slot**. The update keeps every occupied cell and backs up your database before it runs (#847).
 
 ## v2026.11.0 - 2026-11-05
 

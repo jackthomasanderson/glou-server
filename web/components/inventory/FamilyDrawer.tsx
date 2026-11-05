@@ -244,19 +244,6 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
     return (
       <div className="flex flex-col gap-6 px-5 py-5">
-        {/* FEAT-93: the cell of the plan this drawer was opened from. */}
-        {cell && (
-          <div className="flex items-center justify-between gap-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-2" data-testid="slot-context">
-            <span className="flex items-center gap-1.5 text-sm font-semibold text-primary-700">
-              <LayoutGrid size={14} aria-hidden />
-              {cell.label}
-            </span>
-            <Button size="sm" variant="flat" color="warning" onPress={() => removeFromCell(cell.slotId)} isLoading={removeSlot.isPending}>
-              {t('cellars.grid.removeFromSlot')}
-            </Button>
-          </div>
-        )}
-
         {/* 1. Photo, stock and value */}
         <div>
           <div
@@ -488,6 +475,18 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                       </React.Fragment>
                     ))}
                 </p>
+              )}
+              {/* FEAT-93: the cell of the plan this drawer was opened from, kept in sight above the lines. */}
+              {cell && (
+                <div className="flex items-center justify-between gap-2 mt-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-1.5" data-testid="slot-context">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-primary-700">
+                    <LayoutGrid size={14} aria-hidden />
+                    {cell.label}
+                  </span>
+                  <Button size="sm" variant="flat" color="warning" onPress={() => removeFromCell(cell.slotId)} isLoading={removeSlot.isPending}>
+                    {t('cellars.grid.removeFromSlot')}
+                  </Button>
+                </div>
               )}
             </div>
 
