@@ -477,7 +477,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
         <DrawerContent>
           <>
             {/* Messages keep clear of this header and its actions (recette n°5 of #847). */}
-            <div ref={toastClearanceRef} className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
+            <div ref={toastClearanceRef} data-testid="family-drawer-header" className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
               <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-0.5">
                 {product ? t(`categories.${product.category}`) : ' '}
               </p>
