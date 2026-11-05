@@ -269,28 +269,37 @@ test.describe('detach and reattach (#471)', () => {
     expect((await stats(api, cellarId)).bottles).toBe(6);
   });
 
-  // FEAT-93 (decision #471 point 75, until lot S2's choice): an unplaced copy first.
+  // FEAT-93 (lot S2): « De quelle case ? » — an unplaced bottle chosen.
   test('the cell stays with the group when one of its unplaced bottles is opened', async ({ page }) => {
     const api = page.request;
     const { group } = await groupOf(api, 3);
     expect((await api.post(`/api/inventory/${group.id}/slots`, { data: { column: 1, row: 1 } })).status()).toBe(201);
 
-    const opened = await write(api, group.id, { isOpened: true, fillLevel: 50 });
+    // Without saying which, the member is asked.
+    const asked = await api.patch(`/api/inventory/${group.id}`, { data: { isOpened: true, fillLevel: 50 } });
+    expect(asked.status()).toBe(409);
+    expect((await asked.json()).error).toBe('SLOT_CHOICE_REQUIRED');
+
+    const opened = await write(api, group.id, { isOpened: true, fillLevel: 50, fromUnplaced: true });
 
     expect(opened.data).toMatchObject({ slots: [] });
     expect(opened.changed[0]).toMatchObject({ slots: [expect.objectContaining({ column: 1, row: 1 })], quantity: 2 });
   });
 
-  // FEAT-93: every bottle placed — the one opened takes the cell placed last
-  // (the database guard would refuse a group left with more cells than bottles).
-  test('opened from a group whose every bottle is placed, the bottle takes the cell placed last', async ({ page }) => {
+  // FEAT-93 (lot S2): every bottle placed — the one opened takes the cell it
+  // was chosen from (the database guard would refuse a group left with more
+  // cells than bottles).
+  test('opened from a group whose every bottle is placed, the bottle takes the cell chosen', async ({ page }) => {
     const api = page.request;
     const { group } = await groupOf(api, 2);
+    let chosen = '';
     for (const column of [1, 2]) {
-      expect((await api.post(`/api/inventory/${group.id}/slots`, { data: { column, row: 1 } })).status()).toBe(201);
+      const placed = await api.post(`/api/inventory/${group.id}/slots`, { data: { column, row: 1 } });
+      expect(placed.status()).toBe(201);
+      if (column === 2) chosen = (await placed.json()).data.slot.id;
     }
 
-    const opened = await write(api, group.id, { isOpened: true, fillLevel: 50 });
+    const opened = await write(api, group.id, { isOpened: true, fillLevel: 50, fromSlotId: chosen });
 
     expect(opened.data).toMatchObject({ quantity: 1, slots: [expect.objectContaining({ column: 2, row: 1 })] });
     expect(opened.changed[0]).toMatchObject({ quantity: 1, slots: [expect.objectContaining({ column: 1, row: 1 })] });

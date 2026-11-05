@@ -293,6 +293,34 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
     expect(back).toMatchObject({ id: bottle.id, isOpened: false, slots: [] });
   });
 
+  // FEAT-93 (lot S2): the cell it freed is recorded with the move — « Annuler » puts the bottle back in it.
+  test('« Annuler » of a bottle drunk in place whose slot is still free: back in its slot', async ({ page, browser }) => {
+    const api = page.request;
+    const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E O Slot ${stamp()}`, columns: 3, rows: 3 } }))).id;
+    cellars.push(cellar);
+    const bottle = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name: `E2E O slot back ${stamp()}`, producer: 'E2E Domaine', cellarId: cellar },
+    }));
+    families.push(bottle.productId);
+    expect((await api.post(`/api/inventory/${bottle.id}/slots`, { data: { column: 3, row: 1 } })).status()).toBe(201);
+    const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
+      data: { label: `E2E O slot back ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
+    }));
+    shares.push(share.id);
+
+    const { context, page: guest } = await asGuest(browser, share.token);
+    try {
+      const url = `/api/guest/${share.token}/inventory/${bottle.id}`;
+      expect((await guest.request.patch(url, { data: { isOpened: true, fillLevel: 0 } })).status()).toBe(200);
+      expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ slots: [] });
+      expect((await guest.request.patch(url, { data: { undo: true } })).status()).toBe(200);
+    } finally {
+      await context.close();
+    }
+    const [back] = await unitsOf(api, bottle.productId);
+    expect(back).toMatchObject({ id: bottle.id, isOpened: false, slots: [expect.objectContaining({ column: 3, row: 1 })] });
+  });
+
   test('read-only (c4): neither open, drink nor note a tasting', async ({ page, browser }) => {
     const api = page.request;
     const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E O Lecture ${stamp()}` } }))).id;
