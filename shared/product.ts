@@ -105,10 +105,11 @@ export interface SlotCell {
  * line of several holding cells — the one in the cell `fromSlotId`, or an
  * unplaced one (`fromUnplaced`). One or the other, never in bulk.
  */
-export interface SlotChoiceFields {
+// A type literal, not an interface: it joins a request body (`Record<string, unknown>`).
+export type SlotChoiceFields = {
   fromSlotId?: string;
   fromUnplaced?: true;
-}
+};
 
 /**
  * 409 of an opening, a drink or a smoke on a line of several copies holding

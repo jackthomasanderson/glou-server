@@ -12,6 +12,13 @@ import { movePatch, restorePatch, undoPatch, type StockMove } from '@/lib/produc
 import type { InventoryItem, InventoryItemPatch } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 
+/** FEAT-93: the cell the line itself gave back by this write (a line of one finished in place), to ask back on "Annuler". */
+function cellGivenBack(before: ProductItem, written: Pick<InventoryItem, 'id' | 'slots'>): InventoryItemPatch {
+  const [cell] = before.slots ?? [];
+  if (written.id !== before.id || !cell || (written.slots ?? []).some((slot) => slot.id === cell.id)) return {};
+  return { placeAt: { column: cell.column, row: cell.row } };
+}
+
 /**
  * #471 (FEAT-103, ux-ui.md §10.4.2): open, drink or smoke one copy of a line.
  * Sent from the line's latest known version (a change made meanwhile is
@@ -93,9 +100,9 @@ export function useStockMove() {
       return true;
     }
     // FEAT-93: a line of one drunk (or smoked out) in place gave its cell
-    // back (#573); "Annuler" puts the bottle back unplaced until lot S2
-    // (`placeAt`) puts it back in that cell.
-    notifyUndoable(message, undefined, () => { void undo(written, before, kind, {}); });
+    // back (#573); "Annuler" puts the bottle back in that cell, if nobody
+    // took it since (`placeAt`, else it comes back unplaced).
+    notifyUndoable(message, undefined, () => { void undo(written, before, kind, cellGivenBack(before, written)); });
     return true;
   }, [latest, mutateAsync, queryClient, settle, undo]);
 

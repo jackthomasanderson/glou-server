@@ -8,9 +8,15 @@ import type { ProductItem } from './types';
 /** D8: what a stock action wrote — the line asked for, the others it changed, those it removed. */
 export type StockWrite = Wire<UnitWriteResult>;
 
-export interface CorrectBody { quantity: number; reason: CorrectionReason }
-export interface MoveBody { count: number; cellarId: string | null }
-export interface RepriceBody { count: number; purchasePrice: number | null }
+/**
+ * FEAT-93 (lot S2): the cells of the copies leaving a line — freed, or
+ * following the copies repriced — when the copies left cannot hold them all
+ * (else 409 SLOTS_TO_FREE_REQUIRED).
+ */
+interface SlotsToFree { slotIds?: string[] }
+export interface CorrectBody extends SlotsToFree { quantity: number; reason: CorrectionReason }
+export interface MoveBody extends SlotsToFree { count: number; cellarId: string | null }
+export interface RepriceBody extends SlotsToFree { count: number; purchasePrice: number | null }
 
 /** The actions of a line that change a number of copies (#471, A2 and G). */
 export type StockAction = 'correct' | 'move' | 'reprice';
