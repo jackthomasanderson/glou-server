@@ -42,6 +42,7 @@ export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion,
       {/* Region (keyboard equivalent to clicking a marker on the map, #378) */}
       <div>
         <Select
+          disallowEmptySelection
           size="sm"
           radius="md"
           variant="bordered"

@@ -177,6 +177,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
             <p className="text-sm font-medium">{t('profile.autoLockHint')}</p>
           </div>
           <Select
+            disallowEmptySelection
             aria-label={t('profile.autoLockDelay')}
             selectedKeys={[autoLockValue]}
             onSelectionChange={(keys) => handleAutoLockChange(Array.from(keys)[0] as string)}

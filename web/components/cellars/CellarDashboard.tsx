@@ -332,6 +332,7 @@ export const CellarDashboard: React.FC = () => {
       {(cellars?.length ?? 0) > 0 && (
         <div className="flex flex-col sm:flex-row gap-2 mb-5">
           <Select
+            disallowEmptySelection
             size="sm"
             variant="bordered"
             selectedKeys={[typeFilter]}
@@ -344,6 +345,7 @@ export const CellarDashboard: React.FC = () => {
             ))}
           </Select>
           <Select
+            disallowEmptySelection
             size="sm"
             variant="bordered"
             selectedKeys={[statusFilter]}
@@ -601,6 +603,7 @@ export const CellarDashboard: React.FC = () => {
               />
 
               <Select
+                disallowEmptySelection
                 label={t('cellars.type')}
                 selectedKeys={[formData.type]}
                 onSelectionChange={(keys) => {

@@ -241,6 +241,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
 
               {/* FEAT-86: consumption-curve shape */}
               <Select
+                disallowEmptySelection
                 label={t('admin.maturityRefs.fields.curveShape')}
                 description={t('admin.maturityRefs.hints.curveShape')}
                 variant="bordered"

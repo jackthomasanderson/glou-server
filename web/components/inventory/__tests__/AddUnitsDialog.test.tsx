@@ -88,6 +88,18 @@ describe('AddUnitsAction', () => {
     });
   });
 
+  it('keeps the cellar when the one already chosen is picked again (recette n°5: it was emptied, the bottles went "Sans cave")', async () => {
+    const dialog = open(detail([unit({ quantity: 6, cellarId: 'garage' })]));
+    const trigger = within(dialog).getByRole('button', { name: /Caves/ });
+    expect(trigger).toHaveTextContent('Garage');
+    fireEvent.click(trigger);
+    const garage = (await screen.findAllByRole('option')).find((option) => option.textContent === 'Garage') as HTMLElement;
+    fireEvent.click(garage);
+    expect(trigger).toHaveTextContent('Garage');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
+    expect(sent().input.cellarId).toBe('garage');
+  });
+
   it('adds bottles to a wine without any bottle left, as its main action (FEAT-101 c3, §10.5)', () => {
     render(<AddUnitsAction product={detail([])} />);
     const button = screen.getByRole('button', { name: 'Ajouter des bouteilles' });

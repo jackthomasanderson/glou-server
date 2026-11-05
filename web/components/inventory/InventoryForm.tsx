@@ -491,6 +491,7 @@ export function InventoryForm({
                       />
                       {showsBottle && (
                       <Select
+                        disallowEmptySelection
                         label={t('nav.caves')}
                         variant="bordered"
                         size="sm"
@@ -639,6 +640,7 @@ export function InventoryForm({
                             min={1800} max={new Date().getFullYear()}
                           />
                           <Select
+                            disallowEmptySelection
                             label={t('inventory.fields.color')}
                             variant="bordered"
                             size="sm"
@@ -683,6 +685,7 @@ export function InventoryForm({
                             min={1800} max={new Date().getFullYear()}
                           />
                           <Select
+                            disallowEmptySelection
                             label={t('inventory.fields.sparklingType')}
                             variant="bordered"
                             size="sm"
@@ -694,6 +697,7 @@ export function InventoryForm({
                             ))}
                           </Select>
                           <Select
+                            disallowEmptySelection
                             label={t('inventory.fields.sugarLevel')}
                             variant="bordered"
                             size="sm"
@@ -712,6 +716,7 @@ export function InventoryForm({
                         <>
                           <div className="col-span-2">
                             <Select
+                              disallowEmptySelection
                               label={t('inventory.fields.spiritType')}
                               variant="bordered"
                               size="sm"

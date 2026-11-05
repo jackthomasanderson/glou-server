@@ -26,6 +26,7 @@ export function WelcomeStep({ joining = false, onNext }: WelcomeStepProps) {
 
       <div className="w-full max-w-xs">
         <Select
+          disallowEmptySelection
           label={t('onboarding.welcome.languageLabel')}
           variant="bordered"
           size="md"

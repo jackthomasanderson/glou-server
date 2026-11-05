@@ -29,6 +29,9 @@ import { CigarGroupFields } from '@/components/inventory/CigarGroupFields';
 import { cigarGroupInput, cigarPriceKey, draftFrom, isCigarGroupValid, type CigarGroupDraft } from '@/lib/products/cigarGroup';
 import type { Product } from '@/lib/products/types';
 
+/** "Aucune cave", a choice of the convert form's cellar list. */
+const NO_CELLAR = 'none';
+
 const CATEGORIES: WishlistCategory[] = [...CATEGORY_VALUES];
 
 const STATUS_COLOR: Record<string, 'primary' | 'success' | 'default'> = {
@@ -190,7 +193,7 @@ export function WishlistDashboard() {
         id: convertTarget.id,
         data: {
           purchasePrice: convertForm.purchasePrice ?? null,
-          cellarId: convertForm.cellarId || null,
+          cellarId: convertForm.cellarId && convertForm.cellarId !== NO_CELLAR ? convertForm.cellarId : null,
           ...(joinsCigars ? cigarGroupInput(cigars) : { bottleSize: convertForm.bottleSize || null, quantity: convertForm.quantity }),
           // A known wine takes only what tells its bottles apart (ux-ui.md §10.4.1).
           ...(joining
@@ -327,6 +330,7 @@ export function WishlistDashboard() {
                   variant="bordered" size="md" radius="md" labelPlacement="outside"
                 />
                 <Select
+                  disallowEmptySelection
                   label={t('wishlist.form.category')}
                   selectedKeys={[form.category]}
                   onSelectionChange={(keys) => setForm((f) => ({ ...f, category: Array.from(keys)[0] as WishlistCategory }))}
@@ -466,13 +470,21 @@ export function WishlistDashboard() {
                   )}
                 </div>
                 <Select
+                  disallowEmptySelection
                   label={t('wishlist.convert.cellar')}
                   placeholder={t('wishlist.convert.cellarPlaceholder')}
                   selectedKeys={convertForm.cellarId ? [convertForm.cellarId] : []}
-                  onSelectionChange={(keys) => setConvertForm((f) => ({ ...f, cellarId: (Array.from(keys)[0] as string) ?? '' }))}
+                  // "Aucune cave" is a choice of the list: picking a cellar again never empties the field (recette n°5).
+                  onSelectionChange={(keys) => {
+                    const [key] = Array.from(keys);
+                    if (key != null) setConvertForm((f) => ({ ...f, cellarId: String(key) }));
+                  }}
                   variant="bordered" size="md" labelPlacement="outside"
                 >
-                  {(cellars ?? []).map((c) => <SelectItem key={c.id}>{c.name}</SelectItem>)}
+                  {[
+                    <SelectItem key={NO_CELLAR} textValue={t('inventory.noCellar')}><em>{t('inventory.noCellar')}</em></SelectItem>,
+                    ...(cellars ?? []).map((c) => <SelectItem key={c.id}>{c.name}</SelectItem>),
+                  ]}
                 </Select>
                 {joinsCigars ? (
                   // FEAT-95: closed boxes of M cigars or single cigars, so that the purchase can complete a box line.

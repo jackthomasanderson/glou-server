@@ -140,14 +140,18 @@ export function AddUnitsForm({ product, onDone, onCancel = onDone, onAdded, star
           />
           )}
           <Select
+            disallowEmptySelection
             label={t('nav.caves')}
             variant="bordered"
             size="sm"
             items={[{ id: NO_CELLAR, name: t('inventory.noCellar') }, ...(cellars ?? [])]}
             selectedKeys={[cellarId ?? NO_CELLAR]}
+            // Recette n°5: picking the chosen cellar again emptied the field and the
+            // bottles went "Sans cave". "Aucune cave" is a choice of the list, never an emptied field.
             onSelectionChange={(keys) => {
               const [key] = Array.from(keys);
-              setCellarId(!key || key === NO_CELLAR ? null : String(key));
+              if (key == null) return;
+              setCellarId(key === NO_CELLAR ? null : String(key));
             }}
           >
             {(cellar) => <SelectItem key={cellar.id} textValue={cellar.name}>{cellar.name}</SelectItem>}

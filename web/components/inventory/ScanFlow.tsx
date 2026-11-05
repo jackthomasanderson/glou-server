@@ -461,6 +461,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                     />
 
                     <Select
+                      disallowEmptySelection
                       label={t('nav.caves')}
                       variant="bordered"
                       size="sm"

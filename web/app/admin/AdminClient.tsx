@@ -245,6 +245,7 @@ export function AdminClient() {
             isClearable
           />
           <Select
+            // select-may-empty: a filter without an "all" choice: emptying it shows every status.
             size="sm" variant="bordered"
             label={t('admin.auditLog.columns.status')}
             selectedKeys={auditFilters.status ? [auditFilters.status] : []}

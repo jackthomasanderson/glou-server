@@ -413,6 +413,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                     rules={{ validate: (value) => !tastesBottle || !!value || t('tastings.errors.required') }}
                     render={({ field }) => (
                       <Select
+                        disallowEmptySelection
                         label={`${t(isCigar ? 'tastingWine.whichCigars' : 'tastingWine.whichBottle')} *`}
                         selectedKeys={field.value ? [field.value] : []}
                         onSelectionChange={(keys) => field.onChange((Array.from(keys)[0] as string) ?? undefined)}
@@ -483,6 +484,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                   control={control}
                   render={({ field }) => (
                     <Select
+                      // select-may-empty: an optional field without a "—" choice: emptying it clears the answer.
                       label={t('tastings.fields.readiness')}
                       selectedKeys={field.value ? [field.value] : []}
                       onSelectionChange={(keys) => {
@@ -504,6 +506,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                   control={control}
                   render={({ field }) => (
                     <Select
+                      // select-may-empty: an optional field without a "—" choice: emptying it clears the answer.
                       label={t('tastings.fields.context')}
                       selectedKeys={field.value ? [field.value] : []}
                       onSelectionChange={(keys) => {

@@ -96,6 +96,7 @@ export function ConsumptionPlanWidget() {
           ) : editingGoal ? (
             <div className="flex flex-col gap-3 max-w-sm">
               <Select
+                disallowEmptySelection
                 label={t('consumptionPlan.goal.targetType')}
                 selectedKeys={[targetType]}
                 onSelectionChange={(keys) => setTargetType((Array.from(keys)[0] as GoalTargetType) ?? 'count')}

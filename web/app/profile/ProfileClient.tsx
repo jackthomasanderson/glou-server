@@ -193,6 +193,7 @@ export function ProfileClient() {
 
             <div className="flex flex-col gap-4">
               <Select
+                disallowEmptySelection
                 label={t('profile.theme')}
                 selectedKeys={[prefsData.theme]}
                 onSelectionChange={(keys) => handlePrefsChange('theme', Array.from(keys)[0] as string)}
@@ -204,6 +205,7 @@ export function ProfileClient() {
               </Select>
 
               <Select
+                disallowEmptySelection
                 label={t('profile.language')}
                 selectedKeys={[prefsData.language]}
                 onSelectionChange={(keys) => handlePrefsChange('language', Array.from(keys)[0] as string)}
@@ -214,6 +216,7 @@ export function ProfileClient() {
               </Select>
 
               <Select
+                disallowEmptySelection
                 label={t('profile.tempUnit')}
                 selectedKeys={[prefsData.tempUnit]}
                 onSelectionChange={(keys) => handlePrefsChange('tempUnit', Array.from(keys)[0] as string)}
@@ -224,6 +227,7 @@ export function ProfileClient() {
               </Select>
 
               <Select
+                disallowEmptySelection
                 label={t('profile.dateFormat')}
                 selectedKeys={[prefsData.dateFormat]}
                 onSelectionChange={(keys) => handlePrefsChange('dateFormat', Array.from(keys)[0] as string)}
