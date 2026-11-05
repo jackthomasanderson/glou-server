@@ -264,9 +264,11 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
   });
 
   // Review of L1: a line of one drunk in place gave its grid slot back (#573).
-  it('"Annuler" a line of one drunk in its grid slot puts it back in that slot', async () => {
-    const only = unit({ id: 'one', quantity: 1, cellarId: 'garage', slotColumn: 2, slotRow: 3, updatedAt: VERSION });
-    answer = () => ({ status: 200, body: { data: { ...only, isOpened: true, fillLevel: 0, slotColumn: null, slotRow: null, updatedAt: LATER }, changed: [], removedIds: [] } });
+  // FEAT-93: the cell is no column of the bottle any more — "Annuler" puts
+  // the state back; the cell itself comes back with lot S2 (`placeAt`).
+  it('"Annuler" a line of one drunk in its cell puts the state back, sending no coordinates', async () => {
+    const only = unit({ id: 'one', quantity: 1, cellarId: 'garage', slots: [{ id: 's1', column: 2, row: 3 }], updatedAt: VERSION });
+    answer = () => ({ status: 200, body: { data: { ...only, isOpened: true, fillLevel: 0, slots: [], updatedAt: LATER }, changed: [], removedIds: [] } });
     drawFooter(detailOf([only]));
     fireEvent.click(screen.getByTestId('stock-move-drink'));
     await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
@@ -277,13 +279,14 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
     await waitFor(() => expect(patches()).toHaveLength(2));
     expect(patches()[1]).toMatchObject({
       url: '/api/inventory/one',
-      body: { isOpened: false, fillLevel: 100, slotColumn: 2, slotRow: 3, expectedUpdatedAt: LATER },
+      body: { isOpened: false, fillLevel: 100, expectedUpdatedAt: LATER },
     });
+    expect(patches()[1].body).not.toHaveProperty('slotColumn');
   });
 
   it('"Annuler" a bottle detached from a group sends no slot (the slot stayed with the group)', async () => {
-    const group = unit({ id: 'g', quantity: 6, cellarId: 'garage', slotColumn: 1, slotRow: 1, updatedAt: VERSION });
-    answer = () => detachAnswer(group, { isOpened: true, fillLevel: 0, slotColumn: null, slotRow: null });
+    const group = unit({ id: 'g', quantity: 6, cellarId: 'garage', slots: [{ id: 's1', column: 1, row: 1 }], updatedAt: VERSION });
+    answer = () => detachAnswer(group, { isOpened: true, fillLevel: 0, slots: [] });
     drawFooter(detailOf([group]));
     fireEvent.click(screen.getByTestId('stock-move-drink'));
     await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());

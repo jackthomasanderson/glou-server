@@ -39,7 +39,9 @@ function family(fields: Record<string, unknown> = {}) {
 /** A unit row (money columns as numbers, as the extended client reads them at the top level). */
 function unit(fields: Record<string, unknown> = {}) {
   return {
-    id: 'b1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'c1', slotColumn: null, slotRow: null,
+    id: 'b1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'c1',
+    // FEAT-93: its live cells, as `_count: { select: { slots } }` reads them.
+    _count: { slots: 0 },
     location: null, purchasePrice: 20, estimatedValue: null, purchasePlace: null,
     purchasedAt: new Date('2026-01-15T00:00:00Z'), bottleSize: null, quantity: 1, cigarsPerBox: null, cigarsLeft: null,
     isOpened: false, fillLevel: null, openedAt: null, parentItemId: null, writtenOffAt: null, needsReview: false,
@@ -297,19 +299,33 @@ describe('reviewService.merge (FEAT-102 c2)', () => {
     const outcome = await reviewService.merge('u2', { productIds: ['p1', 'p2'] });
 
     expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]).toMatchObject({
-      where: { productId: 'p1', deletedAt: null, writtenOffAt: null, needsReview: false, slotColumn: null, slotRow: null },
+      where: { productId: 'p1', deletedAt: null, writtenOffAt: null, needsReview: false },
     });
     expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
       data: expect.objectContaining({ quantity: 5, purchasePlace: 'Foire', location: 'Rack A', lockedFields: ['location'], updatedBy: 'u2' }),
     });
-    for (const table of ['tasting_notes', 'audit_logs', 'inventory_count_entries', 'wishlist_items', 'bottles']) {
+    // FEAT-93: the absorbed group's cells too (item_slots).
+    for (const table of ['item_slots', 'tasting_notes', 'audit_logs', 'inventory_count_entries', 'wishlist_items', 'bottles']) {
       expect(raw().some((call) => call.sql.includes(`UPDATE "${table}" SET "`) && call.values[0] === 'b1'
         && JSON.stringify(call.values[1]) === JSON.stringify(['b2']))).toBe(true);
     }
     expect(rawLike('"foundQuantity" = coalesce')[0].values).toEqual([['b1', 'b2']]);
     expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['b2'] } } });
     expect(outcome.removedItemIds).toEqual(['b2']);
+  });
+
+  // FEAT-93 (criterion 5): groups in cells are no longer left apart — the survivor holds all the cells.
+  it('fuses groups each in cells of the plan, the survivor taking their cells', async () => {
+    families(older(), newer());
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unit({ id: 'b1', _count: { slots: 1 } }), unit({ id: 'b2', quantity: 2, _count: { slots: 2 } }),
+    ] as never);
+
+    const outcome = await reviewService.merge('u2', { productIds: ['p1', 'p2'] });
+
+    expect(outcome.removedItemIds).toEqual(['b2']);
+    expect(rawLike('UPDATE "item_slots" SET "itemId"')[0].values).toEqual(['b1', ['b2']]);
   });
 
   it('marks the history moved onto the surviving group with the line it was recorded on', async () => {
@@ -459,7 +475,7 @@ describe('reviewService.confirmCount (FEAT-102 c4, "C\'est bon")', () => {
     const outcome = await reviewService.confirmCount('u2', 'g1');
 
     expect(events).toEqual(['lock p1', 'write unit']);
-    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({ where: { id: 'g1' }, data: { needsReview: false, updatedBy: 'u2' } });
+    expect(prisma.inventoryItem.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'g1' }, data: { needsReview: false, updatedBy: 'u2' } }));
     expect(outcome).toEqual({ item: expect.objectContaining({ id: 'g1', quantity: 5, needsReview: false }), changed: true });
   });
 

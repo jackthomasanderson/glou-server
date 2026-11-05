@@ -12,7 +12,7 @@
 #      (copy of the folder up to and including it) here and in the steps
 #      below, except the backup step: a later one may change what the checks
 #      read (FEAT-93 drops bottles.slotColumn/slotRow), and has its own bench;
-#   4. checks/*.sql verify the result (each lists its failures, then fails):
+#   4. checks/*families*.sql verify the result (each lists its failures, then fails):
 #      the data transformed, and the columns the contraction removed gone;
 #   5. parity/: the SQL copy of the shared rules (units, value, spending,
 #      productKey, groupKey) answers the case table the TypeScript tests read
@@ -77,7 +77,7 @@ echo "::group::Update: the image's migrations up to $first_families"
 migrate "${through_families[@]}"
 echo "::endgroup::"
 
-for check in "$here"/checks/*.sql; do
+for check in "$here"/checks/*families*.sql; do
   echo "::group::$(basename "$check")"
   # Results go nowhere: the checks speak through NOTICE / WARNING / EXCEPTION.
   psql_bench -o /dev/null < "$check"

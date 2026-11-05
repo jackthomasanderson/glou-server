@@ -13,7 +13,8 @@ const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
 type Unit = {
   id: string; productId: string; cellarId: string | null; quantity: number | null; purchasePrice: number | null;
   isOpened: boolean; fillLevel: number | null; parentItemId: string | null; writtenOffAt: string | null; deletedAt: string | null;
-  slotColumn: number | null; slotRow: number | null;
+  /** FEAT-93: the cells of the plan its copies occupy. */
+  slots: Array<{ id: string; column: number; row: number }>;
 };
 
 async function okData<T>(res: APIResponse): Promise<T> {
@@ -118,8 +119,10 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
   });
 
   // Review of L1: a bottle alone in its grid slot, drunk, gives the slot back
-  // (#573); "Annuler" puts it back in that slot.
-  test('"Annuler" a bottle alone in its slot puts it back in the slot', async ({ page }) => {
+  // (#573); "Annuler" puts the bottle back. FEAT-93: the cell is a slot of its
+  // own now — the bottle comes back unplaced until lot S2 (`placeAt`) puts it
+  // back in that cell.
+  test('"Annuler" a bottle alone in its slot puts it back in stock', async ({ page }) => {
     const api = page.request;
     const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E L1 Plan ${stamp()}`, columns: 3, rows: 3 } }))).id;
     cellars.push(cellar);
@@ -128,21 +131,24 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
       data: { category: 'wine', name, producer: 'E2E Domaine', purchasePrice: 20, cellarId: cellar },
     }));
     families.push(bottle.productId);
-    await okData(await api.patch(`/api/inventory/${bottle.id}`, { data: { slotColumn: 2, slotRow: 3 } }));
+    expect((await api.post(`/api/inventory/${bottle.id}/slots`, { data: { column: 2, row: 3 } })).status()).toBe(201);
 
     const drawer = await openDrawer(page, bottle.productId, name);
     const drunk = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${bottle.id}`) && r.request().method() === 'PATCH');
     await drawer.getByTestId('stock-move-drink').click();
     expect((await drunk).status()).toBe(200);
-    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ fillLevel: 0, slotColumn: null, slotRow: null });
+    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ fillLevel: 0, slots: [] });
 
     await expect(page.getByText('1 bouteille bue')).toBeVisible();
     const undone = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${bottle.id}`) && r.request().method() === 'PATCH');
     await page.locator('button', { hasText: /^Annuler$/ }).last().click();
     expect((await undone).status()).toBe(200);
-    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ id: bottle.id, isOpened: false, fillLevel: 100, slotColumn: 2, slotRow: 3 });
-    // Only its placing in the slot is told, not the drink taken back (recette #471).
-    await expect.poll(() => changesTold(api, bottle.productId)).toEqual(['UPDATE']);
+    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ id: bottle.id, isOpened: false, fillLevel: 100, slots: [] });
+    // FEAT-93: the drink freed the cell and « Annuler » does not give it back
+    // yet, so the drink and its undo are both told, after the placing. Lot S2
+    // (`placeAt`) puts the cell back: then only the placing is told again
+    // (recette #471).
+    await expect.poll(() => changesTold(api, bottle.productId)).toEqual(['UPDATE', 'UPDATE', 'UPDATE']);
   });
 
   // Recette v3 of #471: the message covered the drawer's close button —

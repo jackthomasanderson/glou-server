@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { productMatchQuerySchema, productPatchSchema, productRollbackSchema } from '../schemas/product.schema';
 import { isRestorableDescriptionField } from '../../../shared/product';
-import { productService } from '../services/product.service';
+import { productService, type UnitSlotChanges } from '../services/product.service';
 import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
@@ -39,6 +39,13 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json({ data: product });
 });
 
+/** FEAT-93: the cells a bottle gave up with its family's new category, in that bottle's history. */
+function logUnitSlots(req: Request, ip: string, productId: string, units: UnitSlotChanges[] = []): void {
+  for (const { itemId, changes } of units) {
+    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: itemId, productId, details: { changes } });
+  }
+}
+
 // PATCH /api/products/:id — the description, once for every bottle of the wine (FEAT-92 c4).
 router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
@@ -54,6 +61,7 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     return;
   }
   void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, productId: id, details: { changes: result.changes } });
+  logUnitSlots(req, ip, id, result.unitSlotChanges);
   res.json({ data: result.product });
 });
 
@@ -98,6 +106,7 @@ async function rollbackDescription(req: Request, res: Response, id: string, ip: 
     throw badRequest('VALUE_NOT_IN_HISTORY');
   }
   void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, productId: id, details: { changes: result.changes } });
+  logUnitSlots(req, ip, id, result.unitSlotChanges);
   res.json({ data: result.product });
 }
 

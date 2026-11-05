@@ -1,3 +1,4 @@
+import type { ItemSlotView } from '@shared/product';
 import { z } from 'zod';
 import {
   ALERT_STATUSES, CATEGORY_VALUES, CURVE_SHAPES,
@@ -96,9 +97,8 @@ export interface InventoryItem {
 
   // Cellar
   cellarId?: string | null;
-  // Grid slot assignment (FEAT-68)
-  slotColumn?: number | null;
-  slotRow?: number | null;
+  // FEAT-93: the cells of the cellar plan its copies occupy (live ones).
+  slots?: ItemSlotView[];
 
   // Cross-cutting
   isOpened: boolean;

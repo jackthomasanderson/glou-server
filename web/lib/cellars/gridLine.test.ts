@@ -9,7 +9,7 @@ let t: Awaited<ReturnType<typeof frenchT>>;
 beforeAll(async () => { t = await frenchT(); });
 
 const robusto = (over: Partial<GridItem>): GridItem => ({
-  id: 'r', name: 'ZZ Recette Robusto', producer: 'P', category: 'cigar', slotColumn: null, slotRow: null,
+  id: 'r', productId: 'p', name: 'ZZ Recette Robusto', producer: 'P', category: 'cigar', color: null, vintage: null, slots: [], unplaced: 1,
   quantity: 1, units: 25, isOpened: false, cigarsPerBox: 25, cigarsLeft: null, purchasePrice: 200, purchasedAt: '2026-11-03', ...over,
 });
 
@@ -29,9 +29,18 @@ describe('gridLineParts', () => {
   });
 });
 
+// FEAT-93: what one cell holds — a cell per bottle and per box, one for a group of single cigars.
 describe('slotUnits', () => {
-  it('a box of 25 counts its 25 cigars; without units, the number of copies', () => {
-    expect(slotUnits(robusto({}))).toBe(25);
-    expect(slotUnits(robusto({ units: undefined, quantity: 4 }))).toBe(4);
+  it('a closed box counts its cigars, an opened one the cigars left', () => {
+    expect(slotUnits(robusto({ quantity: 3, units: 75 }))).toBe(25);
+    expect(slotUnits(robusto({ isOpened: true, cigarsLeft: 23, units: 23 }))).toBe(23);
+  });
+
+  it('a group of single cigars shares one cell: all its cigars', () => {
+    expect(slotUnits(robusto({ cigarsPerBox: null, quantity: 4, units: 4 }))).toBe(4);
+  });
+
+  it('a bottle is one, whatever the size of its group', () => {
+    expect(slotUnits(robusto({ category: 'wine', cigarsPerBox: null, quantity: 6, units: 6 }))).toBe(1);
   });
 });

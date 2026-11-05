@@ -61,16 +61,26 @@ export const updateCellarSchema = cellarFields
 export type CreateCellarInput = z.infer<typeof createCellarSchema>;
 export type UpdateCellarInput = z.infer<typeof updateCellarSchema>;
 
-// ISSUE_037: the client only ever names the two bottles being swapped — the
-// slots they end up in are read back from their own current positions
-// server-side (see CellarService.swapSlots), so a stale or spoofed
-// coordinate in the request body can't desynchronise the grid.
+// ISSUE_037: the client only ever names the two slots being swapped — the
+// cells they end up in are read back from their own current positions
+// server-side (see slotService.swap), so a stale or spoofed
+// coordinate in the request body can't desynchronise the grid. FEAT-93: by
+// slot (a unit may hold several cells), no longer by unit.
 export const swapSlotsSchema = z.object({
-  itemAId: z.string().guid(),
-  itemBId: z.string().guid(),
-}).refine((data) => data.itemAId !== data.itemBId, {
-  message: 'itemAId and itemBId must be different items',
-  path: ['itemBId'],
+  slotAId: z.string().guid(),
+  slotBId: z.string().guid(),
+}).refine((data) => data.slotAId !== data.slotBId, {
+  message: 'slotAId and slotBId must be different slots',
+  path: ['slotBId'],
 });
 
+// FEAT-93: a cell of the grid, 1-based, within the API's bounds (the
+// database's `item_slots_cell_range`); the cellar's own size is checked by
+// the service.
+export const slotCellSchema = z.object({
+  column: z.number().int().min(1).max(100),
+  row: z.number().int().min(1).max(100),
+}).strict();
+
+export type SlotCellInput = z.infer<typeof slotCellSchema>;
 export type SwapSlotsInput = z.infer<typeof swapSlotsSchema>;

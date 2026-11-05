@@ -293,9 +293,9 @@ export const inventoryPatchObject = z.object({
   recommendedHumidity: z.number().min(50).max(100).optional().nullable(),
   humidificationSystem: z.string().max(200).optional().nullable(),
   cellarId: z.preprocess(v => (v === 'none' || v === '') ? null : v, z.string().optional().nullable()),
-  // Grid slot assignment (FEAT-68)
-  slotColumn: z.number().int().min(1).max(100).optional().nullable(),
-  slotRow: z.number().int().min(1).max(100).optional().nullable(),
+  // FEAT-93: the cells of the cellar plan are no column of the unit any more
+  // (POST /api/inventory/:id/slots, PATCH/DELETE /api/slots/:slotId); an
+  // older client's `slotColumn`/`slotRow` is stripped like any unknown key.
   // ─── Offline sync optimistic concurrency (FEAT-16/23) ──────────────────────
   // Set by the web app's offline sync queue and bottle edit form (#572): the
   // `updatedAt` of the item AS KNOWN when the change was made. Opt-in — if

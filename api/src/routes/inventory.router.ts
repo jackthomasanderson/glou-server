@@ -7,6 +7,7 @@ import { distinctFromSchema } from '../schemas/product.schema';
 import { inventoryService } from '../services/inventory.service';
 import { inventoryExportService } from '../services/inventory-export.service';
 import { scanService } from '../services/scan.service';
+import type { UnitSlotChanges } from '../services/product.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { systemConfigService } from '../services/system-config.service';
@@ -140,8 +141,13 @@ router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const { ids, patch: validatedPatch } = bulkUpdateSchema.parse(req.body);
-    const count = await inventoryService.bulkUpdate(req.userId, ids, validatedPatch);
+    const slotChanges: UnitSlotChanges[] = [];
+    const count = await inventoryService.bulkUpdate(req.userId, ids, validatedPatch, slotChanges);
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, details: { count, bulk: true } });
+    // FEAT-93: each bottle that gave up cells says which, in its own history.
+    for (const { itemId, changes } of slotChanges) {
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: itemId, details: { changes, bulk: true } });
+    }
     res.json({ data: { updatedCount: count } });
   } catch (error) {
     if (error instanceof AppError) {
@@ -224,11 +230,6 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
       return;
     }
-    if (result.slotConflict) {
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, productId: result.item.productId, details: { reason: 'SLOT_OCCUPIED' } });
-      res.status(409).json({ error: 'SLOT_OCCUPIED' });
-      return;
-    }
     // #471 (D8): a detach or a reattach is logged on the unit that now
     // carries the state — the sub-record created, or the group that absorbed
     // the sub-record (which no longer exists).
@@ -243,8 +244,11 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId, details });
     // The group's own history: one copy fewer (detached) or one more (reattached).
     if (result.groupChange) {
-      const { itemId, from, to } = result.groupChange;
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: itemId, productId: result.item.productId, details: { changes: [{ field: 'quantity', from, to }], outcome: result.outcome, subItemId: result.outcome === 'detached' ? result.item.id : id } });
+      const { itemId, from, to, slotChanges = [] } = result.groupChange;
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: itemId, productId: result.item.productId, details: { changes: [{ field: 'quantity', from, to }, ...slotChanges], outcome: result.outcome, subItemId: result.outcome === 'detached' ? result.item.id : id } });
+    }
+    for (const unit of result.unitSlotChanges ?? []) {
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: unit.itemId, productId: result.item.productId, details: { changes: unit.changes } });
     }
     const response: UnitWriteResult<typeof result.item> = { data: result.item, changed: result.changed, removedIds: result.removedIds };
     res.json(response);
@@ -330,11 +334,6 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
     if (result.status === 'invalid_value') {
       void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, bottleId: id, details: { field } });
       res.status(400).json({ error: 'VALUE_NOT_IN_HISTORY' });
-      return;
-    }
-    if (result.status === 'slot_conflict') {
-      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'error', ip, bottleId: id, details: { field, reason: 'SLOT_OCCUPIED' } });
-      res.status(409).json({ error: 'SLOT_OCCUPIED' });
       return;
     }
 

@@ -3,8 +3,12 @@ import { v4 as uuidv4 } from 'uuid';
 import type { PrismaClientOrTx } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import {
-  FINISHED_ITEM_STATE, NO_SLOT, groupKey, isFinishedState, isGroupableItem, isIntactItem, unitKind, type UnitKind,
+  FINISHED_ITEM_STATE, groupKey, isFinishedState, isGroupableItem, isIntactItem, unitKind, type UnitKind,
 } from '../lib/finished-item';
+import {
+  fitSlotsTo, freeSlots, liveSlotsOf, moveSlots, pickSlots, slotsFreed, slotsPlaced, type SlotChange,
+} from '../lib/slots';
+import { slotCapacity } from '../../../shared/units';
 import { lockFamily } from '../lib/product-fields';
 import { followDetach, moveCountEntry } from '../lib/count-entries';
 import { moveHistoryOnto } from '../lib/audit-history';
@@ -16,8 +20,14 @@ import { TASTINGS_ON_ITEM } from '../../../shared/product';
 // - Detach: an individual state (opened, a level, finished, a smoked cigar)
 //   written on a group of more than one takes one copy off the group and
 //   puts the state on a new sub-record (`parentItemId` = the group), in the
-//   same transaction. The grid slot stays with the group. A group of one
-//   takes the state itself.
+//   same transaction. A group of one takes the state itself.
+// - Slots (FEAT-93): the copy taken off a group comes from an unplaced copy
+//   first, else from the cell placed most recently (decision #471 point 75,
+//   the automatic rule until the explicit choice of lot S2): the opened
+//   sub-record takes that cell, a finished one frees it. A group of single
+//   cigars keeps its one cell until its last cigar. A unit finished or
+//   written off frees its cells; a unit changing cellar frees them first
+//   (they mean nothing in the other cellar).
 // - Reattach: a sub-record put back intact (closed and full) goes back into
 //   its group of origin if that group still exists, out of the trash, and is
 //   still the same group (`groupKey`, D5); otherwise it becomes a group of
@@ -76,8 +86,11 @@ export interface ApplyStateResult<R> {
   outcome: StateOutcome;
   /** The state written on the unit carrying it. */
   state: Pick<StateItem, StateField>;
-  /** The unit gave its grid slot back (it is finished). */
-  releasedSlot: boolean;
+  /**
+   * FEAT-93: what happened to the cells of the unit answered (`data`), for its
+   * history: cells freed, or the cell an opened copy took from its group.
+   */
+  slotChanges: SlotChange[];
   /** The unit that now carries the requested state: the sub-record, the unit itself, or the group that absorbed it. */
   data: R;
   /** The other units written (the group a copy was taken from). */
@@ -85,14 +98,16 @@ export interface ApplyStateResult<R> {
   /** The units deleted (a sub-record absorbed by its group). */
   removedIds: string[];
   /** The group whose count this write moved (−1 on a detach, +1 on a reattach), for its history. */
-  groupChange?: { itemId: string; from: number; to: number };
+  groupChange?: {
+    itemId: string; from: number; to: number;
+    /** FEAT-93: the cells the group gave up on a detach (freed, or taken by the opened copy), for its history. */
+    slotChanges?: SlotChange[];
+  };
   /** Tastings deleted by a reattach answered `keepTastings: false`, for the history. */
   deletedTastings?: number;
 }
 
 const stateError = (status: number, code: string, details?: unknown) => new AppError(status, code, { details });
-
-const hasSlot = (item: Pick<StateItem, 'slotColumn' | 'slotRow'>) => item.slotColumn != null && item.slotRow != null;
 
 /**
  * The unit once `write` is applied, and what that means — pure, so every
@@ -138,8 +153,6 @@ export function planState(item: StateItem, write: StateWrite, kind: UnitKind, no
     throw stateError(400, 'INDIVIDUAL_STATE_ON_GROUP');
   }
 
-  // A finished unit gives its grid slot back (#573) — a detached one has none.
-  if (isFinishedState(next) && outcome !== 'detached') Object.assign(next, NO_SLOT);
   return { outcome, next };
 }
 
@@ -204,8 +217,11 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   const stamp = { updatedAt: now, updatedBy: userId };
   const { outcome, next } = planState(item, write, context.kind, now);
   const state = Object.fromEntries(STATE_FIELDS.map((field) => [field, next[field]])) as Pick<StateItem, StateField>;
-  const releasedSlot = outcome !== 'detached' && isFinishedState(next) && hasSlot(item);
-  const done = { state, releasedSlot };
+  const slotChanges: SlotChange[] = [];
+  const done = { state, slotChanges };
+  // The composite key keeps a slot in its unit's cellar: a unit changing
+  // cellar gives its cells back before the cellar is written (#798).
+  if (next.cellarId !== item.cellarId) slotChanges.push(...slotsFreed(await freeSlots(tx, item.id)));
   const own = (row: StateItem) => Object.fromEntries(
     Object.entries(row).filter(([field]) => !NOT_INHERITED.has(field)),
   );
@@ -214,11 +230,6 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     const { quantity: _q, ...unit } = Object.fromEntries(
       Object.entries(write.unit ?? {}).filter(([field]) => !isStateField(field)),
     );
-    const group = await tx.inventoryItem.update({
-      where: { id: item.id },
-      data: { ...unit, quantity: (next.quantity ?? 1) - 1, ...stamp } as never,
-      include,
-    });
     const subId = uuidv4();
     const sub = {
       ...own(next),
@@ -229,18 +240,38 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
       parentItemId: item.id,
       needsReview: false,
       writtenOffAt: null,
-      ...NO_SLOT,
     };
     await tx.inventoryItem.create({ data: writable(sub) as never });
-    const created = await tx.inventoryItem.findUniqueOrThrow({ where: { id: subId }, include });
     const from = next.quantity ?? 1;
+    // Cells freed so far were the group's (a cellar change).
+    const groupSlots = slotChanges.splice(0);
+    // The copy comes from an unplaced one, else from the most recent cell:
+    // opened, it takes that cell; finished, it frees it. Single cigars share
+    // the group's one cell, which stays with the group.
+    const single = context.kind === 'cigar' && item.cigarsPerBox == null;
+    const slots = single ? [] : await liveSlotsOf(tx, item.id);
+    const [taken] = pickSlots(slots, from - slots.length, 1);
+    if (taken) {
+      if (isFinishedState(next)) await freeSlots(tx, item.id, [taken.id]);
+      else await moveSlots(tx, [taken.id], subId);
+      groupSlots.push(...slotsFreed([taken]));
+    }
+    // Written once its cells are settled: the row answered carries them.
+    const group = await tx.inventoryItem.update({
+      where: { id: item.id },
+      data: { ...unit, quantity: (next.quantity ?? 1) - 1, ...stamp } as never,
+      include,
+    });
+    const created = await tx.inventoryItem.findUniqueOrThrow({ where: { id: subId }, include });
     // A count in progress follows the copy that left (FEAT-100).
     await followDetach(tx, item.id, from - 1, {
       id: subId, cellarId: (created as { cellarId: string | null }).cellarId, finished: isFinishedState(next),
     });
+    // The opened copy now holds the cell it was taken from.
+    if (taken && !isFinishedState(next)) slotChanges.push(...slotsPlaced([taken]));
     return {
       outcome, ...done, data: created as R, changed: [group as R], removedIds: [],
-      groupChange: { itemId: item.id, from, to: from - 1 },
+      groupChange: { itemId: item.id, from, to: from - 1, ...(groupSlots.length > 0 ? { slotChanges: groupSlots } : {}) },
     };
   }
 
@@ -250,7 +281,7 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
       && parent.productId === item.productId
       && isGroupableItem(parent)
       && groupKey(parent, context.kind) === groupKey(next, context.kind)
-      && !(hasSlot(next) && hasSlot(parent));
+      && await slotsJoin(tx, item.id, parent.id, context.kind, next);
     if (fits) return { ...(await absorb<I, R>(tx, item, next, parent, write.keepTastings, { include, stamp })), ...done };
     const regrouped = await tx.inventoryItem.update({
       where: { id: item.id },
@@ -260,12 +291,28 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     return { outcome: 'regrouped', ...done, data: regrouped as R, changed: [], removedIds: [] };
   }
 
+  // A finished or written-off unit frees its cells (#573); a count lowered
+  // frees the most recent ones (automatic rule until lot S2). Before the
+  // write, so the row answered carries the cells it keeps.
+  slotChanges.push(...slotsFreed(await fitSlotsTo(tx, item.id, next, context.kind)));
   const updated = await tx.inventoryItem.update({
     where: { id: item.id },
     data: { ...writable(changedColumns(item, next)), ...(outcome === 'regrouped' ? { parentItemId: null } : {}), ...stamp } as never,
     include,
   });
   return { outcome, ...done, data: updated as R, changed: [], removedIds: [] };
+}
+
+/**
+ * Whether a sub-record's cells can join its group's: always, except two
+ * cells for a group of single cigars (one cell for the whole group).
+ */
+async function slotsJoin(
+  tx: PrismaClientOrTx, itemId: string, parentId: string, kind: UnitKind, next: StateItem,
+): Promise<boolean> {
+  if (slotCapacity({ ...next, quantity: 2 }, kind) > 1) return true;
+  const [mine, theirs] = await Promise.all([liveSlotsOf(tx, itemId), liveSlotsOf(tx, parentId)]);
+  return mine.length === 0 || theirs.length === 0;
 }
 
 /** Written by the service itself (locks, sources), not fields a member asked to change. */
@@ -292,7 +339,7 @@ async function absorb<I extends Prisma.InventoryItemInclude, R>(
   parent: StateItem,
   keepTastings: boolean | undefined,
   { include, stamp }: { include: I; stamp: { updatedAt: Date; updatedBy: string } },
-): Promise<Omit<ApplyStateResult<R>, 'state' | 'releasedSlot'>> {
+): Promise<Omit<ApplyStateResult<R>, 'state' | 'slotChanges'>> {
   // The sub-record disappears: another field written with it would be lost.
   // Refused rather than applied to the whole group (one bottle's location or
   // value is not every bottle's).
@@ -321,13 +368,14 @@ async function absorb<I extends Prisma.InventoryItemInclude, R>(
     await moveCountEntry(tx, entry, entry.foundQuantity ?? (item.quantity ?? 1), { id: parent.id, quantityBefore: parent.quantity ?? 1 });
   }
 
-  // Deleted first: its grid slot, if any, then goes to the group (which has none).
+  // Its cells go back to the group (same cellar: same groupKey) before it is
+  // deleted, which would take them with it.
+  await moveSlots(tx, (await liveSlotsOf(tx, item.id)).map((slot) => slot.id), parent.id);
   await tx.inventoryItem.delete({ where: { id: item.id } });
   const group = await tx.inventoryItem.update({
     where: { id: parent.id },
     data: {
       quantity: (parent.quantity ?? 1) + (next.quantity ?? 1),
-      ...(hasSlot(next) ? { slotColumn: next.slotColumn, slotRow: next.slotRow } : {}),
       ...stamp,
     } as never,
     include,
@@ -345,13 +393,14 @@ async function absorb<I extends Prisma.InventoryItemInclude, R>(
  * through the detach rule: a group of six with three missing leaves a group
  * of three and three finished bottles. Locks the family itself (an entry
  * point of its own: rotating inventory, consumption). Returns the ids of
- * the finished units.
+ * the finished units; the cells the group gave up (automatic rule, decision
+ * #471 point 75) are added to `context.slotChanges`, for its history.
  */
 export async function finishUnits(
   tx: PrismaClientOrTx,
   itemId: string,
   count: number,
-  context: { userId: string; now?: Date },
+  context: { userId: string; now?: Date; slotChanges?: SlotChange[] },
 ): Promise<string[]> {
   const first = await tx.inventoryItem.findFirst({ where: { id: itemId, deletedAt: null }, select: { productId: true } });
   if (!first) return [];
@@ -366,6 +415,8 @@ export async function finishUnits(
       { userId: context.userId, kind: unitKind(product.category), include: { product: { select: { category: true } } }, now: context.now },
     );
     finished.push(result.data.id);
+    // The cells freed: the group's on a detach, the unit's own when it is the last copy.
+    context.slotChanges?.push(...(result.groupChange?.slotChanges ?? []), ...result.slotChanges);
   }
   return finished;
 }

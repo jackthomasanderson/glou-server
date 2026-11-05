@@ -38,11 +38,11 @@ describe('patch schemas never reintroduce create-time defaults', () => {
 describe('zod 4 migration keeps the v3 contract', () => {
   it('ids are checked as GUIDs, not as strict RFC UUIDs', () => {
     const res = swapSlotsSchema.safeParse({
-      itemAId: '11111111-1111-1111-1111-111111111111',
-      itemBId: '22222222-2222-2222-2222-222222222222',
+      slotAId: '11111111-1111-1111-1111-111111111111',
+      slotBId: '22222222-2222-2222-2222-222222222222',
     });
     expect(res.success).toBe(true);
-    expect(swapSlotsSchema.safeParse({ itemAId: 'not-an-id', itemBId: 'x' }).success).toBe(false);
+    expect(swapSlotsSchema.safeParse({ slotAId: 'not-an-id', slotBId: 'x' }).success).toBe(false);
   });
 
   it('CSV import reports its own codes for unreadable numbers and categories', () => {

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import {
-  groupKey, isGroupableItem, isIntactItem, itemSpend, itemUnits, itemValue, productKey, summarizeStock, unitKind,
+  groupKey, isGroupableItem, isIntactItem, itemSpend, itemUnits, itemValue, productKey, slotCapacity, summarizeStock, unitKind,
   type GroupKeyFields, type ProductKeyFields, type UnitKind,
 } from '../../../shared/units';
 
@@ -74,5 +74,27 @@ describe('unitKind', () => {
   it('counts cigars in cigars and everything else in bottles', () => {
     expect(unitKind('cigar')).toBe('cigar');
     expect(['wine', 'sparkling', 'spirit'].map((c) => unitKind(c as 'wine'))).toEqual(['bottle', 'bottle', 'bottle']);
+  });
+});
+
+// FEAT-93: the cells of the plan a unit may hold (and the database guard's rule).
+describe('slotCapacity (FEAT-93)', () => {
+  const base = { quantity: 6, isOpened: false, fillLevel: null, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null };
+
+  it('one cell per bottle or box of a group, one for an opened sub-record', () => {
+    expect(slotCapacity(base, 'bottle')).toBe(6);
+    expect(slotCapacity({ ...base, quantity: 3, cigarsPerBox: 25 }, 'cigar')).toBe(3);
+    expect(slotCapacity({ ...base, quantity: 1, isOpened: true, fillLevel: 40 }, 'bottle')).toBe(1);
+    expect(slotCapacity({ ...base, quantity: 1, isOpened: true, cigarsPerBox: 25, cigarsLeft: 10 }, 'cigar')).toBe(1);
+  });
+
+  it('one cell for a whole group of single cigars (decision #471 point 48)', () => {
+    expect(slotCapacity({ ...base, quantity: 10 }, 'cigar')).toBe(1);
+  });
+
+  it('none once finished, written off or in the trash', () => {
+    expect(slotCapacity({ ...base, quantity: 1, isOpened: true, fillLevel: 0 }, 'bottle')).toBe(0);
+    expect(slotCapacity({ ...base, writtenOffAt: new Date() }, 'bottle')).toBe(0);
+    expect(slotCapacity({ ...base, deletedAt: new Date() }, 'bottle')).toBe(0);
   });
 });

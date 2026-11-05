@@ -30,8 +30,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { GridItem, CellarGridData } from '@/lib/cellars/types';
-import { useAssignSlot } from '@/hooks/useCellars';
+import { GridItem, GridCell, CellarGridData } from '@/lib/cellars/types';
+import { useAssignSlot, useRemoveSlot } from '@/hooks/useCellars';
 import { client } from '@/lib/api';
 import { notifyError } from '@/lib/toast';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
@@ -82,8 +82,9 @@ const ZONE_BG: Record<ZoneType, string> = {
 };
 
 /**
- * "×4" on a slot that holds a group of several bottles (#471, FEAT-96), "×25"
- * on a box of 25 cigars (recette #471, KO 13.2); nothing for one.
+ * "×25" on a box of 25 cigars (recette #471, KO 13.2), every cigar on the one
+ * cell of a group of single cigars; nothing for a bottle (FEAT-93: each
+ * bottle of a group has its own cell).
  */
 function CopiesBadge({ item }: { item: GridItem }) {
   const { t } = useTranslation();
@@ -128,23 +129,24 @@ function BottleVisual({ item }: BottleVisualProps) {
 // ─── Draggable bottle ─────────────────────────────────────────────────────────
 
 interface DraggableBottleProps {
-  item: GridItem;
+  item: GridCell;
   fromCol: number;
   fromRow: number;
   zone: ZoneType;
-  onClickOccupied: (item: GridItem) => void;
+  onClickOccupied: (item: GridCell) => void;
 }
 
 function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: DraggableBottleProps) {
   const { t, i18n } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `bottle-${item.id}`,
+    // One draggable per cell (FEAT-93: a line may hold several).
+    id: `bottle-${item.slotId}`,
     data: { item, fromCol, fromRow },
   });
 
   const copies = slotUnits(item);
   // Recette #471 (KO 13.2): which line is on the slot (a closed box, an opened one…).
-  const line = item.isOpened !== undefined ? gridLineParts(item, t, i18n?.language) : [];
+  const line = gridLineParts(item, t, i18n?.language);
   const tooltipContent = [item.name, item.producer, item.vintage, ...(line.length > 0 ? line : [copies > 1 ? t('cellars.grid.copies', { number: copies }) : null])]
     .filter(Boolean).join(' · ');
 
@@ -198,9 +200,9 @@ interface DroppableSlotProps {
   col: number;
   row: number;
   zone: ZoneType;
-  item: GridItem | null;
+  item: GridCell | null;
   onClickEmpty: () => void;
-  onClickOccupied: (item: GridItem) => void;
+  onClickOccupied: (item: GridCell) => void;
   wording: GridWording;
 }
 
@@ -261,7 +263,7 @@ function GridLegend({ items }: { items: GridItem[] }) {
   const present = useMemo(() => {
     const keys = new Set<string>();
     items.forEach((item) => {
-      if (item.slotColumn != null) {
+      if (item.slots.length > 0) {
         const key = item.category === 'wine' ? `wine:${item.color ?? ''}` : item.category;
         keys.add(key);
       }
@@ -314,7 +316,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
   const handleAssign = async (itemId: string) => {
     setError(null);
     try {
-      await assignSlot.mutateAsync({ itemId, slotColumn: targetCol, slotRow: targetRow });
+      await assignSlot.mutateAsync({ itemId, column: targetCol, row: targetRow });
       onClose();
     } catch (err) {
       setError(err instanceof Error && err.message === 'SLOT_OCCUPIED' ? t('cellars.grid.slotOccupied') : t('status.error'));
@@ -356,11 +358,9 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
                       {[item.producer, item.vintage].filter(Boolean).join(' · ')}
                     </div>
                     {/* Recette #471 (KO 13.2): two lines of the same wine read apart. */}
-                    {item.isOpened !== undefined && (
-                      <div className="text-xs text-foreground-500" data-testid="assign-line">
-                        {gridLineParts(item, t, i18n?.language).join(' · ')}
-                      </div>
-                    )}
+                    <div className="text-xs text-foreground-500" data-testid="assign-line">
+                      {gridLineParts(item, t, i18n?.language).join(' · ')}
+                    </div>
                   </div>
                   {assignSlot.isPending && (
                     <span role="status" aria-live="polite"><CircularProgress size="sm" aria-label={t('status.loading')} /></span>
@@ -384,21 +384,21 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
 
 interface OccupiedDialogProps {
   open: boolean;
-  item: GridItem | null;
+  item: GridCell | null;
   cellarId: string;
   onClose: () => void;
 }
 
 function OccupiedDialog({ open, item, cellarId, onClose }: OccupiedDialogProps) {
   const { t } = useTranslation();
-  const assignSlot = useAssignSlot(cellarId);
+  const removeSlot = useRemoveSlot(cellarId);
   const [error, setError] = useState<string | null>(null);
 
   const handleRemove = async () => {
     if (!item) return;
     setError(null);
     try {
-      await assignSlot.mutateAsync({ itemId: item.id, slotColumn: null, slotRow: null });
+      await removeSlot.mutateAsync({ slotId: item.slotId });
       onClose();
     } catch {
       setError(t('status.error'));
@@ -436,7 +436,7 @@ function OccupiedDialog({ open, item, cellarId, onClose }: OccupiedDialogProps) 
             color="warning"
             variant="flat"
             onPress={handleRemove}
-            isDisabled={assignSlot.isPending}
+            isDisabled={removeSlot.isPending}
           >
             {t('cellars.grid.removeFromSlot')}
           </Button>
@@ -496,20 +496,19 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   }
 
   const [assignTarget, setAssignTarget] = useState<{ col: number; row: number } | null>(null);
-  const [occupiedTarget, setOccupiedTarget] = useState<GridItem | null>(null);
-  const [activeDrag, setActiveDrag] = useState<{ item: GridItem; fromCol: number; fromRow: number } | null>(null);
+  const [occupiedTarget, setOccupiedTarget] = useState<GridCell | null>(null);
+  const [activeDrag, setActiveDrag] = useState<{ item: GridCell; fromCol: number; fromRow: number } | null>(null);
 
   const cols = cellar.columns ?? 0;
   const rows = cellar.rows ?? 0;
   const hotZoneRows = cellar.hotZoneRows ?? 0;
   const coldZoneRows = cellar.coldZoneRows ?? 0;
 
+  // FEAT-93: one cell per slot of each line.
   const slotMap = useMemo(() => {
-    const map = new Map<string, GridItem>();
+    const map = new Map<string, GridCell>();
     localItems.forEach((item) => {
-      if (item.slotColumn != null && item.slotRow != null) {
-        map.set(`${item.slotColumn}:${item.slotRow}`, item);
-      }
+      item.slots.forEach((slot) => map.set(`${slot.column}:${slot.row}`, { ...item, slotId: slot.id }));
     });
     return map;
   }, [localItems]);
@@ -520,8 +519,9 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
 
   const wording = useMemo(() => gridWording(cellar.type, localItems), [cellar.type, localItems]);
 
+  // FEAT-93: the lines with a copy still unplaced.
   const unassignedItems = useMemo(
-    () => localItems.filter((item) => item.slotColumn == null || item.slotRow == null),
+    () => localItems.filter((item) => item.unplaced > 0),
     [localItems]
   );
 
@@ -554,7 +554,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   const announcements = useMemo(() => dragAnnouncements(t), [t]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const { item, fromCol, fromRow } = event.active.data.current as { item: GridItem; fromCol: number; fromRow: number };
+    const { item, fromCol, fromRow } = event.active.data.current as { item: GridCell; fromCol: number; fromRow: number };
     setActiveDrag({ item, fromCol, fromRow });
   }, []);
 
@@ -563,22 +563,23 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
     const { active, over } = event;
     if (!over) return;
 
-    const { item: draggedItem, fromCol, fromRow } = active.data.current as { item: GridItem; fromCol: number; fromRow: number };
-    const { col: toCol, row: toRow, item: targetItem } = over.data.current as { col: number; row: number; item: GridItem | null };
+    const { item: draggedItem, fromCol, fromRow } = active.data.current as { item: GridCell; fromCol: number; fromRow: number };
+    const { col: toCol, row: toRow, item: targetItem } = over.data.current as { col: number; row: number; item: GridCell | null };
 
     if (fromCol === toCol && fromRow === toRow) return;
 
     const prevItems = [...localItems];
+    // FEAT-93: a cell moves by its slot; the other copies of the line stay where they are.
+    const moveSlot = (lines: GridItem[], slotId: string, column: number, row: number) => lines.map((it) => ({
+      ...it,
+      slots: it.slots.map((slot) => (slot.id === slotId ? { ...slot, column, row } : slot)),
+    }));
 
     if (!targetItem) {
       // ── Move to empty slot ──────────────────────────────────────────────
-      setLocalItems((prev) =>
-        prev.map((it) =>
-          it.id === draggedItem.id ? { ...it, slotColumn: toCol, slotRow: toRow } : it
-        )
-      );
+      setLocalItems((prev) => moveSlot(prev, draggedItem.slotId, toCol, toRow));
       try {
-        await client.patch(`/inventory/${draggedItem.id}`, { slotColumn: toCol, slotRow: toRow });
+        await client.patch(`/slots/${draggedItem.slotId}`, { column: toCol, row: toRow });
         invalidateGrid();
       } catch {
         setLocalItems(prevItems);
@@ -593,16 +594,12 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
       // failure triggers a real refetch (not just a local revert) plus an
       // error toast, so the screen can never again disagree with the server.
       setLocalItems((prev) =>
-        prev.map((it) => {
-          if (it.id === draggedItem.id) return { ...it, slotColumn: toCol, slotRow: toRow };
-          if (it.id === targetItem.id) return { ...it, slotColumn: fromCol, slotRow: fromRow };
-          return it;
-        })
+        moveSlot(moveSlot(prev, draggedItem.slotId, toCol, toRow), targetItem.slotId, fromCol, fromRow)
       );
       try {
         await client.post(`/cellars/${cellar.id}/swap-slots`, {
-          itemAId: draggedItem.id,
-          itemBId: targetItem.id,
+          slotAId: draggedItem.slotId,
+          slotBId: targetItem.slotId,
         });
         invalidateGrid();
       } catch {

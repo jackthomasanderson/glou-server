@@ -100,7 +100,14 @@ describe('authService.exportUserData (#224)', () => {
   it('exports each bottle with its family (the description of the wine)', async () => {
     await authService.exportUserData('u1');
     const args = findUser.mock.calls[0][0] as { include: { inventory: Record<string, unknown> } };
-    expect(args.include.inventory).toEqual({ where: { deletedAt: null }, include: { product: true } });
+    // FEAT-93: and the cells of the plan its copies occupy.
+    expect(args.include.inventory).toEqual({
+      where: { deletedAt: null },
+      include: {
+        product: true,
+        slots: { where: { deletedAt: null }, select: { id: true, column: true, row: true }, orderBy: [{ row: 'asc' }, { column: 'asc' }] },
+      },
+    });
   });
 
   it('does not cap the activity log', async () => {

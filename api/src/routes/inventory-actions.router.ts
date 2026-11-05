@@ -6,6 +6,8 @@ import { stockService } from '../services/stock.service';
 import { stockSplitService, type SplitOutcome } from '../services/stock-split.service';
 import { bulkStockService, type BulkOutcome } from '../services/bulk-stock.service';
 import { inventoryService } from '../services/inventory.service';
+import { slotService, type SlotWrite } from '../services/slot.service';
+import { slotCellSchema } from '../schemas/cellar.schema';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
@@ -116,6 +118,33 @@ router.post('/products/bulk-trash', authMiddleware, async (req: Request, res: Re
 // POST /api/products/bulk-drink — "Marquer comme bus": how many of each wine selected (point 42).
 router.post('/products/bulk-drink', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   answerBulk(req, res, await bulkStockService.drink(req.userId, bulkDrinkSchema.parse(req.body)));
+});
+
+/**
+ * FEAT-93: answers a gesture of the cellar plan and records it in the unit's
+ * history (`field: 'slot'`, the cell before and after).
+ */
+function answerSlot(req: Request, res: Response, write: SlotWrite, status = 200): void {
+  void auditLog({
+    userId: req.userId, action: 'UPDATE', status: 'success', ip: getClientIp(req),
+    bottleId: write.itemId, productId: write.productId, details: { changes: [write.change] },
+  });
+  res.status(status).json({ data: { itemId: write.itemId, slot: write.slot } });
+}
+
+// POST /api/inventory/:id/slots — FEAT-93: one more copy of the line in a cell of the plan.
+router.post('/inventory/:id/slots', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  answerSlot(req, res, await slotService.place(routeParam(req.params.id), slotCellSchema.parse(req.body)), 201);
+});
+
+// PATCH /api/slots/:slotId — FEAT-93: the copy moves to another cell of the same cellar.
+router.patch('/slots/:slotId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  answerSlot(req, res, await slotService.move(routeParam(req.params.slotId), slotCellSchema.parse(req.body)));
+});
+
+// DELETE /api/slots/:slotId — FEAT-93: the copy leaves its cell, unplaced.
+router.delete('/slots/:slotId', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  answerSlot(req, res, await slotService.remove(routeParam(req.params.slotId)));
 });
 
 export { router as inventoryActionsRouter };

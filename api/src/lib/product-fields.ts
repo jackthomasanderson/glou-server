@@ -201,6 +201,18 @@ export function nextLocksAndSources(
   return result;
 }
 
+/**
+ * FEAT-93: the live cells of a unit, as every read feeding {@link toUnitView}
+ * or {@link toItemView} includes them (`include: { slots: UNIT_SLOTS_INCLUDE }`
+ * or `...UNIT_SLOTS`), by row then column.
+ */
+export const UNIT_SLOTS_INCLUDE = {
+  where: { deletedAt: null },
+  select: { id: true, column: true, row: true },
+  orderBy: [{ row: 'asc' }, { column: 'asc' }],
+} as const satisfies Prisma.InventoryItem$slotsArgs;
+export const UNIT_SLOTS = { slots: UNIT_SLOTS_INCLUDE } as const;
+
 /** What {@link toUnitView} reads: a unit row, money columns as numbers or Decimals. */
 export type UnitRow = Omit<ItemView, 'purchasedAt' | 'fieldSources' | 'purchasePrice' | 'estimatedValue'> & {
   purchasedAt: Date | null;
@@ -211,7 +223,7 @@ export type UnitRow = Omit<ItemView, 'purchasedAt' | 'fieldSources' | 'purchaseP
 
 /** The unit's own columns, exactly the {@link ItemView} contract (D9): no description, no locks. */
 const ITEM_VIEW_FIELDS = [
-  'id', 'productId', 'userId', 'updatedBy', 'cellarId', 'slotColumn', 'slotRow', 'location',
+  'id', 'productId', 'userId', 'updatedBy', 'cellarId', 'slots', 'location',
   'purchasePlace', 'bottleSize', 'quantity', 'cigarsPerBox', 'cigarsLeft', 'isOpened', 'fillLevel',
   'openedAt', 'parentItemId', 'writtenOffAt', 'needsReview', 'deletedAt', 'createdAt', 'updatedAt',
 ] as const satisfies readonly (keyof ItemView)[];
@@ -236,4 +248,10 @@ export function toUnitView(row: UnitRow): ItemView {
     purchasedAt: purchaseDayOf(row.purchasedAt),
     fieldSources: sources.length > 0 ? Object.fromEntries(sources) : null,
   };
+}
+
+/** A unit row as /api/products serves it, with its live cells read (FEAT-93). */
+export async function unitViewOf(client: PrismaClientOrTx, row: Omit<UnitRow, 'slots'>): Promise<ItemView> {
+  const slots = await client.itemSlot.findMany({ where: { itemId: row.id, ...UNIT_SLOTS_INCLUDE.where }, select: UNIT_SLOTS_INCLUDE.select, orderBy: [...UNIT_SLOTS_INCLUDE.orderBy] });
+  return toUnitView({ ...row, slots });
 }
