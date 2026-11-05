@@ -132,7 +132,7 @@ export function OpenedLevel({ item, t, onCommit, canPutBack = true }: {
           color={shown <= 20 ? 'danger' : 'warning'}
           className="flex-1"
         />
-        <span className="text-sm font-bold tabular-nums w-12 text-right">{shown} %</span>
+        <span className="text-sm font-bold tabular-nums w-12 text-right">{t('familyList.stock.level', { level: shown })}</span>
       </div>
       <div className="flex gap-2 mt-1">
         {PRESETS.filter(({ value }) => canPutBack || value < FULL).map(({ value, key }) => (

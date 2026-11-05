@@ -29,7 +29,8 @@ interface OpenedReminderDialogProps {
 /** "Entamée · Garage · ouverte le 3 oct. — 60 %", "Boîte entamée · 10 restants · Humidor". */
 function openedLabel(item: ProductItem, ctx: LineContext): string {
   const parts = lineParts(item, ctx).join(' · ');
-  return ctx.kind === 'bottle' && item.fillLevel != null ? `${parts} — ${item.fillLevel} %` : parts;
+  // The level through t(): French keeps "%" with its number (recette v3 of #471).
+  return ctx.kind === 'bottle' && item.fillLevel != null ? `${parts} — ${ctx.t('familyList.stock.level', { level: item.fillLevel })}` : parts;
 }
 
 /**
