@@ -149,11 +149,6 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       const restore = undoPatch(marker.before, item.cigarsPerBox ?? null);
       const options = { guard: (unit: StateItem) => { checkGuestUndo(share, entry, unit); } };
       result = await inventoryService.updateItem(share.userId, itemId, restore, options);
-      if (result && 'slotConflict' in result && result.slotConflict) {
-        // Its grid slot was taken meanwhile: the bottle still comes back, without a slot.
-        const { slotColumn: _column, slotRow: _row, ...unplaced } = restore as typeof restore & { slotColumn?: number; slotRow?: number };
-        result = await inventoryService.updateItem(share.userId, itemId, unplaced, options);
-      }
       undone = marker;
     } else {
       // #471 (FEAT-109): one copy opened, drunk or smoked, a level set — never
@@ -178,20 +173,13 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
       return;
     }
-    if (result.slotConflict) {
-      // Nothing was written (inventory.router answers the same): never logged as a success.
-      throw new AppError(409, 'SLOT_OCCUPIED');
-    }
-
     // A move (not a level set) can be undone for a moment (decision 68): what
     // it found, and the version of the unit it left. Awaited, so the
     // "Annuler" that follows the answer always finds it.
     const moved = before as StateItem | null;
-    const sameUnit = result.item.id === itemId;
     const marker: GuestUndoMarker | null = moved && isGuestMove(patch, moved)
       ? {
-        // The grid slot only when the unit gave it back itself (a line of one finished in place).
-        before: stateBefore(moved, sameUnit && result.item.slotColumn == null),
+        before: stateBefore(moved),
         stampedAt: new Date(result.item.updatedAt).toISOString(),
       }
       : null;

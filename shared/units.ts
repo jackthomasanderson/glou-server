@@ -54,6 +54,23 @@ function copiesInStock(item: UnitState): number {
 }
 
 /**
+ * FEAT-93: the cells of the cellar plan a unit may hold — one per copy in
+ * stock (bottle, box), 1 for an opened sub-record, 1 for a group of single
+ * cigars (one cell for the whole group, decision #471 point 48), 0 once
+ * finished, written off or in the trash. The database guard
+ * (`item_slots_violation`, migration 20261106120000_item_slots) applies the
+ * same rule at commit.
+ */
+export function slotCapacity(item: UnitState & { deletedAt?: DayValue }, kind: UnitKind): number {
+  if (item.deletedAt != null) return 0;
+  const copies = copiesInStock(item);
+  if (copies === 0) return 0;
+  if (item.isOpened) return 1;
+  if (kind === 'cigar' && item.cigarsPerBox == null) return 1;
+  return copies;
+}
+
+/**
  * Units in stock: bottles of a group (`quantity`), cigars of a group of boxes
  * (`quantity × cigarsPerBox`) or of single cigars (`quantity`), 1 bottle or
  * `cigarsLeft` cigars for an opened sub-record, 0 once finished or written off.

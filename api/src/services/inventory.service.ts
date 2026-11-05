@@ -6,12 +6,12 @@ import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
-import { isFinishedItem, isGroupableItem, NO_SLOT, unitKind, type UnitKind } from '../lib/finished-item';
+import { isGroupableItem, unitKind, type UnitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
   compareFamilyIds, isProductField, lockFamilies, lockFamily, nextLocksAndSources, pickProductFields, purchaseDayFromInput,
-  toItemView, toUnitView,
+  toItemView, toUnitView, UNIT_SLOTS_INCLUDE,
   type FlatItemView,
 } from '../lib/product-fields';
 import {
@@ -20,7 +20,7 @@ import {
 import { writeFamilyDescription } from './product.service';
 import { rememberDistinct } from './review.service';
 import { GROUP_KEY_FIELDS, joinIdenticalGroup, splitLockedGroup } from './stock-split.service';
-import { isSlotTaken } from '../lib/slots';
+import { freeSlots, reviveSlots, trashSlots } from '../lib/slots';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
 // endpoints (uploads/products/*) is ever safe to delete from disk — an
@@ -59,7 +59,6 @@ export type { FieldSource };
 export type RollbackFieldResult =
   | { status: 'not_found' }
   | { status: 'invalid_value' }
-  | { status: 'slot_conflict' }
   | { status: 'success'; item: InventoryItemView; changes: FieldChange[]; joined?: { from: number; to: number } };
 
 /**
@@ -92,7 +91,6 @@ export type UpdateItemResult =
        * it — `item` is that group, at `to` copies; the edited one is in `removedIds`.
        */
       joined?: { from: number; to: number };
-      slotConflict?: boolean;
     }
   | { conflict: true; serverItem: InventoryItemView };
 
@@ -124,6 +122,8 @@ const RESTORABLE_UNIT_FIELDS: ReadonlySet<string> = new Set(
 
 const INVENTORY_ITEM_INCLUDE = {
   product: { include: { collections: { select: { id: true, name: true, color: true, icon: true } } } },
+  // FEAT-93: the unit's live cells of the cellar plan.
+  slots: UNIT_SLOTS_INCLUDE,
 } satisfies Prisma.InventoryItemInclude;
 
 // ISSUE_172: the schema-level GetPayload type doesn't know about the
@@ -406,47 +406,12 @@ export class InventoryService {
         ) as InventoryPatch)
       : patch;
 
-    // #573: a bottle this patch leaves finished gives its grid slot back (see
-    // lib/finished-item.ts) — the cellar map hides it, so a slot it kept would
-    // look free yet refuse every other bottle. Judged on `safePatch`, i.e. on
-    // what is really written: a locked `fillLevel` stripped from an automated
-    // update must not unplace a bottle that stays full. #471: decided again
-    // by the detach rule, which keeps the slot with the group when a finished
-    // copy is detached from it.
-    const finished = this.isFinishedAfter(existing, safePatch);
-    // #798: a bottle moved to another cellar without new slot coordinates
-    // arrives unplaced — its old coordinates mean nothing in the new cellar.
-    const leavesSlot = finished || this.leavesSlotByMove(existing, safePatch);
-
-    // Slot uniqueness: if assigning a grid slot, verify it is not occupied by
-    // another item. Not for a bottle leaving its slot (finished #573, or moved
-    // to another cellar #798): it cannot conflict with anyone.
-    const targetCellarId = 'cellarId' in patch ? patch.cellarId : existing.cellarId;
-    const targetSlotColumn = 'slotColumn' in patch ? patch.slotColumn : existing.slotColumn;
-    const targetSlotRow = 'slotRow' in patch ? patch.slotRow : existing.slotRow;
-
-    if (!leavesSlot && targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
-      const conflict = await prisma.inventoryItem.findFirst({
-        where: {
-          cellarId: targetCellarId,
-          slotColumn: targetSlotColumn,
-          slotRow: targetSlotRow,
-          id: { not: id },
-          deletedAt: null,
-        },
-      });
-      if (conflict) return { item: existing, changes: [], changed: [], removedIds: [], slotConflict: true };
-    }
-
     // #471: the family's fields go to the family, the rest
-    // to the unit — each with its own locks and field sources (D1).
-    // #798: a unit moved to another cellar gives its slot back with the move
-    // (its coordinates mean nothing in the new cellar); recorded in the
-    // changes below like any written field. A finished unit's slot is
-    // released by the detach rule instead (#573), which keeps it with the
-    // group when a finished copy is detached from it.
-    const writePatch: InventoryPatch = this.leavesSlotByMove(existing, safePatch) ? { ...safePatch, ...NO_SLOT } : safePatch;
-    const dbData = this.mapInputToDb(writePatch);
+    // to the unit — each with its own locks and field sources (D1). FEAT-93:
+    // the cells of the cellar plan are not columns of the unit (routes of
+    // slot.service.ts); the detach rule frees them when the unit is finished
+    // (#573) or changes cellar (#798), and records which in the changes.
+    const dbData = this.mapInputToDb(safePatch);
     const familyPatch = pickProductFields(dbData);
     const itemData = Object.fromEntries(Object.entries(dbData).filter(([key]) => !isProductField(key)));
 
@@ -465,7 +430,7 @@ export class InventoryService {
     let current: StateItem;
     let familyChanges = new Map<string, FieldChange>();
     let joined: { from: number; to: number } | null = null;
-    try {
+    {
       const written = await prisma.$transaction(async (tx) => {
         // #471: the family first (the locking rule), then the unit as it is
         // once nobody else can write it — a detach decided on a stale count
@@ -518,29 +483,22 @@ export class InventoryService {
       outcome = written.result;
       current = written.fresh;
       joined = written.joined;
-    } catch (err) {
-      // #173: the application-level check above closes almost every window,
-      // but the database's partial unique index is the actual guarantee — a
-      // concurrent request that slipped past that check still hits this and
-      // gets the same clean slotConflict response instead of a 500.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        return { item: existing, changes: [], changed: [], removedIds: [], slotConflict: true };
-      }
-      throw err;
     }
 
-    // #573: the released slot goes into the recorded changes, so the history
-    // records which slot the bottle left — and never a slot sent alongside
-    // that the release overrides. #471: recorded from the unit as read once
-    // locked, with the state as the detach rule wrote it (a smoked cigar).
-    const recorded: Record<string, unknown> = { ...dbData, ...(outcome.releasedSlot ? NO_SLOT : {}) };
+    // #471: recorded from the unit as read once locked, with the state as
+    // the detach rule wrote it (a smoked cigar).
+    const recorded: Record<string, unknown> = { ...dbData };
     if (smokeOne) Object.assign(recorded, outcome.state);
     const unitChanges = new Map(Object.entries(recorded)
       .filter(([key, value]) => !isProductField(key) && JSON.stringify(this.getField(current, key)) !== JSON.stringify(value))
       .map(([key, value]) => [key, { field: key, from: this.getField(current, key), to: value }]));
-    const changes = Object.keys(recorded)
-      .map((key) => familyChanges.get(key) ?? unitChanges.get(key))
-      .filter((change): change is FieldChange => change !== undefined);
+    const changes = [
+      ...Object.keys(recorded)
+        .map((key) => familyChanges.get(key) ?? unitChanges.get(key))
+        .filter((change): change is FieldChange => change !== undefined),
+      // FEAT-93 (#573): the cells the unit gave up, so its history says which.
+      ...outcome.slotChanges,
+    ];
     return {
       item: toItemView(outcome.data),
       changes,
@@ -609,7 +567,6 @@ export class InventoryService {
       // actually trigger here. Kept exhaustive for type-safety.
       return { status: 'invalid_value' };
     }
-    if (result.slotConflict) return { status: 'slot_conflict' };
 
     return { status: 'success', item: result.item, changes: result.changes, ...(result.joined ? { joined: result.joined } : {}) };
   }
@@ -686,12 +643,14 @@ export class InventoryService {
           updatedCount++;
           continue;
         }
+        // #798: an item moved to another cellar arrives unplaced (an opened
+        // bottle; a group joins above): its cells are freed before the cellar
+        // is written (FEAT-93, the slot's key includes the cellar).
+        if (changed.cellarId !== undefined && changed.cellarId !== fresh.cellarId) await freeSlots(tx, item.id);
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
             ...changed,
-            // #798: an item moved to another cellar arrives unplaced (an opened bottle; a group joins above).
-            ...(this.leavesSlotByMove(item, changed) ? NO_SLOT : {}),
             updatedAt: new Date(),
             updatedBy: userId,
           } as never,
@@ -709,10 +668,11 @@ export class InventoryService {
     });
     if (!existing) return null;
 
-    const trashed = await prisma.inventoryItem.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-      include: INVENTORY_ITEM_INCLUDE,
+    // FEAT-93 (#174): its cells go to the trash with it, same timestamp.
+    const deletedAt = new Date();
+    const trashed = await prisma.$transaction(async (tx) => {
+      await trashSlots(tx, [id], deletedAt);
+      return tx.inventoryItem.update({ where: { id }, data: { deletedAt }, include: INVENTORY_ITEM_INCLUDE });
     });
     return toItemView(trashed);
   }
@@ -728,32 +688,20 @@ export class InventoryService {
     });
     if (!existing) return null;
 
-    // A trashed bottle keeps its grid slot, which may have been given to another
-    // bottle since (#174). Restore it unplaced rather than assign the slot twice.
-    const slotTaken = await isSlotTaken(prisma, existing);
     // #471 (D10): a unit back in stock brings its family out of the trash with
     // it — otherwise it would come back inside a family nobody sees.
-    const restoreUnit = (data: Prisma.InventoryItemUpdateInput) => prisma.$transaction(async (tx) => {
+    // FEAT-93 (#174): its cells come back with it, except a cell given to
+    // another bottle since: that copy comes back unplaced.
+    return prisma.$transaction(async (tx) => {
       // The locking rule: the family first, then its unit.
       await lockFamily(tx, existing.productId);
       if (existing.product.deletedAt) {
         await tx.product.update({ where: { id: existing.productId }, data: { deletedAt: null } });
       }
-      return toItemView(await tx.inventoryItem.update({ where: { id }, data, include: INVENTORY_ITEM_INCLUDE }));
+      await tx.inventoryItem.update({ where: { id }, data: { deletedAt: null } });
+      await reviveSlots(tx, [id]);
+      return toItemView(await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE }));
     });
-
-    try {
-      return await restoreUnit(slotTaken ? { deletedAt: null, ...NO_SLOT } : { deletedAt: null });
-    } catch (err) {
-      // #173: the occupant check above closes almost every window; the
-      // database's partial unique index is the actual guarantee against a
-      // slot having been taken in the instant between that check and this
-      // write — fall back to restoring unplaced rather than erroring out.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        return restoreUnit({ deletedAt: null, ...NO_SLOT });
-      }
-      throw err;
-    }
   }
 
   /**
@@ -913,32 +861,6 @@ export class InventoryService {
    */
   private getField(item: object, key: string): unknown {
     return (item as Record<string, unknown>)[key];
-  }
-
-  /**
-   * #798: whether `patch` moves `item` to another cellar without giving it
-   * new slot coordinates. Its stored coordinates belong to the old cellar,
-   * so it must arrive unplaced rather than claim the same cell in the new one.
-   */
-  private leavesSlotByMove(item: Pick<InventoryItem, 'cellarId'>, patch: InventoryPatch): boolean {
-    return (
-      patch.cellarId !== undefined &&
-      patch.cellarId !== item.cellarId &&
-      patch.slotColumn === undefined &&
-      patch.slotRow === undefined
-    );
-  }
-
-  /**
-   * #573: whether `item` is finished once `patch` is applied. A field the
-   * patch leaves `undefined` keeps its stored value (`mapInputToDb` drops
-   * it); an explicit `fillLevel: null` does overwrite it.
-   */
-  private isFinishedAfter(item: { isOpened: boolean; fillLevel: number | null }, patch: InventoryPatch): boolean {
-    return isFinishedItem({
-      isOpened: patch.isOpened === undefined ? item.isOpened : patch.isOpened,
-      fillLevel: patch.fillLevel === undefined ? item.fillLevel : patch.fillLevel,
-    });
   }
 }
 

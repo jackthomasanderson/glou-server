@@ -2,7 +2,7 @@ import { Prisma, type Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { isIntactItem, productKey, summarizeStock, unitKind } from '../lib/finished-item';
-import { compareFamilyIds, fieldSourcesOf, lockFamilies, lockFamily, toUnitView, writeProductFields, type ProductWrite } from '../lib/product-fields';
+import { compareFamilyIds, fieldSourcesOf, lockFamilies, lockFamily, toUnitView, UNIT_SLOTS, writeProductFields, type ProductWrite } from '../lib/product-fields';
 import { peakWindowSchema } from '../schemas/inventory.schema';
 import { moveHistoryOnto } from '../lib/audit-history';
 import { computeAlertStatus } from './alert.service';
@@ -150,15 +150,17 @@ function changesOn(survivor: Product, data: ProductWrite): FieldChange[] {
  * Design.md rule 4 again, after a merge: the groups of `productId` that are
  * now strictly identical fuse into the oldest (`planGroupFusion`, the same
  * rule and exceptions as the transformation: never a guessed group, a group
- * in a slot or in the trash, nor two groups counted in one inventory
- * session). The survivor takes the absorbed groups' tastings, history,
- * inventory entries, wishlist link and sub-records; units, value and
+ * in the trash, two groups counted in one inventory session, nor two groups
+ * of single cigars each in a cell). The survivor takes the absorbed groups'
+ * cells of the plan (FEAT-93), tastings, history, inventory entries,
+ * wishlist link and sub-records; units, value and
  * spending are unchanged. Run it in the transaction holding the family's
  * lock. Returns the ids of the groups removed.
  */
 export async function fuseIdenticalGroups(tx: PrismaClientOrTx, productId: string, kind: ReturnType<typeof unitKind>, userId: string): Promise<string[]> {
   const units = (await tx.inventoryItem.findMany({
-    where: { productId, deletedAt: null, writtenOffAt: null, needsReview: false, slotColumn: null, slotRow: null },
+    where: { productId, deletedAt: null, writtenOffAt: null, needsReview: false },
+    include: { _count: { select: { slots: { where: { deletedAt: null } } } } },
     orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   })).filter(isIntactItem);
   if (units.length < 2) return [];
@@ -166,8 +168,9 @@ export async function fuseIdenticalGroups(tx: PrismaClientOrTx, productId: strin
     where: { itemId: { in: units.map((unit) => unit.id) } },
     select: { itemId: true, sessionId: true },
   });
-  const plan = planGroupFusion(units.map((unit) => ({
+  const plan = planGroupFusion(units.map(({ _count, ...unit }) => ({
     ...unit,
+    slotCount: _count.slots,
     sessionIds: entries.filter((entry) => entry.itemId === unit.id).map((entry) => entry.sessionId),
   })), kind);
 
@@ -211,6 +214,9 @@ export async function fuseIdenticalGroups(tx: PrismaClientOrTx, productId: strin
  */
 export async function absorbGroups(tx: PrismaClientOrTx, survivorId: string, absorbedIds: string[]): Promise<void> {
   const absorbed = Prisma.join(absorbedIds);
+  // FEAT-93: their cells too — same cellar (part of the group's identity);
+  // a caller changing the cellar frees them first.
+  await tx.$executeRaw`UPDATE "item_slots" SET "itemId" = ${survivorId} WHERE "itemId" IN (${absorbed})`;
   await tx.$executeRaw`UPDATE "tasting_notes" SET "itemId" = ${survivorId} WHERE "itemId" IN (${absorbed})`;
   await moveHistoryOnto(tx, survivorId, absorbedIds);
   await tx.$executeRaw`UPDATE "inventory_count_entries" SET "itemId" = ${survivorId} WHERE "itemId" IN (${absorbed})`;
@@ -282,10 +288,12 @@ export const reviewService = {
 
     const groups = await prisma.inventoryItem.findMany({
       where: { needsReview: true, deletedAt: null, product: LISTED_PRODUCT_FILTER },
+      include: UNIT_SLOTS,
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
     const subRecords = groups.length === 0 ? [] : await prisma.inventoryItem.findMany({
       where: { parentItemId: { in: groups.map((group) => group.id) }, deletedAt: null },
+      include: UNIT_SLOTS,
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
 
@@ -302,7 +310,7 @@ export const reviewService = {
       counts: groups.map((group) => ({
         product: views.get(group.productId)!,
         group: toUnitView(group),
-        subRecords: subRecords.filter((sub) => sub.parentItemId === group.id).map(toUnitView),
+        subRecords: subRecords.filter((sub) => sub.parentItemId === group.id).map((sub) => toUnitView(sub)),
       })),
     };
   },
@@ -398,12 +406,12 @@ export const reviewService = {
     if (!head) return null;
     return prisma.$transaction(async (tx) => {
       await lockFamily(tx, head.productId);
-      const unit = await tx.inventoryItem.findFirst({ where: { id: itemId, deletedAt: null } });
+      const unit = await tx.inventoryItem.findFirst({ where: { id: itemId, deletedAt: null }, include: UNIT_SLOTS });
       if (!unit) return null;
       // Merged into another family meanwhile: that family is the one to lock.
       if (unit.productId !== head.productId) await lockFamily(tx, unit.productId);
       if (!unit.needsReview) return { item: toUnitView(unit), changed: false };
-      const settled = await tx.inventoryItem.update({ where: { id: itemId }, data: { needsReview: false, updatedBy: userId } });
+      const settled = await tx.inventoryItem.update({ where: { id: itemId }, data: { needsReview: false, updatedBy: userId }, include: UNIT_SLOTS });
       return { item: toUnitView(settled), changed: true };
     });
   },

@@ -1,15 +1,16 @@
 import { prisma } from '../lib/prisma';
-import { CreateCellarInput, UpdateCellarInput, SwapSlotsInput } from '../schemas/cellar.schema';
-import type { Prisma } from '@prisma/client';
-import { IN_STOCK_ITEM_FILTER, itemUnits } from '../lib/finished-item';
-import { lockFamilies } from '../lib/product-fields';
+import { CreateCellarInput, UpdateCellarInput } from '../schemas/cellar.schema';
+import type { Cellar, Prisma } from '@prisma/client';
+import { IN_STOCK_ITEM_FILTER, itemUnits, slotCapacity, unitKind } from '../lib/finished-item';
+import { UNIT_SLOTS } from '../lib/product-fields';
 import { UNIT_COUNT_SELECT, sumTotals, type UnitTotalsRow } from '../lib/stock-units';
-import type { CellarStats } from '../../../shared/cellar';
+import type { CellarStats, GridLine } from '../../../shared/cellar';
 
-export type SwapSlotsResult =
-  | { status: 'not_found' }
-  | { status: 'not_in_grid' }
-  | { status: 'success'; items: [{ id: string; slotColumn: number | null; slotRow: number | null }, { id: string; slotColumn: number | null; slotRow: number | null }] };
+/** GET /api/cellars/:id/grid (FEAT-68, FEAT-93). */
+export interface CellarGrid {
+  cellar: Cellar;
+  items: GridLine[];
+}
 
 /**
  * ISSUE_239 + #573 + #471 (FEAT-96): a cellar card counts and values what the
@@ -111,38 +112,36 @@ export class CellarService {
     return prisma.cellar.delete({ where: { id } });
   }
 
-  static async getGridData(userId: string, cellarId: string) {
+  static async getGridData(userId: string, cellarId: string): Promise<CellarGrid | null> {
     const cellar = await prisma.cellar.findFirst({ where: { id: cellarId } });
     if (!cellar) return null;
 
     const items = await prisma.inventoryItem.findMany({
       // #573: the map shows what is on the shelves — a finished bottle has
-      // given its slot back (lib/finished-item.ts `NO_SLOT`), and a FEAT-87
-      // reference was never on one.
+      // given its cells back, and a family without units was never on one.
       where: { cellarId, ...IN_STOCK_ITEM_FILTER },
       select: {
         id: true,
-        slotColumn: true,
-        slotRow: true,
+        productId: true,
         ...UNIT_COUNT_SELECT,
         purchasePrice: true,
         purchasedAt: true,
+        ...UNIT_SLOTS,
         product: { select: { name: true, producer: true, category: true, color: true, vintage: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
 
-    // #471 (W4): a group of N bottles holds one slot for now (several slots: step 3);
-    // the map says "×N" on it. An opened bottle is a record of its own: one.
-    // Recette #471 (KO 13.2): `units` (bottles, or the cigars of a box) for the
-    // badge, and what tells two lines of the same wine apart in "Assigner"
+    // FEAT-93: a line holds one cell per copy placed (`slots`) and says how
+    // many are still unplaced; a group of single cigars takes one cell for
+    // the group. Recette #471 (KO 13.2): `units` (bottles, or the cigars of a
+    // box), and what tells two lines of the same wine apart in "Assigner"
     // (closed box or opened, price, purchase day).
     return {
       cellar,
-      items: items.map(({ id, slotColumn, slotRow, quantity, isOpened, cigarsPerBox, cigarsLeft, purchasePrice, purchasedAt, product, ...state }) => ({
+      items: items.map(({ id, productId, slots, quantity, isOpened, cigarsPerBox, cigarsLeft, purchasePrice, purchasedAt, product, ...state }) => ({
         id,
-        slotColumn,
-        slotRow,
+        productId,
         ...product,
         quantity: isOpened ? 1 : Math.max(quantity ?? 1, 1),
         units: itemUnits({ quantity, isOpened, cigarsPerBox, cigarsLeft, ...state }),
@@ -151,63 +150,10 @@ export class CellarService {
         cigarsLeft,
         purchasePrice: purchasePrice == null ? null : Number(purchasePrice),
         purchasedAt: purchasedAt ? purchasedAt.toISOString().slice(0, 10) : null,
+        slots,
+        unplaced: Math.max(
+          slotCapacity({ quantity, isOpened, cigarsPerBox, cigarsLeft, ...state }, unitKind(product.category)) - slots.length, 0),
       })),
-    };
-  }
-
-  /**
-   * ISSUE_037: swapping two occupied grid slots used to be three independent
-   * network calls (clear source, move target, move dragged), so a dropped
-   * connection between any two of them left the database half-updated with
-   * no way for the client to tell. Both updates now happen inside a single
-   * `prisma.$transaction` — mirroring the pattern already used by
-   * `inventory-count.service.ts#applyCorrections` — so the swap either fully
-   * applies or leaves the grid exactly as it was.
-   */
-  static async swapSlots(_userId: string, cellarId: string, data: SwapSlotsInput): Promise<SwapSlotsResult> {
-    const [itemA, itemB] = await Promise.all([
-      prisma.inventoryItem.findFirst({ where: { id: data.itemAId, cellarId, deletedAt: null } }),
-      prisma.inventoryItem.findFirst({ where: { id: data.itemBId, cellarId, deletedAt: null } }),
-    ]);
-
-    if (!itemA || !itemB) return { status: 'not_found' };
-    if (itemA.slotColumn == null || itemA.slotRow == null || itemB.slotColumn == null || itemB.slotRow == null) {
-      return { status: 'not_in_grid' };
-    }
-
-    // #173's partial unique index on (cellarId, slotColumn, slotRow) is
-    // checked immediately after each statement (Postgres can't defer a
-    // partial unique index to commit), so moving A straight onto B's slot
-    // while B still holds it would violate the constraint mid-transaction.
-    // Freeing A's slot first, then moving B into it, then moving A into B's
-    // former (now-free) slot avoids ever having two rows claim the same
-    // slot at once.
-    // #471 (lock order, #787 review): both families locked first, in sorted
-    // order, before either unit is written (no deadlock with a description
-    // write, which locks the family and then copies onto its units).
-    const [updatedB, updatedA] = await prisma.$transaction(async (tx) => {
-      await lockFamilies(tx, [itemA.productId, itemB.productId]);
-      await tx.inventoryItem.update({
-        where: { id: itemA.id },
-        data: { slotColumn: null, slotRow: null },
-      });
-      const movedB = await tx.inventoryItem.update({
-        where: { id: itemB.id },
-        data: { slotColumn: itemA.slotColumn, slotRow: itemA.slotRow },
-      });
-      const movedA = await tx.inventoryItem.update({
-        where: { id: itemA.id },
-        data: { slotColumn: itemB.slotColumn, slotRow: itemB.slotRow },
-      });
-      return [movedB, movedA] as const;
-    });
-
-    return {
-      status: 'success',
-      items: [
-        { id: updatedA.id, slotColumn: updatedA.slotColumn, slotRow: updatedA.slotRow },
-        { id: updatedB.id, slotColumn: updatedB.slotColumn, slotRow: updatedB.slotRow },
-      ],
     };
   }
 }

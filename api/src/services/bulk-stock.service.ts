@@ -1,9 +1,10 @@
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest } from '../lib/errors';
 import {
-  FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER, NO_SLOT, isGroupableItem, isIntactItem, itemUnits, unitKind, type UnitKind,
+  FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER, isGroupableItem, isIntactItem, itemUnits, unitKind, type UnitKind,
 } from '../lib/finished-item';
 import { compareFamilyIds, lockFamilies } from '../lib/product-fields';
+import { freeSlots, slotsFreed, trashSlots } from '../lib/slots';
 import type { AuditAction } from './audit.service';
 import { applyState, STATE_FIELDS, type StateItem } from './stock-state.service';
 import { splitLockedGroup } from './stock-split.service';
@@ -72,7 +73,7 @@ export const bulkStockService = {
    * A whole group moved joins the identical group already there (or moved
    * there just before), as "Déplacer" from the drawer does (FEAT-98): no
    * line is left apart that should be one. An opened bottle moves on its
-   * own. Each moved copy leaves its grid slot (a place in its old cellar).
+   * own. Each moved copy leaves its cells (places in its old cellar's plan).
    */
   async move(userId: string, input: BulkMoveInput): Promise<BulkOutcome> {
     const { productIds, cellarId } = input;
@@ -100,12 +101,10 @@ export const bulkStockService = {
             continue;
           }
           // An opened bottle (box): one copy, never joined to a group.
-          const leaves = unit.slotColumn !== null ? NO_SLOT : {};
-          await tx.inventoryItem.update({ where: { id: unit.id }, data: { cellarId, ...leaves, updatedBy: userId } });
-          const changes: FieldChange[] = [
-            { field: 'cellarId', from: unit.cellarId, to: cellarId },
-            ...Object.keys(leaves).map((field) => ({ field, from: unit[field as keyof typeof NO_SLOT], to: null })),
-          ];
+          // Its cell freed before the cellar is written (FEAT-93: the slot's key holds the cellar).
+          const freed = slotsFreed(await freeSlots(tx, unit.id));
+          await tx.inventoryItem.update({ where: { id: unit.id }, data: { cellarId, updatedBy: userId } });
+          const changes: FieldChange[] = [{ field: 'cellarId', from: unit.cellarId, to: cellarId }, ...freed];
           entries.push({ action: 'UPDATE', bottleId: unit.id, productId: family.id, details: { changes, bulk: true } });
         }
       }
@@ -129,6 +128,8 @@ export const bulkStockService = {
         const rows = await inStock(tx, family.id);
         if (rows.length === 0) continue;
         units += unitsOf(rows);
+        // FEAT-93 (#174): their cells go to the trash with them.
+        await trashSlots(tx, rows.map((row) => row.id), deletedAt);
         await tx.inventoryItem.updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { deletedAt, updatedBy: userId } });
         for (const row of rows) entries.push({ action: 'DELETE', bottleId: row.id, productId: family.id, details: { bulk: true } });
       }
@@ -174,16 +175,20 @@ export const bulkStockService = {
           );
           if (family.kind === 'cigar' && done.state.fillLevel !== 0) openedHere.add(done.data.id);
           units++;
+          // FEAT-93 (decision #471 point 75): the cell the copy came from, if any, in the history of the line it left.
           entries.push({
             action: 'UPDATE', bottleId: done.data.id, productId: family.id,
-            details: { changes: stateChanges(target, done.state), outcome: done.outcome, targetItemId: target.id, bulk: true },
+            details: {
+              changes: [...stateChanges(target, done.state), ...(done.groupChange ? [] : done.slotChanges)],
+              outcome: done.outcome, targetItemId: target.id, bulk: true,
+            },
           });
           // The group's own history: one copy fewer.
           if (done.groupChange) {
             const { itemId, from, to } = done.groupChange;
             entries.push({
               action: 'UPDATE', bottleId: itemId, productId: family.id,
-              details: { changes: [{ field: 'quantity', from, to }], outcome: done.outcome, subItemId: done.data.id, bulk: true },
+              details: { changes: [{ field: 'quantity', from, to }, ...done.slotChanges], outcome: done.outcome, subItemId: done.data.id, bulk: true },
             });
           }
         }

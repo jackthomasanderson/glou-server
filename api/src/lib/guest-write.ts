@@ -64,9 +64,6 @@ export interface GuestStateBefore {
   fillLevel: number | null;
   openedAt: string | null;
   cigarsLeft: number | null;
-  /** The grid slot a line of one gave back when finished in place (#573). */
-  slotColumn?: number | null;
-  slotRow?: number | null;
 }
 
 /**
@@ -91,13 +88,15 @@ export const isGuestMove = (patch: GuestInventoryUpdate, before: Pick<StateItem,
   patch.smokeOne === true
   || (patch.isOpened === true && (isIntactItem(before) || (patch.fillLevel === 0 && !isFinishedState(before))));
 
-export function stateBefore(unit: StateItem, keepSlot: boolean): GuestStateBefore {
+// FEAT-93: the cell a move freed is not recorded yet — a line of one finished
+// in place comes back unplaced on "Annuler" until lot S2 (`placeAt`); a copy
+// detached with its cell brings it back to its line when reattached.
+export function stateBefore(unit: StateItem): GuestStateBefore {
   return {
     isOpened: unit.isOpened,
     fillLevel: unit.fillLevel,
     openedAt: unit.openedAt ? unit.openedAt.toISOString() : null,
     cigarsLeft: unit.cigarsLeft,
-    ...(keepSlot && unit.slotColumn != null && unit.slotRow != null ? { slotColumn: unit.slotColumn, slotRow: unit.slotRow } : {}),
   };
 }
 
@@ -114,8 +113,6 @@ export function undoPatch(before: GuestStateBefore, cigarsPerBox: number | null)
     openedAt: before.openedAt ? new Date(before.openedAt) : null,
     // A closed box is put back complete (normalizeCigarState); an opened one with its count.
     cigarsLeft: intact && cigarsPerBox != null ? cigarsPerBox : before.cigarsLeft,
-    // Recorded only when the unit gave its slot back itself; still free, or the version check refuses.
-    ...(before.slotColumn != null && before.slotRow != null ? { slotColumn: before.slotColumn, slotRow: before.slotRow } : {}),
   };
 }
 

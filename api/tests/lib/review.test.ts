@@ -26,7 +26,7 @@ const fusionUnit = (unit: FuseCase['units'][number], index: number): FusionUnit 
   return {
     productId: 'p1', cellarId: 'c1', purchasePrice: 20, purchasedAt: '2026-01-15', bottleSize: null, cigarsPerBox: null,
     estimatedValue: null, purchasePlace: null, location: null, quantity: 1, isOpened: false, fillLevel: null,
-    cigarsLeft: null, writtenOffAt: null, deletedAt: null, needsReview: false, slotColumn: null, slotRow: null,
+    cigarsLeft: null, writtenOffAt: null, deletedAt: null, needsReview: false, slotCount: 0,
     createdAt: new Date(Date.UTC(2026, 0, 1, 0, index)),
     sessionIds: sessions,
     ...fields,

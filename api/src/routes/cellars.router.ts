@@ -4,6 +4,7 @@ import { createCellarSchema, updateCellarSchema, swapSlotsSchema } from '../sche
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
+import { slotService } from '../services/slot.service';
 
 const router = Router();
 
@@ -139,38 +140,27 @@ router.get('/:id/grid', async (req: Request, res: Response) => {
 
 /**
  * POST /api/cellars/:id/swap-slots
- * ISSUE_037: atomically swap two bottles' grid positions, so a dropped
+ * ISSUE_037: atomically swap two copies' grid positions, so a dropped
  * connection mid-swap can no longer leave the database half-updated.
+ * FEAT-93: named by slot (a line may hold several cells); recorded in the
+ * history of each unit (`field: 'slot'`). Errors go to the error middleware.
  */
 router.post('/:id/swap-slots', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const id = routeParam(req.params.id);
-  const validation = swapSlotsSchema.safeParse(req.body);
-
-  if (!validation.success) {
-    return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
-  }
-
-  try {
-    const result = await CellarService.swapSlots(userId, id, validation.data);
-    if (result.status === 'not_found') {
-      return res.status(404).json({ error: 'ITEM_NOT_FOUND' });
-    }
-    if (result.status === 'not_in_grid') {
-      return res.status(409).json({ error: 'ITEM_NOT_IN_GRID' });
-    }
-    await auditLog({
-      userId,
-      ip: getClientIp(req),
-      action: 'CELLAR_SWAP_SLOTS',
-      status: 'success',
-      details: { cellarId: id, itemAId: validation.data.itemAId, itemBId: validation.data.itemBId },
+  const { slotAId, slotBId } = swapSlotsSchema.parse(req.body);
+  const writes = await slotService.swap(id, slotAId, slotBId);
+  const ip = getClientIp(req);
+  await auditLog({
+    userId, ip, action: 'CELLAR_SWAP_SLOTS', status: 'success', details: { cellarId: id, slotAId, slotBId },
+  });
+  for (const write of writes) {
+    void auditLog({
+      userId, ip, action: 'UPDATE', status: 'success', bottleId: write.itemId, productId: write.productId,
+      details: { changes: [write.change] },
     });
-    res.json({ data: result.items });
-  } catch (err: unknown) {
-    console.error('[cellars] POST /:id/swap-slots error:', err);
-    res.status(500).json({ error: 'FAILED_TO_SWAP_SLOTS' });
   }
+  res.json({ data: writes.map(({ itemId, slot }) => ({ itemId, slot })) });
 });
 
 /**

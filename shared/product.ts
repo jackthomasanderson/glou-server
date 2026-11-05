@@ -87,6 +87,13 @@ export const isRestorableDescriptionField = (field: string): boolean => RESTORAB
 /** Per-field source tag of a table's own columns (FEAT-05); a field absent is 'manual'. */
 export type FieldSources = Record<string, string>;
 
+/** FEAT-93: one cell of the cellar plan (1-based) held by one copy of a unit. */
+export interface ItemSlotView {
+  id: string;
+  column: number;
+  row: number;
+}
+
 /**
  * A unit of a family: a group of identical intact copies, a sub-record with a
  * state of its own (opened, finished), or a write-off. No description field
@@ -100,8 +107,11 @@ export interface ItemView {
   userId: string;
   updatedBy: string | null;
   cellarId: string | null;
-  slotColumn: number | null;
-  slotRow: number | null;
+  /**
+   * FEAT-93: the cells of the cellar plan its copies occupy (live ones,
+   * by row then column): up to its copies in stock (`slotCapacity`).
+   */
+  slots: ItemSlotView[];
   location: string | null;
   /** Price and value of ONE copy (bottle, box, single cigar), never of the group. */
   purchasePrice: number | null;

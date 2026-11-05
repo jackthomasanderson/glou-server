@@ -14,6 +14,7 @@ import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '.
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
 import { auditLog } from './audit.service';
+import { UNIT_SLOTS_INCLUDE } from '../lib/product-fields';
 import { isCookieSecure } from '../lib/cookie-secure';
 import { escapeHtml } from '../lib/html';
 import { isNotifEn } from '../lib/notif-lang';
@@ -832,7 +833,8 @@ export class AuthService {
       where: { id: userId },
       include: {
         // #471: each unit with its family, which holds the description.
-        inventory: { where: { deletedAt: null }, include: { product: true } },
+        // FEAT-93: and the cells of the cellar plan its copies occupy.
+        inventory: { where: { deletedAt: null }, include: { product: true, slots: UNIT_SLOTS_INCLUDE } },
         cellars: true,
         // #471: a collection holds families.
         collections: { include: { products: { select: { id: true, name: true } } } },

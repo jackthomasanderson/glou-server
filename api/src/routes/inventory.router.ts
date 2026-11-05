@@ -224,11 +224,6 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
       return;
     }
-    if (result.slotConflict) {
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, productId: result.item.productId, details: { reason: 'SLOT_OCCUPIED' } });
-      res.status(409).json({ error: 'SLOT_OCCUPIED' });
-      return;
-    }
     // #471 (D8): a detach or a reattach is logged on the unit that now
     // carries the state — the sub-record created, or the group that absorbed
     // the sub-record (which no longer exists).
@@ -330,11 +325,6 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
     if (result.status === 'invalid_value') {
       void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, bottleId: id, details: { field } });
       res.status(400).json({ error: 'VALUE_NOT_IN_HISTORY' });
-      return;
-    }
-    if (result.status === 'slot_conflict') {
-      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'error', ip, bottleId: id, details: { field, reason: 'SLOT_OCCUPIED' } });
-      res.status(409).json({ error: 'SLOT_OCCUPIED' });
       return;
     }
 

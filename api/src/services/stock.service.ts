@@ -2,8 +2,9 @@ import { Prisma, type Product } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict, notFound } from '../lib/errors';
-import { groupKey, isGroupableItem, NO_SLOT, unitKind, type UnitKind } from '../lib/finished-item';
-import { lockFamily, purchaseDayFromInput, toUnitView } from '../lib/product-fields';
+import { groupKey, isGroupableItem, slotCapacity, unitKind, type UnitKind } from '../lib/finished-item';
+import { lockFamily, purchaseDayFromInput, readUnitView, toUnitView, UNIT_SLOTS } from '../lib/product-fields';
+import { fitSlots, freeSlots, slotsFreed } from '../lib/slots';
 import { MAX_COPIES, type AddUnitsInput, type CorrectQuantityInput } from '../schemas/stock.schema';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/product';
@@ -248,7 +249,7 @@ export async function addUnitsIn(
     cigarsPerBox: input.cigarsPerBox ?? null,
   };
   const added = await addCopies(tx, userId, product, target, input.quantity);
-  return { result: { data: toUnitView(added.unit), changed: [], removedIds: [] }, merged: added.from !== null, from: added.from, to: added.to };
+  return { result: { data: await readUnitView(tx, added.unit.id), changed: [], removedIds: [] }, merged: added.from !== null, from: added.from, to: added.to };
 }
 
 /**
@@ -269,7 +270,12 @@ export async function correctQuantityIn(
   const stale = input.expectedUpdatedAt !== undefined
     && new Date(input.expectedUpdatedAt).getTime() !== group.updatedAt.getTime();
   // Moved to another family meanwhile (a merge): its lock was not the one taken.
-  if (stale || group.productId !== productId) return { conflict: true, item: toUnitView(group) };
+  if (stale || group.productId !== productId) return { conflict: true, item: await readUnitView(tx, itemId) };
+  const { category } = await tx.product.findUniqueOrThrow({ where: { id: productId }, select: { category: true } });
+  // FEAT-93: the copies that leave free their cells — unplaced ones first,
+  // then the most recently placed (automatic rule until lot S2's choice).
+  const fitTo = async (quantity: number) =>
+    slotsFreed(await fitSlots(tx, itemId, slotCapacity({ ...group, quantity }, unitKind(category))));
   if (!isGroupableItem(group)) throw conflict('NOT_A_GROUP');
 
   const from = group.quantity ?? 1;
@@ -278,20 +284,23 @@ export async function correctQuantityIn(
 
   if (input.reason === 'input_error') {
     if (input.quantity < 1) throw badRequest('QUANTITY_BELOW_ONE');
-    const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled } });
+    const freed = await fitTo(input.quantity);
+    const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled }, include: UNIT_SLOTS });
     return {
       result: { data: toUnitView(corrected), changed: [], removedIds: [] },
       productId: group.productId,
-      changes: [{ field: 'quantity', from, to: input.quantity }],
+      changes: [{ field: 'quantity', from, to: input.quantity }, ...freed],
       writtenOffItemId: null,
     };
   }
 
   const writtenOffAt = new Date();
   if (input.quantity === 0) {
+    const freed = slotsFreed(await freeSlots(tx, itemId));
     const marked = await tx.inventoryItem.update({
       where: { id: itemId },
-      data: { writtenOffAt, needsReview: false, ...NO_SLOT, updatedBy: userId },
+      data: { writtenOffAt, needsReview: false, updatedBy: userId },
+      include: UNIT_SLOTS,
     });
     // A write-off is never put back: its sub-records lose their way back
     // to it, so that putting one back cannot bring it into stock again.
@@ -300,25 +309,26 @@ export async function correctQuantityIn(
     return {
       result: { data: toUnitView(marked), changed: [], removedIds: [] },
       productId: group.productId,
-      changes: [{ field: 'writtenOffAt', from: null, to: writtenOffAt }],
+      changes: [{ field: 'writtenOffAt', from: null, to: writtenOffAt }, ...freed],
       writtenOffItemId: itemId,
     };
   }
 
-  const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled } });
-  const writeOff = await tx.inventoryItem.create({ data: writeOffOf(group, userId, from - input.quantity, writtenOffAt) });
+  const freed = await fitTo(input.quantity);
+  const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled }, include: UNIT_SLOTS });
+  const writeOff = await tx.inventoryItem.create({ data: writeOffOf(group, userId, from - input.quantity, writtenOffAt), include: UNIT_SLOTS });
   return {
     result: { data: toUnitView(writeOff), changed: [toUnitView(corrected)], removedIds: [] },
     productId: group.productId,
-    changes: [{ field: 'quantity', from, to: input.quantity }],
+    changes: [{ field: 'quantity', from, to: input.quantity }, ...freed],
     writtenOffItemId: writeOff.id,
   };
 }
 
 /**
  * The write-off line of `count` copies detached from `group`: everything of
- * the group (family, cellar, prices, purchase day, size) but no slot,
- * no parent (a write-off is never put back) and nothing left to review.
+ * the group (family, cellar, prices, purchase day, size) but no cell of
+ * the plan (out of stock), no parent (a write-off is never put back) and nothing left to review.
  */
 function writeOffOf(group: UnitRecord, userId: string, count: number, writtenOffAt: Date): Prisma.InventoryItemUncheckedCreateInput {
   const {
@@ -332,7 +342,6 @@ function writeOffOf(group: UnitRecord, userId: string, count: number, writtenOff
     userId,
     quantity: count,
     writtenOffAt,
-    ...NO_SLOT,
     parentItemId: null,
     needsReview: false,
   };

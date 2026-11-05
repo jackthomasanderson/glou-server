@@ -3,10 +3,10 @@ import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { namesSameWine } from '../../../shared/units';
 import {
-  fieldSourcesOf, isProductField, lockFamily, nextLocksAndSources, toUnitView, writeProductFields,
+  fieldSourcesOf, isProductField, lockFamily, nextLocksAndSources, toUnitView, UNIT_SLOTS, writeProductFields,
   type ProductField, type ProductWrite, type UnitRow,
 } from '../lib/product-fields';
-import { isSlotTaken } from '../lib/slots';
+import { reviveSlots, trashSlots } from '../lib/slots';
 import { peakWindowSchema } from '../schemas/inventory.schema';
 import type { ProductMatchQuery, ProductPatch } from '../schemas/product.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
@@ -173,7 +173,7 @@ export const productService = {
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       include: {
         collections: COLLECTIONS_INCLUDE,
-        items: { where: IN_STOCK_ITEM_FILTER, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        items: { where: IN_STOCK_ITEM_FILTER, include: UNIT_SLOTS, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       },
       take: PRODUCT_LIST_LIMIT + 1,
     });
@@ -189,7 +189,7 @@ export const productService = {
       where: { id, deletedAt: null },
       include: {
         collections: COLLECTIONS_INCLUDE,
-        items: { where: { deletedAt: null }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        items: { where: { deletedAt: null }, include: UNIT_SLOTS, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       },
     });
     if (!row) return null;
@@ -285,7 +285,7 @@ export const productService = {
     const rows = await prisma.product.findMany({
       where: { id: { in: [...new Set(ids)] } },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-      include: { collections: COLLECTIONS_INCLUDE, items: { where: IN_STOCK_ITEM_FILTER, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } },
+      include: { collections: COLLECTIONS_INCLUDE, items: { where: IN_STOCK_ITEM_FILTER, include: UNIT_SLOTS, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } },
     });
     return toProductViews(rows);
   },
@@ -294,7 +294,7 @@ export const productService = {
   async view(id: string): Promise<ProductView | null> {
     const row = await prisma.product.findUnique({
       where: { id },
-      include: { collections: COLLECTIONS_INCLUDE, items: { where: IN_STOCK_ITEM_FILTER, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } },
+      include: { collections: COLLECTIONS_INCLUDE, items: { where: IN_STOCK_ITEM_FILTER, include: UNIT_SLOTS, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] } },
     });
     if (!row) return null;
     const [view] = await toProductViews([row]);
@@ -314,6 +314,8 @@ export const productService = {
       if (!current) return null;
       const deletedAt = new Date();
       const units = await tx.inventoryItem.findMany({ where: { productId: id, deletedAt: null }, select: { id: true } });
+      // FEAT-93 (#174): their cells go to the trash with them.
+      await trashSlots(tx, units.map((unit) => unit.id), deletedAt);
       await tx.inventoryItem.updateMany({ where: { productId: id, deletedAt: null }, data: { deletedAt } });
       await tx.product.update({ where: { id }, data: { deletedAt } });
       return { deletedAt, itemIds: units.map((unit) => unit.id) };
@@ -323,37 +325,33 @@ export const productService = {
   /**
    * D10: restores a family still within the retention period, and the units
    * trashed together with it (exactly its `deletedAt`) — a unit trashed on
-   * its own before stays in the trash. A unit whose grid slot was given away
-   * meanwhile comes back unplaced (#174).
+   * its own before stays in the trash. A copy whose cell was given away
+   * meanwhile comes back unplaced (#174, FEAT-93 `reviveSlots`).
    */
   async restore(id: string): Promise<ProductView | null> {
     try {
-      return await this.restoreOnce(id, false);
+      return await this.restoreOnce(id);
     } catch (err) {
       // #173: the database's partial unique index is the real guarantee
-      // against a slot taken between the check and the write — come back
-      // unplaced rather than fail.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return this.restoreOnce(id, true);
+      // against a cell taken between the check and the write — tried once
+      // more, the check then sees it and the copy comes back unplaced.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return this.restoreOnce(id);
       throw err;
     }
   },
 
-  async restoreOnce(id: string, unplaceAll: boolean): Promise<ProductView | null> {
+  async restoreOnce(id: string): Promise<ProductView | null> {
     const restored = await prisma.$transaction(async (tx) => {
       await lockFamily(tx, id);
       const current = await tx.product.findFirst({ where: { id, deletedAt: { not: null, gte: retentionCutoff() } } });
       if (!current?.deletedAt) return false;
       const units = await tx.inventoryItem.findMany({
         where: { productId: id, deletedAt: current.deletedAt },
-        select: { id: true, cellarId: true, slotColumn: true, slotRow: true },
+        select: { id: true },
       });
-      for (const unit of units) {
-        const unplace = unit.slotColumn != null && (unplaceAll || await isSlotTaken(tx, unit));
-        await tx.inventoryItem.update({
-          where: { id: unit.id },
-          data: unplace ? { deletedAt: null, slotColumn: null, slotRow: null } : { deletedAt: null },
-        });
-      }
+      const ids = units.map((unit) => unit.id);
+      await tx.inventoryItem.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
+      await reviveSlots(tx, ids);
       await tx.product.update({ where: { id }, data: { deletedAt: null } });
       return true;
     });
@@ -367,7 +365,7 @@ export const productService = {
       orderBy: { deletedAt: 'desc' },
       include: {
         collections: COLLECTIONS_INCLUDE,
-        items: { where: { deletedAt: { not: null } }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
+        items: { where: { deletedAt: { not: null } }, include: UNIT_SLOTS, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] },
       },
     });
     const trashedTogether = (row: (typeof rows)[number]) =>
