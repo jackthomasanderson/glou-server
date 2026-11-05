@@ -223,11 +223,6 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     const { quantity: _q, ...unit } = Object.fromEntries(
       Object.entries(write.unit ?? {}).filter(([field]) => !isStateField(field)),
     );
-    const group = await tx.inventoryItem.update({
-      where: { id: item.id },
-      data: { ...unit, quantity: (next.quantity ?? 1) - 1, ...stamp } as never,
-      include,
-    });
     const subId = uuidv4();
     const sub = {
       ...own(next),
@@ -252,6 +247,12 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
       else await moveSlots(tx, [taken.id], subId);
       slotChanges.push(...slotsFreed([taken]));
     }
+    // Written once its cells are settled: the row answered carries them.
+    const group = await tx.inventoryItem.update({
+      where: { id: item.id },
+      data: { ...unit, quantity: (next.quantity ?? 1) - 1, ...stamp } as never,
+      include,
+    });
     const created = await tx.inventoryItem.findUniqueOrThrow({ where: { id: subId }, include });
     // A count in progress follows the copy that left (FEAT-100).
     await followDetach(tx, item.id, from - 1, {

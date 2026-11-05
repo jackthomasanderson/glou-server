@@ -16,7 +16,7 @@ type Row = { id: string };
 type Unit = Row & {
   productId: string; quantity: number | null; isOpened: boolean; fillLevel: number | null;
   cigarsPerBox: number | null; cigarsLeft: number | null; parentItemId: string | null;
-  cellarId: string | null; slotColumn: number | null; slotRow: number | null; updatedAt: string;
+  cellarId: string | null; slots: Array<{ id: string; column: number; row: number }>; updatedAt: string;
 };
 type Written = { data: Unit; changed: Unit[]; removedIds: string[] };
 type Detail = { items: Unit[]; tastings: { id: string; itemId: string | null }[] };
@@ -269,14 +269,35 @@ test.describe('detach and reattach (#471)', () => {
     expect((await stats(api, cellarId)).bottles).toBe(6);
   });
 
-  test('the slot stays with the group when one of its bottles is opened', async ({ page }) => {
+  // FEAT-93 (decision #471 point 75, until lot S2's choice): an unplaced copy first.
+  test('the cell stays with the group when one of its unplaced bottles is opened', async ({ page }) => {
     const api = page.request;
     const { group } = await groupOf(api, 3);
-    await write(api, group.id, { slotColumn: 1, slotRow: 1 });
+    expect((await api.post(`/api/inventory/${group.id}/slots`, { data: { column: 1, row: 1 } })).status()).toBe(201);
 
     const opened = await write(api, group.id, { isOpened: true, fillLevel: 50 });
 
-    expect(opened.data).toMatchObject({ slotColumn: null, slotRow: null });
-    expect(opened.changed[0]).toMatchObject({ slotColumn: 1, slotRow: 1, quantity: 2 });
+    expect(opened.data).toMatchObject({ slots: [] });
+    expect(opened.changed[0]).toMatchObject({ slots: [expect.objectContaining({ column: 1, row: 1 })], quantity: 2 });
+  });
+
+  // FEAT-93: every bottle placed — the one opened takes the cell placed last
+  // (the database guard would refuse a group left with more cells than bottles).
+  test('opened from a group whose every bottle is placed, the bottle takes the cell placed last', async ({ page }) => {
+    const api = page.request;
+    const { group } = await groupOf(api, 2);
+    for (const column of [1, 2]) {
+      expect((await api.post(`/api/inventory/${group.id}/slots`, { data: { column, row: 1 } })).status()).toBe(201);
+    }
+
+    const opened = await write(api, group.id, { isOpened: true, fillLevel: 50 });
+
+    expect(opened.data).toMatchObject({ quantity: 1, slots: [expect.objectContaining({ column: 2, row: 1 })] });
+    expect(opened.changed[0]).toMatchObject({ quantity: 1, slots: [expect.objectContaining({ column: 1, row: 1 })] });
+
+    // Put back closed and full: it rejoins its group, with its cell.
+    const back = await write(api, opened.data.id, { isOpened: false, fillLevel: 100 });
+    expect(back.data).toMatchObject({ id: group.id, quantity: 2 });
+    expect(back.data.slots.map((slot) => slot.column).sort()).toEqual([1, 2]);
   });
 });

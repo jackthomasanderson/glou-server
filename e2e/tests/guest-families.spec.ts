@@ -268,7 +268,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
       data: { category: 'wine', name: `E2E O slot ${stamp()}`, producer: 'E2E Domaine', cellarId: cellar },
     }));
     families.push(bottle.productId);
-    await okData(await api.patch(`/api/inventory/${bottle.id}`, { data: { slotColumn: 2, slotRow: 3 } }));
+    expect((await api.post(`/api/inventory/${bottle.id}/slots`, { data: { column: 2, row: 3 } })).status()).toBe(201);
     const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
       data: { label: `E2E O slot ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
     }));
@@ -283,14 +283,14 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
         data: { category: 'wine', name: `E2E O other ${stamp()}`, producer: 'E2E Domaine', cellarId: cellar },
       }));
       families.push(other.productId);
-      await okData(await api.patch(`/api/inventory/${other.id}`, { data: { slotColumn: 2, slotRow: 3 } }));
+      expect((await api.post(`/api/inventory/${other.id}/slots`, { data: { column: 2, row: 3 } })).status()).toBe(201);
 
       expect((await guest.request.patch(url, { data: { undo: true } })).status()).toBe(200);
     } finally {
       await context.close();
     }
     const [back] = await unitsOf(api, bottle.productId);
-    expect(back).toMatchObject({ id: bottle.id, isOpened: false, slotColumn: null, slotRow: null });
+    expect(back).toMatchObject({ id: bottle.id, isOpened: false, slots: [] });
   });
 
   test('read-only (c4): neither open, drink nor note a tasting', async ({ page, browser }) => {
