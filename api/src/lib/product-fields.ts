@@ -250,7 +250,8 @@ export function toUnitView(row: UnitRow): ItemView {
   };
 }
 
-/** A unit as /api/products serves it, read again with its live cells (FEAT-93). */
-export async function readUnitView(client: PrismaClientOrTx, id: string): Promise<ItemView> {
-  return toUnitView(await client.inventoryItem.findUniqueOrThrow({ where: { id }, include: UNIT_SLOTS }));
+/** A unit row as /api/products serves it, with its live cells read (FEAT-93). */
+export async function unitViewOf(client: PrismaClientOrTx, row: Omit<UnitRow, 'slots'>): Promise<ItemView> {
+  const slots = await client.itemSlot.findMany({ where: { itemId: row.id, ...UNIT_SLOTS_INCLUDE.where }, select: UNIT_SLOTS_INCLUDE.select, orderBy: [...UNIT_SLOTS_INCLUDE.orderBy] });
+  return toUnitView({ ...row, slots });
 }

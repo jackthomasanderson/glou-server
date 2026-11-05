@@ -5,7 +5,7 @@ import {
   type Theme as PrismaTheme, type Language as PrismaLanguage,
   type TempUnit as PrismaTempUnit, type DateFormat as PrismaDateFormat,
   TastingReadiness as PrismaTastingReadiness,
-  type Collection, type InventoryItem, type Product, type TastingNote,
+  type Collection, type InventoryItem, type ItemSlot, type Product, type TastingNote,
 } from '@prisma/client';
 import { ALERT_STATUSES, CATEGORY_VALUES, CURVE_SHAPES, type AlertStatus, type CurveShape, type InventoryCategory } from '../../../shared/inventory';
 import type { DateFormat, Language, TempUnit, Theme } from '../../../shared/auth';
@@ -65,8 +65,10 @@ describe('shared/product.ts matches the Prisma schema (#471)', () => {
   });
 
   it('serves a unit with its own columns only: no description (mirror), no locks, no FEAT-87 flag', () => {
-    expectTypeOf<Omit<ItemView, Converted>>()
+    expectTypeOf<Omit<ItemView, Converted | 'slots'>>()
       .toEqualTypeOf<Omit<InventoryItem, ProductField | 'lockedFields' | 'isOwned' | Converted>>();
+    // FEAT-93: its live cells, as item_slots holds them.
+    expectTypeOf<ItemView['slots'][number]>().toEqualTypeOf<Pick<ItemSlot, 'id' | 'column' | 'row'>>();
     expectTypeOf<ItemView['purchasedAt']>().toEqualTypeOf<string | null>();
     expectTypeOf<ReturnType<typeof toUnitView>>().toEqualTypeOf<ItemView>();
   });

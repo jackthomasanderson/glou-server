@@ -4,6 +4,7 @@ import { itemSpend, itemUnits, itemValue } from '../../src/lib/finished-item';
 import {
   applyState, finishUnits, planState, type StateItem, type StateWrite,
 } from '../../src/services/stock-state.service';
+import { fakeSlots, slot, type FakeSlot } from '../support/fake-slots';
 
 // #471 (FEAT-103/106): the detach / reattach rule, run against a small
 // in-memory stand-in for the transaction client, so that what the rule
@@ -19,7 +20,7 @@ const NOW = new Date('2026-10-31T12:00:00.000Z');
 /** `category` stands for its family's (read through the `product` include). */
 function unit(fields: Partial<StateItem> & { id: string; category?: string }): Row {
   return {
-    userId: 'creator', productId: 'p1', cellarId: 'c1', slotColumn: null, slotRow: null,
+    userId: 'creator', productId: 'p1', cellarId: 'c1',
     purchasedAt: DAY, cigarsPerBox: null, cigarsLeft: null, parentItemId: null, writtenOffAt: null,
     needsReview: false, category: 'wine', location: null,
     purchasePrice: 20, estimatedValue: null, purchasePlace: null, bottleSize: '75cl', quantity: 1,
@@ -48,8 +49,9 @@ const matches = (row: Record<string, unknown>, where: Record<string, unknown> = 
     return row[field] === value;
   });
 
-function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entries?: Row[]; wishlist?: Row[]; categories?: Record<string, string>; sessions?: Row[] } = {}) {
+function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entries?: Row[]; wishlist?: Row[]; categories?: Record<string, string>; sessions?: Row[]; slots?: FakeSlot[] } = {}) {
   sessionRows = (options.sessions ?? []).map((row) => ({ ...row }));
+  const slots = fakeSlots(options.slots);
   const items = new Map(rows.map((row) => [row.id, { ...row }]));
   const tastings = (options.tastings ?? []).map((row) => ({ ...row }));
   const audits = (options.audits ?? []).map((row) => ({ ...row }));
@@ -59,6 +61,7 @@ function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entrie
     if (!row) return null;
     const copy: Record<string, unknown> = { ...row };
     if (include?.product) copy.product = { category: options.categories?.[row.productId as string] ?? row.category };
+    if (include?.slots) copy.slots = slots.viewsOf(row.id);
     return copy;
   };
   const updateMany = (list: Row[]) => async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
@@ -97,6 +100,8 @@ function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entrie
       delete: vi.fn(async ({ where }: { where: { id: string } }) => {
         order.push(`delete:${where.id}`);
         items.delete(where.id);
+        // ON DELETE CASCADE of item_slots.
+        slots.rows.splice(0, slots.rows.length, ...slots.rows.filter((row) => row.itemId !== where.id));
       }),
       updateMany: async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) =>
         updateMany([...items.values()])({ where, data }),
@@ -127,6 +132,7 @@ function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entrie
     inventoryCountSession: {
       findFirst: async ({ where }: { where: Record<string, unknown> }) => sessionRows.find((row) => matches(row, where)) ?? null,
     },
+    itemSlot: slots.delegate,
     $executeRaw: vi.fn(async () => 1),
     $queryRaw: vi.fn(async () => { order.push('lock'); return []; }),
   };
@@ -140,6 +146,9 @@ function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entrie
     entries,
     wishlist,
     order,
+    slots,
+    /** A unit's live cells, "column:row" ('' when none). */
+    cells: (id: string) => slots.cellsOf(id),
     get: (id: string) => items.get(id)!,
     /** Copies in stock (bottles or cigars). */
     unitsInStock: () => all().filter((row) => row.deletedAt == null).reduce((total, row) => total + itemUnits(row as never), 0),
@@ -165,18 +174,24 @@ const expectAppError = async (promise: Promise<unknown>, status: number, code: s
 
 describe('applyState — detach (FEAT-103)', () => {
   it('c1: opening one bottle of a group of 6 leaves a group of 5 and one opened bottle, 6 in stock', async () => {
-    const db = fakeDb([unit({ id: 'g', quantity: 6, slotColumn: 2, slotRow: 3, lockedFields: ['purchasePrice'], location: 'A3' })]);
+    const db = fakeDb([unit({ id: 'g', quantity: 6, lockedFields: ['purchasePrice'], location: 'A3' })], {
+      slots: [slot({ itemId: 'g', column: 2, row: 3 })],
+    });
 
     const result = await apply(db, 'g', { state: { isOpened: true, fillLevel: 60, openedAt: NOW } });
 
     expect(result.outcome).toBe('detached');
-    expect(db.get('g')).toMatchObject({ quantity: 5, isOpened: false, slotColumn: 2, slotRow: 3, updatedBy: 'member', updatedAt: NOW });
+    expect(db.get('g')).toMatchObject({ quantity: 5, isOpened: false, updatedBy: 'member', updatedAt: NOW });
+    // FEAT-93: 5 copies unplaced, the copy comes from one of them: the cell stays with the group.
+    expect(db.cells('g')).toBe('2:3');
+    expect(result.slotChanges).toEqual([]);
     const sub = result.data;
     expect(sub.id).not.toBe('g');
+    expect(db.cells(sub.id)).toBe('');
     expect(db.get(sub.id)).toMatchObject({
       quantity: 1, isOpened: true, fillLevel: 60, openedAt: NOW, parentItemId: 'g',
-      // The slot stays with the group; the copy keeps what it was bought as.
-      slotColumn: null, slotRow: null, cellarId: 'c1', purchasePrice: 20, purchasedAt: DAY, bottleSize: '75cl',
+      // The copy keeps what it was bought as.
+      cellarId: 'c1', purchasePrice: 20, purchasedAt: DAY, bottleSize: '75cl',
       location: 'A3', productId: 'p1', lockedFields: ['purchasePrice'], userId: 'member', needsReview: false,
     });
     expect(result.changed.map((row) => row.id)).toEqual(['g']);
@@ -200,24 +215,25 @@ describe('applyState — detach (FEAT-103)', () => {
   });
 
   it('c3: opening the only bottle of a group of 1 changes it, without a second unit', async () => {
-    const db = fakeDb([unit({ id: 'g', quantity: 1, slotColumn: 1, slotRow: 1 })]);
+    const db = fakeDb([unit({ id: 'g', quantity: 1 })], { slots: [slot({ itemId: 'g', column: 1, row: 1 })] });
 
     const result = await apply(db, 'g', { state: { isOpened: true, fillLevel: 70 } });
 
     expect(result.outcome).toBe('updated');
     expect(result.data.id).toBe('g');
     expect(db.items.size).toBe(1);
-    expect(db.get('g')).toMatchObject({ isOpened: true, fillLevel: 70, quantity: 1, slotColumn: 1 });
+    expect(db.get('g')).toMatchObject({ isOpened: true, fillLevel: 70, quantity: 1 });
+    expect(db.cells('g')).toBe('1:1');
     expect(db.raw.inventoryItem.create).not.toHaveBeenCalled();
   });
 
   it('finishing the only bottle of a group gives its slot back (#573)', async () => {
-    const db = fakeDb([unit({ id: 'g', quantity: 1, slotColumn: 1, slotRow: 1 })]);
+    const db = fakeDb([unit({ id: 'g', quantity: 1 })], { slots: [slot({ itemId: 'g', column: 1, row: 1 })] });
 
     const result = await apply(db, 'g', { state: { isOpened: true, fillLevel: 0 } });
 
-    expect(result.releasedSlot).toBe(true);
-    expect(db.get('g')).toMatchObject({ slotColumn: null, slotRow: null });
+    expect(result.slotChanges).toEqual([{ field: 'slot', from: { column: 1, row: 1 }, to: null }]);
+    expect(db.cells('g')).toBe('');
   });
 
   it('the value stays whole: the detached copy keeps its estimated value', async () => {
@@ -329,12 +345,13 @@ describe('applyState — cigars (FEAT-103 c4-c5, decision 28)', () => {
   });
 
   it('the last single cigar of a group finishes the group itself and frees its slot', async () => {
-    const db = fakeDb([box({ id: 'g', quantity: 1, cigarsPerBox: null, slotColumn: 4, slotRow: 1 })]);
+    const db = fakeDb([box({ id: 'g', quantity: 1, cigarsPerBox: null })], { slots: [slot({ itemId: 'g', column: 4, row: 1 })] });
 
     const result = await apply(db, 'g', { smokeOne: true }, 'cigar');
 
     expect(result.outcome).toBe('updated');
-    expect(db.get('g')).toMatchObject({ isOpened: true, fillLevel: 0, slotColumn: null, slotRow: null });
+    expect(db.get('g')).toMatchObject({ isOpened: true, fillLevel: 0 });
+    expect(db.cells('g')).toBe('');
     expect(db.items.size).toBe(1);
   });
 
@@ -418,8 +435,8 @@ describe('applyState — cigars (FEAT-103 c4-c5, decision 28)', () => {
 });
 
 describe('applyState — reattach (FEAT-106)', () => {
-  async function openedFromSix(extra: Partial<StateItem> = {}) {
-    const db = fakeDb([unit({ id: 'g', quantity: 6, ...extra })]);
+  async function openedFromSix(extra: Partial<StateItem> = {}, slots: FakeSlot[] = []) {
+    const db = fakeDb([unit({ id: 'g', quantity: 6, ...extra })], { slots });
     const opened = await apply(db, 'g', { state: { isOpened: true, fillLevel: 60, openedAt: NOW } });
     return { db, subId: opened.data.id };
   }
@@ -509,25 +526,89 @@ describe('applyState — reattach (FEAT-106)', () => {
     expect(db.get('g').quantity).toBe(5);
   });
 
-  it('a sub-record put in a slot joins a group that has none, and brings the slot along', async () => {
+  it('a sub-record put in a cell joins a group that has none, and brings the cell along', async () => {
     const { db, subId } = await openedFromSix();
-    Object.assign(db.get(subId), { slotColumn: 5, slotRow: 2 });
+    db.slots.rows.push(slot({ itemId: subId, column: 5, row: 2 }));
 
     await apply(db, subId, { state: { isOpened: false, fillLevel: 100 } });
 
-    expect(db.get('g')).toMatchObject({ quantity: 6, slotColumn: 5, slotRow: 2 });
-    // Deleted before the group takes its slot (unique slot index).
-    expect(db.order.indexOf(`delete:${subId}`)).toBeLessThan(db.order.lastIndexOf('update:g'));
+    expect(db.get('g')).toMatchObject({ quantity: 6 });
+    expect(db.cells('g')).toBe('5:2');
+    expect(db.items.has(subId)).toBe(false);
   });
 
-  it('two slots cannot become one: the sub-record stays a group of 1', async () => {
-    const { db, subId } = await openedFromSix({ slotColumn: 1, slotRow: 1 });
-    Object.assign(db.get(subId), { slotColumn: 5, slotRow: 2 });
+  it('FEAT-93: the cells of both join — a group x6 holding the cells of its copies', async () => {
+    const { db, subId } = await openedFromSix({}, [slot({ itemId: 'g', column: 1, row: 1 })]);
+    db.slots.rows.push(slot({ itemId: subId, column: 5, row: 2 }));
 
     const result = await apply(db, subId, { state: { isOpened: false, fillLevel: 100 } });
 
+    expect(result.outcome).toBe('reattached');
+    expect(db.get('g')).toMatchObject({ quantity: 6 });
+    expect(db.cells('g')).toBe('1:1 5:2');
+  });
+
+  it('FEAT-93: a copy opened from a group with every copy placed takes the most recent cell, and brings it back', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 2 })], {
+      slots: [slot({ itemId: 'g', column: 1, row: 1 }), slot({ itemId: 'g', column: 2, row: 1 })],
+    });
+
+    const opened = await apply(db, 'g', { state: { isOpened: true, fillLevel: 60, openedAt: NOW } });
+
+    // Decision #471 point 75: no unplaced copy, so the cell placed last.
+    expect(db.cells('g')).toBe('1:1');
+    expect(db.cells(opened.data.id)).toBe('2:1');
+    expect(opened.slotChanges).toEqual([{ field: 'slot', from: { column: 2, row: 1 }, to: null }]);
+
+    await apply(db, opened.data.id, { state: { isOpened: false, fillLevel: 100 } });
+    expect(db.get('g').quantity).toBe(2);
+    expect(db.cells('g')).toBe('1:1 2:1');
+  });
+
+  it('FEAT-93: a copy drunk from a group with every copy placed frees the most recent cell', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 2 })], {
+      slots: [slot({ itemId: 'g', column: 1, row: 1 }), slot({ itemId: 'g', column: 2, row: 1 })],
+    });
+
+    const drunk = await apply(db, 'g', { state: { isOpened: true, fillLevel: 0 } });
+
+    expect(db.cells('g')).toBe('1:1');
+    expect(db.cells(drunk.data.id)).toBe('');
+    expect(drunk.slotChanges).toEqual([{ field: 'slot', from: { column: 2, row: 1 }, to: null }]);
+  });
+
+  it('FEAT-93: a group of single cigars keeps its one cell while a cigar is smoked', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 3, cigarsPerBox: null, category: 'cigar' })], { slots: [slot({ itemId: 'g', column: 4, row: 1 })] });
+
+    const smoked = await apply(db, 'g', { smokeOne: true }, 'cigar');
+
+    expect(smoked.outcome).toBe('detached');
+    expect(db.cells('g')).toBe('4:1');
+    expect(db.cells(smoked.data.id)).toBe('');
+  });
+
+  it('FEAT-93: a unit changing cellar gives its cells back first', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 1, isOpened: true, fillLevel: 50 })], { slots: [slot({ itemId: 'g', column: 3, row: 3 })] });
+
+    const result = await apply(db, 'g', { unit: { cellarId: 'c2' } });
+
+    expect(db.cells('g')).toBe('');
+    expect(db.get('g').cellarId).toBe('c2');
+    expect(result.slotChanges).toEqual([{ field: 'slot', from: { column: 3, row: 3 }, to: null }]);
+    expect(db.raw.itemSlot.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(db.raw.inventoryItem.update.mock.invocationCallOrder[0]);
+  });
+
+  it('two single cigars each in a cell cannot become one: the sub-record stays a group of 1', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 5, cigarsPerBox: null, category: 'cigar' })], { slots: [slot({ itemId: 'g', column: 1, row: 1 })] });
+    const opened = await apply(db, 'g', { state: { isOpened: true } }, 'cigar');
+    db.slots.rows.push(slot({ itemId: opened.data.id, column: 5, row: 2 }));
+
+    const result = await apply(db, opened.data.id, { state: { isOpened: false } }, 'cigar');
+
     expect(result.outcome).toBe('regrouped');
-    expect(db.get('g')).toMatchObject({ quantity: 5, slotColumn: 1 });
+    expect(db.get('g')).toMatchObject({ quantity: 4 });
+    expect(db.cells('g')).toBe('1:1');
+    expect(db.cells(opened.data.id)).toBe('5:2');
   });
 
   describe('c2: tastings noted on the sub-record', () => {
@@ -713,15 +794,18 @@ describe('planState', () => {
 
 describe('finishUnits (rotating inventory: missing copies drunk)', () => {
   it('finishes every copy of a group, one sub-record each, the last one the group itself', async () => {
-    const db = fakeDb([unit({ id: 'g', quantity: 3, slotColumn: 1, slotRow: 2 })]);
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })], { slots: [slot({ itemId: 'g', column: 1, row: 2 })] });
 
-    const finished = await finishUnits(db.tx, 'g', 3, { userId: 'member', now: NOW });
+    const slotChanges: Array<{ field: string }> = [];
+    const finished = await finishUnits(db.tx, 'g', 3, { userId: 'member', now: NOW, slotChanges: slotChanges as never });
 
     expect(finished).toHaveLength(3);
     expect(finished.at(-1)).toBe('g');
     expect(db.items.size).toBe(3);
     for (const row of db.items.values()) expect(row).toMatchObject({ quantity: 1, isOpened: true, fillLevel: 0 });
-    expect(db.get('g')).toMatchObject({ slotColumn: null, slotRow: null });
+    // The cell goes with the last copy, and the history says which (decision #471 point 75).
+    expect(db.cells('g')).toBe('');
+    expect(slotChanges).toEqual([{ field: 'slot', from: { column: 1, row: 2 }, to: null }]);
     expect(db.unitsInStock()).toBe(0);
     expect(db.spend()).toBe(60);
     // The family is locked before any unit is written.

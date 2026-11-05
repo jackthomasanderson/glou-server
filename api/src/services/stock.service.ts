@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict, notFound } from '../lib/errors';
 import { groupKey, isGroupableItem, slotCapacity, unitKind, type UnitKind } from '../lib/finished-item';
-import { lockFamily, purchaseDayFromInput, readUnitView, toUnitView, UNIT_SLOTS } from '../lib/product-fields';
+import { lockFamily, purchaseDayFromInput, toUnitView, unitViewOf, UNIT_SLOTS } from '../lib/product-fields';
 import { fitSlots, freeSlots, slotsFreed } from '../lib/slots';
 import { MAX_COPIES, type AddUnitsInput, type CorrectQuantityInput } from '../schemas/stock.schema';
 import { LISTED_PRODUCT_FILTER } from './product.service';
@@ -249,7 +249,7 @@ export async function addUnitsIn(
     cigarsPerBox: input.cigarsPerBox ?? null,
   };
   const added = await addCopies(tx, userId, product, target, input.quantity);
-  return { result: { data: await readUnitView(tx, added.unit.id), changed: [], removedIds: [] }, merged: added.from !== null, from: added.from, to: added.to };
+  return { result: { data: await unitViewOf(tx, added.unit), changed: [], removedIds: [] }, merged: added.from !== null, from: added.from, to: added.to };
 }
 
 /**
@@ -270,7 +270,7 @@ export async function correctQuantityIn(
   const stale = input.expectedUpdatedAt !== undefined
     && new Date(input.expectedUpdatedAt).getTime() !== group.updatedAt.getTime();
   // Moved to another family meanwhile (a merge): its lock was not the one taken.
-  if (stale || group.productId !== productId) return { conflict: true, item: await readUnitView(tx, itemId) };
+  if (stale || group.productId !== productId) return { conflict: true, item: await unitViewOf(tx, group) };
   const { category } = await tx.product.findUniqueOrThrow({ where: { id: productId }, select: { category: true } });
   // FEAT-93: the copies that leave free their cells — unplaced ones first,
   // then the most recently placed (automatic rule until lot S2's choice).

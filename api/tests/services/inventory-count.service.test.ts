@@ -11,12 +11,15 @@ vi.mock('../../src/lib/prisma', () => ({
 
 import { prisma } from '../../src/lib/prisma';
 import { applyCorrections, getSessionReport } from '../../src/services/inventory-count.service';
+import { fakeSlots, slot, type FakeSlot } from '../support/fake-slots';
 
 /**
  * Runs `$transaction` callbacks against a fake transaction client so the
  * correction loop can be exercised without a database.
  */
-function mockTransactionClient(itemRow: Record<string, unknown> | null) {
+function mockTransactionClient(itemRow: Record<string, unknown> | null, cells: FakeSlot[] = []) {
+  // FEAT-93: the cells of the plan.
+  const slots = fakeSlots(cells);
   const findFirst = vi.fn().mockResolvedValue(itemRow as never);
   const update = vi.fn().mockResolvedValue({ id: itemRow?.id } as never);
   // #471: the families of the corrected units are locked first (lockFamily).
@@ -24,9 +27,9 @@ function mockTransactionClient(itemRow: Record<string, unknown> | null) {
   const $queryRaw = vi.fn();
   vi.mocked(prisma.$transaction).mockImplementation(
     ((callback: (tx: unknown) => unknown) =>
-      callback({ inventoryItem: { findFirst, update, findMany }, inventoryCountEntry: { findMany: vi.fn().mockResolvedValue([]) }, $queryRaw })) as never,
+      callback({ inventoryItem: { findFirst, update, findMany }, inventoryCountEntry: { findMany: vi.fn().mockResolvedValue([]) }, itemSlot: slots.delegate, $queryRaw })) as never,
   );
-  return { findFirst, update, $queryRaw };
+  return { findFirst, update, $queryRaw, slots };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -59,11 +62,9 @@ describe('applyCorrections', () => {
       isOpened: false,
       fillLevel: null,
       cigarsLeft: null,
-      slotColumn: 2,
-      slotRow: 3,
       lockedFields: ['fillLevel', 'isOpened'],
       product: { category: 'wine' },
-    });
+    }, [slot({ itemId: 'b1', column: 2, row: 3 })]);
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'mark_consumed' }], 'u1');
 
@@ -73,14 +74,17 @@ describe('applyCorrections', () => {
       data: {
         isOpened: true,
         fillLevel: 0,
-        // #573: a finished bottle has left its rack and gives its slot back.
-        slotColumn: null,
-        slotRow: null,
         updatedAt: expect.any(Date),
         updatedBy: 'u1',
       },
       include: expect.anything(),
     });
+    // #573: a finished bottle has left its rack and gives its cell back;
+    // the history says which (FEAT-93, decision #471 point 75).
+    expect(tx.slots.cellsOf('b1')).toBe('');
+    expect(result).toMatchObject({ history: [expect.objectContaining({
+      itemId: 'b1', details: expect.objectContaining({ changes: [{ field: 'fillLevel', from: null, to: 0 }, { field: 'slot', from: { column: 2, row: 3 }, to: null }] }),
+    })] });
     // #471: the family is locked before the unit is written.
     expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(tx.update.mock.invocationCallOrder[0]);
   });
@@ -102,22 +106,24 @@ describe('applyCorrections', () => {
   });
 
   // #798: the slot coordinates belong to the bottle's old cellar.
-  it('moves a slotted bottle into the session scope unplaced', async () => {
+  it('moves a placed bottle into the session scope unplaced: its cell freed before the cellar is written', async () => {
     vi.mocked(prisma.inventoryCountSession.findUnique).mockResolvedValue({
       id: 's1',
       cellarId: 'c1',
     } as never);
     const tx = mockTransactionClient({
-      id: 'b1', deletedAt: null, lockedFields: [], cellarId: 'c2', slotColumn: 2, slotRow: 3,
-    });
+      id: 'b1', deletedAt: null, lockedFields: [], cellarId: 'c2',
+    }, [slot({ itemId: 'b1', cellarId: 'c2', column: 2, row: 3 })]);
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'move_to_scope' }], 'u1');
 
     expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [], history: [] });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
-      data: expect.objectContaining({ cellarId: 'c1', slotColumn: null, slotRow: null }),
+      data: expect.objectContaining({ cellarId: 'c1' }),
     });
+    expect(tx.slots.cellsOf('b1')).toBe('');
+    expect(tx.slots.delegate.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(tx.update.mock.invocationCallOrder[0]);
   });
 
   it('still skips a correction whose item no longer exists', async () => {

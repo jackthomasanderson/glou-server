@@ -73,12 +73,33 @@ describe('PRODUCT_FIELDS (#471, design.md "Où vit une donnée")', () => {
     expect(contraction).toContain('DROP COLUMN "isOwned"');
   });
 
-  it('is one migration, dated after every other one, without an explicit transaction (D7, design.md)', () => {
+  // Found by name, never as "the last one": later migrations ship after it
+  // (FEAT-93's item_slots, #851).
+  it('is one migration, without an explicit transaction (D7, design.md)', () => {
     const names = fs.readdirSync(migrationsDir).filter((name) => /^\d{14}_/.test(name)).sort();
-    expect(names.filter((name) => name.includes('_families'))).toEqual([names[names.length - 1]]);
+    expect(names.filter((name) => name.includes('_families'))).toEqual(['20261104120000_families_model']);
     const statements = familiesMigration().replace(/--.*$/gm, '');
     expect(statements).not.toMatch(/\b(BEGIN|COMMIT|ROLLBACK)\s*;/i);
     expect(statements).not.toMatch(/CONCURRENTLY|VACUUM/i);
+  });
+
+  // FEAT-93: the slots migration, after the families one, also in one implicit
+  // transaction, and with the families rules block copied verbatim (the bench
+  // checks it byte for byte too).
+  it('the slots migration follows it, without an explicit transaction, with the same rules block', () => {
+    const names = fs.readdirSync(migrationsDir).filter((name) => /^\d{14}_/.test(name)).sort();
+    const slots = names.filter((name) => name.endsWith('_item_slots'));
+    expect(slots).toHaveLength(1);
+    expect(slots[0] > '20261104120000_families_model').toBe(true);
+    const sql = migration('_item_slots');
+    const statements = sql.replace(/--.*$/gm, '');
+    expect(statements).not.toMatch(/\b(BEGIN|COMMIT|ROLLBACK)\s*;/i);
+    expect(statements).not.toMatch(/CONCURRENTLY|VACUUM/i);
+    const rules = (text: string) => text.slice(text.indexOf('-- >>> families rules'), text.indexOf('-- <<< families rules'));
+    expect(rules(sql)).not.toBe('');
+    expect(rules(sql)).toBe(rules(familiesMigration()));
+    expect(sql).toContain('DROP COLUMN "slotColumn"');
+    expect(sql).toContain('DROP COLUMN "slotRow"');
   });
 });
 

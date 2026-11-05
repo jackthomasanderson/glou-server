@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict } from '../lib/errors';
 import { isGroupableItem, unitKind } from '../lib/finished-item';
-import { fieldSourcesOf, readUnitView, toUnitView, UNIT_SLOTS } from '../lib/product-fields';
+import { fieldSourcesOf, toUnitView, unitViewOf, UNIT_SLOTS } from '../lib/product-fields';
 import {
   freeSlots, liveSlotsOf, moveSlots, pickSlots, slotsFreed, slotsPlaced, type SlotChange, type SlotRow,
 } from '../lib/slots';
@@ -195,7 +195,7 @@ async function splitUnits(
     if (!group) return null;
     const stale = expectedUpdatedAt !== undefined && new Date(expectedUpdatedAt).getTime() !== group.updatedAt.getTime();
     // Moved to another family meanwhile (a merge): its lock was not the one taken.
-    if (stale || group.productId !== head.productId) return { conflict: true, item: await readUnitView(tx, groupId) };
+    if (stale || group.productId !== head.productId) return { conflict: true, item: await unitViewOf(tx, group) };
     if (!isGroupableItem(group)) throw conflict('NOT_A_GROUP');
 
     const from = group.quantity ?? 1;
@@ -289,7 +289,7 @@ export async function splitLockedGroup(
 
   // Part of the group: it keeps the rest; the copies taken complete the
   // identical group, or make a new line.
-  await tx.inventoryItem.update({ where: { id: group.id }, data: { quantity: from - count, ...stamp } });
+  const rest = await tx.inventoryItem.update({ where: { id: group.id }, data: { quantity: from - count, ...stamp } });
   if (target) await keepFoundQuantities(tx, [target.id]);
   const line = target
     ? await tx.inventoryItem.update({ where: { id: target.id }, data: { ...completion(target, group, (target.quantity ?? 1) + count), ...stamp } })
@@ -297,7 +297,7 @@ export async function splitLockedGroup(
   // Repriced copies placed in cells keep them, on their new line.
   if (!moving) await moveSlots(tx, taken.map((slot) => slot.id), line.id);
   const lineFrom = target ? target.quantity ?? 1 : null;
-  return done({ data: await readUnitView(tx, line.id), changed: [await readUnitView(tx, group.id)], removedIds: [] }, [
+  return done({ data: await unitViewOf(tx, line), changed: [await unitViewOf(tx, rest)], removedIds: [] }, [
     {
       itemId: group.id, toItemId: line.id,
       changes: [{ field: 'quantity', from, to: from - count }, ...(moving ? groupSlots : slotsFreed(taken))],
