@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { frenchT } from '@/lib/products/__tests__/i18n';
-import { cellBadge, cellParts, gridLineParts, noUnplacedCopyText, placementText } from './gridLine';
+import { cellBadge, cellParts, cellTooltipLines, gridLineParts, noUnplacedCopyText, placementText } from './gridLine';
 import type { GridItem } from './types';
 
 // Recette #471 (KO 13.2): the cellar map and its boxes of cigars.
@@ -47,6 +47,24 @@ describe('cellParts', () => {
 
   it('a group of single cigars shares one cell: all its cigars', () => {
     expect(cellParts(robusto({ cigarsPerBox: null, quantity: 4, units: 4, purchasePrice: null, purchasedAt: null }), t, 'fr')).toEqual(["4 cigares à l'unité"]);
+  });
+});
+
+// Recette n°5 of #847: the tooltip of a cell, on short lines that keep it beside its cell.
+describe('cellTooltipLines', () => {
+  it('an opened bottle: its wine, its producer, its state, then its price and day', () => {
+    const lines = cellTooltipLines(robusto({ ...bottles, name: 'Cuvée X', vintage: 2019, isOpened: true, purchasePrice: 22, purchasedAt: '2026-11-03' }), t, 'fr');
+    expect(lines.slice(0, 3)).toEqual(['Cuvée X 2019', 'P', 'Entamée']);
+    expect(lines[3]).toMatch(/^22\s€ \/ bouteille · 3\snov\.\s2026$/);
+  });
+
+  it('a full bottle without price: no empty line', () => {
+    expect(cellTooltipLines(robusto({ ...bottles, name: 'Cuvée X', vintage: null }), t, 'fr')).toEqual(['Cuvée X', 'P']);
+  });
+
+  it('an opened box: "Boîte entamée · 23 restants" on one line', () => {
+    expect(cellTooltipLines(robusto({ isOpened: true, cigarsLeft: 23, units: 23, purchasePrice: null, purchasedAt: null }), t, 'fr'))
+      .toEqual(['ZZ Recette Robusto', 'P', 'Boîte entamée · 23 restants']);
   });
 });
 
