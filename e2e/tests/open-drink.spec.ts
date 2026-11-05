@@ -179,9 +179,9 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     // beside the drawer when the window leaves room, below its header otherwise.
     const header = (await drawer.getByTestId('family-drawer-header').boundingBox())!;
     // The message is an alertdialog, outside the drawer's modal tree (aria-hidden): found by CSS, not by role.
-    const message = page.locator('[role="alertdialog"]').filter({ hasText: '1 bouteille ouverte' });
+    const shown = page.locator('[role="alertdialog"]').filter({ hasText: '1 bouteille ouverte' });
     const clear = async () => {
-      const toast = await message.boundingBox();
+      const toast = await shown.boundingBox();
       if (!toast) return false;
       return toast.x + toast.width <= header.x || toast.y >= header.y + header.height;
     };
