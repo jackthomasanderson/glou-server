@@ -202,8 +202,9 @@ test('drinking one bottle of a shelved group leaves the others on the shelf', as
     await okData(await api.patch(`/api/inventory/${group}`, { data: { quantity: 3 } }));
     await place(api, group, 1, 1);
 
+    // FEAT-93 (lot S2): « De quelle case ? » answered « Non rangée ».
     const drunk = await okData<Row & Record<string, unknown>>(
-      await api.patch(`/api/inventory/${group}`, { data: { isOpened: true, fillLevel: 0 } }),
+      await api.patch(`/api/inventory/${group}`, { data: { isOpened: true, fillLevel: 0, fromUnplaced: true } }),
     );
 
     // FEAT-93: two of the three were unplaced: the bottle drunk is one of them.

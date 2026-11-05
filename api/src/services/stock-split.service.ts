@@ -5,8 +5,9 @@ import { badRequest, conflict } from '../lib/errors';
 import { isGroupableItem, unitKind } from '../lib/finished-item';
 import { fieldSourcesOf, toUnitView, unitViewOf, UNIT_SLOTS } from '../lib/product-fields';
 import {
-  freeSlots, liveSlotsOf, moveSlots, pickSlots, slotsFreed, slotsPlaced, type SlotChange, type SlotRow,
+  freeSlots, liveSlotsOf, moveSlots, slotsFreed, slotsLeaving, slotsPlaced, type SlotChange, type SlotRow, type SlotsToFree,
 } from '../lib/slots';
+import { slotCapacity } from '../../../shared/units';
 import { MAX_COPIES, type MoveUnitsInput, type RepriceUnitsInput } from '../schemas/stock.schema';
 import { findGroupFor, keepFoundQuantities, lockedListedFamily } from './stock.service';
 import { absorbGroups } from './review.service';
@@ -23,8 +24,9 @@ import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/pro
 // - All the copies: the group itself changes (a whole group moved leaves its
 //   cells, places in its old cellar's plan; a new price keeps them).
 // - Part of them: the group keeps the rest and its sub-records. FEAT-93
-//   (decisions #471 points 74-75, the automatic rule until lot S2): the
-//   copies taken are unplaced ones first, then the most recently placed.
+//   (decision #471 point 74, criterion 4): the copies taken are unplaced
+//   ones first; only when the rest cannot hold every cell, the member names
+//   the cells of copies taken (`slotIds`, else 409 SLOTS_TO_FREE_REQUIRED).
 //   Moved, they arrive unplaced (their cells are freed); repriced, they
 //   stay where they are, their cells following the new line.
 // - Either way the copies taken complete the identical group of the family
@@ -185,6 +187,7 @@ async function splitUnits(
   count: number,
   expectedUpdatedAt: string | undefined,
   change: SplitChange,
+  slotIds: string[] | undefined,
 ): Promise<SplitOutcome | null> {
   const head = await prisma.inventoryItem.findFirst({ where: { id: groupId, deletedAt: null }, select: { productId: true } });
   if (!head) return null;
@@ -207,7 +210,7 @@ async function splitUnits(
       throw badRequest('CELLAR_NOT_FOUND');
     }
 
-    return splitLockedGroup(tx, userId, group, count, change, unitKind(product.category));
+    return splitLockedGroup(tx, userId, group, count, change, unitKind(product.category), { slotIds });
   });
 }
 
@@ -217,7 +220,8 @@ async function splitUnits(
  * the identical group of the family, or makes a line of its own (see
  * {@link splitUnits}). Also the step of a bulk move (lot P, FEAT-111): each
  * group moved whole joins its identical group in the destination, never a
- * line apart.
+ * line apart. `slotsToFree`: the cells of the copies taken from part of a
+ * group — the member's `slotIds`, or the automatic rule.
  */
 export async function splitLockedGroup(
   tx: PrismaClientOrTx,
@@ -226,6 +230,7 @@ export async function splitLockedGroup(
   count: number,
   change: SplitChange,
   kind: ReturnType<typeof unitKind>,
+  slotsToFree: SlotsToFree = 'auto',
 ): Promise<SplitApplied> {
   const from = group.quantity ?? 1;
   const before = group[change.field];
@@ -255,7 +260,9 @@ export async function splitLockedGroup(
   const moving = change.field === 'cellarId';
   const single = kind === 'cigar' && group.cigarsPerBox == null;
   const slots = await liveSlotsOf(tx, group.id);
-  const taken: SlotRow[] = count === from ? slots : single ? [] : pickSlots(slots, from - slots.length, count);
+  const taken: SlotRow[] = count === from
+    ? slots
+    : slotsLeaving(slots, slotCapacity({ ...group, quantity: from - count }, kind), single ? 0 : count, slotsToFree);
   const groupSlots: SlotChange[] = moving ? slotsFreed(await freeSlots(tx, group.id, taken.map((slot) => slot.id))) : [];
 
   if (count === from) {
@@ -316,7 +323,7 @@ export const stockSplitService = {
    * do not change; each cellar's count follows.
    */
   moveUnits(userId: string, groupId: string, input: MoveUnitsInput): Promise<SplitOutcome | null> {
-    return splitUnits(userId, groupId, input.count, input.expectedUpdatedAt, { field: 'cellarId', to: input.cellarId });
+    return splitUnits(userId, groupId, input.count, input.expectedUpdatedAt, { field: 'cellarId', to: input.cellarId }, input.slotIds);
   },
 
   /**
@@ -326,6 +333,6 @@ export const stockSplitService = {
    * an estimated value.
    */
   repriceUnits(userId: string, groupId: string, input: RepriceUnitsInput): Promise<SplitOutcome | null> {
-    return splitUnits(userId, groupId, input.count, input.expectedUpdatedAt, { field: 'purchasePrice', to: input.purchasePrice });
+    return splitUnits(userId, groupId, input.count, input.expectedUpdatedAt, { field: 'purchasePrice', to: input.purchasePrice }, input.slotIds);
   },
 };

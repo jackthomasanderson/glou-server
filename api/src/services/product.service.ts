@@ -97,6 +97,13 @@ export interface FamilyWriteOptions {
   respectLocks: boolean;
   /** Write only the fields whose value moves (a bulk action), not every field sent. */
   onlyChanged?: boolean;
+  /**
+   * FEAT-93: the unit columns written with the family by the same request
+   * (its units `ids`): a new category fits their cells to what they will
+   * be once written (a box size given with the category), not to what
+   * they were.
+   */
+  unitPatch?: { ids: readonly string[]; columns: Record<string, unknown> };
 }
 
 /**
@@ -148,13 +155,15 @@ export async function writeFamilyDescription(
   const product = await writeProductFields(tx, productId, { ...data, updatedBy: options.userId });
   // FEAT-93: another category changes what a unit's cells may be (wine to
   // cigar: a group of single cigars takes one cell) — the cells beyond are
-  // freed, the most recently placed first (automatic rule until lot S2).
+  // freed, the most recently placed first (automatic rule, decision #471
+  // point 75: a description edit does not show the plan).
   const unitSlotChanges: UnitSlotChanges[] = [];
   const category = fields.category as Product['category'] | undefined;
   if (category !== undefined && category !== current.category) {
     const units = await tx.inventoryItem.findMany({ where: { productId, deletedAt: null } });
     for (const unit of units) {
-      const freed = await fitSlotsTo(tx, unit.id, unit, unitKind(category));
+      const written = options.unitPatch?.ids.includes(unit.id) ? { ...unit, ...options.unitPatch.columns } as typeof unit : unit;
+      const freed = await fitSlotsTo(tx, unit.id, written, unitKind(category));
       if (freed.length > 0) unitSlotChanges.push({ itemId: unit.id, changes: slotsFreed(freed) });
     }
   }
@@ -346,19 +355,24 @@ export const productService = {
    * its own before stays in the trash. A copy whose cell was given away
    * meanwhile comes back unplaced (#174, FEAT-93 `reviveSlots`).
    */
-  async restore(id: string): Promise<ProductView | null> {
+  async restore(
+    id: string,
+    /** FEAT-93: filled with the cells a unit could not take back (see restoreOnce), for its history. */
+    slotChanges: UnitSlotChanges[] = [],
+  ): Promise<ProductView | null> {
     try {
-      return await this.restoreOnce(id);
+      return await this.restoreOnce(id, slotChanges);
     } catch (err) {
       // #173: the database's partial unique index is the real guarantee
       // against a cell taken between the check and the write — tried once
       // more, the check then sees it and the copy comes back unplaced.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return this.restoreOnce(id);
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return this.restoreOnce(id, slotChanges);
       throw err;
     }
   },
 
-  async restoreOnce(id: string): Promise<ProductView | null> {
+  async restoreOnce(id: string, slotChanges: UnitSlotChanges[] = []): Promise<ProductView | null> {
+    const freed: UnitSlotChanges[] = [];
     const restored = await prisma.$transaction(async (tx) => {
       await lockFamily(tx, id);
       const current = await tx.product.findFirst({ where: { id, deletedAt: { not: null, gte: retentionCutoff() } } });
@@ -370,9 +384,16 @@ export const productService = {
       const ids = units.map((unit) => unit.id);
       await tx.inventoryItem.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
       await reviveSlots(tx, ids);
+      // A unit trashed with cells its family's category no longer allows
+      // (made single cigars meanwhile) keeps only what it may hold (review of #854).
+      for (const unit of await tx.inventoryItem.findMany({ where: { id: { in: ids } } })) {
+        const lost = await fitSlotsTo(tx, unit.id, unit, unitKind(current.category));
+        if (lost.length > 0) freed.push({ itemId: unit.id, changes: slotsFreed(lost) });
+      }
       await tx.product.update({ where: { id }, data: { deletedAt: null } });
       return true;
     });
+    slotChanges.push(...freed);
     return restored ? this.view(id) : null;
   },
 

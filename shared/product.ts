@@ -94,6 +94,48 @@ export interface ItemSlotView {
   row: number;
 }
 
+/** FEAT-93: a cell of the cellar plan (1-based), without the slot holding it. */
+export interface SlotCell {
+  column: number;
+  row: number;
+}
+
+/**
+ * FEAT-93 (lot S2): which copy an opening, a drink or a smoke takes off a
+ * line of several holding cells — the one in the cell `fromSlotId`, or an
+ * unplaced one (`fromUnplaced`). One or the other, never in bulk.
+ */
+// A type literal, not an interface: it joins a request body (`Record<string, unknown>`).
+export type SlotChoiceFields = {
+  fromSlotId?: string;
+  fromUnplaced?: true;
+};
+
+/**
+ * 409 of an opening, a drink or a smoke on a line of several copies holding
+ * at least one cell, sent without {@link SlotChoiceFields}: the cells of the
+ * line and its copies unplaced, to ask "De quelle case ?".
+ */
+export const SLOT_CHOICE_REQUIRED = 'SLOT_CHOICE_REQUIRED';
+/** 409: the cell chosen (`fromSlotId`) is no longer the line's, or no copy of it is unplaced any more. */
+export const SLOT_CHANGED = 'SLOT_CHANGED';
+export interface SlotChoiceDetails {
+  slots: ItemSlotView[];
+  unplaced: number;
+}
+
+/**
+ * 409 of a write that leaves a line fewer copies than cells (a correction,
+ * a write-off, a move or a new price of part of it, a lower number) sent
+ * without a valid `slotIds`: `needed` cells at least must be named among
+ * `slots` — freed (or, for a new price, following the copies repriced).
+ */
+export const SLOTS_TO_FREE_REQUIRED = 'SLOTS_TO_FREE_REQUIRED';
+export interface SlotsToFreeDetails {
+  needed: number;
+  slots: ItemSlotView[];
+}
+
 /**
  * A unit of a family: a group of identical intact copies, a sub-record with a
  * state of its own (opened, finished), or a write-off. No description field

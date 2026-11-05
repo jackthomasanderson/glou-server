@@ -36,9 +36,18 @@ export type AddUnitsInput = z.infer<typeof addUnitsSchema>;
  * `expectedUpdatedAt`: the group's `updatedAt` as the client knew it (the
  * offline queue replays a correction, point 47).
  */
+/**
+ * FEAT-93 (lot S2, criterion 4): the cells of the copies leaving a line —
+ * freed by a correction, a write-off or a move, following the copies
+ * repriced — when the copies left cannot hold every cell (else 409
+ * SLOTS_TO_FREE_REQUIRED). Each slot once, checked against the line by the service.
+ */
+const slotIds = z.array(z.string().guid()).max(MAX_COPIES).optional();
+
 export const correctQuantitySchema = z.object({
   quantity: z.number().int().min(0).max(MAX_COPIES),
   reason: z.enum(CORRECTION_REASONS),
+  slotIds,
   expectedUpdatedAt: z.string().datetime().optional(),
 }).strict();
 
@@ -53,6 +62,7 @@ export type CorrectQuantityInput = z.infer<typeof correctQuantitySchema>;
  */
 const splitCount = {
   count: z.number().int().min(1).max(MAX_COPIES),
+  slotIds,
   expectedUpdatedAt: z.string().datetime().optional(),
 };
 

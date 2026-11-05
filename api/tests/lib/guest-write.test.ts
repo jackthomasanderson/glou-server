@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { AppError } from '../../src/lib/errors';
 import {
-  checkGuestUndo, checkGuestWrite, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestMoveEntry,
+  checkGuestUndo, checkGuestWrite, freedCell, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestMoveEntry,
 } from '../../src/lib/guest-write';
 import { planState, type StateItem } from '../../src/services/stock-state.service';
 import { guestInventoryUpdateSchema, type GuestInventoryUpdate } from '../../src/schemas/inventory.schema';
@@ -202,6 +202,35 @@ describe('checkGuestUndo — only the guest\'s own move, just made', () => {
     expect(isGuestMove({ fillLevel: 0 }, opened())).toBe(false);
     expect(isGuestMove({ isOpened: true, fillLevel: 100 }, opened())).toBe(false);
     expect(isGuestMove({ isOpened: true, fillLevel: 30 }, opened())).toBe(false);
+  });
+});
+
+// FEAT-93 (lot S2): the cell a guest's move freed, given back by « Annuler » (placeAt).
+describe('freedCell / undoPatch — the cell of a move', () => {
+  const freed = (column: number, row: number) => ({ field: 'slot', from: { column, row }, to: null });
+  const placed = (column: number, row: number) => ({ field: 'slot', from: null, to: { column, row } });
+
+  it('a bottle alone drunk from its cell: that cell', () => {
+    expect(freedCell([{ field: 'fillLevel', from: null, to: 0 }, freed(2, 3)])).toEqual({ column: 2, row: 3 });
+  });
+
+  it('a bottle drunk off a group from a cell (automatic rule): the group\'s cell freed', () => {
+    expect(freedCell([{ field: 'fillLevel', from: null, to: 0 }], [freed(4, 1)])).toEqual({ column: 4, row: 1 });
+  });
+
+  it('a bottle opened off a group takes its cell: nothing freed', () => {
+    expect(freedCell([placed(4, 1)], [freed(4, 1)])).toBeNull();
+  });
+
+  it('no cell at all: null', () => {
+    expect(freedCell([{ field: 'isOpened', from: false, to: true }])).toBeNull();
+  });
+
+  it('undoPatch asks for the cell back, and ignores a cell that is no cell of a plan', () => {
+    const before = { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null };
+    expect(undoPatch(before, null, { column: 2, row: 3 })).toMatchObject({ placeAt: { column: 2, row: 3 } });
+    expect(undoPatch(before, null, { column: 0, row: 3 })).not.toHaveProperty('placeAt');
+    expect(undoPatch(before, null)).not.toHaveProperty('placeAt');
   });
 });
 

@@ -11,7 +11,7 @@ import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { getClientIp } from '../middleware/auth.middleware';
 import {
-  checkGuestUndo, checkGuestWrite, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestUndoMarker,
+  checkGuestUndo, checkGuestWrite, freedCell, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestUndoMarker,
 } from '../lib/guest-write';
 import type { StateItem } from '../services/stock-state.service';
 import { guestTastingSchema } from '../schemas/guest-tasting.schema';
@@ -146,18 +146,21 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       const entry = await sharesService.findLatestGuestMove(itemId, new Date(Date.now() - GUEST_UNDO_WINDOW_MS));
       if (!entry?.undo) throw new AppError(403, 'GUEST_UNDO_REFUSED');
       const marker = entry.undo;
-      const restore = undoPatch(marker.before, item.cigarsPerBox ?? null);
-      const options = { guard: (unit: StateItem) => { checkGuestUndo(share, entry, unit); } };
+      const restore = undoPatch(marker.before, item.cigarsPerBox ?? null, marker.slot);
+      const options = { guard: (unit: StateItem) => { checkGuestUndo(share, entry, unit); }, slotChoice: 'auto' as const };
       result = await inventoryService.updateItem(share.userId, itemId, restore, options);
       undone = marker;
     } else {
       // #471 (FEAT-109): one copy opened, drunk or smoked, a level set — never
       // a number changed; decided on the unit as read under its family's lock.
+      // FEAT-93: a guest has no plan in sight — the copy taken off a line
+      // holding cells follows the automatic rule (decision #471 point 75).
       result = await inventoryService.updateItem(share.userId, itemId, patch, {
         guard: (unit, planned, kind) => {
           checkGuestWrite(share, patch, unit, planned, kind);
           before = unit;
         },
+        slotChoice: 'auto',
       });
     }
 
@@ -177,10 +180,13 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     // it found, and the version of the unit it left. Awaited, so the
     // "Annuler" that follows the answer always finds it.
     const moved = before as StateItem | null;
+    const freed = freedCell(result.changes, result.groupChange?.slotChanges);
     const marker: GuestUndoMarker | null = moved && isGuestMove(patch, moved)
       ? {
         before: stateBefore(moved),
         stampedAt: new Date(result.item.updatedAt).toISOString(),
+        // FEAT-93: the cell it freed, put back by "Annuler" if still free.
+        ...(freed ? { slot: freed } : {}),
       }
       : null;
     await auditLog({
