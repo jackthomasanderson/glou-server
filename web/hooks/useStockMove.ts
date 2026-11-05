@@ -21,10 +21,13 @@ import type { ProductDetailView, ProductItem } from '@/lib/products/types';
  * holds it (opened: the cell went with it, and comes back with it).
  */
 export function cellGivenBack(
-  before: Pick<ProductItem, 'id' | 'slots'>,
+  before: Pick<ProductItem, 'id' | 'slots' | 'quantity' | 'cigarsPerBox'>,
   written: Pick<InventoryItem, 'id' | 'slots'>,
   choice?: SlotChoiceFields,
+  kind: UnitKind = 'bottle',
 ): InventoryItemPatch {
+  // A group of single cigars shares one cell, kept until its last cigar: nothing given back.
+  if (kind === 'cigar' && before.cigarsPerBox == null && written.id !== before.id) return {};
   const cells = before.slots ?? [];
   const cell = choice?.fromSlotId
     ? cells.find((slot) => slot.id === choice.fromSlotId)
@@ -142,7 +145,7 @@ export function useStockMove() {
     // FEAT-93: a copy finished in its cell gave it back (#573) — a line of
     // one, or a copy taken from the cell chosen; "Annuler" puts it back in
     // that cell, if nobody took it since (`placeAt`, else it comes back unplaced).
-    notifyUndoable(message, undefined, () => { void undo(written, before, kind, cellGivenBack(before, written, options.choice)); });
+    notifyUndoable(message, undefined, () => { void undo(written, before, kind, cellGivenBack(before, written, options.choice, kind)); });
     return true;
   }, [latest, mutateAsync, queryClient, settle, undo]);
 
