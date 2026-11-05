@@ -617,6 +617,19 @@ describe('stock question on a line placed on the plan (FEAT-93)', () => {
     expect(inventoryUpdate.mock.calls[1][0]).toMatchObject({ patch: { fromUnplaced: true } });
   });
 
+  it('recette n°5 (7.1): from a cell, among several lines, the line of the cell is preset and the cell answers', async () => {
+    products = [talbot([line({ id: 'other', quantity: 2, cellarId: 'kitchen' }), line({ id: 'g3', quantity: 3 })])];
+    lookedUp = [placedLine()];
+    render(<TastingForm open onClose={vi.fn()} initialProductId="talbot" initialItemId="g3" fromCell={{ itemId: 'g3', slotId: 's1' }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('g3'));
+    save();
+    fireEvent.click(await screen.findByRole('button', { name: 'tastings.stockUpdate.consumed' }));
+
+    await waitFor(() => expect(inventoryUpdate).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('stockLine.slots.whichTitle')).toBeNull();
+    expect(inventoryUpdate.mock.calls[0][0]).toMatchObject({ id: 'g3', patch: { fromSlotId: 's1' } });
+  });
+
   it('review 857: from a drawer opened on a cell of that line, the cell answers — no second question', async () => {
     products = [talbot([line({ id: 'g3', quantity: 3 })])];
     lookedUp = [placedLine()];

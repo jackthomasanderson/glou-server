@@ -17,6 +17,7 @@ Entries start with the pull request that introduced them where there is one.
 
 ### Fixed
 - A wine's history says what you did in plain words: "1 bottle opened" (the opened bottle keeps its slot, no "slot freed" any more), "1 bottle drunk · Slot C2·R1 freed", "1 cigar smoked", in one line instead of the opened bottle and its line told apart ("Quantity: 6 → 5", "Opened bottle: Yes · Level adjusted to Empty"); entries already recorded read the same way, except the first cigar smoked from a box, which reads "1 box opened", and a whole line moved earlier into an identical one, which does not say the slots it left. A bottle moved to another cellar also says the slot it left ("1 bottle moved to Kitchen · Slot C2·R2 freed"), and **Distribution by cellar** in Analytics now counts the bottles in no cellar under *No cellar*, so it adds up to your stock (#847).
+- Cellar plan: an opened bottle or box is now hatched, with an "Opened" entry in the legend, so it no longer looks like a full one; and a cell's tooltip opens beside the cell instead of covering the counter or the row above (#847).
 
 ## v2026.11.0 - 2026-11-05
 
