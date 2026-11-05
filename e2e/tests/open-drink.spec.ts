@@ -30,6 +30,13 @@ const changesTold = async (api: APIRequestContext, productId: string) =>
 const unitsOf = async (api: APIRequestContext, productId: string) =>
   (await okData<{ items: Unit[] }>(await api.get(`/api/products/${productId}`))).items.filter((unit) => unit.deletedAt == null);
 
+/**
+ * The message of a gesture ("1 bouteille ouverte · Annuler"), not the drawer's
+ * history, which says the same words since recette #847.
+ */
+const message = (page: Page, text: string) =>
+  page.getByText(text).and(page.locator(':not([data-testid="family-history"] *)'));
+
 /** The drawer of a wine, opened from its link. */
 async function openDrawer(page: Page, productId: string, name: string): Promise<Locator> {
   await page.goto(`/bottles?scan=${encodeURIComponent(productId)}`);
@@ -71,7 +78,7 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     expect(units.filter((unit) => unit.isOpened && unit.parentItemId === group.id)).toHaveLength(1);
 
     // "1 bouteille ouverte · Annuler": back to ×6.
-    await expect(page.getByText('1 bouteille ouverte')).toBeVisible();
+    await expect(message(page, '1 bouteille ouverte')).toBeVisible();
     const undone = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/api/inventory/'));
     await page.locator('button', { hasText: /^Annuler$/ }).last().click();
     expect((await undone).status()).toBe(200);
@@ -137,7 +144,7 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     expect((await drunk).status()).toBe(200);
     expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ fillLevel: 0, slots: [] });
 
-    await expect(page.getByText('1 bouteille bue')).toBeVisible();
+    await expect(message(page, '1 bouteille bue')).toBeVisible();
     const undone = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${bottle.id}`) && r.request().method() === 'PATCH');
     await page.locator('button', { hasText: /^Annuler$/ }).last().click();
     expect((await undone).status()).toBe(200);
@@ -160,7 +167,7 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
 
     const drawer = await openDrawer(page, group.productId, name);
     await drawer.getByTestId('stock-move-open').click();
-    await expect(page.getByText('1 bouteille ouverte')).toBeVisible();
+    await expect(message(page, '1 bouteille ouverte')).toBeVisible();
 
     const close = drawer.getByRole('button', { name: 'Fermer' }).first();
     const box = (await close.boundingBox())!;

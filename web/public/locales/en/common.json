@@ -1467,7 +1467,8 @@
       "countColumn": "Bottles at peak"
     },
     "caves": {
-      "title": "Distribution by cellar"
+      "title": "Distribution by cellar",
+      "noCellar": "No cellar"
     },
     "maturity": {
       "title": "Optimal Consumption Planning (Peak)",
@@ -2412,6 +2413,20 @@
       "joined_box_other": "{{count}} boxes joined ({{what}})",
       "joined_cigar_one": "{{count}} cigar joined ({{what}})",
       "joined_cigar_other": "{{count}} cigars joined ({{what}})",
+      "opened_bottle_one": "{{count}} bottle opened",
+      "opened_bottle_other": "{{count}} bottles opened",
+      "opened_box_one": "{{count}} box opened",
+      "opened_box_other": "{{count}} boxes opened",
+      "opened_cigar_one": "{{count}} cigar started",
+      "opened_cigar_other": "{{count}} cigars started",
+      "finished_bottle_one": "{{count}} bottle drunk",
+      "finished_bottle_other": "{{count}} bottles drunk",
+      "finished_box_one": "{{count}} box finished",
+      "finished_box_other": "{{count}} boxes finished",
+      "finished_cigar_one": "{{count}} cigar smoked",
+      "finished_cigar_other": "{{count}} cigars smoked",
+      "smoked_one": "{{count}} cigar smoked",
+      "smoked_other": "{{count}} cigars smoked",
       "reasons": {
         "input_error": "input error",
         "written_off": "broken, given away or lost"

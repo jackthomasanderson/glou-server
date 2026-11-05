@@ -406,6 +406,25 @@ describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)',
     expect(stats.totalLiquidLiters).toBe(6.45);
   });
 
+  it('counts the bottles in no cellar under their own entry, so the distribution sums to the stock (recette #847, KO 10.2)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ cellarId: 'c1', quantity: 104, purchasePrice: 10 }),
+      item({ cellarId: null, quantity: 1, purchasePrice: 30 }),
+      // Drunk, in no cellar: no unit in stock, never an entry of its own.
+      item({ cellarId: null, isOpened: true, fillLevel: 0, purchasePrice: 99 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.totalActiveItems).toBe(105);
+    expect(stats.caveDistribution).toEqual([
+      { cellarId: 'c1', cellarName: 'Garage', cellarType: 'VINTAGE', count: 104, valuation: 1040 },
+      { cellarId: null, cellarName: '', cellarType: 'VINTAGE', count: 1, valuation: 30 },
+    ]);
+    expect(stats.caveDistribution.reduce((sum, cave) => sum + cave.count, 0)).toBe(stats.totalActiveItems);
+    expect(stats.caveDistribution.reduce((sum, cave) => sum + cave.valuation, 0)).toBe(stats.totalValuation);
+  });
+
   it('counts cigars in cigars: 3 boxes of 25, an opened box of 10, 4 single ones (89), the opened box worth its 10/25', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       item({ category: 'cigar', quantity: 3, cigarsPerBox: 25, purchasePrice: 200 }),

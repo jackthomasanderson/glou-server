@@ -1469,7 +1469,8 @@
       "countColumn": "Bouteilles à l'apogée"
     },
     "caves": {
-      "title": "Répartition par cave"
+      "title": "Répartition par cave",
+      "noCellar": "Sans cave"
     },
     "maturity": {
       "title": "Planning optimal de consommation (Apogée)",
@@ -2414,6 +2415,20 @@
       "joined_box_other": "{{count}} boîtes rejointes ({{what}})",
       "joined_cigar_one": "{{count}} cigare rejoint ({{what}})",
       "joined_cigar_other": "{{count}} cigares rejoints ({{what}})",
+      "opened_bottle_one": "{{count}} bouteille ouverte",
+      "opened_bottle_other": "{{count}} bouteilles ouvertes",
+      "opened_box_one": "{{count}} boîte ouverte",
+      "opened_box_other": "{{count}} boîtes ouvertes",
+      "opened_cigar_one": "{{count}} cigare entamé",
+      "opened_cigar_other": "{{count}} cigares entamés",
+      "finished_bottle_one": "{{count}} bouteille bue",
+      "finished_bottle_other": "{{count}} bouteilles bues",
+      "finished_box_one": "{{count}} boîte terminée",
+      "finished_box_other": "{{count}} boîtes terminées",
+      "finished_cigar_one": "{{count}} cigare fumé",
+      "finished_cigar_other": "{{count}} cigares fumés",
+      "smoked_one": "{{count}} cigare fumé",
+      "smoked_other": "{{count}} cigares fumés",
       "reasons": {
         "input_error": "erreur de saisie",
         "written_off": "cassée, offerte ou perdue"
