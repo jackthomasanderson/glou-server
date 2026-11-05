@@ -11,19 +11,25 @@ import { useToastLayout } from '@/lib/toastClearance';
 
 const queryClient = createQueryClient();
 
-export function Providers({ children }: { children: React.ReactNode }) {
+/**
+ * Single, app-wide feedback outlet (ux-ui.md 9.4: top-right). Every
+ * success/error notification goes through lib/toast.ts. A message is read
+ * whole: HeroUI cuts its title to one line (« Bouteille remise avec les a… »,
+ * recette #471). Below a drawer's close button, never over it (recette v3 of
+ * #471), nor over a drawer's actions: beside or below it (recette n°5 of
+ * #847). Its own component: a drawer opening re-renders it alone, not the app.
+ */
+function AppToasts() {
   const toast = useToastLayout();
+  return <ToastProvider placement={toast.placement} toastOffset={toast.offset} toastProps={TOAST_PROPS} />;
+}
+
+export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <I18nProvider>
       <QueryClientProvider client={queryClient}>
         <ThemeWrapper>
-          {/* Single, app-wide feedback outlet (ux-ui.md 9.4: top-right).
-              Every success/error notification goes through lib/toast.ts. */}
-          {/* A message is read whole: HeroUI cuts its title to one line
-              (« Bouteille remise avec les a… », recette #471). */}
-          {/* Below a drawer's close button, never over it (recette v3 of #471),
-              nor over a drawer's actions: beside or below it (recette n°5 of #847). */}
-          <ToastProvider placement={toast.placement} toastOffset={toast.offset} toastProps={TOAST_PROPS} />
+          <AppToasts />
           {children}
           {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
         </ThemeWrapper>

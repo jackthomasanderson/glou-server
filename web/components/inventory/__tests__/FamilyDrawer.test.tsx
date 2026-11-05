@@ -486,6 +486,20 @@ describe('FamilyDrawer — opened from a cell of the plan (FEAT-93)', () => {
     expect(tastingFromCell.value).toEqual({ itemId: 'group', slotId: 'new' });
   });
 
+  // Recette n°5 (7.1): "Noter une dégustation" from a cell — the line of the cell is the bottle tasted.
+  it('from a cell: the tasting presets the line of the cell, among several full lines', () => {
+    detail = detailOf({ items: [unit({ id: 'other', quantity: 2, cellarId: 'garage' }), placed()] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    expect(tastingPreset.id).toBe('group');
+    expect(tastingFromCell.value).toEqual({ itemId: 'group', slotId: 's23' });
+  });
+
+  it('from a full cell: the tasting presets that bottle, not the opened one elsewhere (decision 77)', () => {
+    detail = detailOf({ items: [placed(), openedBottle(40, { id: 'o', cellarId: 'garage' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    expect(tastingPreset.id).toBe('group');
+  });
+
   it('the same cell number in another cellar is not the cell touched', () => {
     detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'kitchen', slots: [{ id: 'other', column: 2, row: 3 }] })] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={{ ...slotContext, at: { cellarId: 'garage', column: 2, row: 3 } }} />);

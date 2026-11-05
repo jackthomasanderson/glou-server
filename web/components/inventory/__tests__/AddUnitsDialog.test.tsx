@@ -21,7 +21,7 @@ const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
 vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, o?: Record<string, unknown>) => t(key, o), i18n: { language: 'fr' } }) }));
 
-import { AddUnitsAction } from '../AddUnitsDialog';
+import { AddUnitsAction, cellarPageStart } from '../AddUnitsDialog';
 
 const detail = (items: ProductDetailView['items']) => ({ ...product({ items }), tastings: [], history: [] }) as ProductDetailView;
 
@@ -107,6 +107,12 @@ describe('AddUnitsAction', () => {
     expect(within(dialog).getByRole('button', { name: /Caves/ })).toHaveTextContent('Cuisine');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
     expect(sent().input).toMatchObject({ cellarId: 'kitchen', purchasePrice: 20 });
+  });
+
+  it('on a cellar\'s page, offers that cellar, or the cell\'s when opened from one (recette n°5 of #847)', () => {
+    expect(cellarPageStart('kitchen', null)).toEqual({ cellarId: 'kitchen' });
+    expect(cellarPageStart('kitchen', { at: { cellarId: 'garage' } })).toEqual({ cellarId: 'garage' });
+    expect(cellarPageStart('kitchen', {})).toEqual({ cellarId: 'kitchen' });
   });
 
   it('adds bottles to a wine without any bottle left, as its main action (FEAT-101 c3, §10.5)', () => {

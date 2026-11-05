@@ -210,6 +210,14 @@ export function AddUnitsModal({ isOpen, ...form }: AddUnitsModalProps) {
   );
 }
 
+/**
+ * On a cellar's page (recette n°5 of #847), new bottles are offered that
+ * cellar — or that of the cell the drawer was opened from — rather than the
+ * cellar of the wine's latest line.
+ */
+export const cellarPageStart = (cellarId: string, slot?: { at?: { cellarId: string } } | null): AddUnitsStart =>
+  ({ cellarId: slot?.at?.cellarId ?? cellarId });
+
 export interface AddUnitsActionProps {
   product: Product;
   /** What the form starts from over the wine's latest line: the cellar of the cell the drawer was opened from (recette n°5 of #847). */

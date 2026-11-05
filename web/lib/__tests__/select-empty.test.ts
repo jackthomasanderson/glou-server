@@ -43,7 +43,7 @@ describe('A single-choice menu is never emptied by picking its choice again (rec
   });
 
   it.each(tags.map(({ where, tag }) => [where, tag]))('%s keeps its choice', (_where, tag) => {
-    const kept = tag.includes('disallowEmptySelection') || /selectionMode="multiple"/.test(tag) || tag.includes('select-may-empty:');
+    const kept = /disallowEmptySelection(?!=\{false\})/.test(tag) || /selectionMode="multiple"/.test(tag) || tag.includes('select-may-empty:');
     expect(kept).toBe(true);
   });
 });

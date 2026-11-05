@@ -13,7 +13,7 @@ import { useInventory } from '@/hooks/useInventory';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
 import { HumidorPanel } from '@/components/cellars/HumidorPanel';
 import { FamilyDrawer, type SlotContext } from '@/components/inventory/FamilyDrawer';
-import { AddUnitsAction } from '@/components/inventory/AddUnitsDialog';
+import { AddUnitsAction, cellarPageStart } from '@/components/inventory/AddUnitsDialog';
 import { EditWineDialog } from '@/components/inventory/EditWineDialog';
 import { InventoryItem } from '@/lib/inventory/types';
 import type { GridCell } from '@/lib/cellars/types';
@@ -306,8 +306,8 @@ export function CellarDetailClient() {
         viewedCellarIds={[cellarId]}
         // Recette #471: the same actions as from the list of wines.
         onEdit={(product) => { viewWine(null); setEditing(product); }}
-        // Recette n°5 of #847: opened from a cell, new bottles are offered that cell's cellar, not the latest line's.
-        primaryAction={(product) => <AddUnitsAction product={product} start={slotContext ? { cellarId: slotContext.at?.cellarId ?? cellarId } : undefined} />}
+        // Recette n°5 of #847: new bottles are offered this cellar (or the touched cell's), not the latest line's.
+        primaryAction={(product) => <AddUnitsAction product={product} start={cellarPageStart(cellarId, slotContext)} />}
       />
       <EditWineDialog
         product={editing}
