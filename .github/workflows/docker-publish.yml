@@ -4,9 +4,10 @@ on:
   push:
     branches: [main, dev]
   pull_request:
-    # feat/families: integration branch of the family model (#471); its lot PRs
+    # feat/families, feat/slots: integration branches of the family model
+    # (#471) and of several plan slots per line (FEAT-93, #847); their lot PRs
     # run the test job, publishing stays limited to pushes on main/dev.
-    branches: [main, dev, feat/families]
+    branches: [main, dev, feat/families, feat/slots]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
