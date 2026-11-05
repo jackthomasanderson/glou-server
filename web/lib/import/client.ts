@@ -1,6 +1,6 @@
 import { CSV_IMPORT_TRANSACTION_MAX_WAIT_MS, CSV_IMPORT_TRANSACTION_TIMEOUT_MS } from '@shared/import';
 import { client, DEFAULT_TIMEOUT_MS } from '../api';
-import { CsvImportPreview, CsvImportRow } from './types';
+import { CsvImportChoice, CsvImportPreview, CsvImportResult, CsvImportRow } from './types';
 
 /**
  * FEAT-91 (#641): the server may spend its whole transaction budget writing
@@ -31,10 +31,11 @@ export const importClient = {
     return json.data;
   },
 
-  async confirmCsv(rows: CsvImportRow[], cellarId: string | null): Promise<{ created: number; skippedDuplicates: number }> {
-    const { data } = await client.post<{ created: number; skippedDuplicates: number }>(
+  /** #471 (FEAT-99): `choices` = what the member chose for each wine already in the cellar. */
+  async confirmCsv(rows: CsvImportRow[], cellarId: string | null, choices: CsvImportChoice[] = []): Promise<CsvImportResult> {
+    const { data } = await client.post<CsvImportResult>(
       '/import/csv/confirm',
-      { rows, cellarId },
+      { rows, cellarId, choices },
       { timeoutMs: CONFIRM_TIMEOUT_MS },
     );
     return data;

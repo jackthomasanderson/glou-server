@@ -181,3 +181,80 @@ test('a bottle marked consumed at a count is not missing at the next count', asy
     if (cellarId) await api.delete(`/api/cellars/${cellarId}`).catch(() => {});
   }
 });
+
+// #471 (FEAT-103): a group never carries a state — drinking one bottle of a
+// shelved group detaches a finished bottle, and the group keeps its slot.
+test('drinking one bottle of a shelved group leaves the others on the shelf', async ({ page }) => {
+  const api = page.request;
+  const id = stamp();
+  let cellarId = '';
+  let productId = '';
+  try {
+    cellarId = await createCellar(api, 'group');
+    const group = await createItem(api, { category: 'wine', name: `E2E #471 Shelf ${id}`, producer: 'E2E Domaine', cellarId, estimatedValue: 30 });
+    productId = (await okData<{ productId: string }>(await api.get(`/api/inventory/${group}`))).productId;
+    await okData(await api.patch(`/api/inventory/${group}`, { data: { quantity: 3, slotColumn: 1, slotRow: 1 } }));
+
+    const drunk = await okData<Row & Record<string, unknown>>(
+      await api.patch(`/api/inventory/${group}`, { data: { isOpened: true, fillLevel: 0 } }),
+    );
+
+    expect(drunk).toMatchObject({ isOpened: true, fillLevel: 0, quantity: 1, parentItemId: group, slotColumn: null });
+    expect(await okData<Record<string, unknown>>(await api.get(`/api/inventory/${group}`))).toMatchObject({
+      quantity: 2, isOpened: false, slotColumn: 1, slotRow: 1,
+    });
+    const grid = await okData<{ items: Row[] }>(await api.get(`/api/cellars/${cellarId}/grid`));
+    expect(ids(grid.items)).toEqual([group]);
+    const cellar = await okData<{ stats: { totalItems: number; estimatedValue: number | null } }>(
+      await api.get(`/api/cellars/${cellarId}`),
+    );
+    expect(cellar.stats).toMatchObject({ totalItems: 2, estimatedValue: 60 });
+  } finally {
+    if (productId) await api.delete(`/api/products/${productId}`).catch(() => {});
+    if (cellarId) await api.delete(`/api/cellars/${cellarId}`).catch(() => {});
+  }
+});
+
+// #471 (FEAT-103): "mark as consumed" on a missing group finishes each of its
+// bottles (a finished sub-record each, the last one the group itself), so the
+// spending keeps them all and none is missing at the next count.
+test('a group missing at a count is drunk bottle by bottle and not missing at the next count', async ({ page }) => {
+  const api = page.request;
+  const id = stamp();
+  const openSessions = new Set<string>();
+  const families: string[] = [];
+  let cellarId = '';
+  try {
+    cellarId = await createCellar(api, 'group-count');
+    const gone = await createItem(api, { category: 'wine', name: `E2E #471 Gone ${id}`, producer: 'E2E Domaine', cellarId });
+    await okData(await api.patch(`/api/inventory/${gone}`, { data: { quantity: 3 } }));
+    const there = await createItem(api, { category: 'wine', name: `E2E #471 There ${id}`, producer: 'E2E Domaine', cellarId });
+    for (const itemId of [gone, there]) {
+      families.push((await okData<{ productId: string }>(await api.get(`/api/inventory/${itemId}`))).productId);
+    }
+
+    const first = await startCountSession(api, cellarId, `E2E #471 first ${id}`);
+    openSessions.add(first);
+    await okData(await api.post(`/api/inventory-count/sessions/${first}/scan`, { data: { itemId: there } }));
+    const closed = await okData<{ appliedCount: number }>(
+      await api.post(`/api/inventory-count/sessions/${first}/complete`, {
+        data: { corrections: [{ action: 'mark_consumed', itemId: gone }] },
+      }),
+    );
+    openSessions.delete(first);
+    expect(closed.appliedCount).toBe(1);
+
+    const detail = await okData<{ items: Array<Row & Record<string, unknown>> }>(await api.get(`/api/products/${families[0]}`));
+    expect(detail.items).toHaveLength(3);
+    for (const item of detail.items) expect(item).toMatchObject({ quantity: 1, isOpened: true, fillLevel: 0 });
+
+    const second = await startCountSession(api, cellarId, `E2E #471 second ${id}`);
+    openSessions.add(second);
+    const report = await okData<CountReport>(await api.get(`/api/inventory-count/sessions/${second}/report`));
+    expect(ids(report.missing)).toEqual([there]);
+  } finally {
+    for (const sessionId of openSessions) await closeCountSession(api, sessionId).catch(() => {});
+    for (const productId of families) await api.delete(`/api/products/${productId}`).catch(() => {});
+    if (cellarId) await api.delete(`/api/cellars/${cellarId}`).catch(() => {});
+  }
+});

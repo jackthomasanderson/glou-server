@@ -31,6 +31,12 @@ const tx = {
     findMany: vi.fn().mockResolvedValue([]),
     deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
   },
+  // #471: the purge also looks for families trashed past the retention.
+  product: {
+    findMany: vi.fn().mockResolvedValue([]),
+    deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+    updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+  },
   maintenanceRun: { create: vi.fn().mockResolvedValue({ id: 'm1', success: true }) },
 };
 const transaction = vi.fn();

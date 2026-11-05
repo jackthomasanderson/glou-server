@@ -19,6 +19,8 @@ import { useAutoLock } from '@/hooks/useAutoLock';
 interface MainLayoutProps {
   children: React.ReactNode;
   protected?: boolean;
+  /** A page under its section (a cellar under "Caves"): its name, last in the breadcrumb and in the tab title. */
+  crumb?: string;
 }
 
 const PAGE_TITLES: Record<string, string> = {
@@ -32,6 +34,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/admin': 'nav.admin',
   '/inventory-count': 'inventoryCount.title',
   '/wishlist-budget': 'wishlist.title',
+  '/review': 'review.title',
 };
 
 // ISSUE_434: /bottles is the one path shared by the 3 category nav
@@ -67,10 +70,10 @@ function usePageTitle() {
  * own boundary in MainLayout's render, rather than forcing every page that
  * renders `<MainLayout>` to add that boundary itself.
  */
-function PageBreadcrumb({ appName }: { appName: string }) {
+function PageBreadcrumb({ appName, crumb }: { appName: string; crumb?: string }) {
   const pathname = usePathname();
   const pageTitle = usePageTitle();
-  useBrowserTabTitle(pageTitle?.label);
+  useBrowserTabTitle(crumb ?? pageTitle?.label);
 
   return (
     <span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase flex items-center gap-1">
@@ -87,6 +90,12 @@ function PageBreadcrumb({ appName }: { appName: string }) {
           ) : (
             <span className="truncate text-foreground">{pageTitle.label}</span>
           )}
+        </>
+      )}
+      {crumb && (
+        <>
+          <span className="shrink-0 text-foreground-400">&gt;</span>
+          <span className="truncate text-foreground" data-testid="breadcrumb-crumb">{crumb}</span>
         </>
       )}
     </span>
@@ -118,7 +127,7 @@ function QuickLockButton() {
   );
 }
 
-export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isProtected = true }) => {
+export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isProtected = true, crumb }) => {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const { data: user } = useMe();
   const { t } = useTranslation();
@@ -142,7 +151,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
         >
           {/* Breadcrumb */}
           <Suspense fallback={<span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase">{user?.appName || 'Glou'}</span>}>
-            <PageBreadcrumb appName={user?.appName || 'Glou'} />
+            <PageBreadcrumb appName={user?.appName || 'Glou'} crumb={crumb} />
           </Suspense>
 
           <div className="flex-1" />

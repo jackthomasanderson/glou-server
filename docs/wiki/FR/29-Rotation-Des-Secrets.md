@@ -8,7 +8,7 @@ Les trois secrets sont dans votre `.env`. Changer **`JWT_SECRET`** déconnecte t
 
 ## Prérequis
 * Accès shell à la machine qui exécute `docker compose`.
-* Une sauvegarde fraîche (Admin → Configuration système → Sauvegardes → **Lancer maintenant**) et une copie de votre `.env` actuel.
+* Une sauvegarde fraîche (Admin → Configuration système → Sauvegardes → **Sauvegarder maintenant**) et une copie de votre `.env` actuel.
 
 ## Ce que protège chaque secret
 

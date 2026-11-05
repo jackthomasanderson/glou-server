@@ -49,4 +49,11 @@ describe('MainLayout', () => {
     expect(screen.getByRole('banner').contains(indicator)).toBe(true);
     expect(screen.getByTestId('sidebar').contains(indicator)).toBe(false);
   });
+
+  it('ends the breadcrumb and the tab title with the page under its section (a cellar, recette #471)', async () => {
+    render(<MainLayout protected={false} crumb="Cave du garage"><p>page</p></MainLayout>);
+    const banner = screen.getByRole('banner');
+    expect(banner.textContent).toContain('nav.bottles>Cave du garage');
+    await vi.waitFor(() => expect(document.title).toMatch(/^Cave du garage — /));
+  });
 });

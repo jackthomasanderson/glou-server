@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
+import { AppError } from '../lib/errors';
 import { auditLog } from '../services/audit.service';
 import {
   getActiveSession,
@@ -180,8 +181,8 @@ router.post('/sessions/:id/scan', async (req: Request, res: Response): Promise<v
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
-    const { itemId } = scanSchema.parse(req.body ?? {});
-    const result = await recordScan(id, itemId);
+    const { itemId, foundQuantity } = scanSchema.parse(req.body ?? {});
+    const result = await recordScan(id, itemId, foundQuantity);
 
     if (result.status === 'session_not_found') {
       res.status(404).json({ error: 'SESSION_NOT_FOUND' });
@@ -202,7 +203,7 @@ router.post('/sessions/:id/scan', async (req: Request, res: Response): Promise<v
       status: 'success',
       ip,
       bottleId: itemId,
-      details: { scope: 'inventory-count-scan', sessionId: id, entryStatus: result.entry.entryStatus },
+      details: { scope: 'inventory-count-scan', sessionId: id, entryStatus: result.entry.entryStatus, foundQuantity: foundQuantity ?? null },
     });
     res.json({ data: result.entry });
   } catch (error) {
@@ -330,8 +331,21 @@ router.post('/sessions/:id/complete', async (req: Request, res: Response): Promi
         skippedCount: result.skipped.length,
       },
     });
-    res.json({ data: result });
+    // #471 (FEAT-100): each group's history — its number before and after
+    // the correction (−k drunk or corrected, +k found), each finished copy.
+    for (const entry of result.history) {
+      void auditLog({ userId: req.userId, action: entry.action, status: 'success', ip, bottleId: entry.itemId, productId: entry.productId, details: entry.details });
+    }
+    const { history: _history, ...data } = result;
+    res.json({ data });
   } catch (error) {
+    if (error instanceof AppError) {
+      // #471: a correction the stock rules refuse (QUANTITY_TOO_LARGE,
+      // PRODUCT_IN_TRASH…) — nothing was applied, the session stays open.
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, details: { scope: 'inventory-count-complete', sessionId: id, reason: error.code } });
+      res.status(error.status).json({ error: error.code });
+      return;
+    }
     console.error('[inventory-count] POST /sessions/:id/complete error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });

@@ -8,7 +8,7 @@
     "allCategories": "Toutes les catégories"
   },
   "nav": {
-    "bottles": "Actifs",
+    "bottles": "Bouteilles",
     "wines": "Vins",
     "sparkling": "Bulles",
     "spirits": "Spiritueux",
@@ -22,7 +22,7 @@
     "searchResultsCount_other": "{{count}} résultats",
     "skipToContent": "Aller au contenu principal",
     "primary": "Navigation principale",
-    "searchBottles": "Actifs",
+    "searchBottles": "Bouteilles",
     "searchCellars": "Caves",
     "collections": "Collections",
     "tastings": "Dégustations",
@@ -57,16 +57,6 @@
     "showLess": "Masquer les compléments",
     "saving": "Enregistrement...",
     "none": "Aucun"
-  },
-  "duplicate": {
-    "title": "Cet actif existe déjà",
-    "description": "{{name}} ({{producer}}) est déjà présent dans votre inventaire.",
-    "currentQuantity": "Quantité actuelle : {{count}}",
-    "cellar": "Cave : {{cellar}}",
-    "noCellar": "Aucune cave assignée",
-    "increment": "Incrémenter la quantité",
-    "createAnyway": "Créer quand même",
-    "cancel": "Retour au formulaire"
   },
   "status": {
     "loading": "Chargement…",
@@ -120,34 +110,32 @@
     "validation": {
       "required": "Ce champ est obligatoire",
       "missingFields": "Complétez les champs obligatoires avant d'enregistrer",
-      "peakWindowOrder": "La fin de l'apogée ne peut pas précéder son début"
+      "peakWindowOrder": "La fin de l'apogée ne peut pas précéder son début",
+      "bottleCount": "Entre 1 et {{max}} bouteilles",
+      "range": "Entre {{min}} et {{max}}",
+      "atLeast": "{{min}} au minimum",
+      "atMost": "{{max}} au maximum"
     },
     "noNotifications": "Aucune notification",
     "perPage": "{{count}} par page",
     "detail": {
-      "titleWine": "Détails de l'actif",
-      "titleCigar": "Détails de l'actif",
-      "wineLevel": "Ajustement tactile du niveau",
-      "cigarLevel": "Capacité de la boite / Humidité",
-      "spiritLevel": "Ajustement tactile du niveau",
-      "levelWine": "Niveau :",
       "full": "Pleine",
-      "half": "Moitié",
       "empty": "Vide",
-      "opened": "Ouverte / Entamée",
-      "decreaseQuantity": "Diminuer la quantité",
-      "increaseQuantity": "Augmenter la quantité",
-      "location": "Emplacement",
       "sommelierNotes": "Notes du sommelier",
       "tastingNotes": "Notes de dégustation & arômes",
-      "vitole": "Fiche technique de la vitole",
       "agingEstimate": "Apogée estimée",
       "levelAdjusted": "Niveau ajusté à",
       "humidityValue": "{{value}} % HR"
     },
     "add": "Ajouter",
-    "edit": "Modifier l'actif",
-    "restore": "Restaurer l'actif",
+    "edit": "Modifier la bouteille",
+    "edit_cigar": "Modifier le cigare",
+    "restore_one": "Restaurer la bouteille",
+    "restore_other": "Restaurer les bouteilles",
+    "restore_box_one": "Restaurer la boîte",
+    "restore_box_other": "Restaurer les boîtes",
+    "restore_cigar_one": "Restaurer le cigare",
+    "restore_cigar_other": "Restaurer les cigares",
     "trashDaysLeft_one": "{{count}} jour restant avant suppression définitive",
     "trashDaysLeft_other": "{{count}} jours restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",
@@ -156,9 +144,11 @@
       "items": "Inventaire",
       "trash": "Corbeille"
     },
-    "noBottles": "Aucun actif dans votre cave",
-    "noBottlesDesc": "Ajoutez votre premier actif pour commencer.",
-    "noCellarBanner": "Aucune cave créée — vos actifs n'auront pas d'emplacement.",
+    "noBottles": "Aucune bouteille dans votre cave",
+    "noBottles_cigar": "Aucun cigare dans votre humidor",
+    "noBottlesDesc": "Ajoutez votre première bouteille pour commencer.",
+    "noBottlesDesc_cigar": "Ajoutez votre premier cigare pour commencer.",
+    "noCellarBanner": "Aucune cave créée — vos bouteilles n'auront pas d'emplacement.",
     "noCellarBannerAction": "Créer une cave",
     "noCellar": "Aucune cave",
     "noResults": "Aucun résultat pour \"{{query}}\"",
@@ -169,7 +159,6 @@
       "load": "Impossible de charger l'inventaire."
     },
     "filterByCategory": "Par catégorie",
-    "filterByOwnership": "Possession",
     "filterByCellar": "Par cave",
     "step1": "Informations de base",
     "step2": "Détails par catégorie",
@@ -190,12 +179,14 @@
       "photoUrl": "URL de la photo",
       "notes": "Notes personnelles",
       "purchasePrice": "Prix d'achat (€)",
+      "unitPrice": "Prix d'une bouteille",
+      "unitValue": "Valeur estimée d'une bouteille",
+      "quantityBottles": "Nombre de bouteilles",
+      "purchasedAt": "Date d'achat",
       "purchasePlace": "Lieu d'achat",
       "estimatedValue": "Valeur estimée (€)",
       "isOpened": "Bouteille entamée / ouverte",
-      "isOwned": "En cave",
       "isReference": "Référence",
-      "isReferenceHint": "Bouteille décrite mais non possédée : exclue de la valeur de la collection, des compteurs et des alertes. Vous pouvez y rattacher une dégustation, puis la mettre en stock si vous l'achetez.",
       "isOpenedCigar": "Cigare entamé",
       "fillLevel": "Niveau restant",
       "openedAt": "Ouverte le",
@@ -214,7 +205,7 @@
       "bottleSize": "Taille de bouteille",
       "peakMaturity": "Période idéale de dégustation",
       "curveShape": "Courbe de consommation",
-      "curveShapeHint": "Comment la maturité évolue dans la fenêtre. Remplace la référence de cave pour cette bouteille uniquement.",
+      "curveShapeHint": "Comment la maturité évolue dans la fenêtre. Remplace la référence de cave pour ce vin seulement (toutes ses bouteilles).",
       "needsAeration": "Nécessite aération",
       "serviceTemp": "Température de service",
       "serviceTempPlaceholder": "ex : 16–18 °C",
@@ -330,21 +321,34 @@
       "tagSearchPlaceholder": "Rechercher une étiquette…",
       "tagsShowMore": "Voir plus",
       "tagsShowLess": "Voir moins",
-      "noTagsFound": "Aucune étiquette trouvée",
-      "showReferences": "Afficher les références"
+      "noTagsFound": "Aucune étiquette trouvée"
     },
     "filterByTags": "Par étiquettes",
     "filterByWineColor": "Par couleur (vin)",
     "filterByValue": "Par valeur (€)",
     "stats": {
-      "total": "Total stock",
-      "full": "Stock plein",
-      "opened": "Actifs entamés",
-      "finished_one": "{{count}} bouteille finie non comptée",
-      "finished_other": "{{count}} bouteilles finies non comptées",
+      "bottles_one": "{{count}} bouteille",
+      "bottles_other": "{{count}} bouteilles",
+      "cigars_one": "{{count}} cigare",
+      "cigars_other": "{{count}} cigares",
+      "families": {
+        "wine_one": "{{count}} vin",
+        "wine_other": "{{count}} vins",
+        "sparkling_one": "{{count}} cuvée",
+        "sparkling_other": "{{count}} cuvées",
+        "spirit_one": "{{count}} spiritueux",
+        "spirit_other": "{{count}} spiritueux",
+        "cigar_one": "{{count}} référence",
+        "cigar_other": "{{count}} références",
+        "mixed_one": "{{count}} référence",
+        "mixed_other": "{{count}} références"
+      },
+      "full": "Pleines",
+      "fullCigar": "Intacts",
+      "opened": "Entamées",
       "openedCigar": "Cigares entamés"
     },
-    "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche, ni dans la détection des doublons.",
+    "truncated": "Seuls les {{limit}} éléments les plus récents sont chargés : les plus anciens n'apparaissent ni dans cette liste, ni dans la recherche.",
     "alerts": {
       "reminderDone": "Rappel traité",
       "title": "Rappels à consommer",
@@ -353,9 +357,6 @@
     "maturitySuggestion": {
       "apply": "Appliquer",
       "window": "Apogée : {{from}} – {{to}}"
-    },
-    "actions": {
-      "stockReference": "Mettre en stock"
     }
   },
   "alerts": {
@@ -367,16 +368,26 @@
     "resumeAlert": "Réactiver l'alerte"
   },
   "toast": {
-    "createSuccess": "Actif ajouté avec succès",
-    "updateSuccess": "Actif mis à jour",
-    "deleteSuccess": "Actif déplacé dans la corbeille",
-    "restoreSuccess": "Actif restauré",
-    "createError": "Impossible d'ajouter l'actif",
-    "createRejected": "L'actif n'a pas été ajouté : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire, ou signalez le problème s'il vous semble correct.",
-    "updateError": "Impossible de mettre à jour l'actif",
-    "updateConflict": "Non enregistré : cet actif a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
-    "deleteError": "Impossible de supprimer l'actif",
-    "restoreError": "Impossible de restaurer l'actif",
+    "createSuccess": "Bouteille ajoutée avec succès",
+    "createSuccess_cigar": "Cigare ajouté avec succès",
+    "restoreSuccess": "Bouteille restaurée",
+    "restoreSuccess_cigar": "Cigare restauré",
+    "createError": "Impossible d'ajouter la bouteille",
+    "createError_cigar": "Impossible d'ajouter le cigare",
+    "createRejected": "La bouteille n'a pas été ajoutée : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire, ou signalez le problème s'il vous semble correct.",
+    "createRejected_cigar": "Le cigare n'a pas été ajouté : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire, ou signalez le problème s'il vous semble correct.",
+    "updateError": "Impossible de mettre à jour la bouteille",
+    "updateError_cigar": "Impossible de mettre à jour le cigare",
+    "updateConflict": "Non enregistré : cette bouteille a été modifiée entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
+    "updateConflict_cigar": "Non enregistré : ce cigare a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
+    "tastingsOnBottle": "Non enregistré : une dégustation a été notée sur cette bouteille, elle reste entamée.",
+    "fieldsWithReattach": "Non enregistré : une bouteille remise pleine rejoint les autres, elle ne peut pas changer d'autre champ en même temps. Enregistrez d'abord vos autres modifications, puis remettez-la pleine.",
+    "boxNotComplete": "Non enregistré : des cigares ont déjà été fumés dans cette boîte, elle ne peut pas redevenir fermée.",
+    "nothingLeftToSmoke": "Non enregistré : il n'y a plus de cigare à fumer ici.",
+    "deleteError": "Impossible de supprimer la bouteille",
+    "deleteError_cigar": "Impossible de supprimer le cigare",
+    "restoreError": "Impossible de restaurer la bouteille",
+    "restoreError_cigar": "Impossible de restaurer le cigare",
     "collection": {
       "createSuccess": "Collection créée",
       "updateSuccess": "Collection mise à jour",
@@ -413,7 +424,7 @@
       "priceError": "Impossible d'enregistrer le prix observé",
       "convertError": "Impossible de transformer le souhait en article de l'inventaire"
     },
-    "bulkUpdateError": "Impossible de modifier les actifs sélectionnés",
+    "bulkUpdateError": "Impossible de modifier les vins sélectionnés",
     "bulkPreset": {
       "deleteError": "Impossible de supprimer le modèle d'actions"
     },
@@ -422,18 +433,32 @@
       "revokeError": "Impossible de révoquer le lien de partage"
     },
     "count": {
-      "scanError": "Impossible de confirmer l'actif",
-      "recordError": "Impossible d'enregistrer l'actif"
+      "scanError": "Impossible de confirmer la bouteille",
+      "recordError": "Impossible d'enregistrer la trouvaille",
+      "skipped_one": "Session clôturée : {{count}} correction n'a pas pu être appliquée (la bouteille a changé entre-temps).",
+      "skipped_other": "Session clôturée : {{count}} corrections n'ont pas pu être appliquées (les bouteilles ont changé entre-temps)."
     },
     "admin": {
       "roleSuccess": "Membre mis à jour",
       "statusSuccess": "Statut du membre mis à jour",
       "roleError": "Impossible de modifier le rôle du membre",
-      "statusError": "Impossible de modifier le statut du membre"
+      "statusError": "Impossible de modifier le statut du membre",
+      "resetPasswordError": "Impossible de réinitialiser le mot de passe du membre"
     },
     "onboarding": {
       "completeError": "Impossible de terminer la configuration",
       "postponeError": "Impossible d'enregistrer votre choix : l'assistant pourra réapparaître."
+    },
+    "product": {
+      "deleteError": "Impossible de mettre ce vin à la corbeille",
+      "deleteError_spirit": "Impossible de mettre ce spiritueux à la corbeille",
+      "deleteError_cigar": "Impossible de mettre ce cigare à la corbeille",
+      "restoreSuccess": "Vin restauré",
+      "restoreSuccess_spirit": "Spiritueux restauré",
+      "restoreSuccess_cigar": "Cigare restauré",
+      "restoreError": "Impossible de restaurer ce vin",
+      "restoreError_spirit": "Impossible de restaurer ce spiritueux",
+      "restoreError_cigar": "Impossible de restaurer ce cigare"
     }
   },
   "auth": {
@@ -555,14 +580,16 @@
       }
     },
     "deleteTitle": "Supprimer la cave",
-    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer cette cave ? Les actifs qu'elle contient deviendront orphelins.",
+    "deleteConfirm": "Êtes-vous sûr de vouloir supprimer la cave « {{name}} » ? Les bouteilles et les cigares qu'elle contient resteront sans cave.",
     "stats": {
-      "items": "actifs",
-      "itemsCount_one": "{{count}} actif",
-      "itemsCount_other": "{{count}} actifs",
       "alerts": "alertes",
       "alertCount_one": "{{count}} alerte",
-      "alertCount_other": "{{count}} alertes"
+      "alertCount_other": "{{count}} alertes",
+      "items": "Contenu",
+      "bottlesCount_one": "{{count}} bouteille",
+      "bottlesCount_other": "{{count}} bouteilles",
+      "cigarsCount_one": "{{count}} cigare",
+      "cigarsCount_other": "{{count}} cigares"
     },
     "grid": {
       "showConfig": "Configurer le plan de cave (optionnel)",
@@ -587,19 +614,30 @@
       "coldZone_other": "Zone froide ({{count}} rangées)",
       "hotZoneLabel": "Zone chaude",
       "coldZoneLabel": "Zone froide",
-      "cellLabelEmpty": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner un actif.",
+      "cellLabelEmpty": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner une bouteille.",
+      "cellLabelEmpty_cigar": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner un cigare ou une boîte.",
+      "cellLabelEmpty_mixed": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner une bouteille, une boîte ou un cigare.",
       "cellLabelOccupied": "Colonne {{col}}, rangée {{row}} : {{name}}. Entrée pour le détail, Espace pour déplacer.",
-      "dragInstructions": "Pour déplacer cet actif, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour le déposer. Échap annule.",
+      "dragInstructions": "Pour déplacer cette bouteille, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour la déposer. Échap annule.",
+      "dragInstructions_cigar": "Pour déplacer ce cigare, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour le déposer. Échap annule.",
+      "dragInstructions_mixed": "Pour déplacer, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour déposer. Échap annule.",
       "announceStart": "{{name}} saisie depuis la colonne {{col}}, rangée {{row}}.",
+      "announceStart_cigar": "{{name}} saisi depuis la colonne {{col}}, rangée {{row}}.",
       "announceOver": "{{name}} est au-dessus de la colonne {{col}}, rangée {{row}}.",
       "announceDrop": "{{name}} déposée en colonne {{col}}, rangée {{row}}.",
+      "announceDrop_cigar": "{{name}} déposé en colonne {{col}}, rangée {{row}}.",
       "announceCancel": "Déplacement annulé. {{name}} reste en place.",
-      "assignTitle": "Assigner un actif à l'emplacement C{{col}}·R{{row}}",
-      "noUnassignedBottles": "Tous les actifs de cette cave sont déjà assignés à un emplacement.",
+      "assignTitle": "Assigner une bouteille à l'emplacement C{{col}}·R{{row}}",
+      "assignTitle_cigar": "Assigner un cigare ou une boîte à l'emplacement C{{col}}·R{{row}}",
+      "assignTitle_mixed": "Assigner une bouteille, une boîte ou un cigare à l'emplacement C{{col}}·R{{row}}",
+      "noUnassignedBottles": "Toutes les bouteilles de cette cave sont déjà assignées à un emplacement.",
+      "noUnassignedBottles_cigar": "Tous les cigares de cette cave sont déjà assignés à un emplacement.",
+      "noUnassignedBottles_mixed": "Toutes les bouteilles et tous les cigares de cette cave sont déjà assignés à un emplacement.",
       "slotOccupied": "Cet emplacement est déjà occupé.",
       "removeFromSlot": "Retirer de l'emplacement",
       "slot": "Emplacement",
-      "moveError": "Le déplacement a échoué, la grille a été resynchronisée avec le serveur."
+      "moveError": "Le déplacement a échoué, la grille a été resynchronisée avec le serveur.",
+      "copies": "×{{number}}"
     },
     "filterByType": "Filtrer par type",
     "filterByStatus": "Filtrer par état",
@@ -646,6 +684,7 @@
       "empty": "Aucune modification en attente.",
       "retry": "Réessayer",
       "discard": "Abandonner",
+      "resolve": "Résoudre",
       "failed": "Refusée par le serveur",
       "reason": "Motif",
       "unknownItem": "Bouteille inconnue",
@@ -827,7 +866,9 @@
       "resetPassword": "Réinitialiser le mot de passe",
       "resetPasswordConfirm": "Générer un nouveau mot de passe temporaire pour {{username}} ? Ses sessions et appareils de confiance actuels seront déconnectés, et il devra choisir un nouveau mot de passe à sa prochaine connexion.",
       "resetPasswordResultTitle": "Mot de passe temporaire pour {{username}}",
-      "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion."
+      "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion.",
+      "statusEnabled": "Activé",
+      "statusDisabled": "Désactivé"
     },
     "auditLog": {
       "filters": {
@@ -853,7 +894,7 @@
     "maturityRefs": {
       "title": "Références d'apogée",
       "subtitle": "Définissez des fenêtres de dégustation de référence par catégorie, région, couleur ou producteur.",
-      "cascadeHint": "Les règles sont évaluées de haut en bas — la première qui correspond à un actif l'emporte. Placez vos règles les plus spécifiques au-dessus des règles générales.",
+      "cascadeHint": "Les règles sont évaluées de haut en bas — la première qui correspond à un vin l'emporte. Placez vos règles les plus spécifiques au-dessus des règles générales.",
       "add": "Ajouter une référence",
       "addTitle": "Nouvelle référence d'apogée",
       "editTitle": "Modifier la référence",
@@ -869,7 +910,7 @@
         "criteria": "Critères",
         "window": "Fenêtre",
         "curve": "Courbe",
-        "bottles": "Actifs",
+        "bottles": "Bouteilles",
         "actions": "Actions"
       },
       "fields": {
@@ -892,7 +933,7 @@
         "criteria": "Correspondance optionnelle",
         "windowRelative": "Ex : 5 → 15 pour une bouteille buvable de 5 à 15 ans après le millésime",
         "windowAbsolute": "Ex : 2010 → 2030 pour une fenêtre calendaire fixe",
-        "curveShape": "Forme de la courbe de maturité appliquée aux actifs correspondants",
+        "curveShape": "Forme de la courbe de maturité appliquée aux vins correspondants",
         "colorPlaceholder": "Rouge, Blanc, Rosé…"
       },
       "errors": {
@@ -904,7 +945,7 @@
     "maintenance": {
       "title": "Maintenance",
       "purge": {
-        "description": "Cette action supprimera TOUS les actifs, TOUTES les caves et TOUS les journaux d'activité. Les comptes utilisateurs seront préservés.",
+        "description": "Cette action supprimera TOUTES les bouteilles et TOUS les cigares, TOUTES les caves et TOUS les journaux d'activité. Les comptes utilisateurs seront préservés.",
         "button": "Purger toutes les données",
         "confirmTitle": "Confirmation de purge complète",
         "confirmDescription": "Attention ! Cette action est irréversible. Pour confirmer que vous souhaitez supprimer TOUTES les données métier, veuillez saisir le mot-clé ci-dessous :",
@@ -919,8 +960,8 @@
           "BACKUP_BEFORE_PURGE_FAILED": "La sauvegarde préalable à la purge a échoué : rien n'a été supprimé. Consultez l'onglet Sauvegardes."
         },
         "counts": {
-          "bottles_one": "{{count}} actif supprimé",
-          "bottles_other": "{{count}} actifs supprimés",
+          "bottles_one": "{{count}} bouteille ou cigare supprimé",
+          "bottles_other": "{{count}} bouteilles ou cigares supprimés",
           "cellars_one": "{{count}} cave supprimée",
           "cellars_other": "{{count}} caves supprimées",
           "logs_one": "{{count}} entrée de log supprimée",
@@ -933,8 +974,8 @@
     "selected_one": "{{count}} sélectionné",
     "selected_other": "{{count}} sélectionnés",
     "title": "Actions groupées",
-    "subtitle_one": "Modifier {{count}} actif",
-    "subtitle_other": "Modifier {{count}} actifs simultanément",
+    "subtitle_one": "Modifier {{count}} bouteille",
+    "subtitle_other": "Modifier {{count}} bouteilles simultanément",
     "fieldsToUpdate": "Champs à modifier",
     "preview": "Récapitulatif des changements",
     "mixed": "(Valeurs multiples)",
@@ -945,8 +986,57 @@
     "loadPreset": "Charger un modèle",
     "deletePreset": "Supprimer le modèle",
     "deletePresetConfirm": "Ce modèle d'actions sera définitivement supprimé.",
-    "success_one": "{{count}} actif a été mis à jour",
-    "success_other": "{{count}} actifs ont été mis à jour"
+    "success_one": "Modification appliquée",
+    "success_other": "Modifications appliquées"
+  },
+  "bulkWines": {
+    "error": "Impossible d'appliquer l'action groupée. Rien n'a été modifié.",
+    "errors": {
+      "COUNT_ABOVE_STOCK": "Un des vins n'a plus autant de bouteilles en cave. Rien n'a été modifié.",
+      "QUANTITY_TOO_LARGE": "Une ligne de cette cave dépasserait 1 000 bouteilles. Rien n'a été modifié.",
+      "CELLAR_NOT_FOUND": "Cette cave n'existe plus. Rien n'a été modifié."
+    },
+    "partHint": "Pour une partie seulement d'un vin, ouvrez-le.",
+    "andOthers_one": "{{names}} et {{count}} autre",
+    "andOthers_other": "{{names}} et {{count}} autres",
+    "move": {
+      "action": "Déplacer",
+      "title": "Déplacer vers une cave",
+      "where": "Vers quelle cave ?",
+      "alreadyThere_one": "Dont {{units}} déjà dans {{cellar}}, qui y reste : {{moved}} à déplacer.",
+      "alreadyThere_other": "Dont {{units}} déjà dans {{cellar}}, qui y restent : {{moved}} à déplacer.",
+      "alreadyAll": "Tout est déjà dans {{cellar}} : rien à déplacer.",
+      "confirm": "Déplacer",
+      "done": "Déplacé : {{units}}"
+    },
+    "drink": {
+      "action": "Marquer comme bus",
+      "action_cigar": "Marquer comme fumés",
+      "title": "Marquer comme bus",
+      "title_cigar": "Marquer comme fumés",
+      "howMany": "Combien ? (sur {{total}})",
+      "onlyBottle": "Sa seule bouteille en cave sera marquée comme bue.",
+      "onlyCigar": "Son seul cigare en cave sera marqué comme fumé.",
+      "openedFirst": "En commençant par l'entamée ({{level}} %)",
+      "openedFirstNoLevel": "En commençant par l'entamée",
+      "openedBoxFirst_one": "En commençant par la boîte entamée ({{count}} restant)",
+      "openedBoxFirst_other": "En commençant par la boîte entamée ({{count}} restants)",
+      "confirm": "Marquer comme bus",
+      "confirm_cigar": "Marquer comme fumés",
+      "done": "Marqué comme bu : {{units}}",
+      "done_cigar": "Marqué comme fumé : {{units}}"
+    },
+    "trash": {
+      "action": "Mettre à la corbeille",
+      "title": "Mettre à la corbeille",
+      "body": "Toutes les bouteilles en cave de ces vins vont à la corbeille, d'où vous pourrez les restaurer. Les bouteilles déjà bues ne sont pas concernées.",
+      "body_cigar": "Tous les cigares en cave de ces références vont à la corbeille, d'où vous pourrez les restaurer. Les cigares déjà fumés ne sont pas concernés.",
+      "confirm": "Mettre à la corbeille",
+      "done": "Mis à la corbeille : {{units}}"
+    },
+    "edit": {
+      "action": "Modifier des champs…"
+    }
   },
   "traceability": {
     "title": "Traçabilité",
@@ -999,6 +1089,20 @@
       "load": "Impossible de charger les collections."
     }
   },
+  "tastingWine": {
+    "wine": "Vin dégusté",
+    "notListed": "Ce vin n'est pas dans la liste",
+    "pickFromList": "Choisir un vin de la liste",
+    "namedHint": "Goûté ailleurs : si Glou connaît déjà ce vin, la dégustation va sur lui ; sinon, Glou l'ajoute sans bouteille.",
+    "vitola": "Vitole",
+    "onBottle": "Sur une bouteille de la cave ?",
+    "onCigar": "Sur un cigare de la cave ?",
+    "yes": "Oui",
+    "elsewhere": "Non, goûté ailleurs",
+    "whichBottle": "Quelle bouteille ?",
+    "vintageInvalid": "Millésime sur 4 chiffres, au plus {{year}} ; laissez vide pour un vin sans année.",
+    "whichCigars": "Quels cigares ?"
+  },
   "tastings": {
     "title": "Journal de dégustation",
     "create": "Nouvelle dégustation",
@@ -1037,20 +1141,25 @@
     },
     "stockUpdate": {
       "title": "Mettre à jour le stock ?",
-      "description": "Cette dégustation a-t-elle modifié l'état de l'actif dans votre cave ?",
-      "opened": "Actif entamé",
-      "consumed": "Actif consommé (vide)",
-      "removeOneCigar_one": "Retirer un cigare de la boîte ({{count}} restant)",
-      "removeOneCigar_other": "Retirer un cigare de la boîte ({{count}} restants)",
+      "description": "Cette dégustation a-t-elle modifié l'état de la bouteille dans votre cave ?",
+      "description_cigar": "Cette dégustation a-t-elle modifié l'état du cigare dans votre humidor ?",
+      "opened": "Bouteille entamée",
+      "consumed": "Bouteille bue (vide)",
+      "smokeOne": {
+        "opensBox_one": "J'en ai fumé un : la boîte est entamée ({{count}} restant)",
+        "opensBox_other": "J'en ai fumé un : la boîte est entamée ({{count}} restants)",
+        "fromBox_zero": "J'en ai fumé un : c'était le dernier de la boîte",
+        "fromBox_one": "J'en ai fumé un dans la boîte entamée ({{count}} restant)",
+        "fromBox_other": "J'en ai fumé un dans la boîte entamée ({{count}} restants)",
+        "single_zero": "J'en ai fumé un : c'était le dernier",
+        "single_one": "J'en ai fumé un ({{count}} restant à l'unité)",
+        "single_other": "J'en ai fumé un ({{count}} restants à l'unité)"
+      },
       "ignore": "Ne pas modifier le stock",
       "error": "La mise à jour du stock a échoué. Réessayez."
     },
     "stats": {
-      "count": "Dégustations",
-      "avgRating": "Note moy.",
-      "lastTasted": "Dernière",
-      "viewAll": "Voir tout",
-      "empty": "Pas encore dégusté"
+      "avgRating": "Note moy."
     },
     "recommendations": {
       "title": "Recommandations de service",
@@ -1071,10 +1180,10 @@
       "searchPlaceholder": "Ex. bœuf bourguignon, saumon, chocolat noir...",
       "promptTitle": "Décrivez votre plat pour découvrir vos meilleurs accords",
       "promptHint": "Saisissez un met ou choisissez une suggestion rapide ci-dessus.",
-      "noResults": "Aucun actif en stock ne correspond à \"{{query}}\"",
+      "noResults": "Aucune bouteille en stock ne correspond à \"{{query}}\"",
       "noResultsHint": "Essayez un terme plus général ou une des suggestions rapides.",
-      "resultsCount_one": "{{count}} actif correspondant",
-      "resultsCount_other": "{{count}} actifs correspondants",
+      "resultsCount_one": "{{count}} bouteille correspondante",
+      "resultsCount_other": "{{count}} bouteilles correspondantes",
       "reason": "Accorde avec : {{pairing}}",
       "consumeNow": "Consommer maintenant",
       "inventoryLoadError": "Impossible de charger votre inventaire.",
@@ -1101,19 +1210,22 @@
       "define": "Définir un objectif",
       "edit": "Modifier l'objectif",
       "targetType": "Type d'objectif",
-      "targetTypeCount": "Nombre d'actifs",
+      "targetTypeCount": "Nombre de bouteilles",
       "targetTypeVolume": "Volume (en bouteilles)",
       "targetValue": "Objectif",
-      "progressLabel": "{{count}} / {{target}} actifs consommés",
+      "progressLabel": "{{count}} / {{target}} bouteilles consommées",
       "saveError": "Impossible d'enregistrer l'objectif. Veuillez réessayer."
     },
     "suggestions": {
       "title": "À boire maintenant / prochainement",
       "empty": "Aucune suggestion pour le moment",
-      "emptyHint": "Vos actifs à apogée ou entamés apparaîtront ici.",
+      "emptyHint": "Vos bouteilles à leur apogée ou entamées apparaîtront ici.",
       "loadError": "Impossible de charger les suggestions.",
       "consume": "Consommer",
-      "postpone": "Reporter"
+      "postpone": "Reporter",
+      "finishOpened": "Finir l'entamée ({{level}} %)",
+      "finishOpenedBox_one": "Finir la boîte entamée ({{count}} restant)",
+      "finishOpenedBox_other": "Finir la boîte entamée ({{count}} restants)"
     },
     "reasons": {
       "peak_window": "Apogée",
@@ -1156,48 +1268,88 @@
       "pause": "Mettre en pause",
       "viewSummary": "Voir le bilan",
       "progressAria": "Progression du comptage",
-      "progressCount": "{{confirmed}} / {{expected}} confirmés",
-      "noTheoreticalList": "Ce périmètre libre n'est lié à aucune cave : aucune liste théorique n'est disponible. Tout actif confirmé ici sera enregistré comme trouvé.",
-      "unexpectedFound_one": "{{count}} actif trouvé hors périmètre",
-      "unexpectedFound_other": "{{count}} actifs trouvés hors périmètre",
-      "searchLabel": "Rechercher un actif",
+      "progressCount": "Trouvé : {{confirmed}} / {{expected}}",
+      "noTheoreticalList": "Ce périmètre libre n'est lié à aucune cave : aucune liste théorique n'est disponible. Tout exemplaire confirmé ici sera enregistré comme trouvé.",
+      "unexpectedFound_one": "{{count}} exemplaire trouvé hors périmètre",
+      "unexpectedFound_other": "{{count}} exemplaires trouvés hors périmètre",
+      "searchLabel": "Rechercher un vin ou un cigare",
       "searchPlaceholder": "Nom ou producteur...",
-      "emptyList": "Aucun actif à vérifier pour ce périmètre.",
+      "emptyList": "Rien à vérifier pour ce périmètre.",
       "confirmTap": "Confirmer",
       "pausedNotice": "Cette session est en pause. Reprenez-la pour continuer le comptage.",
       "foundNew": {
         "trigger": "Introuvable dans la liste ? Enregistrer une trouvaille",
-        "title": "Nouvel article trouvé",
-        "description": "Enregistrez un article physiquement présent mais absent du système. Il est ajouté à l'inventaire partagé une fois confirmé à la clôture de la session.",
+        "title": "Nouvelle trouvaille",
+        "description": "Enregistrez des exemplaires présents mais absents de Glou. Une trouvaille de plusieurs exemplaires forme un seul groupe ; elle est ajoutée à la cave quand vous la confirmez à la clôture de la session.",
         "nameLabel": "Nom",
         "categoryLabel": "Catégorie",
-        "quantityLabel": "Quantité"
-      }
+        "quantityLabel": "Nombre trouvé"
+      },
+      "times": "×{{number}}",
+      "howMany": "Combien en avez-vous trouvé ?",
+      "howManyAria": "{{name}} : combien en avez-vous trouvé ?",
+      "saveCount": "Valider"
     },
     "status": {
       "confirmed": "Confirmé",
-      "pending": "En attente"
+      "pending": "En attente",
+      "foundOf": "{{found}} / {{expected}}"
     },
     "report": {
       "confirmed": "Confirmés",
       "missing": "Manquants",
       "unexpected": "Inattendus",
       "none": "Aucun",
-      "markConsumed": "Déclarer consommé",
       "moveToScope": "Déplacer vers ce périmètre",
       "moveDisabledNoCellar": "Non disponible : ce périmètre n'est lié à aucune cave",
-      "addToStock": "Ajouter au stock",
       "newItemBadge": "Absent du système",
       "close": "Clôturer la session",
       "closeWithCorrections": "Clôturer et appliquer ({{count}})",
-      "completedNotice": "Cette session est clôturée."
+      "completedNotice": "Cette session est clôturée.",
+      "surplus": "En plus",
+      "foundOf": "{{found}} / {{expected}}",
+      "missingOf_one": "{{count}} manquante sur {{expected}}",
+      "missingOf_other": "{{count}} manquantes sur {{expected}}",
+      "missingChoiceAria": "Que faire des exemplaires manquants de {{name}} ?",
+      "choice": {
+        "none": "Ne rien faire",
+        "drunk_one": "Bue",
+        "drunk_other": "Bues",
+        "drunk_cigar_one": "Fumé",
+        "drunk_cigar_other": "Fumés",
+        "drunk_box_one": "Finie",
+        "drunk_box_other": "Finies",
+        "input_error": "Erreur de saisie",
+        "written_off_one": "Cassée / offerte / perdue",
+        "written_off_other": "Cassées / offertes / perdues",
+        "written_off_cigar_one": "Cassé / offert / perdu",
+        "written_off_cigar_other": "Cassés / offerts / perdus"
+      },
+      "addSurplus_one": "Ajouter {{count}} bouteille au groupe",
+      "addSurplus_other": "Ajouter {{count}} bouteilles au groupe",
+      "addToStock_one": "Ajouter {{count}} bouteille à la cave",
+      "addToStock_other": "Ajouter {{count}} bouteilles à la cave",
+      "joinLabel": "Ajouter à",
+      "newWine": "Un nouveau vin",
+      "addSurplus_cigar_one": "Ajouter {{count}} cigare au groupe",
+      "addSurplus_cigar_other": "Ajouter {{count}} cigares au groupe",
+      "addToStock_cigar_one": "Ajouter {{count}} cigare à la cave",
+      "addToStock_cigar_other": "Ajouter {{count}} cigares à la cave",
+      "addSurplus_box_one": "Ajouter {{count}} boîte au groupe",
+      "addSurplus_box_other": "Ajouter {{count}} boîtes au groupe",
+      "addToStock_box_one": "Ajouter {{count}} boîte à la cave",
+      "addToStock_box_other": "Ajouter {{count}} boîtes à la cave",
+      "missingOf_cigar_one": "{{count}} manquant sur {{expected}}",
+      "missingOf_cigar_other": "{{count}} manquants sur {{expected}}"
     },
     "errors": {
       "SESSION_NOT_FOUND": "Cette session d'inventaire est introuvable.",
       "SESSION_NOT_ACTIVE": "Cette session d'inventaire n'est plus active.",
       "SESSION_ALREADY_COMPLETED": "Cette session d'inventaire a déjà été clôturée.",
       "VALIDATION_ERROR": "Veuillez vérifier les informations saisies.",
-      "UNEXPECTED_ERROR": "Une erreur inattendue est survenue."
+      "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
+      "QUANTITY_TOO_LARGE": "Un groupe ne peut pas dépasser 1 000 exemplaires.",
+      "PRODUCT_IN_TRASH": "Ce vin est dans la corbeille : restaurez-le avant d'y ajouter des exemplaires."
     }
   },
   "analytics": {
@@ -1213,10 +1365,10 @@
       "liquidStockHint": "Hors cigares de collection",
       "cigarHumidor": "Cigares en humidor",
       "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
-      "cigarModules_one": "{{count}} module",
-      "cigarModules_other": "{{count}} modules",
       "urgentDegustation": "Urgence de dégustation",
-      "urgentDegustationHint": "Actifs à l'apogée ou l'ayant dépassée"
+      "urgentDegustationHint": "Bouteilles à l'apogée ou l'ayant dépassée",
+      "cigarCount_one": "{{count}} cigare",
+      "cigarCount_other": "{{count}} cigares"
     },
     "regionMap": {
       "title": "Répartition géographique",
@@ -1235,12 +1387,12 @@
         "heatmap": "Heatmap par type"
       },
       "heatmapType": {
-        "label": "Type d'actif",
+        "label": "Catégorie",
         "dominant": "Catégorie dominante"
       },
       "filters": {
         "title": "Filtres",
-        "type": "Type d'actif",
+        "type": "Catégorie",
         "priceRange": "Gamme de prix (€)",
         "vintageRange": "Millésime / Année",
         "min": "Min",
@@ -1250,21 +1402,24 @@
         "ratingMinLabel": "{{count}}+ ",
         "ratingHint": "Basé sur les 50 dégustations les plus récentes enregistrées — approximation, pas l'historique complet.",
         "state": "État",
+        "stateAll": "Tous",
+        "stateInCellar": "Non entamés",
+        "stateOpened": "Entamés",
         "region": "Région",
         "regionAny": "Toutes les régions"
       },
       "list": {
-        "title": "Actifs de la région sélectionnée",
-        "titleAll": "Actifs correspondant aux filtres",
-        "empty": "Aucun actif ne correspond aux filtres sélectionnés.",
-        "itemCount_one": "{{count}} actif",
-        "itemCount_other": "{{count}} actifs"
+        "title": "Résultats de la région sélectionnée",
+        "titleAll": "Résultats correspondant aux filtres",
+        "empty": "Rien ne correspond aux filtres sélectionnés.",
+        "itemCount_one": "{{count}} résultat",
+        "itemCount_other": "{{count}} résultats"
       },
       "regionSelected": "Région sélectionnée : {{region}}"
     },
     "categories": {
       "title": "Répartition des catégories",
-      "active": "Actifs",
+      "active": "En stock",
       "wine": "Vins Rouges & Blancs",
       "sparkling": "Bulles & Champagnes",
       "spirit": "Spiritueux Fins",
@@ -1278,14 +1433,14 @@
     },
     "garde": {
       "title": "Planning de Garde (Histogramme)",
-      "subtitle": "Distribution temporelle des actifs par année d'apogée optimale",
+      "subtitle": "Distribution temporelle des bouteilles par année d'apogée optimale",
       "noData": "Aucune fenêtre d'apogée renseignée dans votre inventaire.",
-      "bottles_one": "actif à l'apogée",
-      "bottles_other": "actifs à l'apogée",
-      "chartSummary": "Graphique en barres : nombre d'actifs atteignant leur apogée chaque année, {{years}} années de {{from}} à {{to}}.",
+      "bottles_one": "bouteille à l'apogée",
+      "bottles_other": "bouteilles à l'apogée",
+      "chartSummary": "Graphique en barres : nombre de bouteilles atteignant leur apogée chaque année, {{years}} années de {{from}} à {{to}}.",
       "showData": "Afficher les données",
       "yearColumn": "Année",
-      "countColumn": "Actifs à l'apogée"
+      "countColumn": "Bouteilles à l'apogée"
     },
     "caves": {
       "title": "Répartition par cave"
@@ -1293,13 +1448,13 @@
     "maturity": {
       "title": "Planning optimal de consommation (Apogée)",
       "season": "Saison {{year}}",
-      "description": "Cette projection indique la période idéale pour consommer vos actifs afin de préserver l'intégrité de leurs arômes.",
+      "description": "Cette projection indique la période idéale pour consommer vos bouteilles afin de préserver l'intégrité de leurs arômes.",
       "preserve": "À préserver en cave / humidor",
       "atPeak": "À l'apogée (À consommer en priorité)",
       "pastPeak": "Apogée dépassé (À consommer d'urgence)",
       "noWindow": "Sans fenêtre de maturité renseignée",
-      "countLabel_one": "{{count}} actif ({{percent}}%)",
-      "countLabel_other": "{{count}} actifs ({{percent}}%)",
+      "countLabel_one": "{{count}} ({{percent}}%)",
+      "countLabel_other": "{{count}} ({{percent}}%)",
       "humidorTip": "Conseil de l'Humidor",
       "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
     },
@@ -1344,7 +1499,7 @@
   },
   "qr": {
     "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le QR code ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur avant de l'imprimer.",
-    "title": "QR Code de l'actif",
+    "title": "QR Code",
     "download": "Télécharger PNG"
   },
   "gdpr": {
@@ -1352,6 +1507,12 @@
     "exportTitle": "Exporter mes données",
     "exportDescription": "Téléchargez une copie complète de vos données personnelles au format JSON (RGPD).",
     "exportButton": "Exporter",
+    "csvTitle": "Exporter ma cave (CSV)",
+    "csvDescription": "Un tableau de ce qui est en cave et des bouteilles ou boîtes entamées, une ligne par groupe, avec la description du vin, que l'import de fichier relit. Ne sont pas dans le CSV : les photos, les dégustations, l'historique, les alertes, les cases du plan de cave et les bouteilles bues ou sorties (elles restent dans l'export JSON). L'import prend 500 lignes à la fois.",
+    "csvButton": "Exporter en CSV",
+    "csvTooLong_one": "Le fichier compte {{count}} ligne : l'import en prend {{max}} à la fois. Découpez-le avant de le réimporter ; à partir du 2e morceau, les vins déjà importés demandent « Ajouter ces bouteilles » (le choix par défaut est « Ignorer (déjà comptées) »).",
+    "csvTooLong_other": "Le fichier compte {{count}} lignes : l'import en prend {{max}} à la fois. Découpez-le avant de le réimporter ; à partir du 2e morceau, les vins déjà importés demandent « Ajouter ces bouteilles » (le choix par défaut est « Ignorer (déjà comptées) »).",
+    "csvError": "L'export CSV a échoué. Réessayez dans un instant.",
     "exportFilterToggle": "Filtrer par catégorie",
     "exportFilterHint": "Sélectionnez les catégories à inclure dans l'export. Toutes les catégories sont incluses par défaut.",
     "exportSelectionButton": "Exporter la sélection",
@@ -1385,7 +1546,7 @@
   },
   "shares": {
     "title": "Partages invités",
-    "subtitle": "Partagez une vue en lecture seule de votre cave avec vos proches.",
+    "subtitle": "Partagez votre cave avec vos proches par un lien. Par défaut, ils la consultent sans rien modifier ; cave par cave, vous pouvez les autoriser à ouvrir, boire ou fumer et à noter leurs dégustations.",
     "create": "Nouveau partage",
     "empty": "Aucun partage créé",
     "emptyHint": "Créez un lien de partage pour inviter quelqu'un à consulter votre cave.",
@@ -1398,6 +1559,9 @@
       "done": "Terminé"
     },
     "revoke": "Révoquer",
+    "statusActive": "En cours",
+    "statusExpired": "Expiré",
+    "statusRevoked": "Révoqué",
     "expiresAt": "Expire le {{date}}",
     "noExpiry": "Sans expiration",
     "allCellars": "Toutes les caves",
@@ -1420,16 +1584,14 @@
       "scope": "Périmètre visible",
       "selectCellars": "Caves spécifiques",
       "selectCollections": "Collections spécifiques",
-      "readOnly": "Lecture seule",
-      "readWrite": "Lecture/écriture",
-      "cellarWriteAccessAria": "Accès en lecture/écriture pour la cave {{name}}",
       "durations": {
         "1d": "24 heures",
         "7d": "7 jours",
         "30d": "30 jours",
         "custom": "Date personnalisée",
         "unlimited": "Illimité"
-      }
+      },
+      "allowWrite": "Autoriser à ouvrir, boire ou fumer"
     },
     "errors": {
       "load": "Impossible de charger les partages."
@@ -1448,13 +1610,25 @@
       "sortBy": "Trier par",
       "empty": "Aucun article dans ce partage.",
       "scopeAll": "Collection complète",
-      "edit": {
-        "action": "Modifier",
-        "opened": "Actif entamé",
-        "openedBadge": "Entamée",
-        "fillLevel": "Niveau restant (%)",
-        "notes": "Notes",
-        "error": "Impossible d'enregistrer la modification."
+      "errors": {
+        "finished": "Cette bouteille a été bue ou retirée entre-temps.",
+        "restock": "Seul un membre de la cave peut remettre une bouteille en stock.",
+        "readOnly": "Cette cave vous est partagée en lecture seule.",
+        "generic": "Impossible d'enregistrer. Réessayez.",
+        "undo": "Il est trop tard pour annuler : la bouteille a changé depuis."
+      },
+      "tasting": {
+        "action": "Noter une dégustation",
+        "title": "Noter une dégustation",
+        "done": "Dégustation notée"
+      },
+      "signature": {
+        "named": "{{name}} (invité)",
+        "anonymous": "Invité"
+      },
+      "drunk": {
+        "message": "Vous venez de boire une bouteille de {{wine}}.",
+        "dismiss": "Masquer ce message"
       }
     }
   },
@@ -1608,7 +1782,7 @@
       "saved": "Intégrations enregistrées.",
       "scan": {
         "title": "Scan d'étiquette",
-        "active": "Actif",
+        "active": "Activé",
         "inactive": "Non activé",
         "howToEnable": "Le service de reconnaissance n'est pas démarré, ou son modèle est encore en cours de téléchargement : le scan est donc masqué pour les membres. Pour l'activer (environ 9 Go de disque et 3 Go de mémoire), lancez sur le serveur la commande ci-dessous, puis attendez la fin du téléchargement du modèle :"
       }
@@ -1692,6 +1866,7 @@
         "noHistory": "Aucune sauvegarde enregistrée.",
         "download": "Télécharger cette sauvegarde",
         "restore": "Restaurer cette sauvegarde",
+        "beforeMigration": "Avant mise à jour, conservée",
         "trigger": {
           "scheduled": "Planifiée",
           "manual": "Manuelle"
@@ -1712,6 +1887,8 @@
         "error": "La restauration a échoué.",
         "errors": {
           "BACKUP_BEFORE_RESTORE_FAILED": "La sauvegarde des données actuelles prise avant la restauration a échoué : rien n'a été restauré. Consultez l'historique des sauvegardes.",
+          "BACKUP_FROM_OLDER_VERSION": "Cette sauvegarde a été prise par une version antérieure de Glou, avant une mise à jour : rien n'a été restauré. Pour revenir à cette version, suivez « Revenir en arrière » dans la page du wiki « Mettre à jour Glou et revenir en arrière en cas de problème ». Pour garder la version actuelle avec ces données, restaurez-la avec la commande de la page « Reprise après sinistre », puis redémarrez l'API : Glou les met à jour.",
+          "BACKUP_FROM_NEWER_VERSION": "Cette sauvegarde a été prise par une version plus récente de Glou : rien n'a été restauré. Mettez Glou à jour, puis restaurez-la.",
           "TIMEOUT": "La restauration prend plus de temps que prévu et se poursuit sur le serveur. Patientez quelques minutes, puis rechargez la page et consultez l'historique des sauvegardes."
         }
       }
@@ -1770,7 +1947,7 @@
     },
     "cellar": {
       "title": "Créez votre première cave",
-      "subtitle": "Donnez un nom à votre cave pour commencer à y ranger vos actifs.",
+      "subtitle": "Donnez un nom à votre cave pour commencer à y ranger vos bouteilles.",
       "namePlaceholder": "Ex : Cave à vin",
       "skipStep": "Passer cette étape",
       "createCta": "Créer la cave",
@@ -1783,13 +1960,15 @@
       "subtitle": "Tout est partagé : vous voyez et gérez les mêmes bouteilles que les autres membres.",
       "cellars_one": "{{count}} cave",
       "cellars_other": "{{count}} caves",
-      "items_one": "{{count}} bouteille en stock",
-      "items_other": "{{count}} bouteilles en stock",
       "explore": "Découvrir la cave",
-      "addBottles": "Ajouter des bouteilles"
+      "addBottles": "Ajouter des bouteilles",
+      "bottles_one": "{{count}} bouteille en stock",
+      "bottles_other": "{{count}} bouteilles en stock",
+      "cigars_one": "{{count}} cigare en stock",
+      "cigars_other": "{{count}} cigares en stock"
     },
     "ingestion": {
-      "title": "Comment souhaitez-vous ajouter vos actifs ?",
+      "title": "Comment souhaitez-vous ajouter vos bouteilles ?",
       "subtitle": "Choisissez la méthode la plus adaptée. Vous pourrez toujours utiliser les autres plus tard.",
       "skipStep": "Passer cette étape",
       "scan": {
@@ -1798,31 +1977,31 @@
       },
       "import": {
         "title": "Import Fichier",
-        "description": "Importez un fichier CSV listant vos actifs."
+        "description": "Importez un fichier CSV listant vos bouteilles."
       },
       "manual": {
         "title": "Ajout Manuel",
-        "description": "Entrez vos bouteilles ou actifs un par un."
+        "description": "Entrez vos bouteilles et vos cigares un par un."
       }
     },
     "manual": {
       "title": "Ajout manuel",
-      "subtitle": "Ajoutez autant d'actifs que vous le souhaitez, puis continuez.",
-      "addButton": "Ajouter un actif",
-      "itemsAdded_one": "{{count}} actif ajouté pour l'instant",
-      "itemsAdded_other": "{{count}} actifs ajoutés pour l'instant",
+      "subtitle": "Ajoutez autant de bouteilles que vous le souhaitez, puis continuez.",
+      "addButton": "Ajouter une bouteille",
+      "itemsAdded_one": "{{count}} bouteille ou cigare ajouté pour l'instant",
+      "itemsAdded_other": "{{count}} bouteilles ou cigares ajoutés pour l'instant",
       "doneButton": "Terminer l'ajout"
     },
     "scan": {
       "title": "Scan rapide",
       "subtitle": "Photographiez vos étiquettes une à une, puis continuez.",
-      "itemsAdded_one": "{{count}} actif ajouté pour l'instant",
-      "itemsAdded_other": "{{count}} actifs ajoutés pour l'instant",
+      "itemsAdded_one": "{{count}} bouteille ou cigare ajouté pour l'instant",
+      "itemsAdded_other": "{{count}} bouteilles ou cigares ajoutés pour l'instant",
       "doneButton": "Terminer l'ajout"
     },
     "csv": {
       "title": "Import CSV",
-      "subtitle": "Importez un fichier .csv avec les colonnes nom, producteur, catégorie (vin, bulles, spiritueux, cigare) et, au choix, millésime, prix, région, quantité (nombre de bouteilles, ou de cigares par boîte), degré. Les en-têtes et catégories en anglais (name, producer, category, vintage ; wine, sparkling, spirit, cigar) fonctionnent aussi.",
+      "subtitle": "Importez un fichier .csv avec les colonnes nom, producteur, catégorie (vin, bulles, spiritueux, cigare) et, au choix, millésime, prix (d'une bouteille ou d'une boîte), région, quantité (nombre de bouteilles, de boîtes ou de cigares à l'unité), degré, cave (créée si elle n'existe pas), date d'achat (jour d'abord : 15/03/2024, ou 2024-03-15), contenance et, pour les cigares, vitole et format de boîte (nombre de cigares par boîte, ou « à l'unité » ; sans cette colonne, la quantité est le nombre de cigares d'une boîte). Les lignes identiques sont additionnées ; 500 lignes au maximum. Les en-têtes et catégories en anglais (name, producer, category, vintage ; wine, sparkling, spirit, cigar) fonctionnent aussi.",
       "csvOnlyHint": "Seul le format CSV est pris en charge (Excel/.xlsx non supporté).",
       "chooseFile": "Choisir un fichier CSV",
       "chooseAnother": "Choisir un autre fichier",
@@ -1839,12 +2018,33 @@
         "FILE_TOO_LARGE": "Ce fichier est trop volumineux pour être envoyé (2 Mo au maximum). Scindez-le en plusieurs fichiers plus petits.",
         "INVALID_FILE_TYPE": "Ce fichier n'est pas un CSV. Enregistrez-le au format « CSV UTF-8 » puis réessayez."
       },
-      "itemsInFile_one": "{{count}} actif dans le fichier",
-      "itemsInFile_other": "{{count}} actifs dans le fichier",
       "rowQuantity_one": "{{count}} bouteille",
       "rowQuantity_other": "{{count}} bouteilles",
-      "tooManyItems_one": "Ce fichier représente {{count}} actif, or un import en accepte {{max}} au maximum : rien n'a été importé. Scindez-le en plusieurs fichiers, en gardant toutes les lignes d'un même vin dans le même fichier ; après ce premier import, « Revoir le guide de démarrage » (Profil) permet d'importer les suivants.",
-      "tooManyItems_other": "Ce fichier représente {{count}} actifs, or un import en accepte {{max}} au maximum : rien n'a été importé. Scindez-le en plusieurs fichiers, en gardant toutes les lignes d'un même vin dans le même fichier ; après ce premier import, « Revoir le guide de démarrage » (Profil) permet d'importer les suivants.",
+      "rowCigars_one": "{{count}} cigare",
+      "rowCigars_other": "{{count}} cigares",
+      "mergedRows_one": "{{count}} ligne additionnée",
+      "mergedRows_other": "{{count}} lignes additionnées",
+      "tooManyRows_one": "Ce fichier compte {{count}} ligne, or un import en accepte {{max}} au maximum : rien n'a été importé.",
+      "tooManyRows_other": "Ce fichier compte {{count}} lignes, or un import en accepte {{max}} au maximum, quel que soit le nombre de bouteilles : rien n'a été importé. Scindez-le en plusieurs fichiers ; après ce premier import, « Revoir le guide de démarrage » (Profil) permet d'importer les suivants.",
+      "newCellars_one": "1 cave sera créée : {{names}}",
+      "newCellars_other": "{{count}} caves seront créées : {{names}}",
+      "alreadyInCellar_one": "Vin déjà en cave ({{count}} bouteille)",
+      "alreadyInCellar_other": "Vin déjà en cave ({{count}} bouteilles)",
+      "alreadyInCellarCigars_one": "Déjà en cave ({{count}} cigare)",
+      "alreadyInCellarCigars_other": "Déjà en cave ({{count}} cigares)",
+      "alreadyInCellarChoice": "{{name}} : déjà en cave, que faire de cette ligne ?",
+      "addBottles_one": "Ajouter cette bouteille",
+      "addBottles_other": "Ajouter ces {{count}} bouteilles",
+      "addCigars_one": "Ajouter ce cigare",
+      "addCigars_other": "Ajouter ces {{count}} cigares",
+      "ignoreBottles": "Ignorer (déjà comptées)",
+      "ignoreCigars": "Ignorer (déjà en cave)",
+      "lineTooLarge": "Ces lignes identiques font {{total}} bouteilles, or une ligne de cave en compte {{max}} au maximum : répartissez-les sur plusieurs dates d'achat ou plusieurs fichiers.",
+      "lineTooLargeCigars": "Ces lignes identiques font {{total}} boîtes ou cigares, or une ligne de cave en compte {{max}} au maximum : répartissez-les sur plusieurs dates d'achat ou plusieurs fichiers.",
+      "confirmErrors": {
+        "LINE_TOO_LARGE": "Des lignes identiques du fichier dépassent 1 000 bouteilles pour un même vin : rien n'a été importé. Répartissez-les sur plusieurs dates d'achat.",
+        "QUANTITY_TOO_LARGE": "Une ligne de cave dépasserait 1 000 bouteilles en ajoutant ce fichier : rien n'a été importé. Indiquez une autre date d'achat pour ces lignes."
+      },
       "errorCodes": {
         "NAME_REQUIRED": "Le nom est manquant",
         "NAME_TOO_LONG": "Le nom dépasse 200 caractères",
@@ -1858,7 +2058,12 @@
         "REGION_TOO_LONG": "La région dépasse 200 caractères",
         "INVALID_ROW": "Ligne invalide",
         "UNRECOGNIZED_COLUMNS": "En-tête non reconnu : aucune colonne attendue (nom, producteur, catégorie, millésime…) n'a été trouvée",
-        "INVALID_ENCODING": "Ce fichier n'est pas enregistré en UTF-8 : les caractères accentués ont été perdus. Dans Excel, utilisez « Fichier → Enregistrer sous » et choisissez « CSV UTF-8 (délimité par des virgules) », puis réessayez."
+        "INVALID_ENCODING": "Ce fichier n'est pas enregistré en UTF-8 : les caractères accentués ont été perdus. Dans Excel, utilisez « Fichier → Enregistrer sous » et choisissez « CSV UTF-8 (délimité par des virgules) », puis réessayez.",
+        "CELLAR_TOO_LONG": "Le nom de la cave dépasse 100 caractères",
+        "INVALID_PURCHASE_DATE": "Date d'achat invalide (jour d'abord : 15/03/2024, ou 2024-03-15 ; entre 1900 et 2100)",
+        "BOTTLE_SIZE_TOO_LONG": "La contenance dépasse 50 caractères",
+        "FORMAT_TOO_LONG": "La vitole dépasse 100 caractères",
+        "INVALID_BOX_SIZE": "Format de boîte invalide (nombre de cigares par boîte, ou « à l'unité »)"
       }
     },
     "summary": {
@@ -1866,11 +2071,25 @@
       "subtitle": "Voici un résumé de votre configuration initiale.",
       "cellarCreated": "Cave créée : {{name}}",
       "noCellar": "Aucune cave créée pour l'instant",
-      "itemsAdded_one": "{{count}} actif ajouté à votre inventaire",
-      "itemsAdded_other": "{{count}} actifs ajoutés à votre inventaire",
-      "noItems": "Aucun actif ajouté pour le moment",
-      "duplicatesSkipped_one": "{{count}} ligne non importée : déjà en stock avant l'import",
-      "duplicatesSkipped_other": "{{count}} lignes non importées : déjà en stock avant l'import",
+      "itemsAdded_one": "{{count}} bouteille ou cigare ajouté à votre inventaire",
+      "itemsAdded_other": "{{count}} bouteilles ou cigares ajoutés à votre inventaire",
+      "noItems": "Aucune bouteille ni aucun cigare ajouté pour le moment",
+      "imported": "Importé : {{what}}",
+      "nothingImported": "Aucune bouteille importée",
+      "bottles_one": "{{count}} bouteille",
+      "bottles_other": "{{count}} bouteilles",
+      "wines_one": "{{count}} vin",
+      "wines_other": "{{count}} vins",
+      "cigars_one": "{{count}} cigare",
+      "cigars_other": "{{count}} cigares",
+      "cigarReferences_one": "{{count}} référence de cigare",
+      "cigarReferences_other": "{{count}} références de cigares",
+      "cellarsCreated_one": "1 cave créée : {{names}}",
+      "cellarsCreated_other": "{{count}} caves créées : {{names}}",
+      "skippedLines_one": "{{count}} ligne ignorée : vin déjà en cave, bouteilles déjà comptées",
+      "skippedLines_other": "{{count}} lignes ignorées : vins déjà en cave, bouteilles déjà comptées",
+      "staleLines_one": "{{count}} ligne non importée : le stock de ce vin a changé depuis l'aperçu (un autre import ou un autre membre l'a peut-être déjà ajoutée). Vérifiez le stock avant de relancer l'import pour cette ligne",
+      "staleLines_other": "{{count}} lignes non importées : le stock de ces vins a changé depuis l'aperçu (un autre import ou un autre membre les a peut-être déjà ajoutées). Vérifiez le stock avant de relancer l'import pour ces lignes",
       "adminConfig": {
         "title": "Configuration système (facultatif)",
         "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer SMTP, politique de notifs, webhook/Gotify, intégrations API, rétention, sauvegardes et réseau.",
@@ -1942,6 +2161,7 @@
       "cellarPlaceholder": "Sélectionner une cave",
       "bottleSize": "Format",
       "quantity": "Quantité (cigares)",
+      "quantityInvalid": "Entre 1 et {{max}}",
       "submit": "Ajouter à l'inventaire"
     }
   },
@@ -1978,7 +2198,27 @@
       "serverVersion": "Version du serveur",
       "keepLocal": "Garder ma version",
       "keepServer": "Garder la version serveur",
-      "decideLater": "Décider plus tard"
+      "decideLater": "Décider plus tard",
+      "noDifference": "Votre modification et la version du serveur ont les mêmes valeurs.",
+      "yourAction": "Votre action :",
+      "line": "Cette ligne :",
+      "lineThenNow": "×{{then}} quand vous avez agi, ×{{now}} maintenant",
+      "actionHint": "« Garder ma version » applique votre action à la ligne telle qu'elle est maintenant ; « Garder la version serveur » l'abandonne.",
+      "maybeRecorded": "La connexion a peut-être coupé pendant l'envoi : votre action est peut-être déjà enregistrée. Dans ce cas, gardez la version du serveur."
+    },
+    "blocked": "Disponible au retour de la connexion",
+    "undoTooLate": "Déjà en cours d'envoi : elle ne peut plus être annulée d'ici.",
+    "actions": {
+      "correct": "Nombre corrigé : {{from}} → {{to}}"
+    },
+    "errors": {
+      "notOneBottle": "Non enregistré : cette ligne compte plusieurs bouteilles, le niveau ne se règle que sur une bouteille entamée.",
+      "notAGroup": "Non enregistré : cette ligne n'est plus une ligne de bouteilles pleines.",
+      "notLower": "Non enregistré : ce nombre n'est plus inférieur à celui de la ligne.",
+      "belowOne": "Non enregistré : une erreur de saisie ne descend pas sous 1 ; mettez plutôt la ligne à la corbeille.",
+      "gone": "Non enregistré : cette bouteille n'existe plus (remise avec les autres ou supprimée entre-temps).",
+      "rejected": "Non enregistré : le serveur a refusé cette valeur.",
+      "changed": "Non enregistré : la ligne a changé entre-temps."
     }
   },
   "scan": {
@@ -2014,7 +2254,9 @@
     "cart": {
       "title": "À Ranger ({{count}})",
       "created": "Créé",
-      "incremented": "Incrémenté"
+      "addedWine": "Ajouté à votre vin",
+      "addedSpirit": "Ajouté à votre spiritueux",
+      "addedCigar": "Ajouté à votre cigare"
     }
   },
   "unsavedChanges": {
@@ -2028,5 +2270,530 @@
     "switchToLight": "Passer en mode clair",
     "activeDark": "Mode sombre activé",
     "activeLight": "Mode clair activé"
+  },
+  "stockLine": {
+    "menu": "Actions de cette ligne",
+    "actions": {
+      "move": "Déplacer",
+      "reprice": "Changer le prix",
+      "correct": "Corriger le nombre",
+      "edit": "Modifier",
+      "trash": "Mettre à la corbeille"
+    },
+    "count": {
+      "less": "Un de moins",
+      "more": "Un de plus",
+      "range": "Un nombre entre {{min}} et {{max}}"
+    },
+    "price_bottle": "Prix d'une bouteille",
+    "price_box": "Prix d'une boîte",
+    "price_cigar": "Prix d'un cigare",
+    "priceInvalid": "Un prix au centime près, par exemple 24,50.",
+    "correct": {
+      "title": "Corriger le nombre",
+      "number_bottle": "Nombre de bouteilles",
+      "number_box": "Nombre de boîtes",
+      "number_cigar": "Nombre de cigares",
+      "toAdd": "Pour en ajouter, utilisez « {{action}} » avec la même date d'achat pour rejoindre cette ligne.",
+      "why": "Pourquoi ce nombre baisse ?",
+      "reasons": {
+        "input_error": {
+          "label": "Erreur de saisie",
+          "hint": "Elles n'ont jamais existé : elles disparaissent, dépenses comprises."
+        },
+        "written_off": {
+          "label": "Cassée, offerte ou perdue",
+          "hint": "Elles quittent la cave et la valeur, mais restent dans les dépenses."
+        }
+      },
+      "drinkHint_bottle": "Pour une bouteille bue, utilisez plutôt « J'en bois une ».",
+      "drinkHint_cigar": "Pour un cigare fumé, utilisez plutôt « J'en fume un ».",
+      "trashHint": "Rien ne reste sur cette ligne : mettez-la à la corbeille, vous pourrez la restaurer.",
+      "confirm": "Corriger",
+      "trashInstead_bottle": "Mettre ces bouteilles à la corbeille",
+      "trashInstead_box": "Mettre ces boîtes à la corbeille",
+      "trashInstead_cigar": "Mettre ces cigares à la corbeille",
+      "done": "Nombre corrigé : {{from}} → {{to}}",
+      "queued": "Nombre corrigé : {{from}} → {{to}} · en attente de connexion"
+    },
+    "move": {
+      "title": "Déplacer",
+      "howMany": "Combien déplacer ?",
+      "where": "Vers quelle cave ?",
+      "noOtherCellar": "Aucune autre cave où les déplacer.",
+      "confirm": "Déplacer",
+      "done_bottle_one": "{{count}} bouteille déplacée vers {{cellar}}",
+      "done_bottle_other": "{{count}} bouteilles déplacées vers {{cellar}}",
+      "done_box_one": "{{count}} boîte déplacée vers {{cellar}}",
+      "done_box_other": "{{count}} boîtes déplacées vers {{cellar}}",
+      "done_cigar_one": "{{count}} cigare déplacé vers {{cellar}}",
+      "done_cigar_other": "{{count}} cigares déplacés vers {{cellar}}"
+    },
+    "reprice": {
+      "title": "Changer le prix",
+      "howMany_bottle": "Pour combien de bouteilles ?",
+      "howMany_box": "Pour combien de boîtes ?",
+      "howMany_cigar": "Pour combien de cigares ?",
+      "noPrice": "sans prix",
+      "confirm": "Changer le prix",
+      "done_bottle_one": "Prix de {{count}} bouteille : {{from}} → {{to}}",
+      "done_bottle_other": "Prix de {{count}} bouteilles : {{from}} → {{to}}",
+      "done_box_one": "Prix de {{count}} boîte : {{from}} → {{to}}",
+      "done_box_other": "Prix de {{count}} boîtes : {{from}} → {{to}}",
+      "done_cigar_one": "Prix de {{count}} cigare : {{from}} → {{to}}",
+      "done_cigar_other": "Prix de {{count}} cigares : {{from}} → {{to}}"
+    },
+    "edit": {
+      "title": "Modifier cette ligne",
+      "scope_bottle_other": "S'applique aux {{count}} bouteilles de cette ligne.",
+      "scope_box_other": "S'applique aux {{count}} boîtes de cette ligne.",
+      "scope_cigar_other": "S'applique aux {{count}} cigares de cette ligne.",
+      "purchasedAt": "Date d'achat",
+      "done": "Ligne mise à jour"
+    },
+    "trash": {
+      "title": "Mettre à la corbeille ?",
+      "question_bottle_one": "Mettre cette bouteille ({{line}}) à la corbeille ?",
+      "question_bottle_other": "Mettre ces {{count}} bouteilles ({{line}}) à la corbeille ?",
+      "question_box_one": "Mettre cette boîte ({{line}}) à la corbeille ?",
+      "question_box_other": "Mettre ces {{count}} boîtes ({{line}}) à la corbeille ?",
+      "question_cigar_one": "Mettre ce cigare ({{line}}) à la corbeille ?",
+      "question_cigar_other": "Mettre ces {{count}} cigares ({{line}}) à la corbeille ?",
+      "restorable": "Vous pourrez restaurer cette ligne depuis la corbeille.",
+      "confirm": "Mettre à la corbeille",
+      "done_bottle_one": "{{count}} bouteille mise à la corbeille",
+      "done_bottle_other": "{{count}} bouteilles mises à la corbeille",
+      "done_box_one": "{{count}} boîte mise à la corbeille",
+      "done_box_other": "{{count}} boîtes mises à la corbeille",
+      "done_cigar_one": "{{count}} cigare mis à la corbeille",
+      "done_cigar_other": "{{count}} cigares mis à la corbeille"
+    },
+    "history": {
+      "moved_bottle_one": "{{count}} bouteille déplacée vers {{cellar}}",
+      "moved_bottle_other": "{{count}} bouteilles déplacées vers {{cellar}}",
+      "moved_box_one": "{{count}} boîte déplacée vers {{cellar}}",
+      "moved_box_other": "{{count}} boîtes déplacées vers {{cellar}}",
+      "moved_cigar_one": "{{count}} cigare déplacé vers {{cellar}}",
+      "moved_cigar_other": "{{count}} cigares déplacés vers {{cellar}}",
+      "repriced_bottle_one": "Prix de {{count}} bouteille : {{from}} → {{to}}",
+      "repriced_bottle_other": "Prix de {{count}} bouteilles : {{from}} → {{to}}",
+      "repriced_box_one": "Prix de {{count}} boîte : {{from}} → {{to}}",
+      "repriced_box_other": "Prix de {{count}} boîtes : {{from}} → {{to}}",
+      "repriced_cigar_one": "Prix de {{count}} cigare : {{from}} → {{to}}",
+      "repriced_cigar_other": "Prix de {{count}} cigares : {{from}} → {{to}}",
+      "joined_bottle_one": "{{count}} bouteille rejointe ({{what}})",
+      "joined_bottle_other": "{{count}} bouteilles rejointes ({{what}})",
+      "joined_box_one": "{{count}} boîte rejointe ({{what}})",
+      "joined_box_other": "{{count}} boîtes rejointes ({{what}})",
+      "joined_cigar_one": "{{count}} cigare rejoint ({{what}})",
+      "joined_cigar_other": "{{count}} cigares rejoints ({{what}})",
+      "reasons": {
+        "input_error": "erreur de saisie",
+        "written_off": "cassée, offerte ou perdue"
+      }
+    },
+    "errors": {
+      "conflict": "Non enregistré : cette ligne a changé entre-temps, sur un autre appareil ou par un autre membre. Elle vient d'être mise à jour : vérifiez-la puis recommencez.",
+      "tooLarge": "Non enregistré : la ligne d'arrivée dépasserait 1 000 exemplaires.",
+      "cellarGone": "Non enregistré : cette cave n'existe plus.",
+      "offline": "Sans réseau, cette action n'est pas possible. Réessayez une fois la connexion revenue.",
+      "failed": "Impossible d'enregistrer cette action."
+    }
+  },
+  "familyList": {
+    "stockColumn": "Stock",
+    "openedChip": "Entamée",
+    "openedChipCigar": "Boîte entamée",
+    "filters": {
+      "gone": "Plus en cave"
+    },
+    "stock": {
+      "bottles_one": "{{count}} bouteille",
+      "bottles_other": "{{count}} bouteilles",
+      "full_one": "{{count}} pleine",
+      "full_other": "{{count}} pleines",
+      "openedLevel": "1 entamée ({{level}} %)",
+      "opened_one": "{{count}} entamée",
+      "opened_other": "{{count}} entamées",
+      "magnum_one": "dont {{count}} magnum",
+      "magnum_other": "dont {{count}} magnums",
+      "otherSize_one": "dont {{count}} en {{size}}",
+      "otherSize_other": "dont {{count}} en {{size}}",
+      "closedBoxes_one": "{{count}} boîte fermée",
+      "closedBoxes_other": "{{count}} boîtes fermées",
+      "singleCigars_one": "{{count}} à l'unité",
+      "singleCigars_other": "{{count}} à l'unité",
+      "here_one": "{{count}} ici",
+      "here_other": "{{count}} ici",
+      "total_one": "{{count}} en tout",
+      "total_other": "{{count}} en tout",
+      "goneBottle": "Plus de bouteille",
+      "goneCigar": "Plus de cigare",
+      "lastActivity": "Dernière fois le {{date}}",
+      "spoken": {
+        "bottles_one": "{{count}} bouteille",
+        "bottles_other": "{{count}} bouteilles",
+        "cigars_one": "{{count}} cigare",
+        "cigars_other": "{{count}} cigares",
+        "full_one": "{{count}} bouteille pleine",
+        "full_other": "{{count}} bouteilles pleines",
+        "openedLevel": "1 entamée à {{level}} %",
+        "here": "{{here}} dans cette cave, {{total}} en tout"
+      },
+      "level": "{{level}} %"
+    },
+    "trash": {
+      "action": "Mettre à la corbeille",
+      "title": "Mettre à la corbeille ?",
+      "confirm": "Mettre {{name}} à la corbeille ?",
+      "confirmBottles_one": "Mettre {{name}} et sa bouteille à la corbeille ?",
+      "confirmBottles_other": "Mettre {{name}} et ses {{count}} bouteilles à la corbeille ?",
+      "confirmCigars_one": "Mettre {{name}} et son cigare à la corbeille ?",
+      "confirmCigars_other": "Mettre {{name}} et ses {{count}} cigares à la corbeille ?",
+      "restoreHint_one": "Vous pourrez le restaurer depuis la corbeille pendant {{count}} jour.",
+      "restoreHint_other": "Vous pourrez le restaurer depuis la corbeille pendant {{count}} jours.",
+      "tastingsWarning_one": "Sa dégustation sera effacée quand la corbeille sera vidée.",
+      "tastingsWarning_other": "Ses {{count}} dégustations seront effacées quand la corbeille sera vidée.",
+      "done": "{{name}} mis à la corbeille",
+      "wines": "Vins",
+      "wines_cigar": "Cigares",
+      "bottles": "Bouteilles et cigares",
+      "bottles_bottle": "Bouteilles",
+      "bottles_cigar": "Boîtes et cigares",
+      "withBottles_one": "avec {{count}} bouteille",
+      "withBottles_other": "avec {{count}} bouteilles",
+      "withCigars_one": "avec {{count}} cigare",
+      "withCigars_other": "avec {{count}} cigares",
+      "lineCount_bottle_one": "{{count}} bouteille",
+      "lineCount_bottle_other": "{{count}} bouteilles",
+      "lineCount_box_one": "{{count}} boîte",
+      "lineCount_box_other": "{{count}} boîtes",
+      "lineCount_cigar_one": "{{count}} cigare",
+      "lineCount_cigar_other": "{{count}} cigares",
+      "restore": "Restaurer"
+    },
+    "selectWine": "Sélectionner {{name}}",
+    "bulkSummary": "{{wines}}, {{bottles}}",
+    "wines_one": "{{count}} vin",
+    "wines_other": "{{count}} vins",
+    "wines_cigar_one": "{{count}} référence",
+    "wines_cigar_other": "{{count}} références",
+    "stats": {
+      "gone_one": "{{count}} bue ou partie, non comptée",
+      "gone_other": "{{count}} bues ou parties, non comptées",
+      "goneCigar_one": "{{count}} fumé ou parti, non compté",
+      "goneCigar_other": "{{count}} fumés ou partis, non comptés"
+    }
+  },
+  "familyDrawer": {
+    "value": "valeur estimée {{value}}",
+    "lines": {
+      "title": "Bouteilles en cave",
+      "titleCigar": "Cigares en cave",
+      "empty": "Plus aucune bouteille en cave.",
+      "emptyCigar": "Plus aucun cigare en cave.",
+      "count": "×{{number}}",
+      "noCellar": "Sans cave",
+      "perBottle": "{{price}} / bouteille",
+      "perBox": "{{price}} / boîte",
+      "perCigar": "{{price}} / cigare",
+      "opened": "Entamée",
+      "openedOn": "ouverte le {{date}}",
+      "openedBox": "Boîte entamée",
+      "cigarsLeft_one": "{{count}} restant",
+      "cigarsLeft_other": "{{count}} restants",
+      "closedBoxes_one": "{{count}} boîte fermée de {{size}}",
+      "closedBoxes_other": "{{count}} boîtes fermées de {{size}}",
+      "singleCigars_one": "{{count}} cigare à l'unité",
+      "singleCigars_other": "{{count}} cigares à l'unité",
+      "showMore_one": "Voir l'autre ligne",
+      "showMore_other": "Voir les {{count}} autres",
+      "showLess": "Voir moins",
+      "needsReview": "À vérifier après la mise à jour",
+      "level": "Niveau de cette bouteille",
+      "levelFull": "Pleine",
+      "levelHalf": "Moitié",
+      "levelEmpty": "Vide"
+    },
+    "gone": {
+      "title": "Déjà bues ou parties",
+      "titleCigar": "Déjà fumés ou partis",
+      "drunk_one": "{{count}} bue",
+      "drunk_other": "{{count}} bues",
+      "smoked_one": "{{count}} fumé",
+      "smoked_other": "{{count}} fumés",
+      "writtenOff_one": "{{count}} cassée, offerte ou perdue",
+      "writtenOff_other": "{{count}} cassées, offertes ou perdues",
+      "drunkOn": "Bue le {{date}}",
+      "smokedOn": "Fumé le {{date}}",
+      "boxFinishedOn": "Boîte finie le {{date}}",
+      "writtenOffOn_one": "Cassée, offerte ou perdue le {{date}}",
+      "writtenOffOn_other": "{{count}} cassées, offertes ou perdues le {{date}}"
+    },
+    "description": {
+      "title": "Description du vin",
+      "titleCigar": "Description du cigare"
+    },
+    "tastings": {
+      "title": "Dégustations",
+      "empty": "Aucune dégustation de ce vin pour l'instant.",
+      "empty_spirit": "Aucune dégustation de ce spiritueux pour l'instant.",
+      "empty_cigar": "Aucune dégustation de ce cigare pour l'instant.",
+      "elsewhere": "Goûté ailleurs"
+    },
+    "history": {
+      "title": "Historique",
+      "add_units": "Bouteilles ajoutées",
+      "correct_quantity": "Nombre corrigé",
+      "numberChange": "{{what}} : {{from}} → {{to}}",
+      "numberAdded": "{{what}} : {{number}}",
+      "merge_products": "Vins regroupés",
+      "review_ok": "Nombre vérifié",
+      "merge_products_cigar": "Références regroupées"
+    },
+    "loadError": "Impossible de charger ce vin.",
+    "form": {
+      "title": "Modifier ce vin",
+      "titleSpirit": "Modifier ce spiritueux",
+      "titleCigar": "Modifier ce cigare",
+      "scope_zero": "Modifie {{what}}, qui n'a plus de bouteille en cave.",
+      "scope_one": "Modifie {{what}} pour sa bouteille.",
+      "scope_other": "Modifie {{what}} pour ses {{count}} bouteilles.",
+      "scopeCigar_zero": "Modifie ce cigare, qui n'est plus en cave.",
+      "scopeCigar_one": "Modifie ce cigare pour son seul cigare en cave.",
+      "scopeCigar_other": "Modifie ce cigare pour ses {{count}} cigares.",
+      "saved": "Vin mis à jour",
+      "conflict": "Non enregistré : ce vin a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
+      "rejected": "Non enregistré : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire.",
+      "error": "Impossible d'enregistrer ce vin.",
+      "thisWine": "ce vin",
+      "thisSpirit": "ce spiritueux"
+    }
+  },
+  "cigarGroup": {
+    "storage": "Rangement",
+    "boxes": "Boîtes fermées",
+    "singles": "À l'unité",
+    "boxCount": "Nombre de boîtes",
+    "cigarCount": "Nombre de cigares",
+    "cigarsPerBox": "Cigares par boîte",
+    "total_one": "soit {{count}} cigare",
+    "total_other": "soit {{count}} cigares",
+    "invalidBoxCount": "Entre 1 et {{max}} boîtes",
+    "invalidCigarCount": "Entre 1 et {{max}} cigares",
+    "invalidBoxSize": "Entre 1 et {{max}} cigares par boîte",
+    "boxPrice": "Prix d'une boîte",
+    "cigarPrice": "Prix d'un cigare",
+    "boxValue": "Valeur estimée d'une boîte",
+    "cigarValue": "Valeur estimée d'un cigare",
+    "openedBox": "Boîte entamée",
+    "cigarsLeft": "Cigares restants dans la boîte",
+    "invalidCigarsLeft": "Entre 1 et {{max}} cigares"
+  },
+  "addUnits": {
+    "action": "Ajouter des bouteilles",
+    "title": "Ajouter des bouteilles",
+    "submit": "Ajouter",
+    "success_one": "{{count}} bouteille ajoutée à {{name}}",
+    "success_other": "{{count}} bouteilles ajoutées à {{name}}",
+    "actionCigar": "Ajouter des cigares",
+    "titleCigar": "Ajouter des cigares",
+    "successCigar_one": "{{count}} cigare ajouté à {{name}}",
+    "successCigar_other": "{{count}} cigares ajoutés à {{name}}",
+    "errors": {
+      "inTrashCigar": "Ce cigare est à la corbeille : restaurez-le d'abord.",
+      "tooManyCigar": "Une ligne compte au plus 1 000 boîtes ou cigares.",
+      "rejectedCigar": "Ces cigares n'ont pas pu être ajoutés : vérifiez le nombre, le prix et la date.",
+      "failedCigar": "Impossible d'ajouter ces cigares. Réessayez.",
+      "offlineCigar": "Ajouter des cigares demande une connexion.",
+      "inTrash": "Ce vin est à la corbeille : restaurez-le d'abord.",
+      "tooMany": "Une ligne compte au plus 1 000 bouteilles.",
+      "rejected": "Ces bouteilles n'ont pas pu être ajoutées : vérifiez le nombre, le prix et la date.",
+      "failed": "Impossible d'ajouter ces bouteilles. Réessayez.",
+      "offline": "Ajouter des bouteilles demande une connexion."
+    }
+  },
+  "openDrink": {
+    "actions": {
+      "open": "J'en ouvre une",
+      "drink": "J'en bois une",
+      "smoke": "J'en fume un"
+    },
+    "which": {
+      "title": "Quelles bouteilles ?",
+      "titleCigar": "Lesquels ?",
+      "reason": {
+        "cellar": "Dans la cave affichée",
+        "oldest": "Achetée en premier",
+        "cheapest": "La moins chère",
+        "largest": "La ligne la plus nombreuse"
+      },
+      "reasonCigar": {
+        "cellar": "Dans la cave affichée",
+        "oldest": "Achetés en premier",
+        "cheapest": "Les moins chers",
+        "largest": "La ligne la plus nombreuse"
+      },
+      "boughtOn": "achat du {{date}}",
+      "addedOn": "ajout du {{date}}",
+      "lineNumber": "ligne {{number}}"
+    },
+    "done": {
+      "open": "1 bouteille ouverte",
+      "drink": "1 bouteille bue",
+      "smoke": "1 cigare fumé"
+    },
+    "queued": {
+      "open": "1 bouteille ouverte · en attente de connexion",
+      "drink": "1 bouteille bue · en attente de connexion",
+      "smoke": "1 cigare fumé · en attente de connexion"
+    }
+  },
+  "openedReminder": {
+    "actions": {
+      "finish": "Je la finis",
+      "putBack": "Annuler l'ouverture"
+    },
+    "opened": {
+      "one": "Une bouteille est déjà entamée ({{level}} %).",
+      "oneNoLevel": "Une bouteille est déjà entamée.",
+      "several_one": "{{count}} bouteille est déjà entamée.",
+      "several_other": "{{count}} bouteilles sont déjà entamées."
+    },
+    "open": {
+      "finish": "Finir l'entamée",
+      "new": "En ouvrir une nouvelle"
+    },
+    "drink": {
+      "question": "C'est elle que vous avez finie ?",
+      "questionSeveral": "Avez-vous fini l'une d'elles ?",
+      "which": "Laquelle avez-vous finie ?",
+      "yes": "Oui",
+      "no": "Non",
+      "finish": "Je la finis"
+    },
+    "smoke": {
+      "one_one": "Dans la boîte entamée ({{count}} restant) ou en ouvrir une nouvelle ?",
+      "one_other": "Dans la boîte entamée ({{count}} restants) ou en ouvrir une nouvelle ?",
+      "several_one": "Dans une boîte entamée ({{count}} boîte) ou en ouvrir une nouvelle ?",
+      "several_other": "Dans une des {{count}} boîtes entamées ou en ouvrir une nouvelle ?",
+      "which": "Dans laquelle ?",
+      "inOpened": "Dans la boîte entamée",
+      "new": "En ouvrir une nouvelle",
+      "single": "Un cigare à l'unité"
+    },
+    "putBack": {
+      "rejoined": "Bouteille remise avec les autres ({{line}})",
+      "alone": "Bouteille remise en cave"
+    },
+    "keepTasting": {
+      "title": "Une dégustation a été notée sur cette bouteille.",
+      "question": "La garder ? Gardée, elle reste sur le vin.",
+      "keep": "Garder la dégustation",
+      "drop": "Ne pas la garder"
+    }
+  },
+  "review": {
+    "title": "À vérifier après la mise à jour",
+    "intro": "Ce que Glou n'a pas pu trancher seul pendant la mise à jour. Un point traité par un membre disparaît pour tous.",
+    "loading": "Chargement des points à vérifier",
+    "empty": "Rien à vérifier",
+    "emptyHint": "La mise à jour n'a laissé aucun point à trancher.",
+    "banner_one": "{{count}} point à vérifier après la mise à jour",
+    "banner_other": "{{count}} points à vérifier après la mise à jour",
+    "bannerView": "Voir",
+    "bannerLater": "Plus tard",
+    "merges": {
+      "title": "À regrouper ?",
+      "hint": "Vins de même nom restés séparés parce que leurs descriptions se contredisaient. Pour chaque champ, cochez la valeur à garder : le vin le plus récent est coché d'avance.",
+      "addedOn": "ajoutée le {{date}}",
+      "noDisagreement": "Aucun champ en désaccord : rien à choisir avant de regrouper.",
+      "disagreement": "En désaccord",
+      "choose": "Valeur à garder pour « {{field}} »",
+      "merge": "Regrouper",
+      "keepApart": "C'est un autre vin",
+      "keptApart": "Gardés séparés : ce cas ne sera plus proposé.",
+      "confirmTitle": "Regrouper ?",
+      "confirm_bottle_one": "Regrouper ces {{wines}} vins en 1, {{count}} bouteille ? Cette action est définitive.",
+      "confirm_bottle_other": "Regrouper ces {{wines}} vins en 1, {{count}} bouteilles ? Cette action est définitive.",
+      "confirm_cigar_one": "Regrouper ces {{wines}} références en 1, {{count}} cigare ? Cette action est définitive.",
+      "confirm_cigar_other": "Regrouper ces {{wines}} références en 1, {{count}} cigares ? Cette action est définitive.",
+      "done": "Regroupé",
+      "overLimits": {
+        "notes": "« {{name}} » est regroupé. Ses notes dépassent 2 000 caractères : raccourcissez-les avant de modifier sa description.",
+        "tags": "« {{name}} » est regroupé. Il a plus de 20 étiquettes : retirez-en avant de modifier sa description.",
+        "both": "« {{name}} » est regroupé. Ses notes dépassent 2 000 caractères et il a plus de 20 étiquettes : raccourcissez-les avant de modifier sa description."
+      },
+      "family_bottle": "Vin {{number}}",
+      "family_cigar": "Référence {{number}}"
+    },
+    "counts": {
+      "title": "Nombres à vérifier",
+      "hint": "Anciennes fiches entamées ou finies qui comptaient plusieurs bouteilles, que Glou a découpées au mieux.",
+      "before_bottle_one": "Avant la mise à jour : {{count}} bouteille, {{state}}.",
+      "before_bottle_other": "Avant la mise à jour : {{count}} bouteilles, {{state}}.",
+      "before_box_one": "Avant la mise à jour : {{count}} boîte, {{state}}.",
+      "before_box_other": "Avant la mise à jour : {{count}} boîtes, {{state}}.",
+      "before_cigar_one": "Avant la mise à jour : {{count}} cigare, {{state}}.",
+      "before_cigar_other": "Avant la mise à jour : {{count}} cigares, {{state}}.",
+      "state_opened_bottle": "entamée",
+      "state_finished_bottle": "finie",
+      "state_opened_box": "entamée",
+      "state_finished_box": "finie",
+      "state_opened_cigar": "entamé",
+      "state_finished_cigar": "fumé",
+      "split_opened_bottle_one": "{{count}} entamée",
+      "split_opened_bottle_other": "{{count}} entamées",
+      "split_finished_bottle_one": "{{count}} bue",
+      "split_finished_bottle_other": "{{count}} bues",
+      "split_opened_box_one": "{{count}} boîte entamée",
+      "split_opened_box_other": "{{count}} boîtes entamées",
+      "split_finished_box_one": "{{count}} boîte finie",
+      "split_finished_box_other": "{{count}} boîtes finies",
+      "split_opened_cigar_one": "{{count}} entamé",
+      "split_opened_cigar_other": "{{count}} entamés",
+      "split_finished_cigar_one": "{{count}} fumé",
+      "split_finished_cigar_other": "{{count}} fumés",
+      "counted_bottle_one": "Glou a compté {{split}} + {{count}} pleine.",
+      "counted_bottle_other": "Glou a compté {{split}} + {{count}} pleines.",
+      "counted_box_one": "Glou a compté {{split}} + {{count}} boîte fermée.",
+      "counted_box_other": "Glou a compté {{split}} + {{count}} boîtes fermées.",
+      "counted_cigar_one": "Glou a compté {{split}} + {{count}} cigare.",
+      "counted_cigar_other": "Glou a compté {{split}} + {{count}} cigares.",
+      "guessed": "Glou a deviné ce nombre pendant la mise à jour.",
+      "ok": "C'est bon",
+      "correct": "Corriger le nombre",
+      "confirmed": "Nombre confirmé."
+    },
+    "errors": {
+      "load": "Impossible de charger les points à vérifier.",
+      "changed": "Ce cas a changé entre-temps : la liste est mise à jour.",
+      "offline": "Regrouper ou confirmer demande une connexion.",
+      "failed": "L'action n'a pas abouti. Réessayez."
+    }
+  },
+  "knownWine": {
+    "title": "Vous avez déjà ce vin",
+    "titleSpirit": "Vous avez déjà ce spiritueux",
+    "titleCigar": "Vous avez déjà ce cigare",
+    "add": "Ajouter des bouteilles à ce vin",
+    "addSpirit": "Ajouter des bouteilles à ce spiritueux",
+    "addCigar": "Ajouter des cigares à cette référence",
+    "distinct": "C'est un autre vin",
+    "distinctSpirit": "C'est un autre spiritueux",
+    "distinctCigar": "C'est un autre cigare",
+    "stockBottles_one": "{{count}} bouteille en cave",
+    "stockBottles_other": "{{count}} bouteilles en cave",
+    "stockCigars_one": "{{count}} cigare en cave",
+    "stockCigars_other": "{{count}} cigares en cave",
+    "inCellar": "{{cellar}} : {{count}}",
+    "noCellar": "Sans cave",
+    "backToEntry": "Retour à la saisie",
+    "distinctNoted": "Ce sera un nouveau vin : Glou ne vous proposera plus de le regrouper avec celui-ci.",
+    "distinctNotedSpirit": "Ce sera un nouveau spiritueux : Glou ne vous proposera plus de le regrouper avec celui-ci.",
+    "distinctNotedCigar": "Ce sera une nouvelle référence : Glou ne vous proposera plus de la regrouper avec celle-ci.",
+    "joining": "Ces bouteilles rejoindront {{name}}.",
+    "joiningCigar": "Ces cigares rejoindront {{name}}.",
+    "addAria": "{{action}} : {{wine}}, {{stock}}"
   }
 }

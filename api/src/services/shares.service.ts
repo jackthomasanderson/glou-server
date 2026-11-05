@@ -1,8 +1,9 @@
 import crypto from 'crypto';
-import { GuestShare } from '@prisma/client';
+import { GuestShare, type Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ShareCreateInput } from '../schemas/shares.schema';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
+import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import type { GuestUndoMarker } from '../lib/guest-write';
 
 function isShareValid(share: { expiresAt: Date | null; revokedAt: Date | null }): boolean {
   if (share.revokedAt) return false;
@@ -32,7 +33,10 @@ function toPublicShare(share: GuestShare): Omit<GuestShare, 'tokenHash'> {
  * (design.md), so the guest sees every item within the share's declared
  * scope (cellarIds/collectionIds), regardless of who created/edited it.
  */
-function buildShareWhere(share: { cellarIds: string[]; collectionIds: string[] }): Record<string, unknown> {
+function buildShareWhere(
+  share: { cellarIds: string[]; collectionIds: string[] },
+  base: Record<string, unknown>,
+): Record<string, unknown> {
   const scopeConditions: Record<string, unknown>[] = [];
 
   if (share.cellarIds.length > 0) {
@@ -40,57 +44,88 @@ function buildShareWhere(share: { cellarIds: string[]; collectionIds: string[] }
   }
 
   if (share.collectionIds.length > 0) {
+    // #471: a collection holds families; a unit is shared through its family.
     scopeConditions.push({
-      collections: { some: { id: { in: share.collectionIds } } },
+      product: { collections: { some: { id: { in: share.collectionIds } } } },
     });
   }
 
-  // FEAT-87: the showcase shows the collection, not the reference catalogue.
-  return scopeConditions.length > 0
-    ? { deletedAt: null, ...OWNED_ITEM_FILTER, OR: scopeConditions }
-    : { deletedAt: null, ...OWNED_ITEM_FILTER };
+  return scopeConditions.length > 0 ? { ...base, OR: scopeConditions } : base;
 }
+
+/**
+ * #471 (FEAT-96): the showcase lists what the cellar holds — the units in
+ * stock (#573: not a finished bottle; not a written-off one; FEAT-87: not a
+ * reference), counted with `itemUnits` by the client.
+ */
+const SHOWCASE_SCOPE = IN_STOCK_ITEM_FILTER;
+
+/**
+ * A single unit stays reachable once finished, so the guest who just marked a
+ * bottle as drunk gets it back from the write route (guest.router.ts), but a
+ * written-off one is out of the cellar for good (FEAT-87: references never).
+ */
+const SHARED_ITEM_SCOPE = { deletedAt: null, writtenOffAt: null } as const;
 
 function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
   return {
     id: true,
-    category: true,
-    name: true,
-    producer: true,
     location: true,
-    collection: true,
-    tags: true,
-    photoUrl: true,
-    // notes conditionally included below
-    notes: !hideNotes,
     // price fields conditionally included below
     purchasePrice: !hidePrices,
     purchasePlace: !hidePrices,
     estimatedValue: !hidePrices,
-    vintage: true,
-    color: true,
-    region: true,
-    grapeVarieties: true,
-    alcoholDegree: true,
     bottleSize: true,
-    sparklingType: true,
-    sugarLevel: true,
-    spiritType: true,
-    edition: true,
-    declaredAge: true,
-    format: true,
     quantity: true,
-    manufactureYear: true,
-    leafOrigin: true,
+    // #471: a group of cigar boxes, or an opened box (shared/units.ts `itemUnits`).
+    cigarsPerBox: true,
+    cigarsLeft: true,
+    productId: true,
     isOpened: true,
     fillLevel: true,
-    peakMaturityFrom: true,
-    peakMaturityTo: true,
-    alertStatus: true,
+    // #471 (FEAT-109): "Entamée · ouverte le 3 oct." on the guest's lines.
+    openedAt: true,
+    // The purchase day picks the line a bottle is taken from (FEAT-104):
+    // purchase information, hidden with the prices.
+    purchasedAt: !hidePrices,
     cellarId: true,
     createdAt: true,
     updatedAt: true,
-  } as const;
+    // #471 (lot Z): the description is the family's, served flat on the line.
+    product: {
+      select: {
+        category: true,
+        name: true,
+        producer: true,
+        collection: true,
+        tags: true,
+        photoUrl: true,
+        // notes conditionally included
+        notes: !hideNotes,
+        vintage: true,
+        color: true,
+        region: true,
+        grapeVarieties: true,
+        alcoholDegree: true,
+        sparklingType: true,
+        sugarLevel: true,
+        spiritType: true,
+        edition: true,
+        declaredAge: true,
+        format: true,
+        manufactureYear: true,
+        leafOrigin: true,
+        peakMaturityFrom: true,
+        peakMaturityTo: true,
+        alertStatus: true,
+      },
+    },
+  } as const satisfies Prisma.InventoryItemSelect;
+}
+
+/** A shared line as the guest reads it: the unit with its family's description, flat. */
+function servedLine<T extends { product: Record<string, unknown> }>({ product, ...unit }: T) {
+  return { ...unit, ...product } as Omit<T, 'product'> & T['product'];
 }
 
 /**
@@ -195,10 +230,10 @@ export const sharesService = {
     hideNotes: boolean;
   }) {
     const items = await prisma.inventoryItem.findMany({
-      where: buildShareWhere(share),
+      where: buildShareWhere(share, SHOWCASE_SCOPE),
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
-    return redactPrices(items, share.hidePrices);
+    return redactPrices(items.map(servedLine), share.hidePrices);
   },
 
   /**
@@ -216,12 +251,44 @@ export const sharesService = {
     },
     itemId: string,
   ) {
-    const where = buildShareWhere(share);
+    const where = buildShareWhere(share, SHARED_ITEM_SCOPE);
     const item = await prisma.inventoryItem.findFirst({
       where: { ...where, id: itemId },
       select: buildShareItemSelect(share.hidePrices, share.hideNotes),
     });
-    return item ? redactPrices([item], share.hidePrices)[0] : item;
+    return item ? redactPrices([servedLine(item)], share.hidePrices)[0] : item;
+  },
+
+  /**
+   * #471 (FEAT-109): the names of the share's cellars, so the guest's lines
+   * say where a bottle is ("×4 · Garage"). Only the cellars of the share.
+   */
+  async getCellarsForShare(share: { cellarIds: string[] }) {
+    if (share.cellarIds.length === 0) return [];
+    return prisma.cellar.findMany({
+      where: { id: { in: share.cellarIds } },
+      select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    });
+  },
+
+  /**
+   * #471 (decision 68): the latest successful guest write recorded on a unit
+   * within the undo window — what "Annuler" is checked against
+   * (lib/guest-write.ts `checkGuestUndo`).
+   */
+  async findLatestGuestMove(unitId: string, since: Date) {
+    const entry = await prisma.auditLog.findFirst({
+      where: { bottleId: unitId, action: 'GUEST_UPDATE', status: 'success', createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true, details: true },
+    });
+    if (!entry) return null;
+    const details = (entry.details ?? {}) as Record<string, unknown>;
+    const undo = details['undo'] as { before?: unknown; stampedAt?: unknown } | undefined;
+    const marker = undo && typeof undo.stampedAt === 'string' && undo.before && typeof undo.before === 'object'
+      ? (undo as GuestUndoMarker) : null;
+    return { shareId: details['shareId'], createdAt: entry.createdAt, undo: marker };
   },
 
   /**

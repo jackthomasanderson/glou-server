@@ -397,7 +397,11 @@ curl -fsSLO https://raw.githubusercontent.com/jackthomasanderson/glou-server/mai
         <div>
           <h3>Launch</h3>
           <p>Docker pulls the pre-built images and starts the stack. No compilation required.</p>
-          <pre><code>docker compose up -d</code></pre>
+          <pre><code># Linux only: the API runs as uid 1001 and writes nightly backups to ./backups.
+# Create the folder first, or Docker creates it as root and every backup fails.
+mkdir -p backups &amp;&amp; sudo chown 1001:1001 backups
+docker compose up -d</code></pre>
+          <div class="note"><span>Docker Desktop on macOS and Windows does not need the <code>backups</code> step.</span></div>
           <div class="note"><span>The AI label scan is optional and off by default (~9 GB disk, ~3 GB RAM). Enable it with <code>docker compose --profile scan up -d</code>.</span></div>
         </div>
       </div>
@@ -405,8 +409,8 @@ curl -fsSLO https://raw.githubusercontent.com/jackthomasanderson/glou-server/mai
         <div class="num">4</div>
         <div>
           <h3>Create your account</h3>
-          <p>Open <a href="http://localhost:3000">localhost:3000</a> and click <strong>Register</strong>. The first account created is automatically granted admin privileges. After that, registration is closed until an admin enables it in Administration → System Configuration → Network.</p>
-          <div class="note"><span>To update later: <code>docker compose pull &amp;&amp; docker compose up -d</code></span></div>
+          <p>Open <a href="http://localhost:3000">localhost:3000</a>, click <strong>Sign up</strong> (under the sign-in form), then <strong>Create account</strong>. The first account created is automatically granted admin privileges. After that, registration is closed until an admin enables it in Administration → System Configuration → Network.</p>
+          <div class="note"><span>To update later, back up first (Administration → System Configuration → Backups → <strong>Back up now</strong>): database migrations cannot be undone. On Linux, check that <code>backups</code> belongs to uid 1001 (<code>sudo chown 1001:1001 backups</code>), otherwise the backup fails. Then run <code>docker compose pull &amp;&amp; docker compose up -d</code>. To go back, see <a href="wiki.html#en/31-Upgrades-And-Rollback">Upgrade &amp; Roll Back</a>.</span></div>
         </div>
       </div>
     </div>
@@ -452,7 +456,7 @@ curl -fsSLO https://raw.githubusercontent.com/jackthomasanderson/glou-server/mai
       <a href="wiki.html">Wiki</a>
       <a href="https://github.com/jackthomasanderson/glou-server/issues">Issues</a>
     </div>
-    <p>MIT licensed. Includes GeoLite data created by MaxMind, available from <a href="http://maxmind.com/">maxmind.com</a>. Map tiles by <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors.</p>
+    <p>MIT licensed. Includes GeoLite data created by MaxMind, available from <a href="http://maxmind.com/">maxmind.com</a>. World map outlines from <a href="https://www.naturalearthdata.com/">Natural Earth</a> (public domain), packaged by <a href="https://github.com/topojson/world-atlas">world-atlas</a>.</p>
   </div>
 </footer>
 

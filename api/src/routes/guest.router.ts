@@ -3,11 +3,19 @@ import rateLimit from 'express-rate-limit';
 import { ZodError } from 'zod';
 import { guestMiddleware } from '../middleware/guest.middleware';
 import { routeParam } from '../lib/http';
+import { AppError } from '../lib/errors';
+import type { UnitWriteResult } from '../../../shared/product';
 import { sharesService } from '../services/shares.service';
 import { guestInventoryUpdateSchema } from '../schemas/inventory.schema';
 import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { getClientIp } from '../middleware/auth.middleware';
+import {
+  checkGuestUndo, checkGuestWrite, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestUndoMarker,
+} from '../lib/guest-write';
+import type { StateItem } from '../services/stock-state.service';
+import { guestTastingSchema } from '../schemas/guest-tasting.schema';
+import { createGuestTasting } from '../services/guest-tasting.service';
 
 const router = Router({ mergeParams: true });
 
@@ -37,8 +45,17 @@ router.use(guestMiddleware);
 // ─── GET /api/guest/:token ──────────────────────────────────────────────────
 // Validate token and return share metadata (scope + masking options)
 
-router.get('/', (_req: Request, res: Response): void => {
+router.get('/', async (_req: Request, res: Response): Promise<void> => {
   const share = _req.guestShare!;
+  // #471 (FEAT-109): the share's cellars by name, for the guest's lines.
+  let cellars: Array<{ id: string; name: string }>;
+  try {
+    cellars = await sharesService.getCellarsForShare(share);
+  } catch (error) {
+    console.error('[guest] cellars error:', error);
+    res.status(500).json({ error: 'FAILED_TO_FETCH_SHARE' });
+    return;
+  }
   res.json({
     data: {
       id: share.id,
@@ -50,6 +67,7 @@ router.get('/', (_req: Request, res: Response): void => {
       // Subset of cellarIds where the guest is also allowed to edit items (FEAT-37).
       writeCellarIds: share.writeCellarIds,
       collectionIds: share.collectionIds,
+      cellars,
     },
   });
 });
@@ -118,10 +136,35 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     }
 
     const patch = guestInventoryUpdateSchema.parse(req.body);
-    // Notes are hidden from this guest: they cannot have seen the owner's
-    // text, so any value they send would overwrite it blindly.
-    if (share.hideNotes) delete patch.notes;
-    const result = await inventoryService.updateItem(share.userId, itemId, patch);
+    let undone: GuestUndoMarker | null = null;
+    let before: StateItem | null = null;
+    let result: Awaited<ReturnType<typeof inventoryService.updateItem>>;
+    if (patch.undo) {
+      // #471 (decision 68): "Annuler" of the guest's own move, just made
+      // through this share, the unit untouched since (checkGuestUndo, under
+      // the family's lock) — never a general "close" or "put back".
+      const entry = await sharesService.findLatestGuestMove(itemId, new Date(Date.now() - GUEST_UNDO_WINDOW_MS));
+      if (!entry?.undo) throw new AppError(403, 'GUEST_UNDO_REFUSED');
+      const marker = entry.undo;
+      const restore = undoPatch(marker.before, item.cigarsPerBox ?? null);
+      const options = { guard: (unit: StateItem) => { checkGuestUndo(share, entry, unit); } };
+      result = await inventoryService.updateItem(share.userId, itemId, restore, options);
+      if (result && 'slotConflict' in result && result.slotConflict) {
+        // Its grid slot was taken meanwhile: the bottle still comes back, without a slot.
+        const { slotColumn: _column, slotRow: _row, ...unplaced } = restore as typeof restore & { slotColumn?: number; slotRow?: number };
+        result = await inventoryService.updateItem(share.userId, itemId, unplaced, options);
+      }
+      undone = marker;
+    } else {
+      // #471 (FEAT-109): one copy opened, drunk or smoked, a level set — never
+      // a number changed; decided on the unit as read under its family's lock.
+      result = await inventoryService.updateItem(share.userId, itemId, patch, {
+        guard: (unit, planned, kind) => {
+          checkGuestWrite(share, patch, unit, planned, kind);
+          before = unit;
+        },
+      });
+    }
 
     if (!result) {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
@@ -135,22 +178,78 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
       return;
     }
+    if (result.slotConflict) {
+      // Nothing was written (inventory.router answers the same): never logged as a success.
+      throw new AppError(409, 'SLOT_OCCUPIED');
+    }
 
-    void auditLog({
+    // A move (not a level set) can be undone for a moment (decision 68): what
+    // it found, and the version of the unit it left. Awaited, so the
+    // "Annuler" that follows the answer always finds it.
+    const moved = before as StateItem | null;
+    const sameUnit = result.item.id === itemId;
+    const marker: GuestUndoMarker | null = moved && isGuestMove(patch, moved)
+      ? {
+        // The grid slot only when the unit gave it back itself (a line of one finished in place).
+        before: stateBefore(moved, sameUnit && result.item.slotColumn == null),
+        stampedAt: new Date(result.item.updatedAt).toISOString(),
+      }
+      : null;
+    await auditLog({
       userId: share.userId,
       action: 'GUEST_UPDATE',
       status: 'success',
       ip,
-      bottleId: itemId,
-      details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes },
+      // #471 (D8): logged on the unit that now carries the state (a detached sub-record).
+      bottleId: result.item.id,
+      productId: result.item.productId,
+      details: {
+        via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes,
+        ...(result.outcome ? { outcome: result.outcome, targetItemId: itemId } : {}),
+        ...(marker ? { undo: marker } : {}),
+        ...(undone ? { undoOf: undone.stampedAt } : {}),
+      },
     });
+    // The group's own history: one copy fewer (detached) or one more (reattached).
+    if (result.groupChange) {
+      const { itemId: groupId, from, to } = result.groupChange;
+      void auditLog({
+        userId: share.userId,
+        action: 'GUEST_UPDATE',
+        status: 'success',
+        ip,
+        bottleId: groupId,
+        productId: result.item.productId,
+        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: [{ field: 'quantity', from, to }], outcome: result.outcome },
+      });
+    }
 
     // ISSUE_483: `result.item` is the full row (purchase price, estimated
     // value, notes…). Re-read it through the share's own select so the
     // response honours hidePrices/hideNotes exactly like the read routes.
-    const visible = await sharesService.getItemForShare(share, itemId);
-    res.json({ data: visible });
+    // #471 (D8): the unit carrying the state, and the other units written.
+    const visible = await sharesService.getItemForShare(share, result.item.id);
+    const changed = await Promise.all(result.changed.map((unit) => sharesService.getItemForShare(share, unit.id)));
+    type SharedUnit = NonNullable<typeof visible>;
+    const response: UnitWriteResult<typeof visible, SharedUnit> = {
+      data: visible, changed: changed.filter((unit): unit is SharedUnit => unit != null), removedIds: result.removedIds,
+    };
+    res.json(response);
   } catch (error) {
+    if (error instanceof AppError) {
+      // #471: a write the detach / reattach rule refuses (TASTINGS_ON_ITEM…),
+      // or one a guest may not make (checkGuestWrite).
+      void auditLog({
+        userId: share.userId,
+        action: 'GUEST_UPDATE',
+        status: 'error',
+        ip,
+        bottleId: itemId,
+        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, reason: error.code },
+      });
+      res.status(error.status).json({ error: error.code, details: error.details });
+      return;
+    }
     if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({
@@ -174,6 +273,47 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       details: { via: 'guest_share', shareId: share.id, message: String(error) },
     });
     res.status(500).json({ error: 'FAILED_TO_UPDATE_ITEM' });
+  }
+});
+
+// ─── POST /api/guest/:token/tastings ─────────────────────────────────────────
+// #471 (FEAT-109 c3, D16): a guest notes a tasting on a wine of a cellar the
+// share opens with write access; it goes on the wine, signed with the guest's
+// name. Same rate limiter as every guest route (router-level).
+
+router.post('/tastings', async (req: Request, res: Response): Promise<void> => {
+  const share = req.guestShare!;
+  const ip = getClientIp(req);
+  const parsed = guestTastingSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+    void auditLog({
+      userId: share.userId, action: 'GUEST_TASTING', status: 'validation_error', ip,
+      details: { via: 'guest_share', shareId: share.id, issues },
+    });
+    res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
+    return;
+  }
+  try {
+    const note = await createGuestTasting(share, parsed.data);
+    void auditLog({
+      userId: share.userId, action: 'GUEST_TASTING', status: 'success', ip,
+      productId: parsed.data.productId,
+      ...(parsed.data.itemId ? { bottleId: parsed.data.itemId } : {}),
+      details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, tastingId: note.id },
+    });
+    res.status(201).json({ data: note });
+  } catch (error) {
+    if (error instanceof AppError) {
+      void auditLog({
+        userId: share.userId, action: 'GUEST_TASTING', status: 'error', ip,
+        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, reason: error.code, productId: parsed.data.productId },
+      });
+      res.status(error.status).json({ error: error.code });
+      return;
+    }
+    console.error('[guest] tasting error:', error);
+    res.status(500).json({ error: 'FAILED_TO_CREATE_TASTING' });
   }
 });
 

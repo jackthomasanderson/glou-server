@@ -2,8 +2,20 @@ import { z } from 'zod';
 import { CURVE_SHAPES } from '../lib/maturity-curve';
 import { categorySchema } from '../lib/category';
 import { ALERT_STATUSES, SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '../../../shared/inventory';
+import { MAX_COPIES } from '../../../shared/product';
+import { unitPrice } from './stock.schema';
 
 // ─── Common fields (all categories) ─────────────────────────────────────────
+
+/**
+ * #471 (lot Z): FEAT-87's `isOwned` is gone — a reference is a wine without
+ * bottles, noted from a tasting. An older client (a tab or installed app
+ * left open across the update) may still send it: `true` (a bottle held)
+ * is what every bottle is, ignored (InventoryService drops it before any
+ * write); `false` would make a bottle in stock, counted in value and alerts,
+ * out of what the member meant: refused (400).
+ */
+const legacyOwnedFlag = z.literal(true).optional();
 
 export const commonInventorySchema = z.object({
   category: categorySchema,
@@ -14,12 +26,12 @@ export const commonInventorySchema = z.object({
   tags: z.array(z.string().max(50)).max(20).default([]),
   photoUrl: z.string().max(500).optional(),
   notes: z.string().max(2000).optional(),
-  purchasePrice: z.number().min(0).optional(),
+  // #471: the price and value of ONE bottle, in cents as the column stores
+  // them (12.345 would be stored 12.35 and never find its line again).
+  purchasePrice: unitPrice.optional(),
   purchasePlace: z.string().max(200).optional(),
-  estimatedValue: z.number().min(0).optional(),
-  // FEAT-87: false = non-owned reference. Defaults to owned, so the ordinary
-  // "add a bottle" path and every existing client keep their behaviour.
-  isOwned: z.boolean().default(true),
+  estimatedValue: unitPrice.optional(),
+  isOwned: legacyOwnedFlag,
   isOpened: z.boolean().default(false),
   // #683: nullable like on the patch schema — the form sends null when the
   // item is marked as a reference (no level), and rejecting it blocked every add.
@@ -32,6 +44,12 @@ export const commonInventorySchema = z.object({
   // but harmless (and simplest) to accept on the common schema.
   curveShape: z.enum(CURVE_SHAPES).optional().nullable(),
   cellarId: z.string().optional().nullable(),
+  // #471 (FEAT-92 c1-c2): the number of identical bottles stored at once — one
+  // group ×N (the cigar input declares its own number, see below) — and the
+  // day they were bought, `YYYY-MM-DD` (D6): today in the API's time zone
+  // when absent, none when null.
+  quantity: z.number().int().min(1).max(MAX_COPIES).optional(),
+  purchasedAt: z.iso.date().nullable().optional(),
   lockedFields: z.array(z.string()).default([]),
   // Collector/expert-mode fields (data-model audit, Tasks 2/3), available on
   // every category — not just their originally-assumed one. Appellation and
@@ -59,9 +77,9 @@ export const commonInventorySchema = z.object({
 // to be stored as is and skewed the peak alerts.
 
 type PeakWindow = { peakMaturityFrom?: number | null; peakMaturityTo?: number | null };
-const peakWindowInOrder = (d: PeakWindow) =>
+export const peakWindowInOrder = (d: PeakWindow) =>
   d.peakMaturityFrom == null || d.peakMaturityTo == null || d.peakMaturityTo >= d.peakMaturityFrom;
-const PEAK_WINDOW_ORDER = { message: 'peakMaturityTo must be >= peakMaturityFrom', path: ['peakMaturityTo'] };
+export const PEAK_WINDOW_ORDER = { message: 'peakMaturityTo must be >= peakMaturityFrom', path: ['peakMaturityTo'] };
 
 /** The window an item ends up with once a patch is applied to it (see InventoryService.updateItem). */
 export const peakWindowSchema = z
@@ -123,9 +141,14 @@ export const spiritInventorySchema = commonInventorySchema.extend({
 export const cigarInventorySchema = commonInventorySchema.extend({
   category: z.literal('cigar'),
   format: z.string().max(100).optional(),
-  // ISSUE_101/ISSUE_029: min(0), not min(1) — a cigar box the owner has
-  // smoked through entirely is a real, representable state, not a forbidden one.
-  quantity: z.number().int().min(0).max(1000),
+  // #471 (FEAT-95): a group of cigars — `quantity` closed boxes of
+  // `cigarsPerBox` cigars, or `quantity` single cigars (`cigarsPerBox` absent
+  // or null). Always at least one: a box smoked through is a finished one
+  // (FEAT-103), no longer created empty (ISSUE_101).
+  quantity: z.number().int().min(1).max(MAX_COPIES),
+  cigarsPerBox: z.number().int().min(1).max(MAX_COPIES).nullable().optional(),
+  // One box already opened: the cigars left in it (from 1 to the box size).
+  cigarsLeft: z.number().int().min(1).max(MAX_COPIES).nullable().optional(),
   manufactureYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
   leafOrigin: z.string().max(200).optional(),
   factoryCode: z.string().max(50).optional(),
@@ -135,12 +158,44 @@ export const cigarInventorySchema = commonInventorySchema.extend({
 
 // ─── Discriminated union ─────────────────────────────────────────────────────
 
+/**
+ * #471: several bottles stored at once form a group of identical intact
+ * copies (decision point 2): they cannot be created already opened — an
+ * opened bottle is created on its own. Cigars: see {@link checkCigarGroup}.
+ */
+const intactGroup = (d: { quantity?: number; isOpened?: boolean; fillLevel?: number | null }) =>
+  (d.quantity ?? 1) <= 1 || (!d.isOpened && (d.fillLevel == null || d.fillLevel === 100));
+
+type CigarInput = z.infer<typeof cigarInventorySchema>;
+
+/**
+ * #471 (FEAT-95, glossary "Boîte entamée"): several boxes, or single cigars,
+ * are stored closed; only one box may be stored already opened, with the
+ * cigars left in it. Same rules as the detach of a box (stock-state.service.ts).
+ */
+function checkCigarGroup(d: CigarInput, ctx: z.RefinementCtx): void {
+  const issue = (path: string, message: string) => ctx.addIssue({ code: 'custom', path: [path], message });
+  // A box is not filled: a level of 0 would even read as smoked through.
+  if (d.fillLevel != null && d.fillLevel !== 100) issue('fillLevel', 'FILL_LEVEL_FOR_BOTTLES_ONLY');
+  if (!d.isOpened) {
+    if (d.cigarsLeft != null) issue('cigarsLeft', 'CIGARS_LEFT_ON_CLOSED');
+    return;
+  }
+  if (d.quantity > 1) return issue('quantity', 'OPENED_GROUP');
+  if (d.cigarsPerBox == null) return issue('cigarsPerBox', 'OPENED_SINGLES');
+  if (d.cigarsLeft == null) return issue('cigarsLeft', 'CIGARS_LEFT_REQUIRED');
+  if (d.cigarsLeft > d.cigarsPerBox) issue('cigarsLeft', 'CIGARS_LEFT_ABOVE_BOX');
+}
+
 export const inventoryInputSchema = z.discriminatedUnion('category', [
   wineInventorySchema,
   sparklingInventorySchema,
   spiritInventorySchema,
   cigarInventorySchema,
-]);
+]).superRefine((d, ctx) => {
+  if (d.category === 'cigar') return checkCigarGroup(d, ctx);
+  if (!intactGroup(d)) ctx.addIssue({ code: 'custom', path: ['quantity'], message: 'OPENED_GROUP' });
+});
 
 export type InventoryInput = z.infer<typeof inventoryInputSchema>;
 export type InventoryCategory = InventoryInput['category'];
@@ -149,7 +204,8 @@ export type InventoryCategory = InventoryInput['category'];
 // Uses a flat partial object instead of discriminatedUnion.partial() which is not
 // supported by Zod's type system for discriminated unions.
 
-export const inventoryPatchSchema = z.object({
+/** The patch fields, before the cross-field window check (#471: the family patch picks its own). */
+export const inventoryPatchObject = z.object({
   category: categorySchema.optional(),
   name: z.string().min(1).max(200).optional(),
   producer: z.string().min(1).max(200).optional(),
@@ -160,13 +216,29 @@ export const inventoryPatchSchema = z.object({
   notes: z.string().max(2000).optional().nullable(),
   purchasePrice: z.number().min(0).optional().nullable(),
   purchasePlace: z.string().max(200).optional().nullable(),
+  // #471 (D6): the purchase day of a line ("Modifier" in the drawer), a day
+  // `YYYY-MM-DD` stored at midnight UTC — never read through a local time zone.
+  purchasedAt: z.iso.date().nullable()
+    .transform((day) => (day === null ? null : new Date(`${day}T00:00:00.000Z`)))
+    .optional(),
   estimatedValue: z.number().min(0).optional().nullable(),
-  // FEAT-87: flipping this is how a reference gets stocked (and how a
-  // mistakenly-stocked item goes back to being a reference).
-  isOwned: z.boolean().optional(),
+  isOwned: legacyOwnedFlag,
   isOpened: z.boolean().optional(),
   fillLevel: z.number().int().min(0).max(100).optional().nullable(),
   openedAt: z.coerce.date().optional().nullable(),
+  // #471 (FEAT-103): cigars left in an opened box (null = closed and complete).
+  cigarsLeft: z.number().int().min(0).max(1000).optional().nullable(),
+  // #471 (FEAT-103): smoke one cigar of this unit — the first one of a closed
+  // box opens it (M−1 left), a single cigar is finished (stock-state.service.ts).
+  smokeOne: z.literal(true).optional(),
+  // #471 (FEAT-106): a sub-record put back intact goes back into its group;
+  // if tastings were noted on it, the answer to "keep them?" (on the family)
+  // — without it, 409 TASTINGS_ON_ITEM.
+  keepTastings: z.boolean().optional(),
+  // #471 (FEAT-107 c3): the tasting this state was noted with ("Bue" after a
+  // tasting): it follows the copy carrying the state when one is detached
+  // from a group, so the finished bottle is the one holding it.
+  tastingId: z.string().guid().optional(),
   reminderDate: z.coerce.date().optional().nullable(),
   alertStatus: z.enum(ALERT_STATUSES).optional().nullable(),
   alertsPaused: z.boolean().optional(),
@@ -209,8 +281,12 @@ export const inventoryPatchSchema = z.object({
   caskProof: z.number().min(0).max(100).optional().nullable(),
   // Cigar
   format: z.string().max(100).optional().nullable(),
-  // ISSUE_101/ISSUE_029: min(0) — see cigarInventorySchema's quantity field above.
+  // ISSUE_101/ISSUE_029: min(0) kept on the patch only; a cigar group is
+  // created with min(1) (FEAT-95, cigarInventorySchema above), and the
+  // detach rule refuses a count of 0 on an opened box (stock-state.service.ts).
   quantity: z.number().int().min(0).max(1000).optional().nullable(),
+  // #471 (FEAT-95): cigars per box of a group of closed boxes (null = single cigars).
+  cigarsPerBox: z.number().int().min(1).max(1000).optional().nullable(),
   manufactureYear: z.number().int().optional().nullable(),
   leafOrigin: z.string().max(200).optional().nullable(),
   factoryCode: z.string().max(50).optional().nullable(),
@@ -229,16 +305,34 @@ export const inventoryPatchSchema = z.object({
   expectedUpdatedAt: z.string().datetime().optional(),
   // Both years in one patch (what the bottle form sends). A patch carrying
   // only one is checked against the stored other one in updateItem.
-}).refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
+});
+
+export const inventoryPatchSchema = inventoryPatchObject.refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
 
 export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 
 // ISSUE_052: `ids` used to be cast `as string[]` with no content check and
 // no length cap — bounded only by the 2MB request body limit, i.e. tens of
 // thousands of ids could reach a single `updateMany`.
+// #471 (FEAT-111, D18): a state (opened, a level, a smoked cigar) is never
+// written in bulk — on a group it would open one bottle of each, silently.
+// "Marquer comme bus" (POST /api/products/bulk-drink), which asks how many of
+// each wine, is the only bulk write of a state. Refused in a bulk edit and in
+// a saved preset alike (the old presets that wrote one were deleted by the
+// update, QP6).
+export const BULK_REFUSED_FIELDS = ['isOpened', 'fillLevel', 'openedAt', 'cigarsLeft', 'smokeOne', 'keepTastings', 'tastingId'] as const;
+
+export const bulkPatchSchema = inventoryPatchSchema.superRefine((patch, ctx) => {
+  for (const field of BULK_REFUSED_FIELDS) {
+    if ((patch as Record<string, unknown>)[field] !== undefined) {
+      ctx.addIssue({ code: 'custom', path: [field], message: 'STATE_NOT_IN_BULK' });
+    }
+  }
+});
+
 export const bulkUpdateSchema = z.object({
   ids: z.array(z.string().guid()).min(1).max(500),
-  patch: inventoryPatchSchema,
+  patch: bulkPatchSchema,
 });
 
 export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
@@ -246,16 +340,25 @@ export type BulkUpdateInput = z.infer<typeof bulkUpdateSchema>;
 // ─── Guest-restricted update schema (FEAT-37) ────────────────────────────────
 // Guests with write access on a cellar (via GuestShare.writeCellarIds) may only
 // touch consumption/service state — never pricing, structural, or category fields.
-// `.strict()` rejects any unexpected key outright (defense in depth).
+// #471 (FEAT-109): nor the notes, which belong to the family and so to every
+// bottle of the wine. `.strict()` rejects any unexpected key outright (defense in depth).
 
 export const guestInventoryUpdateSchema = z
   .object({
     isOpened: z.boolean().optional(),
     openedAt: z.coerce.date().optional().nullable(),
     fillLevel: z.number().int().min(0).max(100).optional().nullable(),
-    notes: z.string().max(2000).optional().nullable(),
+    // #471 (FEAT-109): "J'en fume un" — one cigar, through the detach rule.
+    smokeOne: z.literal(true).optional(),
+    // #471 (decision 68): "Annuler" of the guest's own move, just made through
+    // this share (checkGuestUndo) — alone, never with a state.
+    undo: z.literal(true).optional(),
   })
-  .strict();
+  .strict()
+  .refine((patch) => !patch.undo || Object.keys(patch).length === 1, {
+    message: 'undo comes alone',
+    path: ['undo'],
+  });
 
 export type GuestInventoryUpdate = z.infer<typeof guestInventoryUpdateSchema>;
 

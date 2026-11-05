@@ -36,6 +36,8 @@ import { client } from '@/lib/api';
 import { notifyError } from '@/lib/toast';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import { gridCoordinateGetter } from '@/lib/cellars/gridKeyboard';
+import { gridLineParts, slotUnits } from '@/lib/cellars/gridLine';
+import { gridWording, type GridWording } from '@/lib/cellars/gridWording';
 
 // ─── Color mapping ────────────────────────────────────────────────────────────
 // Wine gets its own per-varietal-color dots (red/white/rosé/orange — that's
@@ -79,6 +81,24 @@ const ZONE_BG: Record<ZoneType, string> = {
   temperate: 'transparent',
 };
 
+/**
+ * "×4" on a slot that holds a group of several bottles (#471, FEAT-96), "×25"
+ * on a box of 25 cigars (recette #471, KO 13.2); nothing for one.
+ */
+function CopiesBadge({ item }: { item: GridItem }) {
+  const { t } = useTranslation();
+  const copies = slotUnits(item);
+  if (copies <= 1) return null;
+  return (
+    <span
+      data-testid="slot-copies"
+      className="absolute -top-1 -right-1 sm:-top-1.5 sm:-right-1.5 z-10 min-w-4 h-4 px-1 rounded-full bg-foreground text-background text-[10px] font-bold leading-4 sm:min-w-5 sm:h-5 sm:text-xs sm:leading-5 text-center ring-2 ring-background shadow-sm pointer-events-none"
+    >
+      {t('cellars.grid.copies', { number: copies })}
+    </span>
+  );
+}
+
 // ─── Bottle visual (shared between cell and DragOverlay) ──────────────────────
 
 interface BottleVisualProps {
@@ -91,9 +111,10 @@ function BottleVisual({ item }: BottleVisualProps) {
 
   return (
     <div
-      className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center"
+      className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center"
       style={{ backgroundColor: getCellColor(item) }}
     >
+      <CopiesBadge item={item} />
       <span
         className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
         style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
@@ -115,13 +136,17 @@ interface DraggableBottleProps {
 }
 
 function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: DraggableBottleProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `bottle-${item.id}`,
     data: { item, fromCol, fromRow },
   });
 
-  const tooltipContent = [item.name, item.producer, item.vintage].filter(Boolean).join(' · ');
+  const copies = slotUnits(item);
+  // Recette #471 (KO 13.2): which line is on the slot (a closed box, an opened one…).
+  const line = item.isOpened !== undefined ? gridLineParts(item, t, i18n?.language) : [];
+  const tooltipContent = [item.name, item.producer, item.vintage, ...(line.length > 0 ? line : [copies > 1 ? t('cellars.grid.copies', { number: copies }) : null])]
+    .filter(Boolean).join(' · ');
 
   const outlineStyle = zone !== 'temperate'
     ? { outline: `2px solid ${zone === 'hot' ? 'rgba(255,167,38,0.7)' : 'rgba(33,150,243,0.7)'}`, outlineOffset: '-2px' }
@@ -145,7 +170,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
             onClickOccupied(item);
           }
         }}
-        className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-primary"
         style={{
           backgroundColor: getCellColor(item),
           cursor: isDragging ? 'grabbing' : 'grab',
@@ -155,6 +180,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: Drag
           ...outlineStyle,
         }}
       >
+        <CopiesBadge item={item} />
         <span
           className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
           style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
@@ -175,9 +201,10 @@ interface DroppableSlotProps {
   item: GridItem | null;
   onClickEmpty: () => void;
   onClickOccupied: (item: GridItem) => void;
+  wording: GridWording;
 }
 
-function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied }: DroppableSlotProps) {
+function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied, wording }: DroppableSlotProps) {
   const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${col}:${row}`,
@@ -212,7 +239,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied }: 
         <div
           role="button"
           tabIndex={0}
-          aria-label={t('cellars.grid.cellLabelEmpty', { col, row })}
+          aria-label={t('cellars.grid.cellLabelEmpty', { col, row, ...wording })}
           onClick={onClickEmpty}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -276,10 +303,11 @@ interface AssignDialogProps {
   unassignedItems: GridItem[];
   cellarId: string;
   onClose: () => void;
+  wording: GridWording;
 }
 
-function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, onClose }: AssignDialogProps) {
-  const { t } = useTranslation();
+function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, onClose, wording }: AssignDialogProps) {
+  const { t, i18n } = useTranslation();
   const assignSlot = useAssignSlot(cellarId);
   const [error, setError] = useState<string | null>(null);
 
@@ -297,7 +325,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
     <ResponsiveModal isOpen={open} onClose={onClose} size="xs">
       <ModalContent>
         <ModalHeader>
-          {t('cellars.grid.assignTitle', { col: targetCol, row: targetRow })}
+          {t('cellars.grid.assignTitle', { col: targetCol, row: targetRow, ...wording })}
         </ModalHeader>
         <ModalBody className="px-0 py-0">
           {error && (
@@ -307,7 +335,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
           )}
           {unassignedItems.length === 0 ? (
             <p className="px-4 py-4 text-sm text-foreground-500">
-              {t('cellars.grid.noUnassignedBottles')}
+              {t('cellars.grid.noUnassignedBottles', wording)}
             </p>
           ) : (
             <div className="flex flex-col max-h-80 overflow-y-auto">
@@ -327,6 +355,12 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
                     <div className="text-xs text-foreground-500 truncate">
                       {[item.producer, item.vintage].filter(Boolean).join(' · ')}
                     </div>
+                    {/* Recette #471 (KO 13.2): two lines of the same wine read apart. */}
+                    {item.isOpened !== undefined && (
+                      <div className="text-xs text-foreground-500" data-testid="assign-line">
+                        {gridLineParts(item, t, i18n?.language).join(' · ')}
+                      </div>
+                    )}
                   </div>
                   {assignSlot.isPending && (
                     <span role="status" aria-live="polite"><CircularProgress size="sm" aria-label={t('status.loading')} /></span>
@@ -418,6 +452,34 @@ interface CellarGridPlanProps {
   data: CellarGridData;
 }
 
+/**
+ * What a screen reader hears while a bottle or a cigar is moved on the plan,
+ * in the member's language; French agrees with the thing moved (« Robusto
+ * déposé », « Cuvée X déposée », review of #828).
+ */
+export function dragAnnouncements(t: (key: string, options?: Record<string, unknown>) => string): Announcements {
+  const slotOf = (over: { data: { current?: unknown } } | null) =>
+    over?.data.current as { col: number; row: number } | undefined;
+  const itemOf = (active: { data: { current?: unknown } }) => (active.data.current as { item: GridItem }).item;
+  const say = (key: string, item: GridItem, values?: Record<string, unknown>) =>
+    t(key, { name: item.name, context: item.category === 'cigar' ? 'cigar' : undefined, ...values });
+  return {
+    onDragStart: ({ active }) => {
+      const d = active.data.current as { item: GridItem; fromCol: number; fromRow: number };
+      return say('cellars.grid.announceStart', d.item, { col: d.fromCol, row: d.fromRow });
+    },
+    onDragOver: ({ active, over }) => {
+      const slot = slotOf(over);
+      return slot ? say('cellars.grid.announceOver', itemOf(active), slot) : undefined;
+    },
+    onDragEnd: ({ active, over }) => {
+      const slot = slotOf(over);
+      return slot ? say('cellars.grid.announceDrop', itemOf(active), slot) : say('cellars.grid.announceCancel', itemOf(active));
+    },
+    onDragCancel: ({ active }) => say('cellars.grid.announceCancel', itemOf(active)),
+  };
+}
+
 export function CellarGridPlan({ data }: CellarGridPlanProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -456,6 +518,8 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   const totalSlots = cols * rows;
   const freeSlots = totalSlots - assignedCount;
 
+  const wording = useMemo(() => gridWording(cellar.type, localItems), [cellar.type, localItems]);
+
   const unassignedItems = useMemo(
     () => localItems.filter((item) => item.slotColumn == null || item.slotRow == null),
     [localItems]
@@ -487,27 +551,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   );
 
   // dnd-kit's default screen-reader texts are English only.
-  const announcements = useMemo<Announcements>(() => {
-    const slotOf = (over: { data: { current?: unknown } } | null) =>
-      over?.data.current as { col: number; row: number } | undefined;
-    const nameOf = (active: { data: { current?: unknown } }) =>
-      (active.data.current as { item: GridItem }).item.name;
-    return {
-      onDragStart: ({ active }) => {
-        const d = active.data.current as { item: GridItem; fromCol: number; fromRow: number };
-        return t('cellars.grid.announceStart', { name: d.item.name, col: d.fromCol, row: d.fromRow });
-      },
-      onDragOver: ({ active, over }) => {
-        const slot = slotOf(over);
-        return slot ? t('cellars.grid.announceOver', { name: nameOf(active), ...slot }) : undefined;
-      },
-      onDragEnd: ({ active, over }) => {
-        const slot = slotOf(over);
-        return slot ? t('cellars.grid.announceDrop', { name: nameOf(active), ...slot }) : t('cellars.grid.announceCancel', { name: nameOf(active) });
-      },
-      onDragCancel: ({ active }) => t('cellars.grid.announceCancel', { name: nameOf(active) }),
-    };
-  }, [t]);
+  const announcements = useMemo(() => dragAnnouncements(t), [t]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { item, fromCol, fromRow } = event.active.data.current as { item: GridItem; fromCol: number; fromRow: number };
@@ -618,10 +662,11 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
         onDragEnd={handleDragEnd}
         accessibility={{
           announcements,
-          screenReaderInstructions: { draggable: t('cellars.grid.dragInstructions') },
+          screenReaderInstructions: { draggable: t('cellars.grid.dragInstructions', wording) },
         }}
       >
-        <div className="overflow-x-auto pb-1">
+        {/* Room for the "×25" badges of the top row and last column (recette v3 of #471). */}
+        <div className="overflow-x-auto pt-2 pr-2 pb-1">
           <div
             className="inline-grid"
             style={{
@@ -644,6 +689,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
                     item={item}
                     onClickEmpty={() => setAssignTarget({ col, row })}
                     onClickOccupied={(it) => setOccupiedTarget(it)}
+                    wording={wording}
                   />
                 );
               });
@@ -699,6 +745,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
         unassignedItems={unassignedItems}
         cellarId={cellar.id}
         onClose={() => setAssignTarget(null)}
+        wording={wording}
       />
       <OccupiedDialog
         open={!!occupiedTarget}

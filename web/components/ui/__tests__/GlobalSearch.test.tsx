@@ -13,12 +13,13 @@ vi.mock('react-i18next', () => ({
     t: (k: string, o?: { count?: number }) => (o?.count !== undefined ? `${k}:${o.count}` : k),
   }),
 }));
-vi.mock('@/hooks/useInventory', () => ({
-  useInventory: () => ({
+const { bottle } = vi.hoisted(() => ({ bottle: { quantity: 1, isOpened: false, fillLevel: null, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null, deletedAt: null, cellarId: null, purchasePrice: null, estimatedValue: null } }));
+vi.mock('@/hooks/useProducts', () => ({
+  useProducts: () => ({
     data: [
-      { id: 'i1', name: 'Pétrus', producer: 'Château Pétrus', vintage: 2015, category: 'wine', region: 'Pomerol' },
-      { id: 'i2', name: 'Petit Verdot', producer: 'Domaine X', vintage: 2019, category: 'wine', region: '' },
-      { id: 'i3', name: 'Cohiba Robusto', producer: 'Habanos', vintage: 2020, category: 'cigar', region: '' },
+      { id: 'i1', name: 'Pétrus', producer: 'Château Pétrus', vintage: 2015, category: 'wine', region: 'Pomerol', items: [{ ...bottle, id: 'u1' }] },
+      { id: 'i2', name: 'Petit Verdot', producer: 'Domaine X', vintage: 2019, category: 'wine', region: '', items: [] },
+      { id: 'i3', name: 'Cohiba Robusto', producer: 'Habanos', vintage: 2020, category: 'cigar', region: '', items: [{ ...bottle, id: 'u3' }] },
     ],
   }),
 }));
@@ -81,6 +82,16 @@ describe('GlobalSearch keyboard support (#198)', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(push).toHaveBeenCalledWith('/bottles?scan=i1');
+  });
+
+  // #471 FEAT-101 c2: a wine with nothing left is still found, and says so.
+  it('finds a wine with no bottle left and marks it', () => {
+    render(<GlobalSearch />);
+    typeQuery(screen.getByRole('combobox'), 'verdot');
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0].textContent).toContain('Petit Verdot');
+    expect(options[0].textContent).toContain('familyList.stock.goneBottle');
   });
 
   it('opens a cigar on the cigars page, not /bottles', () => {

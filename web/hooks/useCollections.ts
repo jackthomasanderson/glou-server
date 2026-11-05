@@ -80,3 +80,26 @@ export function useRemoveItemFromCollection() {
     },
   });
 }
+
+/** #471: a wine (and so all its bottles) joins a collection. */
+export function useAddProductsToCollection() {
+  const queryClient = useQueryClient();
+  return useMutation<Collection, Error, { id: string; productIds: string[] }>({
+    mutationFn: ({ id, productIds }) => collectionsClient.addProducts(id, productIds),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+
+export function useRemoveProductFromCollection() {
+  const queryClient = useQueryClient();
+  return useMutation<Collection, Error, { id: string; productId: string }>({
+    mutationFn: ({ id, productId }) => collectionsClient.removeProduct(id, productId),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY });
+      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}

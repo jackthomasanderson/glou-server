@@ -1,24 +1,28 @@
 'use client';
 import React from 'react';
-import { InventoryItem } from '@/lib/inventory/types';
-import { Cellar } from '@/lib/cellars/types';
+import type { Product } from '@/lib/products/types';
+import type { StockLine } from '@/lib/products/stock';
 import { InventoryCard } from './InventoryCard';
 import { PaginationBar } from '@/components/ui/PaginationBar';
 
 export interface InventoryGridViewProps {
-  /** Already-paginated slice of `filteredItems` to render this page. */
-  items: InventoryItem[];
-  cellars?: Cellar[];
+  /** Already-paginated slice of the filtered wines to render this page. */
+  items: Product[];
+  /** The stock line of each wine (§10.2). */
+  stockOf: (product: Product) => StockLine;
+  /** The cellar a wine's bottles are all in; undefined when spread over several, or none. */
+  cellarNameOf: (product: Product) => string | undefined;
   categoryLabel: (category: string) => string;
-  onEdit: (item: InventoryItem) => void;
-  onDelete: (item: InventoryItem) => void;
-  onView: (item: InventoryItem) => void;
+  onEdit: (product: Product) => void;
+  onDelete: (product: Product) => void;
+  onView: (product: Product) => void;
   t: (key: string, options?: Record<string, unknown>) => string;
   bulkMode: boolean;
   selectedIds: Set<string>;
   anchorId: string | null;
-  onSelectToggle: (item: InventoryItem, event?: React.MouseEvent) => void;
-  pendingSyncItemIds: Set<string>;
+  onSelectToggle: (product: Product, event?: React.MouseEvent) => void;
+  /** Wines with a bottle change still waiting in the offline queue. */
+  pendingSyncIds: Set<string>;
 
   page: number;
   totalPages: number;
@@ -26,10 +30,11 @@ export interface InventoryGridViewProps {
   setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
 }
 
-/** Grid (card) rendering of the current inventory page, plus its pagination bar. */
+/** Grid (card) rendering of the current page of wines, plus its pagination bar. */
 export function InventoryGridView({
   items,
-  cellars,
+  stockOf,
+  cellarNameOf,
   categoryLabel,
   onEdit,
   onDelete,
@@ -39,7 +44,7 @@ export function InventoryGridView({
   selectedIds,
   anchorId,
   onSelectToggle,
-  pendingSyncItemIds,
+  pendingSyncIds,
   page,
   totalPages,
   totalItems,
@@ -48,22 +53,25 @@ export function InventoryGridView({
   return (
     <>
       <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 sm:gap-4">
-        {items.map((item: InventoryItem) => (
-          <InventoryCard
-            key={item.id}
-            item={item}
-            categoryLabel={categoryLabel(item.category)}
-            cellarName={cellars?.find((c: Cellar) => c.id === item.cellarId)?.name}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            onView={bulkMode ? undefined : onView}
-            t={t}
-            isSelected={selectedIds.has(item.id)}
-            isAnchor={item.id === anchorId}
-            onSelectToggle={bulkMode ? onSelectToggle : undefined}
-            hasPendingSync={pendingSyncItemIds.has(item.id)}
-          />
-        ))}
+        {items.map((product) => {
+          return (
+            <InventoryCard
+              key={product.id}
+              item={product}
+              stock={stockOf(product)}
+              categoryLabel={categoryLabel(product.category)}
+              cellarName={cellarNameOf(product)}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onView={bulkMode ? undefined : onView}
+              t={t}
+              isSelected={selectedIds.has(product.id)}
+              isAnchor={product.id === anchorId}
+              onSelectToggle={bulkMode ? onSelectToggle : undefined}
+              hasPendingSync={pendingSyncIds.has(product.id)}
+            />
+          );
+        })}
       </div>
       <PaginationBar
         page={page}

@@ -48,12 +48,12 @@ Les codes d'action enregistrés dans le système :
 | `LOGIN_2FA` | Connexion via authentification à deux facteurs |
 | `LOGOUT` | Déconnexion |
 | `REGISTER` | Création d'un compte |
-| `CREATE` | Création d'un actif (bouteille, etc.) |
-| `READ` | Lecture d'un actif |
-| `LIST` | Listage d'actifs |
-| `UPDATE` | Modification d'un actif |
-| `DELETE` | Suppression d'un actif |
-| `RESTORE` | Restauration d'un actif archivé |
+| `CREATE` | Création d'une bouteille, d'un vin, etc. |
+| `READ` | Lecture d'une bouteille |
+| `LIST` | Liste de bouteilles |
+| `UPDATE` | Modification d'une bouteille ou d'un vin |
+| `DELETE` | Suppression (corbeille) d'une bouteille ou d'un vin |
+| `RESTORE` | Restauration depuis la corbeille |
 | `CELLAR_CREATE` | Création d'une cave |
 | `CELLAR_READ` | Lecture d'une cave |
 | `CELLAR_UPDATE` | Modification d'une cave |

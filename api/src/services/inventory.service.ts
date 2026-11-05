@@ -2,22 +2,46 @@ import { Prisma } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
-import { InventoryPatch, InventoryInput, peakWindowSchema } from '../schemas/inventory.schema';
+import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
-import { isFinishedItem, NO_SLOT } from '../lib/finished-item';
+import { readFieldHistory } from './audit.service';
+import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
+import { isFinishedItem, isGroupableItem, NO_SLOT, unitKind, type UnitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
+import {
+  compareFamilyIds, isProductField, lockFamilies, lockFamily, nextLocksAndSources, pickProductFields, purchaseDayFromInput,
+  toItemView, toUnitView,
+  type FlatItemView,
+} from '../lib/product-fields';
+import {
+  applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
+} from './stock-state.service';
+import { writeFamilyDescription } from './product.service';
+import { rememberDistinct } from './review.service';
+import { GROUP_KEY_FIELDS, joinIdenticalGroup, splitLockedGroup } from './stock-split.service';
+import { isSlotTaken } from '../lib/slots';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
 // endpoints (uploads/products/*) is ever safe to delete from disk — an
 // item whose photoUrl is some other external address must never be touched.
 const LOCAL_PRODUCT_PHOTO_PREFIX = '/uploads/products/';
 
-export interface FieldChange {
-  field: string;
-  from: unknown;
-  to: unknown;
+/** `/uploads/products/<file>` of a photo URL, absolute or not; null when it is not a local product photo. */
+export function localPhotoPath(url: string | null): string | null {
+  if (!url) return null;
+  let pathname: string;
+  try {
+    pathname = new URL(url, 'http://local').pathname;
+  } catch {
+    return null;
+  }
+  return pathname.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX) && !pathname.slice(LOCAL_PRODUCT_PHOTO_PREFIX.length).includes('/')
+    ? pathname
+    : null;
 }
+
+export type { FieldChange };
 
 /**
  * Origin of a field's current value (FEAT-05), stored per field in
@@ -36,7 +60,7 @@ export type RollbackFieldResult =
   | { status: 'not_found' }
   | { status: 'invalid_value' }
   | { status: 'slot_conflict' }
-  | { status: 'success'; item: InventoryItem; changes: FieldChange[] };
+  | { status: 'success'; item: InventoryItemView; changes: FieldChange[]; joined?: { from: number; to: number } };
 
 /**
  * Result of `InventoryService.updateItem` (FEAT-16/23 offline sync).
@@ -49,20 +73,31 @@ export type RollbackFieldResult =
  * instead of silently overwriting it.
  */
 export type UpdateItemResult =
-  | { item: InventoryItem; changes: FieldChange[]; slotConflict?: boolean }
-  | { conflict: true; serverItem: InventoryItem };
+  | {
+      /** D8: the unit that now carries the requested state (a detached sub-record, the unit itself, or the group that absorbed it). */
+      item: InventoryItemView;
+      changes: FieldChange[];
+      /** D8: the other units written (the group a copy was detached from). */
+      changed: ItemView[];
+      /** D8: the units deleted (a sub-record absorbed by its group). */
+      removedIds: string[];
+      /** How the detach / reattach rule applied the state, when it did more than update the unit. */
+      outcome?: Exclude<StateOutcome, 'updated'>;
+      /** The group whose count moved (−1 detached, +1 reattached): logged in its own history. */
+      groupChange?: { itemId: string; from: number; to: number };
+      /** Tastings deleted by a reattach answered `keepTastings: false`. */
+      deletedTastings?: number;
+      /**
+       * #471 (W3): the edited group became identical to another one and joined
+       * it — `item` is that group, at `to` copies; the edited one is in `removedIds`.
+       */
+      joined?: { from: number; to: number };
+      slotConflict?: boolean;
+    }
+  | { conflict: true; serverItem: InventoryItemView };
 
-export interface InventoryHistoryEntry {
-  id: number;
-  action: string;
-  status: string;
-  actorId: string;
-  actorName: string;
-  /** ISSUE_483: set when the change came through a guest share link. */
-  viaGuest?: boolean;
-  changes: FieldChange[] | null;
-  createdAt: Date;
-}
+/** A line of a unit's history; `itemId` is the unit itself. */
+export type InventoryHistoryEntry = ProductHistoryEntry;
 
 export interface InventoryWithTraceability {
   item: Record<string, unknown>;
@@ -73,11 +108,22 @@ export interface InventoryWithTraceability {
 // InventoryItem type inferred from Prisma client
 type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> extends infer T | null ? NonNullable<T> : never;
 
-// Shape returned whenever a query joins the item's collections — a strict
-// superset of InventoryItem. Using Prisma's GetPayload helper keeps this in
-// sync with the schema automatically (no hand-typed duplicate, no cast).
+// #471: every read of /api/inventory* joins the unit's family, which holds
+// the description and the collections (see `toItemView`). Using Prisma's
+// GetPayload helper keeps this in sync with the schema automatically.
+/**
+ * #471 (lot Z): the unit's own columns a history value may be restored to —
+ * every column but its identity and bookkeeping. Description fields are the
+ * family's ({@link isProductField}), restored on it.
+ */
+const RESTORABLE_UNIT_FIELDS: ReadonlySet<string> = new Set(
+  Object.values(Prisma.InventoryItemScalarFieldEnum).filter((field) => ![
+    'id', 'userId', 'productId', 'createdAt', 'updatedAt', 'deletedAt', 'updatedBy', 'lockedFields', 'fieldSources',
+  ].includes(field)),
+);
+
 const INVENTORY_ITEM_INCLUDE = {
-  collections: { select: { id: true, name: true, color: true, icon: true } },
+  product: { include: { collections: { select: { id: true, name: true, color: true, icon: true } } } },
 } satisfies Prisma.InventoryItemInclude;
 
 // ISSUE_172: the schema-level GetPayload type doesn't know about the
@@ -85,10 +131,13 @@ const INVENTORY_ITEM_INCLUDE = {
 // reports purchasePrice/estimatedValue as Decimal — override them to match
 // what the extended client actually returns, same as the InventoryItem
 // alias above.
-type InventoryItemWithCollections = Omit<
+type InventoryItemRow = Omit<
   Prisma.InventoryItemGetPayload<{ include: typeof INVENTORY_ITEM_INCLUDE }>,
   'purchasePrice' | 'estimatedValue'
 > & Pick<InventoryItem, 'purchasePrice' | 'estimatedValue'>;
+
+/** #471: the flat record served by /api/inventory* — a unit with its family's description and collections. */
+export type InventoryItemView = FlatItemView<InventoryItemRow>;
 
 // FEAT-86: list/detail payloads carry a computed `readiness` percentage
 // (null when the curve model has no window to work with). Computed on read
@@ -113,35 +162,6 @@ function attachReadiness<
   };
 }
 
-/** What the FEAT-65 "same bottle" rule compares. */
-type DuplicateKey = Pick<InventoryPatch, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>;
-
-/**
- * FEAT-65 "same bottle" rule, mirroring the client's `isDuplicateOf`
- * (`web/lib/inventory/duplicate.ts`). Pure, so a caller holding a list of
- * candidates (the CSV import, FEAT-91) does not re-read the database per row.
- */
-export function isDuplicateOf(
-  item: Pick<InventoryItem, 'category' | 'producer' | 'name' | 'vintage' | 'bottleSize' | 'format'>,
-  data: DuplicateKey,
-): boolean {
-  const normalize = (v: string | null | undefined) => (v ?? '').trim().toLowerCase();
-  if (!data.category || !data.producer || !data.name || item.category !== data.category) return false;
-  if (normalize(item.producer) !== normalize(data.producer)) return false;
-  if (normalize(item.name) !== normalize(data.name)) return false;
-
-  if (data.category === 'cigar') {
-    return normalize(item.format) === normalize(data.format);
-  }
-  if (data.category === 'spirit') {
-    return normalize(item.bottleSize) === normalize(data.bottleSize);
-  }
-  // wine / sparkling — a missing vintage on either side is a potential
-  // match (let the caller decide), same as the client's vintageMatch.
-  const vintageMatches = data.vintage == null || item.vintage == null || item.vintage === data.vintage;
-  return vintageMatches && normalize(item.bottleSize) === normalize(data.bottleSize);
-}
-
 export class InventoryService {
   /**
    * ISSUE_083: an unbounded `findMany` here loads the entire inventory into
@@ -150,7 +170,7 @@ export class InventoryService {
    * `truncated` tells the caller the list isn't complete so it isn't
    * mistaken for the full inventory.
    */
-  async listInventory(_userId: string): Promise<{ items: WithReadiness<InventoryItemWithCollections>[]; truncated: boolean }> {
+  async listInventory(_userId: string): Promise<{ items: WithReadiness<InventoryItemView>[]; truncated: boolean }> {
     const limit = 2000;
     const items = await prisma.inventoryItem.findMany({
       where: { deletedAt: null },
@@ -159,24 +179,27 @@ export class InventoryService {
       take: limit + 1,
     });
     const truncated = items.length > limit;
-    return { items: items.slice(0, limit).map(attachReadiness), truncated };
+    return { items: items.slice(0, limit).map((item) => attachReadiness(toItemView(item))), truncated };
   }
 
-  async listTrash(_userId: string): Promise<InventoryItem[]> {
+  async listTrash(_userId: string): Promise<InventoryItemView[]> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-    return prisma.inventoryItem.findMany({
+    const items = await prisma.inventoryItem.findMany({
       where: {
         deletedAt: { not: null, gte: cutoff },
       },
       orderBy: { deletedAt: 'desc' },
+      include: INVENTORY_ITEM_INCLUDE,
     });
+    return items.map(toItemView);
   }
 
-  async getItem(_userId: string, id: string): Promise<InventoryItemWithCollections | null> {
-    return prisma.inventoryItem.findFirst({
+  async getItem(_userId: string, id: string): Promise<InventoryItemView | null> {
+    const item = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
     });
+    return item ? toItemView(item) : null;
   }
 
   async getItemWithTraceability(_userId: string, id: string): Promise<InventoryWithTraceability | null> {
@@ -202,66 +225,29 @@ export class InventoryService {
     // `Record<string, unknown>` — every property value is assignable to
     // `unknown`, so this assigns directly, no cast required. FEAT-86:
     // `readiness` is folded in here so the single-item route exposes it too.
-    return { item: attachReadiness(item), creator, lastEditor };
+    return { item: attachReadiness(toItemView(item)), creator, lastEditor };
   }
 
-  async getItemHistory(id: string): Promise<InventoryHistoryEntry[]> {
-    const logs = await prisma.auditLog.findMany({
-      where: {
-        bottleId: id,
-        action: { in: ['CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'RESTORE_FIELD', 'GUEST_UPDATE'] },
-        status: 'success',
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const uniqueUserIds = [...new Set(logs.map((l) => l.userId))];
-    const users = await prisma.user.findMany({
-      where: { id: { in: uniqueUserIds } },
-      select: { id: true, displayName: true, username: true },
-    });
-    const userMap = new Map(users.map((u) => [u.id, u.displayName ?? u.username]));
-
-    return logs.map((log) => {
-      const details = log.details as Record<string, unknown> | null;
-      // ISSUE_483: a guest edit is logged under the share creator's id; show
-      // the guest's name instead so the history does not blame the member.
-      const viaGuest = log.action === 'GUEST_UPDATE';
-      const guestName = viaGuest && typeof details?.['inviteeName'] === 'string' ? details['inviteeName'] : null;
-      return {
-        id: log.id,
-        action: log.action,
-        status: log.status,
-        actorId: log.userId,
-        actorName: guestName ?? userMap.get(log.userId) ?? log.userId,
-        ...(viaGuest ? { viaGuest: true } : {}),
-        changes: details?.['changes'] as FieldChange[] | null ?? null,
-        createdAt: log.createdAt,
-      };
-    });
+  getItemHistory(id: string): Promise<InventoryHistoryEntry[]> {
+    return readFieldHistory({ bottleId: id });
   }
 
   /**
-   * ISSUE_141/ISSUE_068: the FEAT-65 "is this the same bottle" rule
-   * (`web/lib/inventory/duplicate.ts`'s `isDuplicateOf`) existed only in the
-   * browser — CSV import, the offline queue and two members creating the
-   * same bottle concurrently from two devices all bypassed it entirely.
-   * Ported here so server-side creation paths can apply the identical rule.
-   * Scans by category only (indexed, small result set for a self-hosted
-   * single-household inventory) then compares in JS — mirrors the client
-   * logic exactly rather than re-deriving an equivalent SQL predicate.
+   * #471 (FEAT-97 c5): "C'est un autre vin" — a new wine of the same name as
+   * `distinctFrom`, remembered as a different wine from each of them, in one
+   * transaction (rememberDistinct, review.service.ts).
    */
-  async findDuplicateCandidate(
-    data: DuplicateKey,
-    client: PrismaClientOrTx = prisma,
-  ): Promise<InventoryItem | null> {
-    if (!data.category || !data.producer || !data.name) return null;
-
-    const candidates = await client.inventoryItem.findMany({
-      where: { category: data.category, deletedAt: null },
+  async createApart(
+    userId: string,
+    data: InventoryInput,
+    distinctFrom: string[],
+    fieldSources?: Partial<Record<string, FieldSource>>,
+  ): Promise<InventoryItemView> {
+    return prisma.$transaction(async (tx) => {
+      const created = await this.createItem(userId, data, tx, fieldSources);
+      await rememberDistinct(tx, created.productId, distinctFrom);
+      return created;
     });
-
-    return candidates.find((item) => isDuplicateOf(item, data)) ?? null;
   }
 
   /**
@@ -281,7 +267,7 @@ export class InventoryService {
     data: InventoryInput,
     client: PrismaClientOrTx = prisma,
     fieldSources?: Partial<Record<string, FieldSource>>,
-  ): Promise<InventoryItem> {
+  ): Promise<InventoryItemView> {
     // InventoryInput (a per-category discriminated union with some required
     // fields) is a structural subset of InventoryPatch (the same fields, all
     // optional, flattened across categories) — a single assertion documents
@@ -293,12 +279,42 @@ export class InventoryService {
       patch.peakMaturityTo ?? undefined,
     );
     const extra: Record<string, unknown> = {};
-    if (fieldSources && Object.keys(fieldSources).length > 0) {
-      extra.fieldSources = fieldSources;
+    const unitSources = Object.fromEntries(Object.entries(fieldSources ?? {}).filter(([key]) => !isProductField(key)));
+    if (Object.keys(unitSources).length > 0) {
+      extra.fieldSources = unitSources;
     }
-    return client.inventoryItem.create({
-      data: { id: uuidv4(), userId, ...dbData, ...extra, alertStatus } as never,
+
+    // #471: the unit is created with its own family, in the same write. The
+    // description goes to the family only; each keeps its own locks and
+    // sources. The purchase day is the group's (D5), stored as a day (D6).
+    const { cellarId, purchasedAt: _day, ...rest } = dbData as typeof dbData & { purchasedAt?: string | null };
+    const itemData = Object.fromEntries(Object.entries(rest).filter(([key]) => !isProductField(key) && key !== 'lockedFields'));
+    const unitLocks = (data.lockedFields ?? []).filter((field) => !isProductField(field));
+    const { category, name, producer } = data;
+    const productSources = pickProductFields(fieldSources ?? {});
+    const product = {
+      userId,
+      ...pickProductFields({ ...dbData, alertStatus }),
+      category,
+      name,
+      producer,
+      lockedFields: (data.lockedFields ?? []).filter(isProductField),
+      ...(Object.keys(productSources).length > 0 ? { fieldSources: productSources } : {}),
+    };
+    const created = await client.inventoryItem.create({
+      data: {
+        id: uuidv4(),
+        ...itemData,
+        purchasedAt: purchaseDayFromInput(data.purchasedAt),
+        ...extra,
+        ...(unitLocks.length > 0 ? { lockedFields: unitLocks } : {}),
+        user: { connect: { id: userId } },
+        ...(cellarId ? { cellar: { connect: { id: cellarId } } } : {}),
+        product: { create: product },
+      } satisfies Prisma.InventoryItemCreateInput,
+      include: INVENTORY_ITEM_INCLUDE,
     });
+    return toItemView(created);
   }
 
   /**
@@ -331,30 +347,48 @@ export class InventoryService {
        * the rollback would be a no-op. Never set this from a route handler.
        */
       bypassFieldLock?: boolean;
+      /**
+       * #471 (FEAT-109): a check of the write against the unit as read under
+       * its family's lock, with the outcome the detach rule plans for it —
+       * the guest route refuses there what would change a number. Throws an
+       * AppError to refuse; nothing is written then.
+       */
+      guard?: (unit: StateItem, planned: () => StateOutcome, kind: UnitKind) => void;
     },
   ): Promise<UpdateItemResult | null> {
     const { fieldSources, isManualEdit = true, bypassFieldLock = false } = options ?? {};
     // `expectedUpdatedAt` (FEAT-16/23) is a sync-protocol field, not a real
     // InventoryItem column — strip it before it reaches `mapInputToDb`/Prisma.
-    const { expectedUpdatedAt, ...patch } = rawPatch;
-    const existing = await prisma.inventoryItem.findFirst({
+    // `alertStatus` is always derived from the drinking window (below), never
+    // taken from a patch, so it is neither written, locked nor logged from it.
+    // #471: `smokeOne` and `keepTastings` are instructions to the detach /
+    // reattach rule (stock-state.service.ts), not columns either; nor is
+    // `tastingId`, the tasting that follows a detached copy (FEAT-107).
+    // #471 (lot Z): `isOwned` is only an older client's leftover (schema: `true` ignored, `false` refused).
+    const { expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, isOwned: _legacy, ...patch } = rawPatch;
+    const row = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
+      include: INVENTORY_ITEM_INCLUDE,
     });
-    if (!existing) return null;
+    if (!row) return null;
+    // #471: what the caller sees and patches is the flat record — the unit
+    // with its family's description (see `toItemView`).
+    const existing = toItemView(row);
 
     // ─── Optimistic concurrency check (FEAT-16/23) ───────────────────────────
     // Opt-in: the offline sync queue and the bottle edit form (#572) send
     // `expectedUpdatedAt`, the item's `updatedAt` as known when the change
     // was made (possibly while offline). Every other caller omits it and
     // keeps the unconditional last-write-wins behavior. Compared in milliseconds since
-    // the wire format is an ISO string round-tripped through JSON.
-    if (
-      expectedUpdatedAt !== undefined &&
-      new Date(expectedUpdatedAt).getTime() !== existing.updatedAt.getTime()
-    ) {
-      // `existing` already has type InventoryItem (same query shape as the
-      // type it's inferred from) — it was never actually a different type,
-      // the cast below was a no-op.
+    // the wire format is an ISO string round-tripped through JSON. #471: the
+    // unit's own `updatedAt` — every write through this route bumps it.
+    // This first check only answers early: the one that decides is made
+    // again once the family is locked and the unit read under that lock
+    // (below), so a write committed in between (a write-off, a detach) is
+    // never overwritten by a count or a state computed before it.
+    const isStale = (updatedAt: Date) =>
+      expectedUpdatedAt !== undefined && new Date(expectedUpdatedAt).getTime() !== updatedAt.getTime();
+    if (isStale(existing.updatedAt)) {
       return { conflict: true, serverItem: existing };
     }
 
@@ -362,28 +396,36 @@ export class InventoryService {
     // from silently overwriting a manual edit — it must never block the user
     // from manually editing that same field again (e.g. bumping the quantity
     // of an already-locked duplicate, or resetting a bottle from "empty" back
-    // to "full"). Only a non-manual caller is filtered against it.
-    const safePatch = bypassFieldLock || isManualEdit
-      ? patch
-      : (Object.fromEntries(
-          Object.entries(patch).filter(([key]) => !existing.lockedFields.includes(key))
-        ) as InventoryPatch);
+    // to "full"). Only a non-manual caller is filtered against it. #471: the
+    // unit's own locks here; the family's are read once it is locked, in the
+    // transaction (writeFamilyDescription).
+    const respectLocks = !bypassFieldLock && !isManualEdit;
+    const safePatch = respectLocks
+      ? (Object.fromEntries(
+          Object.entries(patch).filter(([key]) => isProductField(key) || !row.lockedFields.includes(key))
+        ) as InventoryPatch)
+      : patch;
 
     // #573: a bottle this patch leaves finished gives its grid slot back (see
     // lib/finished-item.ts) — the cellar map hides it, so a slot it kept would
     // look free yet refuse every other bottle. Judged on `safePatch`, i.e. on
     // what is really written: a locked `fillLevel` stripped from an automated
-    // update must not unplace a bottle that stays full.
+    // update must not unplace a bottle that stays full. #471: decided again
+    // by the detach rule, which keeps the slot with the group when a finished
+    // copy is detached from it.
     const finished = this.isFinishedAfter(existing, safePatch);
+    // #798: a bottle moved to another cellar without new slot coordinates
+    // arrives unplaced — its old coordinates mean nothing in the new cellar.
+    const leavesSlot = finished || this.leavesSlotByMove(existing, safePatch);
 
     // Slot uniqueness: if assigning a grid slot, verify it is not occupied by
-    // another item. Not for a finished bottle (#573): it is leaving its slot,
-    // so it cannot conflict with anyone.
+    // another item. Not for a bottle leaving its slot (finished #573, or moved
+    // to another cellar #798): it cannot conflict with anyone.
     const targetCellarId = 'cellarId' in patch ? patch.cellarId : existing.cellarId;
     const targetSlotColumn = 'slotColumn' in patch ? patch.slotColumn : existing.slotColumn;
     const targetSlotRow = 'slotRow' in patch ? patch.slotRow : existing.slotRow;
 
-    if (!finished && targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
+    if (!leavesSlot && targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
       const conflict = await prisma.inventoryItem.findFirst({
         where: {
           cellarId: targetCellarId,
@@ -393,96 +435,122 @@ export class InventoryService {
           deletedAt: null,
         },
       });
-      if (conflict) return { item: existing, changes: [], slotConflict: true };
+      if (conflict) return { item: existing, changes: [], changed: [], removedIds: [], slotConflict: true };
     }
 
-    // #573: the released slot goes into the recorded changes as well as the
-    // write, so the history records which slot the bottle left — and never a
-    // slot sent alongside that `NO_SLOT` overrides.
-    const writePatch: InventoryPatch = finished ? { ...safePatch, ...NO_SLOT } : safePatch;
-
-    const changes: FieldChange[] = Object.entries(writePatch)
-      .filter(([key, val]) => {
-        const existingVal = this.getField(existing, key);
-        return JSON.stringify(existingVal) !== JSON.stringify(val);
-      })
-      .map(([key, val]) => ({
-        field: key,
-        from: this.getField(existing, key),
-        to: val,
-      }));
-
+    // #471: the family's fields go to the family, the rest
+    // to the unit — each with its own locks and field sources (D1).
+    // #798: a unit moved to another cellar gives its slot back with the move
+    // (its coordinates mean nothing in the new cellar); recorded in the
+    // changes below like any written field. A finished unit's slot is
+    // released by the detach rule instead (#573), which keeps it with the
+    // group when a finished copy is detached from it.
+    const writePatch: InventoryPatch = this.leavesSlotByMove(existing, safePatch) ? { ...safePatch, ...NO_SLOT } : safePatch;
     const dbData = this.mapInputToDb(writePatch);
+    const familyPatch = pickProductFields(dbData);
+    const itemData = Object.fromEntries(Object.entries(dbData).filter(([key]) => !isProductField(key)));
 
     // ─── FEAT-05: auto-lock manually-edited fields + reconcile fieldSources ──
-    const extra: Record<string, unknown> = {};
-
     // `lockedFields` can already be set explicitly in the patch (a future
     // "unlock this field" UI action) — that explicit intent always wins over
-    // the automatic append below.
-    const patchHasExplicitLock = Object.prototype.hasOwnProperty.call(safePatch, 'lockedFields');
-    if (!patchHasExplicitLock && isManualEdit) {
-      const fieldsToLock = Object.keys(safePatch).filter(
-        (key) => key !== 'lockedFields' && !existing.lockedFields.includes(key)
-      );
-      if (fieldsToLock.length > 0) {
-        extra.lockedFields = [...existing.lockedFields, ...fieldsToLock];
-      }
-    }
+    // the automatic append.
+    const touched = Object.keys(safePatch).filter((key) => key !== 'lockedFields');
+    const autoLock = isManualEdit && !Object.prototype.hasOwnProperty.call(safePatch, 'lockedFields');
+    const isUnitField = (key: string) => !isProductField(key);
+    const unitWrite = { ...itemData, ...nextLocksAndSources(row, isUnitField, { touched, fieldSources, isManualEdit, autoLock }) };
+    const state = Object.fromEntries(Object.entries(unitWrite).filter(([key]) => isStateField(key))) as StatePatch;
+    const unit = Object.fromEntries(Object.entries(unitWrite).filter(([key]) => !isStateField(key)));
 
-    // `fieldSources` is a real `Json?` column — its shape (`{ [field]: source }`)
-    // isn't encoded in the Prisma-generated JSON type, so a single assertion
-    // here is the actual runtime contract, not a workaround for the wrong type.
-    const existingFieldSources = (existing.fieldSources as Record<string, string> | null) ?? {};
-    const nextFieldSources: Record<string, string> = { ...existingFieldSources };
-    if (fieldSources) {
-      for (const [key, source] of Object.entries(fieldSources)) {
-        if (source) nextFieldSources[key] = source;
-      }
-    }
-    if (isManualEdit) {
-      // A field the user just edited by hand reclaims 'manual' status — any
-      // stale non-manual tag is cleared unless this very call re-tags it
-      // (e.g. a future OCR confirmation step calling updateItem with both
-      // isManualEdit: true and an explicit fieldSources entry).
-      for (const key of Object.keys(safePatch)) {
-        if (key === 'lockedFields') continue;
-        if (!fieldSources || !(key in fieldSources)) {
-          delete nextFieldSources[key];
-        }
-      }
-    }
-    if (JSON.stringify(nextFieldSources) !== JSON.stringify(existingFieldSources)) {
-      extra.fieldSources = nextFieldSources;
-    }
-
-    const from = ('peakMaturityFrom' in safePatch ? safePatch.peakMaturityFrom : existing.peakMaturityFrom) as number | null | undefined;
-    const to = ('peakMaturityTo' in safePatch ? safePatch.peakMaturityTo : existing.peakMaturityTo) as number | null | undefined;
-    // #706: a patch moving only one end of the window is checked against the
-    // stored other end. Throws a ZodError, which the router answers with 400.
-    if ('peakMaturityFrom' in safePatch || 'peakMaturityTo' in safePatch) {
-      peakWindowSchema.parse({ peakMaturityFrom: from, peakMaturityTo: to });
-    }
-    const alertStatus = computeAlertStatus(from, to);
-
-    let item: InventoryItem;
+    let outcome: ApplyStateResult<InventoryItemRow>;
+    let current: StateItem;
+    let familyChanges = new Map<string, FieldChange>();
+    let joined: { from: number; to: number } | null = null;
     try {
-      item = await prisma.inventoryItem.update({
-        where: { id },
-        data: { ...dbData, ...extra, alertStatus, updatedAt: new Date(), updatedBy: userId } as never,
+      const written = await prisma.$transaction(async (tx) => {
+        // #471: the family first (the locking rule), then the unit as it is
+        // once nobody else can write it — a detach decided on a stale count
+        // would create a copy out of nothing.
+        await lockFamily(tx, row.productId);
+        const fresh = await tx.inventoryItem.findUnique({ where: { id } });
+        if (!fresh || fresh.deletedAt) return null;
+        if (isStale(fresh.updatedAt)) return { conflict: true as const };
+        const kind = unitKind(safePatch.category ?? row.product.category);
+        options?.guard?.(fresh as StateItem, () =>
+          planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, kind).outcome, kind);
+        // Also when the patch holds no family field: the derived alert may
+        // need realigning, and that is decided on the locked family (#706
+        // window check included — a ZodError, answered with 400).
+        const family = await writeFamilyDescription(tx, row.productId, familyPatch, {
+          userId, touched, fieldSources, isManualEdit, autoLock, respectLocks,
+        });
+        familyChanges = new Map(family.changes.map((change) => [change.field, change]));
+        // The unit is always stamped: the flat record it stands for changed.
+        const result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
+          tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
+          { userId, kind, include: INVENTORY_ITEM_INCLUDE },
+        );
+        // FEAT-107 c3: the tasting noted on the group goes with the copy taken
+        // off it — the finished bottle is the one that was tasted.
+        if (tastingId && result.outcome === 'detached') {
+          await tx.tastingNote.updateMany({ where: { id: tastingId, itemId: id }, data: { itemId: result.data.id } });
+        }
+        // A whole group made identical to another one by this edit joins it
+        // (design.md rule 4): the answer is then that group (D8). So does a
+        // copy put back intact that became a line of its own (its line of
+        // origin finished or gone meanwhile): two « Annuler » in either order
+        // end as one line, never two identical ones side by side.
+        const regroups = result.outcome === 'regrouped' || (result.outcome === 'updated'
+          && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field])));
+        const joined = regroups ? await joinIdenticalGroup(tx, result.data, kind, userId) : null;
+        if (!joined) return { result, fresh: fresh as StateItem, joined: null };
+        const survivor = await tx.inventoryItem.findUniqueOrThrow({ where: { id: joined.survivorId }, include: INVENTORY_ITEM_INCLUDE });
+        return {
+          result: { ...result, data: survivor as InventoryItemRow, removedIds: [...result.removedIds, id] },
+          fresh: fresh as StateItem,
+          joined: { from: joined.from, to: joined.to },
+        };
       });
+      if (!written) return null;
+      if ('conflict' in written) {
+        const server = await this.getItem(userId, id);
+        return server ? { conflict: true, serverItem: server } : null;
+      }
+      outcome = written.result;
+      current = written.fresh;
+      joined = written.joined;
     } catch (err) {
       // #173: the application-level check above closes almost every window,
       // but the database's partial unique index is the actual guarantee — a
       // concurrent request that slipped past that check still hits this and
       // gets the same clean slotConflict response instead of a 500.
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        return { item: existing, changes: [], slotConflict: true };
+        return { item: existing, changes: [], changed: [], removedIds: [], slotConflict: true };
       }
       throw err;
     }
 
-    return { item, changes };
+    // #573: the released slot goes into the recorded changes, so the history
+    // records which slot the bottle left — and never a slot sent alongside
+    // that the release overrides. #471: recorded from the unit as read once
+    // locked, with the state as the detach rule wrote it (a smoked cigar).
+    const recorded: Record<string, unknown> = { ...dbData, ...(outcome.releasedSlot ? NO_SLOT : {}) };
+    if (smokeOne) Object.assign(recorded, outcome.state);
+    const unitChanges = new Map(Object.entries(recorded)
+      .filter(([key, value]) => !isProductField(key) && JSON.stringify(this.getField(current, key)) !== JSON.stringify(value))
+      .map(([key, value]) => [key, { field: key, from: this.getField(current, key), to: value }]));
+    const changes = Object.keys(recorded)
+      .map((key) => familyChanges.get(key) ?? unitChanges.get(key))
+      .filter((change): change is FieldChange => change !== undefined);
+    return {
+      item: toItemView(outcome.data),
+      changes,
+      changed: outcome.changed.map(toUnitView),
+      removedIds: outcome.removedIds,
+      ...(outcome.outcome !== 'updated' ? { outcome: outcome.outcome } : {}),
+      ...(outcome.groupChange ? { groupChange: outcome.groupChange } : {}),
+      ...(outcome.deletedTastings ? { deletedTastings: outcome.deletedTastings } : {}),
+      ...(joined ? { joined } : {}),
+    };
   }
 
   /**
@@ -505,10 +573,18 @@ export class InventoryService {
       where: { id: itemId, deletedAt: null },
     });
     if (!existing) return { status: 'not_found' };
+    // #471 (FEAT-102): a guessed number is settled by "C'est bon" or "Corriger le nombre", never marked again from the history.
+    if (field === 'needsReview') return { status: 'invalid_value' };
+    // #471 (lot Z): only a column of the unit or of its family can be written
+    // back. An older history line may name one that is gone (FEAT-87's
+    // `isOwned`, "Stocker cette référence"): refused, never sent to Prisma.
+    if (!isProductField(field) && !RESTORABLE_UNIT_FIELDS.has(field)) return { status: 'invalid_value' };
 
     const history = await this.getItemHistory(itemId);
     const seenValues = new Set<string>();
     for (const entry of history) {
+      // #471: a value of a line since absorbed by this one would rewrite all its copies.
+      if (entry.absorbed) continue;
       for (const change of entry.changes ?? []) {
         if (change.field === field) {
           seenValues.add(JSON.stringify(change.from));
@@ -535,7 +611,7 @@ export class InventoryService {
     }
     if (result.slotConflict) return { status: 'slot_conflict' };
 
-    return { status: 'success', item: result.item, changes: result.changes };
+    return { status: 'success', item: result.item, changes: result.changes, ...(result.joined ? { joined: result.joined } : {}) };
   }
 
   async bulkUpdate(
@@ -543,46 +619,79 @@ export class InventoryService {
     ids: string[],
     patch: InventoryPatch
   ): Promise<number> {
-    const existing = await prisma.inventoryItem.findMany({
+    const rows = await prisma.inventoryItem.findMany({
       where: { id: { in: ids }, deletedAt: null },
+      include: INVENTORY_ITEM_INCLUDE,
     });
 
-    if (existing.length === 0) return 0;
-
-    // #706: as in updateItem, a patch moving one end of the peak window is
-    // checked against each item's stored other end, before anything is written.
-    if ('peakMaturityFrom' in patch || 'peakMaturityTo' in patch) {
-      for (const item of existing) {
-        peakWindowSchema.parse({
-          peakMaturityFrom: 'peakMaturityFrom' in patch ? patch.peakMaturityFrom : item.peakMaturityFrom,
-          peakMaturityTo: 'peakMaturityTo' in patch ? patch.peakMaturityTo : item.peakMaturityTo,
-        });
-      }
-    }
+    if (rows.length === 0) return 0;
+    // #471: families locked in a stable order (by id), so two bulk actions
+    // over overlapping selections cannot deadlock.
+    const existing = rows
+      .map((row) => ({ row, view: toItemView(row) }))
+      .sort((a, b) => compareFamilyIds(a.row.productId, b.row.productId) || compareFamilyIds(a.row.id, b.row.id));
+    // #471 (D18): no state reaches here — the bulk schema refuses one ("Marquer
+    // comme bus" is POST /api/products/bulk-drink). The sync version is not a column.
+    const { expectedUpdatedAt: _sync, ...columns } = patch;
+    const familyPatch = pickProductFields(this.mapInputToDb(columns));
+    const unitPatch = Object.fromEntries(Object.entries(this.mapInputToDb(columns)).filter(([key]) => !isProductField(key)));
 
     let updatedCount = 0;
     await prisma.$transaction(async (tx) => {
-      for (const item of existing) {
-        // A bulk action is an explicit user action, exactly like the regular
-        // single-item PATCH: `lockedFields` only shields a field from a later
-        // *automated* pass (see `updateItem`), never from the user. Filtering
-        // the patch here silently turned "mark as opened" / "set fill level"
-        // into a no-op on every bottle whose level had once been adjusted by
-        // hand — and still counted it as updated (ISSUE_034).
-        const changedEntries = Object.entries(patch).filter(
+      // #471 (lock order, #787 review): every family of the selection locked
+      // first, in sorted order, before any unit is written — even for a patch
+      // of unit fields only, which would otherwise deadlock (40P01) with a
+      // description write (family lock, then copy onto its units).
+      await lockFamilies(tx, rows.map((row) => row.productId));
+      // #471: each family written once, under its lock — the window checked
+      // against its stored other end (#706, a ZodError rolls everything
+      // back) and its alert recomputed (writeFamilyDescription).
+      const familyChanged = new Map<string, boolean>();
+      for (const { row, view: item } of existing) {
+        if (!familyChanged.has(row.productId)) {
+          const changed = Object.keys(familyPatch).length > 0
+            && (await writeFamilyDescription(tx, row.productId, familyPatch, {
+              // A bulk action is an explicit user action, exactly like the regular
+              // single-item PATCH: `lockedFields` only shields a field from a later
+              // *automated* pass (see `updateItem`), never from the user. Filtering
+              // the patch here silently turned a bulk edit into a no-op on every
+              // field once adjusted by hand — and still counted it (ISSUE_034).
+              userId, isManualEdit: false, autoLock: false, respectLocks: false, onlyChanged: true,
+            })).changes.length > 0;
+          familyChanged.set(row.productId, changed);
+        }
+        const changedEntries = Object.entries(unitPatch).filter(
           ([key, value]) => JSON.stringify(this.getField(item, key)) !== JSON.stringify(value)
         );
         // Only items this call really changes are applied and counted, so the
         // "N items updated" confirmation tells the truth.
-        if (changedEntries.length === 0) continue;
+        if (changedEntries.length === 0 && !familyChanged.get(row.productId)) continue;
+        // Read again under its family's lock: a bottle trashed since the
+        // selection was read is left alone (never moved or edited in the trash).
+        const fresh = await tx.inventoryItem.findFirst({ where: { id: item.id, deletedAt: null } });
+        if (!fresh) continue;
 
         const changed = Object.fromEntries(changedEntries) as InventoryPatch;
+        if (changed.cellarId !== undefined && isGroupableItem(fresh)) {
+          // #471 (FEAT-111): a whole group moved to another cellar joins the
+          // identical group there, as "Déplacer" does (a preset or the bulk
+          // edit's cellar): never a line apart that should be one. Its other
+          // fields are written first, so the group it joins is the one it now is.
+          const { cellarId, ...others } = changed;
+          const group = Object.keys(others).length === 0 ? fresh : await tx.inventoryItem.update({
+            where: { id: item.id },
+            data: { ...others, updatedAt: new Date(), updatedBy: userId } as never,
+          });
+          await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
+          updatedCount++;
+          continue;
+        }
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
-            ...this.mapInputToDb(changed),
-            // #573: an item this call leaves finished gives its grid slot back (see updateItem).
-            ...(this.isFinishedAfter(item, changed) ? NO_SLOT : {}),
+            ...changed,
+            // #798: an item moved to another cellar arrives unplaced (an opened bottle; a group joins above).
+            ...(this.leavesSlotByMove(item, changed) ? NO_SLOT : {}),
             updatedAt: new Date(),
             updatedBy: userId,
           } as never,
@@ -594,60 +703,54 @@ export class InventoryService {
     return updatedCount;
   }
 
-  async softDelete(_userId: string, id: string): Promise<InventoryItem | null> {
+  async softDelete(_userId: string, id: string): Promise<InventoryItemView | null> {
     const existing = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
     if (!existing) return null;
 
-    return prisma.inventoryItem.update({
+    const trashed = await prisma.inventoryItem.update({
       where: { id },
       data: { deletedAt: new Date() },
+      include: INVENTORY_ITEM_INCLUDE,
     });
+    return toItemView(trashed);
   }
 
-  async restore(_userId: string, id: string): Promise<InventoryItem | null> {
+  async restore(_userId: string, id: string): Promise<InventoryItemView | null> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const existing = await prisma.inventoryItem.findFirst({
       where: {
         id,
         deletedAt: { not: null, gte: cutoff },
       },
+      include: { product: { select: { deletedAt: true } } },
     });
     if (!existing) return null;
 
     // A trashed bottle keeps its grid slot, which may have been given to another
     // bottle since (#174). Restore it unplaced rather than assign the slot twice.
-    let slotTaken = false;
-    if (existing.cellarId && existing.slotColumn != null && existing.slotRow != null) {
-      const occupant = await prisma.inventoryItem.findFirst({
-        where: {
-          cellarId: existing.cellarId,
-          slotColumn: existing.slotColumn,
-          slotRow: existing.slotRow,
-          id: { not: id },
-          deletedAt: null,
-        },
-        select: { id: true },
-      });
-      slotTaken = occupant !== null;
-    }
+    const slotTaken = await isSlotTaken(prisma, existing);
+    // #471 (D10): a unit back in stock brings its family out of the trash with
+    // it — otherwise it would come back inside a family nobody sees.
+    const restoreUnit = (data: Prisma.InventoryItemUpdateInput) => prisma.$transaction(async (tx) => {
+      // The locking rule: the family first, then its unit.
+      await lockFamily(tx, existing.productId);
+      if (existing.product.deletedAt) {
+        await tx.product.update({ where: { id: existing.productId }, data: { deletedAt: null } });
+      }
+      return toItemView(await tx.inventoryItem.update({ where: { id }, data, include: INVENTORY_ITEM_INCLUDE }));
+    });
 
     try {
-      return await prisma.inventoryItem.update({
-        where: { id },
-        data: slotTaken ? { deletedAt: null, slotColumn: null, slotRow: null } : { deletedAt: null },
-      });
+      return await restoreUnit(slotTaken ? { deletedAt: null, ...NO_SLOT } : { deletedAt: null });
     } catch (err) {
       // #173: the occupant check above closes almost every window; the
       // database's partial unique index is the actual guarantee against a
       // slot having been taken in the instant between that check and this
       // write — fall back to restoring unplaced rather than erroring out.
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        return prisma.inventoryItem.update({
-          where: { id },
-          data: { deletedAt: null, slotColumn: null, slotRow: null },
-        });
+        return restoreUnit({ deletedAt: null, ...NO_SLOT });
       }
       throw err;
     }
@@ -661,24 +764,79 @@ export class InventoryService {
    * returned paths once this has actually committed, never before, so a
    * rolled-back transaction doesn't leave rows pointing at photos already
    * gone from disk.
+   *
+   * #471: a family left without any unit by this purge goes with its units,
+   * unless it holds a tasting (QP1: it then stays, "Plus en cave"). A family
+   * put in the trash itself (D10) is deleted past the retention period, its
+   * tastings with it (QP7: erasing the wine was asked for explicitly). A
+   * photo is only returned once nothing — no family (photo or other photos),
+   * no remaining unit — references it any more.
+   *
+   * Without a client, runs in its own transaction (startup purge): a
+   * half-done purge would leave emptied families nobody ever looks at again.
    */
   async purgeTrashed(
-    client: PrismaClientOrTx = prisma,
+    client?: PrismaClientOrTx,
   ): Promise<{ count: number; photoPaths: string[] }> {
+    if (!client) return prisma.$transaction((tx) => this.purgeTrashed(tx), { timeout: 60000, maxWait: 10000 });
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const toPurge = await client.inventoryItem.findMany({
       where: { deletedAt: { lt: cutoff } },
-      select: { id: true, photoUrl: true },
+      select: { id: true, productId: true },
     });
-    if (toPurge.length === 0) return { count: 0, photoPaths: [] };
+    const result = toPurge.length > 0
+      ? await client.inventoryItem.deleteMany({ where: { id: { in: toPurge.map((item) => item.id) } } })
+      : { count: 0 };
 
-    const result = await client.inventoryItem.deleteMany({
-      where: { id: { in: toPurge.map((item) => item.id) } },
+    const purgedFamilies = await client.product.findMany({
+      where: {
+        items: { none: {} },
+        OR: [
+          // QP1: emptied by this purge, not in the trash themselves, no tasting.
+          { id: { in: [...new Set(toPurge.map((item) => item.productId))] }, deletedAt: null, tastingNotes: { none: {} } },
+          // QP7: trashed themselves, past the retention.
+          { deletedAt: { lt: cutoff } },
+        ],
+      },
+      select: { id: true, photoUrl: true, otherPhotoUrls: true },
     });
-    const photoPaths = toPurge
-      .map((item) => item.photoUrl)
-      .filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX));
-    return { count: result.count, photoPaths };
+    if (purgedFamilies.length > 0) {
+      const ids = { in: purgedFamilies.map((family) => family.id) };
+      // `TastingNote.productId` is SET NULL: delete them first, or they would outlive their wine.
+      await client.tastingNote.deleteMany({ where: { productId: ids } });
+      await client.product.deleteMany({ where: { id: ids } });
+    }
+
+    const candidates = purgedFamilies.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]).filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX));
+    const photos = [...new Set(candidates)];
+    const stillReferenced = await this.referencedProductPhotos(client, photos);
+    return { count: result.count, photoPaths: photos.filter((url) => !stillReferenced.has(url)) };
+  }
+
+  /**
+   * The local product photos referenced by a family (its photo or its
+   * other photos) or a tasting (#471, FEAT-107). A tasting's photo is stored
+   * as an absolute URL: its path is what names the file. A deleted tasting
+   * (by hand, by a reattach answered "Ne pas la garder", or with its wine at
+   * the purge, QP7) thus leaves its photo to the orphan sweep.
+   */
+  private async referencedProductPhotos(client: PrismaClientOrTx, among?: string[]): Promise<Set<string>> {
+    if (among?.length === 0) return new Set();
+    const urls = among ? { in: among } : { startsWith: LOCAL_PRODUCT_PHOTO_PREFIX };
+    const families = await client.product.findMany({
+      where: { OR: [{ photoUrl: urls }, among ? { otherPhotoUrls: { hasSome: among } } : { otherPhotoUrls: { isEmpty: false } }] },
+      select: { photoUrl: true, otherPhotoUrls: true },
+    });
+    const tastings = await client.tastingNote.findMany({
+      where: { photoUrl: { contains: LOCAL_PRODUCT_PHOTO_PREFIX } },
+      select: { photoUrl: true },
+    });
+    const tastingPaths = tastings.map((tasting) => localPhotoPath(tasting.photoUrl))
+      .filter((url) => url !== null && (!among || among.includes(url)));
+    return new Set(
+      [...families.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]), ...tastingPaths]
+        .filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX)),
+    );
   }
 
   /** Deletes local product photos from disk. Never throws: one bad path must not block the rest. */
@@ -700,7 +858,8 @@ export class InventoryService {
    * was simply overwritten, nothing ever deleted it) or the save completed
    * but the surrounding item creation/update didn't. Sweeps uploads/products/
    * for files no InventoryItem (trashed or not — only a purged item's photo
-   * is truly gone) references any more.
+   * is truly gone) and no family (#471: photo or other photos) references
+   * any more.
    */
   async sweepOrphanProductPhotos(client: PrismaClientOrTx = prisma): Promise<number> {
     const uploadDir = path.join(process.cwd(), 'uploads', 'products');
@@ -713,12 +872,9 @@ export class InventoryService {
     }
     if (files.length === 0) return 0;
 
-    const referenced = await client.inventoryItem.findMany({
-      where: { photoUrl: { startsWith: LOCAL_PRODUCT_PHOTO_PREFIX } },
-      select: { photoUrl: true },
-    });
+    const referenced = await this.referencedProductPhotos(client);
     const referencedFilenames = new Set(
-      referenced.map((item) => item.photoUrl!.slice(LOCAL_PRODUCT_PHOTO_PREFIX.length)),
+      [...referenced].map((url) => url.slice(LOCAL_PRODUCT_PHOTO_PREFIX.length)),
     );
 
     let deleted = 0;
@@ -744,7 +900,8 @@ export class InventoryService {
 
   private mapInputToDb(data: Partial<InventoryPatch>): Partial<InventoryPatch> {
     return Object.fromEntries(
-      Object.entries(data).filter(([, v]) => v !== undefined)
+      // #471 (lot Z): `isOwned` is no column any more (an older client's `true`, see the schema).
+      Object.entries(data).filter(([key, v]) => v !== undefined && key !== 'isOwned')
     ) as Partial<InventoryPatch>;
   }
 
@@ -754,8 +911,22 @@ export class InventoryService {
    * Single narrow assertion instead of the previous `as unknown as Record`
    * detour — `keyof InventoryItem` is still checked against the real model.
    */
-  private getField(item: InventoryItem, key: string): unknown {
-    return item[key as keyof InventoryItem];
+  private getField(item: object, key: string): unknown {
+    return (item as Record<string, unknown>)[key];
+  }
+
+  /**
+   * #798: whether `patch` moves `item` to another cellar without giving it
+   * new slot coordinates. Its stored coordinates belong to the old cellar,
+   * so it must arrive unplaced rather than claim the same cell in the new one.
+   */
+  private leavesSlotByMove(item: Pick<InventoryItem, 'cellarId'>, patch: InventoryPatch): boolean {
+    return (
+      patch.cellarId !== undefined &&
+      patch.cellarId !== item.cellarId &&
+      patch.slotColumn === undefined &&
+      patch.slotRow === undefined
+    );
   }
 
   /**
@@ -763,7 +934,7 @@ export class InventoryService {
    * patch leaves `undefined` keeps its stored value (`mapInputToDb` drops
    * it); an explicit `fillLevel: null` does overwrite it.
    */
-  private isFinishedAfter(item: InventoryItem, patch: InventoryPatch): boolean {
+  private isFinishedAfter(item: { isOpened: boolean; fillLevel: number | null }, patch: InventoryPatch): boolean {
     return isFinishedItem({
       isOpened: patch.isOpened === undefined ? item.isOpened : patch.isOpened,
       fillLevel: patch.fillLevel === undefined ? item.fillLevel : patch.fillLevel,

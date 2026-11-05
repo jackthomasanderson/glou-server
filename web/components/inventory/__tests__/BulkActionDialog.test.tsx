@@ -13,6 +13,12 @@ vi.mock('@/hooks/useBulkPresets', () => ({
   useCreateBulkPreset: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteBulkPreset: () => ({ mutate: vi.fn(), isPending: false }),
 }));
+vi.mock('@/components/offline/OfflineBlockedButton', () => ({
+  useOfflineBlocked: () => false,
+  OfflineBlockedButton: ({ children, onPress, isDisabled }: { children?: ReactNode; onPress?: () => void; isDisabled?: boolean }) => (
+    <button type="button" onClick={onPress} disabled={isDisabled}>{children}</button>
+  ),
+}));
 vi.mock('@/components/ui/FilterControls', () => ({ FilterChip: () => null }));
 // Closed modals render nothing, like HeroUI's.
 vi.mock('@/components/ui/ResponsiveModal', () => ({
@@ -100,5 +106,28 @@ describe('BulkActionDialog (#705)', () => {
     render(dialog(true, [bottle('b1', null), bottle('b2', ['rouge'])]));
     fireEvent.click(tagsCheckbox());
     expect(screen.getByText('bulk.mixed')).toBeInTheDocument();
+  });
+});
+
+// #471: on a selection of wines, opening or the level of a group of N
+// bottles would turn them into one — only the cellar and the tags are offered.
+describe('BulkActionDialog — selection of wines', () => {
+  it('offers neither the opened state nor the level, and says what is selected', () => {
+    render(
+      <BulkActionDialog
+        open
+        onClose={() => {}}
+        selectedItems={[bottle('a', [])]}
+        onApply={() => {}}
+        t={t}
+        wineSelection
+        subtitle="3 vins, 14 bouteilles"
+      />,
+    );
+    expect(screen.getByText('3 vins, 14 bouteilles')).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'nav.caves' })).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: 'inventory.fields.tags' })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'inventory.fields.isOpened' })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: 'inventory.fields.fillLevel' })).toBeNull();
   });
 });

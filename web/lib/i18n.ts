@@ -3,6 +3,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import HttpBackend from 'i18next-http-backend';
 import { safeReadStorage, safeWriteStorage } from './safe-storage';
+import { frenchTypography } from './frenchTypography';
 
 // ISSUE_383: both locale files (~160KB combined) used to be static imports,
 // so every page's JS bundle carried both languages' full translations even
@@ -26,6 +27,16 @@ import { safeReadStorage, safeWriteStorage } from './safe-storage';
 // so raw keys never flash.
 const LANG_STORAGE_KEY = 'glou:lang';
 
+// #471 (recette v2): a fixed URL let the previous version's service worker
+// answer with the previous translations on the first visit after an update
+// (raw keys, old labels until a reload). NEXT_PUBLIC_LOCALES_VERSION is a
+// fingerprint of public/locales/, set at build time by next.config.mjs
+// (lib/locales-version.mjs): new translations, new URL, never a stale copy.
+// The service worker keeps the fetched file for offline use (FEAT-108).
+export const LOCALES_LOAD_PATH = `/locales/{{lng}}/{{ns}}.json?v=${encodeURIComponent(
+  process.env.NEXT_PUBLIC_LOCALES_VERSION || 'dev',
+)}`;
+
 function initialLanguage(): 'fr' | 'en' {
   if (typeof window === 'undefined') return 'fr';
   // Runs at import, before any page renders: must never throw (#584).
@@ -38,9 +49,11 @@ function initialLanguage(): 'fr' | 'en' {
 i18n
   .use(HttpBackend)
   .use(initReactI18next)
+  .use(frenchTypography)
   .init({
+    postProcess: ['frenchTypography'],
     backend: {
-      loadPath: '/locales/{{lng}}/{{ns}}.json',
+      loadPath: LOCALES_LOAD_PATH,
     },
     lng: initialLanguage(),
     fallbackLng: false,

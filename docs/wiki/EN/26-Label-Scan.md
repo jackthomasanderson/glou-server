@@ -13,8 +13,8 @@ The "Scan a label" button opens the camera, sends the photo to a lightweight sel
 2. Photograph the label on the bottle, spirit, or cigar box, with sharp framing and decent lighting.
 3. Wait during analysis ("Analyzing label…"). Processing is asynchronous and can take tens of seconds on a server without a GPU, since the model runs on CPU by default.
 4. Review and correct the detected fields (name, producer, vintage, category, size). Every field stays editable before you confirm.
-5. If the product looks like something already in stock, a duplicate warning appears (universal deduplication): choose to increment the existing stock or create a new entry.
-6. Click **Confirm and add**. The item is created immediately (no pending draft) and added to the session's "To Shelve" cart.
+5. If the wine is already in your cellar, **You already have this wine** appears (see [05-Bottle-Addition.md](./05-Bottle-Addition.md)): **Add bottles to this wine** (number, cellar, price) or **It's another wine**.
+6. Click **Confirm and add**. The bottles are created immediately (no pending draft) and added to the session's "To Shelve" cart ("Added to your wine", "… spirit", "… cigar" when they join an existing wine).
 7. Click **Scan next item** to keep going without leaving the camera view, for a whole batch of bottles.
 8. Click **Finish** to close the session. The "To Shelve" cart keeps the scan order to ease physical shelving.
 
@@ -41,4 +41,4 @@ The "Scan a label" button opens the camera, sends the photo to a lightweight sel
 | **"This photo could not be sent"** | The photo is over 10 MB or not a JPEG, PNG, WebP or GIF. |
 | **"The label analysis failed for a technical reason"** | Any other failure. The API log (`[scan] Job … failed`) gives the cause. |
 | **Detected info is wrong or incomplete** | Expected with a lightweight vision model: manually correct the fields before clicking "Confirm and add". Nothing is ever saved without your explicit confirmation. |
-| **Duplicate flagged but it's not actually the same product** | Duplicate detection compares name/producer/vintage. If two different bottles have very similar labels, choose to create a new entry instead of incrementing existing stock. |
+| **Duplicate flagged but it's not actually the same product** | Duplicate detection compares name/producer/vintage. If two different bottles have very similar labels, choose **It's another wine** instead of adding to the existing wine. |

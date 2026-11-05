@@ -831,9 +831,11 @@ export class AuthService {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
       include: {
-        inventory: { where: { deletedAt: null } },
+        // #471: each unit with its family, which holds the description.
+        inventory: { where: { deletedAt: null }, include: { product: true } },
         cellars: true,
-        collections: { include: { items: { select: { id: true, name: true } } } },
+        // #471: a collection holds families.
+        collections: { include: { products: { select: { id: true, name: true } } } },
         tastingNotes: true,
         // No `take`: respect the configured retention window (SystemConfig
         // .logRetentionDays, purged by MaintenanceService), not an arbitrary

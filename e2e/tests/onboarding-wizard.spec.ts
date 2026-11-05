@@ -52,11 +52,11 @@ async function expectReachable(locator: Locator, what: string) {
   await expectOnTop(locator, what);
 }
 
-test('first-run wizard: an error toast, the add form and the duplicate choice show above the wizard', async ({ page }) => {
+test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vin" show above the wizard', async ({ page }) => {
   const name = `E2E Wizard ${stamp()}`;
   let cellarId: string | undefined;
   let itemId: string | undefined;
-  let secondItemId: string | undefined;
+  let productId: string | undefined;
 
   try {
     // A cellar makes the wizard resume at "How do you want to add your assets?".
@@ -68,14 +68,14 @@ test('first-run wizard: an error toast, the add form and the duplicate choice sh
 
     await page.goto('/bottles?onboarding=1');
     const wizard = page.getByRole('dialog', { name: 'Assistant de démarrage' });
-    await expect(wizard.getByText('Comment souhaitez-vous ajouter vos actifs ?')).toBeVisible();
+    await expect(wizard.getByText('Comment souhaitez-vous ajouter vos bouteilles ?')).toBeVisible();
 
     // 1. "Create a cellar" fails: its error toast must not hide behind the wizard.
     await wizard.getByRole('button', { name: 'Retour' }).click();
     // A real refusal rather than a mocked one: the API caps a cellar name at
     // 100 characters, the wizard's field does not (a mocked route never caught
     // this request in WebKit, and the cellar got created).
-    await wizard.getByPlaceholder('Ex : Cave à vin').fill('E2E cave refusée '.padEnd(101, 'x'));
+    await wizard.getByPlaceholder(/^Ex\s:\sCave à vin$/).fill('E2E cave refusée '.padEnd(101, 'x'));
     const refused = page.waitForResponse(
       (r) => r.url().match(/\/api\/cellars\/?$/) !== null && r.request().method() === 'POST',
     );
@@ -91,7 +91,7 @@ test('first-run wizard: an error toast, the add form and the duplicate choice sh
     // 2. Manual entry: the add form opens on top and can be saved.
     await wizard.getByRole('button', { name: 'Passer cette étape' }).click();
     await wizard.getByText('Ajout Manuel', { exact: true }).click();
-    await wizard.getByRole('button', { name: 'Ajouter un actif' }).click();
+    await wizard.getByRole('button', { name: 'Ajouter une bouteille' }).click();
 
     const nameInput = page.getByTestId('inventory-name-input');
     await expectOnTop(nameInput, 'the add form');
@@ -105,36 +105,41 @@ test('first-run wizard: an error toast, the add form and the duplicate choice sh
     const res = await created;
     expect(res.status()).toBe(201);
     itemId = (await res.json())?.data?.id as string;
+    productId = (await res.json())?.data?.productId as string;
 
     await expect(nameInput).toBeHidden();
-    await expect(wizard.getByText('1 actif ajouté pour l\'instant')).toBeVisible();
+    await expect(wizard.getByText('1 bouteille ou cigare ajouté pour l\'instant')).toBeVisible();
 
-    // 3. A second bottle of the same wine (AUDIT_006): saving it used to do
-    // nothing at all. The duplicate choice now shows, on top.
-    await wizard.getByRole('button', { name: 'Ajouter un actif' }).click();
+    // 3. A second bottle of the same wine (AUDIT_006, #690): "Vous avez déjà
+    // ce vin" shows on top, as on the inventory page (FEAT-97 c4), and the
+    // bottle joins that wine.
+    await wizard.getByRole('button', { name: 'Ajouter une bouteille' }).click();
     await nameInput.fill(name);
     await page.getByTestId('inventory-producer-input').fill('E2E Domaine');
-    await page.getByTestId('inventory-form-submit').click();
-    const createAnyway = page.getByTestId('duplicate-create-anyway');
-    await expectOnTop(createAnyway, 'the duplicate choice');
-    const createdAgain = page.waitForResponse(
-      (r) => r.url().match(/\/api\/inventory\/?$/) !== null && r.request().method() === 'POST',
-    );
-    await createAnyway.click();
-    const resAgain = await createdAgain;
-    expect(resAgain.status()).toBe(201);
-    secondItemId = (await resAgain.json())?.data?.id as string;
-    await expect(nameInput).toBeHidden();
-    await expect(wizard.getByText('2 actifs ajoutés pour l\'instant')).toBeVisible();
+    const addToKnown = page.getByTestId('known-wine-add');
+    // On a phone the first bottle's success toast sits over the top of the
+    // full-screen form, where the proposal shows: wait for it to go.
+    await expect(page.getByText('Bouteille ajoutée avec succès')).toHaveCount(0, { timeout: 15_000 });
+    await addToKnown.scrollIntoViewIfNeeded();
+    await expectOnTop(addToKnown, 'the "Vous avez déjà ce vin" proposal');
+    await addToKnown.click();
+    const added = page.waitForResponse((r) => /\/api\/products\/[^/]+\/items$/.test(r.url()) && r.request().method() === 'POST');
+    await page.getByTestId('add-units-submit').click();
+    const addedRes = await added;
+    // 201 for a new line, 200 when the bottle completes the identical one (same day, cellar, price).
+    expect(addedRes.ok(), await addedRes.text()).toBe(true);
+    expect((await addedRes.json())?.data?.productId).toBe(productId);
+    await expect(page.getByTestId('add-units-submit')).toBeHidden();
+    await expect(wizard.getByText('2 bouteilles ou cigares ajoutés pour l\'instant')).toBeVisible();
 
     // 4. The wizard carries on to its summary, then hands over to the app.
     await wizard.getByRole('button', { name: 'Terminer l\'ajout' }).click();
-    await expect(wizard.getByText('2 actifs ajoutés à votre inventaire')).toBeVisible();
+    await expect(wizard.getByText('2 bouteilles ou cigares ajoutés à votre inventaire')).toBeVisible();
     await wizard.getByRole('button', { name: 'Accéder au tableau de bord' }).click();
     await expect(wizard).toBeHidden();
   } finally {
-    if (itemId) await page.request.delete(`/api/inventory/${itemId}`);
-    if (secondItemId) await page.request.delete(`/api/inventory/${secondItemId}`);
+    if (productId) await page.request.delete(`/api/products/${productId}`);
+    else if (itemId) await page.request.delete(`/api/inventory/${itemId}`);
     if (cellarId) await page.request.delete(`/api/cellars/${cellarId}`);
   }
 });
@@ -159,7 +164,7 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await page.setViewportSize({ width: 375, height: 553 });
     await page.goto('/bottles?onboarding=1');
     const wizard = page.getByRole('dialog', { name: 'Assistant de démarrage' });
-    const methodTitle = wizard.getByText('Comment souhaitez-vous ajouter vos actifs ?');
+    const methodTitle = wizard.getByText('Comment souhaitez-vous ajouter vos bouteilles ?');
     const close = wizard.getByRole('button', { name: 'Fermer' });
     const back = wizard.getByRole('button', { name: 'Retour' });
     const skip = wizard.getByRole('button', { name: 'Passer cette étape' });
@@ -167,7 +172,7 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await expect(methodTitle).toBeVisible();
     await back.click();
     // A name enables "Create cellar" (a disabled HeroUI button lets taps through).
-    await wizard.getByPlaceholder('Ex : Cave à vin').fill('E2E cave non créée');
+    await wizard.getByPlaceholder(/^Ex\s:\sCave à vin$/).fill('E2E cave non créée');
     await expectReachable(back, 'Back (cellar step, 375 px)');
     await expectReachable(skip, 'Skip this step (cellar step, 375 px)');
     await expectReachable(createCellar, 'Create cellar (375 px)');
@@ -223,7 +228,8 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await confirm.click();
     expect((await imported).ok()).toBe(true);
 
-    await expect(wizard.getByText('6 actifs ajoutés à votre inventaire')).toBeVisible();
+    // #471 (FEAT-99): the import's summary speaks in bottles and wines.
+    await expect(wizard.getByText('Importé : 6 bouteilles · 6 vins')).toBeVisible();
     const finish = wizard.getByRole('button', { name: 'Accéder au tableau de bord' });
     await expectReachable(finish, 'Go to the dashboard');
     await finish.click();

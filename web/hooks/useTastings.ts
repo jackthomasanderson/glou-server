@@ -2,9 +2,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tastingsClient } from '@/lib/tastings/client';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { TastingNote, TastingFormValues, TastingListResult, TastingItemStats, TastingAnalytics } from '@/lib/tastings/types';
+import { PRODUCTS_KEY } from '@/hooks/useProducts';
+import { TastingNote, TastingFormValues, TastingListResult, TastingAnalytics } from '@/lib/tastings/types';
 
 export const TASTINGS_KEY = ['tastings'];
+
+/**
+ * #471 (FEAT-107): a tasting changes its wine's drawer (its tastings), the
+ * list of wines (a "Plus en cave" card's last activity, a wine tasted
+ * elsewhere added without any bottle) and the journal.
+ */
+function refreshAfterTasting(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: TASTINGS_KEY });
+  void queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY, exact: true });
+  void queryClient.invalidateQueries({ queryKey: ['inventory', 'product'] });
+}
 
 export function useTastings(page = 1, limit = 20, itemId?: string, search?: string) {
   return useQuery<TastingListResult>({
@@ -20,7 +32,7 @@ export function useCreateTasting() {
     mutationFn: tastingsClient.create,
     onSuccess: () => notifySuccess('toast.tasting.createSuccess'),
     onError: () => notifyError('toast.tasting.createError'),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: TASTINGS_KEY }),
+    onSettled: () => refreshAfterTasting(queryClient),
   });
 }
 
@@ -30,7 +42,7 @@ export function useUpdateTasting() {
     mutationFn: ({ id, data }) => tastingsClient.update(id, data),
     onSuccess: () => notifySuccess('toast.tasting.updateSuccess'),
     onError: () => notifyError('toast.tasting.updateError'),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: TASTINGS_KEY }),
+    onSettled: () => refreshAfterTasting(queryClient),
   });
 }
 
@@ -40,16 +52,7 @@ export function useDeleteTasting() {
     mutationFn: tastingsClient.delete,
     onSuccess: () => notifySuccess('toast.tasting.deleteSuccess'),
     onError: () => notifyError('toast.tasting.deleteError'),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: TASTINGS_KEY }),
-  });
-}
-
-export function useTastingItemStats(itemId: string | undefined) {
-  return useQuery<TastingItemStats | null>({
-    queryKey: [...TASTINGS_KEY, 'stats', itemId],
-    queryFn: () => tastingsClient.itemStats(itemId!),
-    enabled: !!itemId,
-    staleTime: 1000 * 30,
+    onSettled: () => refreshAfterTasting(queryClient),
   });
 }
 

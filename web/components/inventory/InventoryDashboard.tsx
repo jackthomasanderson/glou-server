@@ -4,40 +4,49 @@ import dynamic from 'next/dynamic';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
-import { Plus, Search, Warehouse, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
+import { Plus, Search, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
 import Link from 'next/link';
-import { useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
-import { glouKey, readStorageMigrating, safeWriteStorage } from '@/lib/safe-storage';
-import { isFinishedItem, isOwnedItem } from '@/lib/inventory/ownership';
-import { newestCopy } from '@/lib/inventory/newestCopy';
+import type { Product } from '@/lib/products/types';
+import { describeStock, wineName } from '@/lib/products/stock';
+import { isGone } from '@/lib/products/filters';
+import { familyIdOf } from '@/lib/products/fromFlat';
+import { inventoryClient } from '@/lib/inventory/client';
+import { isFinishedState } from '@shared/units';
+import { formatDate } from '@/lib/format';
 import {
-  INVENTORY_KEY,
   useInventory,
   useInventoryTruncated,
   useCreateInventoryItem,
   useUpdateInventoryItem,
-  useDeleteInventoryItem,
-  useRestoreInventoryItem,
   useBulkUpdateInventoryItem,
 } from '@/hooks/useInventory';
+import { useProducts, useProductsTruncated, useTrashProduct, useRestoreProduct } from '@/hooks/useProducts';
 import { useCellars } from '@/hooks/useCellars';
-import { useCollections, useAddItemsToCollection, useRemoveItemFromCollection } from '@/hooks/useCollections';
+import {
+  useCollections, useAddItemsToCollection, useRemoveItemFromCollection,
+} from '@/hooks/useCollections';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useInventoryFilters } from '@/hooks/useInventoryFilters';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
-import { useDuplicateResolution } from '@/hooks/useDuplicateResolution';
 import { useScanAvailability } from '@/hooks/useScan';
 import { InventoryCardSkeleton } from './InventoryCard';
 import type { InventoryCategory } from '@/lib/inventory/types';
+import type { InventoryEntry } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { notifySuccess } from '@/lib/toast';
 import { applyCollectionChanges } from '@/lib/collections/sync';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
+import { BulkWinesDialog, type BulkWinesActionName } from './BulkWinesDialog';
+import { bulkSummary } from '@/lib/products/bulk';
 import { InventoryListRowSkeleton } from './InventoryListRow';
 import { InventoryGridView } from './InventoryGridView';
 import { InventoryListView } from './InventoryListView';
+import { InventoryStatsLine } from './InventoryStatsLine';
+import { InventoryBanners } from './InventoryBanners';
+import { TrashWineDialog } from './TrashWineDialog';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -47,9 +56,10 @@ import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
 
 // Screens that only appear after an action are split out of the page's first
 // load; they open behind a click, so a null placeholder is invisible.
+const EditWineDialog = dynamic(() => import('./EditWineDialog').then((m) => m.EditWineDialog), { ssr: false, loading: () => null });
 const InventoryForm = dynamic(() => import('./InventoryForm').then((m) => m.InventoryForm), { ssr: false, loading: () => null });
-const InventoryDetailDialog = dynamic(() => import('./InventoryDetailDialog').then((m) => m.InventoryDetailDialog), { ssr: false, loading: () => null });
-const DuplicateDialog = dynamic(() => import('./DuplicateDialog').then((m) => m.DuplicateDialog), { ssr: false, loading: () => null });
+const FamilyDrawer = dynamic(() => import('./FamilyDrawer').then((m) => m.FamilyDrawer), { ssr: false, loading: () => null });
+const AddUnitsAction = dynamic(() => import('./AddUnitsDialog').then((m) => m.AddUnitsAction), { ssr: false, loading: () => null });
 const ScanFlow = dynamic(() => import('./ScanFlow').then((m) => m.ScanFlow), { ssr: false, loading: () => null });
 
 type UIMode = 'idle' | 'creating' | 'editing';
@@ -74,52 +84,52 @@ function getIsMobileServerSnapshot() {
   return false;
 }
 
-const NO_CELLAR_BANNER_KEY = glouKey('no-cellar-banner-dismissed');
-
 export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardProps) {
-  const queryClient = useQueryClient();
-  const { data: items, isLoading, isError, refetch, isRefetching } = useInventory();
-  const isTruncated = useInventoryTruncated();
+  const { i18n } = useTranslation();
+  // #471: the list shows wines (families); the flat bottles still back the
+  // drawer, the edit form, QR codes, duplicates and bulk actions until their lots.
+  const { data: products, isLoading, isError, refetch, isRefetching } = useProducts();
+  const { data: items } = useInventory();
+  const productsTruncated = useProductsTruncated();
+  const itemsTruncated = useInventoryTruncated();
+  const isTruncated = productsTruncated || itemsTruncated;
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
   const createMutation = useCreateInventoryItem();
   const updateMutation = useUpdateInventoryItem();
-  const deleteMutation = useDeleteInventoryItem();
-  const restoreMutation = useRestoreInventoryItem();
+  const trashMutation = useTrashProduct();
+  const restoreMutation = useRestoreProduct();
   const addItemsToCollectionMutation = useAddItemsToCollection();
   const removeItemFromCollectionMutation = useRemoveItemFromCollection();
   const hasMounted = useHasMounted();
 
-  // FEAT-16/23: items with an offline mutation still sitting in the local
-  // sync queue get a small "pending" indicator on their card/row.
+  // FEAT-16/23: wines with a bottle change still sitting in the local sync
+  // queue get a small "pending" indicator on their card/row.
   const { queue: offlineSyncQueue } = useOfflineSync();
-  const pendingSyncItemIds = useMemo(
-    () => new Set(offlineSyncQueue.map((m) => m.itemId)),
-    [offlineSyncQueue]
-  );
+  const pendingSyncIds = useMemo(() => {
+    const queuedItemIds = new Set(offlineSyncQueue.map((m) => m.itemId));
+    const ids = new Set<string>();
+    for (const item of items ?? []) if (queuedItemIds.has(item.id) && item.productId) ids.add(item.productId);
+    for (const product of products ?? []) {
+      if (product.items.some((unit) => queuedItemIds.has(unit.id))) ids.add(product.id);
+    }
+    return ids;
+  }, [offlineSyncQueue, items, products]);
 
   const [mode, setMode] = useState<UIMode>('idle');
   const [scanOpen, setScanOpen] = useState(false);
   const scanAvailable = useScanAvailability();
-  // Only rendered once `cellars` has loaded client-side, so reading storage lazily is hydration-safe.
-  const [noCellarBannerDismissed, setNoCellarBannerDismissed] = useState(() => {
-    return readStorageMigrating('local', NO_CELLAR_BANNER_KEY, 'glou.noCellarBannerDismissed') === '1';
-  });
-  const dismissNoCellarBanner = useCallback(() => {
-    setNoCellarBannerDismissed(true);
-    safeWriteStorage('local', NO_CELLAR_BANNER_KEY, '1');
-  }, []);
-  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
-  // #572: the version the open edit form's save must still find on the
-  // server, so a change made meanwhile by someone else is not overwritten.
-  // Moves on with each save that went through: one whose collections then
-  // failed keeps the form open, and its retry must not conflict with itself.
-  const [editingVersion, setEditingVersion] = useState<string | null>(null);
-  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
-  const [undoTarget, setUndoTarget] = useState<InventoryItem | null>(null);
+  // #471 (FEAT-92 c4): "Modifier" edits the wine's description, for all its bottles.
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingFromDrawer, setEditingFromDrawer] = useState(false);
+  // #471: the drawer shows a wine (family), any wine — one without bottle included.
+  const [viewingProductId, setViewingProductId] = useState<string | null>(null);
+  const [undoTarget, setUndoTarget] = useState<Product | null>(null);
 
   const bulkUpdateMutation = useBulkUpdateInventoryItem();
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+  // #471 (FEAT-111): "Déplacer", "Marquer comme bus", "Mettre à la corbeille" on the wines selected.
+  const [winesAction, setWinesAction] = useState<BulkWinesActionName | null>(null);
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -136,7 +146,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     maxValue, setMaxValue,
     sortBy, setSortBy,
     openedFilter, setOpenedFilter,
-    showReferences, setShowReferences,
+    showGone, setShowGone,
     isFiltersOpen, toggleFilters,
     tagSearchQuery, setTagSearchQuery,
     showAllTags, setShowAllTags,
@@ -144,39 +154,55 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     baseItems,
     filteredItems,
     hasActiveFilters,
-  } = useInventoryFilters({ items, cellars, lockedCategories, t, hasMounted });
+  } = useInventoryFilters({ products, cellars, lockedCategories, t, hasMounted });
 
   // #504: the counters answer "how many do I hold here?": the chosen section
-  // only, never non-owned references, and finished bottles counted apart.
-  const stats = useMemo(() => {
-    const owned = baseItems.filter(isOwnedItem);
-    const inSection = selectedCategories.length > 0
-      ? owned.filter((b) => selectedCategories.includes(b.category))
-      : owned;
-    const held = inSection.filter((b) => !isFinishedItem(b));
-    return { held, finished: inSection.length - held.length };
-  }, [baseItems, selectedCategories]);
+  // only, what is in stock whatever the list shows ("Plus en cave" included),
+  // and the bottles drunk or gone counted apart (§10.6).
+  const inSection = useCallback(
+    (category: string) =>
+      (!lockedCategories?.length || lockedCategories.includes(category)) &&
+      (selectedCategories.length === 0 || selectedCategories.includes(category)),
+    [lockedCategories, selectedCategories],
+  );
+  const statsProducts = useMemo(
+    () => (products ?? []).filter((p) => inSection(p.category) && !isGone(p)),
+    [products, inSection],
+  );
+  const goneCount = useMemo(
+    () => (items ?? []).reduce((count, item) => {
+      if (item.deletedAt || !inSection(item.category)) return count;
+      const out = (item as InventoryItem & { writtenOffAt?: string | null }).writtenOffAt;
+      if (out) return count + Math.max(item.quantity ?? 1, 0);
+      return isFinishedState({ isOpened: item.isOpened, fillLevel: item.fillLevel ?? null }) ? count + 1 : count;
+    }, 0),
+    [items, inSection],
+  );
 
-  // Auto-open bottle from QR scan (FEAT-10). Kept out of useInventoryFilters
-  // because it needs `setViewingItem`, dashboard-local UI state unrelated to
-  // filtering — see the hook's file header for the full rationale.
+  // Auto-open from a QR scan or a notification (FEAT-10, a bottle's id) or
+  // the search (a wine's id): the drawer of the wine, in both cases (#471).
+  // Kept out of useInventoryFilters: it drives dashboard-local UI state.
   useEffect(() => {
     const scanParam = searchParams.get('scan');
-    if (scanParam && items) {
-      const found = items.find((i) => i.id === scanParam);
-      if (found) {
-        // Paired with the router.replace() below (an external navigation
-        // side effect that must stay in an effect) — splitting this
-        // setState out to render-time would desync it from the URL cleanup.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setViewingItem(found);
-        // Remove ?scan= from URL to avoid reopening on refresh
-        const next = new URLSearchParams(searchParams.toString());
-        next.delete('scan');
-        router.replace(`${pathname}${next.toString() ? `?${next.toString()}` : ''}`);
-      }
+    if (!scanParam || !products) return;
+    let cancelled = false;
+    const open = (productId: string | undefined) => {
+      if (cancelled) return;
+      const next = new URLSearchParams(searchParams.toString());
+      next.delete('scan');
+      if (productId) setViewingProductId(productId);
+      // Remove ?scan= from URL to avoid reopening on refresh
+      router.replace(`${pathname}${next.toString() ? `?${next.toString()}` : ''}`);
+    };
+    const known = familyIdOf(scanParam, products, items);
+    if (known) {
+      open(known);
+    } else {
+      // A bottle the lists do not hold (beyond their cap, or not loaded yet).
+      void inventoryClient.get(scanParam).then((item) => open(item.productId), () => open(undefined));
     }
-  }, [searchParams, items, pathname, router]);
+    return () => { cancelled = true; };
+  }, [searchParams, items, products, pathname, router]);
 
   const {
     bulkMode, setBulkMode,
@@ -210,7 +236,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   // values so each reset only fires on an actual change.
   const filterSortKey = [
     searchQuery, selectedCategories, selectedCellars, selectedTags,
-    selectedWineColors, minValue, maxValue, sortBy, openedFilter, showReferences, selectedCollectionId,
+    selectedWineColors, minValue, maxValue, sortBy, openedFilter, showGone, selectedCollectionId,
   ];
   const [prevFilterSortKey, setPrevFilterSortKey] = useState(filterSortKey);
   if (filterSortKey.some((v, i) => v !== prevFilterSortKey[i])) {
@@ -239,25 +265,45 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     [addItemsToCollectionMutation, removeItemFromCollectionMutation]
   );
 
-  const {
-    duplicateFound,
-    duplicateCandidate,
-    handleCreate,
-    handleDuplicateIncrement,
-    handleDuplicateCreateAnyway,
-    handleDuplicateCancel,
-  } = useDuplicateResolution({
-    items,
-    createMutation,
-    updateMutation,
-    syncCollections,
-    onResolved: () => setMode('idle'),
-  });
+  // #471 (FEAT-97): a wine of the same name is proposed while typing ("Vous
+  // avez déjà ce vin"); a submitted entry is a new wine. A failure is told
+  // by the mutation's toast and leaves the form open with the entry.
+  const handleCreate = useCallback(
+    async (values: InventoryEntry, collectionIds: string[]) => {
+      try {
+        const created = await createMutation.mutateAsync(values);
+        setMode('idle');
+        if (collectionIds.length > 0) await syncCollections(created.id, collectionIds, []);
+      } catch {
+        // Reported by the mutation's onError toast.
+      }
+    },
+    [createMutation, syncCollections],
+  );
+
+  // The bulk edit (tags, presets) writes the bottles in stock of the wines
+  // selected; the other bulk actions name the wines (BulkWinesDialog).
+  const selectedItemIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const product of products ?? []) {
+      if (selectedIds.has(product.id)) for (const unit of product.items) ids.add(unit.id);
+    }
+    return ids;
+  }, [products, selectedIds]);
+
+  const isCigarPage = Boolean(lockedCategories?.includes('cigar'));
+  // FEAT-111: the wines still in the cellar and their bottles, as the bulk dialogs count them.
+  const bulkSubtitle = useMemo(
+    () => bulkSummary(products ?? [], selectedIds, isCigarPage, t),
+    [products, selectedIds, isCigarPage, t],
+  );
 
   const handleBulkApply = useCallback(
     (patch: Partial<InventoryItem>) => {
+      // Wines with nothing left have no bottle to change.
+      if (selectedItemIds.size === 0) return;
       bulkUpdateMutation.mutate(
-        { ids: Array.from(selectedIds), patch },
+        { ids: Array.from(selectedItemIds), patch },
         {
           onSuccess: (res) => {
             // Plain success toast, not an UndoToast: a bulk update has no
@@ -270,40 +316,33 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         }
       );
     },
-    [selectedIds, bulkUpdateMutation, setBulkMode, clearSelection]
+    [selectedItemIds, bulkUpdateMutation, setBulkMode, clearSelection]
   );
 
-  const handleUpdate = useCallback(
-    async (values: Partial<InventoryItem>, newCollectionIds: string[]) => {
-      if (!editingItem) return;
-      try {
-        // Only the collections changed: no PATCH, which would bump the version for nothing.
-        if (Object.keys(values).length > 0) {
-          const saved = await updateMutation.mutateAsync({
-            id: editingItem.id,
-            patch: values,
-            expectedUpdatedAt: editingVersion ?? editingItem.updatedAt,
-          });
-          setEditingVersion(saved.updatedAt);
-        }
-        const oldIds = (editingItem.collections ?? []).map(c => c.id);
-        await syncCollections(editingItem.id, newCollectionIds, oldIds);
-      } catch {
-        // Reported by the update's onError toast or by applyCollectionChanges; keep the form open.
-        return;
-      }
-      notifySuccess('toast.updateSuccess');
-      setMode('idle');
-      setEditingItem(null);
-    },
-    [editingItem, editingVersion, updateMutation, syncCollections]
-  );
 
-  const handleDelete = useCallback(
-    (item: InventoryItem) => {
-      deleteMutation.mutate(item.id, { onSuccess: () => setUndoTarget(item) });
+  // The description only: a bottle's field is never sent (the API refuses it).
+  // Collections go to the wine (#471), with all its bottles.
+  const handleUpdated = useCallback((product: Product) => {
+    setMode('idle');
+    setEditingProduct(null);
+    // Opened from the drawer: back to it, which shows the new description.
+    if (editingFromDrawer) setViewingProductId(product.id);
+  }, [editingFromDrawer]);
+
+  // "Mettre ce vin à la corbeille": the wine and all its bottles (D10), once
+  // confirmed with the total (§10.4.7).
+  const [trashTarget, setTrashTarget] = useState<Product | null>(null);
+  const handleDelete = useCallback((product: Product) => setTrashTarget(product), []);
+  const confirmTrash = useCallback(
+    (product: Product) => {
+      trashMutation.mutate(product.id, {
+        onSuccess: () => {
+          setTrashTarget(null);
+          setUndoTarget(product);
+        },
+      });
     },
-    [deleteMutation]
+    [trashMutation]
   );
 
   const handleUndo = useCallback(() => {
@@ -312,24 +351,41 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setUndoTarget(null);
   }, [undoTarget, restoreMutation]);
 
-  // The copy handed over may predate a change made since (e.g. the fill level
-  // set in the detail window): the form must open with the latest one.
-  const handleEdit = useCallback((item: InventoryItem) => {
-    const latest = newestCopy(
-      item,
-      queryClient.getQueryData<InventoryItem>(['inventory', item.id]),
-      queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((i) => i.id === item.id),
-    );
-    setEditingItem(latest);
-    setEditingVersion(latest.updatedAt);
+
+  // From a card or from the drawer: the wine as last known (the drawer's
+  // detail is newer than the list right after a change).
+  const startEdit = useCallback((product: Product, fromDrawer: boolean) => {
+    setViewingProductId(null);
+    setEditingProduct(product);
+    setEditingFromDrawer(fromDrawer);
     setMode('editing');
-  }, [queryClient]);
+  }, []);
+  const handleEdit = useCallback((product: Product) => startEdit(product, false), [startEdit]);
+  const handleEditFromDrawer = useCallback((product: Product) => startEdit(product, true), [startEdit]);
 
-  const handleView = useCallback((item: InventoryItem) => setViewingItem(item), []);
-  const handleCancel = useCallback(() => { setMode('idle'); setEditingItem(null); }, []);
+  const handleView = useCallback((product: Product) => setViewingProductId(product.id), []);
+  const handleCancel = useCallback(() => {
+    // Opened from the drawer: closing the form goes back to it.
+    if (mode === 'editing' && editingFromDrawer && editingProduct) setViewingProductId(editingProduct.id);
+    setMode('idle');
+    setEditingProduct(null);
+  }, [mode, editingFromDrawer, editingProduct]);
 
-  // `cellars` is undefined while loading: only warn once we know there are none.
-  const noCellars = cellars !== undefined && cellars.length === 0;
+  const cellarNames = useMemo(() => new Map((cellars ?? []).map((c) => [c.id, c.name])), [cellars]);
+  const cellarNameOf = useCallback((product: Product) => {
+    const ids = new Set(product.items.map((unit) => unit.cellarId));
+    const [only] = ids;
+    return ids.size === 1 && only ? cellarNames.get(only) : undefined;
+  }, [cellarNames]);
+  const stockOf = useCallback(
+    (product: Product) => describeStock(product, t, {
+      cellarIds: selectedCellars,
+      formatDate: (iso) => formatDate(iso, i18n.language, { day: 'numeric', month: 'short', year: 'numeric' }),
+    }),
+    [t, selectedCellars, i18n.language],
+  );
+  // A cigars-only page speaks of cigars and the humidor, not of bottles.
+  const emptyCtx = lockedCategories?.length === 1 && lockedCategories[0] === 'cigar' ? { context: 'cigar' } : undefined;
   const categoryLabel = (cat: string) => t(`categories.${cat}`);
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
 
@@ -342,7 +398,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     t,
     lockedCategories,
     cellars,
-    items,
+    products,
     isFiltersOpen,
     hasActiveFilters,
     onClearFilters: clearFilters,
@@ -361,8 +417,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     sortBy,
     setSortBy,
     openedFilter,
-    showReferences,
-    setShowReferences,
+    showGone,
+    setShowGone,
     setOpenedFilter,
     tagSearchQuery,
     setTagSearchQuery,
@@ -376,7 +432,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   // also gets the setter of the same selection (and ignores the card toggle).
   const itemsViewProps = {
     items: paginatedItems,
-    cellars,
+    stockOf,
+    cellarNameOf,
     categoryLabel,
     onEdit: handleEdit,
     onDelete: handleDelete,
@@ -386,7 +443,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     selectedIds,
     anchorId,
     onSelectToggle: handleSelectToggle,
-    pendingSyncItemIds,
+    pendingSyncIds,
     page: currentPage,
     totalPages,
     totalItems: filteredItems.length,
@@ -420,33 +477,16 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         </Button>
       </div>
 
-      {/* #475: the list is capped server-side; never let the oldest items
-          vanish silently from the list, the search and duplicate checks. */}
-      {isTruncated && (
-        <div role="status" className="mb-4 px-4 py-3 rounded-xl text-sm border bg-warning-50 border-warning-200 text-warning-700">
-          {t('inventory.truncated', { limit: 2000 })}
-        </div>
-      )}
+      <InventoryBanners t={t} isTruncated={isTruncated} cellars={cellars} />
 
-      {/* Stats row */}
-      {!isLoading && baseItems.length > 0 && mode === 'idle' && (
-        <div className="mb-5">
-          <div className="flex gap-3 sm:gap-4">
-            {[
-              { value: stats.held.length, label: t('inventory.stats.total'), color: '' },
-              { value: stats.held.filter(b => !b.isOpened).length, label: t('inventory.stats.full'), color: 'text-success-700' },
-              { value: stats.held.filter(b => b.isOpened).length, label: lockedCategories?.includes('cigar') ? t('inventory.stats.openedCigar') : t('inventory.stats.opened'), color: 'text-warning-700' },
-            ].map(({ value, label, color }) => (
-              <div key={label} className="flex-1 border border-divider rounded-xl p-3 sm:p-4 text-center">
-                <p className={`text-2xl font-bold leading-tight ${color}`}>{value}</p>
-                <p className="text-xs text-foreground-500 mt-1">{label}</p>
-              </div>
-            ))}
-          </div>
-          {stats.finished > 0 && (
-            <p className="text-xs text-foreground-500 mt-2">{t('inventory.stats.finished', { count: stats.finished })}</p>
-          )}
-        </div>
+      {!isLoading && (statsProducts.length > 0 || goneCount > 0) && mode === 'idle' && (
+        <InventoryStatsLine
+          products={statsProducts}
+          goneCount={goneCount}
+          isCigarPage={Boolean(lockedCategories?.includes('cigar'))}
+          pageCategories={selectedCategories.length > 0 ? selectedCategories : lockedCategories}
+          t={t}
+        />
       )}
 
       {/* Main layout */}
@@ -470,7 +510,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               <PageSizeToggle value={pageSize} onChange={setPageSize} />
             </div>
             <div className="flex flex-wrap gap-2 items-center">
-              {items && items.length > 0 && (
+              {products && products.length > 0 && (
                 <InventoryBulkToggleButton bulkMode={bulkMode} onToggle={toggleBulkMode} t={t} />
               )}
               {scanAvailable && (
@@ -499,23 +539,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               </Button>
             </div>
           </div>
-
-          {noCellars && !noCellarBannerDismissed && (
-            <div
-              role="status"
-              data-testid="no-cellar-banner"
-              className="flex flex-wrap items-center gap-2 rounded-lg border border-divider bg-default-100 px-3 py-2 mb-3 text-sm"
-            >
-              <Warehouse size={16} className="text-foreground-500 shrink-0" />
-              <span className="flex-1 min-w-0">{t('inventory.noCellarBanner')}</span>
-              <Button as={Link} href="/cellars" size="sm" variant="flat" color="primary">
-                {t('inventory.noCellarBannerAction')}
-              </Button>
-              <Button size="sm" variant="light" onPress={dismissNoCellarBanner}>
-                {t('actions.dismiss')}
-              </Button>
-            </div>
-          )}
 
           {/* Mobile: collapsible filter */}
           <InventoryFilterBar variant="mobile" {...filterBarProps} />
@@ -546,8 +569,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Form dialog */}
           <InventoryForm
-            open={mode !== 'idle'}
-            initialValues={mode === 'editing' && editingItem ? editingItem : undefined}
+            open={mode === 'creating'}
             defaultCategory={
               lockedCategories?.length === 1
                 ? (lockedCategories[0] as InventoryCategory)
@@ -555,12 +577,14 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 ? (selectedCategories[0] as InventoryCategory)
                 : undefined
             }
-            onSubmit={mode === 'creating' ? handleCreate : handleUpdate}
+            onSubmit={handleCreate}
             onClose={handleCancel}
-            isSubmitting={createMutation.isPending || updateMutation.isPending || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
+            isSubmitting={createMutation.isPending || updateMutation.isPending
+              || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
             t={t}
-            onScanRequested={mode === 'creating' && scanAvailable ? () => { setMode('idle'); setScanOpen(true); } : undefined}
+            onScanRequested={scanAvailable ? () => { setMode('idle'); setScanOpen(true); } : undefined}
           />
+          <EditWineDialog product={mode === 'editing' ? editingProduct : null} onClose={handleCancel} onSaved={handleUpdated} />
 
           {/* Loading skeletons */}
           {isLoading && effectiveViewMode === 'grid' && (
@@ -586,11 +610,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               {/* `baseItems` (not `items`) so a category-scoped page — /cigars
                   with a wine-only inventory — gets the empty state instead of
                   a blank zone. */}
-              {items && baseItems.length === 0 ? (
+              {products && baseItems.length === 0 && !hasActiveFilters ? (
                 <EmptyState
                   bordered
-                  title={t('inventory.noBottles')}
-                  description={t('inventory.noBottlesDesc')}
+                  title={t('inventory.noBottles', emptyCtx)}
+                  description={t('inventory.noBottlesDesc', emptyCtx)}
                   action={
                     <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
                       {t('inventory.add')}
@@ -649,7 +673,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       {/* Toasts */}
       {undoTarget && (
         <UndoToast
-          message={t('toast.deleteSuccess')}
+          message={t('familyList.trash.done', { name: wineName(undoTarget) })}
           undoLabel={t('actions.undo')}
           onUndo={handleUndo}
           onExpire={() => setUndoTarget(null)}
@@ -658,34 +682,50 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       <InventoryBulkBar
         t={t}
         bulkMode={bulkMode}
-        selectedIds={selectedIds}
+        selectedIds={selectedItemIds}
+        selectedCount={selectedIds.size}
+        wineSelection
+        subtitle={bulkSubtitle}
         items={items}
         isBulkDialogOpen={isBulkDialogOpen}
         onOpenDialog={() => setIsBulkDialogOpen(true)}
         onCloseDialog={() => setIsBulkDialogOpen(false)}
         onApply={handleBulkApply}
         isSubmitting={bulkUpdateMutation.isPending}
+        onWinesAction={setWinesAction}
+        cigars={isCigarPage}
+      />
+      <BulkWinesDialog
+        action={winesAction}
+        products={products ?? []}
+        selectedIds={selectedIds}
+        cigars={isCigarPage}
+        viewedCellarIds={selectedCellars}
+        onClose={() => setWinesAction(null)}
+        onDone={() => {
+          setWinesAction(null);
+          setBulkMode(false);
+          clearSelection();
+        }}
       />
 
-      <InventoryDetailDialog
-        item={viewingItem}
-        open={Boolean(viewingItem)}
-        onClose={() => setViewingItem(null)}
-        onEdit={handleEdit}
+      <TrashWineDialog
+        product={trashTarget}
+        onConfirm={confirmTrash}
+        onClose={() => setTrashTarget(null)}
+        isPending={trashMutation.isPending}
         t={t}
       />
 
-      {duplicateFound && duplicateCandidate && (
-        <DuplicateDialog
-          duplicate={duplicateFound}
-          candidate={duplicateCandidate}
-          cellars={cellars ?? []}
-          t={t}
-          onIncrement={handleDuplicateIncrement}
-          onCreateAnyway={handleDuplicateCreateAnyway}
-          onCancel={handleDuplicateCancel}
-        />
-      )}
+      <FamilyDrawer
+        productId={viewingProductId}
+        onClose={() => setViewingProductId(null)}
+        onEdit={handleEditFromDrawer}
+        // FEAT-104 c3: "Quelles bouteilles ?" preselects the line of the cellars filtered on.
+        viewedCellarIds={selectedCellars}
+        // #471 (FEAT-92 c2, FEAT-101 c3, FEAT-95): "Ajouter des bouteilles" / "Ajouter des cigares".
+        primaryAction={(product) => <AddUnitsAction product={product} />}
+      />
 
       <ScanFlow open={scanOpen} onClose={() => setScanOpen(false)} t={t} />
     </div>

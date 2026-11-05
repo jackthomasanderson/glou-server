@@ -1,25 +1,31 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Button, Input, Textarea, Select, SelectItem, Autocomplete, AutocompleteItem,
+  Button, Input, Textarea, Select, SelectItem, Autocomplete, AutocompleteItem, RadioGroup, Radio,
 } from '@heroui/react';
 import { Star, FlaskConical } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { TastingFormValues, TastingReadiness } from '@/lib/tastings/types';
 import { useCreateTasting, useUpdateTasting } from '@/hooks/useTastings';
-import { useInventory, useInventoryItemLookup, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { REATTACH_REFUSALS, useInventoryItemLookup, useUpdateInventoryItem } from '@/hooks/useInventory';
+import { useProducts } from '@/hooks/useProducts';
+import { useCellars } from '@/hooks/useCellars';
 import { ServiceRecommendations } from './ServiceRecommendations';
 import { useTranslation } from 'react-i18next';
-import { InventoryItem } from '@/lib/inventory/types';
+import { InventoryCategory, InventoryItem } from '@/lib/inventory/types';
+import { CATEGORY_VALUES } from '@shared/inventory';
+import { unitKind } from '@shared/units';
+import { familyLines, formatPurchaseDay, lineParts, type LineContext } from '@/lib/products/lines';
+import { formatCurrency, formatDate } from '@/lib/format';
+import { isValidVintage, parseYear, tastingLinePreset, tastingPayload, wineOptionLabel } from '@/lib/tastings/onWine';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { notifyError } from '@/lib/toast';
-import { applyStockChoice, stockChoicesFor, type StockChoice } from '@/lib/tastings/stockChoice';
+import { applyStockChoice, smokeOutcome, stockChoicesFor, type StockChoice } from '@/lib/tastings/stockChoice';
 import { blankTastingValues } from '@/lib/tastings/formValues';
-import { isOwnedItem } from '@/lib/inventory/ownership';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -27,49 +33,71 @@ const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'P
 interface TastingFormProps {
   open: boolean;
   onClose: () => void;
+  /** The bottle tasted, preset (a line of the cellar). */
   initialItemId?: string;
+  /** #471 (FEAT-107): the wine tasted, fixed (its drawer). */
+  initialProductId?: string;
   // FEAT-09: pre-fills the food pairing field when the form is opened from
   // the "Consommer maintenant" action of the dish → bottles pairing explorer.
   initialFoodPairing?: string;
   editNote?: { id: string; values: TastingFormValues };
 }
 
-export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, editNote }: TastingFormProps) {
-  const { t } = useTranslation();
-  const { data: items } = useInventory();
+export function TastingForm({ open, onClose, initialItemId, initialProductId, initialFoodPairing, editNote }: TastingFormProps) {
+  const { t, i18n } = useTranslation();
+  const lang = i18n.language;
+  const { data: products } = useProducts({ enabled: open });
+  const { data: cellars } = useCellars();
   const createMutation = useCreateTasting();
   const updateMutation = useUpdateTasting();
   const updateInventory = useUpdateInventoryItem();
   const lookUpItem = useInventoryItemLookup();
   const isExpert = useExpertMode();
-  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  // The tasted item as it was when the stock question was asked.
-  const [stockQuestion, setStockQuestion] = useState<{ itemId: string; item?: InventoryItem } | null>(null);
+  // The tasted item as it was when the stock question was asked, and the
+  // tasting it was noted with (it follows a bottle taken off its group).
+  const [stockQuestion, setStockQuestion] = useState<{ itemId: string; item?: InventoryItem; tastingId: string } | null>(null);
+  // #471 (FEAT-107): a wine named instead of picked ("not in the list"), and
+  // whether the tasting is of a bottle of the cellar.
+  const [naming, setNaming] = useState(false);
+  const [onBottle, setOnBottle] = useState(true);
+  // The vintage as typed: "20" on the way to "2020" stays on screen.
+  const [vintageText, setVintageText] = useState('');
+  // What its rule checks: react-hook-form keeps the rule of the field's first
+  // render, so a rule reading the state saw "202" still once "2020" was typed
+  // (acceptance run v3 of #471). Set in event handlers only.
+  const typedVintage = useRef('');
+  const typeVintage = (text: string) => { typedVintage.current = text; setVintageText(text); };
 
   const {
     control,
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<TastingFormValues>({
-    defaultValues: blankTastingValues(initialItemId, initialFoodPairing),
+    defaultValues: blankTastingValues(initialItemId, initialFoodPairing, initialProductId),
   });
 
   const watchedItemId = watch('itemId');
+  const watchedProductId = watch('productId');
+  const namedCategory = watch('wine.category') ?? 'wine';
 
   // The form is filled when the dialog opens or turns to another tasting, not
   // on every render of the parent: a background refetch rebuilds `editNote`
   // and used to wipe what was being typed (#642). Adjusted during render
   // (React's documented pattern), applied by the effect below.
-  const formSession = open ? JSON.stringify([editNote?.id, initialItemId, initialFoodPairing]) : null;
+  const formSession = open ? JSON.stringify([editNote?.id, initialItemId, initialProductId, initialFoodPairing]) : null;
   const [prevFormSession, setPrevFormSession] = useState<string | null>(null);
   const [startValues, setStartValues] = useState<TastingFormValues | null>(null);
   if (formSession !== prevFormSession) {
     setPrevFormSession(formSession);
     if (formSession !== null) {
       // A copy: a draft typed in an earlier session never leaks into this one.
-      setStartValues(editNote ? { ...editNote.values } : blankTastingValues(initialItemId, initialFoodPairing));
+      setStartValues(editNote ? { ...editNote.values } : blankTastingValues(initialItemId, initialFoodPairing, initialProductId));
+      setNaming(false);
+      setOnBottle(true);
+      setVintageText('');
     }
   }
 
@@ -77,14 +105,35 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
     if (startValues) reset(startValues);
   }, [startValues, reset]);
 
+  // A bottle given without its wine (pairing explorer, consumption plan): its wine.
+  const productOfItem = useMemo(
+    () => (watchedItemId ? products?.find((product) => product.items.some((item) => item.id === watchedItemId))?.id : undefined),
+    [products, watchedItemId],
+  );
   useEffect(() => {
-    if (watchedItemId && items) {
-      const found = items.find((i) => i.id === watchedItemId) ?? null;
-      setSelectedItem(found);
-    } else {
-      setSelectedItem(null);
-    }
-  }, [watchedItemId, items]);
+    if (!watchedProductId && productOfItem && !editNote) setValue('productId', productOfItem);
+  }, [watchedProductId, productOfItem, editNote, setValue]);
+  const product = products?.find((candidate) => candidate.id === (watchedProductId ?? productOfItem));
+
+  // §10.3: the lines of the wine in the cellar, as its drawer shows them.
+  const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
+  const lineCtx: LineContext = useMemo(() => ({
+    kind: unitKind(product?.category ?? 'wine'),
+    t,
+    cellarName,
+    formatPrice: (value) => formatCurrency(value, lang),
+    formatDay: (day) => formatPurchaseDay(day, lang),
+    formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
+  }), [product?.category, t, cellarName, lang]);
+  const lines = useMemo(() => familyLines(product?.items ?? [], cellarName), [product?.items, cellarName]);
+  // A wine with no bottle in the cellar is tasted elsewhere: nothing to ask.
+  const asksBottle = !editNote && !naming && lines.inCellar.length > 0;
+  const tastesBottle = asksBottle && onBottle;
+  const preset = tastingLinePreset(lines.inCellar, watchedItemId);
+  useEffect(() => {
+    // The line preset when the wine has one obvious line (an opened bottle, a single line).
+    if (asksBottle && preset && preset.id !== watchedItemId) setValue('itemId', preset.id);
+  }, [asksBottle, preset, watchedItemId, setValue]);
 
   // isSubmitting also covers reading the tasted item's stock after the save.
   const isSaving = createMutation.isPending || updateMutation.isPending || isSubmitting;
@@ -102,17 +151,19 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
   const onSubmit = async (values: TastingFormValues) => {
     try {
       if (editNote) {
-        await updateMutation.mutateAsync({ id: editNote.id, data: values });
+        await updateMutation.mutateAsync({ id: editNote.id, data: tastingPayload(values, { kind: 'edit', itemId: editNote.values.itemId }) });
         onClose();
       } else {
-        const note = await createMutation.mutateAsync(values);
-        // FEAT-87: a non-owned reference has no bottle to mark as opened or
-        // finished, so the stock question is skipped for it, as for an item
-        // with nothing to update (empty box, finished bottle) or whose stock
-        // could not be read.
+        const note = await createMutation.mutateAsync(tastingPayload(values, naming
+          ? { kind: 'named' }
+          // A wine whose lines are not known (list not loaded): the bottle given stays.
+          : { kind: 'listed', onBottle: asksBottle ? onBottle : !product }));
+        // The stock question is skipped for an item with nothing to update
+        // (empty box, finished bottle) or whose stock could not be read. A
+        // wine tasted without a bottle (FEAT-87) has no item to ask about.
         const tastedItem = note.itemId ? await lookUpItem(note.itemId) : undefined;
-        if (note.itemId && tastedItem && isOwnedItem(tastedItem) && stockChoicesFor(tastedItem).length > 0) {
-          setStockQuestion({ itemId: note.itemId, item: tastedItem });
+        if (note.itemId && tastedItem && stockChoicesFor(tastedItem).length > 0) {
+          setStockQuestion({ itemId: note.itemId, item: tastedItem, tastingId: note.id });
         } else {
           onClose();
         }
@@ -127,8 +178,10 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
       ? await applyStockChoice(
           choice,
           stockQuestion.item,
-          (patch) => updateInventory.mutateAsync({ id: stockQuestion.itemId, patch }),
-          () => notifyError('tastings.stockUpdate.error'),
+          // FEAT-107 c3: "Bue" on a bottle of a ×6 leaves a ×5 and a finished bottle holding the tasting.
+          (patch) => updateInventory.mutateAsync({ id: stockQuestion.itemId, patch: { ...patch, tastingId: stockQuestion.tastingId } }),
+          // A refusal with its own message (a cigar already smoked…) was told by the mutation.
+          (error) => { if (!(error instanceof Error && error.message in REATTACH_REFUSALS)) notifyError('tastings.stockUpdate.error'); },
         )
       : true;
     if (!canClose) return;
@@ -136,10 +189,12 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
     onClose();
   };
 
-  const inventoryOptions = items?.filter((i) => !i.deletedAt) ?? [];
+  const wineOptions = products ?? [];
+  const isCigar = (naming ? namedCategory : product?.category) === 'cigar';
   const hasError = !!(createMutation.error || updateMutation.error);
   const showStockDialog = !!stockQuestion;
   const stockChoices = stockQuestion ? stockChoicesFor(stockQuestion.item) : [];
+  const smoke = smokeOutcome(stockQuestion?.item);
 
   return (
     <>
@@ -167,35 +222,175 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                   </div>
                 )}
 
-                {/* Item selector */}
-                <Controller
-                  name="itemId"
-                  control={control}
-                  rules={{ required: t('tastings.errors.required') }}
-                  render={({ field }) => (
-                    <Autocomplete
-                      label={`${t('tastings.fields.item')} *`}
-                      isDisabled={!!initialItemId}
-                      isInvalid={!!errors.itemId}
-                      errorMessage={errors.itemId?.message}
-                      defaultItems={inventoryOptions}
-                      selectedKey={field.value ?? null}
-                      onSelectionChange={(key) => field.onChange(key ?? '')}
-                      variant="bordered"
-                    >
-                      {(item) => (
-                        <AutocompleteItem key={item.id}>
-                          {`${item.name} — ${item.producer}${item.vintage ? ` (${item.vintage})` : ''}${
-                            isOwnedItem(item) ? '' : ` · ${t('inventory.fields.isReference')}`
-                          }`}
-                        </AutocompleteItem>
+                {/* #471 (FEAT-107): the wine tasted, picked from the list or named */}
+                {naming ? (
+                  <div className="flex flex-col gap-3" data-testid="tasting-named-wine">
+                    <p className="text-xs text-foreground-500">{t('tastingWine.namedHint')}</p>
+                    <Controller
+                      name="wine.category"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          label={t('inventory.fields.category')}
+                          selectedKeys={[field.value ?? 'wine']}
+                          onSelectionChange={(keys) => field.onChange((Array.from(keys)[0] as InventoryCategory) ?? 'wine')}
+                          disallowEmptySelection
+                          variant="bordered"
+                        >
+                          {CATEGORY_VALUES.map((category) => (
+                            <SelectItem key={category}>{t(`categories.${category}`)}</SelectItem>
+                          ))}
+                        </Select>
                       )}
-                    </Autocomplete>
-                  )}
-                />
+                    />
+                    <Controller
+                      name="wine.producer"
+                      control={control}
+                      rules={{ validate: (value) => !naming || !!value?.trim() || t('tastings.errors.required') }}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          value={field.value ?? ''}
+                          label={`${t('inventory.fields.producer')} *`}
+                          isInvalid={!!errors.wine?.producer}
+                          errorMessage={errors.wine?.producer?.message}
+                          variant="bordered"
+                        />
+                      )}
+                    />
+                    <Controller
+                      name="wine.name"
+                      control={control}
+                      rules={{ validate: (value) => !naming || !!value?.trim() || t('tastings.errors.required') }}
+                      render={({ field }) => (
+                        <Input
+                          {...field}
+                          value={field.value ?? ''}
+                          label={`${t('inventory.fields.name')} *`}
+                          isInvalid={!!errors.wine?.name}
+                          errorMessage={errors.wine?.name?.message}
+                          variant="bordered"
+                        />
+                      )}
+                    />
+                    {isCigar ? (
+                      <Controller
+                        name="wine.format"
+                        control={control}
+                        render={({ field }) => (
+                          <Input {...field} value={field.value ?? ''} label={t('tastingWine.vitola')} variant="bordered" />
+                        )}
+                      />
+                    ) : (
+                      <Controller
+                        name="wine.vintage"
+                        control={control}
+                        rules={{ validate: () => isValidVintage(typedVintage.current) || t('tastingWine.vintageInvalid', { year: new Date().getFullYear() }) }}
+                        render={({ field }) => (
+                          <Input
+                            inputMode="numeric"
+                            maxLength={4}
+                            value={vintageText}
+                            onValueChange={(text) => { typeVintage(text); field.onChange(parseYear(text)); }}
+                            label={t('inventory.fields.vintage')}
+                            isInvalid={!!errors.wine?.vintage}
+                            errorMessage={errors.wine?.vintage?.message}
+                            variant="bordered"
+                          />
+                        )}
+                      />
+                    )}
+                    <Button
+                      size="sm"
+                      variant="light"
+                      className="self-start"
+                      onPress={() => { setNaming(false); setValue('wine', undefined); }}
+                    >
+                      {t('tastingWine.pickFromList')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1">
+                    <Controller
+                      name="productId"
+                      control={control}
+                      rules={{ validate: (value) => naming || !!editNote || !!value || !!watchedItemId || t('tastings.errors.required') }}
+                      render={({ field }) => (
+                        <Autocomplete
+                          label={`${t('tastingWine.wine')} *`}
+                          isDisabled={!!editNote || !!initialProductId || !!initialItemId}
+                          isInvalid={!!errors.productId}
+                          errorMessage={errors.productId?.message}
+                          defaultItems={wineOptions}
+                          selectedKey={field.value ?? productOfItem ?? null}
+                          onSelectionChange={(key) => {
+                            field.onChange(key ? String(key) : undefined);
+                            // Another wine: its own bottles, its own preset.
+                            setValue('itemId', undefined);
+                            setOnBottle(true);
+                          }}
+                          variant="bordered"
+                        >
+                          {(option) => <AutocompleteItem key={option.id}>{wineOptionLabel(option)}</AutocompleteItem>}
+                        </Autocomplete>
+                      )}
+                    />
+                    {!editNote && !initialProductId && !initialItemId && (
+                      <Button
+                        size="sm"
+                        variant="light"
+                        className="self-start"
+                        onPress={() => {
+                          setNaming(true);
+                          typeVintage('');
+                          setValue('productId', undefined);
+                          setValue('itemId', undefined);
+                          setValue('wine', { category: 'wine', producer: '', name: '', vintage: null, format: null });
+                        }}
+                      >
+                        {t('tastingWine.notListed')}
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+                {/* FEAT-107: on a bottle of the cellar, or tasted elsewhere (the stock untouched) */}
+                {asksBottle && (
+                  <RadioGroup
+                    label={t(isCigar ? 'tastingWine.onCigar' : 'tastingWine.onBottle')}
+                    orientation="horizontal"
+                    value={onBottle ? 'yes' : 'no'}
+                    onValueChange={(value) => setOnBottle(value === 'yes')}
+                    size="sm"
+                  >
+                    <Radio value="yes">{t('tastingWine.yes')}</Radio>
+                    <Radio value="no">{t('tastingWine.elsewhere')}</Radio>
+                  </RadioGroup>
+                )}
+                {tastesBottle && (
+                  <Controller
+                    name="itemId"
+                    control={control}
+                    rules={{ validate: (value) => !tastesBottle || !!value || t('tastings.errors.required') }}
+                    render={({ field }) => (
+                      <Select
+                        label={`${t(isCigar ? 'tastingWine.whichCigars' : 'tastingWine.whichBottle')} *`}
+                        selectedKeys={field.value ? [field.value] : []}
+                        onSelectionChange={(keys) => field.onChange((Array.from(keys)[0] as string) ?? undefined)}
+                        isInvalid={!!errors.itemId}
+                        errorMessage={errors.itemId?.message}
+                        variant="bordered"
+                      >
+                        {lines.inCellar.map((line) => (
+                          <SelectItem key={line.id}>{lineParts(line, lineCtx).join(' · ')}</SelectItem>
+                        ))}
+                      </Select>
+                    )}
+                  />
+                )}
 
                 {/* Service recommendations */}
-                {selectedItem && <ServiceRecommendations item={selectedItem} />}
+                {product && <ServiceRecommendations item={product} />}
 
                 {/* Date */}
                 <Controller
@@ -437,7 +632,7 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
               </ModalHeader>
               <ModalBody className="pb-1">
                 <p className="text-sm text-foreground-500">
-                  {t('tastings.stockUpdate.description')}
+                  {t('tastings.stockUpdate.description', isCigar ? { context: 'cigar' } : undefined)}
                 </p>
               </ModalBody>
               <ModalFooter className="flex-col gap-2">
@@ -450,8 +645,8 @@ export function TastingForm({ open, onClose, initialItemId, initialFoodPairing, 
                     onPress={() => handleStockChoice(choice)}
                     isLoading={updateInventory.isPending}
                   >
-                    {choice === 'removeOneCigar'
-                      ? t('tastings.stockUpdate.removeOneCigar', { count: (stockQuestion?.item?.quantity ?? 0) - 1 })
+                    {choice === 'smokeOne' && smoke
+                      ? t(`tastings.stockUpdate.smokeOne.${smoke.kind}`, { count: smoke.left })
                       : t(`tastings.stockUpdate.${choice}`)}
                   </Button>
                 ))}

@@ -1,8 +1,7 @@
 'use client';
 import React, { useCallback, useState } from 'react';
-import { InventoryItem } from '@/lib/inventory/types';
 
-export interface UseBulkSelectionResult {
+export interface UseBulkSelectionResult<T extends { id: string }> {
   bulkMode: boolean;
   setBulkMode: React.Dispatch<React.SetStateAction<boolean>>;
   selectedIds: Set<string>;
@@ -12,7 +11,7 @@ export interface UseBulkSelectionResult {
   toggleBulkMode: () => void;
   /** Shift-click range selection. Uses `filteredItems` (not the paginated
    * slice) to compute the range, exactly like the original inline handler. */
-  handleSelectToggle: (item: InventoryItem, event?: React.MouseEvent) => void;
+  handleSelectToggle: (item: T, event?: React.MouseEvent) => void;
   /** Clears the selection + anchor without touching `bulkMode` — used after
    * a successful bulk apply. */
   clearSelection: () => void;
@@ -26,7 +25,7 @@ export interface UseBulkSelectionResult {
  * hook just moves where those values are computed, the wiring into
  * `InventoryBulkBar` is unchanged.
  */
-export function useBulkSelection(filteredItems: InventoryItem[]): UseBulkSelectionResult {
+export function useBulkSelection<T extends { id: string }>(filteredItems: T[]): UseBulkSelectionResult<T> {
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [anchorId, setAnchorId] = useState<string | null>(null);
@@ -38,7 +37,7 @@ export function useBulkSelection(filteredItems: InventoryItem[]): UseBulkSelecti
   }, []);
 
   const handleSelectToggle = useCallback(
-    (item: InventoryItem, event?: React.MouseEvent) => {
+    (item: T, event?: React.MouseEvent) => {
       if (event?.shiftKey && anchorId) {
         const anchorIdx = filteredItems.findIndex((i) => i.id === anchorId);
         const targetIdx = filteredItems.findIndex((i) => i.id === item.id);

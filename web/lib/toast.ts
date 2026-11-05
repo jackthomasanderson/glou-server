@@ -1,5 +1,6 @@
 'use client';
-import { addToast } from '@heroui/react';
+import { createElement } from 'react';
+import { addToast, Button, closeToast } from '@heroui/react';
 import i18n from '@/lib/i18n';
 
 /**
@@ -14,6 +15,19 @@ import i18n from '@/lib/i18n';
  * against the shared i18next instance, which makes them usable both from React
  * components and from the mutation hooks that own the server round-trip.
  */
+
+/**
+ * Every message is read whole: HeroUI cuts a toast's title to one line
+ * (« Bouteille remise avec les a… », recette #471). Given to ToastProvider.
+ */
+export const TOAST_PROPS = { classNames: { title: 'whitespace-normal break-words' } };
+
+/**
+ * Messages start this far below the top edge: at the top, a message covered
+ * the close button of a drawer, so pressing the cross closed the message
+ * instead of the drawer (recette v3 of #471). Still top-right (ux-ui.md 9.4).
+ */
+export const TOAST_OFFSET_PX = 64;
 
 /** Success notifications are transient (ux-ui.md 9.4: 3 seconds). */
 const SUCCESS_TIMEOUT_MS = 3000;
@@ -42,5 +56,54 @@ export function notifyError(messageKey: string, values?: Record<string, unknown>
     title: translate(messageKey, values),
     color: 'danger',
     timeout: PERSISTENT_TIMEOUT,
+  });
+}
+
+/** A heads-up the member should read (a file too long for the next step): stays until closed, in the warning colour. */
+export function notifyWarning(messageKey: string, values?: Record<string, unknown>): void {
+  addToast({
+    title: translate(messageKey, values),
+    color: 'warning',
+    timeout: PERSISTENT_TIMEOUT,
+  });
+}
+
+/** ux-ui.md §10.4: an everyday action is undone from its message for 8 seconds (decision #471 point 71). */
+export const UNDO_TIMEOUT_MS = 8000;
+
+/**
+ * A success that can be taken back (#471, ux-ui.md §10.4: "1 bouteille
+ * ouverte · Annuler"). The toast region is a top layer: its button works
+ * above an open drawer without closing it. Pressing "Annuler" closes the
+ * message and calls `onUndo` once. `extra`, a second action of the same
+ * message (FEAT-109: « Noter une dégustation » after « J'en bois une »),
+ * also closes it.
+ */
+export function notifyUndoable(
+  messageKey: string,
+  values: Record<string, unknown> | undefined,
+  onUndo: () => void,
+  extra?: { labelKey: string; onPress: () => void },
+): void {
+  let done = false;
+  const once = (action: () => void) => () => {
+    if (done) return;
+    done = true;
+    if (key) closeToast(key);
+    action();
+  };
+  const button = (label: string, onPress: () => void) =>
+    createElement(Button, { key: label, size: 'sm', variant: 'flat', color: 'success', onPress }, label);
+  const undo = button(translate('actions.undo'), once(onUndo));
+  // Two actions go under the message, not beside it: beside, they left the
+  // message a word's width and cut it mid-word on a phone (« 1 / bout / eille
+  // / bue », recette v3 of #471).
+  const key = addToast({
+    title: translate(messageKey, values),
+    color: 'success',
+    timeout: UNDO_TIMEOUT_MS,
+    ...(extra
+      ? { description: createElement('div', { className: 'flex flex-wrap gap-1 mt-1' }, button(translate(extra.labelKey), once(extra.onPress)), undo) }
+      : { endContent: undo }),
   });
 }

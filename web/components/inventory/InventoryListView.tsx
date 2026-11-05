@@ -1,9 +1,9 @@
 'use client';
 import React, { useMemo } from 'react';
 import { Table, TableHeader, TableColumn, TableBody } from '@heroui/react';
-import { InventoryItem } from '@/lib/inventory/types';
-import { Cellar } from '@/lib/cellars/types';
+import type { Product } from '@/lib/products/types';
 import { InventoryListRow } from './InventoryListRow';
+import type { InventoryGridViewProps } from './InventoryGridView';
 import { PaginationBar } from '@/components/ui/PaginationBar';
 import { mergePageSelection } from '@/lib/inventory/pageSelection';
 
@@ -14,31 +14,16 @@ interface ColDef {
   className?: string;
 }
 
-export interface InventoryListViewProps {
-  /** Already-paginated slice of `filteredItems` to render this page. */
-  items: InventoryItem[];
-  cellars?: Cellar[];
-  categoryLabel: (category: string) => string;
-  onEdit: (item: InventoryItem) => void;
-  onDelete: (item: InventoryItem) => void;
-  onView: (item: InventoryItem) => void;
-  t: (key: string, options?: Record<string, unknown>) => string;
-  bulkMode: boolean;
-  selectedIds: Set<string>;
+export interface InventoryListViewProps extends Omit<InventoryGridViewProps, 'anchorId' | 'onSelectToggle'> {
   /** Replaces the bulk selection (the same one the card view edits). */
   onSelectedIdsChange: (ids: Set<string>) => void;
-  pendingSyncItemIds: Set<string>;
-
-  page: number;
-  totalPages: number;
-  totalItems: number;
-  setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
 }
 
 /** Table (list) rendering of the current inventory page, plus its pagination bar. */
 export function InventoryListView({
   items,
-  cellars,
+  stockOf,
+  cellarNameOf,
   categoryLabel,
   onEdit,
   onDelete,
@@ -47,7 +32,7 @@ export function InventoryListView({
   bulkMode,
   selectedIds,
   onSelectedIdsChange,
-  pendingSyncItemIds,
+  pendingSyncIds,
   page,
   totalPages,
   totalItems,
@@ -60,6 +45,7 @@ export function InventoryListView({
     { key: 'vintage', label: t('inventory.fields.vintage'), className: 'text-center' },
     { key: 'region', label: t('inventory.fields.region'), className: 'hidden md:table-cell' },
     { key: 'cellar', label: t('view.columns.cellar'), className: 'hidden md:table-cell' },
+    { key: 'stock', label: t('familyList.stockColumn') },
     { key: 'peak', label: t('view.columns.peak'), className: 'text-center hidden sm:table-cell' },
     { key: 'status', label: t('view.columns.status'), className: 'hidden sm:table-cell' },
     { key: 'actions', label: t('admin.maturityRefs.columns.actions'), className: 'text-right' },
@@ -99,19 +85,26 @@ export function InventoryListView({
             </TableColumn>
           )}
         </TableHeader>
-        <TableBody items={items}>
-          {(item: InventoryItem) => React.cloneElement(
+        {/* #738: static rows, not the `items` render function. The table
+            caches a row built from `items` by its bottle object and reuses it
+            until that object changes, so what is computed beside the bottle
+            (pending-sync icon, cellar name, category label after a language
+            switch) stayed as first drawn. Static rows are rebuilt on every
+            render. */}
+        <TableBody>
+          {items.map((item: Product) => React.cloneElement(
             InventoryListRow({
               item,
+              stock: stockOf(item),
               categoryLabel: categoryLabel(item.category),
-              cellar: cellars?.find((c: Cellar) => c.id === item.cellarId) ?? undefined,
+              cellarName: cellarNameOf(item),
               onEdit,
               onDelete,
               t,
-              hasPendingSync: pendingSyncItemIds.has(item.id),
+              hasPendingSync: pendingSyncIds.has(item.id),
             }),
             { key: item.id }
-          )}
+          ))}
         </TableBody>
       </Table>
       <PaginationBar

@@ -15,12 +15,16 @@ vi.mock('../../src/lib/prisma', () => ({
     },
     cellar: {
       count: vi.fn(),
+      findMany: vi.fn(),
     },
     collection: {
       count: vi.fn(),
     },
     user: {
       findUnique: vi.fn(),
+    },
+    auditLog: {
+      findFirst: vi.fn(),
     },
   },
 }));
@@ -236,11 +240,16 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
       cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: true, hideNotes: true,
     });
 
-    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
-    expect(call.select.notes).toBe(false);
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> & { product: { select: Record<string, unknown> } } };
+    // #471 (lot Z): the notes are the family's.
+    expect(call.select.product.select.notes).toBe(false);
+    expect(call.select).not.toHaveProperty('notes');
     expect(call.select.purchasePrice).toBe(false);
     expect(call.select.purchasePlace).toBe(false);
     expect(call.select.estimatedValue).toBe(false);
+    // #471 (FEAT-109): the purchase day is purchase information, hidden with the prices.
+    expect(call.select.purchasedAt).toBe(false);
+    expect(call.select.openedAt).toBe(true);
   });
 
   it('includes notes and price fields when hidePrices/hideNotes are false', async () => {
@@ -250,9 +259,23 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
       cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false,
     });
 
-    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
-    expect(call.select.notes).toBe(true);
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> & { product: { select: Record<string, unknown> } } };
+    expect(call.select.product.select.notes).toBe(true);
     expect(call.select.purchasePrice).toBe(true);
+    expect(call.select.purchasedAt).toBe(true);
+  });
+
+  // #471 (lot Z): a unit has no description of its own; the guest reads its family's, flat as before.
+  it('serves each line with its family\'s description, flat', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'i1', quantity: 6, purchasePrice: 20, product: { name: 'Talbot', category: 'wine', notes: 'Nice' } },
+    ] as never);
+
+    const items = await sharesService.getInventoryForShare({
+      cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false,
+    });
+
+    expect(items).toEqual([{ id: 'i1', quantity: 6, purchasePrice: 20, name: 'Talbot', category: 'wine', notes: 'Nice' }]);
   });
 
   it('scopes to the declared cellarIds/collectionIds, not to the creating user (shared-inventory invariant)', async () => {
@@ -266,11 +289,11 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     expect(call.where).not.toHaveProperty('userId');
     expect(call.where.OR).toEqual([
       { cellarId: { in: ['cellarA'] } },
-      { collections: { some: { id: { in: ['colB'] } } } },
+      { product: { collections: { some: { id: { in: ['colB'] } } } } },
     ]);
   });
 
-  it('falls back to every active item when the share declares no scope at all', async () => {
+  it('falls back to every unit in stock when the share declares no scope at all', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
 
     await sharesService.getInventoryForShare({
@@ -278,7 +301,26 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     });
 
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
-    expect(call.where).toEqual({ deletedAt: null, isOwned: true });
+    // #471 (FEAT-96): what the cellar holds — not finished, not written off.
+    expect(call.where).toEqual({
+      deletedAt: null,
+      writtenOffAt: null,
+      NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
+    });
+  });
+
+  // #471: the guest page counts what it is shown with `itemUnits`.
+  it('selects what a unit is counted from: the group size and the cigar boxes', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await sharesService.getInventoryForShare({
+      cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false,
+    });
+
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
+    expect(call.select).toMatchObject({
+      quantity: true, isOpened: true, fillLevel: true, cigarsPerBox: true, cigarsLeft: true, productId: true,
+    });
   });
 
   // ISSUE_172: defense in depth. The money-fields-as-number Prisma result
@@ -372,10 +414,10 @@ describe('guest showcase excludes non-owned references (FEAT-87)', () => {
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
+    expect(call.where).toMatchObject({ deletedAt: null });
   });
 
-  it('scopes the single-item lookup the same way, with no cellar scope either', async () => {
+  it('scopes the single-item lookup to owned units, with no cellar scope either', async () => {
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null as never);
 
     await sharesService.getItemForShare({ ...share, cellarIds: [] }, 'i1');
@@ -383,6 +425,46 @@ describe('guest showcase excludes non-owned references (FEAT-87)', () => {
     const call = vi.mocked(prisma.inventoryItem.findFirst).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
     };
-    expect(call.where).toMatchObject({ deletedAt: null, isOwned: true });
+    // A bottle the guest just finished is still returned to them (guest.router
+    // re-reads it after the write); a written-off one is gone (#471).
+    expect(call.where).toEqual({ id: 'i1', deletedAt: null, writtenOffAt: null });
+  });
+});
+
+// #471 (FEAT-109): the guest's lines say where a bottle is — only the share's cellars.
+describe('sharesService.getCellarsForShare', () => {
+  it('names only the cellars of the share', async () => {
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c1', name: 'Garage' }] as never);
+
+    expect(await sharesService.getCellarsForShare({ cellarIds: ['c1'] })).toEqual([{ id: 'c1', name: 'Garage' }]);
+    expect(prisma.cellar.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: { in: ['c1'] } }, select: { id: true, name: true },
+    }));
+  });
+
+  it('names none for a share by collection only', async () => {
+    expect(await sharesService.getCellarsForShare({ cellarIds: [] })).toEqual([]);
+    expect(prisma.cellar.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// Decision #471 point 68: what a guest's "Annuler" is checked against.
+describe('sharesService.findLatestGuestMove', () => {
+  it('reads the latest successful guest write on the unit within the window, with its marker', async () => {
+    const createdAt = new Date('2030-06-15T11:59:50.000Z');
+    const undo = { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: '2030-06-15T11:59:50.000Z' };
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({ createdAt, details: { shareId: 's1', undo } } as never);
+    const since = new Date('2030-06-15T11:59:00.000Z');
+
+    expect(await sharesService.findLatestGuestMove('sub', since)).toEqual({ shareId: 's1', createdAt, undo });
+    expect(prisma.auditLog.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { bottleId: 'sub', action: 'GUEST_UPDATE', status: 'success', createdAt: { gte: since } },
+      orderBy: { createdAt: 'desc' },
+    }));
+  });
+
+  it('gives no marker for a write that was not a move (a level set)', async () => {
+    vi.mocked(prisma.auditLog.findFirst).mockResolvedValue({ createdAt: NOW, details: { shareId: 's1' } } as never);
+    expect((await sharesService.findLatestGuestMove('sub', NOW))?.undo).toBeNull();
   });
 });

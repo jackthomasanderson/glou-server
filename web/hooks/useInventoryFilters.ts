@@ -1,14 +1,17 @@
 'use client';
 import React, { useState, useCallback, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
-import { InventoryItem } from '@/lib/inventory/types';
 import { Cellar } from '@/lib/cellars/types';
-import type { InventorySortBy, InventoryOpenedFilter } from '@/components/inventory/InventoryFilterBar';
-import { isFinishedItem, isOwnedItem } from '../lib/inventory/ownership';
+import type { Product } from '@/lib/products/types';
+import {
+  baseProducts, filterProducts,
+  type InventoryOpenedFilter, type InventorySortBy, type ProductFilterCriteria,
+} from '@/lib/products/filters';
 import { todayLocalIso } from '@/lib/format';
 
 export interface UseInventoryFiltersOptions {
-  items?: InventoryItem[];
+  /** #471: the wines (families) of the list. */
+  products?: Product[];
   cellars?: Cellar[];
   lockedCategories?: string[];
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -37,9 +40,9 @@ export interface UseInventoryFiltersResult {
   sortBy: InventorySortBy;
   setSortBy: React.Dispatch<React.SetStateAction<InventorySortBy>>;
   openedFilter: InventoryOpenedFilter;
-  /** FEAT-87: non-owned references are hidden until this is turned on. */
-  showReferences: boolean;
-  setShowReferences: React.Dispatch<React.SetStateAction<boolean>>;
+  /** FEAT-101 "Plus en cave": only the wines with nothing left in stock (hidden otherwise). */
+  showGone: boolean;
+  setShowGone: React.Dispatch<React.SetStateAction<boolean>>;
   setOpenedFilter: React.Dispatch<React.SetStateAction<InventoryOpenedFilter>>;
 
   isFiltersOpen: boolean;
@@ -52,8 +55,9 @@ export interface UseInventoryFiltersResult {
 
   clearFilters: () => void;
 
-  baseItems: InventoryItem[];
-  filteredItems: InventoryItem[];
+  /** The page's wines before filtering (locked categories; in stock, or gone with "Plus en cave"). */
+  baseItems: Product[];
+  filteredItems: Product[];
   hasActiveFilters: boolean;
 }
 
@@ -72,7 +76,7 @@ export interface UseInventoryFiltersResult {
  * `items`, so splitting it out changes nothing observable).
  */
 export function useInventoryFilters({
-  items,
+  products,
   cellars,
   lockedCategories,
   t,
@@ -88,9 +92,9 @@ export function useInventoryFilters({
   const [maxValue, setMaxValue] = useState('');
   const [sortBy, setSortBy] = useState<InventorySortBy>('default');
   const [openedFilter, setOpenedFilter] = useState<InventoryOpenedFilter>('all');
-  // FEAT-87: the inventory shows what the instance holds. References are
-  // part of the same list, hidden until explicitly asked for.
-  const [showReferences, setShowReferences] = useState(false);
+  // FEAT-101: the list shows what is in the cellar; wines with nothing left
+  // stay known, hidden until "Plus en cave" asks for them (a search finds them).
+  const [showGone, setShowGone] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const [tagSearchQuery, setTagSearchQuery] = useState('');
@@ -143,120 +147,34 @@ export function useInventoryFilters({
     setMaxValue('');
     setSortBy('default');
     setOpenedFilter('all');
-    setShowReferences(false);
+    setShowGone(false);
     router.push(pathname);
   }, [router, pathname]);
 
-  const baseItems = useMemo(() => {
-    if (!items) return [];
-    const owned = showReferences ? items : items.filter(isOwnedItem);
-    if (lockedCategories && lockedCategories.length > 0) {
-      return owned.filter((b: InventoryItem) => lockedCategories.includes(b.category));
-    }
-    return owned;
-  }, [items, lockedCategories, showReferences]);
+  const criteria = useMemo<ProductFilterCriteria>(() => ({
+    lockedCategories, selectedCollectionId, selectedCategories, selectedWineColors, selectedCellars,
+    selectedTags, minValue, maxValue, openedFilter, showGone, searchQuery, sortBy,
+  }), [lockedCategories, selectedCollectionId, selectedCategories, selectedWineColors, selectedCellars,
+    selectedTags, minValue, maxValue, openedFilter, showGone, searchQuery, sortBy]);
+
+  const baseItems = useMemo(() => (products ? baseProducts(products, criteria) : []), [products, criteria]);
 
   const filteredItems = useMemo(() => {
-    if (!items) return [];
-    let result = showReferences ? items : items.filter(isOwnedItem);
-    const DIACRITICS_RE = new RegExp('[\\u0300-\\u036f]', 'g');
-    const norm = (s: string) => s.normalize('NFD').replace(DIACRITICS_RE, '').toLowerCase();
-
-    if (lockedCategories && lockedCategories.length > 0) {
-      result = result.filter((b: InventoryItem) => lockedCategories.includes(b.category));
-    }
-    if (selectedCollectionId) {
-      result = result.filter((b: InventoryItem) =>
-        (b.collections ?? []).some(c => c.id === selectedCollectionId)
-      );
-    }
-    if (selectedCategories.length > 0) {
-      result = result.filter((b: InventoryItem) => selectedCategories.includes(b.category));
-    }
-    if (selectedWineColors.length > 0) {
-      result = result.filter((b: InventoryItem) =>
-        b.category !== 'wine' || (!!b.color && selectedWineColors.includes(b.color))
-      );
-    }
-    if (selectedCellars.length > 0) {
-      result = result.filter((b: InventoryItem) => selectedCellars.includes(b.cellarId || ''));
-    }
-    if (selectedTags.length > 0) {
-      result = result.filter((b: InventoryItem) =>
-        selectedTags.every((tag) => (b.tags || []).includes(tag))
-      );
-    }
-    if (minValue !== '') {
-      const min = parseFloat(minValue);
-      if (!isNaN(min)) {
-        result = result.filter((b: InventoryItem) => {
-          const v = b.estimatedValue ?? b.purchasePrice ?? 0;
-          return v >= min;
-        });
-      }
-    }
-    if (maxValue !== '') {
-      const max = parseFloat(maxValue);
-      if (!isNaN(max)) {
-        result = result.filter((b: InventoryItem) => {
-          const v = b.estimatedValue ?? b.purchasePrice ?? 0;
-          return v <= max;
-        });
-      }
-    }
-    if (openedFilter === 'full') {
-      result = result.filter((b: InventoryItem) => !b.isOpened);
-    } else if (openedFilter === 'opened') {
-      result = result.filter((b: InventoryItem) => b.isOpened);
-    } else if (openedFilter === 'alerts') {
-      if (!hasMounted) return [];
-      const today = todayLocalIso();
-      // #573: a finished bottle raises no drinking-window alert, as in the
-      // bell (/api/alerts) — its stored status is history, not a call to act.
-      result = result.filter((b: InventoryItem) =>
-        (b.reminderDate && b.reminderDate.split('T')[0] <= today) ||
-        (b.alertStatus && b.alertStatus !== 'none' && !b.alertsPaused && !isFinishedItem(b))
-      );
-    }
-    if (searchQuery.trim()) {
-      const q = norm(searchQuery);
-      result = result.filter((b: InventoryItem) => {
-        const cellar = cellars?.find((c: Cellar) => c.id === b.cellarId);
-        const cellarName = cellar ? norm(cellar.name) : '';
-        const searchStrings = [
-          b.name, b.producer, b.vintage?.toString(),
-          t(`categories.${b.category}`), b.region, cellarName,
-          ...(b.collections ?? []).map(c => c.name),
-          ...(b.tags || [])
-        ].filter(Boolean) as string[];
-        return searchStrings.some((s: string) => norm(s).includes(q));
-      });
-    }
-
-    if (sortBy === 'value') {
-      result = [...result].sort((a, b) => {
-        const va = a.estimatedValue ?? a.purchasePrice ?? 0;
-        const vb = b.estimatedValue ?? b.purchasePrice ?? 0;
-        return vb - va;
-      });
-    } else if (sortBy === 'urgency') {
-      const urgencyOrder: Record<string, number> = { past: 0, approaching: 1, peak: 2, none: 3 };
-      result = [...result].sort((a, b) =>
-        (urgencyOrder[a.alertStatus ?? 'none'] ?? 3) - (urgencyOrder[b.alertStatus ?? 'none'] ?? 3)
-      );
-    } else if (sortBy === 'name') {
-      result = [...result].sort((a, b) => a.name.localeCompare(b.name));
-    }
-
-    return result;
-  }, [items, searchQuery, selectedCategories, selectedWineColors, selectedCellars, selectedCollectionId, selectedTags, minValue, maxValue, sortBy, cellars, openedFilter, showReferences, t, hasMounted, lockedCategories]);
+    if (!products) return [];
+    return filterProducts(products, criteria, {
+      cellarNames: new Map((cellars ?? []).map((c: Cellar) => [c.id, c.name])),
+      categoryLabel: (category) => t(`categories.${category}`),
+      // Guards the "alerts" filter's `new Date()` read so SSR/first paint match the client.
+      today: hasMounted ? todayLocalIso() : null,
+    });
+  }, [products, criteria, cellars, t, hasMounted]);
 
   const hasActiveFilters =
     selectedCategories.length > 0 ||
     selectedWineColors.length > 0 ||
     selectedCellars.length > 0 ||
     openedFilter !== 'all' ||
-    showReferences ||
+    showGone ||
     !!searchQuery ||
     !!selectedCollectionId ||
     selectedTags.length > 0 ||
@@ -275,7 +193,7 @@ export function useInventoryFilters({
     maxValue, setMaxValue,
     sortBy, setSortBy,
     openedFilter, setOpenedFilter,
-    showReferences, setShowReferences,
+    showGone, setShowGone,
     isFiltersOpen, toggleFilters,
     tagSearchQuery, setTagSearchQuery,
     showAllTags, setShowAllTags,

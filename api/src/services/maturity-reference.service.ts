@@ -1,7 +1,10 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { MaturityReferenceInput, MaturityReferencePatch, SuggestQuery } from '../schemas/maturity-reference.schema';
 import { CurveShape, DEFAULT_CURVE_SHAPE } from '../lib/maturity-curve';
 import { isRecordNotFound } from '../lib/errors';
+import { IN_STOCK_ITEM_FILTER, itemUnits } from '../lib/finished-item';
+import { UNIT_COUNT_SELECT } from '../lib/stock-units';
 
 type MaturityReference = Awaited<ReturnType<typeof prisma.maturityReference.findFirst>> extends infer T | null
   ? NonNullable<T>
@@ -138,18 +141,23 @@ export class MaturityReferenceService {
     };
   }
 
+  /**
+   * #471 (FEAT-96): the bottles in stock the reference applies to — units
+   * (`itemUnits`), not rows, matched on their family's description.
+   */
   private async countMatchingBottles(ref: MaturityReference): Promise<number> {
-    const where: Record<string, unknown> = {
-      category: ref.category,
-      deletedAt: null,
-    };
-    if (ref.region) where['region'] = { contains: ref.region, mode: 'insensitive' };
-    if (ref.color) where['color'] = ref.color;
-    if (ref.producer) where['producer'] = { contains: ref.producer, mode: 'insensitive' };
+    const product: Prisma.ProductWhereInput = { category: ref.category };
+    if (ref.region) product.region = { contains: ref.region, mode: 'insensitive' };
+    if (ref.color) product.color = ref.color;
+    if (ref.producer) product.producer = { contains: ref.producer, mode: 'insensitive' };
     if (ref.vintageFrom != null && ref.vintageTo != null) {
-      where['vintage'] = { gte: ref.vintageFrom, lte: ref.vintageTo };
+      product.vintage = { gte: ref.vintageFrom, lte: ref.vintageTo };
     }
-    return prisma.inventoryItem.count({ where: where as never });
+    const units = await prisma.inventoryItem.findMany({
+      where: { ...IN_STOCK_ITEM_FILTER, product },
+      select: UNIT_COUNT_SELECT,
+    });
+    return units.reduce((total, unit) => total + itemUnits(unit), 0);
   }
 }
 

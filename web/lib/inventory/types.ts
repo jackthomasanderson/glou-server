@@ -23,6 +23,8 @@ export interface CollectionSummary {
 
 export interface InventoryItem {
   id: string;
+  /** #471: the wine (family) this bottle belongs to; absent on a locally drafted item. */
+  productId?: string;
   userId: string;
   category: InventoryCategory;
   name: string;
@@ -35,6 +37,8 @@ export interface InventoryItem {
   purchasePrice?: number | null;
   purchasePlace?: string | null;
   estimatedValue?: number | null;
+  /** #471: the day the bottles were bought, `YYYY-MM-DD` both ways (D6) — never turned into a local Date. */
+  purchasedAt?: string | null;
 
   // Wine/Sparkling
   vintage?: number | null;
@@ -78,6 +82,12 @@ export interface InventoryItem {
   // Cigar
   format?: string | null;
   quantity?: number | null;
+  /** #471 (FEAT-95): cigars per closed box of the group; null = single cigars (and bottles). */
+  cigarsPerBox?: number | null;
+  /** #471: cigars left in an opened box (null = a closed, complete box). */
+  cigarsLeft?: number | null;
+  /** #471: broken, given away or lost (out of stock, still in the spending). */
+  writtenOffAt?: string | null;
   manufactureYear?: number | null;
   leafOrigin?: string | null;
   factoryCode?: string | null;
@@ -91,9 +101,6 @@ export interface InventoryItem {
   slotRow?: number | null;
 
   // Cross-cutting
-  // FEAT-87: false = non-owned reference (described, not possessed). Absent
-  // on items returned by an older API: treated as owned.
-  isOwned?: boolean;
   isOpened: boolean;
   fillLevel?: number | null;
   openedAt?: string | null;
@@ -118,6 +125,20 @@ export interface InventoryItem {
   _creator?: { id: string; name: string } | null;
   _lastEditor?: { id: string; name: string } | null;
 }
+
+/**
+ * A write to one bottle or cigar line (PATCH /api/inventory/:id): its own
+ * fields, or an instruction to the detach rule (#471, K): `smokeOne` smokes
+ * one cigar — the first of a closed box opens it, a single cigar is finished;
+ * `keepTastings` answers "keep the tasting?" when a bottle holding one is
+ * put back with the others (FEAT-106).
+ */
+export type InventoryItemPatch = Partial<InventoryItem> & {
+  smokeOne?: true;
+  keepTastings?: boolean;
+  /** #471 (FEAT-107 c3): the tasting noted with this state follows the bottle detached from its group. */
+  tastingId?: string;
+};
 
 export interface InventoryFieldChange {
   field: string;
@@ -150,7 +171,6 @@ export const inventoryFormSchema = z.object({
   notes: z.string().max(2000).optional(),
   purchasePrice: z.number().min(0).optional(),
   estimatedValue: z.number().min(0).optional(),
-  isOwned: z.boolean().default(true),
   isOpened: z.boolean().default(false),
   fillLevel: z.number().int().min(0).max(100).optional(),
   openedAt: z.string().optional().nullable(),

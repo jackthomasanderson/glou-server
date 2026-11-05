@@ -3,9 +3,9 @@ import { test, expect, type APIRequestContext, type APIResponse, type Locator, t
 /**
  * #642: editing a tasting showed its perceived maturity and expert grid
  * empty, and saving it untouched erased its perceived maturity.
- * #595: "Asset opened" after a tasting put an opened bottle back to 50 %,
+ * #595: "Bottle opened" after a tasting put an opened bottle back to 50 %,
  * opened today.
- * #586: "Asset consumed" after a cigar tasting emptied the whole box.
+ * #586: "Bottle consumed" after a cigar tasting emptied the whole box.
  */
 
 const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
@@ -114,31 +114,36 @@ test('editing a tasting keeps its perceived maturity and expert grid', async ({ 
   }
 });
 
-test('a cigar tasting removes one cigar from its box', async ({ page }) => {
+// #586, #471 (FEAT-95, K): a cigar tasting smokes ONE cigar through the
+// API (`smokeOne`), never `quantity − 1` (now a correction of the number of
+// boxes): the first cigar of a closed box opens it, 24 left in it.
+test('a cigar tasting smokes one cigar: the closed box is opened, 24 left', async ({ page }) => {
   const api = page.request;
   const name = `E2E #586 ${stamp()}`;
   let itemId = '';
   const tastingIds: string[] = [];
   try {
-    itemId = await createItem(api, { category: 'cigar', name, producer: 'E2E Habanos', quantity: 25 });
+    itemId = await createItem(api, { category: 'cigar', name, producer: 'E2E Habanos', quantity: 1, cigarsPerBox: 25 });
 
     const form = await openTastingFormOf(page, name);
     const stock = await saveAndAskStock(page, form, tastingIds);
-    await expect(stock.getByRole('button', { name: 'Actif consommé (vide)' })).toHaveCount(0);
-    await expect(stock.getByRole('button', { name: 'Actif entamé' })).toHaveCount(0);
+    await expect(stock.getByRole('button', { name: 'Bouteille bue (vide)' })).toHaveCount(0);
+    await expect(stock.getByRole('button', { name: 'Bouteille entamée' })).toHaveCount(0);
 
     const patched = page.waitForResponse(
       (r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH',
     );
-    await stock.getByRole('button', { name: 'Retirer un cigare de la boîte (24 restants)' }).click();
-    expect((await patched).status()).toBe(200);
+    await stock.getByRole('button', { name: "J'en ai fumé un : la boîte est entamée (24 restants)" }).click();
+    const res = await patched;
+    expect(res.status()).toBe(200);
+    // FEAT-107: the tasting goes along, for the box opened off a group of several.
+    expect(res.request().postDataJSON()).toEqual({ smokeOne: true, tastingId: tastingIds[0] });
     await expect(stock).toBeHidden();
 
-    const box = await okData<{ quantity: number; isOpened: boolean; fillLevel: number | null }>(
+    const box = await okData<{ quantity: number; isOpened: boolean; cigarsLeft: number | null; cigarsPerBox: number | null }>(
       await api.get(`/api/inventory/${itemId}`),
     );
-    expect(box.quantity).toBe(24);
-    expect(box.isOpened).toBe(false);
+    expect(box).toMatchObject({ quantity: 1, isOpened: true, cigarsLeft: 24, cigarsPerBox: 25 });
   } finally {
     for (const id of tastingIds) await api.delete(`/api/tastings/${id}`).catch(() => {});
     if (itemId) await api.delete(`/api/inventory/${itemId}`).catch(() => {});
@@ -158,8 +163,8 @@ test('a tasting never reopens an already opened bottle', async ({ page }) => {
 
     const form = await openTastingFormOf(page, name);
     const stock = await saveAndAskStock(page, form, tastingIds);
-    await expect(stock.getByRole('button', { name: 'Actif consommé (vide)' })).toBeVisible();
-    await expect(stock.getByRole('button', { name: 'Actif entamé' })).toHaveCount(0);
+    await expect(stock.getByRole('button', { name: 'Bouteille bue (vide)' })).toBeVisible();
+    await expect(stock.getByRole('button', { name: 'Bouteille entamée' })).toHaveCount(0);
     await stock.getByRole('button', { name: 'Ne pas modifier le stock' }).click();
     await expect(stock).toBeHidden();
 
@@ -172,5 +177,46 @@ test('a tasting never reopens an already opened bottle', async ({ page }) => {
   } finally {
     for (const id of tastingIds) await api.delete(`/api/tastings/${id}`).catch(() => {});
     if (itemId) await api.delete(`/api/inventory/${itemId}`).catch(() => {});
+  }
+});
+
+// #471 (FEAT-103 c2, FEAT-107 c3, "dégustation bouteille finie"): finishing
+// a bottle of a group of 6 from the tasting's stock question drinks one
+// bottle, not six — and that finished bottle holds the tasting.
+test('a tasting that finishes a bottle of a group of 6 leaves 5 in stock, the finished one holding it', async ({ page }) => {
+  const api = page.request;
+  const name = `E2E #471 ${stamp()}`;
+  let itemId = '';
+  let productId = '';
+  const tastingIds: string[] = [];
+  try {
+    itemId = await createItem(api, { category: 'wine', name, producer: 'E2E Domaine', purchasePrice: 20 });
+    productId = (await okData<{ productId: string }>(await api.patch(`/api/inventory/${itemId}`, { data: { quantity: 6 } }))).productId;
+
+    const form = await openTastingFormOf(page, name);
+    const stock = await saveAndAskStock(page, form, tastingIds);
+    const patched = page.waitForResponse(
+      (r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH',
+    );
+    await stock.getByRole('button', { name: 'Bouteille bue (vide)' }).click();
+    const res = await patched;
+    expect(res.status()).toBe(200);
+    // D8: the finished bottle, and the group it came from.
+    const body = (await res.json()) as { data: Record<string, unknown>; changed: Array<Record<string, unknown>> };
+    expect(body.data).toMatchObject({ isOpened: true, fillLevel: 0, quantity: 1, parentItemId: itemId });
+    expect(body.changed).toEqual([expect.objectContaining({ id: itemId, quantity: 5, isOpened: false })]);
+    await expect(stock).toBeHidden();
+
+    expect(res.request().postDataJSON()).toEqual({ isOpened: true, fillLevel: 0, tastingId: tastingIds[0] });
+    const detail = await okData<{
+      items: Array<{ id: string; quantity: number; isOpened: boolean; fillLevel: number | null }>;
+      tastings: Array<{ id: string; itemId: string | null }>;
+    }>(await api.get(`/api/products/${productId}`));
+    expect(detail.items).toHaveLength(2);
+    expect(detail.items.find((item) => item.id === itemId)).toMatchObject({ quantity: 5, isOpened: false });
+    expect(detail.tastings).toEqual([expect.objectContaining({ id: tastingIds[0], itemId: body.data.id })]);
+  } finally {
+    for (const id of tastingIds) await api.delete(`/api/tastings/${id}`).catch(() => {});
+    if (productId) await api.delete(`/api/products/${productId}`).catch(() => {});
   }
 });

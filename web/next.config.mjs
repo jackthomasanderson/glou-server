@@ -3,6 +3,11 @@ import withPWAInit from '@ducanh2912/next-pwa';
 // Default import of the CommonJS module: named-export detection of Next's
 // compiled CJS is not guaranteed.
 import nextConstants from 'next/constants.js';
+import { localesVersion } from './lib/locales-version.mjs';
+
+// #471 (recette v2): fingerprint of the translation files, put in the URL
+// lib/i18n.ts fetches them from — see lib/locales-version.mjs.
+const LOCALES_VERSION = localesVersion(path.join(import.meta.dirname, 'public', 'locales'));
 
 // IMPORTANT: Next.js 16 defaults to Turbopack, which does not run webpack
 // plugins — @ducanh2912/next-pwa generates the service worker via a Workbox
@@ -41,15 +46,64 @@ import nextConstants from 'next/constants.js';
 //    worker. Mutations always hit the network directly; they are queued
 //    client-side in IndexedDB (see web/lib/offline/syncEngine.ts) only when
 //    that direct request actually fails.
-const withPWA = withPWAInit({
+/** @type {import('@ducanh2912/next-pwa').PluginOptions} */
+export const pwaOptions = {
   dest: 'public',
   // Standard next-pwa pattern: no service worker at all in dev, so a stale
   // cached worker can never mask local changes during `next dev`.
   disable: process.env.NODE_ENV === 'development',
   register: true,
+  // #471 (recette v2): everything in public/ is precached by default, served
+  // cache-first by the worker that precached it — including the translations,
+  // so the first visit after an update got the previous version's file (raw
+  // keys, old labels). They are left out of the precache (the plugin's own
+  // `noprecache/` exclusion is kept) and served by the `glou-locales` rule
+  // below instead.
+  publicExcludes: ['!noprecache/**/*', '!locales/**/*'],
+  // FEAT-108 (ux-ui.md §10.8): back online, the page is NOT reloaded (the
+  // plugin's default). The app follows by itself — the offline queue is
+  // replayed (useOfflineSync) and the lists refetched — so the open drawer
+  // stays where it was, and a reload can no longer cut a queued change
+  // while it is being sent (its answer lost, then replayed as a conflict).
+  reloadOnOnline: false,
   extendDefaultRuntimeCaching: true,
   workboxOptions: {
+    // Review of #828: the translations of THIS version, both languages, at
+    // their fingerprinted URL (lib/i18n.ts). Installed with the rest of the
+    // app, they are there offline from the first start after an update, and
+    // for the other language too. A new version means new URLs: no revision.
+    additionalManifestEntries: ['fr', 'en'].map((lng) => ({
+      url: `/locales/${lng}/common.json?v=${encodeURIComponent(LOCALES_VERSION)}`,
+      revision: null,
+    })),
     runtimeCaching: [
+      // FEAT-108 (review of #823): the connectivity probe must never be
+      // answered from a cache — the plugin's default `apis` rule
+      // (NetworkFirst) would serve a stale `{ online: true }` to an app
+      // started offline, and the actions that need the server would look
+      // available. Listed first: the first matching rule wins.
+      {
+        urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname === '/api/connectivity',
+        method: 'GET',
+        handler: 'NetworkOnly',
+      },
+      // #471 (recette v2): the translations, at their fingerprinted URL
+      // (lib/i18n.ts). Network first so a page always gets the file of its
+      // own version; the copy kept is what an app started offline reads
+      // (FEAT-108: translations stay available offline after a first visit).
+      // Needed as its own rule: the plugin's `.json` rule ends with `$` and
+      // does not match a URL with a query string.
+      {
+        urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/locales/'),
+        method: 'GET',
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'glou-locales',
+          networkTimeoutSeconds: 4,
+          expiration: { maxEntries: 8 },
+          cacheableResponse: { statuses: [200] },
+        },
+      },
       {
         urlPattern: ({ url, sameOrigin }) =>
           sameOrigin && /^\/api\/(inventory|cellars|collections)(\/|$)/.test(url.pathname),
@@ -67,7 +121,8 @@ const withPWA = withPWAInit({
       },
     ],
   },
-});
+};
+const withPWA = withPWAInit(pwaOptions);
 
 // ISSUE_053: Strict-Transport-Security tells the browser to only ever speak
 // HTTPS to this origin — correct advice on an instance actually served over
@@ -87,6 +142,7 @@ function shouldSendHsts() {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  env: { NEXT_PUBLIC_LOCALES_VERSION: LOCALES_VERSION },
   output: 'standalone',
   serverExternalPackages: [],
   // #466: the API↔web contracts live in ../shared (imported as @shared/*,

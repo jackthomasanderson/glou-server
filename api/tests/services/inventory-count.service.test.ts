@@ -18,12 +18,15 @@ import { applyCorrections, getSessionReport } from '../../src/services/inventory
  */
 function mockTransactionClient(itemRow: Record<string, unknown> | null) {
   const findFirst = vi.fn().mockResolvedValue(itemRow as never);
-  const update = vi.fn().mockResolvedValue({} as never);
+  const update = vi.fn().mockResolvedValue({ id: itemRow?.id } as never);
+  // #471: the families of the corrected units are locked first (lockFamily).
+  const findMany = vi.fn().mockResolvedValue(itemRow ? [{ productId: 'p1' }] : []);
+  const $queryRaw = vi.fn();
   vi.mocked(prisma.$transaction).mockImplementation(
     ((callback: (tx: unknown) => unknown) =>
-      callback({ inventoryItem: { findFirst, update } })) as never,
+      callback({ inventoryItem: { findFirst, update, findMany }, inventoryCountEntry: { findMany: vi.fn().mockResolvedValue([]) }, $queryRaw })) as never,
   );
-  return { findFirst, update };
+  return { findFirst, update, $queryRaw };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -49,13 +52,22 @@ describe('applyCorrections', () => {
     } as never);
     const tx = mockTransactionClient({
       id: 'b1',
+      productId: 'p1',
       deletedAt: null,
+      writtenOffAt: null,
+      quantity: 1,
+      isOpened: false,
+      fillLevel: null,
+      cigarsLeft: null,
+      slotColumn: 2,
+      slotRow: 3,
       lockedFields: ['fillLevel', 'isOpened'],
+      product: { category: 'wine' },
     });
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'mark_consumed' }], 'u1');
 
-    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [] });
+    expect(result).toMatchObject({ status: 'success', appliedCount: 1, skipped: [] });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
       data: {
@@ -67,7 +79,10 @@ describe('applyCorrections', () => {
         updatedAt: expect.any(Date),
         updatedBy: 'u1',
       },
+      include: expect.anything(),
     });
+    // #471: the family is locked before the unit is written.
+    expect(tx.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(tx.update.mock.invocationCallOrder[0]);
   });
 
   it('moves a bottle into the session scope even when cellarId is locked', async () => {
@@ -79,10 +94,29 @@ describe('applyCorrections', () => {
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'move_to_scope' }], 'u1');
 
-    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [] });
+    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [], history: [] });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
       data: expect.objectContaining({ cellarId: 'c1', updatedBy: 'u1' }),
+    });
+  });
+
+  // #798: the slot coordinates belong to the bottle's old cellar.
+  it('moves a slotted bottle into the session scope unplaced', async () => {
+    vi.mocked(prisma.inventoryCountSession.findUnique).mockResolvedValue({
+      id: 's1',
+      cellarId: 'c1',
+    } as never);
+    const tx = mockTransactionClient({
+      id: 'b1', deletedAt: null, lockedFields: [], cellarId: 'c2', slotColumn: 2, slotRow: 3,
+    });
+
+    const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'move_to_scope' }], 'u1');
+
+    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [], history: [] });
+    expect(tx.update).toHaveBeenCalledWith({
+      where: { id: 'b1' },
+      data: expect.objectContaining({ cellarId: 'c1', slotColumn: null, slotRow: null }),
     });
   });
 
@@ -99,6 +133,7 @@ describe('applyCorrections', () => {
       status: 'success',
       appliedCount: 0,
       skipped: [{ targetId: 'gone', action: 'mark_consumed', reason: 'item_not_found' }],
+      history: [],
     });
     expect(tx.update).not.toHaveBeenCalled();
   });
@@ -116,6 +151,7 @@ describe('applyCorrections', () => {
       status: 'success',
       appliedCount: 0,
       skipped: [{ targetId: 'b1', action: 'move_to_scope', reason: 'session_has_no_cellar' }],
+      history: [],
     });
     expect(tx.update).not.toHaveBeenCalled();
   });
@@ -143,7 +179,7 @@ describe('getSessionReport — the theoretical list is what the cellar holds (FE
     expect(call.where).toEqual({
       cellarId: 'c1',
       deletedAt: null,
-      isOwned: true,
+      writtenOffAt: null,
       // `not: null` keeps an opened bottle with no recorded level on the list.
       NOT: { isOpened: true, fillLevel: { equals: 0, not: null } },
     });

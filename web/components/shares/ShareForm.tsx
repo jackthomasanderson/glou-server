@@ -172,24 +172,29 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
                 const isSelected = selectedCellarIds.includes(cellar.id);
                 const canWrite = writeCellarIds.includes(cellar.id);
                 return (
-                  <div key={cellar.id} className="flex items-center justify-between gap-2">
+                  // The switch under the cellar's name: beside it, it squeezed the name
+                  // onto two lines (« ZZ R3 B », recette v3 of #471).
+                  <div key={cellar.id} className="flex flex-col items-start gap-1">
                     <Checkbox
                       isSelected={isSelected}
                       onValueChange={() => toggleCellar(cellar.id)}
                       size="sm"
                     >
-                      {cellar.name}
+                      <span id={`share-cellar-name-${cellar.id}`}>{cellar.name}</span>
                     </Checkbox>
                     {isSelected && (
+                      // Recette #471: the label names the action the switch grants, never the
+                      // current state (« Lecture seule » beside an "on" switch read backwards).
                       <Switch
+                        className="ml-7"
                         isSelected={canWrite}
                         onValueChange={() => toggleCellarWrite(cellar.id)}
                         size="sm"
-                        aria-label={t('shares.fields.cellarWriteAccessAria', { name: cellar.name })}
+                        data-testid={`share-cellar-write-${cellar.id}`}
+                        // One name per cellar for a screen reader (HeroUI drops aria-label here).
+                        aria-labelledby={`share-cellar-name-${cellar.id} share-cellar-write-label-${cellar.id}`}
                       >
-                        <span className="text-xs text-foreground-500">
-                          {canWrite ? t('shares.fields.readWrite') : t('shares.fields.readOnly')}
-                        </span>
+                        <span id={`share-cellar-write-label-${cellar.id}`} className="text-xs text-foreground-500">{t('shares.fields.allowWrite')}</span>
                       </Switch>
                     )}
                   </div>

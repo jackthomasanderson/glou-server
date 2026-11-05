@@ -96,6 +96,13 @@ describe('authService.exportUserData (#224)', () => {
     expect(out.included).toEqual(ALL_EXPORT_CATEGORIES);
   });
 
+  // #471: a bottle without its family would export a price and a cellar but no wine.
+  it('exports each bottle with its family (the description of the wine)', async () => {
+    await authService.exportUserData('u1');
+    const args = findUser.mock.calls[0][0] as { include: { inventory: Record<string, unknown> } };
+    expect(args.include.inventory).toEqual({ where: { deletedAt: null }, include: { product: true } });
+  });
+
   it('does not cap the activity log', async () => {
     await authService.exportUserData('u1');
     const args = findUser.mock.calls[0][0] as { include: { auditLogs: Record<string, unknown> } };

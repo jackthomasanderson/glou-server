@@ -9,6 +9,7 @@ import { FilterChip } from '@/components/ui/FilterControls';
 import { Save, Trash2 } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { useBulkPresets, useCreateBulkPreset, useDeleteBulkPreset } from '@/hooks/useBulkPresets';
 
 interface BulkActionDialogProps {
@@ -18,6 +19,14 @@ interface BulkActionDialogProps {
   onApply: (patch: Partial<InventoryItem>) => void;
   isSubmitting?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
+  /**
+   * #471: the selection is wines, not bottles (until lot P). Opening or the
+   * level of a whole group would turn its N bottles into one: only the
+   * cellar and the tags are offered, presets included.
+   */
+  wineSelection?: boolean;
+  /** Replaces the default "N items" subtitle ("3 vins, 14 bouteilles"). */
+  subtitle?: string;
 }
 
 const NO_FIELDS_ENABLED = {
@@ -46,7 +55,11 @@ export function BulkActionDialog({
   onApply,
   isSubmitting,
   t,
+  wineSelection = false,
+  subtitle,
 }: BulkActionDialogProps) {
+  // FEAT-108 (§10.8): the bulk edit is written at once, never queued.
+  const offline = useOfflineBlocked();
   const { data: cellars } = useCellars();
   const { data: presets } = useBulkPresets();
   const createPresetMutation = useCreateBulkPreset();
@@ -85,8 +98,8 @@ export function BulkActionDialog({
     const patch: Partial<InventoryItem> = {};
     if (enabledFields.cellarId) patch.cellarId = values.cellarId;
     if (enabledFields.tags) patch.tags = values.tags;
-    if (enabledFields.isOpened) patch.isOpened = values.isOpened;
-    if (enabledFields.fillLevel) patch.fillLevel = values.fillLevel;
+    if (enabledFields.isOpened && !wineSelection) patch.isOpened = values.isOpened;
+    if (enabledFields.fillLevel && !wineSelection) patch.fillLevel = values.fillLevel;
     return patch;
   };
 
@@ -105,8 +118,8 @@ export function BulkActionDialog({
     const newValues = { ...values };
     if (p.cellarId !== undefined) { newEnabled.cellarId = true; newValues.cellarId = p.cellarId; }
     if (p.tags !== undefined) { newEnabled.tags = true; newValues.tags = p.tags; }
-    if (p.isOpened !== undefined) { newEnabled.isOpened = true; newValues.isOpened = p.isOpened; }
-    if (p.fillLevel !== undefined) { newEnabled.fillLevel = true; newValues.fillLevel = p.fillLevel; }
+    if (p.isOpened !== undefined && !wineSelection) { newEnabled.isOpened = true; newValues.isOpened = p.isOpened; }
+    if (p.fillLevel !== undefined && !wineSelection) { newEnabled.fillLevel = true; newValues.fillLevel = p.fillLevel; }
     setEnabledFields(newEnabled);
     setValues(newValues);
   };
@@ -156,7 +169,7 @@ export function BulkActionDialog({
           <>
             <ModalHeader className="flex flex-col gap-0.5 pb-2">
               <span className="font-bold text-base">{t('bulk.title')}</span>
-              <span className="text-xs text-foreground-500 font-normal">{t('bulk.subtitle', { count: selectedItems.length })}</span>
+              <span className="text-xs text-foreground-500 font-normal">{subtitle ?? t('bulk.subtitle', { count: selectedItems.length })}</span>
             </ModalHeader>
 
             <ModalBody className="gap-4 py-2">
@@ -265,6 +278,7 @@ export function BulkActionDialog({
                   )}
                 </div>
 
+                {!wineSelection && (<>
                 {/* isOpened */}
                 <div>
                   <Checkbox isSelected={enabledFields.isOpened} onValueChange={() => toggleField('isOpened')} size="sm">
@@ -305,6 +319,7 @@ export function BulkActionDialog({
                     </div>
                   )}
                 </div>
+                </>)}
               </div>
 
               {/* Preview */}
@@ -364,14 +379,15 @@ export function BulkActionDialog({
 
             <ModalFooter className="gap-2 pt-2">
               <Button variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
-              <Button
+              <OfflineBlockedButton
+                blocked={offline}
                 color="primary"
                 onPress={handleApply}
                 isDisabled={!hasChanges || isSubmitting}
                 isLoading={isSubmitting}
               >
                 {t('bulk.apply')}
-              </Button>
+              </OfflineBlockedButton>
             </ModalFooter>
           </>
         )}

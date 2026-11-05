@@ -666,8 +666,13 @@ adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Pr
       res.status(400).json({ error: 'CONFIRMATION_REQUIRED', details: error.issues });
       return;
     }
-    console.error('[Admin] Backup restore error:', error);
     const msg = error instanceof Error ? error.message : 'RESTORE_FAILED';
+    // #471 (lot Z): a backup of another version of Glou is refused, nothing restored.
+    if (msg === 'BACKUP_FROM_OLDER_VERSION' || msg === 'BACKUP_FROM_NEWER_VERSION') {
+      res.status(409).json({ error: msg });
+      return;
+    }
+    console.error('[Admin] Backup restore error:', error);
     res.status(500).json({ error: msg });
   }
 });

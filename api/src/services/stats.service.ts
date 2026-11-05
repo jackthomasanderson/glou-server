@@ -1,31 +1,42 @@
+import type { BottleCategory, Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { OWNED_ITEM_FILTER } from '../lib/owned-item';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { UNIT_STATE_COLUMNS, unitsOfGroups } from '../lib/stock-units';
 import type { SidebarCounts } from '../../../shared/stats';
 
 /** Categories the sidebar groups under "Bouteilles" (cigars have their own badge). */
 const BOTTLE_CATEGORIES = ['wine', 'sparkling', 'spirit'] as const;
 
 /**
- * The five numbers the sidebar badges show, computed with COUNT queries (#212).
- * The sidebar used to download the full inventory, cellar, collection, wishlist
- * and count-session lists on every page — including Analytics, Profile and Admin —
- * just to write a number on a badge. Each figure here mirrors the filter of the
- * list endpoint it replaces: inventory and cellars are instance-wide, collections
- * and the wishlist belong to the user.
+ * Units in stock of some categories (#471, FEAT-96): bottles and cigars, not
+ * rows — a group of 6 is 6 bottles (shared/units.ts `itemUnits`). Grouped by
+ * unit state in SQL, so a page load never reads every row (#573: in stock only).
+ */
+async function unitsInStock(category: Prisma.EnumBottleCategoryFilter | BottleCategory): Promise<number> {
+  const groups = await prisma.inventoryItem.groupBy({
+    by: [...UNIT_STATE_COLUMNS],
+    where: { ...IN_STOCK_ITEM_FILTER, product: { category } },
+    _count: { _all: true },
+  });
+  return unitsOfGroups(groups);
+}
+
+/**
+ * The numbers the sidebar badges show (#212). The sidebar used to download the
+ * full inventory, cellar, collection, wishlist and count-session lists on
+ * every page just to write a number on a badge. Inventory and cellars are
+ * instance-wide, collections and the wishlist belong to the user.
  */
 export const statsService = {
   async getSidebarCounts(userId: string): Promise<SidebarCounts> {
     // End of "today" in the instance's time zone (`TZ`, #575), like the
-    // cellar cards' reminder count; the detailed list (NotificationBell, on
-    // open) still recomputes it client-side from the real items.
+    // cellar cards' reminder count.
     const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
 
     const [bottles, cigars, cellars, collections, activeSession, pricedWishes, remindersToday] = await Promise.all([
-      // #573: what is in stock, like the list counter (#504) and the cellar cards.
-      prisma.inventoryItem.count({ where: { ...IN_STOCK_ITEM_FILTER, category: { in: [...BOTTLE_CATEGORIES] } } }),
-      prisma.inventoryItem.count({ where: { ...IN_STOCK_ITEM_FILTER, category: 'cigar' } }),
+      unitsInStock({ in: [...BOTTLE_CATEGORIES] }),
+      unitsInStock('cigar'),
       prisma.cellar.count(),
       prisma.collection.count({ where: { userId } }),
       prisma.inventoryCountSession.findFirst({
@@ -38,8 +49,13 @@ export const statsService = {
         where: { userId, status: 'active', lastSeenPrice: { not: null }, maxPrice: { not: null } },
         select: { lastSeenPrice: true, maxPrice: true },
       }),
-      prisma.inventoryItem.count({
-        where: { deletedAt: null, ...OWNED_ITEM_FILTER, reminderDate: { not: null, lte: endOfToday } },
+      // #471: the reminder is on the family — one per wine in stock.
+      prisma.product.count({
+        where: {
+          deletedAt: null,
+          reminderDate: { not: null, lte: endOfToday },
+          items: { some: IN_STOCK_ITEM_FILTER },
+        },
       }),
     ]);
 

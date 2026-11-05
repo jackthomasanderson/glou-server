@@ -14,11 +14,40 @@ export interface TastingItemSummary {
   format?: string | null;
 }
 
+/** #471 (FEAT-107): the wine (family) tasted — the only thing known of a wine tasted elsewhere. */
+export interface TastingProductSummary {
+  id: string;
+  name: string;
+  producer: string;
+  category: InventoryCategory;
+  vintage?: number | null;
+  photoUrl?: string | null;
+  color?: string | null;
+  spiritType?: string | null;
+  sparklingType?: string | null;
+  format?: string | null;
+}
+
+/** #471 (FEAT-107): a wine tasted elsewhere, named: Glou finds it, or adds it without any bottle. */
+export interface TastedWine {
+  category: InventoryCategory;
+  producer: string;
+  name: string;
+  vintage?: number | null;
+  /** A cigar's vitola. */
+  format?: string | null;
+}
+
 export interface TastingNote {
   id: string;
   userId: string;
+  /** The bottle tasted; null for a wine tasted elsewhere. */
   itemId?: string | null;
   item?: TastingItemSummary | null;
+  productId?: string | null;
+  product?: TastingProductSummary | null;
+  /** #471 (FEAT-109): noted through a guest link — the guest's name ('' when the share named nobody). */
+  guestName?: string | null;
   tastedAt: string;
   context?: string | null;
   rating?: number | null;
@@ -45,7 +74,12 @@ export interface TastingListResult {
 }
 
 export interface TastingFormValues {
+  /** The bottle tasted, when it is one of the cellar. */
   itemId?: string;
+  /** #471 (FEAT-107): the wine tasted (never changed once saved). */
+  productId?: string;
+  /** #471 (FEAT-107): a wine named, not picked from the list (creation only). */
+  wine?: TastedWine;
   tastedAt?: string;
   context?: string;
   rating?: number | null;
@@ -60,14 +94,6 @@ export interface TastingFormValues {
   tanin?: number | null;
   acidite?: number | null;
   longueurBouche?: number | null;
-}
-
-export interface TastingItemStats {
-  count: number;
-  avgRating: number | null;
-  lastTastedAt: string;
-  lastRating: number | null;
-  lastReadiness: TastingReadiness | null;
 }
 
 export interface TastingProducerRank {

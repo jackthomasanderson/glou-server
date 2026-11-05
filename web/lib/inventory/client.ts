@@ -1,5 +1,11 @@
-import { client, handleResponse, timeoutSignal } from '../api';
-import { InventoryItem, InventoryHistoryEntry } from './types';
+import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal } from '../api';
+import { fetchOrNetworkError } from '../network-error';
+import type { UnitWriteResult } from '@shared/product';
+import type { Wire } from '@shared/wire';
+import type { InventoryItem, InventoryItemPatch } from './types';
+
+/** D8: what a PATCH of one bottle changed — the bottle carrying the state asked, the others, those removed. */
+export type InventoryUnitWrite = Wire<UnitWriteResult<InventoryItem>>;
 
 // ─── Inventory API client ───────────────────────────────────────────────────────
 
@@ -34,12 +40,8 @@ export const inventoryClient = {
     return data;
   },
 
-  // ISSUE_141: `confirmDuplicate: true` tells the server the user already
-  // saw and dismissed the duplicate-candidate dialog for this exact
-  // submission — it must not run its own FEAT-65 check again and reject
-  // with 409. Not part of `InventoryItem`: it's a one-shot instruction to
-  // this call, not a stored field.
-  async create(data: Partial<InventoryItem> & { confirmDuplicate?: boolean }): Promise<InventoryItem> {
+  /** `distinctFrom` (#471, FEAT-97 c5): the wines of the same name answered "C'est un autre vin". */
+  async create(data: Partial<InventoryItem> & { distinctFrom?: string[]; scanJobId?: string }): Promise<InventoryItem> {
     const { data: result } = await client.post<InventoryItem>('/inventory', data);
     return result;
   },
@@ -48,10 +50,21 @@ export const inventoryClient = {
    * `expectedUpdatedAt`: the version the change was made from. If the item
    * changed since, the API refuses with 409 `CONFLICT` instead of overwriting (#572).
    */
-  async update(id: string, patch: Partial<InventoryItem>, expectedUpdatedAt?: string): Promise<InventoryItem> {
+  async update(id: string, patch: InventoryItemPatch, expectedUpdatedAt?: string): Promise<InventoryUnitWrite> {
     const body = expectedUpdatedAt ? { ...patch, expectedUpdatedAt } : patch;
-    const { data: result } = await client.patch<InventoryItem>(`/inventory/${id}`, body);
-    return result;
+    const res = await fetchOrNetworkError(`/api/inventory/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(body),
+      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
+    });
+    if (!res.ok) throw await apiErrorFrom(res);
+    // D8 (#471): opening one bottle of a group answers the sub-record created
+    // (`data`), the group decremented (`changed`), and a reattachment the
+    // sub-record absorbed (`removedIds`).
+    const result = (await res.json()) as Partial<InventoryUnitWrite> & { data: InventoryItem };
+    return { data: result.data, changed: result.changed ?? [], removedIds: result.removedIds ?? [] };
   },
 
   async bulkUpdate(ids: string[], patch: Partial<InventoryItem>): Promise<{ updatedCount: number }> {
@@ -66,11 +79,6 @@ export const inventoryClient = {
 
   async restore(id: string): Promise<InventoryItem> {
     const { data } = await client.post<InventoryItem>(`/inventory/${id}/restore`);
-    return data;
-  },
-
-  async getHistory(id: string): Promise<InventoryHistoryEntry[]> {
-    const { data } = await client.get<InventoryHistoryEntry[]>(`/inventory/${id}/history`);
     return data;
   },
 

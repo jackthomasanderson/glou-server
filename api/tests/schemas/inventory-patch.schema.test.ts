@@ -10,6 +10,28 @@ describe('inventoryPatchSchema', () => {
     expect(inventoryPatchSchema.safeParse({}).success).toBe(true);
   });
 
+  // #471 (FEAT-103/106): the detach / reattach instructions.
+  it('accepts smokeOne: true only, cigarsLeft and cigarsPerBox as counts, keepTastings as a boolean', () => {
+    expect(inventoryPatchSchema.safeParse({ smokeOne: true }).success).toBe(true);
+    expect(inventoryPatchSchema.safeParse({ smokeOne: false }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ cigarsLeft: 24, cigarsPerBox: 25 }).success).toBe(true);
+    expect(inventoryPatchSchema.safeParse({ cigarsLeft: -1 }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ cigarsPerBox: 0 }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ keepTastings: false }).success).toBe(true);
+    expect(inventoryPatchSchema.safeParse({ keepTastings: 'yes' }).success).toBe(false);
+  });
+
+  // #471 (W3, D6): "Modifier" a line sets or empties its purchase day.
+  it('takes a purchase day as YYYY-MM-DD at midnight UTC, or null to empty it', () => {
+    const day = inventoryPatchSchema.safeParse({ purchasedAt: '2026-03-14' });
+    expect(day.success && day.data.purchasedAt).toEqual(new Date('2026-03-14T00:00:00.000Z'));
+    const emptied = inventoryPatchSchema.safeParse({ purchasedAt: null });
+    expect(emptied.success && emptied.data.purchasedAt).toBeNull();
+    expect(inventoryPatchSchema.safeParse({}).data).not.toHaveProperty('purchasedAt');
+    expect(inventoryPatchSchema.safeParse({ purchasedAt: '14/03/2026' }).success).toBe(false);
+    expect(inventoryPatchSchema.safeParse({ purchasedAt: '2026-03-14T10:00:00Z' }).success).toBe(false);
+  });
+
   it('allows nulling out nullable fields', () => {
     const res = inventoryPatchSchema.safeParse({ vintage: null, region: null, cellarId: null });
     expect(res.success).toBe(true);
@@ -65,7 +87,7 @@ describe('inventoryPatchSchema', () => {
 describe('guestInventoryUpdateSchema (FEAT-37, strict allow-list)', () => {
   it('accepts only consumption/service state fields', () => {
     expect(
-      guestInventoryUpdateSchema.safeParse({ isOpened: true, fillLevel: 40, notes: 'ouverte au resto' }).success,
+      guestInventoryUpdateSchema.safeParse({ isOpened: true, fillLevel: 40 }).success,
     ).toBe(true);
   });
 
@@ -73,6 +95,9 @@ describe('guestInventoryUpdateSchema (FEAT-37, strict allow-list)', () => {
     expect(guestInventoryUpdateSchema.safeParse({ purchasePrice: 0 }).success).toBe(false);
     expect(guestInventoryUpdateSchema.safeParse({ isOpened: true, category: 'wine' }).success).toBe(false);
     expect(guestInventoryUpdateSchema.safeParse({ lockedFields: [] }).success).toBe(false);
+    // #471 (FEAT-109): the notes are the family's, common to every bottle — a guest never edits them.
+    expect(guestInventoryUpdateSchema.safeParse({ notes: 'ouverte au resto' }).success).toBe(false);
+    expect(guestInventoryUpdateSchema.safeParse({ fillLevel: 40, notes: null }).success).toBe(false);
   });
 });
 

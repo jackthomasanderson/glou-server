@@ -9,7 +9,7 @@ import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analy
 
 // FEAT-42: filtered asset list — populated by a marker click (region scope)
 // and/or the sidebar filters (MapFiltersPanel), combined in MapExplorer.
-// Clicking a row opens the shared InventoryDetailDialog (no duplication).
+// Clicking a row opens the drawer of its wine (FamilyDrawer, no duplication).
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,

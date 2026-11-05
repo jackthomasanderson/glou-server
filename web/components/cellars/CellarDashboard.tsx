@@ -1,5 +1,6 @@
 'use client';
 
+import { cellarContentsLabel } from '@/lib/cellars/contents';
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Button,
@@ -120,6 +121,8 @@ export const CellarDashboard: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<CellarTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<CellarStatusFilter>('all');
   const [deletingCellar, setDeletingCellar] = useState<Cellar | null>(null);
+  // Its name stays in the dialog while it closes (« la cave «  » ? » during the animation).
+  const [deletingName, setDeletingName] = useState('');
 
   // Parsing filters out of the URL query string is adjusted during render
   // (React's documented pattern) rather than in an effect, guarded against
@@ -265,6 +268,7 @@ export const CellarDashboard: React.FC = () => {
 
   const handleDelete = (cellar: Cellar) => {
     setDeletingCellar(cellar);
+    setDeletingName(cellar.name);
   };
 
   const confirmDelete = async () => {
@@ -428,7 +432,7 @@ export const CellarDashboard: React.FC = () => {
                 {cellar.stats && (
                   <div className="flex gap-1.5 mt-1 flex-wrap">
                     <Chip size="sm" variant="flat">
-                      {t('cellars.stats.itemsCount', { count: cellar.stats.totalItems })}
+                      {cellarContentsLabel(cellar.stats, t)}
                     </Chip>
                     {cellar.stats.alertCount > 0 && (
                       <Chip size="sm" color="warning" variant="flat">
@@ -527,7 +531,7 @@ export const CellarDashboard: React.FC = () => {
                   </span>
                 </TableCell>
                 <TableCell className="text-right">
-                  <span className="text-sm">{cellar.stats?.totalItems ?? 0}</span>
+                  <span className="text-sm">{cellarContentsLabel(cellar.stats ?? { bottles: 0, cigars: 0 }, t)}</span>
                 </TableCell>
                 <TableCell className="text-right">
                   {cellar.stats?.alertCount ? (
@@ -752,7 +756,7 @@ export const CellarDashboard: React.FC = () => {
             <>
               <ModalHeader>{t('cellars.deleteTitle')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-foreground-600">{t('cellars.deleteConfirm')}</p>
+                <p className="text-sm text-foreground-600">{t('cellars.deleteConfirm', { name: deletingName })}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="default" variant="light" onPress={() => setDeletingCellar(null)}>

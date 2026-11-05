@@ -6,11 +6,12 @@ import {
 } from '@heroui/react';
 import { Pause, Search, CheckCircle2, Circle, AlertTriangle, PackagePlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { CountSession, CountReportItem } from '@/lib/inventory-count/types';
+import { CountSession, CountLine } from '@/lib/inventory-count/types';
 import { useSessionReport, useScanItem, usePauseCountSession } from '@/hooks/useInventoryCount';
 import { useInventory } from '@/hooks/useInventory';
 import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { RecordFoundItemModal } from './RecordFoundItemModal';
+import { MAX_COPIES } from '@shared/product';
 
 const MIN_SEARCH_LENGTH = 2;
 const MAX_SEARCH_RESULTS = 8;
@@ -36,25 +37,43 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   const searchWrapperRef = useRef<HTMLDivElement>(null);
   const [autoScannedFor, setAutoScannedFor] = useState<string | null>(null);
   const [isFoundModalOpen, setIsFoundModalOpen] = useState(false);
+  // #471 (FEAT-100): the group line a scan or a search pointed at, whose
+  // "Combien en avez-vous trouvé ?" takes the focus.
+  const [focusedLineId, setFocusedLineId] = useState<string | null>(null);
+
+  /**
+   * A group of several copies is never confirmed whole by a scan or a pick
+   * (that would also reset a number already answered): its question is
+   * brought forward instead. Anything else is confirmed as before.
+   */
+  const pointAt = (itemId: string) => {
+    const line = report?.expected.find((candidate) => candidate.id === itemId);
+    if (line && line.isGroup && line.expectedQuantity > 1) {
+      setFocusedLineId(itemId);
+      return;
+    }
+    scanMutation.mutate({ itemId });
+  };
 
   // Opening an existing QR code (?scan=itemId — same URL pattern as
   // InventoryDashboard's QR flow, see QrCodeModal.tsx) while a session is
   // active confirms that item directly instead of just opening its detail.
   useEffect(() => {
     const scanParam = searchParams.get('scan');
-    if (scanParam && scanParam !== autoScannedFor && session.status === 'active') {
+    // Waits for the report: whether the code is a group's decides what it does.
+    if (scanParam && scanParam !== autoScannedFor && session.status === 'active' && report) {
       // Paired with the router.replace() below (an external navigation side
       // effect that must stay in an effect) — splitting this setState out
       // to render-time would desync it from the URL cleanup.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setAutoScannedFor(scanParam);
-      scanMutation.mutate(scanParam);
+      pointAt(scanParam);
       const next = new URLSearchParams(searchParams.toString());
       next.delete('scan');
       router.replace(`${pathname}${next.toString() ? `?${next.toString()}` : ''}`);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, session.status, autoScannedFor]);
+  }, [searchParams, session.status, autoScannedFor, report]);
 
   // Quick-find search spans the FULL shared inventory (not just this
   // session's theoretical list) — an "unexpected" find is by definition an
@@ -82,7 +101,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   }, [query, allItems, alreadyRecordedIds]);
 
   const handleSelectResult = (itemId: string) => {
-    scanMutation.mutate(itemId);
+    pointAt(itemId);
     setQuery('');
     setIsSearchOpen(false);
   };
@@ -101,10 +120,13 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
       ? Math.round((report.counts.confirmed / report.counts.expected) * 100)
       : 0;
 
+  // #471 (FEAT-100): one line per group of the theoretical list, plus what
+  // was confirmed outside it (a free-label scope has no theoretical list).
   const checklist = useMemo(() => {
-    const confirmed = (report?.confirmed ?? []).map((item) => ({ item, confirmed: true }));
-    const pending = (report?.missing ?? []).map((item) => ({ item, confirmed: false }));
-    return [...confirmed, ...pending].sort((a, b) => a.item.name.localeCompare(b.item.name));
+    const expected = report?.expected ?? [];
+    const listed = new Set(expected.map((line) => line.id));
+    const extra = (report?.confirmed ?? []).filter((line) => !listed.has(line.id));
+    return [...expected, ...extra].sort((a, b) => a.name.localeCompare(b.name));
   }, [report]);
 
   const isActive = session.status === 'active';
@@ -263,38 +285,120 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
             </p>
           ) : (
             <ul className="divide-y divide-divider">
-              {checklist.map(({ item, confirmed }: { item: CountReportItem; confirmed: boolean }) => (
-                <li key={item.id} className="flex items-center gap-3 px-4 py-3">
-                  {confirmed ? (
-                    <CheckCircle2 size={18} className="text-success shrink-0" />
-                  ) : (
-                    <Circle size={18} className="text-foreground-400 shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{item.name}</p>
-                    <p className="text-xs text-foreground-400 truncate">{item.producer}</p>
-                  </div>
-                  <Chip size="sm" variant="flat" color={confirmed ? 'success' : 'default'}>
-                    {confirmed ? t('inventoryCount.status.confirmed') : t('inventoryCount.status.pending')}
-                  </Chip>
-                  {!confirmed && (
-                    <Button
-                      size="sm"
-                      variant="light"
-                      color="primary"
-                      isDisabled={!isActive}
-                      isLoading={scanMutation.isPending && scanMutation.variables === item.id}
-                      onPress={() => scanMutation.mutate(item.id)}
-                    >
-                      {t('inventoryCount.session.confirmTap')}
-                    </Button>
-                  )}
-                </li>
+              {checklist.map((line) => (
+                <CountRow
+                  key={line.id}
+                  line={line}
+                  isActive={isActive}
+                  isFocused={focusedLineId === line.id}
+                  isPending={scanMutation.isPending && scanMutation.variables?.itemId === line.id}
+                  onConfirm={(foundQuantity) => scanMutation.mutate({ itemId: line.id, foundQuantity })}
+                />
               ))}
             </ul>
           )}
         </CardBody>
       </Card>
     </div>
+  );
+}
+
+interface CountRowProps {
+  line: CountLine;
+  isActive: boolean;
+  /** A scan or a search pointed at this group: its question takes the focus. */
+  isFocused: boolean;
+  isPending: boolean;
+  onConfirm: (foundQuantity?: number) => void;
+}
+
+/**
+ * #471 (FEAT-100, ux-ui §10.11): a group is counted in one answer — "Combien
+ * en avez-vous trouvé ?", prefilled with the number expected — and a single
+ * bottle (or an opened one) is confirmed in one tap, as before.
+ */
+function CountRow({ line, isActive, isFocused, isPending, onConfirm }: CountRowProps) {
+  const { t } = useTranslation();
+  const isGroup = line.isGroup && line.expectedQuantity > 1;
+  const found = line.foundQuantity;
+  const shown = String(found ?? line.expectedQuantity);
+  const [answer, setAnswer] = useState(shown);
+  // Follows the report when it reloads (another member's answer, a bottle
+  // opened meanwhile) — adjusted during render, React's documented pattern.
+  const [prevShown, setPrevShown] = useState(shown);
+  if (shown !== prevShown) {
+    setPrevShown(shown);
+    setAnswer(shown);
+  }
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!isFocused) return;
+    inputRef.current?.scrollIntoView?.({ block: 'center' });
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [isFocused]);
+  const parsed = Number(answer);
+  const isValid = answer.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= MAX_COPIES;
+
+  const status = found == null
+    ? <Chip size="sm" variant="flat" color="default">{t('inventoryCount.status.pending')}</Chip>
+    : found >= line.expectedQuantity
+      ? <Chip size="sm" variant="flat" color="success">{isGroup ? t('inventoryCount.status.foundOf', { found, expected: line.expectedQuantity }) : t('inventoryCount.status.confirmed')}</Chip>
+      : <Chip size="sm" variant="flat" color="warning">{t('inventoryCount.status.foundOf', { found, expected: line.expectedQuantity })}</Chip>;
+
+  return (
+    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
+      {found != null && found >= line.expectedQuantity ? (
+        <CheckCircle2 size={18} className="text-success shrink-0" />
+      ) : (
+        <Circle size={18} className="text-foreground-400 shrink-0" />
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">
+          {line.name}
+          {isGroup && <span className="ml-2 text-foreground-500 font-semibold">{t('inventoryCount.session.times', { number: line.expectedQuantity })}</span>}
+        </p>
+        <p className="text-xs text-foreground-400 truncate">{line.producer}</p>
+      </div>
+      {status}
+      {isGroup ? (
+        <form
+          className="flex items-center gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (isValid) onConfirm(parsed);
+          }}
+        >
+          <span className="text-xs text-foreground-500 self-center" aria-hidden="true">
+            {t('inventoryCount.session.howMany')}
+          </span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={MAX_COPIES}
+            size="sm"
+            variant="bordered"
+            className="w-20"
+            // The visible question is the same on every line: the name tells them apart.
+            aria-label={t('inventoryCount.session.howManyAria', { name: line.name })}
+            ref={inputRef}
+            value={answer}
+            onValueChange={setAnswer}
+            isInvalid={!isValid}
+            isDisabled={!isActive}
+          />
+          <Button type="submit" size="sm" variant="flat" color="primary" isDisabled={!isActive || !isValid} isLoading={isPending}>
+            {t('inventoryCount.session.saveCount')}
+          </Button>
+        </form>
+      ) : (
+        found == null && (
+          <Button size="sm" variant="light" color="primary" isDisabled={!isActive} isLoading={isPending} onPress={() => onConfirm()}>
+            {t('inventoryCount.session.confirmTap')}
+          </Button>
+        )
+      )}
+    </li>
   );
 }

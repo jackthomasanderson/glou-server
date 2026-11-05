@@ -3,12 +3,16 @@ import { ZodError } from 'zod';
 import QRCode from 'qrcode';
 import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
+import { distinctFromSchema } from '../schemas/product.schema';
 import { inventoryService } from '../services/inventory.service';
+import { inventoryExportService } from '../services/inventory-export.service';
 import { scanService } from '../services/scan.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { systemConfigService } from '../services/system-config.service';
 import { routeParam } from '../lib/http';
+import { AppError } from '../lib/errors';
+import type { UnitWriteResult } from '../../../shared/product';
 
 const router = Router();
 
@@ -27,6 +31,27 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
     res.json({ data: items, truncated });
   } catch (error) {
     console.error('[inventory] GET / error:', error);
+    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  }
+});
+
+// ─── GET /api/inventory/export.csv ───────────────────────────────────────────
+// #471 (FEAT-99): the cellar as a CSV the import reads back. Members only
+// (authMiddleware above); guests never reach it. Read-only, so no audit row.
+
+router.get('/export.csv', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const lang = req.query.lang === 'fr' ? 'fr' : 'en';
+    const { csv, rows } = await inventoryExportService.exportCsv(lang);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="glou-cellar-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.setHeader('Cache-Control', 'no-store');
+    // The screen warns when the file is longer than one import takes.
+    res.setHeader('X-Glou-Rows', String(rows));
+    res.setHeader('Access-Control-Expose-Headers', 'X-Glou-Rows');
+    res.send(csv);
+  } catch (error) {
+    console.error('[inventory] GET /export.csv error:', error);
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -119,6 +144,11 @@ router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, details: { count, bulk: true } });
     res.json({ data: { updatedCount: count } });
   } catch (error) {
+    if (error instanceof AppError) {
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, details: { reason: error.code, bulk: true } });
+      res.status(error.status).json({ error: error.code, details: error.details });
+      return;
+    }
     console.error('[inventory] POST /bulk error:', error);
     if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
@@ -148,24 +178,16 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       ? await scanService.computeOcrFieldSources(req.userId, scanJobIdResult.data, data.category)
       : undefined;
 
-    // ISSUE_141: the FEAT-65 dedup rule only ever ran in the browser against
-    // whatever page of the inventory happened to be loaded — the one real
-    // backstop (two members creating the same bottle at the same time from
-    // two devices) never existed. `confirmDuplicate` is the client's existing
-    // "Create Anyway" action telling the server this was already decided;
-    // without it, a match returns 409 instead of silently creating a second row.
-    const confirmDuplicate = (req.body as Record<string, unknown>).confirmDuplicate === true;
-    if (!confirmDuplicate) {
-      const duplicate = await inventoryService.findDuplicateCandidate(data);
-      if (duplicate) {
-        void auditLog({ userId: req.userId, action: 'CREATE', status: 'validation_error', ip, details: { reason: 'DUPLICATE_CANDIDATE', category: data.category, duplicateId: duplicate.id } });
-        res.status(409).json({ error: 'DUPLICATE_CANDIDATE', data: duplicate });
-        return;
-      }
-    }
+    // #471 (FEAT-97): no duplicate refusal any more — "Vous avez déjà ce vin"
+    // is asked while typing (GET /api/products/match). `distinctFrom` is the
+    // answer "C'est un autre vin": the new wine is remembered apart from those.
+    const distinctFrom = distinctFromSchema.optional().parse((req.body as Record<string, unknown>).distinctFrom) ?? [];
 
-    const item = await inventoryService.createItem(req.userId, data, undefined, fieldSources);
-    void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, details: { category: data.category } });
+    const item = distinctFrom.length > 0
+      ? await inventoryService.createApart(req.userId, data, distinctFrom, fieldSources)
+      : await inventoryService.createItem(req.userId, data, undefined, fieldSources);
+    const apart = distinctFrom.length > 0 ? { distinctFrom } : {};
+    void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, productId: item.productId, details: { category: data.category, ...apart } });
     res.status(201).json({ data: item });
   } catch (error) {
     console.error('[inventory] POST / error:', error);
@@ -198,18 +220,41 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       // `expectedUpdatedAt` and it no longer matches — someone else modified this item in the meantime.
       // Return the current server state so the client can offer conflict
       // resolution instead of silently overwriting it.
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: 'CONFLICT' } });
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, productId: result.serverItem.productId, details: { reason: 'CONFLICT' } });
       res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
       return;
     }
     if (result.slotConflict) {
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: 'SLOT_OCCUPIED' } });
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, productId: result.item.productId, details: { reason: 'SLOT_OCCUPIED' } });
       res.status(409).json({ error: 'SLOT_OCCUPIED' });
       return;
     }
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id, details: { changes: result.changes } });
-    res.json({ data: result.item });
+    // #471 (D8): a detach or a reattach is logged on the unit that now
+    // carries the state — the sub-record created, or the group that absorbed
+    // the sub-record (which no longer exists).
+    const outcome = result.outcome ? { outcome: result.outcome, targetItemId: id } : {};
+    const deleted = result.deletedTastings ? { deletedTastings: result.deletedTastings } : {};
+    // #471 (W3): an edited group that joined an identical one is gone — its
+    // edit is told on the group that took its copies, as a number change
+    // (never a field to restore there, the survivor's own values did not move).
+    const details = result.joined
+      ? { changes: [{ field: 'quantity', from: result.joined.from, to: result.joined.to }], joinedItemId: id, joinedChanges: result.changes }
+      : { changes: result.changes, ...outcome, ...deleted };
+    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId, details });
+    // The group's own history: one copy fewer (detached) or one more (reattached).
+    if (result.groupChange) {
+      const { itemId, from, to } = result.groupChange;
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: itemId, productId: result.item.productId, details: { changes: [{ field: 'quantity', from, to }], outcome: result.outcome, subItemId: result.outcome === 'detached' ? result.item.id : id } });
+    }
+    const response: UnitWriteResult<typeof result.item> = { data: result.item, changed: result.changed, removedIds: result.removedIds };
+    res.json(response);
   } catch (error) {
+    if (error instanceof AppError) {
+      // #471: a write the detach / reattach rule refuses (TASTINGS_ON_ITEM, NOT_A_CIGAR…).
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: error.code } });
+      res.status(error.status).json({ error: error.code, details: error.details });
+      return;
+    }
     console.error('[inventory] PATCH /:id error:', error);
     if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
@@ -235,7 +280,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
       return;
     }
     const daysLeft = inventoryService.daysUntilPermanentDelete(item.deletedAt!);
-    void auditLog({ userId: req.userId, action: 'DELETE', status: 'success', ip, bottleId: id, details: { daysLeft } });
+    void auditLog({ userId: req.userId, action: 'DELETE', status: 'success', ip, bottleId: id, productId: item.productId, details: { daysLeft } });
     res.json({ data: item, meta: { daysUntilPermanentDelete: daysLeft } });
   } catch (error) {
     console.error('[inventory] DELETE /:id error:', error);
@@ -256,7 +301,7 @@ router.post('/:id/restore', async (req: Request, res: Response): Promise<void> =
       res.status(404).json({ error: 'ITEM_NOT_FOUND_OR_EXPIRED' });
       return;
     }
-    void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip, bottleId: id });
+    void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip, bottleId: id, productId: item.productId });
     res.json({ data: item });
   } catch (error) {
     console.error('[inventory] POST /:id/restore error:', error);
@@ -293,9 +338,21 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, bottleId: id, details: { changes: result.changes } });
+    // #471 (W3): restored identical to another group, the line joined it (see PATCH).
+    void auditLog({
+      userId: req.userId, action: 'RESTORE_FIELD', status: 'success', ip, bottleId: result.item.id, productId: result.item.productId,
+      details: result.joined
+        ? { changes: [{ field: 'quantity', from: result.joined.from, to: result.joined.to }], joinedItemId: id, joinedChanges: result.changes }
+        : { changes: result.changes },
+    });
     res.json({ data: result.item });
   } catch (error) {
+    if (error instanceof AppError) {
+      // #471: a restored state the detach / reattach rule refuses (409 TASTINGS_ON_ITEM, 400…).
+      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'error', ip, bottleId: id, details: { reason: error.code } });
+      res.status(error.status).json({ error: error.code, details: error.details });
+      return;
+    }
     console.error('[inventory] POST /:id/rollback error:', error);
     if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');

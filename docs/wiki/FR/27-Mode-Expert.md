@@ -24,7 +24,7 @@
 
 | Problème | Cause probable | Résolution |
 | :--- | :--- | :--- |
-| Je vois des champs qui ne semblent pas correspondre à ma catégorie (ex: `Degré au fût` sur une fiche de cigare) | Comportement attendu : depuis l'extension du mode expert à toutes les catégories, ces champs sont génériques et ne sont plus filtrés par type d'objet. Laissez-les vides s'ils ne sont pas pertinents pour ce que vous gérez. | Aucune action requise, ce n'est pas un bug. Ignorez les champs non pertinents. |
+| Je vois des champs qui ne semblent pas correspondre à ma catégorie (ex: `Degré au fût` sur un cigare) | Comportement attendu : depuis l'extension du mode expert à toutes les catégories, ces champs sont génériques et ne sont plus filtrés par type d'objet. Laissez-les vides s'ils ne sont pas pertinents pour ce que vous gérez. | Aucune action requise, ce n'est pas un bug. Ignorez les champs non pertinents. |
 | J'ai désactivé le mode expert. Mes données d'appellation/fût ont-elles été supprimées ? | Non : le gate est un choix d'affichage frontend uniquement. | Réactivez le mode expert : les valeurs saisies précédemment sont toujours là. |
 | Le toggle ne semble pas se sauvegarder | Erreur réseau lors de l'appel à la mise à jour des préférences | Vérifiez votre connexion, rafraîchissez la page (F5) et réessayez. Un message de confirmation vert doit apparaître en haut de la page après activation. |
 | Un autre utilisateur de ma cave partagée ne voit pas les mêmes champs que moi | Comportement attendu : le mode expert est individuel, pas partagé | Chaque utilisateur doit activer le mode expert depuis son propre profil. |

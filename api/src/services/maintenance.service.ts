@@ -34,7 +34,7 @@ const SCAN_FILE_RETENTION_HOURS = 24;
 export class MaintenanceService {
     /**
      * Purge all business data from the database.
-     * Keeps user accounts but deletes inventory items, cellars, and audit logs.
+     * Keeps user accounts but deletes inventory items and their families, cellars, and audit logs.
      */
     static async purgeAllData(): Promise<PurgeResult> {
         return await prisma.$transaction(async (tx) => {
@@ -44,6 +44,9 @@ export class MaintenanceService {
 
             await tx.auditLog.deleteMany({});
             await tx.inventoryItem.deleteMany({});
+            // #471: the families, once they have no unit left (Restrict);
+            // their "C'est un autre vin" pairs and collection links cascade.
+            await tx.product.deleteMany({});
             await tx.cellar.deleteMany({});
 
             return {

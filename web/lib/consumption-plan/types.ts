@@ -12,6 +12,8 @@ export interface ConsumptionSuggestion {
   alertStatus?: string | null;
   isOpened: boolean;
   fillLevel?: number | null;
+  /** Cigars left in an opened box (#471). */
+  cigarsLeft?: number | null;
   reason: SuggestionReason;
 }
 

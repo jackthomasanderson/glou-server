@@ -15,6 +15,12 @@ import { copyText } from '@/lib/clipboard';
 
 const SCAN_PROFILE_COMMAND = 'docker compose --profile scan up -d';
 
+/**
+ * Restore refusals the dialog explains (nothing was restored): the safety copy
+ * failed (#666), or the backup belongs to another version of Glou (#471).
+ */
+const RESTORE_REFUSALS = new Set(['BACKUP_BEFORE_RESTORE_FAILED', 'BACKUP_FROM_OLDER_VERSION', 'BACKUP_FROM_NEWER_VERSION']);
+
 export function SystemConfigSection() {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
@@ -349,8 +355,8 @@ export function SystemConfigSection() {
       const errName = (err as { name?: string } | null)?.name;
       showFeedback('error', errName === 'TimeoutError' || errName === 'AbortError'
         ? t('adminConfig.backup.restore.errors.TIMEOUT')
-        : err instanceof Error && err.message === 'BACKUP_BEFORE_RESTORE_FAILED'
-          ? t('adminConfig.backup.restore.errors.BACKUP_BEFORE_RESTORE_FAILED')
+        : err instanceof Error && RESTORE_REFUSALS.has(err.message)
+          ? t(`adminConfig.backup.restore.errors.${err.message}`)
           : passwordErrorMessage(err, 'adminConfig.backup.restore.error'));
     } finally {
       setRestoring(false);
@@ -700,6 +706,12 @@ export function SystemConfigSection() {
                       <Chip size="sm" variant="flat" radius="sm" color={run.success ? 'success' : 'danger'}>
                         {t(`adminConfig.backup.history.status.${run.success ? 'success' : 'error'}`)}
                       </Chip>
+                      {/* FEAT-94: taken before a migration, never purged by retention (its file name says so). */}
+                      {run.filePath?.split(/[\\/]/).pop()?.startsWith('glou-backup-before-migration-') && (
+                        <Chip size="sm" variant="flat" radius="sm" color="warning">
+                          {t('adminConfig.backup.history.beforeMigration')}
+                        </Chip>
+                      )}
                       <div className="flex-1 min-w-0">
                         {run.success ? (
                           <p className="text-xs text-foreground-500 truncate">{formatBytes(run.fileSizeBytes)}</p>

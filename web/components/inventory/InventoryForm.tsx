@@ -11,6 +11,7 @@ import { FilterChip } from '@/components/ui/FilterControls';
 import { notifyError } from '@/lib/toast';
 import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical, GlassWater } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
+import type { UnitKind } from '@shared/units';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
 import { Collection } from '@/lib/collections/types';
@@ -34,11 +35,27 @@ import {
   CURVE_SHAPES, DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey,
 } from '@/lib/maturity-references/curve';
 import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '@shared/inventory';
+import { MAX_COPIES } from '@shared/product';
+import { CigarGroupFields } from './CigarGroupFields';
+import { KnownWineBanner } from './KnownWineBanner';
+import { AddUnitsForm } from './AddUnitsDialog';
+import { useKnownWine } from '@/hooks/useKnownWine';
+import type { UnitWrite } from '@/lib/products/client';
+import type { Product } from '@/lib/products/types';
+import {
+  cigarGroupInput, cigarPriceKey, cigarValueKey, isCigarGroupValid, type CigarGroupDraft, type CigarStorage,
+} from '@/lib/products/cigarGroup';
+
+/**
+ * What a new entry sends. `distinctFrom` (#471, FEAT-97 c5): the wines of the
+ * same name the member answered "C'est un autre vin" to.
+ */
+export type InventoryEntry = Partial<InventoryItem> & { distinctFrom?: string[] };
 
 interface InventoryFormProps {
   open: boolean;
   initialValues?: Partial<InventoryItem>;
-  onSubmit: (values: Partial<InventoryItem>, collectionIds: string[]) => void;
+  onSubmit: (values: InventoryEntry, collectionIds: string[]) => void;
   onClose: () => void;
   isSubmitting?: boolean;
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -54,6 +71,19 @@ interface InventoryFormProps {
   defaultCategory?: InventoryCategory;
   /** Cellar preselected when creating (the setup wizard's cellar, FEAT-90 / #685). */
   defaultCellarId?: string | null;
+  /**
+   * #471 (FEAT-92 c4): edit a wine's description, shared by all its bottles
+   * (`units` of them in stock), instead of one bottle: the fields of a
+   * bottle (cellar, price, number, state) are not shown, and the form says
+   * how many bottles the change applies to.
+   */
+  descriptionOf?: { units: number; kind: UnitKind };
+  /**
+   * #471 (FEAT-97): "Vous avez déjà ce vin" was accepted and the bottles were
+   * added to that wine (the reduced form) — the entry is done; the form
+   * closes right after (`onClose`).
+   */
+  onJoined?: (write: UnitWrite, product: Product) => void;
 }
 
 const EMPTY_FORM: Partial<InventoryItem> = {
@@ -62,10 +92,23 @@ const EMPTY_FORM: Partial<InventoryItem> = {
   producer: '',
   tags: [],
   grapeVarieties: [],
-  isOwned: true,
   isOpened: false,
   alertStatus: 'none',
 };
+
+/**
+ * #471 (FEAT-92 c1, FEAT-95, ux-ui.md §10.4.1): what a new entry starts with
+ * — one bottle, or one closed box (its size to fill in), bought today
+ * (`YYYY-MM-DD`, D6).
+ */
+const creationDefaults = (): Partial<InventoryItem> => ({
+  purchasedAt: todayLocalIso(),
+  quantity: 1,
+});
+
+/** FEAT-95: closed boxes unless the entry says single cigars (a box size cleared). */
+const storageOf = (values?: Partial<InventoryItem>): CigarStorage =>
+  values && 'cigarsPerBox' in values && values.cigarsPerBox === null ? 'singles' : 'boxes';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
@@ -78,7 +121,8 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
 const CATEGORY_COLORS = CATEGORY_CHIP_COLOR;
 
 export function InventoryForm({
-  open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory, defaultCellarId,
+  open, initialValues, onSubmit, onClose, isSubmitting = false, t, onScanRequested, defaultCategory, defaultCellarId, descriptionOf,
+  onJoined,
 }: InventoryFormProps) {
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
@@ -87,11 +131,24 @@ export function InventoryForm({
     ...EMPTY_FORM,
     ...(defaultCategory ? { category: defaultCategory } : {}),
     ...(defaultCellarId ? { cellarId: defaultCellarId } : {}),
+    ...creationDefaults(),
   };
-  const [values, setValues] = useState<Partial<InventoryItem>>(initialValues ?? emptyForm);
+  // A new entry prefilled by a scan gets the same defaults, under its values.
+  const startValues = (): Partial<InventoryItem> =>
+    !initialValues ? emptyForm
+      : initialValues.id || descriptionOf ? initialValues
+        : {
+          ...creationDefaults(),
+          // A value the scan left undefined (a wine's number) keeps the default.
+          ...Object.fromEntries(Object.entries(initialValues).filter(([, value]) => value !== undefined)),
+        };
+  const [values, setValues] = useState<Partial<InventoryItem>>(startValues);
+  // FEAT-95: closed boxes or single cigars — kept apart from the values, an
+  // empty box size being typed in is not "single cigars".
+  const [cigarStorage, setCigarStorage] = useState<CigarStorage>(() => storageOf(initialValues));
   // ISSUE_119: snapshot of the values the form opened with, used to tell
   // whether closing now would throw away something the user typed.
-  const [baseline, setBaseline] = useState<Partial<InventoryItem>>(initialValues ?? emptyForm);
+  const [baseline, setBaseline] = useState<Partial<InventoryItem>>(startValues);
   const [submitAttempted, setSubmitAttempted] = useState(false);
   // Inline errors show on blur or on submit (ux-ui.md §5.3), and go away
   // while the field is typed in again, so a year being typed never shows red.
@@ -103,6 +160,12 @@ export function InventoryForm({
   // Last automatic photo pick and the "producer name" it was made for.
   const [autoPhoto, setAutoPhoto] = useState<{ query: string; path: string | null } | null>(null);
   const isEditing = Boolean(initialValues?.id);
+  // A bottle's own fields (cellar, price, number, state): not in a wine's description.
+  const showsBottle = !descriptionOf;
+  // #471 (FEAT-97): "Vous avez déjà ce vin" — the wine whose reduced form is
+  // shown, and the wines answered "C'est un autre vin".
+  const [joining, setJoining] = useState<Product | null>(null);
+  const [distinctFrom, setDistinctFrom] = useState<string[]>([]);
 
   const setField = (field: string, value: unknown) =>
     setValues((prev) => ({ ...prev, [field]: value }));
@@ -118,8 +181,10 @@ export function InventoryForm({
     setPrevOpen(open);
     setPrevInitialValues(initialValues);
     if (open) {
-      setValues(initialValues ?? emptyForm);
-      setBaseline(initialValues ?? emptyForm);
+      const start = startValues();
+      setValues(start);
+      setBaseline(start);
+      setCigarStorage(storageOf(initialValues));
       setSubmitAttempted(false);
       setPeakWindowChecked(false);
       setSelectedCollections(
@@ -132,8 +197,23 @@ export function InventoryForm({
       setPrefetchedImages([]);
       setIsAutoLoading(false);
       setAutoPhoto(null);
+      setJoining(null);
+      setDistinctFrom([]);
     }
   }
+
+  // FEAT-97 c1, c3: the wines of the same name as the one typed (a new entry only).
+  const sameName = useKnownWine(
+    { category: values.category, producer: values.producer, name: values.name, vintage: values.vintage, format: values.format },
+    open && !isEditing && showsBottle,
+  );
+  const knownWines = sameName.filter((product) => !distinctFrom.includes(product.id));
+  // "C'est un autre vin", for the wine still typed: sent with the entry (c5).
+  const toldApart = sameName.filter((product) => distinctFrom.includes(product.id)).map((product) => product.id);
+  const finishJoin = () => {
+    setJoining(null);
+    onClose();
+  };
 
   // The automatic photo (#227) follows the name until the user picks one.
   // It used to be fetched once, after the first 1.2 s pause, so a pause while
@@ -174,12 +254,23 @@ export function InventoryForm({
   const missingName = !values.name?.trim();
   const missingProducer = !values.producer?.trim();
   const missingAlcoholDegree = values.category === 'spirit' && (values.alcoholDegree == null || Number.isNaN(values.alcoholDegree));
-  const missingQuantity = values.category === 'cigar' && (values.quantity == null || Number.isNaN(values.quantity));
+  // #471 (FEAT-95): N closed boxes of M cigars, or N single cigars; one box
+  // only may be stored opened, with the cigars left in it.
+  const cigarDraft: CigarGroupDraft = { storage: cigarStorage, quantity: values.quantity, cigarsPerBox: values.cigarsPerBox };
+  const createsCigars = showsBottle && !isEditing && values.category === 'cigar';
+  const canOpenBox = cigarStorage === 'boxes' && values.quantity === 1;
+  const opensBox = createsCigars && canOpenBox && Boolean(values.isOpened);
+  const invalidCigarsLeft = opensBox && (values.cigarsLeft == null || !Number.isInteger(values.cigarsLeft)
+    || values.cigarsLeft < 1 || values.cigarsLeft > (values.cigarsPerBox ?? MAX_COPIES));
+  const missingQuantity = createsCigars && (!isCigarGroupValid(cigarDraft) || invalidCigarsLeft);
+  // #471 (FEAT-92): from 1 to what one group may count.
+  const invalidBottleCount = showsBottle && values.category !== 'cigar'
+    && (values.quantity == null || !Number.isInteger(values.quantity) || values.quantity < 1 || values.quantity > MAX_COPIES);
   // #706: a peak window ending before it starts is refused, as by the API.
   const peakWindowReversed = ['wine', 'sparkling'].includes(values.category ?? '')
     && values.peakMaturityFrom != null && values.peakMaturityTo != null
     && values.peakMaturityTo < values.peakMaturityFrom;
-  const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity;
+  const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity || invalidBottleCount;
   const canSave = !missingRequired && !peakWindowReversed;
 
   // ISSUE_119: closing a half-filled form must never discard the entry silently.
@@ -212,10 +303,18 @@ export function InventoryForm({
     const { alertStatus: _drop, readiness: _drop2, lockedFields: _drop3, ...rest } = values;
     // #572: an edit sends only the fields the user changed (emptied ones as null).
     const sent: Partial<InventoryItem> = isEditing && initialValues ? buildEditPatch(initialValues, rest) : rest;
+    if (createsCigars) {
+      // FEAT-95: a group of cigars — no level (a box is not filled), and the
+      // cigars left only in the one box stored opened.
+      delete sent.fillLevel;
+      Object.assign(sent, cigarGroupInput(cigarDraft), opensBox
+        ? { isOpened: true, cigarsLeft: values.cigarsLeft }
+        : { isOpened: false, cigarsLeft: null, openedAt: null });
+    }
     const patch = 'cellarId' in sent
       ? { ...sent, cellarId: sent.cellarId === ('none' as string) || sent.cellarId === '' ? null : sent.cellarId }
       : sent;
-    onSubmit(patch, selectedCollections.map(c => c.id));
+    onSubmit(toldApart.length > 0 ? { ...patch, distinctFrom: toldApart } : patch, selectedCollections.map(c => c.id));
   };
 
   const hasPeakCategories = ['wine', 'sparkling'].includes(values.category ?? '');
@@ -241,7 +340,24 @@ export function InventoryForm({
       hideCloseButton
     >
       <ModalContent>
-        {() => (
+        {() => joining ? (
+          // FEAT-97 c2 (ux-ui.md §10.4.1): the form reduced to the bottles —
+          // number, size, cellar, price and day; what was typed is kept.
+          <AddUnitsForm
+            product={joining}
+            start={{
+              quantity: category === 'cigar' ? undefined : values.quantity ?? undefined,
+              cellarId: values.cellarId,
+              purchasePrice: values.purchasePrice ?? undefined,
+              bottleSize: values.bottleSize ?? undefined,
+              purchasedAt: values.purchasedAt ?? undefined,
+            }}
+            cancelLabel={t('knownWine.backToEntry')}
+            onCancel={() => setJoining(null)}
+            onAdded={(write) => onJoined?.(write, joining)}
+            onDone={finishJoin}
+          />
+        ) : (
           <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
             <ModalHeader className="flex items-center justify-between gap-3 pr-4 pb-2 shrink-0">
               <div className="flex items-center gap-2">
@@ -254,7 +370,9 @@ export function InventoryForm({
                   {t(`categories.${category}`)}
                 </Chip>
                 <span className="text-base font-semibold">
-                  {isEditing ? t('inventory.edit') : t('inventory.add')}
+                  {descriptionOf
+                    ? t(category === 'cigar' ? 'familyDrawer.form.titleCigar' : category === 'spirit' ? 'familyDrawer.form.titleSpirit' : 'familyDrawer.form.title')
+                    : isEditing ? t('inventory.edit', category === 'cigar' ? { context: 'cigar' } : undefined) : t('inventory.add')}
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -303,6 +421,17 @@ export function InventoryForm({
               <div className="flex-1 min-w-0 min-h-0 px-6 py-5 overflow-y-auto">
                 <div className="flex flex-col gap-6">
 
+                  {descriptionOf && (
+                    <p data-testid="description-scope" className="text-sm text-foreground-500 -mb-2">
+                      {descriptionOf.kind === 'cigar'
+                        ? t('familyDrawer.form.scopeCigar', { count: descriptionOf.units })
+                        : t('familyDrawer.form.scope', {
+                          count: descriptionOf.units,
+                          what: t(category === 'spirit' ? 'familyDrawer.form.thisSpirit' : 'familyDrawer.form.thisWine'),
+                        })}
+                    </p>
+                  )}
+
                   {/* Section 1: Identity */}
                   <div>
                     <p className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step1')}</p>
@@ -316,7 +445,12 @@ export function InventoryForm({
                           startContent={CATEGORY_ICONS[cat]}
                           color={CATEGORY_COLORS[cat]}
                           selected={category === cat}
-                          onPress={() => setField('category', cat)}
+                          onPress={() => setValues((prev) => {
+                            const wasCigar = prev.category === 'cigar';
+                            // A number of bottles is not a number of cigars (FEAT-95): switching resets it.
+                            if (!showsBottle || wasCigar === (cat === 'cigar')) return { ...prev, category: cat };
+                            return { ...prev, category: cat, quantity: creationDefaults().quantity };
+                          })}
                         >
                           {t(`categories.${cat}`)}
                         </FilterChip>
@@ -355,6 +489,7 @@ export function InventoryForm({
                         required
                         isInvalid={submitAttempted && missingProducer}
                       />
+                      {showsBottle && (
                       <Select
                         label={t('nav.caves')}
                         variant="bordered"
@@ -371,7 +506,116 @@ export function InventoryForm({
                           </SelectItem>
                         )}
                       </Select>
+                      )}
                     </div>
+
+                    {/* #471 (FEAT-97, ux-ui.md §10.4.1): under the name fields, never covering them. */}
+                    {knownWines.length > 0 && (
+                      <div className="mt-3">
+                        <KnownWineBanner
+                          matches={knownWines}
+                          onAdd={setJoining}
+                          onDistinct={() => setDistinctFrom((prev) => [...prev, ...knownWines.map((product) => product.id)])}
+                          isDisabled={isSubmitting}
+                          t={t}
+                        />
+                      </div>
+                    )}
+                    {knownWines.length === 0 && toldApart.length > 0 && (
+                      <p data-testid="known-wine-distinct-noted" className="mt-3 text-sm text-foreground-500">
+                        {t(category === 'cigar' ? 'knownWine.distinctNotedCigar' : category === 'spirit' ? 'knownWine.distinctNotedSpirit' : 'knownWine.distinctNoted')}
+                      </p>
+                    )}
+
+                    {/* #471 (FEAT-92 c1, ux-ui.md §10.4.1): what is stored, with the
+                        cellar — how many identical bottles, their size, the price of
+                        ONE bottle and the day they were bought. Cigars: FEAT-95. */}
+                    {/* Two by two, one by one on a phone: four in a row cut « Prix d'une bouteill… » (recette v3 of #471). */}
+                    {showsBottle && !isCigar && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3" data-testid="inventory-bottles">
+                        <ParsedNumberInput
+                          data-testid="inventory-quantity-input"
+                          label={t('inventory.fields.quantityBottles')}
+                          variant="bordered"
+                          size="sm"
+                          isRequired
+                          isInvalid={submitAttempted && invalidBottleCount}
+                          errorMessage={t('inventory.validation.bottleCount', { max: MAX_COPIES })}
+                          value={values.quantity}
+                          onValueChange={(v) => setValues((prev) => ({
+                            ...prev,
+                            quantity: v,
+                            // Several bottles form a group of full ones: only a single one is stored opened.
+                            ...(v != null && v > 1 ? { isOpened: false, fillLevel: null, openedAt: null } : {}),
+                          }))}
+                          min={1} max={MAX_COPIES}
+                        />
+                        <Input
+                          label={t('inventory.fields.bottleSize')}
+                          variant="bordered"
+                          size="sm"
+                          value={values.bottleSize ?? ''}
+                          onValueChange={(v) => setField('bottleSize', v)}
+                        />
+                        <ParsedNumberInput decimal
+                          data-testid="inventory-unit-price-input"
+                          label={t('inventory.fields.unitPrice')}
+                          variant="bordered"
+                          size="sm"
+                          value={values.purchasePrice}
+                          onValueChange={(v) => setField('purchasePrice', v)}
+                          endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
+                        />
+                        {/* D6: a day, kept as the YYYY-MM-DD text of the field, never a local Date. */}
+                        <Input
+                          data-testid="inventory-purchased-at-input"
+                          label={t('inventory.fields.purchasedAt')}
+                          type="date"
+                          variant="bordered"
+                          size="sm"
+                          value={values.purchasedAt ?? ''}
+                          onValueChange={(v) => setField('purchasedAt', v || null)}
+                        />
+                      </div>
+                    )}
+                    {/* FEAT-95: boxes of M cigars or single cigars, the price of ONE box or cigar. */}
+                    {showsBottle && isCigar && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3" data-testid="inventory-cigars">
+                        <CigarGroupFields
+                          draft={cigarDraft}
+                          submitted={submitAttempted}
+                          t={t}
+                          onChange={(draft) => {
+                            setCigarStorage(draft.storage);
+                            setValues((prev) => ({
+                              ...prev,
+                              quantity: draft.quantity ?? undefined,
+                              cigarsPerBox: draft.cigarsPerBox ?? undefined,
+                              // Only one box is stored opened.
+                              ...(draft.storage !== 'boxes' || draft.quantity !== 1 ? { isOpened: false, cigarsLeft: null } : {}),
+                            }));
+                          }}
+                        />
+                        <ParsedNumberInput decimal
+                          data-testid="inventory-unit-price-input"
+                          label={t(cigarPriceKey(cigarStorage))}
+                          variant="bordered"
+                          size="sm"
+                          value={values.purchasePrice}
+                          onValueChange={(v) => setField('purchasePrice', v)}
+                          endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
+                        />
+                        <Input
+                          data-testid="inventory-purchased-at-input"
+                          label={t('inventory.fields.purchasedAt')}
+                          type="date"
+                          variant="bordered"
+                          size="sm"
+                          value={values.purchasedAt ?? ''}
+                          onValueChange={(v) => setField('purchasedAt', v || null)}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <Divider />
@@ -524,17 +768,6 @@ export function InventoryForm({
                             size="sm"
                             value={values.format ?? ''}
                             onValueChange={(v) => setField('format', v)}
-                          />
-                          <ParsedNumberInput
-                            label={t('inventory.fields.quantity')}
-                            variant="bordered"
-                            size="sm"
-                            isRequired
-                            isInvalid={submitAttempted && missingQuantity}
-                            errorMessage={t('inventory.validation.required')}
-                            value={values.quantity}
-                            onValueChange={(v) => setField('quantity', v)}
-                            min={0}
                           />
                           <ParsedNumberInput
                             label={t('inventory.fields.manufactureYear')}
@@ -747,15 +980,8 @@ export function InventoryForm({
                           onSelectedChange={setSelectedCollections}
                         />
 
-                        {/* Purchase price */}
-                        <ParsedNumberInput decimal
-                          label={t('inventory.fields.purchasePrice')}
-                          variant="bordered"
-                          size="sm"
-                          value={values.purchasePrice}
-                          onValueChange={(v) => setField('purchasePrice', v)}
-                          endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
-                        />
+                        {/* The price is with the number, above. */}
+                        {showsBottle && (<>
 
                         {/* Purchase place */}
                         <div className="col-span-2">
@@ -770,13 +996,14 @@ export function InventoryForm({
 
                         {/* Estimated value */}
                         <ParsedNumberInput decimal
-                          label={t('inventory.fields.estimatedValue')}
+                          label={t(isCigar ? cigarValueKey(cigarStorage) : 'inventory.fields.unitValue')}
                           variant="bordered"
                           size="sm"
                           value={values.estimatedValue}
                           onValueChange={(v) => setField('estimatedValue', v)}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
                         />
+                        </>)}
 
                         {/* Notes */}
                         <div className="col-span-2 sm:col-span-4">
@@ -792,13 +1019,6 @@ export function InventoryForm({
                         {/* Wine/Sparkling optionals */}
                         {isWineOrSparkling && (
                           <>
-                            <Input
-                              label={t('inventory.fields.bottleSize')}
-                              variant="bordered"
-                              size="sm"
-                              value={values.bottleSize ?? ''}
-                              onValueChange={(v) => setField('bottleSize', v)}
-                            />
                             <Input
                               label={t('inventory.fields.serviceTemp')}
                               placeholder={t('inventory.fields.serviceTempPlaceholder')}
@@ -885,13 +1105,6 @@ export function InventoryForm({
                                 onValueChange={(v) => setField('additions', v)}
                               />
                             </div>
-                            <Input
-                              label={t('inventory.fields.bottleSize')}
-                              variant="bordered"
-                              size="sm"
-                              value={values.bottleSize ?? ''}
-                              onValueChange={(v) => setField('bottleSize', v)}
-                            />
                           </>
                         )}
 
@@ -934,41 +1147,8 @@ export function InventoryForm({
                           </>
                         )}
 
-                        {/* FEAT-87: owned item vs non-owned reference. An item
-                            created before this field existed has no `isOwned`
-                            and is owned. */}
-                        <div className="col-span-2 sm:col-span-4">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant={(values.isOwned ?? true) ? 'solid' : 'bordered'}
-                              color={(values.isOwned ?? true) ? 'success' : 'default'}
-                              onPress={() => setField('isOwned', true)}
-                            >
-                              {(values.isOwned ?? true) ? '✓ ' : ''}{t('inventory.fields.isOwned')}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={(values.isOwned ?? true) ? 'bordered' : 'solid'}
-                              color={(values.isOwned ?? true) ? 'default' : 'secondary'}
-                              onPress={() => {
-                                // A reference has nothing to open and no level.
-                                setField('isOwned', false);
-                                setField('isOpened', false);
-                                setField('fillLevel', null);
-                                setField('openedAt', null);
-                              }}
-                            >
-                              {(values.isOwned ?? true) ? '' : '✓ '}{t('inventory.fields.isReference')}
-                            </Button>
-                          </div>
-                          {!(values.isOwned ?? true) && (
-                            <p className="text-xs text-default-500 mt-1.5">{t('inventory.fields.isReferenceHint')}</p>
-                          )}
-                        </div>
-
-                        {/* Opened status — a reference has no bottle to open */}
-                        {(values.isOwned ?? true) && (
+                        {/* Opened status — of a single bottle or box: several are stored full (a group) */}
+                        {showsBottle && (isCigar ? canOpenBox : (values.quantity ?? 1) <= 1) && (
                           <div className="col-span-2 sm:col-span-4">
                             <div className="flex items-center gap-2">
                               <Button
@@ -983,14 +1163,31 @@ export function InventoryForm({
                                   }
                                 }}
                               >
-                                {values.isOpened ? '✓ ' : ''}{t('inventory.fields.isOpened')}
+                                {values.isOpened ? '✓ ' : ''}{t(isCigar ? 'cigarGroup.openedBox' : 'inventory.fields.isOpened')}
                               </Button>
                             </div>
                           </div>
                         )}
 
-                        {(values.isOwned ?? true) && values.isOpened && (
+                        {/* FEAT-95: an opened box counts the cigars left in it, a box is not filled. */}
+                        {showsBottle && isCigar && opensBox && (
+                          <ParsedNumberInput
+                            data-testid="cigars-left-input"
+                            label={t('cigarGroup.cigarsLeft')}
+                            variant="bordered"
+                            size="sm"
+                            isRequired
+                            isInvalid={submitAttempted && invalidCigarsLeft}
+                            errorMessage={t('cigarGroup.invalidCigarsLeft', { max: values.cigarsPerBox ?? MAX_COPIES })}
+                            value={values.cigarsLeft ?? undefined}
+                            onValueChange={(v) => setField('cigarsLeft', v ?? null)}
+                            min={1} max={values.cigarsPerBox ?? MAX_COPIES}
+                          />
+                        )}
+
+                        {showsBottle && values.isOpened && (
                           <>
+                            {!isCigar && (
                             <div className="col-span-2 sm:col-span-4">
                               <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
                               <div role="group" aria-label={t('inventory.fields.fillLevel')} className="flex flex-wrap gap-1.5">
@@ -1006,6 +1203,7 @@ export function InventoryForm({
                                 ))}
                               </div>
                             </div>
+                            )}
                             <Input
                               label={t('inventory.fields.openedAt')}
                               type="date"
@@ -1023,6 +1221,18 @@ export function InventoryForm({
                               onValueChange={(v) => setField('reminderDate', v || null)}
                             />
                           </>
+                        )}
+
+                        {/* #471: the reminder is the wine's, whatever its bottles. */}
+                        {!showsBottle && (
+                          <Input
+                            label={t('inventory.fields.reminderDate')}
+                            type="date"
+                            variant="bordered"
+                            size="sm"
+                            value={typeof values.reminderDate === 'string' ? values.reminderDate.split('T')[0] : ''}
+                            onValueChange={(v) => setField('reminderDate', v || null)}
+                          />
                         )}
                       </div>
                     )}

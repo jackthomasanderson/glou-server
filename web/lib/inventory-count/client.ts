@@ -31,8 +31,9 @@ export const inventoryCountClient = {
     return data;
   },
 
-  async scan(sessionId: string, itemId: string): Promise<ScanEntry> {
-    const { data } = await client.post<ScanEntry>(`/inventory-count/sessions/${sessionId}/scan`, { itemId });
+  /** `foundQuantity`: copies of a group found; absent, the whole line. */
+  async scan(sessionId: string, itemId: string, foundQuantity?: number): Promise<ScanEntry> {
+    const { data } = await client.post<ScanEntry>(`/inventory-count/sessions/${sessionId}/scan`, { itemId, foundQuantity });
     return data;
   },
 

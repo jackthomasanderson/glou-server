@@ -36,13 +36,14 @@ test('the bottle form keeps what is typed and refuses a reversed peak window', a
 
     await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();
 
-    const price = dialog.getByLabel("Prix d'achat (€)");
+    // #471: the price of one bottle sits with the number of bottles.
+    const price = dialog.getByLabel("Prix d'une bouteille");
     await price.pressSequentially('24.05');
     await expect(price).toHaveValue('24.05');
     // The French keystrokes of the report. A number field only takes the
     // browser locale's separator (this Chromium dropped the comma: 2405), so
     // decimal fields are text fields taking either one.
-    const estimated = dialog.getByLabel('Valeur estimée (€)');
+    const estimated = dialog.getByLabel("Valeur estimée d'une bouteille");
     await estimated.pressSequentially('24,05');
     await expect(estimated).toHaveValue('24,05');
 
@@ -113,5 +114,58 @@ test('the API refuses a peak window that ends before it starts', async ({ page }
     expect(patch.status(), await patch.text()).toBe(400);
   } finally {
     await api.delete(`/api/inventory/${id}`);
+  }
+});
+
+/**
+ * Recette #471 (lot RD points 1-2): "202" refused, then corrected to 2020,
+ * kept "must be at least 1800" and the save was blocked; the form then
+ * reopened with what was typed. The message goes as the field is typed in
+ * again (no blur here), the save goes through, and a form thrown away with
+ * « Annuler » reopens empty.
+ */
+test('a corrected vintage clears its message and saves; a discarded entry reopens empty', async ({ page }) => {
+  const name = `E2E RD vintage ${Date.now()}`;
+  let id: string | undefined;
+  try {
+    await page.goto('/bottles');
+    await page.getByTestId('inventory-add-button').click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByTestId('inventory-name-input').fill(name);
+    await dialog.getByTestId('inventory-producer-input').fill('E2E Domaine');
+    const vintage = dialog.getByLabel('Millésime');
+    await vintage.pressSequentially('202');
+    await dialog.getByTestId('inventory-form-submit').click();
+    const rangeError = dialog.getByText(`Entre 1800 et ${new Date().getFullYear()}`);
+    await expect(rangeError).toBeVisible();
+    await expect(vintage).toBeFocused();
+
+    await vintage.press('End');
+    await vintage.pressSequentially('0');
+    await expect(vintage).toHaveValue('2020');
+    await expect(rangeError).toBeHidden();
+
+    const created = page.waitForResponse(
+      (r) => /\/api\/inventory\/?$/.test(r.url()) && r.request().method() === 'POST',
+    );
+    await dialog.getByTestId('inventory-form-submit').click();
+    const res = await created;
+    expect(res.status(), await res.text()).toBe(201);
+    id = (await res.json()).data.id as string;
+    expect((await res.json()).data.vintage).toBe(2020);
+    await expect(dialog).toBeHidden();
+
+    // Typed, then thrown away: nothing of it comes back.
+    await page.getByTestId('inventory-add-button').click();
+    await dialog.getByTestId('inventory-name-input').fill('Brouillon');
+    await vintage.pressSequentially('2019');
+    await dialog.getByTestId('inventory-form-cancel').click();
+    await page.getByRole('button', { name: 'Abandonner' }).click();
+    await expect(dialog).toBeHidden();
+    await page.getByTestId('inventory-add-button').click();
+    await expect(dialog.getByTestId('inventory-name-input')).toHaveValue('');
+    await expect(vintage).toHaveValue('');
+  } finally {
+    if (id) await page.request.delete(`/api/inventory/${id}`);
   }
 });

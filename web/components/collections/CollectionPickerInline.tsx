@@ -4,25 +4,26 @@ import { Chip, Spinner } from '@heroui/react';
 import { Plus, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Collection } from '@/lib/collections/types';
-import { useCollections, useAddItemsToCollection, useRemoveItemFromCollection } from '@/hooks/useCollections';
+import { useCollections, useAddProductsToCollection, useRemoveProductFromCollection } from '@/hooks/useCollections';
 import { notifyError } from '@/lib/toast';
 
 interface CollectionPickerInlineProps {
-  itemId: string;
-  /** Currently attached collections (from the enriched item) */
+  /** #471: the wine: a collection holds wines, with all their bottles. */
+  productId: string;
+  /** Currently attached collections */
   currentCollections: { id: string; name: string; color: string; icon?: string | null }[];
 }
 
 /**
- * Inline collection manager used inside the detail drawer.
+ * Inline collection manager used inside a wine's drawer.
  * Chips are shown for each attached collection with an × to detach.
  * A "+" button opens a compact dropdown listing all available collections to attach.
  */
-export function CollectionPickerInline({ itemId, currentCollections }: CollectionPickerInlineProps) {
+export function CollectionPickerInline({ productId, currentCollections }: CollectionPickerInlineProps) {
   const { t } = useTranslation();
   const { data: allCollections } = useCollections();
-  const addMutation = useAddItemsToCollection();
-  const removeMutation = useRemoveItemFromCollection();
+  const addMutation = useAddProductsToCollection();
+  const removeMutation = useRemoveProductFromCollection();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -47,11 +48,11 @@ export function CollectionPickerInline({ itemId, currentCollections }: Collectio
   const reportFailure = () => notifyError('toast.collection.updateError');
 
   const handleRemove = (col: { id: string; name: string }) => {
-    removeMutation.mutate({ id: col.id, itemId }, { onError: reportFailure });
+    removeMutation.mutate({ id: col.id, productId }, { onError: reportFailure });
   };
 
   const handleAdd = (col: Collection) => {
-    addMutation.mutate({ id: col.id, itemIds: [itemId] }, { onError: reportFailure });
+    addMutation.mutate({ id: col.id, productIds: [productId] }, { onError: reportFailure });
     setDropdownOpen(false);
   };
 
