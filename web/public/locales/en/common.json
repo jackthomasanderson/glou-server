@@ -2243,7 +2243,7 @@
       "gone": "Not saved: this bottle no longer exists (put back with the others or deleted meanwhile).",
       "rejected": "Not saved: the server refused this value.",
       "changed": "Not saved: the line changed meanwhile.",
-      "slotChoice": "Not saved: this line is placed in cells of the plan. Do it again from the wine's sheet to say which cell the bottle comes from."
+      "slotChoice": "Not saved: this line is placed in slots of the plan. Do it again from the wine's sheet to say which slot the bottle comes from."
     }
   },
   "scan": {
@@ -2423,24 +2423,24 @@
       "cellarGone": "Not saved: this cellar no longer exists.",
       "offline": "Without a network, this action is not possible. Try again once the connection is back.",
       "failed": "Could not save this action.",
-      "slotChanged": "This line's cells changed meanwhile, on another device or by another member: choose again.",
-      "slotChoice": "This line is placed in cells of the plan: say which cell the bottle comes from.",
-      "slotsToFree": "This line's cells changed meanwhile: choose the cells again."
+      "slotChanged": "This line's slots changed meanwhile, on another device or by another member: choose again.",
+      "slotChoice": "This line is placed in slots of the plan: say which slot the bottle comes from.",
+      "slotsToFree": "This line's slots changed meanwhile: choose the slots again."
     },
     "slots": {
-      "whichTitle": "Which cell?",
+      "whichTitle": "Which slot?",
       "unplacedChoice": "Unplaced",
       "unplacedCount_one": "{{count}} unplaced on this line",
       "unplacedCount_other": "{{count}} unplaced on this line",
-      "freeTitle": "Which cells to free?",
-      "freeHint_one": "Choose on the plan the cell to free.",
-      "freeHint_other": "Choose on the plan the {{count}} cells to free.",
-      "followTitle": "Which cells take the new price?",
-      "followHint_one": "The unplaced ones are not enough: choose the cell that takes the new price. It stays occupied.",
-      "followHint_other": "The unplaced ones are not enough: choose the {{count}} cells that take the new price. They stay occupied.",
-      "pickCount_one": "{{chosen}} of {{count}} cell chosen",
-      "pickCount_other": "{{chosen}} of {{count}} cells chosen",
-      "hintFreed": "Cell {{cell}} will be freed.",
+      "freeTitle": "Which slots to free?",
+      "freeHint_one": "Choose on the plan the slot to free.",
+      "freeHint_other": "Choose on the plan the {{count}} slots to free.",
+      "followTitle": "Which slots take the new price?",
+      "followHint_one": "The unplaced ones are not enough: choose the slot that takes the new price. It stays occupied.",
+      "followHint_other": "The unplaced ones are not enough: choose the {{count}} slots that take the new price. They stay occupied.",
+      "pickCount_one": "{{chosen}} of {{count}} slot chosen",
+      "pickCount_other": "{{chosen}} of {{count}} slots chosen",
+      "hintFreed": "Slot {{cell}} will be freed.",
       "hintKept": "The opened bottle stays in {{cell}}.",
       "hintKept_box": "The opened box stays in {{cell}}.",
       "columnShort": "C{{col}}",
@@ -2853,11 +2853,11 @@
   },
   "history": {
     "fields": {
-      "slot": "Cell"
+      "slot": "Slot"
     },
     "slotNone": "none",
-    "slotPlaced": "Cell {{cell}} taken",
-    "slotFreed": "Cell {{cell}} freed",
-    "slotMoved": "Cell {{from}} → {{to}}"
+    "slotPlaced": "Slot {{cell}} taken",
+    "slotFreed": "Slot {{cell}} freed",
+    "slotMoved": "Slot {{from}} → {{to}}"
   }
 }

@@ -21,6 +21,7 @@ Depuis **Inventaire physique**, démarrez une session sur une cave ou un périm�
    * bouteille enregistrée ailleurs : **Déplacer vers ce périmètre** (indisponible pour un périmètre libre sans cave) ;
    * trouvaille : **Ajouter N bouteilles à la cave**, dans un vin déjà connu du même nom (proposé quand il n'y en a qu'un) ou comme un nouveau vin.
 8. Cliquez **Clôturer et appliquer (N)** pour valider toutes les corrections sélectionnées en une seule fois.
+   La clôture ne demande jamais quelle case du plan libérer : pour une ligne rangée sur le plan, les bouteilles manquantes sont prises d'abord parmi les non rangées, sinon dans les cases rangées le plus récemment, et l'historique du vin dit quelle case a été libérée. Une bouteille déplacée vers ce périmètre arrive non rangée dans sa nouvelle cave.
 
 ## Le pare-feu (troubleshooting)
 
