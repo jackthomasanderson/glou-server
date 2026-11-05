@@ -116,7 +116,9 @@ export const slotService = {
   /**
    * POST /api/cellars/:id/swap-slots (ISSUE_037) — two copies exchange their
    * cells: each slot takes the other's unit, so no cell is ever held twice
-   * and the unique index is never touched. Both in this cellar.
+   * and the unique index is never touched. Both in this cellar, of two
+   * different lines: two cells of one line exchanged change nothing, refused
+   * (400 SAME_LINE_SLOTS) rather than written to its history as two moves.
    */
   async swap(cellarId: string, slotAId: string, slotBId: string): Promise<[SlotWrite, SlotWrite]> {
     return prisma.$transaction(async (tx) => {
@@ -126,6 +128,7 @@ export const slotService = {
       await lockFamilies(tx, [firstA.item.productId, firstB.item.productId]);
       const [a, b] = await read();
       if (a.cellarId !== cellarId || b.cellarId !== cellarId) throw notFound('SLOT_NOT_FOUND');
+      if (a.itemId === b.itemId) throw new AppError(400, 'SAME_LINE_SLOTS');
       await tx.itemSlot.update({ where: { id: a.id }, data: { itemId: b.itemId } });
       await tx.itemSlot.update({ where: { id: b.id }, data: { itemId: a.itemId } });
       return [

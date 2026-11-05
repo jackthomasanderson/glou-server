@@ -1,14 +1,16 @@
 import { TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
+import { SLOT_CHANGED, SLOT_CHOICE_REQUIRED, SLOTS_TO_FREE_REQUIRED } from '@shared/product';
 import { fetchOrNetworkError } from './network-error';
 
 type ApiErrorBody = { error?: unknown; retryAfter?: unknown; details?: unknown };
 
 /**
  * A refusal from the API. `message` is the stable error code callers translate;
- * `retryAfter` (seconds) comes with TOO_MANY_REQUESTS (#640).
+ * `retryAfter` (seconds) comes with TOO_MANY_REQUESTS (#640); `details`
+ * with the refusals that ask a question back ({@link QUESTION_CODES}).
  */
 export class ApiError extends Error {
-  constructor(code: string, readonly status: number, readonly retryAfter?: number) {
+  constructor(code: string, readonly status: number, readonly retryAfter?: number, readonly details?: unknown) {
     super(code);
     this.name = 'ApiError';
   }
@@ -19,13 +21,22 @@ function retryAfterHeader(res: Response): number | undefined {
   return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
 }
 
+/**
+ * FEAT-93: refusals whose details are the question to ask back — the cells
+ * of the line ("De quelle case ?", "Quelles cases libérer ?"). Any other
+ * code's details stay debug data, never kept.
+ */
+const QUESTION_CODES: ReadonlySet<string> = new Set([SLOT_CHOICE_REQUIRED, SLOT_CHANGED, SLOTS_TO_FREE_REQUIRED]);
+
 /** Reads a non-OK response into an ApiError. */
 export async function apiErrorFrom(res: Response): Promise<ApiError> {
   const body = (await res.json().catch(() => null)) as ApiErrorBody | null;
   const retryAfter = typeof body?.retryAfter === 'number' ? body.retryAfter : retryAfterHeader(res);
   // body.details carries structured debug data (e.g. Zod's err.format()), never a
   // displayable message — only body.error is the stable code callers can translate.
-  if (typeof body?.error === 'string') return new ApiError(body.error, res.status, retryAfter);
+  if (typeof body?.error === 'string') {
+    return new ApiError(body.error, res.status, retryAfter, QUESTION_CODES.has(body.error) ? body.details : undefined);
+  }
   // A throttling proxy may answer 429 in plain text: still "wait", not "network error".
   if (res.status === 429) return new ApiError(TOO_MANY_REQUESTS_ERROR, res.status, retryAfter);
   return new ApiError(body ? `HTTP ${res.status}` : 'NETWORK_ERROR', res.status);

@@ -5,8 +5,15 @@ import { test, expect, type APIRequestContext, type APIResponse, type Page } fro
  * (a group x6 placed in 6 cells shows in those 6 cells) and criterion 2
  * (2 placed of 6 reads "2 rangées, 4 non rangées"; a 7th is refused with an
  * explanation), through the plan's interface on the real stack. A cell
- * touched opens the wine on its line, with the cell named.
+ * touched opens the wine on its line, with the cell named. Lot S4:
+ * criterion 3 (a bottle opened from a cell keeps that cell, the line its 5
+ * others) and criterion 4 (×6 in 6 cells corrected to ×4 asks which 2 cells
+ * to free; the plan then shows 4).
  */
+
+type Cell = { id: string; column: number; row: number };
+type Unit = { id: string; quantity: number; isOpened: boolean; parentItemId: string | null; slots: Cell[] };
+const cellsText = (cells: Cell[]) => cells.map((cell) => `${cell.column}:${cell.row}`).sort().join(' ');
 
 const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
 
@@ -163,4 +170,96 @@ test.describe('the cellar plan, one cell per bottle (FEAT-93)', () => {
       await api.delete(`/api/products/${other.productId}`).catch(() => {});
     }
   });
+
+  /** Every copy of the line placed, by the API: C1·R1 … C3·R2. */
+  async function placeAll(api: APIRequestContext, itemId: string) {
+    for (const [column, row] of [[1, 1], [2, 1], [3, 1], [1, 2], [2, 2], [3, 2]] as const) {
+      expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column, row } })).status()).toBe(201);
+    }
+  }
+
+  const drawerOf = (page: Page) => page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
+
+  test('c3: a bottle opened from a cell keeps that cell; the line, now ×5, keeps its 5 other cells', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    await placeAll(api, itemId);
+    await page.goto(`/cellars/${cellarId}`);
+
+    await heldCell(page, 2, 1, wine).click();
+    const drawer = drawerOf(page);
+    await expect(drawer.getByTestId('slot-context')).toHaveText(/Case C2·R1/);
+    // c1: the drawer says where the six are.
+    await expect(drawer.locator(`[data-line-id="${itemId}"]`).getByTestId('line-slots')).toHaveText(/^6 rangées · /);
+
+    // From the cell: that very bottle — no "De quelle case ?", no reminder.
+    const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH');
+    await drawer.getByTestId('stock-move-open').click();
+    const res = await sent;
+    expect(res.status(), await res.text()).toBe(200);
+    expect(JSON.parse(res.request().postData() ?? '{}')).toMatchObject({ isOpened: true });
+    await expect(page.getByRole('dialog').filter({ hasText: 'De quelle case' })).toHaveCount(0);
+
+    const units = (await okData<{ items: Unit[] }>(await api.get(`/api/products/${productId}`))).items;
+    const group = units.find((unit) => unit.id === itemId)!;
+    const opened = units.find((unit) => unit.parentItemId === itemId)!;
+    expect(group.quantity).toBe(5);
+    expect(cellsText(group.slots)).toBe('1:1 1:2 2:2 3:1 3:2');
+    expect(opened.isOpened).toBe(true);
+    expect(cellsText(opened.slots)).toBe('2:1');
+
+    // The drawer follows the bottle into its cell: the cell still named, "Finir l'entamée" first (decision 77).
+    await expect(drawer.getByTestId('slot-context')).toHaveText(/Case C2·R1/);
+    await expect(drawer.getByTestId('stock-move-finish')).toHaveText("Finir l'entamée");
+    await expect(drawer.locator(`[data-line-id="${itemId}"]`).getByTestId('line-slots')).toHaveText(/^5 rangées · /);
+    await drawer.getByRole('button', { name: 'Fermer' }).first().click();
+
+    // The plan still shows the six bottles where they are.
+    await page.reload();
+    await expect(page.getByRole('button', { name: new RegExp(`^Colonne \\d, rangée \\d\\s:\\s${wine}`) })).toHaveCount(6);
+    await expect(heldCell(page, 2, 1, wine)).toBeVisible();
+  });
+
+  test('c4: ×6 in 6 cells corrected to ×4 asks which 2 cells to free; the plan then shows 4', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    await placeAll(api, itemId);
+    await page.goto(`/cellars/${cellarId}`);
+
+    await heldCell(page, 1, 1, wine).click();
+    const drawer = drawerOf(page);
+    const line = drawer.locator(`[data-line-id="${itemId}"]`);
+    await expect(line).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await line.getByRole('button', { name: 'Actions de cette ligne' }).click();
+    // By CSS: the open menu is kept out of the accessibility tree while the drawer is open (#727).
+    await page.locator('[role="menuitem"]').filter({ hasText: 'Corriger le nombre' }).click();
+
+    const dialog = page.getByRole('dialog').filter({ has: page.locator('header', { hasText: 'Corriger le nombre' }) });
+    await dialog.getByLabel('Nombre de bouteilles').fill('4');
+    await dialog.getByRole('radio', { name: /Erreur de saisie/ }).check();
+    const picker = dialog.getByTestId('slot-picker');
+    await expect(picker).toContainText('Quelles cases libérer ?');
+    const confirm = dialog.getByRole('button', { name: 'Corriger', exact: true });
+    await expect(confirm).toBeDisabled();
+    await picker.getByRole('button', { name: 'Case C3·R2' }).click();
+    await picker.getByRole('button', { name: 'Case C2·R2' }).click();
+    await expect(picker.getByTestId('slot-pick-count')).toHaveText(/2 sur 2/);
+
+    const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${itemId}/correct`));
+    await confirm.click();
+    const res = await sent;
+    expect(res.status(), await res.text()).toBe(200);
+    await expect(dialog).toBeHidden();
+    await expect(line.getByTestId('line-slots')).toHaveText(/^4 rangées · /);
+    await drawer.getByRole('button', { name: 'Fermer' }).first().click();
+
+    await expect(page.getByRole('button', { name: new RegExp(`^Colonne \\d, rangée \\d\\s:\\s${wine}`) })).toHaveCount(4);
+    await expect(emptyCell(page, 3, 2)).toBeVisible();
+    await expect(emptyCell(page, 2, 2)).toBeVisible();
+    await expect(page.getByText(/^4 \/ 9 occupés$/)).toBeVisible();
+  });
 });
+

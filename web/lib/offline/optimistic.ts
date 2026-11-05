@@ -43,10 +43,15 @@ export const isProvisional = (unit: { id: string }) => unit.id.startsWith(PROVIS
 export const changeIdOfProvisional = (id: string) => (id.startsWith(PROVISIONAL_PREFIX) ? id.slice(PROVISIONAL_PREFIX.length) : undefined);
 
 const STATE_FIELDS = ['isOpened', 'fillLevel', 'openedAt', 'cigarsLeft'] as const;
-/** Sent with a state but never a column of the unit. */
-const NOT_A_COLUMN = new Set(['smokeOne', 'keepTastings', 'expectedUpdatedAt']);
-/** FEAT-93: no cell of the plan (a detached copy shown before the server answers, a finished one). */
+/** Sent with a state but never a column of the unit (FEAT-93: which copy, a cell asked back). */
+const NOT_A_COLUMN = new Set(['smokeOne', 'keepTastings', 'expectedUpdatedAt', 'fromSlotId', 'fromUnplaced', 'placeAt']);
+/** FEAT-93: no cell of the plan (a copy finished or written off). */
 const NO_SLOT = { slots: [] };
+
+type Cell = { id: string; column: number; row: number };
+const cellsOf = (unit: UnitLike): Cell[] => (Array.isArray(unit.slots) ? unit.slots as Cell[] : []);
+/** The unit without the cells `ids` (freed, or gone with the copy taken). */
+const without = (unit: UnitLike, ids: readonly string[]) => ({ slots: cellsOf(unit).filter((cell) => !ids.includes(cell.id)) });
 
 type State = { isOpened: boolean; fillLevel: number | null; openedAt: unknown; cigarsLeft: number | null };
 
@@ -109,13 +114,15 @@ export function applyChange<T extends UnitLike>(units: readonly T[], change: Que
     const to = Number(change.patch.quantity);
     const reason = change.patch.reason as CorrectionReason;
     if (!Number.isFinite(to)) return result;
+    // FEAT-93 c4: the cells named are freed with the copies.
+    const freed = Array.isArray(change.patch.slotIds) ? change.patch.slotIds as string[] : [];
     if (reason !== 'written_off') {
-      result[index] = { ...target, quantity: to };
+      result[index] = { ...target, quantity: to, ...without(target, freed) };
     } else if (to <= 0) {
       // The whole line broken, given away or lost.
       result[index] = { ...target, writtenOffAt: at, ...NO_SLOT };
     } else {
-      result[index] = { ...target, quantity: to };
+      result[index] = { ...target, quantity: to, ...without(target, freed) };
       const gone = { ...target, ...NO_SLOT, id: provisionalId, quantity: quantity - to, writtenOffAt: at, parentItemId: null, needsReview: false };
       result.splice(index + 1, 0, gone as T);
     }
@@ -131,8 +138,13 @@ export function applyChange<T extends UnitLike>(units: readonly T[], change: Que
   const next = { ...stateOf(target), ...changes };
   if (isIntactItem(stateOf(target)) && quantity > 1 && !isIntactItem(next)) {
     // One copy taken off the group: ×6 → ×5 and the copy on its own line.
-    result[index] = { ...target, ...columns, quantity: quantity - 1 };
-    const copy = { ...target, ...columns, ...next, ...NO_SLOT, id: provisionalId, quantity: 1, parentItemId: target.id, needsReview: false };
+    // FEAT-93: from the cell chosen — opened it holds that cell, finished it
+    // frees it; an unplaced copy leaves the cells to the group.
+    const cell = cellsOf(target).find((slot) => slot.id === change.patch.fromSlotId);
+    const taken = cell ? [cell.id] : [];
+    result[index] = { ...target, ...columns, quantity: quantity - 1, ...without(target, taken) };
+    const copySlots = { slots: cell && !isFinishedState(next) ? [cell] : [] };
+    const copy = { ...target, ...columns, ...next, ...copySlots, id: provisionalId, quantity: 1, parentItemId: target.id, needsReview: false };
     result.splice(index + 1, 0, copy as T);
     return result;
   }
@@ -174,7 +186,9 @@ export function revertChange<T extends UnitLike>(units: readonly T[], change: Qu
     if (unit.id !== change.itemId) return unit;
     if (copy) {
       const back = (copy.quantity as number | null | undefined) ?? 1;
-      return { ...unit, quantity: ((unit.quantity as number | null | undefined) ?? 1) + back };
+      // FEAT-93: with the cell it went with, if it took one.
+      const cells = before && Array.isArray(before.slots) ? { slots: before.slots } : {};
+      return { ...unit, ...cells, quantity: ((unit.quantity as number | null | undefined) ?? 1) + back };
     }
     return before ? { ...unit, ...before } : unit;
   });
@@ -188,8 +202,11 @@ export const unitInStock = (unit: UnitLike) =>
 /** What a queued change does, in words (the pending changes panel, the conflict dialog). */
 export type ChangeAction = 'open' | 'drink' | 'smoke' | 'correct' | 'edit';
 
-/** The fields an everyday action sends (lib/products/openDrink.ts `movePatch`): anything else is an edit. */
-const ACTION_FIELDS: ReadonlySet<string> = new Set([...STATE_FIELDS, 'smokeOne']);
+/**
+ * The fields an everyday action sends (lib/products/openDrink.ts `movePatch`,
+ * FEAT-93: with the copy's cell): anything else is an edit.
+ */
+const ACTION_FIELDS: ReadonlySet<string> = new Set([...STATE_FIELDS, 'smokeOne', 'fromSlotId', 'fromUnplaced']);
 
 export function actionOf(change: Pick<QueuedChange, 'kind' | 'patch'>): ChangeAction {
   if (change.kind === 'correct') return 'correct';

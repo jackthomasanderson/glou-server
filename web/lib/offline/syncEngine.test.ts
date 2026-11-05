@@ -743,7 +743,7 @@ describe('FEAT-108 — shown at once, sent once', () => {
   });
 
   // FEAT-93 (lot S2): the choice of a cell is replayed as made; a line whose cells changed since refuses it, a conflict.
-  it.each(['SLOT_CHANGED', 'SLOTS_TO_FREE_REQUIRED', 'SLOT_CHOICE_REQUIRED'])('a drink from a cell is replayed with its cell; %s is said as a change made meanwhile', async (code) => {
+  it.each(['SLOT_CHANGED', 'SLOTS_TO_FREE_REQUIRED', 'SLOT_CHOICE_REQUIRED'])('a drink from a cell is replayed with its cell; %s is kept, failed, with its code', async (code) => {
     queue({ id: 'p1', itemId: 'g', createdAt: 't1', patch: { isOpened: true, fillLevel: 0, fromSlotId: 'slot-1' } });
     const fetchMock = vi.fn(async () => errResponse(409, { error: code, details: { slots: [], unplaced: 0 } }));
     vi.stubGlobal('fetch', fetchMock);
@@ -753,7 +753,9 @@ describe('FEAT-108 — shown at once, sent once', () => {
     const sent = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
     expect(sent).toMatchObject({ fromSlotId: 'slot-1' });
     expect(store.get('p1')).toMatchObject({ status: 'failed', errorCode: code });
-    expect(refusalKey(code)).toBe(refusalKey('CONFLICT'));
+    // The cells changed meanwhile: a conflict. A line placed with no cell
+    // named (queued before the question): said as such — it did not change.
+    expect(refusalKey(code)).toBe(code === 'SLOT_CHOICE_REQUIRED' ? 'offline.errors.slotChoice' : refusalKey('CONFLICT'));
   });
 
   it('a correction naming the cells to free is replayed with them', async () => {

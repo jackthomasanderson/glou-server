@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { isProvisional } from '@/lib/offline/optimistic';
 import { isIntactItem } from '@shared/units';
 import { goneParts, goneSummary, hasOwnLevel, lineParts, VISIBLE_LINES, type FamilyLines, type LineContext } from '@/lib/products/lines';
+import { slotSummary } from '@/lib/products/cells';
 import type { ProductItem } from '@/lib/products/types';
 import { FieldSourceBadge } from './FieldSourceBadge';
 
@@ -222,6 +223,11 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
                     </p>
                     {!provisional && lineActions?.(item)}
                   </div>
+                  {/* FEAT-93: where its copies are on the plan — nothing when none is placed. */}
+                  {(() => {
+                    const cells = slotSummary(item, kind, t);
+                    return cells ? <p className="text-xs text-foreground-500 mt-0.5" data-testid="line-slots">{cells}</p> : null;
+                  })()}
                   {item.needsReview && (
                     <>
                       <Chip size="sm" variant="flat" color="primary" className="mt-1">{t('familyDrawer.lines.needsReview')}</Chip>

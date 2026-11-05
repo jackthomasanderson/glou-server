@@ -23,6 +23,8 @@ const REFUSALS: Record<string, string> = {
   CONFLICT: 'stockLine.errors.conflict',
   QUANTITY_TOO_LARGE: 'stockLine.errors.tooLarge',
   CELLAR_NOT_FOUND: 'stockLine.errors.cellarGone',
+  // FEAT-93: the line's cells changed meanwhile — the dialog asks which ones again.
+  SLOTS_TO_FREE_REQUIRED: 'stockLine.errors.slotsToFree',
 };
 
 /**
@@ -69,7 +71,7 @@ function useStockAction<TBody extends CorrectBody | MoveBody | RepriceBody>(acti
       }
       notifyError(REFUSALS[error.message] ?? 'stockLine.errors.failed');
       // Changed meanwhile: the line is read again, the dialog then sends from it.
-      if (error.message === 'CONFLICT') void queryClient.invalidateQueries({ queryKey: productDetailKey(item.productId) });
+      if (error.message === 'CONFLICT' || error.message === 'SLOTS_TO_FREE_REQUIRED') void queryClient.invalidateQueries({ queryKey: productDetailKey(item.productId) });
     },
     onSettled: (_write, _error, { item }) => {
       void queryClient.invalidateQueries({ queryKey: productDetailKey(item.productId) });

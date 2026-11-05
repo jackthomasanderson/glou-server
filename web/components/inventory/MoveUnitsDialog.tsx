@@ -9,6 +9,7 @@ import { lineParts, type LineContext } from '@/lib/products/lines';
 import { lineCopies, unitNoun } from '@/lib/products/stockActions';
 import type { ProductItem } from '@/lib/products/types';
 import { CountField, isCountIn, LineDialogFrame } from './StockLineDialogParts';
+import { SlotPicker, useCellsToName } from '@/components/cellars/SlotPicker';
 
 /** The "no cellar" answer of the destination (a radio needs a value). */
 const NO_CELLAR = 'none';
@@ -39,15 +40,18 @@ export function MoveUnitsDialog({ item, ctx, isOpen, onClose }: MoveUnitsDialogP
     ...(cellars ?? []).filter((cellar) => cellar.id !== item.cellarId).map((cellar) => ({ value: cellar.id, label: cellar.name })),
     ...(item.cellarId ? [{ value: NO_CELLAR, label: t('familyDrawer.lines.noCellar') }] : []),
   ];
-  const canConfirm = isCountIn(count, 1, total) && destination !== null;
+  // FEAT-93: the copies moved leave unplaced; those left may no longer hold every cell.
+  const cells = useCellsToName(item, isCountIn(count, 1, total) ? total - count : undefined, ctx.kind);
+  const canConfirm = isCountIn(count, 1, total) && destination !== null && cells.ready;
 
   const confirm = () => {
-    if (!isCountIn(count, 1, total) || destination === null) return;
+    if (!isCountIn(count, 1, total) || destination === null || !cells.ready) return;
     const cellarId = destination === NO_CELLAR ? null : destination;
     const cellar = choices.find((choice) => choice.value === destination)?.label ?? '';
     move.mutate(
-      { item, body: { count, cellarId } },
+      { item, body: { count, cellarId, ...cells.body } },
       {
+        onError: (error) => { cells.refused(error); },
         onSuccess: () => {
           notifySuccess('stockLine.move.done', { context: noun, count, cellar });
           onClose();
@@ -85,6 +89,17 @@ export function MoveUnitsDialog({ item, ctx, isOpen, onClose }: MoveUnitsDialogP
             <Radio key={choice.value} value={choice.value}>{choice.label}</Radio>
           ))}
         </RadioGroup>
+      )}
+      {cells.needed > 0 && (
+        <SlotPicker
+          cellarId={item.cellarId}
+          slots={cells.slots}
+          needed={cells.needed}
+          selected={cells.selected}
+          onChange={cells.setSelected}
+          title={t('stockLine.slots.freeTitle')}
+          hint={t('stockLine.slots.freeHint', { count: cells.needed })}
+        />
       )}
     </LineDialogFrame>
   );

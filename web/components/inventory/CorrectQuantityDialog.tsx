@@ -10,6 +10,7 @@ import { lineParts, type LineContext } from '@/lib/products/lines';
 import { lineCopies, unitNoun } from '@/lib/products/stockActions';
 import type { ProductItem } from '@/lib/products/types';
 import { CountField, isCountIn, LineDialogFrame } from './StockLineDialogParts';
+import { SlotPicker, useCellsToName } from '@/components/cellars/SlotPicker';
 
 interface CorrectQuantityDialogProps {
   item: ProductItem;
@@ -37,6 +38,8 @@ export function CorrectQuantityDialog({ item, ctx, isOpen, onClose, onTrashInste
 
   const lowered = isCountIn(quantity, 0, from - 1);
   const toTrash = lowered && quantity === 0 && reason === 'input_error';
+  // FEAT-93 c4: fewer copies than cells — which cells are freed (none to name when the line empties).
+  const cells = useCellsToName(item, lowered ? quantity : undefined, ctx.kind);
 
   const confirm = () => {
     if (!lowered || !reason) return;
@@ -44,9 +47,11 @@ export function CorrectQuantityDialog({ item, ctx, isOpen, onClose, onTrashInste
       onTrashInstead();
       return;
     }
+    if (!cells.ready) return;
     correct.mutate(
-      { item, body: { quantity, reason } },
+      { item, body: { quantity, reason, ...cells.body } },
       {
+        onError: (error) => { cells.refused(error); },
         onSuccess: (write) => {
           // FEAT-108: without network, shown at once and sent when it is back.
           notifySuccess(queuedMutationOf(write) ? 'stockLine.correct.queued' : 'stockLine.correct.done', { from, to: quantity });
@@ -66,7 +71,7 @@ export function CorrectQuantityDialog({ item, ctx, isOpen, onClose, onTrashInste
       confirmLabel={toTrash ? t('stockLine.correct.trashInstead', { context: noun }) : t('stockLine.correct.confirm')}
       danger={toTrash}
       onConfirm={confirm}
-      canConfirm={lowered && reason !== null}
+      canConfirm={lowered && reason !== null && (toTrash || cells.ready)}
       isPending={correct.isPending}
       testId="correct-quantity-dialog"
     >
@@ -101,6 +106,17 @@ export function CorrectQuantityDialog({ item, ctx, isOpen, onClose, onTrashInste
       <p className={`text-xs text-foreground-500${toTrash ? '' : ' invisible'}`} aria-hidden={!toTrash}>
         {t('stockLine.correct.trashHint')}
       </p>
+      {cells.needed > 0 && !toTrash && (
+        <SlotPicker
+          cellarId={item.cellarId}
+          slots={cells.slots}
+          needed={cells.needed}
+          selected={cells.selected}
+          onChange={cells.setSelected}
+          title={t('stockLine.slots.freeTitle')}
+          hint={t('stockLine.slots.freeHint', { count: cells.needed })}
+        />
+      )}
     </LineDialogFrame>
   );
 }

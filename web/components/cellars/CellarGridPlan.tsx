@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useId } from 'react';
 import {
   Button,
   Chip,
@@ -32,6 +32,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { GridItem, GridCell, CellarGridData } from '@/lib/cellars/types';
 import { useAssignSlot } from '@/hooks/useCellars';
+import { useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { client } from '@/lib/api';
 import { notifyError } from '@/lib/toast';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
@@ -135,14 +136,17 @@ interface DraggableBottleProps {
   fromRow: number;
   zone: ZoneType;
   onOpenSlot: (item: GridCell) => void;
+  /** Offline (FEAT-108): the bottle opens its wine but does not move. */
+  disabled?: boolean;
 }
 
-function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot }: DraggableBottleProps) {
+function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = false }: DraggableBottleProps) {
   const { t, i18n } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     // One draggable per cell (FEAT-93: a line may hold several).
     id: `bottle-${item.slotId}`,
     data: { item, fromCol, fromRow },
+    disabled,
   });
 
   // FEAT-93: what the cell holds — a bottle, "Boîte fermée de 25", "Boîte entamée · 23 restants"…
@@ -204,9 +208,11 @@ interface DroppableSlotProps {
   onClickEmpty: () => void;
   onOpenSlot: (item: GridCell) => void;
   wording: GridWording;
+  /** Offline (FEAT-108): nothing is placed or moved; the id of the reason said. */
+  offlineReasonId?: string;
 }
 
-function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording }: DroppableSlotProps) {
+function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording, offlineReasonId }: DroppableSlotProps) {
   const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${col}:${row}`,
@@ -236,6 +242,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording
           fromRow={row}
           zone={zone}
           onOpenSlot={onOpenSlot}
+          disabled={offlineReasonId !== undefined}
         />
       ) : (
         <div
@@ -243,14 +250,16 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording
           tabIndex={0}
           data-cell={`${col}:${row}`}
           aria-label={t('cellars.grid.cellLabelEmpty', { col, row, ...wording })}
-          onClick={onClickEmpty}
+          aria-disabled={offlineReasonId ? true : undefined}
+          aria-describedby={offlineReasonId}
+          onClick={() => { if (!offlineReasonId) onClickEmpty(); }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              onClickEmpty();
+              if (!offlineReasonId) onClickEmpty();
             }
           }}
-          className="w-full h-full cursor-pointer hover:bg-default-100 rounded outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className={`w-full h-full rounded outline-none focus-visible:ring-2 focus-visible:ring-primary ${offlineReasonId ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-default-100'}`}
         />
       )}
     </div>
@@ -332,7 +341,8 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
       // FEAT-93 c2: the line was placed in full meanwhile (another device): say why, and which line.
       setError(code === 'NO_UNPLACED_COPY'
         ? `${item.name} · ${noUnplacedCopyText(item, t)}`
-        : code && code in ASSIGN_ERRORS ? t(ASSIGN_ERRORS[code]) : t('status.error'));
+        // Cigars are smoked, not drunk (review of #855).
+        : code && code in ASSIGN_ERRORS ? t(ASSIGN_ERRORS[code], { context: item.category === 'cigar' ? 'cigar' : undefined }) : t('status.error'));
     }
   };
 
@@ -468,6 +478,10 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
   }
 
   const [assignTarget, setAssignTarget] = useState<{ col: number; row: number } | null>(null);
+  // FEAT-93 (plan §4): placing, moving, swapping or taking out a bottle needs
+  // the server; offline the plan is read only, and says so.
+  const offline = useOfflineBlocked();
+  const offlineReasonId = useId();
   const [activeDrag, setActiveDrag] = useState<{ item: GridCell; fromCol: number; fromRow: number } | null>(null);
 
   const cols = cellar.columns ?? 0;
@@ -601,6 +615,12 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
         )}
       </div>
 
+      {offline && (
+        <p id={offlineReasonId} role="status" className="mb-3 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-700" data-testid="grid-offline">
+          {t('cellars.grid.offline', wording)}
+        </p>
+      )}
+
       {/* Grid */}
       <DndContext
         sensors={sensors}
@@ -636,6 +656,7 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
                     onClickEmpty={() => setAssignTarget({ col, row })}
                     onOpenSlot={onOpenSlot}
                     wording={wording}
+                    offlineReasonId={offline ? offlineReasonId : undefined}
                   />
                 );
               });
@@ -685,7 +706,7 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
 
       {/* Dialogs */}
       <AssignDialog
-        open={!!assignTarget}
+        open={!!assignTarget && !offline}
         targetCol={assignTarget?.col ?? 0}
         targetRow={assignTarget?.row ?? 0}
         unassignedItems={unassignedItems}

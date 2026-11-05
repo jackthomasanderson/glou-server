@@ -130,6 +130,48 @@ describe('revertChange — "Annuler" before the network is back', () => {
   });
 });
 
+// FEAT-93 (#847, lot S4): the copy's cell, chosen in "De quelle case ?" or
+// touched on the plan, is shown where the server will put it.
+describe('applyChange — the cells of the plan (FEAT-93)', () => {
+  const placed = (quantity: number) => group(quantity, { slots: [{ id: 's1', column: 1, row: 1 }, { id: 's2', column: 2, row: 1 }] });
+
+  it('opened from a cell: the opened bottle holds it, the group keeps the others', () => {
+    const [g, copy] = applyChange([placed(3)], change({ ...OPEN, fromSlotId: 's1' }));
+    expect(g).toMatchObject({ quantity: 2, slots: [{ id: 's2', column: 2, row: 1 }] });
+    expect(copy).toMatchObject({ isOpened: true, slots: [{ id: 's1', column: 1, row: 1 }] });
+    expect(copy).not.toHaveProperty('fromSlotId');
+  });
+
+  it('drunk from a cell: the cell is freed', () => {
+    const [g, copy] = applyChange([placed(3)], change({ ...DRINK, fromSlotId: 's2' }));
+    expect(g.slots).toEqual([{ id: 's1', column: 1, row: 1 }]);
+    expect(copy.slots).toEqual([]);
+  });
+
+  it('an unplaced copy: the cells stay with the group', () => {
+    const [g, copy] = applyChange([placed(3)], change({ ...DRINK, fromUnplaced: true }));
+    expect(g.slots).toHaveLength(2);
+    expect(copy.slots).toEqual([]);
+    expect(copy).not.toHaveProperty('fromUnplaced');
+  });
+
+  it('a correction frees the cells it names', () => {
+    const correction = change({ quantity: 1, reason: 'input_error', slotIds: ['s2'] }, { kind: 'correct' });
+    expect(applyChange([placed(3)], correction)[0]).toMatchObject({ quantity: 1, slots: [{ id: 's1', column: 1, row: 1 }] });
+  });
+
+  it('"Annuler" before the network is back gives the group its cell back', () => {
+    const drink = change({ ...DRINK, fromSlotId: 's2' });
+    const reverted = revertChange(applyChange([placed(3)], drink), drink, beforeOf(placed(3)));
+    expect(reverted).toEqual([expect.objectContaining({ quantity: 3, slots: placed(3).slots })]);
+  });
+
+  it('a move from a cell is still an everyday action, not an edit', () => {
+    expect(actionOf(change({ ...DRINK, fromSlotId: 's1' }))).toBe('drink');
+    expect(actionOf(change({ ...OPEN, fromUnplaced: true }))).toBe('open');
+  });
+});
+
 describe('actionOf', () => {
   it('names the everyday actions, and anything else an edit', () => {
     expect(actionOf(change(OPEN))).toBe('open');

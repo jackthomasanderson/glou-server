@@ -2,6 +2,7 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { UnitKind } from '@shared/units';
+import { SLOT_CHANGED, SLOT_CHOICE_REQUIRED, type SlotChoiceFields } from '@shared/product';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
 import { productDetailKey } from '@/hooks/useProducts';
 import { notifyError, notifyUndoable } from '@/lib/toast';
@@ -9,15 +10,46 @@ import { discardQueuedMutation, queuedMutationOf } from '@/lib/offline/syncEngin
 import { isProvisional } from '@/lib/offline/optimistic';
 import { isIntactItem } from '@shared/units';
 import { movePatch, restorePatch, undoPatch, type StockMove } from '@/lib/products/openDrink';
+import { cellAskOf, type CellAsk } from '@/lib/products/cells';
 import type { InventoryItem, InventoryItemPatch } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 
-/** FEAT-93: the cell the line itself gave back by this write (a line of one finished in place), to ask back on "Annuler". */
-function cellGivenBack(before: ProductItem, written: Pick<InventoryItem, 'id' | 'slots'>): InventoryItemPatch {
-  const [cell] = before.slots ?? [];
-  if (written.id !== before.id || !cell || (written.slots ?? []).some((slot) => slot.id === cell.id)) return {};
+/**
+ * FEAT-93: the cell this write gave back — the cell chosen for a copy taken
+ * off its group and finished there, or the cell of a line of one finished in
+ * place — to ask back on "Annuler" (`placeAt`). Nothing when the copy still
+ * holds it (opened: the cell went with it, and comes back with it).
+ */
+export function cellGivenBack(
+  before: Pick<ProductItem, 'id' | 'slots' | 'quantity' | 'cigarsPerBox'>,
+  written: Pick<InventoryItem, 'id' | 'slots'>,
+  choice?: SlotChoiceFields,
+  kind: UnitKind = 'bottle',
+): InventoryItemPatch {
+  // A group of single cigars shares one cell, kept until its last cigar: nothing given back.
+  if (kind === 'cigar' && before.cigarsPerBox == null && written.id !== before.id) return {};
+  const cells = before.slots ?? [];
+  const cell = choice?.fromSlotId
+    ? cells.find((slot) => slot.id === choice.fromSlotId)
+    : written.id === before.id ? cells[0] : undefined;
+  if (!cell || (written.slots ?? []).some((slot) => slot.id === cell.id)) return {};
   return { placeAt: { column: cell.column, row: cell.row } };
 }
+
+/** Options of a move: which copy, and who asks "De quelle case ?" when the API does. */
+export interface MoveOptions {
+  /** The copy's cell: chosen in "De quelle case ?", or the cell of the plan touched (FEAT-93). */
+  choice?: SlotChoiceFields;
+  /**
+   * The API asks which cell the copy comes from (409 SLOT_CHOICE_REQUIRED),
+   * or again once the line changed (SLOT_CHANGED): the question to put.
+   * Without it, the refusal is only told.
+   */
+  onAskCell?: (ask: CellAsk) => void;
+}
+
+/** Refusals answered by a question ("De quelle case ?"), not a toast of the mutation. */
+const CELL_QUESTIONS = [SLOT_CHOICE_REQUIRED, SLOT_CHANGED] as const;
 
 /**
  * #471 (FEAT-103, ux-ui.md §10.4.2): open, drink or smoke one copy of a line.
@@ -70,7 +102,7 @@ export function useStockMove() {
     }
   }, [latest, mutateAsync, settle]);
 
-  const run = useCallback(async (item: ProductItem, move: StockMove, kind: UnitKind): Promise<boolean> => {
+  const run = useCallback(async (item: ProductItem, move: StockMove, kind: UnitKind, options: MoveOptions = {}): Promise<boolean> => {
     // FEAT-108: a copy shown before the server took it off its group has no id there yet.
     if (isProvisional(item)) return false;
     // The line as known now: its version, and its level to put back on "Annuler".
@@ -78,9 +110,20 @@ export function useStockMove() {
     const sent = before.updatedAt as string;
     let written: InventoryItem;
     try {
-      written = await mutateAsync({ id: item.id, patch: movePatch(move), expectedUpdatedAt: sent });
-    } catch {
-      // Told by the mutation; the drawer is read again so the next try starts from the line as it is.
+      written = await mutateAsync({
+        id: item.id,
+        patch: { ...movePatch(move), ...options.choice },
+        expectedUpdatedAt: sent,
+        quiet: CELL_QUESTIONS,
+      });
+    } catch (error) {
+      // FEAT-93: the line holds cells — which one? Asked, or asked again with
+      // the line as it is now (a cell taken out or drunk on another device).
+      const ask = cellAskOf(error);
+      if (error instanceof Error && error.message === SLOT_CHANGED) notifyError('stockLine.errors.slotChanged');
+      if (ask && options.onAskCell) options.onAskCell(ask);
+      else if (error instanceof Error && error.message === SLOT_CHOICE_REQUIRED) notifyError('stockLine.errors.slotChoice');
+      // Otherwise told by the mutation; the drawer is read again so the next try starts from the line as it is.
       settle(item.productId);
       return false;
     }
@@ -99,10 +142,10 @@ export function useStockMove() {
       });
       return true;
     }
-    // FEAT-93: a line of one drunk (or smoked out) in place gave its cell
-    // back (#573); "Annuler" puts the bottle back in that cell, if nobody
-    // took it since (`placeAt`, else it comes back unplaced).
-    notifyUndoable(message, undefined, () => { void undo(written, before, kind, cellGivenBack(before, written)); });
+    // FEAT-93: a copy finished in its cell gave it back (#573) — a line of
+    // one, or a copy taken from the cell chosen; "Annuler" puts it back in
+    // that cell, if nobody took it since (`placeAt`, else it comes back unplaced).
+    notifyUndoable(message, undefined, () => { void undo(written, before, kind, cellGivenBack(before, written, options.choice, kind)); });
     return true;
   }, [latest, mutateAsync, queryClient, settle, undo]);
 

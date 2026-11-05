@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mayAlreadyBeRecorded } from './describe';
+import { mayAlreadyBeRecorded, refusalKey } from './describe';
 
 // Review of #823: the conflict dialog warns that an action may already be
 // recorded (the connection dropped while it was being sent) when the unit
@@ -46,5 +46,15 @@ describe('mayAlreadyBeRecorded', () => {
     expect(mayAlreadyBeRecorded(correct, { quantity: 5 })).toBe(true);
     expect(mayAlreadyBeRecorded(correct, { quantity: 4 })).toBe(false);
     expect(mayAlreadyBeRecorded({ patch: { ...OPEN, region: 'Loire' }, before: { quantity: 1 } }, { quantity: 1, isOpened: true })).toBe(false);
+  });
+});
+
+// Review of #856 (e): a change queued before "De quelle case ?" existed, on a
+// line placed on the plan, did not meet a change made meanwhile.
+describe('refusalKey — the cells of the plan (FEAT-93)', () => {
+  it('SLOT_CHOICE_REQUIRED has its own words; the cells changed meanwhile are a conflict', () => {
+    expect(refusalKey('SLOT_CHOICE_REQUIRED')).toBe('offline.errors.slotChoice');
+    expect(refusalKey('SLOT_CHANGED')).toBe('offline.errors.changed');
+    expect(refusalKey('SLOTS_TO_FREE_REQUIRED')).toBe('offline.errors.changed');
   });
 });
