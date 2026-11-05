@@ -657,7 +657,11 @@
       "slotNotFound": "This slot no longer holds this bottle: it changed on another device.",
       "removedFromSlot": "Bottle removed from its slot.",
       "removedFromSlot_box": "Box removed from its slot.",
-      "removedFromSlot_cigar": "Cigars removed from their slot."
+      "removedFromSlot_cigar": "Cigars removed from their slot.",
+      "offline": "Offline, the plan can only be viewed. Placing, moving or taking out a bottle: available when the connection is back.",
+      "notInStock_cigar": "This line is no longer in the cellar: it was smoked or taken out meanwhile.",
+      "offline_cigar": "Offline, the plan can only be viewed. Placing, moving or taking out a box or cigars: available when the connection is back.",
+      "offline_mixed": "Offline, the plan can only be viewed. Placing, moving or taking out a bottle, a box or cigars: available when the connection is back."
     },
     "filterByType": "Filter by type",
     "filterByStatus": "Filter by status",
@@ -2238,7 +2242,8 @@
       "belowOne": "Not saved: an input error cannot go below 1; move the line to the trash instead.",
       "gone": "Not saved: this bottle no longer exists (put back with the others or deleted meanwhile).",
       "rejected": "Not saved: the server refused this value.",
-      "changed": "Not saved: the line changed meanwhile."
+      "changed": "Not saved: the line changed meanwhile.",
+      "slotChoice": "Not saved: this line is placed in cells of the plan. Do it again from the wine's sheet to say which cell the bottle comes from."
     }
   },
   "scan": {
@@ -2417,7 +2422,29 @@
       "tooLarge": "Not saved: the line they go to would hold more than 1,000.",
       "cellarGone": "Not saved: this cellar no longer exists.",
       "offline": "Without a network, this action is not possible. Try again once the connection is back.",
-      "failed": "Could not save this action."
+      "failed": "Could not save this action.",
+      "slotChanged": "This line's cells changed meanwhile, on another device or by another member: choose again.",
+      "slotChoice": "This line is placed in cells of the plan: say which cell the bottle comes from.",
+      "slotsToFree": "This line's cells changed meanwhile: choose the cells again."
+    },
+    "slots": {
+      "whichTitle": "Which cell?",
+      "unplacedChoice": "Unplaced",
+      "unplacedCount_one": "{{count}} unplaced on this line",
+      "unplacedCount_other": "{{count}} unplaced on this line",
+      "freeTitle": "Which cells to free?",
+      "freeHint_one": "Choose on the plan the cell to free.",
+      "freeHint_other": "Choose on the plan the {{count}} cells to free.",
+      "followTitle": "Which cells take the new price?",
+      "followHint_one": "The unplaced ones are not enough: choose the cell that takes the new price. It stays occupied.",
+      "followHint_other": "The unplaced ones are not enough: choose the {{count}} cells that take the new price. They stay occupied.",
+      "pickCount_one": "{{chosen}} of {{count}} cell chosen",
+      "pickCount_other": "{{chosen}} of {{count}} cells chosen",
+      "hintFreed": "Cell {{cell}} will be freed.",
+      "hintKept": "The opened bottle stays in {{cell}}.",
+      "hintKept_box": "The opened box stays in {{cell}}.",
+      "columnShort": "C{{col}}",
+      "rowShort": "R{{row}}"
     }
   },
   "familyList": {
@@ -2588,6 +2615,14 @@
       "error": "The wine could not be saved.",
       "thisWine": "this wine",
       "thisSpirit": "this spirit"
+    },
+    "slots": {
+      "placed_one": "{{count}} placed",
+      "placed_other": "{{count}} placed",
+      "unplaced_one": "{{count}} unplaced",
+      "unplaced_other": "{{count}} unplaced",
+      "summary": "{{counts}} · {{cells}}",
+      "groupCell": "Placed in {{cells}}"
     }
   },
   "cigarGroup": {
@@ -2815,5 +2850,14 @@
     "joining": "These bottles will join {{name}}.",
     "joiningCigar": "These cigars will join {{name}}.",
     "addAria": "{{action}}: {{wine}}, {{stock}}"
+  },
+  "history": {
+    "fields": {
+      "slot": "Cell"
+    },
+    "slotNone": "none",
+    "slotPlaced": "Cell {{cell}} taken",
+    "slotFreed": "Cell {{cell}} freed",
+    "slotMoved": "Cell {{from}} → {{to}}"
   }
 }

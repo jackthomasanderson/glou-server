@@ -70,6 +70,14 @@ describe('apiErrorFrom', () => {
     expect(await apiErrorFrom(res)).toMatchObject({ message: 'TOO_MANY_REQUESTS', retryAfter: 120 });
   });
 
+  // FEAT-93: the cells a 409 asks about come with it; other details (debug data) never do.
+  it('keeps the details of a question about cells, and only those', async () => {
+    const details = { slots: [{ id: 's1', column: 1, row: 1 }], unplaced: 1 };
+    expect(await apiErrorFrom(mockResponse(409, { error: 'SLOT_CHOICE_REQUIRED', details })))
+      .toMatchObject({ message: 'SLOT_CHOICE_REQUIRED', status: 409, details });
+    expect((await apiErrorFrom(mockResponse(400, { error: 'VALIDATION_ERROR', details: { a: 1 } }))).details).toBeUndefined();
+  });
+
   it('handleResponse throws the same ApiError', async () => {
     await expect(handleResponse(mockResponse(429, { error: 'TOO_MANY_REQUESTS', retryAfter: 60 })))
       .rejects.toMatchObject({ message: 'TOO_MANY_REQUESTS', retryAfter: 60 });

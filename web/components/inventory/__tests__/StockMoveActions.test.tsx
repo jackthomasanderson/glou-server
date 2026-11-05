@@ -284,12 +284,17 @@ describe('the drawer\'s footer: "J\'en ouvre une", "J\'en bois une" (FEAT-103, F
     expect(patches()[1].body).not.toHaveProperty('slotColumn');
   });
 
-  it('"Annuler" a bottle detached from a group sends no slot (the slot stayed with the group)', async () => {
+  it('"Annuler" a bottle taken unplaced from a placed group sends no cell (the cells stayed with the group)', async () => {
     const group = unit({ id: 'g', quantity: 6, cellarId: 'garage', slots: [{ id: 's1', column: 1, row: 1 }], updatedAt: VERSION });
     answer = () => detachAnswer(group, { isOpened: true, fillLevel: 0, slots: [] });
     drawFooter(detailOf([group]));
     fireEvent.click(screen.getByTestId('stock-move-drink'));
+    // FEAT-93: "De quelle case ?", "Non rangée" preselected (decision #471 point 76).
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('radio', { name: 'Non rangée' })).toBeChecked();
+    fireEvent.click(within(dialog).getByRole('button', { name: "J'en bois une" }));
     await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+    expect(patches()[0].body).toMatchObject({ isOpened: true, fillLevel: 0, fromUnplaced: true });
     const undo = toast.notifyUndoable.mock.calls[0][2] as () => void;
     await act(async () => { undo(); });
     await waitFor(() => expect(patches()).toHaveLength(2));
@@ -444,5 +449,150 @@ describe('a line\'s menu: open, drink, smoke from that very line', () => {
     for (const name of ["J'en ouvre une", "J'en bois une", 'Corriger le nombre']) {
       expect(screen.getByRole('menuitem', { name })).not.toHaveAttribute('aria-disabled', 'true');
     }
+  });
+});
+
+// FEAT-93 (#847, lot S4): "De quelle case ?" (plan §5, decisions #471 points
+// 76-77) — from the drawer, asked on a line of several holding cells; from a
+// cell of the plan, never.
+describe('"De quelle case ?" (FEAT-93)', () => {
+  const placed = (over: Partial<ProductItem> = {}) => unit({
+    id: 'g', quantity: 2, cellarId: 'garage', updatedAt: VERSION,
+    slots: [{ id: 's1', column: 1, row: 1 }, { id: 's2', column: 2, row: 1 }],
+    ...over,
+  });
+
+  function drawFromCell(detail: ProductDetailView, line: ProductItem, slotId: string) {
+    queryClient.setQueryData(DETAIL_KEY, detail);
+    queryClient.setQueryData(PRODUCTS_KEY, [{ ...detail }]);
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <StockMoveActions product={detail} ctx={ctx(detail.category === 'cigar' ? 'cigar' : 'bottle')} cell={{ line, slotId }} />
+      </QueryClientProvider>,
+    );
+  }
+
+  it('every copy placed: no preselection — the member touches a cell; drunk from it, "Annuler" asks for that cell back', async () => {
+    const group = placed();
+    answer = () => detachAnswer(group, { isOpened: true, fillLevel: 0, slots: [] });
+    drawFooter(detailOf([group]));
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('radio', { name: 'Non rangée' })).toBeNull();
+    expect(within(dialog).getAllByRole('radio').map((radio) => (radio as HTMLInputElement).checked)).toEqual([false, false]);
+    expect(within(dialog).getByRole('button', { name: "J'en bois une" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Case C2·R1' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: "J'en bois une" }));
+
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+    expect(patches()[0].body).toMatchObject({ isOpened: true, fillLevel: 0, fromSlotId: 's2' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // Review of #856 (d): the copy finished gave its cell back — asked back on "Annuler".
+    const undo = toast.notifyUndoable.mock.calls[0][2] as () => void;
+    await act(async () => { undo(); });
+    await waitFor(() => expect(patches()).toHaveLength(2));
+    expect(patches()[1]).toMatchObject({ url: '/api/inventory/sub', body: { isOpened: false, fillLevel: 100, placeAt: { column: 2, row: 1 } } });
+  });
+
+  it('review 857: the hint says what the answer does to the cell chosen — nothing for "Non rangée"', async () => {
+    drawFooter(detailOf([placed({ quantity: 3 })]));
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByTestId('which-cell-hint')).toHaveTextContent(/^$/);
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Case C2·R1' }));
+    expect(within(dialog).getByTestId('which-cell-hint')).toHaveTextContent('La case C2·R1 sera libérée.');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Annuler' }));
+
+    fireEvent.click(screen.getByTestId('stock-move-open'));
+    const open = await screen.findByRole('dialog');
+    fireEvent.click(within(open).getByRole('radio', { name: 'Case C1·R1' }));
+    expect(within(open).getByTestId('which-cell-hint')).toHaveTextContent('La bouteille ouverte reste en C1·R1.');
+  });
+
+  it('opened from a cell chosen: the opened bottle keeps it — "Annuler" asks for nothing (it comes back with it)', async () => {
+    const group = placed();
+    answer = () => detachAnswer(group, { isOpened: true, fillLevel: 100, slots: [{ id: 's1', column: 1, row: 1 }] });
+    drawFooter(detailOf([group]));
+    fireEvent.click(screen.getByTestId('stock-move-open'));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Case C1·R1' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: "J'en ouvre une" }));
+    await waitFor(() => expect(toast.notifyUndoable).toHaveBeenCalled());
+    expect(patches()[0].body).toMatchObject({ fromSlotId: 's1' });
+    const undo = toast.notifyUndoable.mock.calls[0][2] as () => void;
+    await act(async () => { undo(); });
+    await waitFor(() => expect(patches()).toHaveLength(2));
+    expect(patches()[1].body).not.toHaveProperty('placeAt');
+  });
+
+  it('never asked on a line without a cell, nor on a group of single cigars', async () => {
+    const cigars = unit({ id: 'c', quantity: 5, cigarsPerBox: null, cellarId: 'garage', slots: [{ id: 's1', column: 1, row: 1 }], updatedAt: VERSION });
+    answer = () => detachAnswer(cigars, { isOpened: true, fillLevel: 0 });
+    drawFooter(detailOf([cigars], { category: 'cigar' }));
+    fireEvent.click(screen.getByTestId('stock-move-smoke'));
+    await waitFor(() => expect(patches()).toHaveLength(1));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(patches()[0].body).not.toHaveProperty('fromSlotId');
+  });
+
+  it('the API asks (409 SLOT_CHOICE_REQUIRED, cells placed on another device): the question opens from its answer', async () => {
+    const group = unit({ id: 'g', quantity: 3, cellarId: 'garage', slots: [], updatedAt: VERSION });
+    answer = () => ({ status: 409, body: { error: 'SLOT_CHOICE_REQUIRED', details: { slots: [{ id: 's9', column: 4, row: 2 }], unplaced: 2 } } });
+    drawFooter(detailOf([group]));
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('radio', { name: 'Case C4·R2' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('radio', { name: 'Non rangée' })).toBeChecked();
+    expect(toast.notifyError).not.toHaveBeenCalled();
+
+    answer = () => detachAnswer(group, { isOpened: true, fillLevel: 0 });
+    fireEvent.click(within(dialog).getByRole('button', { name: "J'en bois une" }));
+    await waitFor(() => expect(patches()).toHaveLength(2));
+    expect(patches()[1].body).toMatchObject({ fromUnplaced: true });
+  });
+
+  it('the cell chosen changed meanwhile (409 SLOT_CHANGED): said, and asked again with the line as it is', async () => {
+    const group = placed();
+    answer = () => ({ status: 409, body: { error: 'SLOT_CHANGED', details: { slots: [{ id: 's2', column: 2, row: 1 }], unplaced: 1 } } });
+    drawFooter(detailOf([group]));
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('radio', { name: 'Case C1·R1' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: "J'en bois une" }));
+
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('stockLine.errors.slotChanged'));
+    const again = screen.getByRole('dialog');
+    expect(within(again).queryByRole('radio', { name: 'Case C1·R1' })).toBeNull();
+    expect(within(again).getByRole('radio', { name: 'Non rangée' })).toBeChecked();
+    expect(toast.notifyUndoable).not.toHaveBeenCalled();
+  });
+
+  it('from a cell of the plan: that very copy — no question, no reminder of the opened bottle (decision #471 point 77)', async () => {
+    const group = placed({ quantity: 6 });
+    const opened = openedBottle(40, { id: 'o', updatedAt: VERSION });
+    answer = () => detachAnswer(group, { isOpened: true, fillLevel: 100, slots: [{ id: 's2', column: 2, row: 1 }] });
+    drawFromCell(detailOf([group, opened]), group, 's2');
+
+    fireEvent.click(screen.getByTestId('stock-move-open'));
+
+    await waitFor(() => expect(patches()).toHaveLength(1));
+    expect(patches()[0]).toMatchObject({ url: '/api/inventory/g', body: { isOpened: true, fromSlotId: 's2' } });
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('from the cell of the opened bottle: "Finir l\'entamée" first, which finishes it there', async () => {
+    const opened = openedBottle(40, { id: 'o', cellarId: 'garage', slots: [{ id: 's3', column: 3, row: 1 }], updatedAt: VERSION });
+    const group = placed({ quantity: 4 });
+    answer = () => ({ status: 200, body: { data: { ...opened, fillLevel: 0, slots: [], updatedAt: LATER }, changed: [], removedIds: [] } });
+    drawFromCell(detailOf([group, opened]), opened, 's3');
+
+    const first = screen.getAllByRole('button')[0];
+    expect(first).toHaveTextContent("Finir l'entamée");
+    expect(first).toHaveAttribute('data-primary', 'true');
+    fireEvent.click(first);
+
+    await waitFor(() => expect(patches()).toHaveLength(1));
+    expect(patches()[0]).toMatchObject({ url: '/api/inventory/o', body: { isOpened: true, fillLevel: 0, fromSlotId: 's3' } });
   });
 });

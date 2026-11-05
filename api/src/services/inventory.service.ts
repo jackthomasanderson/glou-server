@@ -954,8 +954,14 @@ export class InventoryService {
  * off or made single cigars frees its cells itself.
  */
 async function assertNumberHoldsSlots(tx: PrismaClientOrTx, item: StateItem, next: StateItem, kind: UnitKind): Promise<void> {
-  const keep = slotCapacity(next, kind);
-  if (keep >= slotCapacity({ ...next, quantity: item.quantity }, kind)) return;
+  // Judged on the line in its own state with the number written: a state
+  // sent with a lower number (opened: one cell) would hide it, and the
+  // database guard would then refuse the write at commit (review of #856).
+  const asLine: StateItem = {
+    ...next, isOpened: item.isOpened, fillLevel: item.fillLevel, openedAt: item.openedAt, cigarsLeft: item.cigarsLeft,
+  };
+  const keep = slotCapacity(asLine, kind);
+  if (keep >= slotCapacity({ ...asLine, quantity: item.quantity }, kind)) return;
   slotsLeaving(await liveSlotsOf(tx, item.id), keep, 0, {});
 }
 

@@ -105,6 +105,7 @@ export function CellarDetailClient() {
       itemId: cell.id,
       slotId: cell.slotId,
       label: slot ? t('cellars.grid.slotTitle', { col: slot.column, row: slot.row }) : '',
+      ...(slot ? { at: { cellarId, column: slot.column, row: slot.row } } : {}),
     });
     setViewingProductId(cell.productId);
   };

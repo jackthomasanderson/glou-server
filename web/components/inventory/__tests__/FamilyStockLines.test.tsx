@@ -239,3 +239,24 @@ describe('FamilyStockLines — waiting for the network (FEAT-108, ux-ui.md §10.
     expect(screen.queryByTestId('line-pending')).toBeNull();
   });
 });
+
+// FEAT-93 (#847, lot S4, plan §5): where the copies of a line are on the plan.
+describe('FamilyStockLines — the cells of a line (FEAT-93)', () => {
+  const cells = (count: number) => Array.from({ length: count }, (_, i) => ({ id: `s${i}`, column: i + 1, row: 1 }));
+
+  it('c1: a group ×6 in 6 cells says « 6 rangées » and where; c2: « 2 rangées, 4 non rangées »', () => {
+    draw([
+      unit({ id: 'all', quantity: 6, cellarId: 'garage', slots: cells(6) }),
+      unit({ id: 'two', quantity: 6, cellarId: 'kitchen', slots: cells(2) }),
+    ]);
+    expect(screen.getAllByTestId('line-slots').map((line) => line.textContent)).toEqual([
+      '2 rangées, 4 non rangées · C1·R1, C2·R1',
+      '6 rangées · C1·R1, C2·R1, C3·R1, C4·R1, C5·R1, C6·R1',
+    ]);
+  });
+
+  it('nothing on a line that holds no cell', () => {
+    draw([unit({ quantity: 6, cellarId: 'garage', slots: [] })]);
+    expect(screen.queryByTestId('line-slots')).toBeNull();
+  });
+});

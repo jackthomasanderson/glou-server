@@ -39,6 +39,7 @@ import { StockMoveActions } from './StockMoveActions';
 import { usePutBackOpened } from './PutBackOpened';
 import { ReviewLineActions } from './ReviewLineActions';
 import { unitNoun } from '@/lib/products/stockActions';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -99,6 +100,11 @@ export interface SlotContext {
   itemId: string;
   slotId: string;
   label: string;
+  /**
+   * Where the cell is: a bottle put back in it by "Annuler" holds it again
+   * under a new slot — the cell is still the one touched.
+   */
+  at?: { cellarId: string; column: number; row: number };
 }
 
 const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
@@ -166,9 +172,19 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
     setRemovedNotice('');
     setLead((previous) => ({ id: opening && slotContext ? slotContext.itemId : null, nonce: previous.nonce + 1 }));
   }
-  // The cell, while it still holds a bottle of that line (not once taken out or drunk).
-  const slotLine = slotContext ? product?.items.find((item) => item.id === slotContext.itemId) : undefined;
-  const cell = slotContext && slotLine?.slots.some((slot) => slot.id === slotContext.slotId) ? slotContext : null;
+  // The cell, while it still holds a bottle (not once taken out or drunk): of
+  // the line touched, or of the bottle opened from it, which took the cell along.
+  // The same cell under a new slot counts too (a bottle drunk from it, then put back by "Annuler").
+  const isTouched = (item: ProductItem, slot: ProductItem['slots'][number]) => slotContext != null && (slot.id === slotContext.slotId
+    || (slotContext.at != null && item.cellarId === slotContext.at.cellarId
+      && slot.column === slotContext.at.column && slot.row === slotContext.at.row));
+  const slotLine = slotContext
+    ? product?.items.find((item) => item.slots.some((slot) => isTouched(item, slot)))
+    : undefined;
+  const heldSlot = slotLine?.slots.find((slot) => isTouched(slotLine, slot));
+  const cell = slotContext && heldSlot ? { ...slotContext, slotId: heldSlot.id } : null;
+  // FEAT-108 (plan §4): the gestures of the plan wait for the network.
+  const offline = useOfflineBlocked();
   const removeSlot = useRemoveSlot(slotLine?.cellarId ?? '');
   const titleRef = useRef<HTMLHeadingElement>(null);
   const removeFromCell = async (slotId: string) => {
@@ -497,9 +513,16 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                     <LayoutGrid size={14} aria-hidden />
                     {cell.label}
                   </span>
-                  <Button size="sm" variant="flat" color="warning" onPress={() => removeFromCell(cell.slotId)} isLoading={removeSlot.isPending}>
+                  <OfflineBlockedButton
+                    blocked={offline}
+                    size="sm"
+                    variant="flat"
+                    color="warning"
+                    onPress={() => removeFromCell(cell.slotId)}
+                    isLoading={removeSlot.isPending}
+                  >
                     {t('cellars.grid.removeFromSlot')}
-                  </Button>
+                  </OfflineBlockedButton>
                 </div>
               )}
             </div>
@@ -520,7 +543,13 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
             {product && (
               <div className="px-5 py-3 border-t border-divider flex flex-wrap gap-2 shrink-0">
-                <StockMoveActions product={product} ctx={ctx} viewedCellarIds={viewedCellarIds} onFinishOpened={finishOpened} />
+                <StockMoveActions
+                  product={product}
+                  ctx={ctx}
+                  viewedCellarIds={viewedCellarIds}
+                  onFinishOpened={finishOpened}
+                  cell={cell && slotLine ? { line: slotLine, slotId: cell.slotId } : null}
+                />
                 {primaryAction?.(product)}
                 <Button
                   variant="bordered"
@@ -546,7 +575,14 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
       {putBackDialog}
 
       {/* FEAT-107: on this wine — one of its bottles, or tasted elsewhere (a wine without any bottle). */}
-      <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialProductId={product?.id} initialItemId={tastingPreset?.id} />
+      <TastingForm
+        open={tastingOpen}
+        onClose={() => setTastingOpen(false)}
+        initialProductId={product?.id}
+        initialItemId={tastingPreset?.id}
+        // FEAT-93 (decision 77): opened from a cell, the cell says which bottle — no "De quelle case ?" again.
+        fromCell={cell && slotLine ? { itemId: slotLine.id, slotId: cell.slotId } : undefined}
+      />
 
       {product && (
         <QrCodeModal isOpen={qrOpen} onClose={() => setQrOpen(false)} itemId={product.id} itemName={wineName(product)} />

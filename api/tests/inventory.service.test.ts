@@ -1042,6 +1042,29 @@ describe('InventoryService', () => {
       expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
     });
 
+    it('review 856 (b): a lower number sent with a state is judged on the number — 409, never the database guard', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      const cells = [1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 }));
+      slots.rows.push(...cells);
+
+      const error = await rejected(service.updateItem('u1', 'b1', { quantity: 2, isOpened: true, fromSlotId: cells[0].id }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    });
+
+    it('review 857 (4): {quantity: 2, isOpened, fromUnplaced} on ×3 holding 2 cells — 409 SLOT_CHANGED, never the database guard', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(...[1, 2].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { quantity: 2, isOpened: true, fromUnplaced: true }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOT_CHANGED' });
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    });
+
     it('a number lowered that still holds the cells goes through', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
       slots.rows.push(...[1, 2].map((column) => slot({ itemId: 'b1', column, row: 1 })));

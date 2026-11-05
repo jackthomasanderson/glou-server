@@ -237,7 +237,8 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   const chosen = choice === 'auto' || choice === 'ask' ? null : choice;
   const lineSlots = chosen ? await liveSlotsOf(tx, item.id) : null;
   if (chosen && lineSlots) {
-    const copies = item.quantity ?? 1;
+    // The line as this write leaves it: a number written with the state counts (review of #857).
+    const copies = next.quantity ?? 1;
     const stale = 'fromSlotId' in chosen
       ? !lineSlots.some((slot) => slot.id === chosen.fromSlotId)
       : !single && lineSlots.length >= copies;
@@ -245,7 +246,10 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   }
   // The composite key keeps a slot in its unit's cellar: a unit changing
   // cellar gives its cells back before the cellar is written (#798).
-  if (next.cellarId !== item.cellarId) slotChanges.push(...slotsFreed(await freeSlots(tx, item.id)));
+  // The cells read for the choice are then gone: the copy leaves no cell
+  // behind (the history says each cell freed once, by the cellar change).
+  const changesCellar = next.cellarId !== item.cellarId;
+  if (changesCellar) slotChanges.push(...slotsFreed(await freeSlots(tx, item.id)));
   const own = (row: StateItem) => Object.fromEntries(
     Object.entries(row).filter(([field]) => !NOT_INHERITED.has(field)),
   );
@@ -258,7 +262,7 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     // The copy taken: from the cell chosen, an unplaced one, or by the
     // automatic rule. Single cigars share the group's one cell, which stays
     // with the group: never asked.
-    const slots = single ? [] : lineSlots ?? await liveSlotsOf(tx, item.id);
+    const slots = single || changesCellar ? [] : lineSlots ?? await liveSlotsOf(tx, item.id);
     const taken = takenSlot(slots, from, choice);
     const subId = uuidv4();
     const sub = {
