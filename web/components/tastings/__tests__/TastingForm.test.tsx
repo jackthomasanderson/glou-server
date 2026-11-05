@@ -500,6 +500,42 @@ describe('the wine tasted (FEAT-107)', () => {
     expect(screen.getByText('tastingWine.vintageInvalid')).toBeInTheDocument();
   });
 
+  // Acceptance run v3 of #471: "202" refused, then corrected to "2020" — the
+  // message stayed and the save was blocked, "2020" typed at once passed.
+  it('a vintage corrected from "202" to "2020" drops its message and saves', async () => {
+    products = [];
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'tastingWine.notListed' }));
+    fireEvent.change(field('inventory.fields.producer *'), { target: { value: 'Domaine X' } });
+    fireEvent.change(field('inventory.fields.name *'), { target: { value: 'Cuvée A' } });
+    fireEvent.change(field('inventory.fields.vintage'), { target: { value: '202' } });
+    save();
+    expect(await screen.findByText('tastingWine.vintageInvalid')).toBeInTheDocument();
+
+    fireEvent.change(field('inventory.fields.vintage'), { target: { value: '2020' } });
+    await waitFor(() => expect(screen.queryByText('tastingWine.vintageInvalid')).toBeNull());
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync.mock.calls[0][0].wine).toMatchObject({ vintage: 2020 });
+  });
+
+  it('a "202" left in the vintage of a wine turned into a cigar does not block the save', async () => {
+    products = [];
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'tastingWine.notListed' }));
+    fireEvent.change(field('inventory.fields.producer *'), { target: { value: 'Cohiba' } });
+    fireEvent.change(field('inventory.fields.name *'), { target: { value: 'Siglo VI' } });
+    fireEvent.change(field('inventory.fields.vintage'), { target: { value: '202' } });
+    fireEvent.change(field('inventory.fields.category'), { target: { value: 'cigar' } });
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync.mock.calls[0][0].wine).not.toHaveProperty('vintage');
+  });
+
   it('a wine named needs its producer and its name', async () => {
     products = [];
     render(<TastingForm open onClose={vi.fn()} />);

@@ -235,7 +235,8 @@ function StatCard({
       <CardBody className="p-4">
         <div className="flex justify-between items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-bold uppercase tracking-wider text-foreground-500 truncate">
+            {/* Read whole, on two lines if need be (« Urgence de dégusta… », recette v3 of #471). */}
+            <p className="text-xs font-bold uppercase tracking-wider text-foreground-500 break-words">
               {label}
             </p>
             <p data-testid={testId} className="text-2xl sm:text-3xl font-extrabold leading-tight mt-1 break-words">{value}</p>

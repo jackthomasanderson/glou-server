@@ -94,7 +94,9 @@ export function InventoryCard({
       ].filter(Boolean).join(' ')}
     >
       {/* ── Top chips ─────────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-1 px-3 pt-2.5 pb-1 overflow-hidden">
+      {/* The cellar goes under the category when both do not fit: beside a
+          « CIGARE / BOÎTE », it was squeezed to nothing (recette v3 of #471). */}
+      <div className="flex flex-wrap items-center justify-between gap-1 px-3 pt-2.5 pb-1 overflow-hidden">
         <Chip
           startContent={CATEGORY_ICONS[item.category]}
           size="sm"

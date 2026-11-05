@@ -530,8 +530,9 @@ export function InventoryForm({
                     {/* #471 (FEAT-92 c1, ux-ui.md §10.4.1): what is stored, with the
                         cellar — how many identical bottles, their size, the price of
                         ONE bottle and the day they were bought. Cigars: FEAT-95. */}
+                    {/* Two by two, one by one on a phone: four in a row cut « Prix d'une bouteill… » (recette v3 of #471). */}
                     {showsBottle && !isCigar && (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3" data-testid="inventory-bottles">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3" data-testid="inventory-bottles">
                         <ParsedNumberInput
                           data-testid="inventory-quantity-input"
                           label={t('inventory.fields.quantityBottles')}
@@ -579,7 +580,7 @@ export function InventoryForm({
                     )}
                     {/* FEAT-95: boxes of M cigars or single cigars, the price of ONE box or cigar. */}
                     {showsBottle && isCigar && (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3" data-testid="inventory-cigars">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3" data-testid="inventory-cigars">
                         <CigarGroupFields
                           draft={cigarDraft}
                           submitted={submitAttempted}

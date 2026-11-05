@@ -7,6 +7,13 @@ import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
 
 export type MapOpenedState = 'all' | 'inCellar' | 'opened';
 
+/** The label of each state filter, written whole so that a missing key is seen (acceptance run v3 of #471). */
+export const MAP_OPENED_STATE_LABELS: Record<MapOpenedState, string> = {
+  all: 'analytics.map.filters.stateAll',
+  inCellar: 'analytics.map.filters.stateInCellar',
+  opened: 'analytics.map.filters.stateOpened',
+};
+
 export interface MapFiltersState {
   /** Empty array = all categories. */
   categories: InventoryCategory[];

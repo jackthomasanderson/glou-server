@@ -75,7 +75,8 @@ export function BulkWinesDialog({ action, products, selectedIds, cigars, viewedC
     setAnswers((previous) => ({ ...previous, [id]: { ...answerOf(id), ...previous[id], ...change } }));
 
   const canConfirm = wines.length > 0 && (
-    action === 'move' ? destination !== null
+    // Recette v3: nothing to move when everything is already there.
+    action === 'move' ? destination !== null && already < total
       : action === 'drink' ? choices.every((choice) => isCountIn(answerOf(choice.product.id).count, 1, choice.units))
         : true);
 

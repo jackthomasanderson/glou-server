@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { openedBottle, product, unit } from '@/lib/products/__tests__/factories';
 import { frenchT } from '@/lib/products/__tests__/i18n';
+import { frenchSpaces } from '@/lib/frenchTypography';
 import { describeStock } from '@/lib/products/stock';
 import type { LineContext } from '@/lib/products/lines';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
@@ -16,8 +17,9 @@ import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 let t: Awaited<ReturnType<typeof frenchT>>;
 beforeAll(async () => { t = await frenchT(); });
 
+// French texts go through the app's typography (lib/i18n.ts), as on screen.
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string, options?: Record<string, unknown>) => t(key, options), i18n: { language: 'fr' } }),
+  useTranslation: () => ({ t: (key: string, options?: Record<string, unknown>) => frenchSpaces(t(key, options)), i18n: { language: 'fr' } }),
 }));
 const toast = vi.hoisted(() => ({ notifySuccess: vi.fn(), notifyError: vi.fn(), notifyUndoable: vi.fn() }));
 vi.mock('@/lib/toast', () => toast);
@@ -58,7 +60,7 @@ const PRODUCTS_KEY = ['inventory', 'products'];
 
 const ctx = (kind: LineContext['kind'] = 'bottle'): LineContext => ({
   kind,
-  t: (key, options) => t(key, options),
+  t: (key, options) => frenchSpaces(t(key, options)),
   cellarName: (id) => ({ garage: 'Garage', kitchen: 'Cuisine' } as Record<string, string>)[id],
   formatPrice: (value) => `${value} €`,
   formatDay: (day) => day,
@@ -203,6 +205,9 @@ describe('the reminder of the opened bottle (FEAT-105)', () => {
     expect(radios[0]).toBeChecked();
     expect(reminder()).toHaveTextContent('80 %');
     expect(reminder()).toHaveTextContent('30 %');
+    // Recette v3 of #471: « — 100 ⏎ % » — the level keeps its sign through a non-breaking space.
+    expect(reminder().textContent).toContain('80\u00a0%');
+    expect(reminder().textContent).not.toMatch(/\d %/);
     fireEvent.click(radios[1]);
     fireEvent.click(within(reminder()).getByTestId('opened-reminder-use'));
     expect(onFinishOpened).toHaveBeenCalledWith(expect.objectContaining({ id: 'recent' }));

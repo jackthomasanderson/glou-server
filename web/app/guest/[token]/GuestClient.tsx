@@ -66,8 +66,14 @@ export function GuestPageContent({ token }: { token: string }) {
     }
     notifySuccess('shares.guest.tasting.done');
     setTastingTarget(null);
-    if (target.itemId) undone(target.itemId);
+    // Noted on the wine just drunk: its offer has done its job (acceptance run v3).
+    setDrunk((current) => (current?.productId === target.productId ? null : current));
   };
+  // « Noter une dégustation » on a card: on the opened bottle it shows, else,
+  // right after a bottle of its wine was finished, on that bottle — the card
+  // no longer lists a finished one (acceptance run v3 of #471).
+  const noteFromCard = (target: GuestTastingTarget) =>
+    setTastingTarget(target.itemId || drunk?.productId !== target.productId ? target : drunk);
 
   // Only a server answer saying the link is unusable means "expired or revoked";
   // network drops, 5xx and rate limits are transient and deserve a retry.
@@ -161,7 +167,8 @@ export function GuestPageContent({ token }: { token: string }) {
             className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/50 px-4 py-3"
           >
             <GlassWater size={16} className="text-primary shrink-0" aria-hidden />
-            <p className="text-sm flex-1 min-w-0">{t('shares.guest.drunk.message', { wine: drunk.wine })}</p>
+            {/* Room for whole words: its button goes to the next line on a phone (recette v3 of #471). */}
+            <p className="text-sm flex-1 min-w-[12rem]">{t('shares.guest.drunk.message', { wine: drunk.wine })}</p>
             <Button
               size="sm"
               color="primary"
@@ -229,7 +236,7 @@ export function GuestPageContent({ token }: { token: string }) {
                 family={family}
                 token={token}
                 meta={meta}
-                onNoteTasting={setTastingTarget}
+                onNoteTasting={noteFromCard}
                 onLinkGone={linkGone}
                 onDrunk={setDrunk}
                 onUndone={undone}

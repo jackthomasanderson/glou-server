@@ -172,7 +172,9 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
                 const isSelected = selectedCellarIds.includes(cellar.id);
                 const canWrite = writeCellarIds.includes(cellar.id);
                 return (
-                  <div key={cellar.id} className="flex items-center justify-between gap-2">
+                  // The switch under the cellar's name: beside it, it squeezed the name
+                  // onto two lines (« ZZ R3 B », recette v3 of #471).
+                  <div key={cellar.id} className="flex flex-col items-start gap-1">
                     <Checkbox
                       isSelected={isSelected}
                       onValueChange={() => toggleCellar(cellar.id)}
@@ -184,6 +186,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
                       // Recette #471: the label names the action the switch grants, never the
                       // current state (« Lecture seule » beside an "on" switch read backwards).
                       <Switch
+                        className="ml-7"
                         isSelected={canWrite}
                         onValueChange={() => toggleCellarWrite(cellar.id)}
                         size="sm"

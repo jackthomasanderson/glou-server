@@ -82,9 +82,27 @@ describe('InventoryTrash names what was thrown away', () => {
     expect(screen.getByText(/^2 boîtes · /)).toBeInTheDocument();
     expect(screen.getByText(/3 cigares/)).toBeInTheDocument();
     expect(screen.getByText(/6 bouteilles/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Restaurer la boîte' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Restaurer le cigare' })).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Restaurer la bouteille' })).toHaveLength(1);
+    // Recette v3: a line of several is restored in the plural.
+    expect(screen.getByRole('button', { name: 'Restaurer les boîtes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restaurer les cigares' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restaurer les bouteilles' })).toBeInTheDocument();
+  });
+
+  // Recette v3: on the cigars page a single box or cigar said nothing of its number.
+  it('a single box or cigar says its number, restored in the singular', () => {
+    data.wines = [];
+    data.items = [
+      { id: 'box', deletedAt: when, category: 'cigar', name: 'Robusto', producer: 'Cohiba', quantity: 1, cigarsPerBox: 25, isOpened: false },
+      { id: 'single', deletedAt: when, category: 'cigar', name: 'Corona', producer: 'Partagas', quantity: 1, cigarsPerBox: null, isOpened: false },
+      { id: 'bottle', deletedAt: when, category: 'wine', name: 'Margaux', producer: 'Château', quantity: 1, isOpened: false },
+    ];
+    render(<InventoryTrash t={t} />);
+    const [box, single, bottle] = screen.getAllByRole('listitem');
+    expect(box).toHaveTextContent(/^Cohiba — Robusto.*1 boîte · /);
+    expect(single).toHaveTextContent('1 cigare · ');
+    expect(within(box).getByRole('button', { name: 'Restaurer la boîte' })).toBeInTheDocument();
+    expect(within(single).getByRole('button', { name: 'Restaurer le cigare' })).toBeInTheDocument();
+    expect(within(bottle).getByRole('button', { name: 'Restaurer la bouteille' })).toBeInTheDocument();
   });
 });
 
@@ -98,6 +116,14 @@ describe('InventoryTrash headings follow the page', () => {
     expect(screen.getByRole('region', { name: 'Cigares' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Cigares' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Boîtes et cigares' })).toBeInTheDocument();
+  });
+
+  // Recette v3: with one section only, it had no heading at all.
+  it('the cigars page heads its only section « Boîtes et cigares »', () => {
+    data.wines = [];
+    data.items = [{ id: 'box', productId: 'c2', deletedAt: when, category: 'cigar', name: 'Corona', producer: 'M', quantity: 1, cigarsPerBox: 25, isOpened: false }];
+    render(<InventoryTrash t={t} lockedCategories={['cigar']} />);
+    expect(screen.getByRole('heading', { name: 'Boîtes et cigares' })).toBeInTheDocument();
   });
 
   it('the bottles page says « Vins » and « Bouteilles »', () => {

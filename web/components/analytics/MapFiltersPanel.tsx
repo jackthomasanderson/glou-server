@@ -5,7 +5,7 @@ import { Tooltip, Button, Select, SelectItem, Input } from '@heroui/react';
 import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Star, Info } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
-import { MapFiltersState, MapOpenedState } from '@/lib/analytics/mapFilters';
+import { MAP_OPENED_STATE_LABELS, MapFiltersState, MapOpenedState } from '@/lib/analytics/mapFilters';
 import { CATEGORY_ORDER } from '@/lib/analytics/categoryColors';
 
 // FEAT-42: filter controls for the map explorer sidebar. Renders only the
@@ -23,7 +23,7 @@ interface MapFiltersPanelProps {
   onRegionChange: (region: string | null) => void;
 }
 
-const OPENED_STATES: MapOpenedState[] = ['all', 'inCellar', 'opened'];
+const OPENED_STATES = Object.keys(MAP_OPENED_STATE_LABELS) as MapOpenedState[];
 const RATINGS = [0, 1, 2, 3, 4, 5];
 const ALL_REGIONS_KEY = '__all__';
 
@@ -181,7 +181,7 @@ export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion,
         <div role="radiogroup" className="flex flex-col gap-0.5">
           {OPENED_STATES.map((s) => (
             <FilterOption key={s} selected={filters.openedState === s} onPress={() => onChange({ ...filters, openedState: s })}>
-              {t(`analytics.map.filters.state${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
+              {t(MAP_OPENED_STATE_LABELS[s])}
             </FilterOption>
           ))}
         </div>
