@@ -117,6 +117,39 @@ test.describe('cells of the cellar plan (FEAT-93)', () => {
     expect(joined).toMatchObject({ cellarId: other, quantity: 2, slots: [] });
   });
 
+  // Review of #854: the answer of a write never lists a cell the bottle just gave up.
+  test('the answer of a PATCH carries the cells the bottle keeps: a line of one drunk, a count lowered', async ({ page }) => {
+    const api = page.request;
+    const cellarId = await cellar(api);
+    const one = await group(api, cellarId, 1);
+    expect((await place(api, one.id, 1, 1)).status()).toBe(201);
+    const drunk = await okData<Unit>(await api.patch(`/api/inventory/${one.id}`, { data: { isOpened: true, fillLevel: 0 } }));
+    expect(drunk.slots).toEqual([]);
+    expect((await unit(api, one.id)).slots).toEqual([]);
+
+    const three = await group(api, cellarId, 3);
+    for (let column = 1; column <= 3; column++) expect((await place(api, three.id, column, 2)).status()).toBe(201);
+    const lowered = await okData<Unit>(await api.patch(`/api/inventory/${three.id}`, { data: { quantity: 1 } }));
+    expect(cells(lowered.slots)).toEqual(['1:2']);
+    expect(cells((await unit(api, three.id)).slots)).toEqual(['1:2']);
+  });
+
+  test('a bulk count lowered and a wine made a cigar free the cells beyond, never a refused commit', async ({ page }) => {
+    const api = page.request;
+    const cellarId = await cellar(api);
+    const four = await group(api, cellarId, 4);
+    for (let column = 1; column <= 4; column++) expect((await place(api, four.id, column, 1)).status()).toBe(201);
+
+    const bulk = await api.post('/api/inventory/bulk', { data: { ids: [four.id], patch: { quantity: 3 } } });
+    expect(bulk.status(), await bulk.text()).toBe(200);
+    expect(cells((await unit(api, four.id)).slots)).toEqual(['1:1', '2:1', '3:1']);
+
+    // Single cigars take one cell for the whole group.
+    const made = await api.patch(`/api/products/${four.productId}`, { data: { category: 'cigar' } });
+    expect(made.status(), await made.text()).toBe(200);
+    expect(cells((await unit(api, four.id)).slots)).toEqual(['1:1']);
+  });
+
   test('#174: a bottle in the trash keeps its cell without holding it; restored, it comes back unplaced if the cell was taken', async ({ page }) => {
     const api = page.request;
     const cellarId = await cellar(api);

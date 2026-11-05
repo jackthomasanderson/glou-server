@@ -558,11 +558,25 @@ describe('applyState — reattach (FEAT-106)', () => {
     // Decision #471 point 75: no unplaced copy, so the cell placed last.
     expect(db.cells('g')).toBe('1:1');
     expect(db.cells(opened.data.id)).toBe('2:1');
-    expect(opened.slotChanges).toEqual([{ field: 'slot', from: { column: 2, row: 1 }, to: null }]);
+    // The history says the truth on each side: the group gave the cell, the opened bottle holds it.
+    expect(opened.groupChange?.slotChanges).toEqual([{ field: 'slot', from: { column: 2, row: 1 }, to: null }]);
+    expect(opened.slotChanges).toEqual([{ field: 'slot', from: null, to: { column: 2, row: 1 } }]);
 
     await apply(db, opened.data.id, { state: { isOpened: false, fillLevel: 100 } });
     expect(db.get('g').quantity).toBe(2);
     expect(db.cells('g')).toBe('1:1 2:1');
+  });
+
+  it('FEAT-93: cells placed at the same instant (migrated) are taken from the last row and column first', async () => {
+    const at = new Date('2026-11-06T12:00:00Z');
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })], {
+      slots: [slot({ itemId: 'g', column: 2, row: 2, createdAt: at }), slot({ itemId: 'g', column: 3, row: 1, createdAt: at }),
+        slot({ itemId: 'g', column: 1, row: 2, createdAt: at })],
+    });
+
+    await apply(db, 'g', { state: { isOpened: true, fillLevel: 0 } });
+
+    expect(db.cells('g')).toBe('3:1 1:2');
   });
 
   it('FEAT-93: a copy drunk from a group with every copy placed frees the most recent cell', async () => {
@@ -574,7 +588,24 @@ describe('applyState — reattach (FEAT-106)', () => {
 
     expect(db.cells('g')).toBe('1:1');
     expect(db.cells(drunk.data.id)).toBe('');
-    expect(drunk.slotChanges).toEqual([{ field: 'slot', from: { column: 2, row: 1 }, to: null }]);
+    expect(drunk.groupChange?.slotChanges).toEqual([{ field: 'slot', from: { column: 2, row: 1 }, to: null }]);
+    expect(drunk.slotChanges).toEqual([]);
+  });
+
+  // Review of #854: the row answered is read once its cells are settled.
+  it('FEAT-93: the unit answered never lists a cell it just gave up (a line of one drunk, a count lowered)', async () => {
+    const one = fakeDb([unit({ id: 'g', quantity: 1 })], { slots: [slot({ itemId: 'g', column: 1, row: 1 })] });
+    const drunk = await applyState<{ slots: true }, Row>(one.tx, one.get('g') as unknown as StateItem,
+      { state: { isOpened: true, fillLevel: 0 } }, { userId: 'member', kind: 'bottle', include: { slots: true }, now: NOW });
+    expect(drunk.data.slots).toEqual([]);
+
+    const three = fakeDb([unit({ id: 'g', quantity: 3 })], {
+      slots: [1, 2, 3].map((column) => slot({ itemId: 'g', column, row: 1 })),
+    });
+    const lowered = await applyState<{ slots: true }, Row>(three.tx, three.get('g') as unknown as StateItem,
+      { unit: { quantity: 1 } }, { userId: 'member', kind: 'bottle', include: { slots: true }, now: NOW });
+    expect(lowered.data.slots).toEqual([expect.objectContaining({ column: 1, row: 1 })]);
+    expect(three.cells('g')).toBe('1:1');
   });
 
   it('FEAT-93: a group of single cigars keeps its one cell while a cigar is smoked', async () => {

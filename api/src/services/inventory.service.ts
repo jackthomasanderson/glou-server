@@ -17,10 +17,10 @@ import {
 import {
   applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
 } from './stock-state.service';
-import { writeFamilyDescription } from './product.service';
+import { writeFamilyDescription, type UnitSlotChanges } from './product.service';
 import { rememberDistinct } from './review.service';
 import { GROUP_KEY_FIELDS, joinIdenticalGroup, splitLockedGroup } from './stock-split.service';
-import { freeSlots, reviveSlots, trashSlots } from '../lib/slots';
+import { fitSlotsTo, freeSlots, reviveSlots, slotsFreed, trashSlots } from '../lib/slots';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
 // endpoints (uploads/products/*) is ever safe to delete from disk — an
@@ -83,7 +83,7 @@ export type UpdateItemResult =
       /** How the detach / reattach rule applied the state, when it did more than update the unit. */
       outcome?: Exclude<StateOutcome, 'updated'>;
       /** The group whose count moved (−1 detached, +1 reattached): logged in its own history. */
-      groupChange?: { itemId: string; from: number; to: number };
+      groupChange?: { itemId: string; from: number; to: number; slotChanges?: FieldChange[] };
       /** Tastings deleted by a reattach answered `keepTastings: false`. */
       deletedTastings?: number;
       /**
@@ -91,6 +91,8 @@ export type UpdateItemResult =
        * it — `item` is that group, at `to` copies; the edited one is in `removedIds`.
        */
       joined?: { from: number; to: number };
+      /** FEAT-93: other units of the family that gave up cells with its new category. */
+      unitSlotChanges?: UnitSlotChanges[];
     }
   | { conflict: true; serverItem: InventoryItemView };
 
@@ -426,64 +428,61 @@ export class InventoryService {
     const state = Object.fromEntries(Object.entries(unitWrite).filter(([key]) => isStateField(key))) as StatePatch;
     const unit = Object.fromEntries(Object.entries(unitWrite).filter(([key]) => !isStateField(key)));
 
-    let outcome: ApplyStateResult<InventoryItemRow>;
-    let current: StateItem;
     let familyChanges = new Map<string, FieldChange>();
-    let joined: { from: number; to: number } | null = null;
-    {
-      const written = await prisma.$transaction(async (tx) => {
-        // #471: the family first (the locking rule), then the unit as it is
-        // once nobody else can write it — a detach decided on a stale count
-        // would create a copy out of nothing.
-        await lockFamily(tx, row.productId);
-        const fresh = await tx.inventoryItem.findUnique({ where: { id } });
-        if (!fresh || fresh.deletedAt) return null;
-        if (isStale(fresh.updatedAt)) return { conflict: true as const };
-        const kind = unitKind(safePatch.category ?? row.product.category);
-        options?.guard?.(fresh as StateItem, () =>
-          planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, kind).outcome, kind);
-        // Also when the patch holds no family field: the derived alert may
-        // need realigning, and that is decided on the locked family (#706
-        // window check included — a ZodError, answered with 400).
-        const family = await writeFamilyDescription(tx, row.productId, familyPatch, {
-          userId, touched, fieldSources, isManualEdit, autoLock, respectLocks,
-        });
-        familyChanges = new Map(family.changes.map((change) => [change.field, change]));
-        // The unit is always stamped: the flat record it stands for changed.
-        const result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
-          tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
-          { userId, kind, include: INVENTORY_ITEM_INCLUDE },
-        );
-        // FEAT-107 c3: the tasting noted on the group goes with the copy taken
-        // off it — the finished bottle is the one that was tasted.
-        if (tastingId && result.outcome === 'detached') {
-          await tx.tastingNote.updateMany({ where: { id: tastingId, itemId: id }, data: { itemId: result.data.id } });
-        }
-        // A whole group made identical to another one by this edit joins it
-        // (design.md rule 4): the answer is then that group (D8). So does a
-        // copy put back intact that became a line of its own (its line of
-        // origin finished or gone meanwhile): two « Annuler » in either order
-        // end as one line, never two identical ones side by side.
-        const regroups = result.outcome === 'regrouped' || (result.outcome === 'updated'
-          && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field])));
-        const joined = regroups ? await joinIdenticalGroup(tx, result.data, kind, userId) : null;
-        if (!joined) return { result, fresh: fresh as StateItem, joined: null };
-        const survivor = await tx.inventoryItem.findUniqueOrThrow({ where: { id: joined.survivorId }, include: INVENTORY_ITEM_INCLUDE });
-        return {
-          result: { ...result, data: survivor as InventoryItemRow, removedIds: [...result.removedIds, id] },
-          fresh: fresh as StateItem,
-          joined: { from: joined.from, to: joined.to },
-        };
+    let familySlots: UnitSlotChanges[] = [];
+    const written = await prisma.$transaction(async (tx) => {
+      // #471: the family first (the locking rule), then the unit as it is
+      // once nobody else can write it — a detach decided on a stale count
+      // would create a copy out of nothing.
+      await lockFamily(tx, row.productId);
+      const fresh = await tx.inventoryItem.findUnique({ where: { id } });
+      if (!fresh || fresh.deletedAt) return null;
+      if (isStale(fresh.updatedAt)) return { conflict: true as const };
+      const kind = unitKind(safePatch.category ?? row.product.category);
+      options?.guard?.(fresh as StateItem, () =>
+        planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, kind).outcome, kind);
+      // Also when the patch holds no family field: the derived alert may
+      // need realigning, and that is decided on the locked family (#706
+      // window check included — a ZodError, answered with 400).
+      const family = await writeFamilyDescription(tx, row.productId, familyPatch, {
+        userId, touched, fieldSources, isManualEdit, autoLock, respectLocks,
       });
-      if (!written) return null;
-      if ('conflict' in written) {
-        const server = await this.getItem(userId, id);
-        return server ? { conflict: true, serverItem: server } : null;
+      familyChanges = new Map(family.changes.map((change) => [change.field, change]));
+      familySlots = family.unitSlotChanges;
+      // The unit is always stamped: the flat record it stands for changed.
+      const result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
+        tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
+        { userId, kind, include: INVENTORY_ITEM_INCLUDE },
+      );
+      // FEAT-107 c3: the tasting noted on the group goes with the copy taken
+      // off it — the finished bottle is the one that was tasted.
+      if (tastingId && result.outcome === 'detached') {
+        await tx.tastingNote.updateMany({ where: { id: tastingId, itemId: id }, data: { itemId: result.data.id } });
       }
-      outcome = written.result;
-      current = written.fresh;
-      joined = written.joined;
+      // A whole group made identical to another one by this edit joins it
+      // (design.md rule 4): the answer is then that group (D8). So does a
+      // copy put back intact that became a line of its own (its line of
+      // origin finished or gone meanwhile): two « Annuler » in either order
+      // end as one line, never two identical ones side by side.
+      const regroups = result.outcome === 'regrouped' || (result.outcome === 'updated'
+        && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field])));
+      const joined = regroups ? await joinIdenticalGroup(tx, result.data, kind, userId) : null;
+      if (!joined) return { result, fresh: fresh as StateItem, joined: null };
+      const survivor = await tx.inventoryItem.findUniqueOrThrow({ where: { id: joined.survivorId }, include: INVENTORY_ITEM_INCLUDE });
+      return {
+        result: { ...result, data: survivor as InventoryItemRow, removedIds: [...result.removedIds, id] },
+        fresh: fresh as StateItem,
+        joined: { from: joined.from, to: joined.to },
+      };
+    });
+    if (!written) return null;
+    if ('conflict' in written) {
+      const server = await this.getItem(userId, id);
+      return server ? { conflict: true, serverItem: server } : null;
     }
+    const outcome: ApplyStateResult<InventoryItemRow> = written.result;
+    const current: StateItem = written.fresh;
+    const joined = written.joined;
 
     // #471: recorded from the unit as read once locked, with the state as
     // the detach rule wrote it (a smoked cigar).
@@ -498,6 +497,8 @@ export class InventoryService {
         .filter((change): change is FieldChange => change !== undefined),
       // FEAT-93 (#573): the cells the unit gave up, so its history says which.
       ...outcome.slotChanges,
+      // And those it gave up with its family's new category (a wine made a cigar).
+      ...familySlots.filter((unit) => unit.itemId === id).flatMap((unit) => unit.changes),
     ];
     return {
       item: toItemView(outcome.data),
@@ -508,6 +509,8 @@ export class InventoryService {
       ...(outcome.groupChange ? { groupChange: outcome.groupChange } : {}),
       ...(outcome.deletedTastings ? { deletedTastings: outcome.deletedTastings } : {}),
       ...(joined ? { joined } : {}),
+      // FEAT-93: the other units of the family that gave up cells with it.
+      ...(familySlots.some((unit) => unit.itemId !== id) ? { unitSlotChanges: familySlots.filter((unit) => unit.itemId !== id) } : {}),
     };
   }
 
@@ -574,7 +577,9 @@ export class InventoryService {
   async bulkUpdate(
     userId: string,
     ids: string[],
-    patch: InventoryPatch
+    patch: InventoryPatch,
+    /** FEAT-93: filled with the cells each unit gave up, for its history. */
+    slotChanges: UnitSlotChanges[] = [],
   ): Promise<number> {
     const rows = await prisma.inventoryItem.findMany({
       where: { id: { in: ids }, deletedAt: null },
@@ -606,15 +611,18 @@ export class InventoryService {
       const familyChanged = new Map<string, boolean>();
       for (const { row, view: item } of existing) {
         if (!familyChanged.has(row.productId)) {
-          const changed = Object.keys(familyPatch).length > 0
-            && (await writeFamilyDescription(tx, row.productId, familyPatch, {
+          const family = Object.keys(familyPatch).length > 0
+            ? await writeFamilyDescription(tx, row.productId, familyPatch, {
               // A bulk action is an explicit user action, exactly like the regular
               // single-item PATCH: `lockedFields` only shields a field from a later
               // *automated* pass (see `updateItem`), never from the user. Filtering
               // the patch here silently turned a bulk edit into a no-op on every
               // field once adjusted by hand — and still counted it (ISSUE_034).
               userId, isManualEdit: false, autoLock: false, respectLocks: false, onlyChanged: true,
-            })).changes.length > 0;
+            })
+            : null;
+          slotChanges.push(...(family?.unitSlotChanges ?? []));
+          const changed = (family?.changes.length ?? 0) > 0;
           familyChanged.set(row.productId, changed);
         }
         const changedEntries = Object.entries(unitPatch).filter(
@@ -646,7 +654,15 @@ export class InventoryService {
         // #798: an item moved to another cellar arrives unplaced (an opened
         // bottle; a group joins above): its cells are freed before the cellar
         // is written (FEAT-93, the slot's key includes the cellar).
-        if (changed.cellarId !== undefined && changed.cellarId !== fresh.cellarId) await freeSlots(tx, item.id);
+        // A count or box size lowered, or the family's new category (single
+        // cigars: one cell for the group), frees the cells beyond what the
+        // unit may hold — the most recently placed first (automatic rule
+        // until lot S2), never a commit refused by the cells' guard.
+        const freed = [
+          ...(changed.cellarId !== undefined && changed.cellarId !== fresh.cellarId ? await freeSlots(tx, item.id) : []),
+          ...await fitSlotsTo(tx, item.id, { ...fresh, ...changed } as typeof fresh, unitKind(familyPatch.category ?? row.product.category)),
+        ];
+        if (freed.length > 0) slotChanges.push({ itemId: item.id, changes: slotsFreed(freed) });
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
@@ -691,7 +707,19 @@ export class InventoryService {
     // #471 (D10): a unit back in stock brings its family out of the trash with
     // it — otherwise it would come back inside a family nobody sees.
     // FEAT-93 (#174): its cells come back with it, except a cell given to
-    // another bottle since: that copy comes back unplaced.
+    // another bottle since: that copy comes back unplaced. #173: the partial
+    // unique index is the real guarantee against a cell taken between the
+    // check and the write — tried once more, the check then sees it.
+    try {
+      return await this.restoreOnce(existing);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return this.restoreOnce(existing);
+      throw err;
+    }
+  }
+
+  private restoreOnce(existing: { productId: string; id: string; product: { deletedAt: Date | null } }): Promise<InventoryItemView> {
+    const { id } = existing;
     return prisma.$transaction(async (tx) => {
       // The locking rule: the family first, then its unit.
       await lockFamily(tx, existing.productId);

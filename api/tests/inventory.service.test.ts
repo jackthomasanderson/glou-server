@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
 import { InventoryService } from '../src/services/inventory.service';
 import { PRODUCT_FIELDS } from '../src/lib/product-fields';
 
@@ -178,6 +179,23 @@ describe('InventoryService', () => {
       expect(prisma.inventoryItem.update).toHaveBeenCalledWith({ where: { id: 'b1' }, data: { deletedAt: null } });
       expect(slots.rows.filter((row) => row.itemId === 'b1')).toEqual([]);
       expect(slots.cellsOf('other')).toBe('2:3');
+    });
+
+    // Review of #854: a cell taken between the check and the write (the live-cell index) — tried once more, unplaced.
+    it('comes back unplaced when the cell is taken in the instant of the restore (P2002), never a 500', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(trashed as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3, deletedAt: trashedAt }));
+      // The first revival meets a cell just taken; on the retry, the check sees the occupant.
+      slots.delegate.updateMany.mockImplementationOnce(async () => {
+        slots.rows.push(slot({ itemId: 'other', column: 2, row: 3 }));
+        throw new Prisma.PrismaClientKnownRequestError('unique', { code: 'P2002', clientVersion: 'x' });
+      });
+
+      const restored = await service.restore('u1', 'b1');
+
+      expect(restored).toMatchObject({ id: 'b1' });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(slots.rows.filter((row) => row.itemId === 'b1')).toEqual([]);
     });
 
     it('keeps its cell when it is still free', async () => {
@@ -959,6 +977,24 @@ describe('InventoryService', () => {
       expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'b1' }, data: { cellarId: 'c2' } });
       expect(slots.cellsOf('b1')).toBe('');
       expect(slots.cellsOf('b2')).toBe('5:1');
+    });
+
+    // Review of #854: a bulk count lowered under the cells never reaches the guard (no 500).
+    it('bulkUpdate - a count lowered frees the cells beyond it, the most recent first, for its history', async () => {
+      const opened = unitRow({ cellarId: 'c1', quantity: 3 });
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([opened] as never);
+      slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+      const txUpdate = mockTransactionClient();
+      const slotChanges: Array<{ itemId: string; changes: unknown[] }> = [];
+
+      expect(await service.bulkUpdate('u1', ['b1'], { quantity: 1 }, slotChanges as never)).toBe(1);
+
+      expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'b1' }, data: { quantity: 1 } });
+      expect(slots.cellsOf('b1')).toBe('1:1');
+      expect(slotChanges).toEqual([{
+        itemId: 'b1',
+        changes: [{ field: 'slot', from: { column: 3, row: 1 }, to: null }, { field: 'slot', from: { column: 2, row: 1 }, to: null }],
+      }]);
     });
 
     it('bulkUpdate - a group moved next to its identical group joins it (FEAT-111, a preset or the bulk edit)', async () => {

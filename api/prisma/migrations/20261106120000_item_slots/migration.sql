@@ -261,6 +261,10 @@ SELECT "id", "cellarId", col, row_, "deletedAt" FROM slot_coords WHERE left_behi
 -- ---------------------------------------------------------------------------
 -- 1. Slots: each cell kept becomes a slot of its unit.
 -- ---------------------------------------------------------------------------
+-- When each cell was placed is not known: every copied cell is dated now(),
+-- so among them the API's automatic rule ("the most recently placed cell
+-- first", lib/slots.ts) falls back on the plan's order (last row, then last
+-- column first), never on an id.
 INSERT INTO "item_slots" ("id", "itemId", "cellarId", "column", "row", "deletedAt", "createdAt")
 SELECT gen_random_uuid()::TEXT, "id", "cellarId", col, row_, "deletedAt", now() FROM slot_before;
 

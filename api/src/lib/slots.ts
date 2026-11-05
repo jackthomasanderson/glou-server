@@ -35,12 +35,17 @@ export const slotsFreed = (slots: ReadonlyArray<SlotPosition>): SlotChange[] =>
 export const slotsPlaced = (slots: ReadonlyArray<SlotPosition>): SlotChange[] =>
   slots.map((slot) => ({ field: 'slot', from: null, to: position(slot) }));
 
-/** The live slots of a unit, most recently placed first (the order {@link pickSlots} frees them in). */
+/**
+ * The live slots of a unit, most recently placed first (the order
+ * {@link pickSlots} frees them in). Cells placed at the same instant — every
+ * cell the migration copied (20261106120000_item_slots) — are taken from the
+ * last row and column of the plan, so the choice never depends on an id.
+ */
 export async function liveSlotsOf(client: PrismaClientOrTx, itemId: string): Promise<SlotRow[]> {
   return client.itemSlot.findMany({
     where: { itemId, deletedAt: null },
     select: { id: true, column: true, row: true, createdAt: true },
-    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    orderBy: [{ createdAt: 'desc' }, { row: 'desc' }, { column: 'desc' }],
   });
 }
 

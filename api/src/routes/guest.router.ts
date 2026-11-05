@@ -200,7 +200,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
     });
     // The group's own history: one copy fewer (detached) or one more (reattached).
     if (result.groupChange) {
-      const { itemId: groupId, from, to } = result.groupChange;
+      const { itemId: groupId, from, to, slotChanges = [] } = result.groupChange;
       void auditLog({
         userId: share.userId,
         action: 'GUEST_UPDATE',
@@ -208,7 +208,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
         ip,
         bottleId: groupId,
         productId: result.item.productId,
-        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: [{ field: 'quantity', from, to }], outcome: result.outcome },
+        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: [{ field: 'quantity', from, to }, ...slotChanges], outcome: result.outcome },
       });
     }
 

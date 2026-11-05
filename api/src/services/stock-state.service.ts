@@ -6,7 +6,7 @@ import {
   FINISHED_ITEM_STATE, groupKey, isFinishedState, isGroupableItem, isIntactItem, unitKind, type UnitKind,
 } from '../lib/finished-item';
 import {
-  fitSlotsTo, freeSlots, liveSlotsOf, moveSlots, pickSlots, slotsFreed, type SlotChange,
+  fitSlotsTo, freeSlots, liveSlotsOf, moveSlots, pickSlots, slotsFreed, slotsPlaced, type SlotChange,
 } from '../lib/slots';
 import { slotCapacity } from '../../../shared/units';
 import { lockFamily } from '../lib/product-fields';
@@ -86,7 +86,10 @@ export interface ApplyStateResult<R> {
   outcome: StateOutcome;
   /** The state written on the unit carrying it. */
   state: Pick<StateItem, StateField>;
-  /** FEAT-93: the cells the requested unit gave up (freed, or taken by the copy detached from it), for its history. */
+  /**
+   * FEAT-93: what happened to the cells of the unit answered (`data`), for its
+   * history: cells freed, or the cell an opened copy took from its group.
+   */
   slotChanges: SlotChange[];
   /** The unit that now carries the requested state: the sub-record, the unit itself, or the group that absorbed it. */
   data: R;
@@ -95,7 +98,11 @@ export interface ApplyStateResult<R> {
   /** The units deleted (a sub-record absorbed by its group). */
   removedIds: string[];
   /** The group whose count this write moved (−1 on a detach, +1 on a reattach), for its history. */
-  groupChange?: { itemId: string; from: number; to: number };
+  groupChange?: {
+    itemId: string; from: number; to: number;
+    /** FEAT-93: the cells the group gave up on a detach (freed, or taken by the opened copy), for its history. */
+    slotChanges?: SlotChange[];
+  };
   /** Tastings deleted by a reattach answered `keepTastings: false`, for the history. */
   deletedTastings?: number;
 }
@@ -236,6 +243,8 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     };
     await tx.inventoryItem.create({ data: writable(sub) as never });
     const from = next.quantity ?? 1;
+    // Cells freed so far were the group's (a cellar change).
+    const groupSlots = slotChanges.splice(0);
     // The copy comes from an unplaced one, else from the most recent cell:
     // opened, it takes that cell; finished, it frees it. Single cigars share
     // the group's one cell, which stays with the group.
@@ -245,7 +254,7 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     if (taken) {
       if (isFinishedState(next)) await freeSlots(tx, item.id, [taken.id]);
       else await moveSlots(tx, [taken.id], subId);
-      slotChanges.push(...slotsFreed([taken]));
+      groupSlots.push(...slotsFreed([taken]));
     }
     // Written once its cells are settled: the row answered carries them.
     const group = await tx.inventoryItem.update({
@@ -258,9 +267,11 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     await followDetach(tx, item.id, from - 1, {
       id: subId, cellarId: (created as { cellarId: string | null }).cellarId, finished: isFinishedState(next),
     });
+    // The opened copy now holds the cell it was taken from.
+    if (taken && !isFinishedState(next)) slotChanges.push(...slotsPlaced([taken]));
     return {
       outcome, ...done, data: created as R, changed: [group as R], removedIds: [],
-      groupChange: { itemId: item.id, from, to: from - 1 },
+      groupChange: { itemId: item.id, from, to: from - 1, ...(groupSlots.length > 0 ? { slotChanges: groupSlots } : {}) },
     };
   }
 
@@ -280,14 +291,15 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     return { outcome: 'regrouped', ...done, data: regrouped as R, changed: [], removedIds: [] };
   }
 
+  // A finished or written-off unit frees its cells (#573); a count lowered
+  // frees the most recent ones (automatic rule until lot S2). Before the
+  // write, so the row answered carries the cells it keeps.
+  slotChanges.push(...slotsFreed(await fitSlotsTo(tx, item.id, next, context.kind)));
   const updated = await tx.inventoryItem.update({
     where: { id: item.id },
     data: { ...writable(changedColumns(item, next)), ...(outcome === 'regrouped' ? { parentItemId: null } : {}), ...stamp } as never,
     include,
   });
-  // A finished or written-off unit frees its cells (#573); a count lowered
-  // frees the most recent ones (automatic rule until lot S2).
-  slotChanges.push(...slotsFreed(await fitSlotsTo(tx, item.id, next, context.kind)));
   return { outcome, ...done, data: updated as R, changed: [], removedIds: [] };
 }
 
@@ -403,7 +415,8 @@ export async function finishUnits(
       { userId: context.userId, kind: unitKind(product.category), include: { product: { select: { category: true } } }, now: context.now },
     );
     finished.push(result.data.id);
-    context.slotChanges?.push(...result.slotChanges);
+    // The cells freed: the group's on a detach, the unit's own when it is the last copy.
+    context.slotChanges?.push(...(result.groupChange?.slotChanges ?? []), ...result.slotChanges);
   }
   return finished;
 }

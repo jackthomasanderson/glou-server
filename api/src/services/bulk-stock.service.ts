@@ -179,16 +179,16 @@ export const bulkStockService = {
           entries.push({
             action: 'UPDATE', bottleId: done.data.id, productId: family.id,
             details: {
-              changes: [...stateChanges(target, done.state), ...(done.groupChange ? [] : done.slotChanges)],
+              changes: [...stateChanges(target, done.state), ...done.slotChanges],
               outcome: done.outcome, targetItemId: target.id, bulk: true,
             },
           });
           // The group's own history: one copy fewer.
           if (done.groupChange) {
-            const { itemId, from, to } = done.groupChange;
+            const { itemId, from, to, slotChanges = [] } = done.groupChange;
             entries.push({
               action: 'UPDATE', bottleId: itemId, productId: family.id,
-              details: { changes: [{ field: 'quantity', from, to }, ...done.slotChanges], outcome: done.outcome, subItemId: done.data.id, bulk: true },
+              details: { changes: [{ field: 'quantity', from, to }, ...slotChanges], outcome: done.outcome, subItemId: done.data.id, bulk: true },
             });
           }
         }

@@ -241,6 +241,32 @@ describe('productService.updateDescription (FEAT-92 c4)', () => {
     expect(result).toMatchObject({ changes: [{ field: 'region', from: null, to: 'Médoc' }] });
   });
 
+  // Review of #854: a wine made a cigar is a group of single cigars — one cell for the group.
+  it('FEAT-93: a new category frees the cells a unit can no longer hold, the most recent first, for its history', async () => {
+    vi.mocked(prisma.product.update).mockResolvedValue(family({ category: 'cigar' }) as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([unit({ id: 'b1', quantity: 3 })] as never);
+    slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+    const result = await productService.updateDescription('u2', 'p1', { category: 'cigar' });
+
+    expect(slots.cellsOf('b1')).toBe('1:1');
+    expect(result).toMatchObject({
+      unitSlotChanges: [{
+        itemId: 'b1',
+        changes: [{ field: 'slot', from: { column: 3, row: 1 }, to: null }, { field: 'slot', from: { column: 2, row: 1 }, to: null }],
+      }],
+    });
+  });
+
+  it('a description edit that keeps the category leaves the cells alone', async () => {
+    slots.rows.push(slot({ itemId: 'b1', column: 1, row: 1 }), slot({ itemId: 'b1', column: 2, row: 1 }));
+
+    const result = await productService.updateDescription('u2', 'p1', { region: 'Médoc' });
+
+    expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    expect(result).toMatchObject({ unitSlotChanges: [] });
+  });
+
   it('locks the family row in the transaction before checking it', async () => {
     await productService.updateDescription('u2', 'p1', { region: 'Médoc' });
 
