@@ -165,9 +165,10 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
   const [showGone, setShowGone] = useState(false);
   const lineRefs = useRef(new Map<string, HTMLLIElement>());
   // A line led to behind "Voir les N autres" is shown first (adjusted during render).
-  const [prevFocus, setPrevFocus] = useState(focus);
-  if (focus !== prevFocus) {
-    setPrevFocus(focus);
+  // From null: a line led to as the lines first show (a cell of the plan, FEAT-93) is shown too.
+  const [prevFocus, setPrevFocus] = useState<typeof focus>(null);
+  if ((focus ?? null) !== prevFocus) {
+    setPrevFocus(focus ?? null);
     if (focus && lines.inCellar.findIndex((item) => item.id === focus.id) >= VISIBLE_LINES) setShowAll(true);
   }
   const focused = useRef<number | null>(null);

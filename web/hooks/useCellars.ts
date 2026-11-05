@@ -110,7 +110,8 @@ export function useAssignSlot(cellarId: string) {
     mutationFn: async ({ itemId, column, row }) => {
       await client.post(`/inventory/${itemId}/slots`, { column, row });
     },
-    onSuccess: () => {
+    // A refusal too: the plan was out of date (a cell or a copy taken from another device).
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['cellars', cellarId, 'grid'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },
@@ -124,7 +125,8 @@ export function useRemoveSlot(cellarId: string) {
     mutationFn: async ({ slotId }) => {
       await client.delete(`/slots/${slotId}`);
     },
-    onSuccess: () => {
+    // A refusal too (SLOT_NOT_FOUND: taken out or drunk on another device): the plan and the drawer catch up.
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['cellars', cellarId, 'grid'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },

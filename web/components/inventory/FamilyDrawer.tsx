@@ -1,13 +1,14 @@
 'use client';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Chip, Drawer, DrawerContent, Spinner, Tooltip } from '@heroui/react';
 import {
   X, Pencil, Flame, Thermometer, Droplets, Wine, BookMarked, GlassWater, Leaf, Sparkles, QrCode,
-  TrendingUp, Bell, BellOff, Star, Grape,
+  TrendingUp, Bell, BellOff, Star, Grape, LayoutGrid,
 } from 'lucide-react';
 import { isIntactItem, unitKind } from '@shared/units';
-import { useCellars } from '@/hooks/useCellars';
+import { useCellars, useRemoveSlot } from '@/hooks/useCellars';
+import { notifyError } from '@/lib/toast';
 import { productDetailKey, useProductDetail } from '@/hooks/useProducts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
@@ -89,6 +90,17 @@ function averageRating(tastings: ProductDetailView['tastings']): number | null {
   return ratings.length > 0 ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : null;
 }
 
+/**
+ * FEAT-93: the cell of the cellar plan the drawer was opened from — the
+ * line it holds a bottle of, the slot, and how the cell is named ("Case
+ * C2·R3").
+ */
+export interface SlotContext {
+  itemId: string;
+  slotId: string;
+  label: string;
+}
+
 const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
   <div className="flex items-center gap-1.5 mb-2">
     {icon}
@@ -115,6 +127,8 @@ export interface FamilyDrawerProps {
    * page): "Quelles bouteilles ?" preselects their line (FEAT-104 c3).
    */
   viewedCellarIds?: readonly string[];
+  /** FEAT-93: opened from a cell of the cellar plan: its line is led to, and the cell named. */
+  slotContext?: SlotContext | null;
 }
 
 /**
@@ -124,7 +138,7 @@ export interface FamilyDrawerProps {
  * The state of a group of bottles is never set from here: only the level
  * of a bottle already opened (a single copy, nothing detached).
  */
-export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryAction, viewedCellarIds }: FamilyDrawerProps) {
+export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryAction, viewedCellarIds, slotContext }: FamilyDrawerProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const hasMounted = useHasMounted();
@@ -135,11 +149,41 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const togglePause = useToggleAlertPause();
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  // "Finir l'entamée" (FEAT-105 c2): the opened bottle led to.
-  const [focusLine, setFocusLine] = useState<{ id: string; nonce: number } | null>(null);
+  // The line led to: "Finir l'entamée" (FEAT-105 c2), or the line of the cell touched (FEAT-93).
+  // The nonce only grows, so leading to the same line again focuses it again.
+  const [lead, setLead] = useState<{ id: string | null; nonce: number }>({ id: null, nonce: 0 });
+  const focusLine = useMemo(() => (lead.id ? { id: lead.id, nonce: lead.nonce } : null), [lead]);
   const finishOpened = useCallback((item: ProductItem) => {
-    setFocusLine((previous) => ({ id: item.id, nonce: (previous?.nonce ?? 0) + 1 }));
+    setLead((previous) => ({ id: item.id, nonce: previous.nonce + 1 }));
   }, []);
+  // Each opening starts afresh (adjusted during render): the line of the cell
+  // touched, or no line led to — never the one of a previous opening.
+  const opening = productId ? `${productId}|${slotContext?.slotId ?? ''}` : null;
+  const [prevOpening, setPrevOpening] = useState<string | null>(null);
+  const [removedNotice, setRemovedNotice] = useState('');
+  if (opening !== prevOpening) {
+    setPrevOpening(opening);
+    setRemovedNotice('');
+    setLead((previous) => ({ id: opening && slotContext ? slotContext.itemId : null, nonce: previous.nonce + 1 }));
+  }
+  // The cell, while it still holds a bottle of that line (not once taken out or drunk).
+  const slotLine = slotContext ? product?.items.find((item) => item.id === slotContext.itemId) : undefined;
+  const cell = slotContext && slotLine?.slots.some((slot) => slot.id === slotContext.slotId) ? slotContext : null;
+  const removeSlot = useRemoveSlot(slotLine?.cellarId ?? '');
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const removeFromCell = async (slotId: string) => {
+    try {
+      await removeSlot.mutateAsync({ slotId });
+      // The button goes with the banner: focus stays in the drawer, and the removal is said.
+      titleRef.current?.focus();
+      const context = slotLine && product && unitKind(product.category) === 'cigar'
+        ? (slotLine.cigarsPerBox != null || slotLine.isOpened ? 'box' : 'cigar')
+        : undefined;
+      setRemovedNotice(t('cellars.grid.removedFromSlot', { context }));
+    } catch (error) {
+      notifyError(error instanceof Error && error.message === 'SLOT_NOT_FOUND' ? 'cellars.grid.slotNotFound' : 'status.error');
+    }
+  };
 
   const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
   const kind = unitKind(product?.category ?? 'wine');
@@ -416,7 +460,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
               </p>
               <div className="flex justify-between items-start gap-2">
                 <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  <h2 id="inventory-detail-title" className="text-lg font-bold leading-tight break-words">{product?.name ?? ''}</h2>
+                  <h2 id="inventory-detail-title" ref={titleRef} tabIndex={-1} className="outline-none text-lg font-bold leading-tight break-words">{product?.name ?? ''}</h2>
                   <FieldSourceBadge source={product?.fieldSources?.name} t={t} />
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -444,6 +488,19 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                       </React.Fragment>
                     ))}
                 </p>
+              )}
+              <p role="status" aria-live="polite" className="sr-only" data-testid="slot-removed">{removedNotice}</p>
+              {/* FEAT-93: the cell of the plan this drawer was opened from, kept in sight above the lines. */}
+              {cell && (
+                <div className="flex items-center justify-between gap-2 mt-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-1.5" data-testid="slot-context">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-primary-700">
+                    <LayoutGrid size={14} aria-hidden />
+                    {cell.label}
+                  </span>
+                  <Button size="sm" variant="flat" color="warning" onPress={() => removeFromCell(cell.slotId)} isLoading={removeSlot.isPending}>
+                    {t('cellars.grid.removeFromSlot')}
+                  </Button>
+                </div>
               )}
             </div>
 

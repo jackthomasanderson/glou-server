@@ -79,8 +79,8 @@ describe('cigar wording', () => {
       }
     }
     const i = await translator('fr');
-    expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'cigar' })).toBe("Assigner un cigare ou une boîte à l'emplacement C1·R2");
-    expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'mixed' })).toBe("Assigner une bouteille, une boîte ou un cigare à l'emplacement C1·R2");
+    expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'cigar' })).toBe("Assigner un cigare ou une boîte à la case C1·R2");
+    expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'mixed' })).toBe("Assigner une bouteille, une boîte ou un cigare à la case C1·R2");
     for (const lng of ['fr', 'en'] as const) {
       const both = await translator(lng);
       for (const key of ['assignTitle', 'noUnassignedBottles', 'cellLabelEmpty', 'dragInstructions']) {

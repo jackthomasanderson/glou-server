@@ -185,6 +185,13 @@ describe('FamilyStockLines', () => {
     expect(opened).toHaveFocus();
   });
 
+  it('a line led to as the lines first show (a cell of the plan, FEAT-93) is shown and focused, even behind "Voir les N autres"', () => {
+    const items = Array.from({ length: 7 }, (_, i) => unit({ id: `line${i}`, quantity: 2, purchasePrice: 10 + i }));
+    render(<FamilyStockLines lines={familyLines(items, ctx.cellarName)} ctx={ctx} focus={{ id: 'line6', nonce: 1 }} />);
+    expect(screen.getAllByTestId('family-line')).toHaveLength(7);
+    expect(screen.getAllByTestId('family-line').find((line) => line.dataset.lineId === 'line6')).toHaveFocus();
+  });
+
   it('the focus ring shows only on the line led to, and goes at blur (a plain click draws none)', () => {
     const items = [unit({ quantity: 2, purchasePrice: 10 }), openedBottle(60, { id: 'sub' })];
     const lines = familyLines(items, ctx.cellarName);
