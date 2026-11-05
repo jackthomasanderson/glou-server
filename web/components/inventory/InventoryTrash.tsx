@@ -52,11 +52,14 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
   );
   const unitsOf = (wine: TrashedProduct) =>
     wine.items.reduce((sum, unit) => sum + itemUnits(unit), 0);
-  // #471 (recette v2): a box or a cigar thrown away is restored as such.
+  // #471 (recette v2): a box or a cigar thrown away is restored as such;
+  // a line of several, in the plural (recette v3).
   const unitLabels = (item: InventoryItem) => {
     const noun = lineNoun(item);
-    return { restore: t('inventory.restore', { context: noun === 'bottle' ? undefined : noun }) };
+    return { restore: t('inventory.restore', { context: noun === 'bottle' ? undefined : noun, count: lineCopies(item) }) };
   };
+  // Recette v3: a box and a cigar look alike in the list — their number is always said.
+  const saysCount = (item: InventoryItem) => lineCopies(item) > 1 || lineNoun(item) !== 'bottle';
 
   if (isLoading || winesTrash.isLoading) {
     return (
@@ -85,7 +88,6 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
     );
   }
 
-  const both = wines.length > 0 && visibleItems.length > 0;
   // The headings follow the page: cigars, or bottles (review of #828).
   const page = !lockedCategories ? undefined : lockedCategories.every((category) => category === 'cigar') ? 'cigar' : 'bottle';
   const winesHeading = t('familyList.trash.wines', { context: page === 'cigar' ? 'cigar' : undefined });
@@ -94,7 +96,7 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
     <div className="flex flex-col gap-4">
     {wines.length > 0 && (
       <section aria-label={winesHeading}>
-        {both && <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{winesHeading}</h2>}
+        <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{winesHeading}</h2>
         <ul className="flex flex-col gap-2" data-testid="trash-wines">
           {wines.map((wine) => {
             const units = unitsOf(wine);
@@ -131,7 +133,7 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
     )}
     {visibleItems.length > 0 && (
     <section aria-label={linesHeading}>
-    {both && <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{linesHeading}</h2>}
+    <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{linesHeading}</h2>
     <ul className="flex flex-col gap-2">
       {visibleItems.map((item) => {
         const label = unitLabels(item);
@@ -150,8 +152,8 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
             </div>
             {item.deletedAt && (
               <p className="text-xs text-foreground-400">
-                {/* Recette #471: how many went with a line of several bottles (boxes). */}
-                {lineCopies(item) > 1 && `${t('familyList.trash.lineCount', { context: lineNoun(item), count: lineCopies(item) })} · `}
+                {/* Recette #471: how many went with a line of several bottles, and any line of cigars (boxes). */}
+                {saysCount(item) && `${t('familyList.trash.lineCount', { context: lineNoun(item), count: lineCopies(item) })} · `}
                 {t('inventory.trashDaysLeft', { count: daysLeft(item.deletedAt) })}
               </p>
             )}
