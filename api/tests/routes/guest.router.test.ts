@@ -57,7 +57,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId', () => {
   it('writes the state of the bottle', async () => {
     const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 50 });
     expect(res.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { isOpened: true, fillLevel: 50 }, { guard: expect.any(Function) });
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { isOpened: true, fillLevel: 50 }, { guard: expect.any(Function), slotChoice: 'auto' });
   });
 
   it('answers with the share-redacted item, not the full updated row (#483)', async () => {
@@ -211,6 +211,52 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     }));
   });
 
+  // FEAT-93 (lot S2): a bottle alone drunk from its cell — « Annuler » gives the cell back if still free.
+  it('a bottle drunk from its cell records the cell, and its « Annuler » asks for it back (placeAt)', async () => {
+    const alone = { ...group, quantity: 1 };
+    vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.(alone, () => 'updated');
+      return {
+        item: { id: 'i1', productId: 'p1', updatedAt: new Date(STAMP) },
+        changes: [{ field: 'fillLevel', from: null, to: 0 }, { field: 'slot', from: { column: 2, row: 3 }, to: null }],
+        changed: [], removedIds: [],
+      };
+    }) as never);
+
+    await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 0 });
+
+    const marker = { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: STAMP, slot: { column: 2, row: 3 } };
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ details: expect.objectContaining({ undo: marker }) }));
+
+    vi.mocked(sharesService.findLatestGuestMove).mockResolvedValue({ shareId: 's1', createdAt: new Date(), undo: marker } as never);
+    vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.({ cellarId: 'c1', updatedAt: new Date(STAMP) }, () => 'regrouped');
+      return { item: { id: 'i1', productId: 'p1', updatedAt: new Date() }, changes: [], changed: [], removedIds: [] };
+    }) as never);
+
+    expect((await request(app).patch('/api/guest/tok/inventory/i1').send({ undo: true })).status).toBe(200);
+    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'i1',
+      { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, placeAt: { column: 2, row: 3 } },
+      { guard: expect.any(Function), slotChoice: 'auto' });
+  });
+
+  it('a bottle opened from a group takes its cell with it: no cell recorded (it comes back with the bottle)', async () => {
+    vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.(group, () => 'detached');
+      return {
+        item: { id: 'sub', productId: 'p1', updatedAt: new Date(STAMP) },
+        changes: [{ field: 'isOpened', from: false, to: true }, { field: 'slot', from: null, to: { column: 1, row: 1 } }],
+        changed: [], removedIds: [], outcome: 'detached',
+        groupChange: { itemId: 'i1', from: 6, to: 5, slotChanges: [{ field: 'slot', from: { column: 1, row: 1 }, to: null }] },
+      };
+    }) as never);
+
+    await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true });
+
+    const details = (vi.mocked(auditLog).mock.calls[0]?.[0] as unknown as { details: { undo: Record<string, unknown> } }).details;
+    expect(details.undo).not.toHaveProperty('slot');
+  });
+
   it('a level set records no "Annuler"', async () => {
     const sub = { ...group, id: 'sub', quantity: 1, isOpened: true, fillLevel: 60 };
     vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
@@ -249,7 +295,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     const undone = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
 
     expect(undone.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'sub', { isOpened: true, fillLevel: 60, openedAt: new Date(OPENED_AT), cigarsLeft: null }, { guard: expect.any(Function) });
+    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'sub', { isOpened: true, fillLevel: 60, openedAt: new Date(OPENED_AT), cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto' });
   });
 
   it('still refuses a level on a group of more than one, and closing the opened bottle', async () => {
@@ -278,7 +324,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     const res = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
 
     expect(res.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'sub', { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, { guard: expect.any(Function) });
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'sub', { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto' });
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ details: expect.objectContaining({ undoOf: STAMP }) }));
   });
 

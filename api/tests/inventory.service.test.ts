@@ -24,6 +24,8 @@ vi.mock('../src/lib/prisma', () => ({
       deleteMany: vi.fn(),
     },
     tastingNote: { deleteMany: vi.fn(), count: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
+    // FEAT-93 (lot S2): "Annuler" puts a bottle back in a cell of the cellar's grid.
+    cellar: { findUnique: vi.fn() },
     // #471 (FEAT-100): a detach during an open count adjusts its entries.
     inventoryCountEntry: { updateMany: vi.fn(), create: vi.fn(), findMany: vi.fn() },
     inventoryCountSession: { findFirst: vi.fn() },
@@ -196,6 +198,21 @@ describe('InventoryService', () => {
       expect(restored).toMatchObject({ id: 'b1' });
       expect(prisma.$transaction).toHaveBeenCalledTimes(2);
       expect(slots.rows.filter((row) => row.itemId === 'b1')).toEqual([]);
+    });
+
+    // Review of #854 (nit): trashed with three cells, its family made single cigars meanwhile — never a 500.
+    it('keeps only what it may hold now its family is single cigars, and tells the cells freed', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(trashed as never);
+      vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation((async () =>
+        unitRow({ cellarId: 'c1', quantity: 3, cigarsPerBox: null, isOpened: false, fillLevel: null, writtenOffAt: null }, { category: 'cigar' })) as never);
+      slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1, deletedAt: trashedAt })));
+      const freed: unknown[] = [];
+
+      await service.restore('u1', 'b1', freed as never);
+
+      expect(slots.rows.filter((row) => row.itemId === 'b1' && row.deletedAt === null)).toHaveLength(1);
+      expect(freed).toHaveLength(2);
+      expect(freed[0]).toMatchObject({ field: 'slot', to: null });
     });
 
     it('keeps its cell when it is still free', async () => {
@@ -923,6 +940,176 @@ describe('InventoryService', () => {
     });
   });
 
+  // ─── FEAT-93 lot S2: the explicit choices of cells ───────────────────────
+
+  describe('explicit choices of cells (FEAT-93, lot S2)', () => {
+    const DAY = new Date('2026-01-15T00:00:00Z');
+    /** A group of `quantity` in cellar c1, read with its family. */
+    const group = (quantity: number, fields: Record<string, unknown> = {}, product: Record<string, unknown> = {}) => unitRow({
+      cellarId: 'c1', quantity, isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, cigarsPerBox: null,
+      parentItemId: null, writtenOffAt: null, needsReview: false, purchasedAt: null, purchasePrice: 20, estimatedValue: null,
+      updatedAt: DAY, createdAt: DAY, ...fields,
+    }, { category: 'wine', ...product });
+    const rejected = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => error as { status: number; code: string; details: unknown });
+
+    beforeEach(() => {
+      vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation((async (args: { where: { id: string } }) =>
+        unitRow({ id: args.where.id, cellarId: 'c1' })) as never);
+      vi.mocked(prisma.inventoryItem.create).mockImplementation((async (args: { data: Record<string, unknown> }) => args.data) as never);
+      vi.mocked(prisma.inventoryCountEntry.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.inventoryItem.update).mockImplementation((async (args: { where: { id: string }; data: Record<string, unknown> }) =>
+        ({ ...group(3), id: args.where.id, ...args.data })) as never);
+    });
+
+    it('drinking one of ×3 holding two cells without a choice: 409 SLOT_CHOICE_REQUIRED {slots, unplaced: 1}, nothing written', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 1 }), slot({ itemId: 'b1', column: 1, row: 1 }));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0 }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOT_CHOICE_REQUIRED' });
+      expect(error?.details).toEqual({
+        slots: [{ id: expect.any(String), column: 1, row: 1 }, { id: expect.any(String), column: 2, row: 1 }],
+        unplaced: 1,
+      });
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    });
+
+    it('a guest (slotChoice auto) drinks from the same line without a question', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 1 }), slot({ itemId: 'b1', column: 1, row: 1 }));
+
+      await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0 }, { slotChoice: 'auto' });
+
+      // One copy unplaced: it is the one drunk.
+      expect(prisma.inventoryItem.create).toHaveBeenCalledTimes(1);
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    });
+
+    it('drinking from the cell chosen frees exactly that cell; the choice is no field of the history', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      const chosen = slot({ itemId: 'b1', column: 1, row: 1 });
+      slots.rows.push(chosen, slot({ itemId: 'b1', column: 2, row: 1 }));
+
+      const result = await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0, fromSlotId: chosen.id });
+
+      expect(slots.cellsOf('b1')).toBe('2:1');
+      expect(result && 'groupChange' in result ? result.groupChange?.slotChanges : null)
+        .toEqual([{ field: 'slot', from: { column: 1, row: 1 }, to: null }]);
+      const changes = result && 'changes' in result ? result.changes : [];
+      expect(changes.map((change) => change.field)).not.toContain('fromSlotId');
+    });
+
+    it('opening from an unplaced copy leaves the cells to the line', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 1, row: 1 }));
+
+      await service.updateItem('u1', 'b1', { isOpened: true, fromUnplaced: true });
+
+      expect(slots.cellsOf('b1')).toBe('1:1');
+      expect(prisma.inventoryItem.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('a cell chosen that is no longer the line\'s: 409 SLOT_CHANGED with the line as it is', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 1, row: 1 }));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { isOpened: true, fromSlotId: '00000000-0000-4000-8000-000000000000' }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOT_CHANGED', details: { unplaced: 2 } });
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+    });
+
+    it('a number lowered below the cells (PATCH quantity): 409 SLOTS_TO_FREE_REQUIRED {needed}, nothing written', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { quantity: 1 }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 2 } });
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      expect(slots.rows).toHaveLength(3);
+    });
+
+    it('a number restored from the history (slotChoice auto) below the cells is refused all the same', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(...[1, 2].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { quantity: 1 }, { slotChoice: 'auto' }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
+    });
+
+    it('a number lowered that still holds the cells goes through', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(...[1, 2].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      await service.updateItem('u1', 'b1', { quantity: 2 });
+
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ quantity: 2 }) }));
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    });
+
+    describe('placeAt — "Annuler" of a bottle alone finished in its cell', () => {
+      const drunk = () => group(1, { isOpened: true, fillLevel: 0, openedAt: DAY });
+
+      it('puts the bottle back in its cell when it is still free, and tells it', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(drunk() as never);
+        vi.mocked(prisma.inventoryItem.update).mockImplementation((async (args: { where: { id: string }; data: Record<string, unknown> }) =>
+          ({ ...drunk(), ...args.data })) as never);
+        vi.mocked(prisma.cellar.findUnique).mockResolvedValue({ columns: 3, rows: 3 } as never);
+        vi.mocked(prisma.$executeRaw).mockResolvedValue(1 as never);
+
+        const result = await service.updateItem('u1', 'b1', { isOpened: false, fillLevel: null, openedAt: null, placeAt: { column: 2, row: 3 } });
+
+        const insert = vi.mocked(prisma.$executeRaw).mock.calls.find((call) => (call[0] as unknown as string[]).join('?').includes('INSERT INTO "item_slots"'));
+        expect(insert?.slice(2)).toEqual(['b1', 'c1', 2, 3]);
+        expect((insert?.[0] as unknown as string[]).join('?')).toContain('ON CONFLICT');
+        const changes = result && 'changes' in result ? result.changes : [];
+        expect(changes).toContainEqual({ field: 'slot', from: null, to: { column: 2, row: 3 } });
+        expect(changes.map((change) => change.field)).not.toContain('placeAt');
+      });
+
+      it('leaves it unplaced when the cell was taken since (nothing inserted, nothing told)', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(drunk() as never);
+        vi.mocked(prisma.inventoryItem.update).mockImplementation((async (args: { data: Record<string, unknown> }) =>
+          ({ ...drunk(), ...args.data })) as never);
+        vi.mocked(prisma.cellar.findUnique).mockResolvedValue({ columns: 3, rows: 3 } as never);
+        vi.mocked(prisma.$executeRaw).mockResolvedValue(0 as never);
+
+        const result = await service.updateItem('u1', 'b1', { isOpened: false, fillLevel: null, openedAt: null, placeAt: { column: 2, row: 3 } });
+
+        expect(result && 'changes' in result ? result.changes.filter((change) => change.field === 'slot') : null).toEqual([]);
+      });
+
+      it('leaves it unplaced when the grid no longer holds the cell', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(drunk() as never);
+        vi.mocked(prisma.inventoryItem.update).mockImplementation((async (args: { data: Record<string, unknown> }) =>
+          ({ ...drunk(), ...args.data })) as never);
+        vi.mocked(prisma.cellar.findUnique).mockResolvedValue({ columns: 1, rows: 1 } as never);
+
+        await service.updateItem('u1', 'b1', { isOpened: false, fillLevel: null, openedAt: null, placeAt: { column: 2, row: 3 } });
+
+        expect(vi.mocked(prisma.$executeRaw).mock.calls.some((call) => (call[0] as unknown as string[]).join('?').includes('item_slots'))).toBe(false);
+      });
+    });
+
+    // Review of #854 (nit): one PATCH making a wine ×3 a box of 25 keeps its three cells (boxes, not single cigars).
+    it('a category and a box size changed in one PATCH: the cells are fitted to the unit as written', async () => {
+      const wine = group(3);
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(wine as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ ...wine, product: undefined }] as never);
+      vi.mocked(prisma.product.update).mockImplementation((async (args: { data: Record<string, unknown> }) => ({ ...family(), ...args.data })) as never);
+      slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      await service.updateItem('u1', 'b1', { category: 'cigar', cigarsPerBox: 25 });
+
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1 3:1');
+    });
+  });
+
   // ─── #798 / FEAT-93: moving a bottle to another cellar ─────────────────────
 
   describe('cellar move - cells of the plan (#798, FEAT-93)', () => {
@@ -1094,7 +1281,7 @@ describe('InventoryService', () => {
       const update = vi.spyOn(service, 'updateItem').mockResolvedValue({ item: { id: 'b1' }, changes: [] } as never);
 
       expect(await service.rollbackField('u1', 'b1', 'region', 'Bordeaux')).toMatchObject({ status: 'success' });
-      expect(update).toHaveBeenCalledWith('u1', 'b1', { region: 'Bordeaux' }, { isManualEdit: true, bypassFieldLock: true });
+      expect(update).toHaveBeenCalledWith('u1', 'b1', { region: 'Bordeaux' }, { isManualEdit: true, bypassFieldLock: true, slotChoice: 'auto' });
     });
 
     it('drops the former ownership flag of an older client from an edit, without locking it', async () => {
@@ -1114,7 +1301,7 @@ describe('InventoryService', () => {
       const update = vi.spyOn(service, 'updateItem').mockResolvedValue({ item: { id: 'b1' }, changes: [] } as never);
 
       expect(await service.rollbackField('u1', 'b1', 'location', 'Rack A')).toMatchObject({ status: 'success' });
-      expect(update).toHaveBeenCalledWith('u1', 'b1', { location: 'Rack A' }, { isManualEdit: true, bypassFieldLock: true });
+      expect(update).toHaveBeenCalledWith('u1', 'b1', { location: 'Rack A' }, { isManualEdit: true, bypassFieldLock: true, slotChoice: 'auto' });
     });
   });
 

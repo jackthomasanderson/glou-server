@@ -13,7 +13,7 @@ import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { systemConfigService } from '../services/system-config.service';
 import { routeParam } from '../lib/http';
 import { AppError } from '../lib/errors';
-import type { UnitWriteResult } from '../../../shared/product';
+import type { FieldChange, UnitWriteResult } from '../../../shared/product';
 
 const router = Router();
 
@@ -299,13 +299,16 @@ router.post('/:id/restore', async (req: Request, res: Response): Promise<void> =
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
-    const item = await inventoryService.restore(req.userId, id);
+    const slotChanges: FieldChange[] = [];
+    const item = await inventoryService.restore(req.userId, id, slotChanges);
     if (!item) {
       void auditLog({ userId: req.userId, action: 'RESTORE', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'ITEM_NOT_FOUND_OR_EXPIRED' });
       return;
     }
-    void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip, bottleId: id, productId: item.productId });
+    // FEAT-93: the cells it could not take back are told in its history.
+    const details = slotChanges.length > 0 ? { details: { changes: slotChanges } } : {};
+    void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip, bottleId: id, productId: item.productId, ...details });
     res.json({ data: item });
   } catch (error) {
     console.error('[inventory] POST /:id/restore error:', error);

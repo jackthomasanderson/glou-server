@@ -379,6 +379,22 @@ describe('productService.trash / restore (D10)', () => {
     expect(slots.cellsOf('other')).toBe('2:3');
   });
 
+  // Review of #854 (nit): cells its category no longer allows (made single cigars) — never a 500 at the commit.
+  it('a unit back with more cells than its family now allows keeps only what it may hold, told in its history', async () => {
+    const deletedAt = new Date(Date.now() - 60_000);
+    vi.mocked(prisma.product.findFirst).mockResolvedValue(family({ deletedAt, category: 'cigar' }) as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'b1', quantity: 3, cigarsPerBox: null, isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null, deletedAt: null },
+    ] as never);
+    slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1, deletedAt })));
+    const freed: Array<{ itemId: string; changes: unknown[] }> = [];
+
+    await productService.restore('p1', freed as never);
+
+    expect(slots.rows.filter((row) => row.itemId === 'b1' && row.deletedAt === null)).toHaveLength(1);
+    expect(freed).toEqual([{ itemId: 'b1', changes: [expect.objectContaining({ field: 'slot', to: null }), expect.objectContaining({ field: 'slot', to: null })] }]);
+  });
+
   it('is null once the family is past the retention period', async () => {
     vi.mocked(prisma.product.findFirst).mockResolvedValue(null);
 

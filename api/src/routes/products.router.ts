@@ -39,7 +39,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   res.json({ data: product });
 });
 
-/** FEAT-93: the cells a bottle gave up with its family's new category, in that bottle's history. */
+/** FEAT-93: the cells a bottle gave up with its family's new category (or on its restore), in that bottle's history. */
 function logUnitSlots(req: Request, ip: string, productId: string, units: UnitSlotChanges[] = []): void {
   for (const { itemId, changes } of units) {
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: itemId, productId, details: { changes } });
@@ -123,9 +123,12 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 // POST /api/products/:id/restore — the wine and the bottles trashed together with it.
 router.post('/:id/restore', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  const product = await productService.restore(id);
+  const slotChanges: UnitSlotChanges[] = [];
+  const product = await productService.restore(id, slotChanges);
   if (!product) throw notFound('PRODUCT_NOT_FOUND_OR_EXPIRED');
   void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip: getClientIp(req), productId: id });
+  // FEAT-93: the cells a bottle could not take back, in its own history.
+  logUnitSlots(req, getClientIp(req), id, slotChanges);
   res.json({ data: product });
 });
 

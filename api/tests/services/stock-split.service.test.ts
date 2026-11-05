@@ -278,7 +278,7 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     expect(totals()).toEqual(before);
   });
 
-  it('FEAT-93: part of a group whose every copy is placed frees the most recent cells of the copies moved', async () => {
+  it('FEAT-93 (q=3, s=3, 2 moved) without slotIds: 409 SLOTS_TO_FREE_REQUIRED {needed: 2}, nothing written', async () => {
     rows = [unit({ quantity: 3 })];
     placeIn(
       slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }),
@@ -286,15 +286,50 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
       slot({ itemId: 'g1', cellarId: 'garage', column: 3, row: 1 }),
     );
 
-    const outcome = applied(await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' }));
+    const error = await rejection(stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' }));
 
-    expect(slots.cellsOf('g1')).toBe('1:1');
+    expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 2 } });
+    expect((error.details as { slots: unknown[] }).slots).toHaveLength(3);
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    expect(slots.cellsOf('g1')).toBe('1:1 2:1 3:1');
+  });
+
+  it('FEAT-93 (q=3, s=3, 2 moved) with the cells named: those are freed, the copies arrive unplaced', async () => {
+    rows = [unit({ quantity: 3 })];
+    const [first, second, third] = [
+      slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }),
+      slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }),
+      slot({ itemId: 'g1', cellarId: 'garage', column: 3, row: 1 }),
+    ];
+    placeIn(first, second, third);
+
+    const outcome = applied(await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen', slotIds: [first.id, third.id] }));
+
+    expect(slots.cellsOf('g1')).toBe('2:1');
     expect(slots.cellsOf(outcome.result.data.id)).toBe('');
     expect(outcome.entries[0].changes).toEqual([
       { field: 'quantity', from: 3, to: 1 },
       { field: 'slot', from: { column: 3, row: 1 }, to: null },
-      { field: 'slot', from: { column: 2, row: 1 }, to: null },
+      { field: 'slot', from: { column: 1, row: 1 }, to: null },
     ]);
+  });
+
+  it('FEAT-93 (q=3, s=1, 2 moved): unplaced copies leave, no question, the cell stays', async () => {
+    rows = [unit({ quantity: 3 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }));
+
+    applied(await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' }));
+
+    expect(slots.cellsOf('g1')).toBe('1:1');
+  });
+
+  it('FEAT-93: a whole group moved frees every cell without asking', async () => {
+    rows = [unit({ quantity: 2 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }), slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }));
+
+    applied(await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' }));
+
+    expect(slots.cellsOf('g1')).toBe('');
   });
 
   it('moves a group of one without asking how many, out of any cellar too', async () => {
@@ -546,19 +581,37 @@ describe('stockSplitService.repriceUnits (FEAT-98 c5)', () => {
     expect(slots.cellsOf('g25')).toBe('5:1');
   });
 
-  it('FEAT-93 (decision #471 point 74): the copies repriced are unplaced ones first, then cells follow the new line', async () => {
+  it('FEAT-93 (decision #471 point 74, q=3, s=1, 2 repriced): unplaced copies take the new price, no question', async () => {
     rows = [unit({ quantity: 3 })];
-    placeIn(
-      slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }),
-      slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }),
-    );
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }));
 
     const outcome = applied(await stockSplitService.repriceUnits('u1', 'g1', { count: 2, purchasePrice: 25 }));
 
-    // One unplaced copy, then the most recent cell: it stays occupied, on the line at 25 €.
     expect(slots.cellsOf('g1')).toBe('1:1');
-    expect(slots.cellsOf(outcome.result.data.id)).toBe('2:1');
-    expect(outcome.entries[1].changes).toContainEqual({ field: 'slot', from: null, to: { column: 2, row: 1 } });
+    expect(slots.cellsOf(outcome.result.data.id)).toBe('');
+  });
+
+  it('FEAT-93 (point 74, q=3, s=2, 2 repriced) without slotIds: 409 SLOTS_TO_FREE_REQUIRED {needed: 1}', async () => {
+    rows = [unit({ quantity: 3 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }), slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }));
+
+    const error = await rejection(stockSplitService.repriceUnits('u1', 'g1', { count: 2, purchasePrice: 25 }));
+
+    expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
+    expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+  });
+
+  it('FEAT-93 (point 74, q=3, s=2, 2 repriced) with the cell named: it stays occupied and follows the line at the new price', async () => {
+    rows = [unit({ quantity: 3 })];
+    const first = slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 });
+    placeIn(first, slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }));
+
+    const outcome = applied(await stockSplitService.repriceUnits('u1', 'g1', { count: 2, purchasePrice: 25, slotIds: [first.id] }));
+
+    expect(slots.cellsOf('g1')).toBe('2:1');
+    expect(slots.cellsOf(outcome.result.data.id)).toBe('1:1');
+    expect(outcome.entries[0].changes).toContainEqual({ field: 'slot', from: { column: 1, row: 1 }, to: null });
+    expect(outcome.entries[1].changes).toContainEqual({ field: 'slot', from: null, to: { column: 1, row: 1 } });
   });
 
   it('an empty price is a price of its own (≠ 0), and so is 0', async () => {

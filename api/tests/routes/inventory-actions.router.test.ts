@@ -29,7 +29,7 @@ import { stockService } from '../../src/services/stock.service';
 import { stockSplitService } from '../../src/services/stock-split.service';
 import { auditLog } from '../../src/services/audit.service';
 import { bulkStockService } from '../../src/services/bulk-stock.service';
-import { badRequest, conflict } from '../../src/lib/errors';
+import { AppError, badRequest, conflict } from '../../src/lib/errors';
 
 const app = express();
 app.use(express.json());
@@ -252,6 +252,56 @@ describe('POST /api/inventory/:id/move and /reprice (FEAT-98)', () => {
     expect(res.status).toBe(400);
     expect(stockSplitService.moveUnits).not.toHaveBeenCalled();
     expect(stockSplitService.repriceUnits).not.toHaveBeenCalled();
+  });
+});
+
+// ─── FEAT-93 lot S2 (criterion 4): the cells of the copies leaving ──────────
+
+describe('slotIds on /correct, /move and /reprice (FEAT-93, lot S2)', () => {
+  const S1 = '33333333-3333-4333-8333-333333333333';
+  const S2 = '44444444-4444-4444-8444-444444444444';
+  const toFree = () => new AppError(409, 'SLOTS_TO_FREE_REQUIRED', {
+    details: { needed: 1, slots: [{ id: S1, column: 1, row: 1 }, { id: S2, column: 2, row: 1 }] },
+  });
+
+  it.each([
+    ['correct', { quantity: 4, reason: 'written_off', slotIds: [S1] }],
+    ['move', { count: 2, cellarId: 'kitchen', slotIds: [S1, S2] }],
+    ['reprice', { count: 2, purchasePrice: 25, slotIds: [S1] }],
+  ])('/%s passes the cells named to the service', async (route, body) => {
+    vi.mocked(stockService.correctQuantity).mockResolvedValue(null);
+    vi.mocked(stockSplitService.moveUnits).mockResolvedValue(null);
+    vi.mocked(stockSplitService.repriceUnits).mockResolvedValue(null);
+
+    await request(app).post(`/api/inventory/g1/${route}`).send(body);
+
+    const service = { correct: stockService.correctQuantity, move: stockSplitService.moveUnits, reprice: stockSplitService.repriceUnits }[route]!;
+    expect(service).toHaveBeenCalledWith('u1', 'g1', expect.objectContaining({ slotIds: body.slotIds }));
+  });
+
+  it.each([
+    ['correct', 'correctQuantity', { quantity: 4, reason: 'input_error' }],
+    ['move', 'moveUnits', { count: 2, cellarId: 'kitchen' }],
+    ['reprice', 'repriceUnits', { count: 2, purchasePrice: 25 }],
+  ])('/%s answers 409 SLOTS_TO_FREE_REQUIRED {needed, slots} when the cells must be named', async (route, method, body) => {
+    const services = { correctQuantity: stockService.correctQuantity, moveUnits: stockSplitService.moveUnits, repriceUnits: stockSplitService.repriceUnits };
+    vi.mocked(services[method as keyof typeof services]).mockRejectedValue(toFree());
+
+    const res = await request(app).post(`/api/inventory/g1/${route}`).send(body);
+
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ error: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1, slots: [{ id: S1 }, { id: S2 }] } });
+  });
+
+  it.each([
+    ['correct', { quantity: 4, reason: 'input_error', slotIds: ['not-a-slot'] }],
+    ['move', { count: 2, cellarId: 'kitchen', slotIds: S1 }],
+  ])('/%s refuses slotIds that are not slot ids with 400', async (route, body) => {
+    const res = await request(app).post(`/api/inventory/g1/${route}`).send(body);
+
+    expect(res.status).toBe(400);
+    expect(stockService.correctQuantity).not.toHaveBeenCalled();
+    expect(stockSplitService.moveUnits).not.toHaveBeenCalled();
   });
 });
 

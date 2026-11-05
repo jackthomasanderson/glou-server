@@ -748,7 +748,7 @@ async function applyCorrectionsInternal(
         skip(item.id, correction.action, 'nothing_to_correct');
         continue;
       }
-      const corrected = await correctQuantityIn(tx, actingUserId, item.id, item.productId, { quantity, reason: correction.reason });
+      const corrected = await correctQuantityIn(tx, actingUserId, item.id, item.productId, { quantity, reason: correction.reason }, 'auto');
       if (!corrected || 'conflict' in corrected) {
         skip(item.id, correction.action, 'item_not_found');
         continue;
