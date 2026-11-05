@@ -46,8 +46,13 @@ export function gridLineParts(item: GridItem, t: Translate, lang: string | undef
  * says nothing more than its wine: never the "×6" of its line.
  */
 export function cellParts(item: GridItem, t: Translate, lang: string | undefined): string[] {
+  return present([...cellHead(item, t), ...purchaseParts(item, t, lang)]);
+}
+
+/** What one copy of the line is, before its price and day ("Entamée", "Boîte fermée de 25"…). */
+function cellHead(item: GridItem, t: Translate): string[] {
   const cigar = unitKind(item.category) === 'cigar';
-  const head = item.isOpened
+  return item.isOpened
     ? cigar
       ? [t('familyDrawer.lines.openedBox'), t('familyDrawer.lines.cigarsLeft', { count: item.cigarsLeft ?? 0 })]
       : [t('familyDrawer.lines.opened')]
@@ -56,7 +61,20 @@ export function cellParts(item: GridItem, t: Translate, lang: string | undefined
       : item.cigarsPerBox != null
         ? [t('cellars.grid.closedBox', { size: item.cigarsPerBox })]
         : [t('familyDrawer.lines.singleCigars', { count: item.quantity ?? 1 })];
-  return present([...head, ...purchaseParts(item, t, lang)]);
+}
+
+/**
+ * Recette n°5 of #847: the tooltip of a cell on short lines — its wine, its
+ * producer, what the copy is, its price and day — so that it stays beside
+ * its cell instead of one long line pushed against the edge of the screen.
+ */
+export function cellTooltipLines(item: GridItem, t: Translate, lang: string | undefined): string[] {
+  return present([
+    present([item.name, item.vintage != null ? String(item.vintage) : null]).join(' '),
+    item.producer,
+    cellHead(item, t).join(' · '),
+    present(purchaseParts(item, t, lang)).join(' · '),
+  ]);
 }
 
 /**

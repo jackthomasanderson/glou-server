@@ -37,9 +37,10 @@ import { client } from '@/lib/api';
 import { notifyError } from '@/lib/toast';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import { gridCoordinateGetter } from '@/lib/cellars/gridKeyboard';
-import { cellBadge, cellParts, gridLineParts, noUnplacedCopyText, placementText } from '@/lib/cellars/gridLine';
+import { cellBadge, cellParts, cellTooltipLines, gridLineParts, noUnplacedCopyText, placementText } from '@/lib/cellars/gridLine';
 import { gridWording, type GridWording } from '@/lib/cellars/gridWording';
 import { dropAction, moveSlot, swapOwners } from '@/lib/cellars/gridMoves';
+import { unitKind } from '@shared/units';
 
 // ─── Color mapping ────────────────────────────────────────────────────────────
 // Wine gets its own per-varietal-color dots (red/white/rosé/orange — that's
@@ -65,6 +66,17 @@ function getCellColor(item: GridItem): string {
     return CATEGORY_COLORS[`wine:${item.color ?? ''}`] ?? CATEGORY_COLORS['wine:'];
   }
   return CATEGORY_COLORS[item.category] ?? '#9E9E9E';
+}
+
+/**
+ * Recette n°5 of #847: an opened bottle (or box) is hatched over its colour,
+ * so that it reads apart from a full one without relying on colour alone
+ * (ux-ui.md, accessibility); the legend says what the hatching means.
+ */
+const OPENED_PATTERN = 'repeating-linear-gradient(135deg, rgba(255,255,255,0.5) 0 3px, transparent 3px 7px)';
+
+function cellBackground(item: GridItem): React.CSSProperties {
+  return { backgroundColor: getCellColor(item), ...(item.isOpened ? { backgroundImage: OPENED_PATTERN } : {}) };
 }
 
 // ─── Zone helpers ─────────────────────────────────────────────────────────────
@@ -115,7 +127,7 @@ function BottleVisual({ item }: BottleVisualProps) {
   return (
     <div
       className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center"
-      style={{ backgroundColor: getCellColor(item) }}
+      style={cellBackground(item)}
     >
       <CopiesBadge item={item} />
       <span
@@ -152,18 +164,33 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = 
   // FEAT-93: what the cell holds — a bottle, "Boîte fermée de 25", "Boîte entamée · 23 restants"…
   const tooltipContent = [item.name, item.producer, item.vintage, ...cellParts(item, t, i18n?.language)]
     .filter(Boolean).join(' · ');
+  const tooltipLines = cellTooltipLines(item, t, i18n?.language);
 
   const outlineStyle = zone !== 'temperate'
     ? { outline: `2px solid ${zone === 'hot' ? 'rgba(255,167,38,0.7)' : 'rgba(33,150,243,0.7)'}`, outlineOffset: '-2px' }
     : {};
 
   return (
-    <Tooltip delay={500} content={isDragging ? '' : tooltipContent} placement="top">
+    // Beside the cell, with an arrow: never over the row above nor the counter (recette n°5 of #847).
+    <Tooltip
+      delay={500}
+      placement="right"
+      showArrow
+      classNames={{ content: 'max-w-56' }}
+      content={isDragging ? '' : (
+        <div className="flex flex-col py-0.5">
+          {tooltipLines.map((line, index) => (
+            <span key={index} data-tooltip-line className={index === 0 ? 'font-semibold' : 'text-foreground-500'}>{line}</span>
+          ))}
+        </div>
+      )}
+    >
       <div
         ref={setNodeRef}
         {...attributes}
         {...listeners}
         data-cell={`${fromCol}:${fromRow}`}
+        data-opened={item.isOpened ? 'true' : undefined}
         aria-label={t('cellars.grid.cellLabelOccupied', { col: fromCol, row: fromRow, name: tooltipContent })}
         onClick={() => onOpenSlot(item)}
         // Space picks the bottle up (dnd-kit's KeyboardSensor); Enter opens its
@@ -178,7 +205,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = 
         }}
         className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-primary"
         style={{
-          backgroundColor: getCellColor(item),
+          ...cellBackground(item),
           cursor: isDragging ? 'grabbing' : 'grab',
           opacity: isDragging ? 0.35 : 1,
           transition: isDragging ? 'none' : 'all 0.15s',
@@ -281,6 +308,11 @@ function GridLegend({ items }: { items: GridItem[] }) {
     return Array.from(keys);
   }, [items]);
 
+  // Recette n°5 of #847: what the hatching of an opened bottle (or box) means.
+  const openedLabels = Array.from(new Set(items
+    .filter((item) => item.isOpened && item.slots.length > 0)
+    .map((item) => (unitKind(item.category) === 'cigar' ? 'familyDrawer.lines.openedBox' : 'familyDrawer.lines.opened'))));
+
   if (present.length === 0) return null;
 
   const labelFor = (key: string) => {
@@ -300,6 +332,12 @@ function GridLegend({ items }: { items: GridItem[] }) {
           style={{ backgroundColor: CATEGORY_COLORS[key] ?? '#9E9E9E' }}
         >
           {labelFor(key)}
+        </span>
+      ))}
+      {openedLabels.map((label) => (
+        <span key={label} data-testid="grid-legend-opened" className="inline-flex items-center gap-1.5 px-1 text-xs text-foreground-500">
+          <span aria-hidden className="w-3.5 h-3.5 rounded" style={{ backgroundColor: '#9E9E9E', backgroundImage: OPENED_PATTERN }} />
+          {t(label)}
         </span>
       ))}
     </div>
