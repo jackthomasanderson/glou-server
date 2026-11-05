@@ -33,7 +33,7 @@ La page liste toutes vos notes de dégustation, triées de la plus récente à l
    | Accord culinaire | Texte | Max 500 caractères |
 
 5. Cliquez sur **Enregistrer**.
-   Sur une bouteille de la cave, Glou demande ensuite **Mettre à jour le stock ?** (**Bouteille entamée**, **Bouteille bue (vide)** ou **Ne pas modifier le stock**). Si la ligne compte plusieurs bouteilles dont certaines sont rangées sur le plan de cave, il demande aussi **De quelle case ?**, avec **Non rangée** présélectionnée s'il en reste (voir [04-Gestion-Des-Caves.md](./04-Gestion-Des-Caves.md)). La dégustation est enregistrée dans tous les cas.
+   Sur une bouteille de la cave, Glou demande ensuite **Mettre à jour le stock ?** (**Bouteille entamée**, **Bouteille bue (vide)** ou **Ne pas modifier le stock**). Si la ligne compte plusieurs bouteilles dont certaines sont rangées sur le plan de cave, il demande aussi **De quelle case ?**, avec **Non rangée** présélectionnée s'il en reste ; si vous aviez ouvert le vin en touchant une case du plan, c'est la bouteille de cette case, sans question (voir [04-Gestion-Des-Caves.md](./04-Gestion-Des-Caves.md)). La dégustation est enregistrée dans tous les cas.
 
 > [!TIP]
 > Seul le champ **Vin dégusté** est obligatoire.
