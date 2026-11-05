@@ -44,7 +44,7 @@ const built: Record<string, readonly string[]> = {
 describe('keys built from a state', () => {
   it.each(Object.keys(LOCALES) as (keyof typeof LOCALES)[])('every state has its %s label', (lng) => {
     const missing = Object.entries(built).flatMap(([pattern, values]) =>
-      values.map((value) => pattern.replace('%', value)).filter((key) => !exists(LOCALES[lng], key)));
+      values.map((value) => pattern.replaceAll('%', value)).filter((key) => !exists(LOCALES[lng], key)));
     expect(missing).toEqual([]);
   });
 });
