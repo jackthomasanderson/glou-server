@@ -92,7 +92,7 @@ function CopiesBadge({ item }: { item: GridItem }) {
   return (
     <span
       data-testid="slot-copies"
-      className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-foreground text-background text-[10px] font-bold leading-4 text-center pointer-events-none"
+      className="absolute -top-1.5 -right-1.5 z-10 min-w-5 h-5 px-1 rounded-full bg-foreground text-background text-xs font-bold leading-5 text-center ring-2 ring-background shadow-sm pointer-events-none"
     >
       {t('cellars.grid.copies', { number: copies })}
     </span>
@@ -665,7 +665,8 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
           screenReaderInstructions: { draggable: t('cellars.grid.dragInstructions', wording) },
         }}
       >
-        <div className="overflow-x-auto pb-1">
+        {/* Room for the "×25" badges of the top row and last column (recette v3 of #471). */}
+        <div className="overflow-x-auto pt-2 pr-2 pb-1">
           <div
             className="inline-grid"
             style={{

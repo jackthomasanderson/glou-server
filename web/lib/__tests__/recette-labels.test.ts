@@ -67,7 +67,8 @@ describe('cigar wording', () => {
   it('the plan of a humidor, or of a cellar holding only cigars, speaks of cigars', async () => {
     expect(gridWording('HUMIDOR', [])).toEqual({ context: 'cigar' });
     expect(gridWording('VINTAGE', [{ category: 'cigar' }])).toEqual({ context: 'cigar' });
-    expect(gridWording('VINTAGE', [{ category: 'cigar' }, { category: 'wine' }])).toEqual({});
+    // Recette v3: a cellar holding both speaks of both.
+    expect(gridWording('VINTAGE', [{ category: 'cigar' }, { category: 'wine' }])).toEqual({ context: 'mixed' });
     expect(gridWording('VINTAGE', [])).toEqual({});
     for (const lng of ['fr', 'en'] as const) {
       const i = await translator(lng);
@@ -79,6 +80,13 @@ describe('cigar wording', () => {
     }
     const i = await translator('fr');
     expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'cigar' })).toBe("Assigner un cigare ou une boîte à l'emplacement C1·R2");
+    expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'mixed' })).toBe("Assigner une bouteille, une boîte ou un cigare à l'emplacement C1·R2");
+    for (const lng of ['fr', 'en'] as const) {
+      const both = await translator(lng);
+      for (const key of ['assignTitle', 'noUnassignedBottles', 'cellLabelEmpty', 'dragInstructions']) {
+        expect(both.t(`cellars.grid.${key}`, { col: 1, row: 2, context: 'mixed' }), key).not.toBe(both.t(`cellars.grid.${key}`, { col: 1, row: 2 }));
+      }
+    }
   });
 });
 
