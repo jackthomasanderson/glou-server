@@ -278,6 +278,24 @@ describe('readFieldHistory', () => {
       expect(edit).not.toHaveProperty('gesture');
     });
 
+    it('a number of cigars left corrected by hand is no smoke', async () => {
+      const [corrected] = await read([log(1, 0, 'x', { changes: [{ field: 'cigarsLeft', from: 20, to: 15 }] })]);
+      expect(corrected).not.toHaveProperty('gesture');
+    });
+
+    it('1 of 3 moved, then the 2 left within seconds: only the first move tells the cell its line freed', async () => {
+      const move = { cellarId: { from: 'c1', to: 'c2' } };
+      const history = await read([
+        // The 2 left join the line of the first one: the group is gone, its entry names no cell.
+        log(3, 5, 'l', { ...move, count: 2, fromItemId: 'g', changes: [{ field: 'quantity', from: 1, to: 3 }, { field: 'cellarId', from: 'c1', to: 'c2' }] }, 'MOVE_UNITS'),
+        log(2, 0, 'g', { ...move, count: 1, toItemId: 'l', changes: [{ field: 'quantity', from: 3, to: 2 }, { field: 'slot', from: cell(1, 1), to: null }] }, 'MOVE_UNITS'),
+        log(1, 0, 'l', { ...move, count: 1, fromItemId: 'g', changes: [{ field: 'quantity', from: null, to: 1 }, { field: 'cellarId', from: 'c1', to: 'c2' }] }, 'MOVE_UNITS'),
+      ]);
+      const [second, , first] = history;
+      expect(second.changes).not.toContainEqual(expect.objectContaining({ field: 'slot' }));
+      expect(first.changes).toContainEqual({ field: 'slot', from: cell(1, 1), to: null });
+    });
+
     it('part of a line moved to another cellar: the line it went to tells the cells its line freed, both entries stay', async () => {
       const history = await read([
         log(2, 0, 'g', { count: 1, cellarId: { from: 'c1', to: 'c2' }, toItemId: 'l', changes: [{ field: 'quantity', from: 3, to: 2 }, { field: 'slot', from: cell(2, 2), to: null }] }, 'MOVE_UNITS'),

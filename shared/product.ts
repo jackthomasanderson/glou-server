@@ -235,10 +235,10 @@ export interface FieldChange {
   to: unknown;
 }
 
-/** One line of a family's history: a change of its description or of one of its units. */
 /** Recette #847: what was done to a copy, said in one word ("1 bouteille ouverte", "1 bouteille bue", "1 cigare fumé"). */
 export type HistoryGesture = 'opened' | 'finished' | 'smoked';
 
+/** One line of a family's history: a change of its description or of one of its units. */
 export interface ProductHistoryEntry {
   id: number;
   action: string;

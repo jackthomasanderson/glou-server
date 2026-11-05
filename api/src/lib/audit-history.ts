@@ -131,7 +131,7 @@ export function withoutUndone<L extends HistoryLog>(logs: readonly L[]): L[] {
 /** How far apart the entries one request wrote can be (each is written on its own, after the transaction). */
 const PAIR_WINDOW_MS = 10_000;
 
-type PairDetails = StateDetails & { fromItemId?: string; toItemId?: string };
+type PairDetails = StateDetails & { fromItemId?: string; toItemId?: string; count?: number };
 
 /** The line an entry was recorded on, even once it moved onto a line that absorbed it. */
 const lineOf = (log: HistoryLog) => detailsOf(log).absorbedFrom ?? log.bottleId;
@@ -188,6 +188,8 @@ function nearest<L extends HistoryLog>(logs: readonly L[], log: L, match: (other
 export function foldSplitEntries<L extends HistoryLog>(logs: readonly L[]): L[] {
   const folded = new Set<L>();
   const merged = new Map<L, L>();
+  /** The group entries of moves whose cells are already told on a move. */
+  const told = new Set<L>();
   for (const log of logs) {
     if (folded.has(log)) continue;
     const details = detailsOf(log) as PairDetails;
@@ -202,12 +204,16 @@ export function foldSplitEntries<L extends HistoryLog>(logs: readonly L[]): L[] 
         return theirs.subItemId ? theirs.subItemId === copy : !theirs.targetItemId && actorOf(other) === actorOf(log);
       });
     } else if (log.action === 'MOVE_UNITS' && details.fromItemId) {
-      group = nearest(logs, log, (other) => other.action === 'MOVE_UNITS'
-        && lineOf(other) === details.fromItemId && (detailsOf(other) as PairDetails).toItemId === lineOf(log));
+      // The same move: same copies, and a group's entry tells its cells on one move only
+      // (1 of 3 moved, then the 2 left within seconds: the second move never says the first one's cells).
+      group = nearest(logs, log, (other) => other.action === 'MOVE_UNITS' && !told.has(other)
+        && lineOf(other) === details.fromItemId && (detailsOf(other) as PairDetails).toItemId === lineOf(log)
+        && (detailsOf(other) as PairDetails).count === details.count);
     }
     if (!group) continue;
     const groupChanges = detailsOf(group).changes ?? [];
     if (log.action === 'MOVE_UNITS') {
+      told.add(group);
       // Each line keeps its entry (point 57): the cells are only told again where the move is.
       const freed = groupChanges.filter((change) => change.field === 'slot' && change.to == null);
       if (freed.length > 0) merged.set(log, { ...log, details: { ...details, changes: [...(details.changes ?? []), ...freed] } });
@@ -232,7 +238,8 @@ export function gestureOf(action: string, details: unknown): HistoryGesture | nu
   const change = (field: string) => changes.find((entry) => entry.field === field);
   if (smokeOne === true) return 'smoked';
   const left = change('cigarsLeft');
-  if (left && typeof left.from === 'number' && typeof left.to === 'number' && left.to < left.from) return 'smoked';
+  // Recorded before the mark: exactly one cigar fewer in an opened box (a number corrected in the form is not a smoke).
+  if (left && typeof left.from === 'number' && typeof left.to === 'number' && left.from - left.to === 1) return 'smoked';
   const level = change('fillLevel');
   if (level && level.to === 0 && level.from !== 0) return 'finished';
   const opened = change('isOpened');
