@@ -6,7 +6,7 @@ import { createQueryClient } from '@/lib/queryClient';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { I18nProvider } from './I18nProvider';
 import { ThemeWrapper } from '@/components/ui/ThemeWrapper';
-import { TOAST_PROPS } from '@/lib/toast';
+import { TOAST_OFFSET_PX, TOAST_PROPS } from '@/lib/toast';
 
 const queryClient = createQueryClient();
 
@@ -19,7 +19,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
               Every success/error notification goes through lib/toast.ts. */}
           {/* A message is read whole: HeroUI cuts its title to one line
               (« Bouteille remise avec les a… », recette #471). */}
-          <ToastProvider placement="top-right" toastProps={TOAST_PROPS} />
+          {/* Below a drawer's close button, never over it (recette v3 of #471). */}
+          <ToastProvider placement="top-right" toastOffset={TOAST_OFFSET_PX} toastProps={TOAST_PROPS} />
           {children}
           {process.env.NODE_ENV === 'development' && <ReactQueryDevtools />}
         </ThemeWrapper>

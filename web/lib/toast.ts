@@ -22,6 +22,13 @@ import i18n from '@/lib/i18n';
  */
 export const TOAST_PROPS = { classNames: { title: 'whitespace-normal break-words' } };
 
+/**
+ * Messages start this far below the top edge: at the top, a message covered
+ * the close button of a drawer, so pressing the cross closed the message
+ * instead of the drawer (recette v3 of #471). Still top-right (ux-ui.md 9.4).
+ */
+export const TOAST_OFFSET_PX = 64;
+
 /** Success notifications are transient (ux-ui.md 9.4: 3 seconds). */
 const SUCCESS_TIMEOUT_MS = 3000;
 
@@ -88,12 +95,15 @@ export function notifyUndoable(
   const button = (label: string, onPress: () => void) =>
     createElement(Button, { key: label, size: 'sm', variant: 'flat', color: 'success', onPress }, label);
   const undo = button(translate('actions.undo'), once(onUndo));
+  // Two actions go under the message, not beside it: beside, they left the
+  // message a word's width and cut it mid-word on a phone (« 1 / bout / eille
+  // / bue », recette v3 of #471).
   const key = addToast({
     title: translate(messageKey, values),
     color: 'success',
     timeout: UNDO_TIMEOUT_MS,
-    endContent: extra
-      ? createElement('div', { className: 'flex gap-1' }, button(translate(extra.labelKey), once(extra.onPress)), undo)
-      : undo,
+    ...(extra
+      ? { description: createElement('div', { className: 'flex flex-wrap gap-1 mt-1' }, button(translate(extra.labelKey), once(extra.onPress)), undo) }
+      : { endContent: undo }),
   });
 }

@@ -144,4 +144,28 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     // Only its placing in the slot is told, not the drink taken back (recette #471).
     await expect.poll(() => changesTold(api, bottle.productId)).toEqual(['UPDATE']);
   });
+
+  // Recette v3 of #471: the message covered the drawer's close button —
+  // pressing the cross closed the message, not the drawer.
+  test('the message of a move never covers the close button of the drawer', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E RE toast ${stamp()}`;
+    const group = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name, producer: 'E2E Domaine', quantity: 2 },
+    }));
+    families.push(group.productId);
+
+    const drawer = await openDrawer(page, group.productId, name);
+    await drawer.getByTestId('stock-move-open').click();
+    await expect(page.getByText('1 bouteille ouverte')).toBeVisible();
+
+    const close = drawer.getByRole('button', { name: 'Fermer' }).first();
+    const box = (await close.boundingBox())!;
+    // Once the message has slid into place (it enters from the top edge).
+    const onTop = () => page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.getAttribute('aria-label') ?? null,
+      [box.x + box.width / 2, box.y + box.height / 2] as const);
+    await expect.poll(onTop, { timeout: 3000 }).toBe('Fermer');
+    await close.click();
+    await expect(drawer).toBeHidden();
+  });
 });

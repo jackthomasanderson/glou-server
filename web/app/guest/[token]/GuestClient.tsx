@@ -167,7 +167,8 @@ export function GuestPageContent({ token }: { token: string }) {
             className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-primary-200 bg-primary-50/50 px-4 py-3"
           >
             <GlassWater size={16} className="text-primary shrink-0" aria-hidden />
-            <p className="text-sm flex-1 min-w-0">{t('shares.guest.drunk.message', { wine: drunk.wine })}</p>
+            {/* Room for whole words: its button goes to the next line on a phone (recette v3 of #471). */}
+            <p className="text-sm flex-1 min-w-[12rem]">{t('shares.guest.drunk.message', { wine: drunk.wine })}</p>
             <Button
               size="sm"
               color="primary"
