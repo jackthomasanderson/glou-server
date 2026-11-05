@@ -406,6 +406,17 @@ describe('the cells a dialog names (FEAT-93 c4)', () => {
     expect(requests[0]).toMatchObject({ url: '/api/inventory/g/correct', body: { quantity: 4, reason: 'input_error', slotIds: ['s1', 's6'] } });
   });
 
+  it('review 857: the plan is numbered (columns above, rows on the left); the line\'s cells carry a dot; freeing is drawn as a loss', () => {
+    renderIn(<CorrectQuantityDialog item={group({ slots: cells(6) })} ctx={ctx()} isOpen onClose={vi.fn()} onTrashInstead={vi.fn()} />);
+    typeNumber(numberField('correct-quantity-input'), '4');
+    const picker = screen.getByTestId('slot-picker');
+    expect(within(picker).getAllByTestId('slot-pick-column').map((label) => label.textContent)).toEqual(['C1', 'C2', 'C3', 'C4']);
+    expect(within(picker).getAllByTestId('slot-pick-row').map((label) => label.textContent)).toEqual(['R1', 'R2', 'R3']);
+    const cell = within(picker).getByRole('button', { name: 'Case C1·R1' });
+    expect(cell.querySelector('span.rounded-full')).not.toBeNull();
+    expect(cell).toHaveAttribute('data-tone', 'danger');
+  });
+
   it('no question while the copies left hold every cell, nor when the whole line leaves', () => {
     const { unmount } = renderIn(<CorrectQuantityDialog item={group({ slots: cells(2) })} ctx={ctx()} isOpen onClose={vi.fn()} onTrashInstead={vi.fn()} />);
     typeNumber(numberField('correct-quantity-input'), '4');
@@ -463,6 +474,8 @@ describe('the cells a dialog names (FEAT-93 c4)', () => {
     typeNumber(numberField('reprice-count-input'), '2');
     const picker = screen.getByTestId('slot-picker');
     expect(within(picker).getByText('Quelles cases passent au nouveau prix ?')).toBeInTheDocument();
+    // Nothing is lost: the cells chosen follow the new price, not drawn as freed.
+    expect(within(picker).getByRole('button', { name: 'Case C1·R1' })).toHaveAttribute('data-tone', 'primary');
     expect(confirmButton('Changer le prix')).toBeDisabled();
     pick(1, 2);
     fireEvent.click(confirmButton('Changer le prix'));

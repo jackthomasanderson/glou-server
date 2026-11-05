@@ -94,6 +94,7 @@ export function RepriceDialog({ item, ctx, isOpen, onClose }: RepriceDialogProps
           selected={cells.selected}
           onChange={cells.setSelected}
           title={t('stockLine.slots.followTitle')}
+          tone="primary"
           hint={t('stockLine.slots.followHint', { count: cells.needed })}
         />
       )}

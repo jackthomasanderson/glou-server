@@ -46,9 +46,15 @@ interface TastingFormProps {
   // the "Consommer maintenant" action of the dish → bottles pairing explorer.
   initialFoodPairing?: string;
   editNote?: { id: string; values: TastingFormValues };
+  /**
+   * FEAT-93: opened from a wine's drawer opened on a cell of the plan — the
+   * line holding it and its slot. Updating the stock of that line takes the
+   * bottle of that cell, without asking "De quelle case ?" (decision 77).
+   */
+  fromCell?: { itemId: string; slotId: string };
 }
 
-export function TastingForm({ open, onClose, initialItemId, initialProductId, initialFoodPairing, editNote }: TastingFormProps) {
+export function TastingForm({ open, onClose, initialItemId, initialProductId, initialFoodPairing, editNote, fromCell }: TastingFormProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const { data: products } = useProducts({ enabled: open });
@@ -183,6 +189,11 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
   const handleStockChoice = async (choice: StockChoice, cell?: SlotChoiceFields) => {
     // FEAT-93: a line of several placed on the plan — which cell, first (the tasting is saved already).
     const ask = stockQuestion && !cell ? cellQuestionFor(choice, stockQuestion.item) : null;
+    // The cell touched on the plan already says which bottle, when it is of the line tasted.
+    if (ask && stockQuestion && fromCell?.itemId === stockQuestion.itemId && ask.slots.some((slot) => slot.id === fromCell.slotId)) {
+      await handleStockChoice(choice, { fromSlotId: fromCell.slotId });
+      return;
+    }
     if (ask) {
       setCellQuestion({ choice, ask });
       return;

@@ -40,8 +40,13 @@ vi.mock('@/hooks/useAlerts', () => ({ useToggleAlertPause: () => ({ mutate: vi.f
 const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
 vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('@/components/collections/CollectionPickerInline', () => ({ CollectionPickerInline: () => null }));
+const tastingFromCell: { value?: { itemId: string; slotId: string } } = {};
 vi.mock('@/components/tastings/TastingForm', () => ({
-  TastingForm: ({ initialItemId }: { initialItemId?: string }) => { tastingPreset.id = initialItemId; return null; },
+  TastingForm: ({ initialItemId, fromCell }: { initialItemId?: string; fromCell?: { itemId: string; slotId: string } }) => {
+    tastingPreset.id = initialItemId;
+    tastingFromCell.value = fromCell;
+    return null;
+  },
 }));
 vi.mock('../QrCodeModal', () => ({ QrCodeModal: () => null }));
 // The drawer's frame only: its content is what is tested.
@@ -458,4 +463,20 @@ describe('FamilyDrawer — opened from a cell of the plan (FEAT-93)', () => {
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(removeSlot).not.toHaveBeenCalled();
   });
+
+  it('review 857: a bottle put back in the cell by "Annuler" (a new slot there) keeps the banner', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage', slots: [{ id: 'new', column: 2, row: 3 }] })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={{ ...slotContext, at: { cellarId: 'garage', column: 2, row: 3 } }} />);
+    expect(screen.getByTestId('slot-context')).toHaveTextContent('Case C2·R3');
+    // The tasting of that line takes the bottle of the cell, under its slot of now.
+    expect(tastingFromCell.value).toEqual({ itemId: 'group', slotId: 'new' });
+  });
+
+  it('the same cell number in another cellar is not the cell touched', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'kitchen', slots: [{ id: 'other', column: 2, row: 3 }] })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={{ ...slotContext, at: { cellarId: 'garage', column: 2, row: 3 } }} />);
+    expect(screen.queryByTestId('slot-context')).toBeNull();
+    expect(tastingFromCell.value).toBeUndefined();
+  });
 });
+

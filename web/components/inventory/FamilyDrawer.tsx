@@ -100,6 +100,11 @@ export interface SlotContext {
   itemId: string;
   slotId: string;
   label: string;
+  /**
+   * Where the cell is: a bottle put back in it by "Annuler" holds it again
+   * under a new slot — the cell is still the one touched.
+   */
+  at?: { cellarId: string; column: number; row: number };
 }
 
 const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
@@ -169,10 +174,15 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   }
   // The cell, while it still holds a bottle (not once taken out or drunk): of
   // the line touched, or of the bottle opened from it, which took the cell along.
+  // The same cell under a new slot counts too (a bottle drunk from it, then put back by "Annuler").
+  const isTouched = (item: ProductItem, slot: ProductItem['slots'][number]) => slotContext != null && (slot.id === slotContext.slotId
+    || (slotContext.at != null && item.cellarId === slotContext.at.cellarId
+      && slot.column === slotContext.at.column && slot.row === slotContext.at.row));
   const slotLine = slotContext
-    ? product?.items.find((item) => item.slots.some((slot) => slot.id === slotContext.slotId))
+    ? product?.items.find((item) => item.slots.some((slot) => isTouched(item, slot)))
     : undefined;
-  const cell = slotContext && slotLine ? slotContext : null;
+  const heldSlot = slotLine?.slots.find((slot) => isTouched(slotLine, slot));
+  const cell = slotContext && heldSlot ? { ...slotContext, slotId: heldSlot.id } : null;
   // FEAT-108 (plan §4): the gestures of the plan wait for the network.
   const offline = useOfflineBlocked();
   const removeSlot = useRemoveSlot(slotLine?.cellarId ?? '');
@@ -565,7 +575,14 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
       {putBackDialog}
 
       {/* FEAT-107: on this wine — one of its bottles, or tasted elsewhere (a wine without any bottle). */}
-      <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialProductId={product?.id} initialItemId={tastingPreset?.id} />
+      <TastingForm
+        open={tastingOpen}
+        onClose={() => setTastingOpen(false)}
+        initialProductId={product?.id}
+        initialItemId={tastingPreset?.id}
+        // FEAT-93 (decision 77): opened from a cell, the cell says which bottle — no "De quelle case ?" again.
+        fromCell={cell && slotLine ? { itemId: slotLine.id, slotId: cell.slotId } : undefined}
+      />
 
       {product && (
         <QrCodeModal isOpen={qrOpen} onClose={() => setQrOpen(false)} itemId={product.id} itemName={wineName(product)} />

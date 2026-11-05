@@ -659,7 +659,9 @@
       "removedFromSlot_box": "Box removed from its slot.",
       "removedFromSlot_cigar": "Cigars removed from their slot.",
       "offline": "Offline, the plan can only be viewed. Placing, moving or taking out a bottle: available when the connection is back.",
-      "notInStock_cigar": "This line is no longer in the cellar: it was smoked or taken out meanwhile."
+      "notInStock_cigar": "This line is no longer in the cellar: it was smoked or taken out meanwhile.",
+      "offline_cigar": "Offline, the plan can only be viewed. Placing, moving or taking out a box or cigars: available when the connection is back.",
+      "offline_mixed": "Offline, the plan can only be viewed. Placing, moving or taking out a bottle, a box or cigars: available when the connection is back."
     },
     "filterByType": "Filter by type",
     "filterByStatus": "Filter by status",
@@ -2427,10 +2429,6 @@
     },
     "slots": {
       "whichTitle": "Which cell?",
-      "whichHint": "Its cell will be freed.",
-      "whichHint_open": "The opened bottle keeps its cell.",
-      "whichHint_drink": "Its cell will be freed.",
-      "whichHint_smoke": "The opened box keeps its cell.",
       "unplacedChoice": "Unplaced",
       "unplacedCount_one": "{{count}} unplaced on this line",
       "unplacedCount_other": "{{count}} unplaced on this line",
@@ -2441,7 +2439,12 @@
       "followHint_one": "The unplaced ones are not enough: choose the cell that takes the new price. It stays occupied.",
       "followHint_other": "The unplaced ones are not enough: choose the {{count}} cells that take the new price. They stay occupied.",
       "pickCount_one": "{{chosen}} of {{count}} cell chosen",
-      "pickCount_other": "{{chosen}} of {{count}} cells chosen"
+      "pickCount_other": "{{chosen}} of {{count}} cells chosen",
+      "hintFreed": "Cell {{cell}} will be freed.",
+      "hintKept": "The opened bottle stays in {{cell}}.",
+      "hintKept_box": "The opened box stays in {{cell}}.",
+      "columnShort": "C{{col}}",
+      "rowShort": "R{{row}}"
     }
   },
   "familyList": {
@@ -2852,7 +2855,9 @@
     "fields": {
       "slot": "Cell"
     },
-    "slotChange": "Cell {{from}} → {{to}}",
-    "slotNone": "none"
+    "slotNone": "none",
+    "slotPlaced": "Cell {{cell}} taken",
+    "slotFreed": "Cell {{cell}} freed",
+    "slotMoved": "Cell {{from}} → {{to}}"
   }
 }

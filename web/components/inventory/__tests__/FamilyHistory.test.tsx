@@ -199,8 +199,9 @@ describe('FamilyHistory — cells of the plan (FEAT-93)', () => {
       entry({ id: 3, itemId: 'b1', changes: [{ field: 'slot', from: { column: 1, row: 1 }, to: { column: 2, row: 1 } }] }),
     ]);
     const history = screen.getByTestId('family-history');
-    expect(history).toHaveTextContent('Case C2·R3 → aucune');
-    expect(history).toHaveTextContent('Case aucune → C1·R1');
+    expect(history).toHaveTextContent('Case C2·R3 libérée');
+    expect(history).toHaveTextContent('Case C1·R1 occupée');
+    expect(history).not.toHaveTextContent('aucune');
     expect(history).toHaveTextContent('Case C1·R1 → C2·R1');
     expect(history).not.toHaveTextContent('column');
     expect(restoreButtons()).toEqual([]);

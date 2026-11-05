@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Radio, RadioGroup } from '@heroui/react';
 import type { SlotChoiceFields } from '@shared/product';
-import { cellAnswer, cellTitle, preselectedCell, UNPLACED, type CellAsk } from '@/lib/products/cells';
+import { cellAnswer, cellShort, cellTitle, preselectedCell, UNPLACED, type CellAsk } from '@/lib/products/cells';
 import { LineDialogFrame } from './StockLineDialogParts';
 
 interface WhichCellDialogProps {
@@ -15,7 +15,7 @@ interface WhichCellDialogProps {
   ask: CellAsk;
   /** What the answer does: "J'en ouvre une", "J'en bois une", "Bue"… */
   confirmLabel: string;
-  /** Which move it is, for the hint ("La bouteille ouverte garde sa case."). */
+  /** Which move it is, for the hint ("La case C2·R1 sera libérée.", "La bouteille ouverte reste en C2·R1."). */
   move: 'open' | 'drink' | 'smoke';
   isPending: boolean;
   onConfirm: (answer: SlotChoiceFields) => void;
@@ -32,6 +32,11 @@ export function WhichCellDialog({ wine, line, ask, confirmLabel, move, isPending
   const { t } = useTranslation();
   const [chosen, setChosen] = useState<string | null>(() => preselectedCell(ask));
   const title = t('stockLine.slots.whichTitle');
+  const cell = ask.slots.find((slot) => slot.id === chosen);
+  // Finished, the copy frees its cell; opened (a bottle, a box), it stays in it.
+  const hint = !cell ? '' : move === 'drink'
+    ? t('stockLine.slots.hintFreed', { cell: cellShort(cell, t) })
+    : t('stockLine.slots.hintKept', { cell: cellShort(cell, t), context: move === 'smoke' ? 'box' : undefined });
   // "Non rangée" first while one is left, then each cell of the line.
   const options = [
     ...(ask.unplaced > 0
@@ -53,7 +58,8 @@ export function WhichCellDialog({ wine, line, ask, confirmLabel, move, isPending
       isPending={isPending}
       testId="which-cell-dialog"
     >
-      <p className="text-xs text-foreground-500">{t('stockLine.slots.whichHint', { context: move })}</p>
+      {/* What the answer does to the cell chosen — nothing to say for an unplaced copy, or before a choice. */}
+      <p className="text-xs text-foreground-500 min-h-4" aria-live="polite" data-testid="which-cell-hint">{hint}</p>
       <RadioGroup aria-label={title} value={chosen ?? ''} onValueChange={setChosen}>
         {options.map((option) => (
           <Radio key={option.value} value={option.value} description={option.description}>{option.label}</Radio>

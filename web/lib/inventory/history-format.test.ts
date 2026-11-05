@@ -12,7 +12,9 @@ const t = (key: string, options?: Record<string, unknown>) =>
     'history.slotNone': 'aucune',
   } as Record<string, string>)[key]
     ?? (key === 'cellars.grid.cellShort' ? `C${options?.col}·R${options?.row}` : undefined)
-    ?? (key === 'history.slotChange' ? `Case ${options?.from} → ${options?.to}` : undefined) ?? (options?.defaultValue as string) ?? key;
+    ?? (key === 'history.slotMoved' ? `Case ${options?.from} → ${options?.to}` : undefined)
+    ?? (key === 'history.slotPlaced' ? `Case ${options?.cell} occupée` : undefined)
+    ?? (key === 'history.slotFreed' ? `Case ${options?.cell} libérée` : undefined) ?? (options?.defaultValue as string) ?? key;
 
 describe('item history formatting (#508)', () => {
   it('uses the translated field label', () => {
@@ -62,8 +64,8 @@ describe('a purchase day in the history (#471, D6)', () => {
 describe('cells of the plan in the history (FEAT-93)', () => {
   it('says a cell placed, freed or moved', () => {
     expect(historyFieldLabel('slot', t)).toBe('Case');
-    expect(formatSlotChange({ column: 2, row: 3 }, null, t)).toBe('Case C2·R3 → aucune');
-    expect(formatSlotChange(null, { column: 1, row: 1 }, t)).toBe('Case aucune → C1·R1');
+    expect(formatSlotChange({ column: 2, row: 3 }, null, t)).toBe('Case C2·R3 libérée');
+    expect(formatSlotChange(null, { column: 1, row: 1 }, t)).toBe('Case C1·R1 occupée');
     expect(formatSlotChange({ column: 1, row: 1 }, { column: 2, row: 1 }, t)).toBe('Case C1·R1 → C2·R1');
     expect(formatHistoryValue('slot', { column: 4, row: 2 }, t)).toBe('C4·R2');
     expect(formatHistoryValue('slot', null, t)).toBe('aucune');

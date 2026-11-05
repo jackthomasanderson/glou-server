@@ -988,6 +988,14 @@ describe('applyState — the explicit choice of a cell (FEAT-93, lot S2)', () =>
     expect(freed).toEqual(['1:1', '2:1', '3:1']);
   });
 
+  it('review 857 (4): an unplaced copy asked with a lower number holding no unplaced one — 409 SLOT_CHANGED, nothing written', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })], { slots: cellsOfRow('g', [1, 2]) });
+
+    await expectAppError(chose(db, 'g', { unit: { quantity: 2 }, state: { isOpened: true } }, { fromUnplaced: true }), 409, 'SLOT_CHANGED');
+    expect(db.raw.inventoryItem.create).not.toHaveBeenCalled();
+    expect(db.cells('g')).toBe('1:1 2:1');
+  });
+
   it('a group of single cigars is never asked: its one cell stays with the group', async () => {
     const db = fakeDb([unit({ id: 'g', quantity: 5, category: 'cigar' })], { slots: cellsOfRow('g', [3]) });
 

@@ -231,6 +231,16 @@ describe('CellarGridPlan offline (FEAT-93, FEAT-108)', () => {
     }
   });
 
+  it('a cigar cellar speaks of boxes and cigars (review of #857)', () => {
+    connectivity.online = false;
+    try {
+      renderGrid({ ...data, items: [{ ...data.items[0], category: 'cigar' }] } as unknown as CellarGridData);
+      expect(screen.getByTestId('grid-offline')).toHaveTextContent('cellars.grid.offline|cigar');
+    } finally {
+      connectivity.online = true;
+    }
+  });
+
   it('online: no notice, the gestures are there', () => {
     renderGrid();
     expect(screen.queryByTestId('grid-offline')).toBeNull();

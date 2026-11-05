@@ -495,6 +495,21 @@ describe('"De quelle case ?" (FEAT-93)', () => {
     expect(patches()[1]).toMatchObject({ url: '/api/inventory/sub', body: { isOpened: false, fillLevel: 100, placeAt: { column: 2, row: 1 } } });
   });
 
+  it('review 857: the hint says what the answer does to the cell chosen — nothing for "Non rangée"', async () => {
+    drawFooter(detailOf([placed({ quantity: 3 })]));
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByTestId('which-cell-hint')).toHaveTextContent(/^$/);
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Case C2·R1' }));
+    expect(within(dialog).getByTestId('which-cell-hint')).toHaveTextContent('La case C2·R1 sera libérée.');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Annuler' }));
+
+    fireEvent.click(screen.getByTestId('stock-move-open'));
+    const open = await screen.findByRole('dialog');
+    fireEvent.click(within(open).getByRole('radio', { name: 'Case C1·R1' }));
+    expect(within(open).getByTestId('which-cell-hint')).toHaveTextContent('La bouteille ouverte reste en C1·R1.');
+  });
+
   it('opened from a cell chosen: the opened bottle keeps it — "Annuler" asks for nothing (it comes back with it)', async () => {
     const group = placed();
     answer = () => detachAnswer(group, { isOpened: true, fillLevel: 100, slots: [{ id: 's1', column: 1, row: 1 }] });

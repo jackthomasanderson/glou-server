@@ -237,7 +237,8 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   const chosen = choice === 'auto' || choice === 'ask' ? null : choice;
   const lineSlots = chosen ? await liveSlotsOf(tx, item.id) : null;
   if (chosen && lineSlots) {
-    const copies = item.quantity ?? 1;
+    // The line as this write leaves it: a number written with the state counts (review of #857).
+    const copies = next.quantity ?? 1;
     const stale = 'fromSlotId' in chosen
       ? !lineSlots.some((slot) => slot.id === chosen.fromSlotId)
       : !single && lineSlots.length >= copies;

@@ -49,11 +49,14 @@ const cellText = (value: unknown, t: Translate) =>
   (isCell(value) ? t('cellars.grid.cellShort', { col: value.column, row: value.row }) : t('history.slotNone'));
 
 /**
- * FEAT-93: a cell placed, freed or moved — "Case C2·R3 → aucune",
- * "Case aucune → C1·R1", "Case C1·R1 → C2·R1".
+ * FEAT-93: a cell placed, freed or moved — "Case C2·R2 occupée", "Case
+ * C2·R3 libérée", "Case C1·R1 → C2·R1" (true of a bottle, a box or cigars).
  */
-export const formatSlotChange = (from: unknown, to: unknown, t: Translate): string =>
-  t('history.slotChange', { from: cellText(from, t), to: cellText(to, t) });
+export function formatSlotChange(from: unknown, to: unknown, t: Translate): string {
+  if (isCell(from) && isCell(to)) return t('history.slotMoved', { from: cellText(from, t), to: cellText(to, t) });
+  if (isCell(to)) return t('history.slotPlaced', { cell: cellText(to, t) });
+  return t('history.slotFreed', { cell: cellText(from, t) });
+}
 
 /** Human-readable rendering of a raw field value from the history or a sync conflict. */
 export function formatHistoryValue(field: string, value: unknown, t: Translate, ctx: HistoryValueContext = {}): string {

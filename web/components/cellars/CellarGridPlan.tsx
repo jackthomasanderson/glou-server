@@ -617,7 +617,7 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
 
       {offline && (
         <p id={offlineReasonId} role="status" className="mb-3 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-700" data-testid="grid-offline">
-          {t('cellars.grid.offline')}
+          {t('cellars.grid.offline', wording)}
         </p>
       )}
 
