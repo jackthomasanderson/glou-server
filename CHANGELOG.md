@@ -10,6 +10,8 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+## v2026.11.0 - 2026-11-05
+
 > **Before you update:** this version changes how your cellar is stored (see *Changed* below). The update takes a backup of your database by itself, `./backups/glou-backup-before-migration-<date>.sql.gz`, then transforms your data once. To go back, restore that backup with the previous image (wiki 31, *Go back*): whatever you entered after the update is lost. On Linux, `mkdir -p backups && sudo chown 1001:1001 backups` first, or the API will not start. After the update, open **To check after the update** (banner on the wine list) to settle what Glou could not decide alone (#471).
 
 ### Added
