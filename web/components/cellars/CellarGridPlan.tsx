@@ -69,11 +69,12 @@ function getCellColor(item: GridItem): string {
 }
 
 /**
- * Recette n°5 of #847: an opened bottle (or box) is hatched over its colour,
- * so that it reads apart from a full one without relying on colour alone
+ * Recette n°5 of #847: an opened bottle (or box) is hatched over its colour
+ * (dark stripes, visible on a light colour such as white wine's yellow), so
+ * that it reads apart from a full one without relying on colour alone
  * (ux-ui.md, accessibility); the legend says what the hatching means.
  */
-const OPENED_PATTERN = 'repeating-linear-gradient(135deg, rgba(255,255,255,0.5) 0 3px, transparent 3px 7px)';
+const OPENED_PATTERN = 'repeating-linear-gradient(135deg, rgba(0,0,0,0.3) 0 3px, transparent 3px 7px)';
 
 function cellBackground(item: GridItem): React.CSSProperties {
   return { backgroundColor: getCellColor(item), ...(item.isOpened ? { backgroundImage: OPENED_PATTERN } : {}) };
@@ -171,10 +172,11 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = 
     : {};
 
   return (
-    // Beside the cell, with an arrow: never over the row above nor the counter (recette n°5 of #847).
+    // Beside the cell, from its top edge, with an arrow: never over the row above
+    // nor the counter, even on two lines for a long name (recette n°5 of #847).
     <Tooltip
       delay={500}
-      placement="right"
+      placement="right-start"
       showArrow
       classNames={{ content: 'max-w-56' }}
       content={isDragging ? '' : (

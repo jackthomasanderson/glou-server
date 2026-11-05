@@ -108,10 +108,10 @@ describe('CellarGridPlan, an opened bottle on the plan (recette n°5 of #847)', 
 });
 
 describe('CellarGridPlan, the tooltip of a cell (recette n°5 of #847)', () => {
-  it('opens beside its cell, with an arrow: never over the row above or the counter', () => {
+  it('opens beside its cell from its top edge, with an arrow: never over the row above or the counter', () => {
     renderGrid(withOpened);
     const tooltip = cellAt(2, 1).closest('[data-testid="tooltip"]') as HTMLElement;
-    expect(tooltip).toHaveAttribute('data-placement', 'right');
+    expect(tooltip).toHaveAttribute('data-placement', 'right-start');
     expect(tooltip).toHaveAttribute('data-arrow', 'true');
   });
 
