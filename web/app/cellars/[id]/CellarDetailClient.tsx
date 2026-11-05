@@ -210,8 +210,13 @@ export function CellarDetailClient() {
                     <TableCell><Chip size="sm" variant="flat">{t(`categories.${item.category}`)}</Chip></TableCell>
                     <TableCell className="text-sm">{item.vintage ?? '—'}</TableCell>
                     <TableCell>
-                      {item.slotColumn != null && item.slotRow != null ? (
-                        <Chip size="sm" variant="bordered">{`C${item.slotColumn}·R${item.slotRow}`}</Chip>
+                      {/* FEAT-93: every cell its copies occupy. */}
+                      {item.slots && item.slots.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {item.slots.map((slot) => (
+                            <Chip key={slot.id} size="sm" variant="bordered">{`C${slot.column}·R${slot.row}`}</Chip>
+                          ))}
+                        </div>
                       ) : <span className="text-foreground-400">—</span>}
                     </TableCell>
                   </TableRow>

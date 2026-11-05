@@ -30,5 +30,15 @@ export function gridLineParts(item: GridItem, t: Translate, lang: string | undef
   ].filter((part): part is string => Boolean(part));
 }
 
-/** The badge of a slot: its units when more than one ("×25" for a box of 25 cigars). */
-export const slotUnits = (item: GridItem) => item.units ?? item.quantity ?? 1;
+/**
+ * The badge of a cell: the units of the copy it holds when more than one —
+ * "×25" for a closed box of 25, the cigars left in an opened box, every
+ * cigar of a group of single cigars (one cell for the group, FEAT-93). A
+ * bottle is one: each bottle of a group has its own cell.
+ */
+export function slotUnits(item: GridItem): number {
+  if (unitKind(item.category) !== 'cigar') return 1;
+  if (item.isOpened) return item.cigarsLeft ?? 1;
+  if (item.cigarsPerBox != null) return item.cigarsPerBox;
+  return item.units;
+}

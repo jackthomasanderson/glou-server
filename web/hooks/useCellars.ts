@@ -99,19 +99,30 @@ export function useDeleteCellar() {
 }
 
 /**
- * Hook to assign (or clear) a grid slot for an inventory item.
- * Passing null for slotColumn/slotRow removes the slot assignment.
- * Throws an Error with message 'SLOT_OCCUPIED' when the target cell is already taken.
+ * FEAT-93: places one more copy of a line in a cell of the plan
+ * (POST /api/inventory/:id/slots). Throws an Error with message
+ * 'SLOT_OCCUPIED' when the cell is taken, 'NO_UNPLACED_COPY' when every copy
+ * of the line is already placed.
  */
 export function useAssignSlot(cellarId: string) {
   const queryClient = useQueryClient();
-  return useMutation<
-    void,
-    Error,
-    { itemId: string; slotColumn: number | null; slotRow: number | null }
-  >({
-    mutationFn: async ({ itemId, slotColumn, slotRow }) => {
-      await client.patch(`/inventory/${itemId}`, { slotColumn, slotRow });
+  return useMutation<void, Error, { itemId: string; column: number; row: number }>({
+    mutationFn: async ({ itemId, column, row }) => {
+      await client.post(`/inventory/${itemId}/slots`, { column, row });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cellars', cellarId, 'grid'] });
+      queryClient.invalidateQueries({ queryKey: ['inventory'] });
+    },
+  });
+}
+
+/** FEAT-93: takes a copy out of its cell (DELETE /api/slots/:slotId); it stays in stock, unplaced. */
+export function useRemoveSlot(cellarId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, { slotId: string }>({
+    mutationFn: async ({ slotId }) => {
+      await client.delete(`/slots/${slotId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cellars', cellarId, 'grid'] });

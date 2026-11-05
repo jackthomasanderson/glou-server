@@ -36,8 +36,8 @@ export function toProductItem(item: GuestItem): ProductItem {
     userId: '',
     updatedBy: null,
     cellarId: item.cellarId ?? null,
-    slotColumn: null,
-    slotRow: null,
+    // A guest sees no plan (FEAT-93).
+    slots: [],
     location: item.location ?? null,
     purchasePrice: item.purchasePrice ?? null,
     estimatedValue: item.estimatedValue ?? null,

@@ -11,7 +11,7 @@ import {
 const AT = '2026-11-04T10:00:00.000Z';
 const group = (quantity: number, extra: Record<string, unknown> = {}): UnitLike => ({
   id: 'g', productId: 'p1', quantity, isOpened: false, fillLevel: 100, openedAt: null, cigarsLeft: null,
-  cigarsPerBox: null, parentItemId: null, writtenOffAt: null, slotColumn: 2, slotRow: 3, updatedAt: 'v1', ...extra,
+  cigarsPerBox: null, parentItemId: null, writtenOffAt: null, slots: [{ id: 's1', column: 2, row: 3 }], updatedAt: 'v1', ...extra,
 });
 const change = (patch: Record<string, unknown>, extra: Partial<QueuedChange> = {}): QueuedChange =>
   ({ id: 'm1', itemId: 'g', patch, createdAt: AT, status: 'pending', ...extra });
@@ -23,8 +23,8 @@ describe('applyChange — one copy of a group (FEAT-108 c1)', () => {
   it('opening one of ×6 shows ×5 and one opened bottle, provisional, the slot left to the group', () => {
     const [g, copy, ...rest] = applyChange([group(6)], change(OPEN));
     expect(rest).toEqual([]);
-    expect(g).toMatchObject({ id: 'g', quantity: 5, isOpened: false, fillLevel: 100, slotColumn: 2 });
-    expect(copy).toMatchObject({ id: provisionalIdOf('m1'), quantity: 1, isOpened: true, fillLevel: 100, parentItemId: 'g', slotColumn: null, slotRow: null });
+    expect(g).toMatchObject({ id: 'g', quantity: 5, isOpened: false, fillLevel: 100, slots: [{ id: 's1', column: 2, row: 3 }] });
+    expect(copy).toMatchObject({ id: provisionalIdOf('m1'), quantity: 1, isOpened: true, fillLevel: 100, parentItemId: 'g', slots: [] });
     expect(isProvisional(copy)).toBe(true);
     expect(unitInStock(copy)).toBe(true);
   });
@@ -93,7 +93,7 @@ describe('applyChange — "Corriger le nombre" (FEAT-108 c5)', () => {
 
   it('the whole line broken: the line itself leaves the stock', () => {
     const [g] = applyChange([group(2)], change({ quantity: 0, reason: 'written_off' }, { kind: 'correct' }));
-    expect(g).toMatchObject({ writtenOffAt: AT, slotColumn: null });
+    expect(g).toMatchObject({ writtenOffAt: AT, slots: [] });
     expect(unitInStock(g)).toBe(false);
   });
 });
@@ -121,7 +121,7 @@ describe('revertChange — "Annuler" before the network is back', () => {
 
   it('gives a unit changed itself back what it was', () => {
     const shown = applyChange([group(1)], change(DRINK));
-    expect(revertChange(shown, change(DRINK), beforeOf(group(1)))[0]).toMatchObject({ isOpened: false, fillLevel: 100, slotColumn: 2, slotRow: 3 });
+    expect(revertChange(shown, change(DRINK), beforeOf(group(1)))[0]).toMatchObject({ isOpened: false, fillLevel: 100, slots: [{ id: 's1', column: 2, row: 3 }] });
   });
 
   it('a correction with copies gone: back to the number before', () => {

@@ -92,11 +92,10 @@ export function useStockMove() {
       });
       return true;
     }
-    // A line of one drunk (or smoked out) in place gave its grid slot back
-    // (#573): "Annuler" puts it back in that slot.
-    const slotGiven = written.id === item.id && item.slotColumn != null && item.slotRow != null && written.slotColumn == null;
-    const extra: InventoryItemPatch = slotGiven ? { slotColumn: item.slotColumn, slotRow: item.slotRow } : {};
-    notifyUndoable(message, undefined, () => { void undo(written, before, kind, extra); });
+    // FEAT-93: a line of one drunk (or smoked out) in place gave its cell
+    // back (#573); "Annuler" puts the bottle back unplaced until lot S2
+    // (`placeAt`) puts it back in that cell.
+    notifyUndoable(message, undefined, () => { void undo(written, before, kind, {}); });
     return true;
   }, [latest, mutateAsync, queryClient, settle, undo]);
 

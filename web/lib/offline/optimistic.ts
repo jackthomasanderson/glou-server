@@ -45,7 +45,8 @@ export const changeIdOfProvisional = (id: string) => (id.startsWith(PROVISIONAL_
 const STATE_FIELDS = ['isOpened', 'fillLevel', 'openedAt', 'cigarsLeft'] as const;
 /** Sent with a state but never a column of the unit. */
 const NOT_A_COLUMN = new Set(['smokeOne', 'keepTastings', 'expectedUpdatedAt']);
-const NO_SLOT = { slotColumn: null, slotRow: null };
+/** FEAT-93: no cell of the plan (a detached copy shown before the server answers, a finished one). */
+const NO_SLOT = { slots: [] };
 
 type State = { isOpened: boolean; fillLevel: number | null; openedAt: unknown; cigarsLeft: number | null };
 
@@ -153,11 +154,11 @@ export function overlayChanges<T extends UnitLike>(units: readonly T[], changes:
 }
 
 /** What a unit was, as a change needs to be taken back (its group's number, its state). */
-export type UnitBefore = Partial<Record<'quantity' | 'isOpened' | 'fillLevel' | 'openedAt' | 'cigarsLeft' | 'writtenOffAt' | 'slotColumn' | 'slotRow', unknown>>;
+export type UnitBefore = Partial<Record<'quantity' | 'isOpened' | 'fillLevel' | 'openedAt' | 'cigarsLeft' | 'writtenOffAt' | 'slots', unknown>>;
 
 export function beforeOf(unit: UnitLike): UnitBefore {
-  const { quantity, isOpened, fillLevel, openedAt, cigarsLeft, writtenOffAt, slotColumn, slotRow } = unit;
-  return { quantity, isOpened, fillLevel, openedAt, cigarsLeft, writtenOffAt, slotColumn, slotRow };
+  const { quantity, isOpened, fillLevel, openedAt, cigarsLeft, writtenOffAt, slots } = unit;
+  return { quantity, isOpened, fillLevel, openedAt, cigarsLeft, writtenOffAt, slots };
 }
 
 /**
