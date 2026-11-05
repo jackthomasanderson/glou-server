@@ -753,7 +753,7 @@ export const CellarDashboard: React.FC = () => {
             <>
               <ModalHeader>{t('cellars.deleteTitle')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-foreground-600">{t('cellars.deleteConfirm')}</p>
+                <p className="text-sm text-foreground-600">{t('cellars.deleteConfirm', { name: deletingCellar?.name })}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="default" variant="light" onPress={() => setDeletingCellar(null)}>

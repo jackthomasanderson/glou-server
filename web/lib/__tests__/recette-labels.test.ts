@@ -81,3 +81,13 @@ describe('cigar wording', () => {
     expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'cigar' })).toBe("Assigner un cigare ou une boîte à l'emplacement C1·R2");
   });
 });
+
+// Recette v3 of #471: « Supprimer la cave » said « cette cave », whichever it was.
+describe('deleting a cellar', () => {
+  it.each(['fr', 'en'] as const)('names the cellar in %s', async (lng) => {
+    const i = await translator(lng);
+    const text = i.t('cellars.deleteConfirm', { name: 'ZZ R3 B' });
+    expect(text).toContain('ZZ R3 B');
+    expect(text).not.toMatch(/cette cave|this cellar/);
+  });
+});

@@ -112,6 +112,18 @@ describe('BulkWinesDialog (FEAT-111)', () => {
       .toHaveTextContent('Dont 5 bouteilles déjà dans Garage, qui y restent : 9 bouteilles à déplacer.');
   });
 
+  // Recette v3 of #471: « rien à déplacer », yet « Déplacer » could be pressed.
+  it('everything already in the cellar chosen: nothing to move, « Déplacer » disabled', () => {
+    const there = [product({ id: 'a', name: 'Alpha', items: [unit({ productId: 'a', quantity: 3, cellarId: 'garage' })] })];
+    open('move', ['a'], vi.fn(), there);
+    fireEvent.click(screen.getByRole('radio', { name: 'Garage' }));
+    expect(screen.getByTestId('bulk-wines-already')).toHaveTextContent('Tout est déjà dans Garage : rien à déplacer.');
+    expect(confirmButton('Déplacer')).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Cuisine' }));
+    expect(confirmButton('Déplacer')).toBeEnabled();
+  });
+
   // Review of #830: « Dont 1 bouteille déjà dans Garage, qui y restent ».
   it('one bottle already there « y reste »', () => {
     const one = [
