@@ -20,9 +20,13 @@
    - Select the target cellar from the "Wine Cellars" dropdown menu.
 4. **Edit or delete**: Use the pencil icon (edit) or trash icon (delete) on each cellar card.
 
-### Move bottles in the cellar grid, with mouse or keyboard
-- **Mouse or touch**: drag a bottle onto an empty slot.
-- **Keyboard**: focus a slot and press `Enter` to open the bottle's details, or `Space` to pick it up. Move with the arrow keys, one cell at a time, then press `Space` again to drop it. `Escape` cancels. Each step is announced to screen readers.
+### The cellar plan: one slot per bottle
+A cellar whose plan is configured (columns × rows) shows a grid. Each bottle has **its own slot** there: a line of 6 identical bottles can take 6 slots, and a box of cigars takes one slot. Only a group of **single cigars** fits in **one** slot for all its cigars, with a "×4" badge. The counter ("6 / 9 occupied") counts slots.
+- **Place a bottle**: touch an empty slot. **Assign a bottle to slot C2·R3** lists the lines that still have unplaced bottles, with their count ("2 placed, 4 unplaced"). A line whose bottles all have their slot already is refused with the reason: "All 6 bottles of this line are already placed."
+- **Touching an occupied slot** opens the wine on its line, with the slot at the top of the drawer ("Slot C2·R3") and **Remove from slot**. **I'm opening one** or **I'm drinking one** from there takes the bottle of **that** slot, with no other question: opened, it keeps its slot; drunk, it frees it. If the slot touched holds the opened bottle, **Finish the opened one** comes first.
+- **Move**: drag a bottle onto an empty slot; onto an occupied slot, the two bottles swap slots.
+- **Keyboard**: focus a slot and press `Enter` to open the wine (or, on an empty slot, to assign one), or `Space` to pick the bottle up. Move with the arrow keys, one cell at a time, then press `Space` again to drop it. `Escape` cancels. Each step is announced to screen readers.
+- Offline, the plan can only be viewed: placing, moving or removing a bottle waits for the connection.
 
 ## A wine, its lines and its bottles
 
@@ -33,12 +37,14 @@
 - Figures count **bottles** (or **cigars**), not records: "142 bottles · 58 wines" on Wines, "23 bottles · 17 spirits" on Spirits, "34 bottles · 12 cuvées" on Sparkling, "89 cigars · 12 references" on Cigars, "165 bottles · 89 cigars" on the home page. Value and spending follow: the price and estimated value are those of **one** bottle, multiplied by the number.
 - Filtered by cellar, the card reads "2 here · 9 in all".
 - A wine with no bottle left (all drunk, or tasted elsewhere) is **hidden** from the list. The **No longer in the cellar** filter shows it ("No bottle left"; "No cigar left") and the search always finds it. **Add bottles** puts it back in the cellar. It keeps its tastings and history.
-- A cellar plan shows a line of identical bottles on **one** slot, with a "×4" badge.
+- In the drawer, a line with bottles placed on the plan says where: "4 placed, 2 unplaced · C1·R1, C1·R2, …" (for single cigars: "Placed in C1·R1"). Nothing shows for a line without a slot.
 
 ### I'm opening one, I'm drinking one, I'm smoking one
 In the wine's drawer, **I'm opening one** (the main button; **I'm smoking one** for a cigar) and **I'm drinking one** (a secondary button) act on **one** bottle only: it detaches from its line (×4 becomes ×3) and becomes a bottle of its own, opened or drunk. A drunk bottle stays in your history and spending. For a line of a single bottle, that bottle changes state.
 - If several lines could serve, Glou asks **Which bottles?** with a choice already selected: the cellar you were looking at, otherwise the oldest purchase; on a tie (or no date), the cheapest, then the largest line.
-- A message **"1 bottle opened · Undo"** stays for 8 seconds: **Undo** puts the bottle back with the others.
+- If the line has bottles placed on the plan, Glou asks **Which cell?**: the line's cells, plus **Unplaced** while one is left, preselected in that case (otherwise nothing is preselected: touch the bottle's cell). An opened bottle keeps its cell, a drunk bottle frees its own. The question is not asked for a line of a single bottle nor for single cigars (their slot stays with the group until the last one).
+- A message **"1 bottle opened · Undo"** stays for 8 seconds: **Undo** puts the bottle back with the others, in its slot if it is still free.
+- Actions done without the plan in front of you (bulk **Mark as drunk**, stock count, guest) do not ask: Glou takes an unplaced bottle first, otherwise the one in the slot placed most recently, and the history says which cell was freed ("Cell C2·R3 → none").
 - If a bottle of this wine is already opened, Glou reminds you: "A bottle is already opened (60 %)": **Finish the opened one** or **Open a new one**. When marking a bottle as drunk: "Is it the one you finished?" (Yes: the opened one is marked drunk; No: a full bottle is). The [consumption plan](./22-Consumption-Plan.md) suggests finishing the opened one first.
 - Cigars: smoking the first cigar of a closed box opens it ("opened box, 24 left"). With an opened box and closed boxes, Glou asks "From the opened box or open a new one?". A smoked single cigar stays in your history like a drunk bottle.
 
@@ -47,10 +53,11 @@ In the menu of an opened bottle, **Undo the opening** (or setting its level back
 
 ### Actions on a line
 A line's menu offers:
-- **Move**: "How many to move?" then the cellar. The line splits (Garage ×4, Kitchen ×2); a line that becomes identical to another one joins it.
-- **Change the price**: "For how many bottles?". Repricing only part of a line splits it.
+- **Move**: "How many to move?" then the cellar. The line splits (Garage ×4, Kitchen ×2); a line that becomes identical to another one joins it, slots included. The bottles moved arrive unplaced in the new cellar.
+- **Change the price**: "For how many bottles?". Repricing only part of a line splits it. The bottles that change price are taken from the unplaced ones first; when that is not enough, Glou asks **Which cells take the new price?**: those slots stay occupied and follow the new line.
 - **Correct the number** (downwards, with its reason) and **Edit** (purchase date, place, location…): see [05-Bottle-Addition.md](./05-Bottle-Addition.md).
 - **Move to trash**: the line can be restored from the trash.
+- When a correction, a write-off or a move leaves the line fewer bottles than it has slots, Glou asks **Which cells to free?** on a small plan of the cellar: touch exactly the number of cells asked. Unplaced bottles leave first, without a question.
 
 The wine's description (name, region, grapes, notes…) is edited **once for all its bottles** from the drawer's edit button.
 

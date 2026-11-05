@@ -32,7 +32,7 @@ Le même rappel apparaît quand vous scannez une étiquette, convertissez un sou
 Ouvrez le vin, puis **Ajouter des bouteilles** (**Ajouter des cigares** pour un cigare) : saisissez le nombre, la cave, le prix et la date d'achat. Une ligne se complète seulement si la cave, le prix, la contenance **et la date d'achat** sont les mêmes : un rachat un autre jour donne une ligne à part (« 6 · Garage · 20 € · janv. » et « 2 · Garage · 20 € · juin »), pour que votre budget reste juste. Une ligne compte au plus 1 000 bouteilles.
 
 ### Corriger le nombre
-Dans le menu d'une ligne, **Corriger le nombre** ne sert qu'à **baisser** le nombre, en précisant pourquoi : **Erreur de saisie** (les bouteilles n'ont jamais existé : elles disparaissent, dépenses comprises) ou **Cassée, offerte ou perdue** (elles quittent la cave et sa valeur mais restent dans les dépenses). Pour en ajouter, utilisez **Ajouter des bouteilles**. Pour une bouteille bue, utilisez **J'en bois une** (voir [04-Gestion-Des-Caves.md](./04-Gestion-Des-Caves.md)).
+Dans le menu d'une ligne, **Corriger le nombre** ne sert qu'à **baisser** le nombre, en précisant pourquoi : **Erreur de saisie** (les bouteilles n'ont jamais existé : elles disparaissent, dépenses comprises) ou **Cassée, offerte ou perdue** (elles quittent la cave et sa valeur mais restent dans les dépenses). Pour en ajouter, utilisez **Ajouter des bouteilles**. Pour une bouteille bue, utilisez **J'en bois une** (voir [04-Gestion-Des-Caves.md](./04-Gestion-Des-Caves.md)). Si la ligne garde moins de bouteilles qu'elle n'occupe de cases du plan de cave, Glou demande **Quelles cases libérer ?** et vous les touchez sur un petit plan ; les bouteilles non rangées partent d'abord, sans question.
 
 ## Le "Pare-feu" (Troubleshooting)
 
