@@ -125,7 +125,8 @@ export function useRemoveSlot(cellarId: string) {
     mutationFn: async ({ slotId }) => {
       await client.delete(`/slots/${slotId}`);
     },
-    onSuccess: () => {
+    // A refusal too (SLOT_NOT_FOUND: taken out or drunk on another device): the plan and the drawer catch up.
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['cellars', cellarId, 'grid'] });
       queryClient.invalidateQueries({ queryKey: ['inventory'] });
     },

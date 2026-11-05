@@ -26,7 +26,7 @@ vi.mock('@/hooks/useProducts', () => ({
 // ResponsiveModal (the history's restore confirmation) reads window.matchMedia.
 vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
 vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
-const removeSlot = vi.fn(async () => undefined);
+const removeSlot = vi.fn<(vars: { slotId: string }) => Promise<void>>(async () => undefined);
 vi.mock('@/hooks/useCellars', () => ({
   useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }] }),
   useRemoveSlot: () => ({ mutateAsync: removeSlot, isPending: false }),
@@ -380,6 +380,36 @@ describe('FamilyDrawer — opened from a cell of the plan (FEAT-93)', () => {
     await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-line-id="group"]')));
     fireEvent.click(within(banner).getByRole('button', { name: 'Retirer de la case' }));
     await waitFor(() => expect(removeSlot).toHaveBeenCalledWith({ slotId: 's23' }));
+  });
+
+  it('the removal is said, and the focus stays in the drawer (review of #855)', async () => {
+    removeSlot.mockClear();
+    detail = detailOf({ items: [placed()] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    fireEvent.click(within(screen.getByTestId('slot-context')).getByRole('button', { name: 'Retirer de la case' }));
+    await waitFor(() => expect(screen.getByTestId('slot-removed')).toHaveTextContent('Bouteille retirée de la case.'));
+    expect(document.activeElement).toBe(document.getElementById('inventory-detail-title'));
+  });
+
+  it('a cell changed on another device: says so, not "Une erreur est survenue"', async () => {
+    const { notifyError } = await import('@/lib/toast');
+    removeSlot.mockRejectedValueOnce(new Error('SLOT_NOT_FOUND'));
+    detail = detailOf({ items: [placed()] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    fireEvent.click(within(screen.getByTestId('slot-context')).getByRole('button', { name: 'Retirer de la case' }));
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('cellars.grid.slotNotFound'));
+  });
+
+  it('closed, then opened again without a cell: no line is led to any more (review of #855)', async () => {
+    detail = detailOf({ items: [unit({ id: 'other', quantity: 2, cellarId: 'garage' }), placed()] });
+    const { rerender } = render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-line-id="group"]')));
+    rerender(<FamilyDrawer productId={null} onClose={() => {}} slotContext={null} />);
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    rerender(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={null} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.activeElement).not.toBe(document.querySelector('[data-line-id="group"]'));
+    expect(document.querySelector('[data-line-id="group"]')?.getAttribute('data-ringed')).toBeNull();
   });
 
   it('no banner once the cell no longer holds a bottle of the line (taken out, drunk elsewhere)', () => {

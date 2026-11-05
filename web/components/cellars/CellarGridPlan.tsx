@@ -38,6 +38,7 @@ import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import { gridCoordinateGetter } from '@/lib/cellars/gridKeyboard';
 import { cellBadge, cellParts, gridLineParts, noUnplacedCopyText, placementText } from '@/lib/cellars/gridLine';
 import { gridWording, type GridWording } from '@/lib/cellars/gridWording';
+import { dropAction, moveSlot, swapOwners } from '@/lib/cellars/gridMoves';
 
 // ─── Color mapping ────────────────────────────────────────────────────────────
 // Wine gets its own per-varietal-color dots (red/white/rosé/orange — that's
@@ -158,6 +159,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot }: Draggable
         ref={setNodeRef}
         {...attributes}
         {...listeners}
+        data-cell={`${fromCol}:${fromRow}`}
         aria-label={t('cellars.grid.cellLabelOccupied', { col: fromCol, row: fromRow, name: tooltipContent })}
         onClick={() => onOpenSlot(item)}
         // Space picks the bottle up (dnd-kit's KeyboardSensor); Enter opens its
@@ -239,6 +241,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording
         <div
           role="button"
           tabIndex={0}
+          data-cell={`${col}:${row}`}
           aria-label={t('cellars.grid.cellLabelEmpty', { col, row, ...wording })}
           onClick={onClickEmpty}
           onKeyDown={(e) => {
@@ -296,6 +299,14 @@ function GridLegend({ items }: { items: GridItem[] }) {
 
 // ─── Assign dialog ────────────────────────────────────────────────────────────
 
+/** Why "Assigner" was refused, when the plan was out of date (FEAT-93). */
+const ASSIGN_ERRORS: Record<string, string> = {
+  SLOT_OCCUPIED: 'cellars.grid.slotOccupied',
+  NOT_IN_STOCK: 'cellars.grid.notInStock',
+  NO_CELLAR: 'cellars.grid.noCellar',
+  OUTSIDE_GRID: 'cellars.grid.outsideGrid',
+};
+
 interface AssignDialogProps {
   open: boolean;
   targetCol: number;
@@ -321,7 +332,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
       // FEAT-93 c2: the line was placed in full meanwhile (another device): say why, and which line.
       setError(code === 'NO_UNPLACED_COPY'
         ? `${item.name} · ${noUnplacedCopyText(item, t)}`
-        : code === 'SLOT_OCCUPIED' ? t('cellars.grid.slotOccupied') : t('status.error'));
+        : code && code in ASSIGN_ERRORS ? t(ASSIGN_ERRORS[code]) : t('status.error'));
     }
   };
 
@@ -412,7 +423,7 @@ export function dragAnnouncements(t: (key: string, options?: Record<string, unkn
     t(key, { name: item.name, context: item.category === 'cigar' ? 'cigar' : undefined, ...values });
   // FEAT-93: the copy in the cell aimed at, unless it is the one moved (its own cell).
   const otherIn = (active: { data: { current?: unknown } }, slot: { item?: GridCell | null }) =>
-    slot.item && slot.item.slotId !== itemOf(active).slotId ? slot.item : null;
+    slot.item && slot.item.id !== itemOf(active).id ? slot.item : null;
   return {
     onDragStart: ({ active }) => {
       const d = active.data.current as { item: GridItem; fromCol: number; fromRow: number };
@@ -429,8 +440,8 @@ export function dragAnnouncements(t: (key: string, options?: Record<string, unkn
     },
     onDragEnd: ({ active, over }) => {
       const slot = slotOf(over);
-      // Dropped nowhere, or back on its own cell: nothing moved.
-      if (!slot || (slot.item && slot.item.slotId === itemOf(active).slotId)) return say('cellars.grid.announceCancel', itemOf(active));
+      // Dropped nowhere, or on a cell of its own line (dropAction 'none'): nothing moved.
+      if (!slot || (slot.item && dropAction(itemOf(active), slot.item) === 'none')) return say('cellars.grid.announceCancel', itemOf(active));
       const other = otherIn(active, slot);
       const at = { col: slot.col, row: slot.row };
       return other
@@ -526,47 +537,25 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
     const { item: draggedItem, fromCol, fromRow } = active.data.current as { item: GridCell; fromCol: number; fromRow: number };
     const { col: toCol, row: toRow, item: targetItem } = over.data.current as { col: number; row: number; item: GridCell | null };
 
-    if ((fromCol === toCol && fromRow === toRow) || targetItem?.slotId === draggedItem.slotId) return;
+    const action = dropAction(draggedItem, targetItem);
+    if (action === 'none' || (fromCol === toCol && fromRow === toRow)) return;
 
     const prevItems = [...localItems];
-    // FEAT-93: a cell moves by its slot; the other copies of the line stay where they are.
-    const moveSlot = (lines: GridItem[], slotId: string, column: number, row: number) => lines.map((it) => ({
-      ...it,
-      slots: it.slots.map((slot) => (slot.id === slotId ? { ...slot, column, row } : slot)),
-    }));
-
-    if (!targetItem) {
-      // ── Move to empty slot ──────────────────────────────────────────────
-      setLocalItems((prev) => moveSlot(prev, draggedItem.slotId, toCol, toRow));
-      try {
-        await client.patch(`/slots/${draggedItem.slotId}`, { column: toCol, row: toRow });
-        invalidateGrid();
-      } catch {
-        setLocalItems(prevItems);
-      }
-    } else {
-      // ── Swap two occupied slots ─────────────────────────────────────────
-      // ISSUE_037: this used to be three independent network calls (vacate,
-      // move target, move dragged); a dropped connection between any two of
-      // them left the database half-updated while the screen silently
-      // reverted to the old positions, lying about the real state. A single
-      // transactional endpoint now performs both moves atomically, and a
-      // failure triggers a real refetch (not just a local revert) plus an
-      // error toast, so the screen can never again disagree with the server.
-      setLocalItems((prev) =>
-        moveSlot(moveSlot(prev, draggedItem.slotId, toCol, toRow), targetItem.slotId, fromCol, fromRow)
-      );
-      try {
-        await client.post(`/cellars/${cellar.id}/swap-slots`, {
-          slotAId: draggedItem.slotId,
-          slotBId: targetItem.slotId,
-        });
-        invalidateGrid();
-      } catch {
-        setLocalItems(prevItems);
-        invalidateGrid();
-        notifyError('cellars.grid.moveError');
-      }
+    // FEAT-93: the screen shows what the server will do — a slot moves, or
+    // two slots keep their cells and swap their lines (swapOwners).
+    setLocalItems((prev) => (action === 'move'
+      ? moveSlot(prev, draggedItem.slotId, toCol, toRow)
+      : swapOwners(prev, draggedItem, targetItem as GridCell)));
+    try {
+      // ISSUE_037: a swap is one transactional request, never three.
+      if (action === 'move') await client.patch(`/slots/${draggedItem.slotId}`, { column: toCol, row: toRow });
+      else await client.post(`/cellars/${cellar.id}/swap-slots`, { slotAId: draggedItem.slotId, slotBId: (targetItem as GridCell).slotId });
+      invalidateGrid();
+    } catch {
+      // A refusal (cell taken or slot changed on another device): the server's plan, and why.
+      setLocalItems(prevItems);
+      invalidateGrid();
+      notifyError('cellars.grid.moveError');
     }
   }, [localItems, invalidateGrid, cellar.id]);
 

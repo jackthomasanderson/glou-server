@@ -650,7 +650,14 @@
       "noUnplacedCopy_box_other": "All {{count}} boxes of this line are already placed.",
       "noUnplacedCopy_cigar": "These single cigars already have their slot.",
       "slotTitle": "Slot C{{col}}·R{{row}}",
-      "cellShort": "C{{col}}·R{{row}}"
+      "cellShort": "C{{col}}·R{{row}}",
+      "notInStock": "This line is no longer in the cellar: it was drunk or taken out meanwhile.",
+      "noCellar": "This line is no longer in a cellar.",
+      "outsideGrid": "This slot no longer exists: the cellar plan was made smaller.",
+      "slotNotFound": "This slot no longer holds this bottle: it changed on another device.",
+      "removedFromSlot": "Bottle removed from its slot.",
+      "removedFromSlot_box": "Box removed from its slot.",
+      "removedFromSlot_cigar": "Cigars removed from their slot."
     },
     "filterByType": "Filter by type",
     "filterByStatus": "Filter by status",

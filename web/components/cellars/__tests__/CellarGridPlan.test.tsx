@@ -128,6 +128,21 @@ describe('CellarGridPlan, one cell per bottle placed (FEAT-93)', () => {
     expect(screen.getByTestId('assign-placement')).toHaveTextContent('cellars.grid.placed|2, cellars.grid.unplaced|2');
   });
 
+  it('a refusal because the plan changed elsewhere says why (cell gone, line drunk)', async () => {
+    renderGrid(group);
+    for (const [code, key] of [['OUTSIDE_GRID', 'cellars.grid.outsideGrid'], ['NOT_IN_STOCK', 'cellars.grid.notInStock'], ['NO_CELLAR', 'cellars.grid.noCellar'], ['SLOT_OCCUPIED', 'cellars.grid.slotOccupied']]) {
+      assign.mockRejectedValueOnce(new Error(code));
+      fireEvent.keyDown(screen.getByLabelText(/^cellars\.grid\.cellLabelEmpty\|3,1/), { key: 'Enter' });
+      fireEvent.click(screen.getByTestId('assign-line').closest('button') as HTMLElement);
+      await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(key));
+    }
+  });
+
+  it('every cell says where it is, for the focus to come back to it', () => {
+    const { container } = renderGrid(group);
+    expect(Array.from(container.querySelectorAll('[data-cell]')).map((el) => el.getAttribute('data-cell'))).toEqual(['1:1', '2:1', '3:1']);
+  });
+
   it('touching a cell opens its line, with the slot touched', () => {
     const onOpenSlot = vi.fn();
     renderGrid(group, onOpenSlot);

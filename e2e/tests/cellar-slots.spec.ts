@@ -108,10 +108,59 @@ test.describe('the cellar plan, one cell per bottle (FEAT-93)', () => {
     await expect(banner).toHaveText(/Case C2·R3/);
     await banner.getByRole('button', { name: 'Retirer de la case' }).click();
     await expect(banner).toHaveCount(0);
+    await expect(drawer.getByTestId('slot-removed')).toHaveText('Bouteille retirée de la case.');
     await drawer.getByRole('button', { name: 'Fermer' }).first().click();
 
-    await expect(emptyCell(page, 2, 3)).toBeVisible();
+    // The focus comes back to the cell touched, now empty — never the page body.
+    await expect(emptyCell(page, 2, 3)).toBeFocused();
     await expect(heldCell(page, 1, 3, wine)).toBeVisible();
     await expect(page.getByText(/^1 \/ 9 occupé$/)).toBeVisible();
+  });
+
+  // Review of #855: a swap shows what the server does (the bottles swap, each slot stays in
+  // its cell), and two cells of the same line never swap (no request, no false history).
+  test('with the keyboard: two wines swap their cells; two cells of the same wine stay as they are', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    const other = await okData<{ id: string; productId: string }>(await api.post('/api/inventory', {
+      data: { category: 'wine', name: `E2E Autre ${stamp()}`, producer: 'E2E Domaine', purchasePrice: 30, cellarId },
+    }));
+    for (const column of [1, 2]) expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column, row: 1 } })).status()).toBe(201);
+    expect((await api.post(`/api/inventory/${other.id}/slots`, { data: { column: 3, row: 1 } })).status()).toBe(201);
+    const swaps: string[] = [];
+    page.on('request', (request) => { if (request.url().includes('/swap-slots')) swaps.push(request.url()); });
+    try {
+      await page.goto(`/cellars/${cellarId}`);
+      // dnd-kit's keyboard drag, step by step as its screen-reader announcements say.
+      const said = page.getByRole('status').filter({ hasText: wine.split(' ')[0] });
+      const drag = async (column: number, row: number, name: string) => {
+        await heldCell(page, column, row, name).focus();
+        await page.keyboard.press('Space');
+        await expect(said.filter({ hasText: `au-dessus de la colonne ${column}, rangée ${row}` })).toHaveCount(1);
+        // dnd-kit measures the cells just after the pick-up: an arrow pressed before moves nothing, press again.
+        await expect(async () => {
+          if (await said.filter({ hasText: `au-dessus de la colonne ${column}, rangée ${row}` }).count() > 0) await page.keyboard.press('ArrowRight');
+          await expect(said.filter({ hasText: `au-dessus de la colonne ${column + 1}, rangée ${row}` })).toHaveCount(1, { timeout: 500 });
+        }).toPass();
+        await page.keyboard.press('Space');
+      };
+
+      // C1·R1 onto C2·R1: the same wine — nothing is sent.
+      await drag(1, 1, wine);
+      await expect(heldCell(page, 1, 1, wine)).toBeVisible();
+      await expect(heldCell(page, 2, 1, wine)).toBeVisible();
+
+      // C2·R1 onto C3·R1: the other wine — they swap, and stay swapped once the plan reloads.
+      await drag(2, 1, wine);
+      await expect(heldCell(page, 3, 1, wine)).toBeVisible();
+      await expect(heldCell(page, 2, 1, 'E2E Autre')).toBeVisible();
+      await page.reload();
+      await expect(heldCell(page, 3, 1, wine)).toBeVisible();
+      await expect(heldCell(page, 2, 1, 'E2E Autre')).toBeVisible();
+      expect(swaps).toHaveLength(1);
+    } finally {
+      await api.delete(`/api/products/${other.productId}`).catch(() => {});
+    }
   });
 });

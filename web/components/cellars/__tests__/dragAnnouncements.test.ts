@@ -1,10 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { frenchT } from '@/lib/products/__tests__/i18n';
 
-vi.mock('@/hooks/useCellars', () => ({
-  useAssignSlot: () => ({ mutateAsync: vi.fn(), isPending: false }),
-  useRemoveSlot: () => ({ mutateAsync: vi.fn(), isPending: false }),
-}));
+vi.mock('@/hooks/useCellars', () => ({ useAssignSlot: () => ({ mutateAsync: vi.fn(), isPending: false }) }));
 vi.mock('@/lib/api', () => ({ client: { patch: vi.fn(), post: vi.fn() } }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
 
@@ -36,11 +33,12 @@ describe('dragAnnouncements', () => {
 describe('dragAnnouncements onto a held cell (FEAT-93)', () => {
   const say = () => dragAnnouncements(t);
   type Event = Parameters<NonNullable<ReturnType<typeof dragAnnouncements>['onDragEnd']>>[0];
-  const cell = (slotId: string, name: string, category = 'wine') => ({ name, category, slotId });
-  const active = { data: { current: { item: cell('a', 'Cuvée X'), fromCol: 1, fromRow: 2 } } } as unknown as Event['active'];
-  const cigar = { data: { current: { item: cell('c', 'Robusto', 'cigar'), fromCol: 1, fromRow: 2 } } } as unknown as Event['active'];
-  const held = { data: { current: { col: 3, row: 4, item: cell('b', 'Cuvée Y') } } } as unknown as Event['over'];
-  const own = { data: { current: { col: 1, row: 2, item: cell('a', 'Cuvée X') } } } as unknown as Event['over'];
+  const cell = (id: string, slotId: string, name: string, category = 'wine') => ({ id, name, category, slotId });
+  const active = { data: { current: { item: cell('x', 'a', 'Cuvée X'), fromCol: 1, fromRow: 2 } } } as unknown as Event['active'];
+  const cigar = { data: { current: { item: cell('r', 'c', 'Robusto', 'cigar'), fromCol: 1, fromRow: 2 } } } as unknown as Event['active'];
+  const held = { data: { current: { col: 3, row: 4, item: cell('y', 'b', 'Cuvée Y') } } } as unknown as Event['over'];
+  const own = { data: { current: { col: 1, row: 2, item: cell('x', 'a', 'Cuvée X') } } } as unknown as Event['over'];
+  const sameLine = { data: { current: { col: 3, row: 4, item: cell('x', 'd', 'Cuvée X') } } } as unknown as Event['over'];
 
   it('over a held cell, it says who holds it', () => {
     expect(say().onDragOver?.({ active, over: held } as Event)).toBe('Cuvée X est au-dessus de la colonne 3, rangée 4, occupée par Cuvée Y.');
@@ -53,5 +51,11 @@ describe('dragAnnouncements onto a held cell (FEAT-93)', () => {
 
   it('dropped back on its own cell, nothing moved', () => {
     expect(say().onDragEnd({ active, over: own } as Event)).toBe('Déplacement annulé. Cuvée X reste en place.');
+  });
+
+  // Review of #855: two cells of the same line hold the same bottles — no swap, no "Cuvée X échangée avec Cuvée X".
+  it('over or dropped on another cell of its own line, nothing moves', () => {
+    expect(say().onDragOver?.({ active, over: sameLine } as Event)).toBe('Cuvée X est au-dessus de la colonne 3, rangée 4.');
+    expect(say().onDragEnd({ active, over: sameLine } as Event)).toBe('Déplacement annulé. Cuvée X reste en place.');
   });
 });

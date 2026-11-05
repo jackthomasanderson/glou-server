@@ -1,7 +1,7 @@
 'use client';
 
 import { cellarContentsLabel } from '@/lib/cellars/contents';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button, Chip, CircularProgress, Tooltip, ButtonGroup, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Card, CardBody } from '@heroui/react';
 import { ArrowLeft, LayoutGrid, List, Map, Warehouse } from 'lucide-react';
@@ -24,6 +24,24 @@ import { useProducts } from '@/hooks/useProducts';
 import { useExpertMode } from '@/hooks/useExpertMode';
 
 type DetailView = 'grid' | 'list' | 'map';
+
+/**
+ * FEAT-93 (review of #855): once the drawer has gone, the focus goes back to
+ * the cell it was opened from — the same cell, empty or held, never the page
+ * body when the bottle was taken out of it (the element focused before is
+ * then gone).
+ */
+function focusCellOnceClosed(cell: string) {
+  const started = performance.now();
+  const step = () => {
+    if (document.getElementById('inventory-detail-title') && performance.now() - started < 2000) {
+      requestAnimationFrame(step);
+      return;
+    }
+    document.querySelector<HTMLElement>(`[data-cell="${cell}"]`)?.focus();
+  };
+  requestAnimationFrame(step);
+}
 
 /**
  * A wine of the cellar (recette #471): its photo, its name and how many of
@@ -78,14 +96,23 @@ export function CellarDetailClient() {
     setViewingProductId(productId);
   };
   const viewItem = (item: InventoryItem) => viewWine(item.productId ?? item.id);
+  // The cell the drawer was opened from: the focus comes back to it, even emptied meanwhile.
+  const touchedCell = useRef<string | null>(null);
   const openSlot = (cell: GridCell) => {
     const slot = cell.slots.find((s) => s.id === cell.slotId);
+    touchedCell.current = slot ? `${slot.column}:${slot.row}` : null;
     setSlotContext({
       itemId: cell.id,
       slotId: cell.slotId,
       label: slot ? t('cellars.grid.slotTitle', { col: slot.column, row: slot.row }) : '',
     });
     setViewingProductId(cell.productId);
+  };
+  const closeDrawer = () => {
+    const cell = touchedCell.current;
+    touchedCell.current = null;
+    viewWine(null);
+    if (cell) focusCellOnceClosed(cell);
   };
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
@@ -272,7 +299,7 @@ export function CellarDetailClient() {
 
       <FamilyDrawer
         productId={viewingProductId}
-        onClose={() => viewWine(null)}
+        onClose={closeDrawer}
         slotContext={slotContext}
         // FEAT-104 c3: from a cellar's page, its line is preselected.
         viewedCellarIds={[cellarId]}

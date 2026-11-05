@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Chip, Drawer, DrawerContent, Spinner, Tooltip } from '@heroui/react';
 import {
@@ -149,26 +149,39 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const togglePause = useToggleAlertPause();
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  // "Finir l'entamée" (FEAT-105 c2): the opened bottle led to.
-  const [focusLine, setFocusLine] = useState<{ id: string; nonce: number } | null>(null);
+  // The line led to: "Finir l'entamée" (FEAT-105 c2), or the line of the cell touched (FEAT-93).
+  // The nonce only grows, so leading to the same line again focuses it again.
+  const [lead, setLead] = useState<{ id: string | null; nonce: number }>({ id: null, nonce: 0 });
+  const focusLine = useMemo(() => (lead.id ? { id: lead.id, nonce: lead.nonce } : null), [lead]);
   const finishOpened = useCallback((item: ProductItem) => {
-    setFocusLine((previous) => ({ id: item.id, nonce: (previous?.nonce ?? 0) + 1 }));
+    setLead((previous) => ({ id: item.id, nonce: previous.nonce + 1 }));
   }, []);
-  // FEAT-93: a cell of the plan touched leads to the line it holds (adjusted during render).
-  const [prevSlot, setPrevSlot] = useState<SlotContext | null>(null);
-  if ((slotContext ?? null) !== prevSlot) {
-    setPrevSlot(slotContext ?? null);
-    if (slotContext) setFocusLine((previous) => ({ id: slotContext.itemId, nonce: (previous?.nonce ?? 0) + 1 }));
+  // Each opening starts afresh (adjusted during render): the line of the cell
+  // touched, or no line led to — never the one of a previous opening.
+  const opening = productId ? `${productId}|${slotContext?.slotId ?? ''}` : null;
+  const [prevOpening, setPrevOpening] = useState<string | null>(null);
+  const [removedNotice, setRemovedNotice] = useState('');
+  if (opening !== prevOpening) {
+    setPrevOpening(opening);
+    setRemovedNotice('');
+    setLead((previous) => ({ id: opening && slotContext ? slotContext.itemId : null, nonce: previous.nonce + 1 }));
   }
   // The cell, while it still holds a bottle of that line (not once taken out or drunk).
   const slotLine = slotContext ? product?.items.find((item) => item.id === slotContext.itemId) : undefined;
   const cell = slotContext && slotLine?.slots.some((slot) => slot.id === slotContext.slotId) ? slotContext : null;
   const removeSlot = useRemoveSlot(slotLine?.cellarId ?? '');
+  const titleRef = useRef<HTMLHeadingElement>(null);
   const removeFromCell = async (slotId: string) => {
     try {
       await removeSlot.mutateAsync({ slotId });
-    } catch {
-      notifyError('status.error');
+      // The button goes with the banner: focus stays in the drawer, and the removal is said.
+      titleRef.current?.focus();
+      const context = slotLine && product && unitKind(product.category) === 'cigar'
+        ? (slotLine.cigarsPerBox != null || slotLine.isOpened ? 'box' : 'cigar')
+        : undefined;
+      setRemovedNotice(t('cellars.grid.removedFromSlot', { context }));
+    } catch (error) {
+      notifyError(error instanceof Error && error.message === 'SLOT_NOT_FOUND' ? 'cellars.grid.slotNotFound' : 'status.error');
     }
   };
 
@@ -447,7 +460,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
               </p>
               <div className="flex justify-between items-start gap-2">
                 <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  <h2 id="inventory-detail-title" className="text-lg font-bold leading-tight break-words">{product?.name ?? ''}</h2>
+                  <h2 id="inventory-detail-title" ref={titleRef} tabIndex={-1} className="outline-none text-lg font-bold leading-tight break-words">{product?.name ?? ''}</h2>
                   <FieldSourceBadge source={product?.fieldSources?.name} t={t} />
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -476,6 +489,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                     ))}
                 </p>
               )}
+              <p role="status" aria-live="polite" className="sr-only" data-testid="slot-removed">{removedNotice}</p>
               {/* FEAT-93: the cell of the plan this drawer was opened from, kept in sight above the lines. */}
               {cell && (
                 <div className="flex items-center justify-between gap-2 mt-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-1.5" data-testid="slot-context">
