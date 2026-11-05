@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Textarea, Select, SelectItem, Autocomplete, AutocompleteItem, RadioGroup, Radio,
@@ -62,6 +62,11 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
   const [onBottle, setOnBottle] = useState(true);
   // The vintage as typed: "20" on the way to "2020" stays on screen.
   const [vintageText, setVintageText] = useState('');
+  // What its rule checks: react-hook-form keeps the rule of the field's first
+  // render, so a rule reading the state saw "202" still once "2020" was typed
+  // (acceptance run v3 of #471). Set in event handlers only.
+  const typedVintage = useRef('');
+  const typeVintage = (text: string) => { typedVintage.current = text; setVintageText(text); };
 
   const {
     control,
@@ -280,13 +285,13 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                       <Controller
                         name="wine.vintage"
                         control={control}
-                        rules={{ validate: () => !naming || isCigar || isValidVintage(vintageText) || t('tastingWine.vintageInvalid', { year: new Date().getFullYear() }) }}
+                        rules={{ validate: () => isValidVintage(typedVintage.current) || t('tastingWine.vintageInvalid', { year: new Date().getFullYear() }) }}
                         render={({ field }) => (
                           <Input
                             inputMode="numeric"
                             maxLength={4}
                             value={vintageText}
-                            onValueChange={(text) => { setVintageText(text); field.onChange(parseYear(text)); }}
+                            onValueChange={(text) => { typeVintage(text); field.onChange(parseYear(text)); }}
                             label={t('inventory.fields.vintage')}
                             isInvalid={!!errors.wine?.vintage}
                             errorMessage={errors.wine?.vintage?.message}
@@ -337,7 +342,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                         className="self-start"
                         onPress={() => {
                           setNaming(true);
-                          setVintageText('');
+                          typeVintage('');
                           setValue('productId', undefined);
                           setValue('itemId', undefined);
                           setValue('wine', { category: 'wine', producer: '', name: '', vintage: null, format: null });

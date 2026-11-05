@@ -1394,6 +1394,9 @@
         "ratingMinLabel": "{{count}}+ ",
         "ratingHint": "Basé sur les 50 dégustations les plus récentes enregistrées — approximation, pas l'historique complet.",
         "state": "État",
+        "stateAll": "Tous",
+        "stateInCellar": "Non entamés",
+        "stateOpened": "Entamés",
         "region": "Région",
         "regionAny": "Toutes les régions"
       },

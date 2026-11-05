@@ -1392,6 +1392,9 @@
         "ratingMinLabel": "{{count}}+ ",
         "ratingHint": "Based on the 50 most recently logged tastings — an approximation, not the full history.",
         "state": "State",
+        "stateAll": "All",
+        "stateInCellar": "Unopened",
+        "stateOpened": "Opened",
         "region": "Region",
         "regionAny": "All regions"
       },
