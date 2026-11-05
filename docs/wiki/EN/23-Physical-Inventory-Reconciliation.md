@@ -21,7 +21,7 @@ From **Physical Inventory**, start a session scoped to a cellar or a free-form a
    * a bottle recorded elsewhere: **Move to this scope** (disabled for a free-form scope with no cellar);
    * a find: **Add N bottles to the cellar**, in a wine already known by the same name (suggested when there is exactly one) or as a new wine.
 8. Click **Close and apply (N)** to validate all selected corrections in a single batch.
-   Closing never asks which cell of the plan to free: for a line placed on the plan, the missing bottles are taken from the unplaced ones first, otherwise from the slots placed most recently, and the wine's history says which cell was freed. A bottle moved to this scope arrives unplaced in its new cellar.
+   Closing never asks which slot of the plan to free: for a line placed on the plan, the missing bottles are taken from the unplaced ones first, otherwise from the slots placed most recently, and the wine's history says which slot was freed. A bottle moved to this scope arrives unplaced in its new cellar.
 
 ## The firewall (troubleshooting)
 

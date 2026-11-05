@@ -33,7 +33,7 @@ The page lists all your tasting notes, sorted newest-first, **20 notes per page*
    | Food pairing | Text | Max 500 characters |
 
 5. Click **Save**.
-   On a bottle from your cellar, Glou then asks **Update stock?** (**Bottle opened**, **Bottle drunk (empty)** or **Do not update stock**). If the line holds several bottles, some of them placed on the cellar plan, it also asks **Which cell?**, with **Unplaced** preselected while one is left; if you opened the wine by touching a slot of the plan, it is the bottle of that slot, with no question (see [04-Cellar-Management.md](./04-Cellar-Management.md)). The tasting is saved either way.
+   On a bottle from your cellar, Glou then asks **Update stock?** (**Bottle opened**, **Bottle drunk (empty)** or **Do not update stock**). If the line holds several bottles, some of them placed on the cellar plan, it also asks **Which slot?**, with **Unplaced** preselected while one is left; if you opened the wine by touching a slot of the plan, it is the bottle of that slot, with no question (see [04-Cellar-Management.md](./04-Cellar-Management.md)). The tasting is saved either way.
 
 > [!TIP]
 > Only the **Wine tasted** field is mandatory.

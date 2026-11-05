@@ -32,7 +32,7 @@ The same reminder appears when you scan a label, convert a wish into a purchase,
 Open the wine, then **Add bottles** (**Add cigars** for a cigar): enter the number, cellar, price and purchase date. A line is completed only if the cellar, price, bottle size **and purchase date** are the same: a purchase on another day makes a separate line ("6 · Garage · €20 · Jan" and "2 · Garage · €20 · Jun"), so that your budget stays right. A line holds at most 1,000 bottles.
 
 ### Correct the number
-In a line's menu, **Correct the number** only **lowers** the number, and asks why: **Input error** (the bottles never existed: they disappear, spending included) or **Broken, given away or lost** (they leave the cellar and its value but stay in your spending). To add some, use **Add bottles**. For a bottle you drank, use **I'm drinking one** (see [04-Cellar-Management.md](./04-Cellar-Management.md)). If the line keeps fewer bottles than it takes slots on the cellar plan, Glou asks **Which cells to free?** and you touch them on a small plan; unplaced bottles leave first, without a question.
+In a line's menu, **Correct the number** only **lowers** the number, and asks why: **Input error** (the bottles never existed: they disappear, spending included) or **Broken, given away or lost** (they leave the cellar and its value but stay in your spending). To add some, use **Add bottles**. For a bottle you drank, use **I'm drinking one** (see [04-Cellar-Management.md](./04-Cellar-Management.md)). If the line keeps fewer bottles than it takes slots on the cellar plan, Glou asks **Which slots to free?** and you touch them on a small plan; unplaced bottles leave first, without a question.
 
 ## The Firewall (Troubleshooting)
 
