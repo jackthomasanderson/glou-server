@@ -58,11 +58,12 @@ export function useUpdateUserRole() {
 
     return useMutation({
         meta: { handlesError: true },
-        mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
-            const response = await api.post<AdminUser>(`/admin/users/${userId}/role`, { isAdmin });
+        // #638: a grant carries the admin's own password (and code), and its
+        // refusals are said by the confirmation dialog; a removal's by the page.
+        mutationFn: async ({ userId, ...body }: { userId: string; isAdmin: boolean; password?: string; code?: string }) => {
+            const response = await api.post<AdminUser>(`/admin/users/${userId}/role`, body);
             return response.data;
         },
-        onError: () => notifyError('toast.admin.roleError'),
         onSuccess: () => {
             notifySuccess('toast.admin.roleSuccess');
             queryClient.invalidateQueries({ queryKey: ['admin_users'] });

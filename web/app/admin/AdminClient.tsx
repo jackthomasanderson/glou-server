@@ -19,6 +19,8 @@ import { useHasMounted } from '@/hooks/useHasMounted';
 import { MaturityReferencesSection } from '@/components/admin/MaturityReferencesSection';
 import { SystemConfigSection } from '@/components/admin/SystemConfigSection';
 import { ResetPasswordDialog } from '@/components/admin/ResetPasswordDialog';
+import { GrantAdminDialog } from '@/components/admin/GrantAdminDialog';
+import { notifyError } from '@/lib/toast';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { formatDate, formatDateTime } from '@/lib/format';
 
@@ -66,15 +68,16 @@ export function AdminClient() {
   // window.confirm (off-brand, browser-language buttons, and silently
   // disabled once a browser offers to "block dialogs from this site").
   const [pendingAction, setPendingAction] = React.useState<
-    { kind: 'grantAdmin' | 'deactivate'; target: AdminUser } | null
+    { kind: 'deactivate'; target: AdminUser } | null
   >(null);
-  // #638: its own dialog, which may ask for the admin's password and code.
+  // #638: their own dialogs, which ask for the admin's password and code.
   const [resetTarget, setResetTarget] = React.useState<AdminUser | null>(null);
+  const [grantTarget, setGrantTarget] = React.useState<AdminUser | null>(null);
 
   const handleRoleToggle = (targetUser: AdminUser, checked: boolean) => {
     if (targetUser.id === user?.id) return;
-    if (checked) setPendingAction({ kind: 'grantAdmin', target: targetUser });
-    else updateRole({ userId: targetUser.id, isAdmin: false });
+    if (checked) setGrantTarget(targetUser);
+    else updateRole({ userId: targetUser.id, isAdmin: false }, { onError: () => notifyError('toast.admin.roleError') });
   };
 
   const handleStatusToggle = (targetUser: AdminUser) => {
@@ -91,8 +94,7 @@ export function AdminClient() {
     if (!pendingAction) return;
     const { kind, target } = pendingAction;
     setPendingAction(null);
-    if (kind === 'grantAdmin') updateRole({ userId: target.id, isAdmin: true });
-    else updateStatus({ userId: target.id, isActive: false });
+    if (kind === 'deactivate') updateStatus({ userId: target.id, isActive: false });
   };
 
   const pendingActionMessage = pendingAction
@@ -407,9 +409,11 @@ export function AdminClient() {
         </ModalContent>
       </ResponsiveModal>
 
+      <GrantAdminDialog target={grantTarget} onClose={() => setGrantTarget(null)} />
+
       <ResetPasswordDialog
         target={resetTarget}
-        admin={{ id: user.id, isTwoFactorEnabled: user.isTwoFactorEnabled }}
+        adminId={user.id}
         onClose={() => setResetTarget(null)}
         onReset={(result) => {
           setResetTarget(null);
