@@ -33,11 +33,11 @@ import { searchClient } from '@/lib/search/client';
 import { InventoryForm } from '../InventoryForm';
 import type { InventoryItem } from '@/lib/inventory/types';
 
-const BOTTLE = { url: 'https://shop.example/cuvee-x.jpg', thumb: 'https://thumbs.example/cuvee-x.jpg', title: 'Domaine Y — Cuvée X 2019' };
-const OTHER_BOTTLE = { url: 'https://shop.example/cuvee-x-2.jpg', thumb: 'https://thumbs.example/cuvee-x-2.jpg', title: 'Cuvee X, Domaine Y' };
+const BOTTLE = { url: 'https://shop.example/cuvee-x.jpg', thumb: 'https://thumbs.example/cuvee-x.jpg', title: 'Domaine Rives — Cuvée Solstice 2019' };
+const OTHER_BOTTLE = { url: 'https://shop.example/cuvee-x-2.jpg', thumb: 'https://thumbs.example/cuvee-x-2.jpg', title: 'Solstice, domaine Rives' };
 const BALL_BEARING = { url: 'https://parts.example/zz.jpg', thumb: 'https://thumbs.example/zz.jpg', title: 'SKF 6204-2Z deep groove ball bearing' };
 
-function draw(name = 'Cuvée X', producer = 'Domaine Y') {
+function draw(name = 'Cuvée Solstice', producer = 'Domaine Rives') {
   const onSubmit = vi.fn();
   render(<InventoryForm open defaultCategory="wine" onSubmit={onSubmit} onClose={() => {}} t={(key, opts) => t(key, opts)} />);
   const dialog = screen.getByRole('dialog');
@@ -62,7 +62,7 @@ describe('InventoryForm — photo suggestion (#862)', () => {
   it('searches with the category and shows the photo without attaching it', async () => {
     const { submit } = draw();
     await suggestionShown();
-    expect(searchClient.searchImages).toHaveBeenCalledWith('Domaine Y Cuvée X', 'wine');
+    expect(searchClient.searchImages).toHaveBeenCalledWith('Domaine Rives Cuvée Solstice', 'wine');
     expect(screen.getByText('itemImage.suggestion.question')).toBeInTheDocument();
     expect(document.querySelector(`img[src="${BOTTLE.thumb}"]`)).not.toBeNull();
     expect(searchClient.saveImageFromUrl).not.toHaveBeenCalled();
@@ -74,6 +74,23 @@ describe('InventoryForm — photo suggestion (#862)', () => {
     fireEvent.click(await suggestionShown());
     await waitFor(() => expect(searchClient.saveImageFromUrl).toHaveBeenCalledWith(BOTTLE.url));
     await waitFor(() => expect(submit().photoUrl).toBe('/uploads/products/stored.jpg'));
+  });
+
+  it('does not offer the suggestion again once its photo is accepted then removed', async () => {
+    const { submit } = draw();
+    fireEvent.click(await suggestionShown());
+    const remove = await screen.findByRole('button', { name: 'itemImage.remove' });
+    fireEvent.click(remove);
+    await waitFor(() => expect(submit().photoUrl).toBeFalsy());
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(screen.queryByRole('button', { name: 'itemImage.suggestion.use' })).toBeNull();
+    expect(searchClient.searchImages).toHaveBeenCalledTimes(1);
+  });
+
+  it('announces the suggestion to screen readers', async () => {
+    draw();
+    const use = await suggestionShown();
+    expect(use.closest('[aria-live="polite"]')).not.toBeNull();
   });
 
   it('offers another matching photo, skipping a result about something else', async () => {

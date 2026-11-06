@@ -259,8 +259,16 @@ export function InventoryForm({
   }, [values.name, values.producer, values.photoUrl, isEditing, suggestionQuery, suggestionCategory, suggestionKey, lastSuggestionKey]);
   // Only the suggestion for what is typed now; "dismiss" moves past the last one.
   const suggestedPhoto = photoSuggestion?.key === suggestionKey ? photoSuggestion.results[photoSuggestion.index] : undefined;
-  const showNextSuggestion = (count: number) =>
-    setPhotoSuggestion((prev) => prev && { ...prev, index: prev.index + count });
+  // Bound to the name it was found for: an answer arriving after the name
+  // changed never moves the suggestion of the new name.
+  const showNextSuggestion = (key: string, count: number) =>
+    setPhotoSuggestion((prev) => prev && prev.key === key ? { ...prev, index: prev.index + count } : prev);
+  // Once a photo is set (the suggestion accepted or another one chosen), none
+  // is offered again for this name, even if that photo is removed.
+  const changePhoto = (url: string) => {
+    setField('photoUrl', url);
+    if (url) setPhotoSuggestion({ key: suggestionKey, results: [], index: 0 });
+  };
 
   const missingName = !values.name?.trim();
   const missingProducer = !values.producer?.trim();
@@ -420,7 +428,7 @@ export function InventoryForm({
               <div className="w-[170px] mx-auto sm:mx-0 shrink-0 border-b sm:border-b-0 sm:border-r border-divider px-4 py-5">
                 <ItemImageSection
                   photoUrl={values.photoUrl ?? ''}
-                  onPhotoChange={(url) => setField('photoUrl', url)}
+                  onPhotoChange={changePhoto}
                   category={category}
                   autoSearchQuery={[values.producer, values.name].filter(Boolean).join(' ')}
                   preloadedResults={prefetchedImages}
@@ -428,8 +436,8 @@ export function InventoryForm({
                   suggestion={suggestedPhoto && {
                     image: suggestedPhoto,
                     hasMore: photoSuggestion!.index + 1 < photoSuggestion!.results.length,
-                    onNext: () => showNextSuggestion(1),
-                    onDismiss: () => showNextSuggestion(photoSuggestion!.results.length),
+                    onNext: () => showNextSuggestion(suggestionKey, 1),
+                    onDismiss: () => showNextSuggestion(suggestionKey, photoSuggestion!.results.length),
                   }}
                 />
               </div>

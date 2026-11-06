@@ -160,6 +160,9 @@ const productImageUpload = multer({
   },
 });
 
+/** #862: answers that are surely a page, not an image. */
+const NOT_AN_IMAGE_TYPES = new Set(['text/html', 'application/xhtml+xml', 'application/json']);
+
 // GET /api/search/images?q=...&category=...
 // ISSUE_228: scrapes DuckDuckGo's image search HTML/JSON endpoints — there is
 // no official image-search API this project uses instead. That's a known,
@@ -266,12 +269,10 @@ router.post('/images/save', authMiddleware, async (req, res) => {
 
     if (!response.ok) return res.status(502).json({ error: 'FETCH_FAILED' });
 
-    // #862: an answer declared as anything but an image (an HTML page, JSON)
-    // is refused; an unlabelled one is judged on its bytes below.
+    // #862: a page (hotlink protection, an error) is refused before it is
+    // read; any other answer, even mislabelled, is judged on its bytes below.
     const rawType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? '';
-    if (rawType && !rawType.startsWith('image/') && rawType !== 'application/octet-stream') {
-      return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
-    }
+    if (NOT_AN_IMAGE_TYPES.has(rawType)) return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
 
     const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
     const declaredLength = Number(response.headers.get('content-length'));

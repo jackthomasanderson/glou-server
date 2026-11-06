@@ -4,6 +4,9 @@ const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 /** Shorter words ("de", "ZZ", "C5") match almost any title. */
 const MIN_WORD_LENGTH = 3;
 
+/** Words found in the titles of countless unrelated wines or cigars. */
+const GENERIC_WORDS = new Set(['domaine', 'chateau', 'cuvee', 'petit', 'grand', 'vin', 'wine', 'cigar', 'cigare']);
+
 /**
  * #862: an image result is about the item when its title contains a word of
  * its name or producer — an uncommon name otherwise brought back anything.
@@ -12,5 +15,5 @@ export function isAboutItem(title: string, ...texts: Array<string | undefined>):
   const titleWords = new Set(fold(title).split(/[^\p{L}\p{N}]+/u));
   return texts
     .flatMap((text) => fold(text ?? '').split(/[^\p{L}\p{N}]+/u))
-    .some((word) => word.length >= MIN_WORD_LENGTH && titleWords.has(word));
+    .some((word) => word.length >= MIN_WORD_LENGTH && !GENERIC_WORDS.has(word) && titleWords.has(word));
 }

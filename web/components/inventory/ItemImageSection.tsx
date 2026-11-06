@@ -109,8 +109,9 @@ export function ItemImageSection({
   const offered = !hasPhoto && !saving && !isAutoLoading ? suggestion : undefined;
 
   // Stored as a photo picked from the search is; one that cannot be is passed over.
-  const acceptSuggestion = async (image: ImageResult) => {
-    if (!(await savePhoto(() => searchClient.saveImageFromUrl(image.url)))) suggestion?.onNext();
+  // The suggestion is captured: the name may change while it is stored.
+  const acceptSuggestion = async (accepted: PhotoSuggestion) => {
+    if (!(await savePhoto(() => searchClient.saveImageFromUrl(accepted.image.url)))) accepted.onNext();
   };
 
   return (
@@ -176,34 +177,37 @@ export function ItemImageSection({
       </div>
 
       {/* ── Photo suggestion (#862) ──────────────────────────── */}
-      {offered && (
-        <div role="group" aria-label={t('itemImage.suggestion.question')} className="mb-3 flex flex-col items-center gap-1.5">
-          <p className="text-xs text-foreground-500 text-center">{t('itemImage.suggestion.question')}</p>
-          <div className="flex items-center justify-center gap-1">
-            <Button
-              size="sm"
-              color="primary"
-              variant="flat"
-              startContent={<Check size={14} />}
-              onPress={() => acceptSuggestion(offered.image)}
-            >
-              {t('itemImage.suggestion.use')}
-            </Button>
-            {offered.hasMore && (
-              <Tooltip content={t('itemImage.suggestion.another')} delay={500}>
-                <Button isIconOnly size="sm" variant="light" onPress={offered.onNext} aria-label={t('itemImage.suggestion.another')}>
-                  <RefreshCw size={14} />
+      {/* Always present, so screen readers announce a suggestion as it appears. */}
+      <div aria-live="polite">
+        {offered && (
+          <div role="group" aria-label={t('itemImage.suggestion.question')} className="mb-3 flex flex-col items-center gap-1.5">
+            <p className="text-xs text-foreground-500 text-center">{t('itemImage.suggestion.question')}</p>
+            <div className="flex items-center justify-center gap-1">
+              <Button
+                size="sm"
+                color="primary"
+                variant="flat"
+                startContent={<Check size={14} />}
+                onPress={() => acceptSuggestion(offered)}
+              >
+                {t('itemImage.suggestion.use')}
+              </Button>
+              {offered.hasMore && (
+                <Tooltip content={t('itemImage.suggestion.another')} delay={500}>
+                  <Button isIconOnly size="sm" variant="light" onPress={offered.onNext} aria-label={t('itemImage.suggestion.another')}>
+                    <RefreshCw size={14} />
+                  </Button>
+                </Tooltip>
+              )}
+              <Tooltip content={t('itemImage.suggestion.dismiss')} delay={500}>
+                <Button isIconOnly size="sm" variant="light" onPress={offered.onDismiss} aria-label={t('itemImage.suggestion.dismiss')}>
+                  <X size={14} />
                 </Button>
               </Tooltip>
-            )}
-            <Tooltip content={t('itemImage.suggestion.dismiss')} delay={500}>
-              <Button isIconOnly size="sm" variant="light" onPress={offered.onDismiss} aria-label={t('itemImage.suggestion.dismiss')}>
-                <X size={14} />
-              </Button>
-            </Tooltip>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── URL input mode ───────────────────────────────────── */}
       {mode === 'url' && (

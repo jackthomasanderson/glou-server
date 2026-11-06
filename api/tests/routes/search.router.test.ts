@@ -75,7 +75,17 @@ describe('POST /api/search/images/save (#862)', () => {
     expect(written).toHaveLength(0);
   });
 
-  it('refuses an answer declared as text even with an image extension in the URL', async () => {
+  it.each(['binary/octet-stream', 'application/octet-stream', 'text/plain'])(
+    'stores a real image served with a wrong content type (%s)',
+    async (contentType) => {
+      remoteAnswer(PNG, contentType);
+      const res = await request(app).post('/api/search/images/save').send({ url: 'https://example.com/a' });
+      expect(res.status).toBe(200);
+      expect(res.body.data.path).toMatch(/\.png$/);
+    },
+  );
+
+  it('refuses an answer declared as an HTML page even with an image extension in the URL', async () => {
     remoteAnswer(PNG, 'text/html');
     const res = await request(app).post('/api/search/images/save').send({ url: 'https://example.com/a.png' });
     expect(res.status).toBe(422);
