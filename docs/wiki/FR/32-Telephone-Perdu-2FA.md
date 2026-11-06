@@ -21,11 +21,11 @@ Quand vous activez la 2FA, Glou affiche **10 codes de secours**, une seule fois.
    Si vous venez de vous connecter avec votre dernier code, il n'en reste plus pour confirmer cette étape : demandez à un administrateur (section suivante).
 
 ## Téléphone perdu, aucun code de secours : demandez à un administrateur
-1. L'administrateur ouvre **Administration → Gestion des membres** et clique sur **Réinitialiser le mot de passe** (icône de clé) sur votre ligne. La confirmation indique que votre 2FA sera désactivée, et demande **le mot de passe de l'administrateur lui-même**, plus un code de sa propre application si son compte a la 2FA : une session admin ouverte ne suffit pas à passer le second facteur de quelqu'un d'autre.
+1. L'administrateur ouvre **Administration → Gestion des membres** et clique sur **Réinitialiser le mot de passe** (icône de clé) sur votre ligne. La confirmation indique que votre 2FA sera désactivée, et demande **le mot de passe de l'administrateur lui-même**, plus un code de sa propre application si son compte a la 2FA . C'est le cas pour toute réinitialisation de mot de passe et pour tout passage d'un membre en administrateur : une session admin ouverte ne suffit pas.
 2. Il vous transmet le mot de passe temporaire affiché une seule fois, par un moyen sûr (en personne, par téléphone).
 3. Connectez-vous avec : aucun code n'est demandé. Choisissez un nouveau mot de passe, puis réactivez la 2FA depuis votre profil.
 
-La réinitialisation déconnecte aussi toutes vos sessions et vos appareils de confiance, et elle est inscrite au journal d'audit (une confirmation refusée aussi). Un administrateur qui réinitialise **son propre** mot de passe garde sa 2FA : une session ouverte ne doit pas suffire à la retirer.
+La réinitialisation déconnecte aussi toutes vos sessions et vos appareils de confiance, et elle est inscrite au journal d'audit (une confirmation refusée aussi). Un administrateur qui réinitialise **son propre** mot de passe garde sa 2FA.
 
 ## Seul administrateur, bloqué : commande en base de données
 Personne ne peut réinitialiser votre compte depuis l'application : désactivez donc votre 2FA directement dans la base. Sur la machine qui fait tourner Glou, dans le dossier de votre `docker-compose.yml` :

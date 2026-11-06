@@ -21,11 +21,11 @@ When you turn 2FA on, Glou shows **10 backup codes**, once. Each one works a sin
    If you just signed in with your last code, nothing is left to confirm this step: ask an administrator (next section).
 
 ## Lost phone, no backup code: ask an administrator
-1. The administrator opens **Administration → Member Management** and clicks **Reset password** (key icon) on your line. The confirmation says that your 2FA will be turned off, and asks for **the administrator's own password**, plus a code from their own app if their account has 2FA: an open admin session alone is not enough to get past someone else's second factor.
+1. The administrator opens **Administration → Member Management** and clicks **Reset password** (key icon) on your line. The confirmation says that your 2FA will be turned off, and asks for **the administrator's own password**, plus a code from their own app if their account has 2FA. This is so for every password reset and every grant of administrator rights: an open admin session alone is not enough.
 2. They give you the temporary password shown once, through a channel you trust (in person, by phone).
 3. Sign in with it: no code is asked. Choose a new password, then turn 2FA back on from your profile.
 
-The reset also signs out all your sessions and trusted devices, and is recorded in the audit log (a refused confirmation too). An administrator resetting **their own** password keeps their 2FA: an open session alone must not be enough to remove it.
+The reset also signs out all your sessions and trusted devices, and is recorded in the audit log (a refused confirmation too). An administrator resetting **their own** password keeps their 2FA.
 
 ## Only administrator, locked out: database command
 Nobody can reset your account from the app, so turn your 2FA off directly in the database. On the machine that runs Glou, in the folder of your `docker-compose.yml`:

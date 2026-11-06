@@ -12,8 +12,8 @@ import { creds } from './_helpers';
  * instance's admin on a fresh CI database) resets their password, and the
  * member signs in with the temporary one without being asked for a code —
  * once the admin has confirmed with their own password.
- * Kept short on purpose: every sign-in and 2FA call spends the shared
- * per-IP auth rate limit (20 per 15 minutes).
+ * Kept short on purpose: every sign-in, sign-up and 2FA call spends the
+ * shared per-IP auth rate limit (20 per 15 minutes) — about 8 here.
  */
 
 const stamp = () => `${Date.now()}`.slice(-8);
@@ -48,12 +48,18 @@ test('a lost phone is recoverable: new backup codes, then an admin reset turns 2
   const member: APIRequestContext = await request.newContext({ baseURL });
   const signIn: APIRequestContext[] = [];
   const username = `e2e638_${stamp()}`;
+  const kidName = `${username}k`;
+  const kid: APIRequestContext = await request.newContext({ baseURL });
   const password = 'lost-phone-pw-0000';
 
   try {
     await okData(await admin.put('/api/admin/config/registration', { data: { registrationOpen: true } }));
     await okData(await member.post('/api/auth/register', {
       data: { username, email: `${username}@glou.test`, password },
+    }));
+    // A second member, without 2FA: the account a stolen session would pivot through.
+    await okData(await kid.post('/api/auth/register', {
+      data: { username: kidName, email: `${kidName}@glou.test`, password },
     }));
 
     // Turn 2FA on, as the authenticator app would.
@@ -76,12 +82,30 @@ test('a lost phone is recoverable: new backup codes, then an admin reset turns 2
 
     expect(await okData<{ remaining: number }>(await member.get('/api/user/backup-codes'))).toEqual({ remaining: 10 });
 
-    // The admin resets the member's password. The member has 2FA on, so the
-    // admin's session alone is not enough: they confirm with their password
-    // (the suite user has no 2FA of their own, so no code).
+    // The admin resets the member's password. A session alone is never
+    // enough: they confirm with their password (the suite user has no 2FA of
+    // their own, so no code).
     const users = await okData<Array<{ id: string; username: string; isTwoFactorEnabled: boolean }>>(await admin.get('/api/admin/users'));
     const target = users.find((u) => u.username === username);
     expect(target?.isTwoFactorEnabled).toBe(true);
+
+    // Review: a stolen admin session used to pivot through an account it could
+    // take over without the step-up, then pass the step-up with that known
+    // password. (A) resetting itself, (B) resetting a member without 2FA and
+    // making them an administrator: all refused now.
+    const pivot = users.find((u) => u.username === kidName);
+    for (const [label, res] of [
+      ['A: own reset', await admin.post(`/api/admin/users/${me.id}/reset-password`)],
+      ['B: reset of a member without 2FA', await admin.post(`/api/admin/users/${pivot!.id}/reset-password`)],
+      ['B: admin-role grant', await admin.post(`/api/admin/users/${pivot!.id}/role`, { data: { isAdmin: true } })],
+    ] as const) {
+      expect(res.status(), label).toBe(403);
+      expect((await res.json()).error, label).toBe('REAUTH_REQUIRED');
+    }
+    const stillMember = (await okData<Array<{ id: string; isAdmin: boolean }>>(await admin.get('/api/admin/users')))
+      .find((u) => u.id === pivot!.id);
+    expect(stillMember?.isAdmin).toBe(false);
+
     const bare = await admin.post(`/api/admin/users/${target!.id}/reset-password`);
     expect(bare.status()).toBe(403);
     expect((await bare.json()).error).toBe('REAUTH_REQUIRED');
@@ -105,6 +129,7 @@ test('a lost phone is recoverable: new backup codes, then an admin reset turns 2
   } finally {
     await admin.put('/api/admin/config/registration', { data: { registrationOpen } });
     await member.dispose();
+    await kid.dispose();
     for (const ctx of signIn) await ctx.dispose();
   }
 });
