@@ -111,6 +111,8 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
 
   const settle = () => queryClient.invalidateQueries({ queryKey: ['guest', token, 'inventory'] });
   const write = useMutation({
+    // Said by `refused` below.
+    meta: { handlesError: true },
     mutationFn: ({ id, patch }: { id: string; patch: GuestInventoryUpdatePayload }) => guestClient.updateItem(token, id, patch),
     onSettled: settle,
   });

@@ -24,6 +24,7 @@ export function useCreateBulkPreset() {
 export function useDeleteBulkPreset() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { handlesError: true },
     mutationFn: (id: string) => bulkPresetClient.delete(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bulk-presets'] });

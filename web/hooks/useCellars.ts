@@ -51,6 +51,7 @@ export function useCellarGrid(cellarId: string) {
 export function useCreateCellar() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { handlesError: true },
     mutationFn: async (data: CreateCellarInput) => {
       const response = await client.post<Cellar>('/cellars', data);
       return response.data;
@@ -69,6 +70,7 @@ export function useCreateCellar() {
 export function useUpdateCellar() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { handlesError: true },
     mutationFn: async ({ id, data }: { id: string; data: UpdateCellarInput }) => {
       const response = await client.patch<Cellar>(`/cellars/${id}`, data);
       return response.data;
@@ -87,6 +89,7 @@ export function useUpdateCellar() {
 export function useDeleteCellar() {
   const queryClient = useQueryClient();
   return useMutation({
+    meta: { handlesError: true },
     mutationFn: async (id: string) => {
       await client.delete<void>(`/cellars/${id}`);
     },
@@ -107,6 +110,8 @@ export function useDeleteCellar() {
 export function useAssignSlot(cellarId: string) {
   const queryClient = useQueryClient();
   return useMutation<void, Error, { itemId: string; column: number; row: number }>({
+    // Said by the grid's assign dialog.
+    meta: { handlesError: true },
     mutationFn: async ({ itemId, column, row }) => {
       await client.post(`/inventory/${itemId}/slots`, { column, row });
     },
@@ -122,6 +127,8 @@ export function useAssignSlot(cellarId: string) {
 export function useRemoveSlot(cellarId: string) {
   const queryClient = useQueryClient();
   return useMutation<void, Error, { slotId: string }>({
+    // Said by the drawer (FamilyDrawer).
+    meta: { handlesError: true },
     mutationFn: async ({ slotId }) => {
       await client.delete(`/slots/${slotId}`);
     },

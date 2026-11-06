@@ -434,6 +434,11 @@
       "priceError": "Could not save the observed price",
       "convertError": "Could not turn the wish into an inventory item"
     },
+    "budget": {
+      "createSuccess": "Budget envelope created",
+      "updateSuccess": "Budget envelope updated",
+      "deleteSuccess": "Budget envelope deleted"
+    },
     "bulkUpdateError": "Could not update the selected wines",
     "bulkPreset": {
       "deleteError": "Could not delete the action preset"

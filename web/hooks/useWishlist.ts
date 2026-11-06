@@ -20,6 +20,7 @@ export function useWishlist() {
 export function useCreateWishlistItem() {
   const queryClient = useQueryClient();
   return useMutation<WishlistItem, Error, WishlistCreateInput>({
+    meta: { handlesError: true },
     mutationFn: wishlistClient.create,
     onSuccess: (created) => {
       queryClient.setQueryData<WishlistItem[]>(WISHLIST_KEY, (old) => (old ? [created, ...old] : [created]));
@@ -33,6 +34,7 @@ export function useCreateWishlistItem() {
 export function useUpdateWishlistItem() {
   const queryClient = useQueryClient();
   return useMutation<WishlistItem, Error, { id: string; data: WishlistPatchInput }>({
+    meta: { handlesError: true },
     mutationFn: ({ id, data }) => wishlistClient.update(id, data),
     onSuccess: () => notifySuccess('toast.wishlist.updateSuccess'),
     onError: () => notifyError('toast.wishlist.updateError'),
@@ -43,6 +45,7 @@ export function useUpdateWishlistItem() {
 export function useDeleteWishlistItem() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
+    meta: { handlesError: true },
     mutationFn: wishlistClient.delete,
     onSuccess: (_, id) => {
       queryClient.setQueryData<WishlistItem[]>(WISHLIST_KEY, (old) => (old ? old.filter((w) => w.id !== id) : []));
@@ -56,6 +59,7 @@ export function useDeleteWishlistItem() {
 export function useRecordPriceSeen() {
   const queryClient = useQueryClient();
   return useMutation<WishlistItem, Error, { id: string; price: number }>({
+    meta: { handlesError: true },
     mutationFn: ({ id, price }) => wishlistClient.recordPriceSeen(id, price),
     onSuccess: () => notifySuccess('toast.wishlist.priceSuccess'),
     onError: () => notifyError('toast.wishlist.priceError'),
@@ -66,6 +70,7 @@ export function useRecordPriceSeen() {
 export function useConvertToInventory() {
   const queryClient = useQueryClient();
   return useMutation<ConvertResult, Error, { id: string; data: ConvertToInventoryInput }>({
+    meta: { handlesError: true },
     mutationFn: ({ id, data }) => wishlistClient.convertToInventory(id, data),
     onSuccess: () => notifySuccess('toast.wishlist.convertSuccess'),
     onError: () => notifyError('toast.wishlist.convertError'),

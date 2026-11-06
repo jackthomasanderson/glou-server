@@ -8,6 +8,7 @@ import { CSV_IMPORT_MAX_ROWS } from '@shared/import';
  */
 export function useCsvExport() {
   return useMutation<void, Error, string>({
+    meta: { handlesError: true },
     mutationFn: async (language) => {
       const lang = language.startsWith('fr') ? 'fr' : 'en';
       const res = await fetch(`/api/inventory/export.csv?lang=${lang}`, { credentials: 'include' });

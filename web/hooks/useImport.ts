@@ -11,6 +11,8 @@ const EXPLAINED_CONFIRM_ERRORS = new Set(['LINE_TOO_LARGE', 'QUANTITY_TOO_LARGE'
 
 export function useCsvPreview() {
   return useMutation<CsvImportPreview, Error, File>({
+    // Said by CsvImportStep.
+    meta: { handlesError: true },
     mutationFn: (file) => importClient.previewCsv(file),
   });
 }
@@ -18,6 +20,7 @@ export function useCsvPreview() {
 export function useCsvConfirm() {
   const queryClient = useQueryClient();
   return useMutation<CsvImportResult, Error, { rows: CsvImportRow[]; cellarId: string | null; choices?: CsvImportChoice[] }>({
+    meta: { handlesError: true },
     mutationFn: ({ rows, cellarId, choices }) => importClient.confirmCsv(rows, cellarId, choices),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['inventory'] });
