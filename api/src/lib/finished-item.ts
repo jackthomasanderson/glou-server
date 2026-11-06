@@ -3,7 +3,7 @@ import { isFinishedState } from '../../../shared/units';
 // #471: the pure counting rules and state predicates live in shared/units.ts
 // (the web needs them too); the Prisma filter fragments below cannot.
 export {
-  isFinishedState, isIntactItem, isGroupableItem, itemUnits, itemValue, itemSpend, unitKind, productKey, groupKey,
+  isFinishedState, isIntactItem, isGroupableItem, itemUnits, itemValue, itemSpend, itemCostInStock, consumedUnits, unitKind, productKey, groupKey,
   summarizeStock, slotCapacity,
 } from '../../../shared/units';
 export type { UnitKind, UnitState, StockSummary } from '../../../shared/units';

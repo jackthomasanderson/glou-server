@@ -105,6 +105,31 @@ export function itemValue(item: UnitState & UnitPrices): number {
 }
 
 /**
+ * #838: what the copies in stock cost — the purchase price of each copy held,
+ * an opened box the share of its cigars left, like {@link itemValue}, so that
+ * value and cost compare the same units (the capital gain). Spending, drunk
+ * and written-off copies included, is {@link itemSpend}.
+ */
+export function itemCostInStock(item: UnitState & Pick<UnitPrices, 'purchasePrice'>): number {
+  return (item.purchasePrice ?? 0) * copiesInStock(item) * heldShare(item);
+}
+
+/**
+ * #838: units consumed out of a unit — 1 for a bottle drunk (finished) or a
+ * single cigar smoked, the cigars smoked out of an opened or finished box
+ * (`cigarsPerBox − cigarsLeft`), 0 for anything else (a closed group, an
+ * opened bottle not finished, a write-off: broken, given away or lost is not
+ * consumed).
+ */
+export function consumedUnits(item: Pick<UnitState, 'isOpened' | 'fillLevel' | 'cigarsPerBox' | 'cigarsLeft'>): number {
+  if (!item.isOpened) return 0;
+  const finished = isFinishedState(item);
+  if (item.cigarsPerBox == null || item.cigarsPerBox <= 0) return finished ? 1 : 0;
+  const left = finished ? 0 : Math.min(Math.max(item.cigarsLeft ?? item.cigarsPerBox, 0), item.cigarsPerBox);
+  return item.cigarsPerBox - left;
+}
+
+/**
  * Spending: the purchase price of every copy bought, drunk and written-off
  * ones included (only an "input error" correction lowers `quantity`).
  */

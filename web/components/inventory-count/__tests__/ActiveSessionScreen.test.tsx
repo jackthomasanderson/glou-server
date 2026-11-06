@@ -24,7 +24,7 @@ vi.mock('@/hooks/useInventoryCount', () => ({
   useScanItem: () => ({ mutate: scan, isPending: false, variables: undefined }),
   usePauseCountSession: () => ({ mutate: vi.fn(), isPending: false }),
 }));
-let inventory: { id: string; name: string; producer: string }[] = [];
+let inventory: ({ id: string; name: string; producer: string } & Record<string, unknown>)[] = [];
 vi.mock('@/hooks/useInventory', () => ({ useInventory: () => ({ data: inventory }) }));
 vi.mock('../RecordFoundItemModal', () => ({ RecordFoundItemModal: () => null }));
 
@@ -135,5 +135,31 @@ describe('ActiveSessionScreen — counting a group in one answer', () => {
     rerender(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
 
     expect(screen.getByRole('spinbutton', { name: 'inventoryCount.session.howManyAria|Wine g1' })).toHaveValue(3);
+  });
+});
+
+// #849: the quick search finds what is in the cellar; a bottle drunk, a box
+// smoked to its last cigar, a written-off bottle or one in the trash is not.
+describe('ActiveSessionScreen — the quick search offers only units in stock', () => {
+  it('leaves out drunk, smoked, written-off and trashed units', () => {
+    withLines([]);
+    inventory = [
+      { id: 'a', name: 'Wine kept', producer: 'Domaine' },
+      { id: 'b', name: 'Wine opened', producer: 'Domaine', isOpened: true, fillLevel: 50 },
+      { id: 'c', name: 'Wine drunk', producer: 'Domaine', isOpened: true, fillLevel: 0 },
+      { id: 'd', name: 'Wine box smoked', producer: 'Domaine', isOpened: true, fillLevel: 0, cigarsPerBox: 25, cigarsLeft: 0 },
+      { id: 'e', name: 'Wine broken', producer: 'Domaine', writtenOffAt: '2026-10-01' },
+      { id: 'f', name: 'Wine trashed', producer: 'Domaine', deletedAt: '2026-10-01T00:00:00.000Z' },
+    ];
+    render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    const search = screen.getByRole('combobox');
+    fireEvent.focus(search);
+    fireEvent.change(search, { target: { value: 'Wine' } });
+
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      expect.stringContaining('Wine kept'),
+      expect.stringContaining('Wine opened'),
+    ]);
   });
 });

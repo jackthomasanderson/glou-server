@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { CountSession, CountLine } from '@/lib/inventory-count/types';
 import { useSessionReport, useScanItem, usePauseCountSession } from '@/hooks/useInventoryCount';
 import { useInventory } from '@/hooks/useInventory';
+import { inStockItems } from '@/lib/inventory/inStock';
 import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { RecordFoundItemModal } from './RecordFoundItemModal';
 import { MAX_COPIES } from '@shared/product';
@@ -94,7 +95,9 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   const searchResults = useMemo(() => {
     if (query.trim().length < MIN_SEARCH_LENGTH || !allItems) return [];
     const q = query.trim().toLowerCase();
-    return allItems
+    // #849: a bottle drunk, smoked or written off is no longer in the
+    // cellar, so it cannot be found there.
+    return inStockItems(allItems)
       .filter((i) => !alreadyRecordedIds.has(i.id))
       .filter((i) => i.name.toLowerCase().includes(q) || i.producer.toLowerCase().includes(q))
       .slice(0, MAX_SEARCH_RESULTS);

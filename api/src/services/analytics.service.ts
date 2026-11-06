@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessIndex } from '../lib/maturity-curve';
-import { FINISHED_ITEM_STATE, itemSpend, itemUnits, itemValue } from '../lib/finished-item';
+import { consumedUnits, itemCostInStock, itemSpend, itemUnits, itemValue } from '../lib/finished-item';
 import { UNIT_COUNT_SELECT } from '../lib/stock-units';
 import { ANALYTICS_PERIOD_SCOPE, type AnalyticsStats, type CavePoint, type MovementStats } from '../../../shared/analytics';
 
@@ -37,16 +37,15 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
 
   // "Consumed" is a state of the item itself, not an audit action, so it is
   // dated by `updatedAt` (every write stamps it) rather than by the audit
-  // log's `createdAt`.
-  const consumedDateFilter = from || to
-    ? { updatedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
-    : {};
+  // log's `createdAt`. #838: until movements are logged (#848), every cigar
+  // smoked out of a box is dated by the box's last write.
+  const inPeriod = (date: Date) => (!from || date >= from) && (!to || date <= to);
 
   // ISSUE_035/ISSUE_104: deliberately not spread into the inventory query
   // (ANALYTICS_PERIOD_SCOPE, shared/analytics.ts). Inventory aggregates
   // describe the cellar as it stands right now — a bottle bought in 2019 is
   // still in the cellar today, so leaving it out of the valuation would mislead.
-  const [items, cellars, auditMovements, consumedCount] = await Promise.all([
+  const [items, cellars, auditMovements] = await Promise.all([
     prisma.inventoryItem.findMany({
       // FEAT-87: analytics describe what the instance holds; a non-owned
       // reference is a wine without bottles (#471), out of every figure here.
@@ -57,6 +56,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
         ...UNIT_COUNT_SELECT,
         bottleSize: true,
         cellarId: true,
+        updatedAt: true,
         product: {
           select: {
             category: true,
@@ -82,21 +82,12 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       },
       _count: { action: true },
     }),
-    // Bottles finished during the period — the app-wide "consumed" criterion,
-    // shared with consumption-plan.service and inventory-count.service (see
-    // lib/finished-item.ts). #471: a finished unit is one copy (a sub-record
-    // detached from its group, or a group of one), so its rows count copies.
-    prisma.inventoryItem.count({
-      where: {
-        deletedAt: null,
-        ...FINISHED_ITEM_STATE,
-        ...consumedDateFilter,
-      },
-    }),
   ]);
 
   let totalValuation = 0;
   let totalPurchasePrice = 0;
+  let inStockPurchasePrice = 0;
+  let consumedCount = 0;
   let totalLiquidLiters = 0;
   let cigarCount = 0;
   let urgentDegustationCount = 0;
@@ -127,11 +118,17 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     // copy). A finished or written-off unit counts 0 and is worth 0, but what
     // was spent was spent (`itemSpend`, consistent with budget.service.ts).
     totalPurchasePrice += itemSpend(item);
+    // #838: units consumed (each bottle drunk, each cigar smoked) during the
+    // period, read from the item's state like every "consumed" figure
+    // (lib/finished-item.ts); a write-off is not consumed.
+    if (inPeriod(item.updatedAt)) consumedCount += consumedUnits(item);
     const units = itemUnits(item);
     if (units === 0) continue;
     const value = itemValue(item);
     inStockUnits += units;
     totalValuation += value;
+    // #838: the cost of the same units as `value`, for the capital gain.
+    inStockPurchasePrice += itemCostInStock(item);
     totalLiquidLiters += computeBottleVolume(product.category, item.bottleSize, item.fillLevel) * units;
 
     if (product.category === 'cigar') cigarCount += units;
@@ -246,6 +243,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     },
     totalValuation: Math.round(totalValuation),
     totalPurchasePrice: Math.round(totalPurchasePrice),
+    inStockPurchasePrice: Math.round(inStockPurchasePrice),
     totalLiquidLiters: Math.round(totalLiquidLiters * 100) / 100,
     cigarCount,
     urgentDegustationCount,

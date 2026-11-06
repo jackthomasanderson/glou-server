@@ -4,6 +4,7 @@ import { Avatar, Button, Card, CardBody, Chip, Input, Skeleton } from '@heroui/r
 import { Search, Utensils, Wine } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
+import { inStockItems } from '@/lib/inventory/inStock';
 import { InventoryItem } from '@/lib/inventory/types';
 import { matchDishToPairings, pickBestPairingLabel } from '@/lib/tastings/pairingEngine';
 import { getRecommendations } from '@/lib/tastings/recommendations';
@@ -75,6 +76,8 @@ export function PairingExplorer() {
   const suggestions = useMemo<PairingSuggestion[]>(() => {
     const trimmed = query.trim();
     if (!trimmed || !inventory) return [];
+    // #849: only a bottle still in the cellar can be served with the dish.
+    const inStock = inStockItems(inventory);
 
     const dishMatches = matchDishToPairings(trimmed);
     if (dishMatches.length === 0) return [];
@@ -88,8 +91,7 @@ export function PairingExplorer() {
       const reco = getRecommendations(combo.category, combo.subtype);
       const reasonLabel = reco ? pickBestPairingLabel(trimmed, reco.foodPairings) : null;
 
-      for (const item of inventory) {
-        if (item.deletedAt) continue;
+      for (const item of inStock) {
         if (item.category !== combo.category) continue;
         // A null combo subtype means the match came from the category's
         // "default" catalog entry — it applies regardless of the bottle's

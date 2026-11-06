@@ -72,17 +72,23 @@ const MapExplorer = dynamic(
 
 // ─── Valuation breakdown ──────────────────────────────────────────────────────
 
-function ValuationBreakdown({
+// #838: the gain compares the value and the purchase cost of the same units,
+// those in stock — a bottle drunk is worth nothing but was paid for, so
+// comparing the value to the total spend showed a loss at every bottle drunk.
+// The total spend stays, as a line of its own.
+export function ValuationBreakdown({
   totalValuation,
+  inStockPurchasePrice,
   totalPurchasePrice,
   t,
 }: {
   totalValuation: number;
+  inStockPurchasePrice: number;
   totalPurchasePrice: number;
   t: (k: string, opts?: Record<string, unknown>) => string;
 }) {
-  const delta = totalValuation - totalPurchasePrice;
-  const roiPercent = totalPurchasePrice > 0 ? Math.round((delta / totalPurchasePrice) * 100) : null;
+  const delta = totalValuation - inStockPurchasePrice;
+  const roiPercent = inStockPurchasePrice > 0 ? Math.round((delta / inStockPurchasePrice) * 100) : null;
   const isPositive = delta >= 0;
   // #519: theme classes keep the ROI readable in both modes (fixed hex failed AA).
   const roiColorClass = isPositive ? 'text-success-700 dark:text-success' : 'text-danger';
@@ -99,10 +105,10 @@ function ValuationBreakdown({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="flex flex-col gap-0.5">
             <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
-              {t('analytics.valuation.purchaseTotal')}
+              {t('analytics.valuation.inStockCost')}
             </p>
-            <p className="text-2xl font-extrabold leading-tight">
-              {fmtCurrency(totalPurchasePrice)}
+            <p className="text-2xl font-extrabold leading-tight" data-testid="valuation-in-stock-cost">
+              {fmtCurrency(inStockPurchasePrice)}
             </p>
           </div>
           <div className="flex flex-col gap-0.5">
@@ -113,8 +119,8 @@ function ValuationBreakdown({
               {fmtCurrency(totalValuation)}
             </p>
           </div>
-          {totalPurchasePrice > 0 && (
-            <div className="flex flex-col gap-0.5">
+          {inStockPurchasePrice > 0 && (
+            <div className="flex flex-col gap-0.5" data-testid="valuation-gain">
               <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
                 {t('analytics.valuation.roi')}
               </p>
@@ -137,6 +143,9 @@ function ValuationBreakdown({
             </div>
           )}
         </div>
+        <p className="mt-4 text-sm text-foreground-500" data-testid="valuation-total-spend">
+          {t('analytics.valuation.totalSpend', { amount: fmtCurrency(totalPurchasePrice) })}
+        </p>
       </CardBody>
     </Card>
   );
@@ -701,6 +710,7 @@ export function AnalyticsDashboard() {
       {!isLoading && (data?.totalPurchasePrice ?? 0) > 0 && (
         <ValuationBreakdown
           totalValuation={data?.totalValuation ?? 0}
+          inStockPurchasePrice={data?.inStockPurchasePrice ?? 0}
           totalPurchasePrice={data?.totalPurchasePrice ?? 0}
           t={t as (k: string, opts?: Record<string, unknown>) => string}
         />

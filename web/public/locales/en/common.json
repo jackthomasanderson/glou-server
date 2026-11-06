@@ -1535,10 +1535,11 @@
     },
     "valuation": {
       "title": "Valuation Analysis",
-      "purchaseTotal": "Acquisition cost",
+      "inStockCost": "Cost of stock",
       "estimatedTotal": "Estimated market value",
       "roi": "Estimated appreciation",
-      "roiHint": "vs. total purchase price"
+      "roiHint": "vs. purchase price of the bottles and cigars in stock",
+      "totalSpend": "Total spend: {{amount}}, bottles drunk, cigars smoked and stock written off included"
     },
     "period": {
       "label": "Period",
