@@ -3,7 +3,8 @@
 # instance at the previous schema, in the E2E stack's PostgreSQL, through the
 # API image the stack built. Avatars uploaded before it were saved as
 # http://localhost:3001/uploads/avatars/<file> (or another API_URL): they
-# must become /uploads/avatars/<file>; anything else stays as it was.
+# must become /uploads/avatars/<file>, older names included (client extension
+# in any case, or none); anything else stays as it was.
 #
 # Usage, with the E2E stack up (docker-compose.e2e.yml):
 #   bash e2e/migration/check-avatar-url-migration.sh
@@ -30,7 +31,9 @@ psql_on "$database" </dev/null -c "INSERT INTO \"User\" (\"id\", \"username\", \
   ('00000000-0000-4000-8000-0000000000a3', 'relative', 'a3@example.test', 'x', now(), '/uploads/avatars/2d9e3b10-6c4f-4e5d-8a81-3c4d5e6f7081.png'),
   ('00000000-0000-4000-8000-0000000000a4', 'external', 'a4@example.test', 'x', now(), 'https://cdn.example.com/people/me.png'),
   ('00000000-0000-4000-8000-0000000000a5', 'nested',   'a5@example.test', 'x', now(), 'https://cdn.example.com/uploads/avatars/team/me.png'),
-  ('00000000-0000-4000-8000-0000000000a6', 'none',     'a6@example.test', 'x', now(), NULL)"
+  ('00000000-0000-4000-8000-0000000000a6', 'none',     'a6@example.test', 'x', now(), NULL),
+  ('00000000-0000-4000-8000-0000000000a7', 'upper',    'a7@example.test', 'x', now(), 'http://localhost:3001/uploads/avatars/00000000-0000-4000-8000-0000000000a7-1722700000000.JPG'),
+  ('00000000-0000-4000-8000-0000000000a8', 'noext',    'a8@example.test', 'x', now(), 'http://localhost:3001/uploads/avatars/00000000-0000-4000-8000-0000000000a8-1722700000000')"
 echo "::endgroup::"
 
 echo "::group::Update: every migration left, $avatar included"
@@ -42,7 +45,9 @@ apiurl|/uploads/avatars/1c8d2a0f-5b3e-4d4c-9f70-2b3c4d5e6f70.webp
 relative|/uploads/avatars/2d9e3b10-6c4f-4e5d-8a81-3c4d5e6f7081.png
 external|https://cdn.example.com/people/me.png
 nested|https://cdn.example.com/uploads/avatars/team/me.png
-none|"
+none|
+upper|/uploads/avatars/00000000-0000-4000-8000-0000000000a7-1722700000000.JPG
+noext|/uploads/avatars/00000000-0000-4000-8000-0000000000a8-1722700000000"
 actual=$(psql_on "$database" -tA </dev/null -c "SELECT \"username\" || '|' || coalesce(\"avatarUrl\", '') FROM \"User\" ORDER BY \"id\"")
 if [ "$actual" != "$expected" ]; then
   echo "Avatar addresses after the migration:"

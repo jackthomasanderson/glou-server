@@ -3,7 +3,8 @@ import { PASSWORD_MIN_LENGTH } from '../../../shared/auth';
 
 /** #668: where uploaded avatars are served from, stored as is in `avatarUrl`. */
 export const AVATAR_PATH_PREFIX = '/uploads/avatars/';
-const uploadedAvatarPath = z.string().regex(/^\/uploads\/avatars\/[A-Za-z0-9-]+\.[a-z]+$/);
+// Files uploaded before 2026-08 kept the client's extension (`.JPG`, or none).
+const uploadedAvatarPath = z.string().regex(/^\/uploads\/avatars\/[A-Za-z0-9-]+(\.[A-Za-z0-9]+)?$/);
 
 export const updateProfileSchema = z.object({
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/).optional(),

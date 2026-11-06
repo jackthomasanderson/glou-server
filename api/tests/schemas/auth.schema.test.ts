@@ -119,6 +119,15 @@ describe('updateProfileSchema avatarUrl', () => {
     expect(updateProfileSchema.safeParse({ avatarUrl, displayName: 'Jack' }).success).toBe(true);
   });
 
+  it('accepts the names older uploads kept: client extension in any case, or none', () => {
+    for (const avatarUrl of [
+      '/uploads/avatars/3f2b1c9e-0a4d-4c1b-9e7f-2d6a8b5c4e10-1722700000000.JPG',
+      '/uploads/avatars/3f2b1c9e-0a4d-4c1b-9e7f-2d6a8b5c4e10-1722700000000',
+    ]) {
+      expect(updateProfileSchema.safeParse({ avatarUrl, displayName: 'Jack' }).success).toBe(true);
+    }
+  });
+
   it('still accepts an absolute URL, an empty value and null', () => {
     for (const avatarUrl of ['https://example.com/me.png', '', null]) {
       expect(updateProfileSchema.safeParse({ avatarUrl }).success).toBe(true);
