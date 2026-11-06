@@ -1,42 +1,38 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import type { InventoryCategory } from '@/lib/inventory/types';
+import type { Product } from '@/lib/products/types';
+import { product, unit } from '@/lib/products/__tests__/factories';
 import {
-  getItemMapRegion,
+  getProductMapRegion,
   hasActiveMapFilters,
-  itemMatchesMapFilters,
+  productMatchesMapFilters,
   DEFAULT_MAP_FILTERS,
   MapFiltersState,
 } from './mapFilters';
 
 const CATEGORIES: InventoryCategory[] = ['wine', 'sparkling', 'spirit', 'cigar'];
 
-const itemArb: fc.Arbitrary<InventoryItem> = fc.record({
+const itemArb: fc.Arbitrary<Product> = fc.record({
   id: fc.uuid(),
-  userId: fc.constant('u1'),
   category: fc.constantFrom(...CATEGORIES),
   name: fc.string(),
-  producer: fc.string(),
-  tags: fc.constant([]),
-  grapeVarieties: fc.constant([]),
-  lockedFields: fc.constant([]),
   isOpened: fc.boolean(),
-  createdAt: fc.constant('2024-01-01T00:00:00.000Z'),
-  updatedAt: fc.constant('2024-01-01T00:00:00.000Z'),
   region: fc.option(fc.string(), { nil: null }),
   leafOrigin: fc.option(fc.string(), { nil: null }),
   vintage: fc.option(fc.integer({ min: 1900, max: 2030 }), { nil: null }),
   estimatedValue: fc.option(fc.integer({ min: 0, max: 10_000 }), { nil: null }),
   purchasePrice: fc.option(fc.integer({ min: 0, max: 10_000 }), { nil: null }),
-}) as unknown as fc.Arbitrary<InventoryItem>;
+}).map(({ isOpened, estimatedValue, purchasePrice, ...description }) =>
+  product({ ...description, items: [unit({ isOpened, fillLevel: isOpened ? 50 : null, estimatedValue, purchasePrice })] }));
 
 const noRatings = new Map<string, number>();
 
-describe('itemMatchesMapFilters — properties', () => {
-  it('every item matches the default filters when there is no region scope', () => {
+describe('productMatchesMapFilters — properties', () => {
+  it('every wine in stock matches the default filters when there is no region scope', () => {
     fc.assert(
       fc.property(itemArb, (item) => {
-        expect(itemMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, null)).toBe(true);
+        expect(productMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, null)).toBe(true);
       }),
     );
   });
@@ -45,8 +41,8 @@ describe('itemMatchesMapFilters — properties', () => {
     fc.assert(
       fc.property(itemArb, fc.constantFrom(...CATEGORIES), (item, cat) => {
         const filters: MapFiltersState = { ...DEFAULT_MAP_FILTERS, categories: [cat] };
-        const a = itemMatchesMapFilters(item, filters, noRatings, null);
-        const b = itemMatchesMapFilters(item, filters, noRatings, null);
+        const a = productMatchesMapFilters(item, filters, noRatings, null);
+        const b = productMatchesMapFilters(item, filters, noRatings, null);
         expect(a).toBe(b);
       }),
     );
@@ -56,7 +52,7 @@ describe('itemMatchesMapFilters — properties', () => {
     fc.assert(
       fc.property(itemArb, (item) => {
         const others = CATEGORIES.filter((c) => c !== item.category);
-        expect(itemMatchesMapFilters(item, { ...DEFAULT_MAP_FILTERS, categories: others }, noRatings, null)).toBe(false);
+        expect(productMatchesMapFilters(item, { ...DEFAULT_MAP_FILTERS, categories: others }, noRatings, null)).toBe(false);
       }),
     );
   });
@@ -64,8 +60,8 @@ describe('itemMatchesMapFilters — properties', () => {
   it('a matched item under a region scope always sits in that exact region', () => {
     fc.assert(
       fc.property(itemArb, fc.string({ minLength: 1 }), (item, region) => {
-        if (itemMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, region)) {
-          expect(getItemMapRegion(item)).toBe(region);
+        if (productMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, region)) {
+          expect(getProductMapRegion(item)).toBe(region);
         }
       }),
     );
@@ -74,8 +70,8 @@ describe('itemMatchesMapFilters — properties', () => {
   it('adding a price floor can only ever remove matches, never add them', () => {
     fc.assert(
       fc.property(itemArb, fc.integer({ min: 1, max: 10_000 }), (item, floor) => {
-        const before = itemMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, null);
-        const after = itemMatchesMapFilters(
+        const before = productMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, null);
+        const after = productMatchesMapFilters(
           item,
           { ...DEFAULT_MAP_FILTERS, priceMin: String(floor) },
           noRatings,
@@ -110,13 +106,13 @@ describe('hasActiveMapFilters', () => {
   });
 });
 
-describe('getItemMapRegion', () => {
-  const asItem = (o: object) => o as unknown as InventoryItem;
+describe('getProductMapRegion', () => {
+  const asItem = (o: Partial<Product>) => product(o);
 
   it('returns null for blank/whitespace regions, a trimmed value otherwise', () => {
     fc.assert(
       fc.property(fc.option(fc.string(), { nil: null }), (region) => {
-        const result = getItemMapRegion(asItem({ category: 'wine', region }));
+        const result = getProductMapRegion(asItem({ category: 'wine', region }));
         if (result !== null) {
           expect(result).toBe(result.trim());
           expect(result.length).toBeGreaterThan(0);
@@ -126,7 +122,7 @@ describe('getItemMapRegion', () => {
   });
 
   it('prefers leafOrigin for cigars, falling back to region', () => {
-    expect(getItemMapRegion(asItem({ category: 'cigar', leafOrigin: 'Cuba', region: 'X' }))).toBe('Cuba');
-    expect(getItemMapRegion(asItem({ category: 'cigar', leafOrigin: null, region: 'X' }))).toBe('X');
+    expect(getProductMapRegion(asItem({ category: 'cigar', leafOrigin: 'Cuba', region: 'X' }))).toBe('Cuba');
+    expect(getProductMapRegion(asItem({ category: 'cigar', leafOrigin: null, region: 'X' }))).toBe('X');
   });
 });

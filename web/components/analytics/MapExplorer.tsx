@@ -4,12 +4,13 @@ import React, { useState, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { Chip } from '@heroui/react';
 import { Filter, MapPin } from 'lucide-react';
-import { useInventory } from '@/hooks/useInventory';
+import { useProducts } from '@/hooks/useProducts';
 import { useTastings } from '@/hooks/useTastings';
 import { useMapFilters } from '@/hooks/useMapFilters';
-import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
+import type { InventoryCategory } from '@/lib/inventory/types';
+import type { Product } from '@/lib/products/types';
 import { RegionCategoryStat } from '@/lib/analytics/types';
-import { itemMatchesMapFilters, hasActiveMapFilters } from '@/lib/analytics/mapFilters';
+import { productMatchesMapFilters, hasActiveMapFilters } from '@/lib/analytics/mapFilters';
 import { MapFiltersPanel } from './MapFiltersPanel';
 import { MapAssetList } from './MapAssetList';
 import { FamilyDrawer } from '@/components/inventory/FamilyDrawer';
@@ -25,19 +26,20 @@ const WorldHeatmap = dynamic(
 
 // FEAT-40/41/42 orchestrator: combines the world map (marker click → region
 // scope), the FEAT-42 filter sidebar and the resulting filtered asset list.
-// Filtering happens entirely client-side over the already-loaded inventory
-// (useInventory) — no dedicated filter endpoint, per the app's existing
+// Filtering happens entirely client-side over the already-loaded families
+// (useProducts: one row per wine in stock, recette n°5 ter of #847) — no
+// dedicated filter endpoint, per the app's existing
 // client-side filtering architecture (cf. InventoryDashboard, FEAT-84).
 
-// Rating filter (FEAT-42 "évaluation utilisateur ★1-5"): InventoryItem has no
+// Rating filter (FEAT-42 "évaluation utilisateur ★1-5"): a wine has no
 // rating field of its own — ratings live on TastingNote.rating, linked via
-// itemId, and are NOT included in the inventory list payload. The tasting
+// productId, and are NOT included in the inventory list payload. The tasting
 // notes list endpoint also hard-caps at 50 results/page server-side
 // (api/src/routes/tastings.router.ts), so fetching a reliable full-history
 // average for the whole inventory would require unbounded pagination — an
 // invented, costly network pattern. Instead we fetch a single bounded page
 // (the 50 most recent tasting notes, already an existing endpoint) and
-// derive a best-effort average rating per item from that page only. This is
+// derive a best-effort average rating per wine from that page only. This is
 // a documented approximation, surfaced via a tooltip in MapFiltersPanel.
 const RATING_SAMPLE_SIZE = 50;
 
@@ -47,22 +49,22 @@ interface MapExplorerProps {
 }
 
 export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
-  const { data: items } = useInventory();
+  const { data: products } = useProducts();
   const { data: tastingsPage } = useTastings(1, RATING_SAMPLE_SIZE);
   const [filters, setFilters, clearFilters] = useMapFilters();
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null);
-  // #471: a bottle opens the drawer of its wine.
-  const [viewingItem, setViewingItem] = useState<InventoryItem | null>(null);
+  // #471: a row opens the drawer of its wine.
+  const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
-  const ratingByItemId = useMemo(() => {
+  const ratingByProductId = useMemo(() => {
     const sums = new Map<string, { total: number; count: number }>();
     for (const note of tastingsPage?.notes ?? []) {
-      if (!note.itemId || note.rating == null) continue;
-      const cur = sums.get(note.itemId) ?? { total: 0, count: 0 };
+      if (!note.productId || note.rating == null) continue;
+      const cur = sums.get(note.productId) ?? { total: 0, count: 0 };
       cur.total += note.rating;
       cur.count += 1;
-      sums.set(note.itemId, cur);
+      sums.set(note.productId, cur);
     }
     const avg = new Map<string, number>();
     for (const [id, { total, count }] of sums) avg.set(id, total / count);
@@ -76,10 +78,10 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
     return regionCategoryBreakdown.filter((s) => filters.categories.includes(s.category as InventoryCategory));
   }, [regionCategoryBreakdown, filters.categories]);
 
-  const filteredItems = useMemo(() => {
-    if (!items) return [];
-    return items.filter((item) => itemMatchesMapFilters(item, filters, ratingByItemId, selectedRegion));
-  }, [items, filters, ratingByItemId, selectedRegion]);
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    return products.filter((product) => productMatchesMapFilters(product, filters, ratingByProductId, selectedRegion));
+  }, [products, filters, ratingByProductId, selectedRegion]);
 
   const handleRegionClick = useCallback((region: string) => setSelectedRegion(region), []);
   const handleClearRegion = useCallback(() => setSelectedRegion(null), []);
@@ -184,16 +186,16 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
               {selectedRegion ? t('analytics.map.list.title') : t('analytics.map.list.titleAll')}
             </p>
             <span className="text-xs text-foreground-500">
-              {t('analytics.map.list.itemCount', { count: filteredItems.length })}
+              {t('analytics.map.list.itemCount', { count: filteredProducts.length })}
             </span>
           </div>
-          <MapAssetList items={filteredItems} onSelect={setViewingItem} t={t} />
+          <MapAssetList products={filteredProducts} onSelect={setViewingProduct} t={t} />
         </div>
       </div>
 
       <FamilyDrawer
-        productId={viewingItem ? viewingItem.productId ?? viewingItem.id : null}
-        onClose={() => setViewingItem(null)}
+        productId={viewingProduct?.id ?? null}
+        onClose={() => setViewingProduct(null)}
       />
     </div>
   );

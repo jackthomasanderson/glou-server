@@ -1,47 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { InventoryItem } from '@/lib/inventory/types';
+import { product, unit, openedBottle } from '@/lib/products/__tests__/factories';
 import {
-  getItemMapRegion,
+  getProductMapRegion,
   hasActiveMapFilters,
-  itemMatchesMapFilters,
+  productMatchesMapFilters,
   DEFAULT_MAP_FILTERS,
   MapFiltersState,
 } from './mapFilters';
 
-function makeItem(overrides: Partial<InventoryItem> = {}): InventoryItem {
-  return {
-    id: 'item-1',
-    userId: 'user-1',
-    category: 'wine',
-    name: 'Château Test',
-    producer: 'Domaine Test',
-    tags: [],
-    grapeVarieties: [],
-    isOpened: false,
-    lockedFields: [],
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
-describe('getItemMapRegion', () => {
+describe('getProductMapRegion', () => {
   it('uses region for non-cigar categories', () => {
-    const item = makeItem({ category: 'wine', region: 'Bordeaux' });
-    expect(getItemMapRegion(item)).toBe('Bordeaux');
+    expect(getProductMapRegion(product({ category: 'wine', region: 'Bordeaux' }))).toBe('Bordeaux');
   });
 
   it('prefers leafOrigin for cigars, falling back to region', () => {
-    const cigarWithLeaf = makeItem({ category: 'cigar', leafOrigin: 'Cuba', region: 'Caraïbes' });
-    expect(getItemMapRegion(cigarWithLeaf)).toBe('Cuba');
-
-    const cigarWithoutLeaf = makeItem({ category: 'cigar', leafOrigin: null, region: 'Caraïbes' });
-    expect(getItemMapRegion(cigarWithoutLeaf)).toBe('Caraïbes');
+    expect(getProductMapRegion(product({ category: 'cigar', leafOrigin: 'Cuba', region: 'Caraïbes' }))).toBe('Cuba');
+    expect(getProductMapRegion(product({ category: 'cigar', leafOrigin: null, region: 'Caraïbes' }))).toBe('Caraïbes');
   });
 
   it('returns null for blank/missing region (error case)', () => {
-    expect(getItemMapRegion(makeItem({ region: null }))).toBeNull();
-    expect(getItemMapRegion(makeItem({ region: '   ' }))).toBeNull();
+    expect(getProductMapRegion(product({ region: null }))).toBeNull();
+    expect(getProductMapRegion(product({ region: '   ' }))).toBeNull();
   });
 });
 
@@ -57,56 +36,81 @@ describe('hasActiveMapFilters', () => {
   });
 });
 
-describe('itemMatchesMapFilters', () => {
+describe('productMatchesMapFilters', () => {
   const noRatings = new Map<string, number>();
+  const matches = (p = product(), filters: MapFiltersState = DEFAULT_MAP_FILTERS, ratings = noRatings, region: string | null = null) =>
+    productMatchesMapFilters(p, filters, ratings, region);
 
-  it('matches everything with default filters and no region scope (nominal case)', () => {
-    const item = makeItem();
-    expect(itemMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, null)).toBe(true);
+  it('matches a wine in stock with default filters and no region scope (nominal case)', () => {
+    expect(matches()).toBe(true);
   });
 
-  it('excludes items outside the region scope from a marker click', () => {
-    const item = makeItem({ region: 'Bourgogne' });
-    expect(itemMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, 'Bordeaux')).toBe(false);
-    expect(itemMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, 'Bourgogne')).toBe(true);
+  // Recette n°5 ter of #847: a wine drunk to its last bottle was listed once per bottle drunk.
+  it('leaves out a wine with nothing left in the cellar (drunk, written off, trashed, or known without bottle)', () => {
+    const drunk = product({ items: [openedBottle(0), openedBottle(0), openedBottle(0)] });
+    const writtenOff = product({ items: [unit({ writtenOffAt: '2026-03-01T00:00:00.000Z' })] });
+    const trashed = product({ items: [unit({ deletedAt: '2026-03-01T00:00:00.000Z' })] });
+    const tastedOnly = product({ items: [] });
+    for (const p of [drunk, writtenOff, trashed, tastedOnly]) expect(matches(p)).toBe(false);
+    // One bottle left among the drunk ones: the wine is in stock.
+    expect(matches(product({ items: [openedBottle(0), unit({ quantity: 8 })] }))).toBe(true);
+  });
+
+  it('excludes wines outside the region scope from a marker click', () => {
+    const p = product({ region: 'Bourgogne' });
+    expect(matches(p, DEFAULT_MAP_FILTERS, noRatings, 'Bordeaux')).toBe(false);
+    expect(matches(p, DEFAULT_MAP_FILTERS, noRatings, 'Bourgogne')).toBe(true);
   });
 
   it('filters by category multi-select', () => {
     const filters: MapFiltersState = { ...DEFAULT_MAP_FILTERS, categories: ['spirit', 'cigar'] };
-    expect(itemMatchesMapFilters(makeItem({ category: 'wine' }), filters, noRatings, null)).toBe(false);
-    expect(itemMatchesMapFilters(makeItem({ category: 'spirit' }), filters, noRatings, null)).toBe(true);
+    expect(matches(product({ category: 'wine' }), filters)).toBe(false);
+    expect(matches(product({ category: 'spirit' }), filters)).toBe(true);
   });
 
-  it('filters by price range, excluding items with no price data (error/edge case)', () => {
+  it('filters by the price of a bottle in stock, excluding wines with no price data (error/edge case)', () => {
     const filters: MapFiltersState = { ...DEFAULT_MAP_FILTERS, priceMin: '20', priceMax: '100' };
-    expect(itemMatchesMapFilters(makeItem({ estimatedValue: 50 }), filters, noRatings, null)).toBe(true);
-    expect(itemMatchesMapFilters(makeItem({ estimatedValue: 10 }), filters, noRatings, null)).toBe(false);
-    expect(itemMatchesMapFilters(makeItem({ estimatedValue: 200 }), filters, noRatings, null)).toBe(false);
-    expect(itemMatchesMapFilters(makeItem(), filters, noRatings, null)).toBe(false);
+    expect(matches(product({ items: [unit({ estimatedValue: 50 })] }), filters)).toBe(true);
+    expect(matches(product({ items: [unit({ purchasePrice: 30 })] }), filters)).toBe(true);
+    expect(matches(product({ items: [unit({ estimatedValue: 10 })] }), filters)).toBe(false);
+    expect(matches(product({ items: [unit({ estimatedValue: 200 })] }), filters)).toBe(false);
+    expect(matches(product({ items: [unit()] }), filters)).toBe(false);
+    // Any bottle in stock within the range is enough; a drunk one is not read.
+    expect(matches(product({ items: [unit({ estimatedValue: 10 }), unit({ estimatedValue: 60 })] }), filters)).toBe(true);
+    expect(matches(product({ items: [openedBottle(0, { estimatedValue: 60 }), unit({ estimatedValue: 10 })] }), filters)).toBe(false);
   });
 
   it('filters by vintage range', () => {
     const filters: MapFiltersState = { ...DEFAULT_MAP_FILTERS, vintageMin: '2015', vintageMax: '2020' };
-    expect(itemMatchesMapFilters(makeItem({ vintage: 2018 }), filters, noRatings, null)).toBe(true);
-    expect(itemMatchesMapFilters(makeItem({ vintage: 2010 }), filters, noRatings, null)).toBe(false);
-    expect(itemMatchesMapFilters(makeItem({ vintage: null }), filters, noRatings, null)).toBe(false);
+    expect(matches(product({ vintage: 2018 }), filters)).toBe(true);
+    expect(matches(product({ vintage: 2010 }), filters)).toBe(false);
+    expect(matches(product({ vintage: null }), filters)).toBe(false);
   });
 
-  it('filters by best-effort rating map, excluding unrated items', () => {
+  it('filters by best-effort rating map of the wine, excluding unrated wines', () => {
     const filters: MapFiltersState = { ...DEFAULT_MAP_FILTERS, minRating: 4 };
     const ratings = new Map<string, number>([['rated-high', 4.5], ['rated-low', 2]]);
-    expect(itemMatchesMapFilters(makeItem({ id: 'rated-high' }), filters, ratings, null)).toBe(true);
-    expect(itemMatchesMapFilters(makeItem({ id: 'rated-low' }), filters, ratings, null)).toBe(false);
-    expect(itemMatchesMapFilters(makeItem({ id: 'unrated' }), filters, ratings, null)).toBe(false);
+    expect(matches(product({ id: 'rated-high' }), filters, ratings)).toBe(true);
+    expect(matches(product({ id: 'rated-low' }), filters, ratings)).toBe(false);
+    expect(matches(product({ id: 'unrated' }), filters, ratings)).toBe(false);
   });
 
-  it('filters by opened state', () => {
+  it('filters by opened state of the bottles in stock', () => {
+    const closed = product({ items: [unit({ quantity: 3 })] });
+    const opened = product({ items: [openedBottle(50)] });
+    const both = product({ items: [unit(), openedBottle(50)] });
+    const closedAndDrunk = product({ items: [unit(), openedBottle(0)] });
+
     const inCellarOnly: MapFiltersState = { ...DEFAULT_MAP_FILTERS, openedState: 'inCellar' };
-    expect(itemMatchesMapFilters(makeItem({ isOpened: false }), inCellarOnly, noRatings, null)).toBe(true);
-    expect(itemMatchesMapFilters(makeItem({ isOpened: true }), inCellarOnly, noRatings, null)).toBe(false);
+    expect(matches(closed, inCellarOnly)).toBe(true);
+    expect(matches(opened, inCellarOnly)).toBe(false);
+    expect(matches(both, inCellarOnly)).toBe(true);
 
     const openedOnly: MapFiltersState = { ...DEFAULT_MAP_FILTERS, openedState: 'opened' };
-    expect(itemMatchesMapFilters(makeItem({ isOpened: true }), openedOnly, noRatings, null)).toBe(true);
-    expect(itemMatchesMapFilters(makeItem({ isOpened: false }), openedOnly, noRatings, null)).toBe(false);
+    expect(matches(opened, openedOnly)).toBe(true);
+    expect(matches(closed, openedOnly)).toBe(false);
+    expect(matches(both, openedOnly)).toBe(true);
+    // A finished bottle is no longer in the cellar: it does not make the wine "opened".
+    expect(matches(closedAndDrunk, openedOnly)).toBe(false);
   });
 });

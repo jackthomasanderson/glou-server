@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Table, TableHeader, TableColumn, TableBody } from '@heroui/react';
 import type { Product } from '@/lib/products/types';
-import { InventoryListRow } from './InventoryListRow';
+import { InventoryListRow, REGION_CELL, CELLAR_CELL } from './InventoryListRow';
 import type { InventoryGridViewProps } from './InventoryGridView';
 import { PaginationBar } from '@/components/ui/PaginationBar';
 import { mergePageSelection } from '@/lib/inventory/pageSelection';
@@ -38,18 +38,21 @@ export function InventoryListView({
   totalItems,
   setCurrentPage,
 }: InventoryListViewProps) {
+  // Recette n°5 ter of #847: a cigar has neither vintage nor drinking window,
+  // so a page of cigars only leaves those two always-empty columns out.
+  const cigarsOnly = items.length > 0 && items.every((item) => item.category === 'cigar');
   const tableColumns = useMemo<ColDef[]>(() => [
     { key: 'icon', label: ' ', width: 40 },
     { key: 'name', label: t('inventory.fields.name') },
     { key: 'producer', label: t('inventory.fields.producer'), className: 'hidden sm:table-cell' },
-    { key: 'vintage', label: t('inventory.fields.vintage'), className: 'text-center' },
-    { key: 'region', label: t('inventory.fields.region'), className: 'hidden md:table-cell' },
-    { key: 'cellar', label: t('view.columns.cellar'), className: 'hidden md:table-cell' },
+    ...(cigarsOnly ? [] : [{ key: 'vintage', label: t('inventory.fields.vintage'), className: 'text-center' }]),
+    { key: 'region', label: t('inventory.fields.region'), className: REGION_CELL },
+    { key: 'cellar', label: t('view.columns.cellar'), className: CELLAR_CELL },
     { key: 'stock', label: t('familyList.stockColumn') },
-    { key: 'peak', label: t('view.columns.peak'), className: 'text-center hidden sm:table-cell' },
+    ...(cigarsOnly ? [] : [{ key: 'peak', label: t('view.columns.peak'), className: 'text-center hidden sm:table-cell' }]),
     { key: 'status', label: t('view.columns.status'), className: 'hidden sm:table-cell' },
     { key: 'actions', label: t('admin.maturityRefs.columns.actions'), className: 'text-right' },
-  ], [t]);
+  ], [t, cigarsOnly]);
 
   return (
     <>
@@ -64,7 +67,7 @@ export function InventoryListView({
         isStriped={false}
         shadow="none"
         radius="none"
-        classNames={{ wrapper: 'border border-divider rounded-xl' }}
+        classNames={{ wrapper: 'border border-divider rounded-xl @container' }}
         aria-label={t('nav.bottles')}
         selectionMode={bulkMode ? 'multiple' : 'none'}
         color="primary"
@@ -102,6 +105,7 @@ export function InventoryListView({
               onDelete,
               t,
               hasPendingSync: pendingSyncIds.has(item.id),
+              cigarsOnly,
             }),
             { key: item.id }
           ))}

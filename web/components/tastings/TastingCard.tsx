@@ -31,7 +31,8 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
               showFallback
             />
             <div className="min-w-0">
-              <p className="font-bold text-sm truncate">
+              {/* The whole title, over several lines if needed: an ellipsis hid which wine it was (recette n°5 ter of #847). */}
+              <p className="font-bold text-sm break-words" data-testid="tasting-card-title">
                 {tastedWineTitle(note) ?? t('tastings.noItem')}
               </p>
               <p className="text-xs text-foreground-500">

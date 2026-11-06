@@ -3,13 +3,18 @@
 import React from 'react';
 import { Chip } from '@heroui/react';
 import { Wine, Sparkles, GlassWater, Leaf, MapPin, Search } from 'lucide-react';
-import { InventoryItem, InventoryCategory } from '@/lib/inventory/types';
-import { getItemMapRegion } from '@/lib/analytics/mapFilters';
+import { unitKind } from '@shared/units';
+import type { InventoryCategory } from '@/lib/inventory/types';
+import type { Product } from '@/lib/products/types';
+import { stockSummaryOf } from '@/lib/products/filters';
+import { keepNumbersWhole } from '@/lib/products/stock';
+import { getProductMapRegion } from '@/lib/analytics/mapFilters';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 
 // FEAT-42: filtered asset list — populated by a marker click (region scope)
 // and/or the sidebar filters (MapFiltersPanel), combined in MapExplorer.
-// Clicking a row opens the drawer of its wine (FamilyDrawer, no duplication).
+// One row per wine in stock, with its units (recette n°5 ter of #847);
+// clicking a row opens the drawer of its wine (FamilyDrawer, no duplication).
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={14} />,
@@ -22,13 +27,13 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
 // derived from the shared CATEGORY_HEX instead of a local palette copy.
 
 interface MapAssetListProps {
-  items: InventoryItem[];
-  onSelect: (item: InventoryItem) => void;
+  products: Product[];
+  onSelect: (product: Product) => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
-export function MapAssetList({ items, onSelect, t }: MapAssetListProps) {
-  if (items.length === 0) {
+export function MapAssetList({ products, onSelect, t }: MapAssetListProps) {
+  if (products.length === 0) {
     return (
       <div className="text-center py-10 border-2 border-dashed border-divider rounded-xl bg-default-50">
         <Search size={36} className="text-default-200 mx-auto mb-2" />
@@ -39,53 +44,56 @@ export function MapAssetList({ items, onSelect, t }: MapAssetListProps) {
 
   return (
     <div className="border border-divider rounded-xl divide-y divide-divider max-h-[420px] overflow-y-auto">
-      {items.map((item) => {
-        const location = getItemMapRegion(item) ?? item.location ?? null;
+      {products.map((product) => {
+        const location = getProductMapRegion(product);
+        const units = stockSummaryOf(product).units;
+        const stock = keepNumbersWhole(t(unitKind(product.category) === 'cigar' ? 'familyList.stock.spoken.cigars' : 'familyList.stock.spoken.bottles', { count: units }));
         return (
           <div
-            key={item.id}
+            key={product.id}
             role="button"
             tabIndex={0}
-            onClick={() => onSelect(item)}
+            onClick={() => onSelect(product)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 // Space would otherwise also scroll the page (#208).
                 e.preventDefault();
-                onSelect(item);
+                onSelect(product);
               }
             }}
             className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-default-50 transition-colors"
           >
-            {item.photoUrl ? (
+            {product.photoUrl ? (
               <img loading="lazy" decoding="async"
-                src={item.photoUrl}
-                alt={item.name}
+                src={product.photoUrl}
+                alt={product.name}
                 className="w-10 h-10 rounded-lg object-cover bg-background shrink-0"
               />
             ) : (
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60 shrink-0"
-                style={{ background: getCategoryPlaceholderGradient(item.category) }}
+                style={{ background: getCategoryPlaceholderGradient(product.category) }}
               >
-                {React.cloneElement(CATEGORY_ICONS[item.category], { size: 16 })}
+                {React.cloneElement(CATEGORY_ICONS[product.category], { size: 16 })}
               </div>
             )}
 
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold truncate">{item.name}</p>
+              <p className="text-xs font-semibold truncate">{product.name}</p>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <Chip
                   size="sm"
                   variant="flat"
-                  color={CATEGORY_CHIP_COLOR[item.category]}
+                  color={CATEGORY_CHIP_COLOR[product.category]}
                   radius="sm"
                   classNames={{ base: 'h-4', content: 'px-1.5 text-xs font-bold tracking-wide' }}
                 >
-                  {t(`categories.${item.category}`).toUpperCase()}
+                  {t(`categories.${product.category}`).toUpperCase()}
                 </Chip>
-                {item.vintage && (
-                  <span className="text-xs text-foreground-500">{item.vintage}</span>
+                {product.vintage && (
+                  <span className="text-xs text-foreground-500">{product.vintage}</span>
                 )}
+                <span className="text-xs text-foreground-500 whitespace-nowrap" data-testid="map-asset-stock">{stock}</span>
                 {location && (
                   <span className="text-xs text-foreground-500 flex items-center gap-0.5 truncate">
                     <MapPin size={10} className="shrink-0" />
