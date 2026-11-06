@@ -24,9 +24,22 @@ export const TOAST_INSET_VAR = '--toast-inset-right';
  * (« Bouteille remise avec les a… », recette #471). Beside a drawer, a
  * message keeps clear of it ({@link TOAST_INSET_VAR}, recette n°5 bis of
  * #847). Given to ToastProvider.
+ *
+ * Leaving, a message slid sideways by its own width: beside a drawer
+ * (bottom-right), straight over the drawer's « Ajouter des bouteilles » and
+ * « Modifier », and it caught a click meant for them (recette n°5 ter of
+ * #847). There it now leaves downwards, in its own column; and a message
+ * leaving — its 16 px hover margins included — lets every click through.
  */
 export const TOAST_PROPS = {
   classNames: {
+    base: [
+      'data-[toast-exiting=true]:pointer-events-none',
+      'data-[toast-exiting=true]:before:pointer-events-none',
+      'data-[toast-exiting=true]:after:pointer-events-none',
+      'data-[toast-exiting=true]:data-[placement=bottom-right]:translate-x-0',
+      'data-[toast-exiting=true]:data-[placement=bottom-right]:translate-y-full',
+    ].join(' '),
     title: 'whitespace-normal break-words',
     motionDiv: 'data-[placement=bottom-right]:right-[var(--toast-inset-right,0px)]',
   },
