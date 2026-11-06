@@ -23,6 +23,9 @@ import {
   useSensors,
   useDraggable,
   useDroppable,
+  pointerWithin,
+  rectIntersection,
+  type CollisionDetection,
   type DragStartEvent,
   type DragEndEvent,
   type Announcements,
@@ -151,9 +154,11 @@ interface DraggableBottleProps {
   onOpenSlot: (item: GridCell) => void;
   /** Offline (FEAT-108): the bottle opens its wine but does not move. */
   disabled?: boolean;
+  /** A bottle of the plan is being dragged: no tooltip, on any cell. */
+  dragging?: boolean;
 }
 
-function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = false }: DraggableBottleProps) {
+function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = false, dragging = false }: DraggableBottleProps) {
   const { t, i18n } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     // One draggable per cell (FEAT-93: a line may hold several).
@@ -174,18 +179,24 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = 
   return (
     // Beside the cell, from its top edge, with an arrow: never over the row above
     // nor the counter, even on two lines for a long name (recette n°5 of #847).
+    // Recette n°5 bis: it covers the next cells of the row, so it never takes the
+    // pointer (a hover or a click goes to the cell under it), closes as soon as
+    // the pointer leaves its cell, and never shows while a bottle is dragged.
     <Tooltip
       delay={500}
+      closeDelay={0}
+      isDisabled={dragging || isDragging}
       placement="right-start"
       showArrow
-      classNames={{ content: 'max-w-56' }}
-      content={isDragging ? '' : (
+      style={{ pointerEvents: 'none' }}
+      classNames={{ base: 'pointer-events-none', content: 'max-w-56 pointer-events-none' }}
+      content={
         <div className="flex flex-col py-0.5">
           {tooltipLines.map((line, index) => (
             <span key={index} data-tooltip-line className={index === 0 ? 'font-semibold' : 'text-foreground-500'}>{line}</span>
           ))}
         </div>
-      )}
+      }
     >
       <div
         ref={setNodeRef}
@@ -239,9 +250,11 @@ interface DroppableSlotProps {
   wording: GridWording;
   /** Offline (FEAT-108): nothing is placed or moved; the id of the reason said. */
   offlineReasonId?: string;
+  /** A bottle of the plan is being dragged. */
+  dragging?: boolean;
 }
 
-function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording, offlineReasonId }: DroppableSlotProps) {
+function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording, offlineReasonId, dragging = false }: DroppableSlotProps) {
   const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${col}:${row}`,
@@ -272,6 +285,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording
           zone={zone}
           onOpenSlot={onOpenSlot}
           disabled={offlineReasonId !== undefined}
+          dragging={dragging}
         />
       ) : (
         <div
@@ -311,9 +325,12 @@ function GridLegend({ items }: { items: GridItem[] }) {
   }, [items]);
 
   // Recette n°5 of #847: what the hatching of an opened bottle (or box) means.
-  const openedLabels = Array.from(new Set(items
-    .filter((item) => item.isOpened && item.slots.length > 0)
-    .map((item) => (unitKind(item.category) === 'cigar' ? 'familyDrawer.lines.openedBox' : 'familyDrawer.lines.opened'))));
+  // One entry, the hatching being the same (recette n°5 bis): « Boîte entamée »
+  // on a plan of cigars only, « Entamée » as soon as a bottle is opened on it.
+  const openedOnPlan = items.filter((item) => item.isOpened && item.slots.length > 0);
+  const openedLabel = openedOnPlan.length === 0
+    ? null
+    : openedOnPlan.every((item) => unitKind(item.category) === 'cigar') ? 'familyDrawer.lines.openedBox' : 'familyDrawer.lines.opened';
 
   if (present.length === 0) return null;
 
@@ -336,12 +353,12 @@ function GridLegend({ items }: { items: GridItem[] }) {
           {labelFor(key)}
         </span>
       ))}
-      {openedLabels.map((label) => (
-        <span key={label} data-testid="grid-legend-opened" className="inline-flex items-center gap-1.5 px-1 text-xs text-foreground-500">
+      {openedLabel && (
+        <span data-testid="grid-legend-opened" className="inline-flex items-center gap-1.5 px-1 text-xs text-foreground-500">
           <span aria-hidden className="w-3.5 h-3.5 rounded" style={{ backgroundColor: '#9E9E9E', backgroundImage: OPENED_PATTERN }} />
-          {t(label)}
+          {t(openedLabel)}
         </span>
-      ))}
+      )}
     </div>
   );
 }
@@ -448,6 +465,34 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
     </ResponsiveModal>
   );
 }
+
+/** Half the 4 px gap of the grid: a release in a gap goes to the nearer cell. */
+const HALF_GAP_PX = 2;
+
+/**
+ * Recette n°5 bis of #847: a bottle dropped with the mouse (or a finger) lands
+ * in the cell under the pointer. dnd-kit's default rule compares the cells with
+ * the drag preview's box, measured once as it appears: when the pointer had
+ * already moved by then (a quick gesture, or pointer events sent in a burst),
+ * that box was measured already moved and then moved again by the same
+ * distance, so the cell hit was one past the one the bottle was released on.
+ * The cells are therefore taken grown by half a gap (a release between two
+ * cells goes to the nearer one), and a release off the grid moves nothing.
+ * Only the keyboard, which has no pointer, keeps the default rule: it moves the
+ * preview cell by cell, after it is drawn.
+ */
+export const dropTarget: CollisionDetection = (args) => {
+  if (!args.pointerCoordinates) return rectIntersection(args);
+  const grown = new Map(Array.from(args.droppableRects, ([id, rect]) => [id, {
+    top: rect.top - HALF_GAP_PX,
+    left: rect.left - HALF_GAP_PX,
+    bottom: rect.bottom + HALF_GAP_PX,
+    right: rect.right + HALF_GAP_PX,
+    width: rect.width + 2 * HALF_GAP_PX,
+    height: rect.height + 2 * HALF_GAP_PX,
+  }]));
+  return pointerWithin({ ...args, droppableRects: grown });
+};
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
@@ -664,8 +709,10 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
       {/* Grid */}
       <DndContext
         sensors={sensors}
+        collisionDetection={dropTarget}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveDrag(null)}
         accessibility={{
           announcements,
           screenReaderInstructions: { draggable: t('cellars.grid.dragInstructions', wording) },
@@ -697,6 +744,7 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
                     onOpenSlot={onOpenSlot}
                     wording={wording}
                     offlineReasonId={offline ? offlineReasonId : undefined}
+                    dragging={activeDrag !== null}
                   />
                 );
               });
