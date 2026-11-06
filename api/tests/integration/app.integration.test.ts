@@ -472,7 +472,7 @@ describe('POST /api/admin/users/:id/reset-password', () => {
     spy.mockRestore();
   });
 
-  it('still accepts an empty body (member without 2FA)', async () => {
+  it('an empty body is valid, the service then asks for the password', async () => {
     const spy = vi.spyOn(authService, 'adminResetPassword').mockResolvedValueOnce('temp-pass-123');
     const res = await request(app)
       .post('/api/admin/users/m1/reset-password')
@@ -493,6 +493,47 @@ describe('POST /api/admin/users/:id/reset-password', () => {
     let status = 0;
     for (let i = 0; i < 21 && status !== 429; i++) status = (await post({ password: 'guess' })).status;
     expect(status).toBe(429);
+    spy.mockRestore();
+  });
+});
+
+// #638 (review): granting the admin role hands the session holder a second
+// admin account, so it asks for the same step-up as a password reset.
+describe('POST /api/admin/users/:id/role', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'm1', isActive: true, isAdmin: true } as never);
+    (prisma.user as unknown as { update: ReturnType<typeof vi.fn> }).update = vi.fn().mockResolvedValue({ id: 'm1', isAdmin: true });
+  });
+  const post = (body: Record<string, unknown>) => request(app)
+    .post('/api/admin/users/m1/role')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send(body);
+
+  it.each(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE'])('refuses a grant with %s (403), changing nothing', async (code) => {
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin').mockRejectedValueOnce(new Error(code));
+    const res = await post({ isAdmin: true, password: 'x' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe(code);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('grants with the admin\'s password and code, and audits it', async () => {
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
+    const res = await post({ isAdmin: true, password: 'admin-pw', code: '123456' });
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalledWith('u1', { password: 'admin-pw', code: '123456' }, expect.anything(),
+      { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: 'm1', isAdmin: true } });
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: { isAdmin: true } }));
+    spy.mockRestore();
+  });
+
+  it('removing the role needs the session only', async () => {
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin');
+    const res = await post({ isAdmin: false });
+    expect(res.status).toBe(200);
+    expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 });

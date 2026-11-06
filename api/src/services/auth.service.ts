@@ -13,7 +13,7 @@ import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
-import { auditLog } from './audit.service';
+import { auditLog, type AuditAction } from './audit.service';
 import { UNIT_SLOTS_INCLUDE } from '../lib/product-fields';
 import { isCookieSecure } from '../lib/cookie-secure';
 import { escapeHtml } from '../lib/html';
@@ -641,11 +641,11 @@ export class AuthService {
    * Not on the admin's own account: there an open session would be enough to
    * strip a second factor that turning 2FA off otherwise asks a code for.
    *
-   * Since the temporary password goes to the admin, stripping a member's 2FA
-   * this way would let a stolen admin session take over any account. So when
-   * the target has 2FA on, the acting admin re-authenticates in the same
-   * request (`reauth`): password, plus their own code when they have 2FA on.
-   * A refusal leaves the target untouched and is audited.
+   * Since the temporary password goes to the admin, a reset on the session
+   * alone would let a stolen admin session take over accounts. So every
+   * reset asks the acting admin to re-authenticate in the same request
+   * (`reauth`, see reauthenticateAdmin). A refusal leaves the target
+   * untouched and is audited.
    */
   async adminResetPassword(
     userId: string,
@@ -654,11 +654,14 @@ export class AuthService {
     reauth: { password?: string; code?: string } = {},
   ): Promise<string> {
     const target = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { isTwoFactorEnabled: true } });
-    const disableTwoFactor = userId !== adminUserId;
-    if (disableTwoFactor && target.isTwoFactorEnabled) {
-      await this.reauthenticateAdmin(adminUserId, reauth, deviceInfo, userId);
-    }
+    const audit = { action: 'SESSION_REVOKE' as const, details: { reason: 'admin_password_reset', targetUserId: userId } };
+    // Every reset, the admin's own included: a temporary password handed to
+    // the session holder is a credential, and a known password is what the
+    // step-up itself accepts (review: resetting oneself or a member without
+    // 2FA, then promoting them, would otherwise pass it).
+    await this.reauthenticateAdmin(adminUserId, reauth, deviceInfo, audit);
 
+    const disableTwoFactor = userId !== adminUserId;
     const tempPassword = crypto.randomBytes(9).toString('base64url'); // 12 URL-safe chars
     const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
     const now = new Date();
@@ -666,18 +669,24 @@ export class AuthService {
       ? { isTwoFactorEnabled: false, twoFactorSecret: null, backupCodes: [], twoFactorFailedAttempts: 0, twoFactorLockedUntil: null }
       : {};
 
-    await prisma.$transaction([
-      prisma.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: true, ...twoFactorReset } }),
-      prisma.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
-      prisma.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
-    ]);
+    await prisma.$transaction(async (tx) => {
+      // Conditional on the 2FA state read above, so what the audit entry and
+      // the notification say is what was actually changed.
+      const { count } = await tx.user.updateMany({
+        where: { id: userId, isTwoFactorEnabled: target.isTwoFactorEnabled },
+        data: { passwordHash, mustChangePassword: true, ...twoFactorReset },
+      });
+      if (count === 0) throw new Error('TARGET_CHANGED');
+      await tx.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+      await tx.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+    });
 
     void auditLog({
       userId: adminUserId,
-      action: 'SESSION_REVOKE',
+      action: audit.action,
       status: 'success',
       ip: deviceInfo.ip ?? 'unknown',
-      details: { reason: 'admin_password_reset', targetUserId: userId, twoFactorDisabled: disableTwoFactor && target.isTwoFactorEnabled },
+      details: { ...audit.details, twoFactorDisabled: disableTwoFactor && target.isTwoFactorEnabled },
     });
     if (disableTwoFactor && target.isTwoFactorEnabled) this.notifySecurityEvent(userId, 'twoFactorDisabled', deviceInfo);
 
@@ -685,23 +694,27 @@ export class AuthService {
   }
 
   /**
-   * #638: step-up check of the acting admin before a reset that turns another
-   * account's 2FA off. Throws REAUTH_REQUIRED (no password sent),
-   * INVALID_PASSWORD or INVALID_TOTP_CODE; a backup code used here is consumed.
+   * #638: step-up check of the acting admin before an action that hands the
+   * session holder an admin-capable credential (a password reset, granting
+   * the admin role). An open admin session alone is not enough: password,
+   * plus the admin's own TOTP or backup code when they have 2FA on (a backup
+   * code used here is consumed). Throws REAUTH_REQUIRED (no password sent),
+   * INVALID_PASSWORD or INVALID_TOTP_CODE; each refusal is audited with the
+   * caller's action and details.
    */
-  private async reauthenticateAdmin(
+  async reauthenticateAdmin(
     adminUserId: string,
     { password, code }: { password?: string; code?: string },
     deviceInfo: DeviceInfo,
-    targetUserId: string,
+    audit: { action: AuditAction; details: Record<string, unknown> },
   ): Promise<void> {
     const refuse = (error: string): never => {
       void auditLog({
         userId: adminUserId,
-        action: 'SESSION_REVOKE',
+        action: audit.action,
         status: 'error',
         ip: deviceInfo.ip ?? 'unknown',
-        details: { reason: 'admin_password_reset', targetUserId, error },
+        details: { ...audit.details, error },
       });
       throw new Error(error);
     };
@@ -715,10 +728,11 @@ export class AuthService {
     if (!match) refuse('INVALID_TOTP_CODE');
     if (match && match.backupCodeHash) {
       const usedHash = match.backupCodeHash;
-      // Conditional on the code still being there: two requests racing with
-      // the same backup code cannot both use it.
+      // Conditional on the list read above: two requests racing with the same
+      // code, or with two different codes, cannot both write (the second
+      // would bring the first one's code back).
       const { count } = await prisma.user.updateMany({
-        where: { id: adminUserId, backupCodes: { has: usedHash } },
+        where: { id: adminUserId, backupCodes: { equals: admin.backupCodes } },
         data: { backupCodes: admin.backupCodes.filter((c) => c !== usedHash) },
       });
       if (count === 0) refuse('INVALID_TOTP_CODE');

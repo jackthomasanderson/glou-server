@@ -4,9 +4,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 // password reset left 2FA in place (sign-in still stopped at the code step),
 // and backup codes could be neither regenerated nor counted.
 
-vi.mock('../../src/lib/prisma', () => ({
-  prisma: {
-    $transaction: vi.fn(async (ops: unknown[]) => Promise.all(ops)),
+vi.mock('../../src/lib/prisma', () => {
+  const prisma = {
+    // Both forms: an array of writes, or an interactive transaction given the client.
+    $transaction: vi.fn(async (arg: unknown): Promise<unknown> =>
+      typeof arg === 'function' ? (arg as (tx: unknown) => unknown)(prisma) : Promise.all(arg as unknown[])),
     user: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
@@ -22,8 +24,9 @@ vi.mock('../../src/lib/prisma', () => ({
     trustedDevice: {
       updateMany: vi.fn(),
     },
-  },
-}));
+  };
+  return { prisma };
+});
 
 vi.mock('bcryptjs', () => ({
   default: {
@@ -104,7 +107,6 @@ function userRow(overrides: Record<string, unknown> = {}) {
 }
 
 type UpdateArgs = { where: { id: string }; data: Record<string, unknown> };
-const userUpdates = () => vi.mocked(prisma.user.update).mock.calls.map((c) => c[0] as unknown as UpdateArgs);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -138,7 +140,12 @@ const adminRow = (overrides: Record<string, unknown> = {}) => userRow({
   backupCodes: ['admin-code-1', 'admin-code-2'], ...overrides,
 });
 
-const memberUpdate = () => userUpdates().find((u) => u.where.id === 'member');
+/** The reset's own write: the one setting the temporary password. */
+const resetWrite = (id: string) => vi.mocked(prisma.user.updateMany).mock.calls
+  .map((c) => c[0] as unknown as UpdateArgs & { where: Record<string, unknown> })
+  .find((u) => u.where.id === id && 'passwordHash' in u.data);
+const memberUpdate = () => resetWrite('member');
+const REAUTH = { password: ADMIN_PASSWORD, code: '654321' };
 
 describe('adminResetPassword turns two-factor authentication off (#638)', () => {
   beforeEach(() => {
@@ -197,7 +204,7 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
   ])('with %s, refuses and leaves the member\'s password and 2FA untouched', async (_label, reauth, error) => {
     await expect(authService.adminResetPassword('member', 'admin', deviceInfo, reauth)).rejects.toThrow(error);
 
-    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(memberUpdate()).toBeUndefined();
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'admin',
@@ -210,8 +217,9 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
   it('accepts one of the admin\'s backup codes and consumes it', async () => {
     await authService.adminResetPassword('member', 'admin', deviceInfo, { password: ADMIN_PASSWORD, code: ADMIN_BACKUP });
 
+    // Conditional on the list read, not just on the code (two different codes racing).
     expect(prisma.user.updateMany).toHaveBeenCalledWith({
-      where: { id: 'admin', backupCodes: { has: 'admin-code-2' } },
+      where: { id: 'admin', backupCodes: { equals: ['admin-code-1', 'admin-code-2'] } },
       data: { backupCodes: ['admin-code-1'] },
     });
     expect(memberUpdate()?.data).toMatchObject({ isTwoFactorEnabled: false });
@@ -230,9 +238,39 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
     expect(memberUpdate()?.data).toMatchObject({ isTwoFactorEnabled: false });
   });
 
-  it('asks nothing more when the member has no 2FA (today\'s behaviour)', async () => {
+  // Review (pivot A/B): a member without 2FA, or the admin themself, used to
+  // be reset on the session alone, giving a known password that then passed
+  // the step-up. Every reset now asks for it.
+  it.each([
+    ['a member without 2FA', 'member'],
+    ['the admin\'s own account', 'admin'],
+    ['another admin', 'admin2'],
+  ])('resetting %s also needs the admin\'s password and code', async (_label, target) => {
+    accounts({
+      member: userRow({ isTwoFactorEnabled: false, twoFactorSecret: null, backupCodes: [] }),
+      admin: adminRow(),
+      admin2: adminRow({ id: 'admin2', isTwoFactorEnabled: false, twoFactorSecret: null, backupCodes: [] }),
+    });
+    await expect(authService.adminResetPassword(target, 'admin', deviceInfo)).rejects.toThrow('REAUTH_REQUIRED');
+    await expect(authService.adminResetPassword(target, 'admin', deviceInfo, { password: ADMIN_PASSWORD })).rejects.toThrow('INVALID_TOTP_CODE');
+    expect(resetWrite(target)).toBeUndefined();
+
+    await authService.adminResetPassword(target, 'admin', deviceInfo, REAUTH);
+    expect(resetWrite(target)?.data).toMatchObject({ mustChangePassword: true });
+  });
+
+  it('changes nothing if the member turned 2FA on meanwhile (write conditional on the state read)', async () => {
+    vi.mocked(prisma.user.updateMany).mockImplementation((async (args: { data: Record<string, unknown> }) =>
+      ({ count: 'passwordHash' in args.data ? 0 : 1 })) as never);
+    await expect(authService.adminResetPassword('member', 'admin', deviceInfo, REAUTH)).rejects.toThrow('TARGET_CHANGED');
+    expect(memberUpdate()?.where).toEqual({ id: 'member', isTwoFactorEnabled: true });
+    expect(prisma.session.updateMany).not.toHaveBeenCalled();
+    expect(auditLog).not.toHaveBeenCalledWith(expect.objectContaining({ status: 'success' }));
+  });
+
+  it('a member without 2FA: the audit says no 2FA was turned off', async () => {
     accounts({ member: userRow({ isTwoFactorEnabled: false, twoFactorSecret: null, backupCodes: [] }), admin: adminRow() });
-    await authService.adminResetPassword('member', 'admin', deviceInfo);
+    await authService.adminResetPassword('member', 'admin', deviceInfo, REAUTH);
 
     expect(memberUpdate()?.data).toMatchObject({ mustChangePassword: true });
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
@@ -240,10 +278,10 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
     }));
   });
 
-  it('leaves an admin\'s own 2FA in place: an open session alone must not strip it', async () => {
-    await authService.adminResetPassword('admin', 'admin', deviceInfo);
+  it('leaves an admin\'s own 2FA in place', async () => {
+    await authService.adminResetPassword('admin', 'admin', deviceInfo, REAUTH);
 
-    const update = userUpdates().find((u) => u.where.id === 'admin');
+    const update = resetWrite('admin');
     expect(update?.data).toMatchObject({ mustChangePassword: true });
     expect(update?.data).not.toHaveProperty('isTwoFactorEnabled');
     expect(update?.data).not.toHaveProperty('twoFactorSecret');
