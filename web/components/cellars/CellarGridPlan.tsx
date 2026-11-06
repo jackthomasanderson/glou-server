@@ -466,6 +466,9 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
   );
 }
 
+/** Half the 4 px gap of the grid: a release in a gap goes to the nearer cell. */
+const HALF_GAP_PX = 2;
+
 /**
  * Recette n°5 bis of #847: a bottle dropped with the mouse (or a finger) lands
  * in the cell under the pointer. dnd-kit's default rule compares the cells with
@@ -473,12 +476,22 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
  * already moved by then (a quick gesture, or pointer events sent in a burst),
  * that box was measured already moved and then moved again by the same
  * distance, so the cell hit was one past the one the bottle was released on.
- * The keyboard (no pointer) and a release in the gap between two cells keep
- * that rule.
+ * The cells are therefore taken grown by half a gap (a release between two
+ * cells goes to the nearer one), and a release off the grid moves nothing.
+ * Only the keyboard, which has no pointer, keeps the default rule: it moves the
+ * preview cell by cell, after it is drawn.
  */
 export const dropTarget: CollisionDetection = (args) => {
-  const underPointer = pointerWithin(args);
-  return underPointer.length > 0 ? underPointer : rectIntersection(args);
+  if (!args.pointerCoordinates) return rectIntersection(args);
+  const grown = new Map(Array.from(args.droppableRects, ([id, rect]) => [id, {
+    top: rect.top - HALF_GAP_PX,
+    left: rect.left - HALF_GAP_PX,
+    bottom: rect.bottom + HALF_GAP_PX,
+    right: rect.right + HALF_GAP_PX,
+    width: rect.width + 2 * HALF_GAP_PX,
+    height: rect.height + 2 * HALF_GAP_PX,
+  }]));
+  return pointerWithin({ ...args, droppableRects: grown });
 };
 
 // ─── Main component ───────────────────────────────────────────────────────────
