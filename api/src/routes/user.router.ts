@@ -5,7 +5,7 @@ import type { ExportCategory } from '../../../shared/auth';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
-import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema } from '../schemas/user.schema';
+import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema } from '../schemas/user.schema';
 import { prisma } from '../lib/prisma';
 import { assertUrlAllowed } from '../lib/ssrf';
 import { notificationService } from '../services/notification.service';
@@ -52,8 +52,9 @@ router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), async (req
     return;
   }
 
-  // Construct the avatar URL path to reach the image
-  const avatarUrl = `${process.env.API_URL || 'http://localhost:3001'}/uploads/avatars/${req.file.filename}`;
+  // #668: a relative path, like product photos — the web app's /uploads
+  // rewrite serves it on whatever address the instance is reached at.
+  const avatarUrl = `${AVATAR_PATH_PREFIX}${req.file.filename}`;
 
   const user = await authService.updateProfile(req.userId, { avatarUrl });
   res.json({ data: user });

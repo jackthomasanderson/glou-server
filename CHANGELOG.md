@@ -12,6 +12,7 @@ Entries start with the pull request that introduced them where there is one.
 
 ### Fixed
 - An action that fails now always says so: saving a budget envelope, a maturity reference or a humidor reading, pausing an alert, signing out a session, exporting your data or deleting your account, pausing or resuming a stock count, and other actions that used to fail without a word now show "An error occurred" (or "Cannot reach the server" without network). Actions that already had their own message keep it, without a second one; changes kept on the device while offline are still shown as waiting, not as failed. Creating, editing and deleting a budget envelope now also confirms it, and a failed save keeps its window open with what you typed (#616).
+- Profile photos now show on an installed instance: once uploaded, the photo stayed a broken image (or your initial) in the sidebar, the lock screen and the profile, on every device, because it pointed at an address the server does not publish. Photos uploaded before the update are fixed by the update itself (#668).
 
 ## v2026.11.1 - 2026-11-06
 

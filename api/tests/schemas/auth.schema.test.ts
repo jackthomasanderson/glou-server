@@ -6,6 +6,7 @@ import {
   turnOff2faSchema,
   verify2faSchema,
 } from '../../src/schemas/auth.schema';
+import { updateProfileSchema } from '../../src/schemas/user.schema';
 
 describe('registerSchema', () => {
   const valid = {
@@ -106,5 +107,27 @@ describe('password minimum length', () => {
     expect(PASSWORD_MIN_LENGTH).toBe(12);
     expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'wine1234' }).success).toBe(false);
     expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'a'.repeat(12) }).success).toBe(true);
+  });
+});
+
+// #668: uploaded avatars are now stored as a relative path. The profile form
+// sends the current avatarUrl back with the name fields, so the schema must
+// take that path, or saving a display name fails once a photo is set.
+describe('updateProfileSchema avatarUrl', () => {
+  it('accepts the relative path of an uploaded avatar', () => {
+    const avatarUrl = '/uploads/avatars/3f2b1c9e-0a4d-4c1b-9e7f-2d6a8b5c4e10.jpg';
+    expect(updateProfileSchema.safeParse({ avatarUrl, displayName: 'Jack' }).success).toBe(true);
+  });
+
+  it('still accepts an absolute URL, an empty value and null', () => {
+    for (const avatarUrl of ['https://example.com/me.png', '', null]) {
+      expect(updateProfileSchema.safeParse({ avatarUrl }).success).toBe(true);
+    }
+  });
+
+  it('refuses any other relative path', () => {
+    for (const avatarUrl of ['/uploads/products/x.jpg', '/uploads/avatars/../scans/x.jpg', '/uploads/avatars/', 'me.png']) {
+      expect(updateProfileSchema.safeParse({ avatarUrl }).success).toBe(false);
+    }
   });
 });

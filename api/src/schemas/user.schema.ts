@@ -1,9 +1,15 @@
 import { z } from 'zod';
 import { PASSWORD_MIN_LENGTH } from '../../../shared/auth';
 
+/** #668: where uploaded avatars are served from, stored as is in `avatarUrl`. */
+export const AVATAR_PATH_PREFIX = '/uploads/avatars/';
+const uploadedAvatarPath = z.string().regex(/^\/uploads\/avatars\/[A-Za-z0-9-]+\.[a-z]+$/);
+
 export const updateProfileSchema = z.object({
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/).optional(),
-  avatarUrl: z.string().url().max(500).optional().nullable().or(z.literal('')),
+  // The profile form sends the current avatar back with the name fields:
+  // the relative path of an uploaded one must round-trip.
+  avatarUrl: z.string().url().max(500).or(uploadedAvatarPath).optional().nullable().or(z.literal('')),
   appName: z.string().max(40).optional().nullable().or(z.literal('')),
   appSlogan: z.string().max(100).optional().nullable().or(z.literal('')),
   displayName: z.string().max(60).optional().nullable().or(z.literal('')),

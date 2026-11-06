@@ -196,6 +196,10 @@ jobs:
       - name: Migration bench (slots)
         run: bash e2e/migration/check-slots-migration.sh
 
+      # #668: avatars saved with an absolute localhost address become relative.
+      - name: Migration bench (avatar addresses)
+        run: bash e2e/migration/check-avatar-url-migration.sh
+
       # Deterministic user-journey specs only. The gremlins fuzz
       # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the
       # `nightly-e2e-fuzz` workflow instead — it's slow and non-deterministic.
