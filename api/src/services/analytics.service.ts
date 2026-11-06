@@ -38,7 +38,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // "Consumed" is a state of the item itself, not an audit action, so it is
   // dated by `updatedAt` (every write stamps it) rather than by the audit
   // log's `createdAt`. #838: until movements are logged (#848), every cigar
-  // smoked out of a box is dated by the box's last write.
+  // smoked out of a box is dated by the box's last change of any kind.
   const inPeriod = (date: Date) => (!from || date >= from) && (!to || date <= to);
 
   // ISSUE_035/ISSUE_104: deliberately not spread into the inventory query
