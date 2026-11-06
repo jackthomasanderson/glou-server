@@ -189,6 +189,58 @@ describe('readFieldHistory', () => {
       expect(await read(openedThenPutBack(5).map(asGuest))).toEqual([]);
     });
 
+    // Recette #847, KO 8.2: each entry is written on its own once the request
+    // is done, so the group's lands a few milliseconds after the bottle's —
+    // "Quantité : 2 → 3" was told after "Annuler" of a bottle opened from its cell.
+    describe('the group\'s own entries, written a few milliseconds apart (recette #847, KO 8.2)', () => {
+      const ms = (seconds: number, millis: number) => new Date(at(seconds).getTime() + millis);
+      const cell = { column: 2, row: 1 };
+      const late = (row: ReturnType<typeof log>, millis: number) => ({ ...row, createdAt: ms(row.createdAt.getUTCSeconds(), millis) });
+      // Opened from C2·R1 out of g ×3 (3 → 2), then put back (2 → 3).
+      const fromCell = (extra: Record<string, unknown> = {}, opening = opened) => [
+        log(4, 5, 'g', { changes: [{ field: 'quantity', from: 2, to: 3 }], outcome: 'reattached', subItemId: 's', ...extra }),
+        log(3, 5, 'g', { changes: [{ field: 'isOpened', from: true, to: false }], outcome: 'reattached', targetItemId: 's', ...extra }),
+        log(2, 0, 'g', { changes: [{ field: 'quantity', from: 3, to: 2 }, { field: 'slot', from: cell, to: null }], outcome: 'detached', subItemId: 's', ...extra }),
+        log(1, 0, 'g', { changes: [...opening, { field: 'slot', from: null, to: cell }], outcome: 'detached', targetItemId: 'g', absorbedFrom: 's', ...extra }),
+      ];
+      const opened = [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 100 }];
+      const drunk = [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 0 }];
+      const smoked = [{ field: 'isOpened', from: false, to: true }, { field: 'cigarsLeft', from: null, to: 24 }];
+      const spread = ([back4, back3, open2, open1]: ReturnType<typeof log>[]) => [late(back4, 4), back3, late(open2, 3), open1];
+
+      it('opened from a cell, "Annuler": nothing told, its group\'s "2 → 3" written after included', async () => {
+        expect(await read(spread(fromCell()))).toEqual([]);
+      });
+
+      it('the same, the group\'s entries written just before the bottle\'s', async () => {
+        const [back4, back3, open2, open1] = fromCell();
+        expect(await read([back3, { ...back4, createdAt: ms(4, 998) }, open1, { ...open2, createdAt: ms(-1, 999) }])).toEqual([]);
+      });
+
+      it('"J\'en bois une" and "J\'en fume un" from a cell, "Annuler": nothing told', async () => {
+        expect(await read(spread(fromCell({}, drunk)))).toEqual([]);
+        expect(await read(spread(fromCell({ smokeOne: true }, smoked)))).toEqual([]);
+      });
+
+      it('a guest\'s, whose group entries name no bottle (written before the fix): nothing told', async () => {
+        const guest = { via: 'guest_share', shareId: 'sh1' };
+        const asGuest = (row: ReturnType<typeof log>) => {
+          const { subItemId: _named, ...details } = row.details as Record<string, unknown>;
+          return { ...row, action: 'GUEST_UPDATE', details: { ...details, ...guest } };
+        };
+        expect(await read(spread(fromCell()).map(asGuest))).toEqual([]);
+        // Another guest's link opening the same line meanwhile: its group entry is never taken for this one.
+        const other = { ...asGuest(log(8, 1, 'g', { changes: [{ field: 'quantity', from: 2, to: 1 }], outcome: 'detached' })), details: { changes: [{ field: 'quantity', from: 2, to: 1 }], outcome: 'detached', via: 'guest_share', shareId: 'sh2' } };
+        const rows = spread(fromCell()).map(asGuest);
+        expect(await read([...rows.slice(0, 2), other, ...rows.slice(2)])).toEqual([8]);
+      });
+
+      it('put back past the minute: the opening and the putting back are both told', async () => {
+        const rows = spread(fromCell()).map((row, index) => (index < 2 ? { ...row, createdAt: new Date(row.createdAt.getTime() + 120_000) } : row));
+        expect(await read(rows)).toEqual([4, 3, 1]);
+      });
+    });
+
     // An in-place write is logged without `outcome` (only a detach or a reattach carries one).
     it('a lone bottle drunk in place then taken back: both entries go, its slot given back included', async () => {
       expect(await read([
