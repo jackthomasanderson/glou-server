@@ -25,7 +25,7 @@ import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
 import { describeStock, keepNumbersWhole, wineName } from '@/lib/products/stock';
 import { toastClearanceRef } from '@/lib/toastClearance';
-import { bottleLabel, familyLines, formatPurchaseDay, hasOwnLevel, type LineContext } from '@/lib/products/lines';
+import { familyLines, formatPurchaseDay, hasOwnLevel, tastingBottleLabel, type LineContext } from '@/lib/products/lines';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { QrCodeModal } from './QrCodeModal';
@@ -430,13 +430,14 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
             <ul className="flex flex-col gap-2" data-testid="family-tastings">
               {p.tastings.map((tasting) => {
                 const bottle = tasting.itemId ? p.items.find((item) => item.id === tasting.itemId) : undefined;
-                // "Garage · 20 € / bouteille": where the bottle tasted was, and its price.
+                // "Garage · 20 € / bouteille · achat du 12 mars 2025": the bottle as it was
+                // when tasted (#837), even moved, finished or no longer listed.
                 // FEAT-109: noted through a guest link — "Marie (invité)"; without a
                 // bottle, on a wine of the shared cellar, not "tasted elsewhere" — nor
                 // one of a bottle no longer listed (in the trash): only a tasting
                 // without any bottle was noted elsewhere (recette #471, KO 8.4).
                 const guest = guestSignature(tasting.guestName, t);
-                const which = bottle ? bottleLabel(bottle, ctx) : isTastedElsewhere(tasting) ? t('familyDrawer.tastings.elsewhere') : null;
+                const which = tastingBottleLabel(tasting, bottle, ctx) ?? (isTastedElsewhere(tasting) ? t('familyDrawer.tastings.elsewhere') : null);
                 return (
                   <li key={tasting.id} className="p-3 rounded-xl border border-divider">
                     <div className="flex items-center justify-between gap-2 text-xs text-foreground-500">

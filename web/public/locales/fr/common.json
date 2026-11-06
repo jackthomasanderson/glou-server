@@ -2623,7 +2623,8 @@
       "empty": "Aucune dégustation de ce vin pour l'instant.",
       "empty_spirit": "Aucune dégustation de ce spiritueux pour l'instant.",
       "empty_cigar": "Aucune dégustation de ce cigare pour l'instant.",
-      "elsewhere": "Goûté ailleurs"
+      "elsewhere": "Goûté ailleurs",
+      "boughtOn": "achat du {{date}}"
     },
     "history": {
       "title": "Historique",
