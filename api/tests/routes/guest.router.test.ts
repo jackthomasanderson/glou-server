@@ -255,6 +255,8 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
 
     const details = (vi.mocked(auditLog).mock.calls[0]?.[0] as unknown as { details: { undo: Record<string, unknown> } }).details;
     expect(details.undo).not.toHaveProperty('slot');
+    // Recette #847 (KO 8.2): its group's entry names the bottle, as a member's does, so "Annuler" hides both.
+    expect(vi.mocked(auditLog).mock.calls[1]?.[0]).toMatchObject({ bottleId: 'i1', details: { outcome: 'detached', subItemId: 'sub' } });
   });
 
   it('a level set records no "Annuler"', async () => {
