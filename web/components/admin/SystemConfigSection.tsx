@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import {
-  Button, Input, Switch, Chip, Skeleton, Tabs, Tab, Select, SelectItem,
+  Button, Input, Switch, Chip, Skeleton, Tabs, Tab, SelectItem,
   ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
@@ -12,6 +12,7 @@ import { useHasMounted } from '@/hooks/useHasMounted';
 import { useScanStatus } from '@/hooks/useScan';
 import { formatDateTime } from '@/lib/format';
 import { copyText } from '@/lib/clipboard';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 const SCAN_PROFILE_COMMAND = 'docker compose --profile scan up -d';
 
@@ -768,7 +769,7 @@ export function SystemConfigSection() {
                   onValueChange={(v) => setNetwork((n) => ({ ...n, publicUrl: v }))}
                   variant="bordered" size="sm" radius="md" labelPlacement="outside"
                 />
-                <Select
+                <SingleSelect
                   label={t('adminConfig.network.accessMode')}
                   description={t('adminConfig.network.accessModeHint')}
                   selectedKeys={[network.accessMode]}
@@ -779,11 +780,10 @@ export function SystemConfigSection() {
                     }
                   }}
                   variant="bordered" size="sm" radius="md" labelPlacement="outside"
-                  disallowEmptySelection
                 >
                   <SelectItem key="direct">{t('adminConfig.network.accessModeOptions.direct')}</SelectItem>
                   <SelectItem key="proxy">{t('adminConfig.network.accessModeOptions.proxy')}</SelectItem>
-                </Select>
+                </SingleSelect>
               </div>
               <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveNetwork} className="self-start">
                 {t('adminConfig.network.save')}

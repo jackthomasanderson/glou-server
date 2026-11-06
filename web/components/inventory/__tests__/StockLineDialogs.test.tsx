@@ -304,7 +304,9 @@ describe('EditLineDialog (§10.3 "Modifier", #726)', () => {
 
     fireEvent.change(screen.getByLabelText(/Date d'achat/), { target: { value: '2026-02-01' } });
     fireEvent.change(screen.getByLabelText(/Lieu d'achat/), { target: { value: 'Caviste du coin' } });
-    fireEvent.change(screen.getByLabelText(/Emplacement/), { target: { value: 'Étagère du haut' } });
+    // Recette n°5 bis of #847: a free note, not « Emplacement » — a cell of the plan is a « case ».
+    expect(screen.queryByLabelText(/Emplacement/)).toBeNull();
+    fireEvent.change(screen.getByLabelText('Repère libre (étagère, carton…)'), { target: { value: 'Étagère du haut' } });
     fireEvent.click(confirmButton('Enregistrer'));
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -389,6 +391,9 @@ describe('the cells a dialog names (FEAT-93 c4)', () => {
 
     const picker = screen.getByTestId('slot-picker');
     expect(within(picker).getByText('Quelles cases libérer ?')).toBeInTheDocument();
+    // Recette n°5 bis: right under the reminder, without the room kept for
+    // « Rien ne reste sur cette ligne » — never shown with the plan.
+    expect(screen.queryByText(/Rien ne reste sur cette ligne/)).toBeNull();
     // Only the line's cells can be chosen, on the plan of its cellar.
     expect(within(picker).getAllByRole('button')).toHaveLength(6);
     expect(within(picker).getByRole('button', { name: 'Case C1·R1' })).toHaveAttribute('aria-pressed', 'false');

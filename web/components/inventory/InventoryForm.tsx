@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Button, Chip, Divider, Input, Select, SelectItem,
+  Button, Chip, Divider, Input, SelectItem,
 } from '@heroui/react';
 import i18n from '@/lib/i18n';
 import { currencySymbol, todayLocalIso } from '@/lib/format';
@@ -45,6 +45,7 @@ import type { Product } from '@/lib/products/types';
 import {
   cigarGroupInput, cigarPriceKey, cigarValueKey, isCigarGroupValid, type CigarGroupDraft, type CigarStorage,
 } from '@/lib/products/cigarGroup';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 /**
  * What a new entry sends. `distinctFrom` (#471, FEAT-97 c5): the wines of the
@@ -490,8 +491,7 @@ export function InventoryForm({
                         isInvalid={submitAttempted && missingProducer}
                       />
                       {showsBottle && (
-                      <Select
-                        disallowEmptySelection
+                      <SingleSelect
                         label={t('nav.caves')}
                         variant="bordered"
                         size="sm"
@@ -506,7 +506,7 @@ export function InventoryForm({
                             {item.id === 'none' ? <em>{item.name}</em> : item.name}
                           </SelectItem>
                         )}
-                      </Select>
+                      </SingleSelect>
                       )}
                     </div>
 
@@ -639,8 +639,7 @@ export function InventoryForm({
                             description={t('inventory.fields.noVintage')}
                             min={1800} max={new Date().getFullYear()}
                           />
-                          <Select
-                            disallowEmptySelection
+                          <SingleSelect
                             label={t('inventory.fields.color')}
                             variant="bordered"
                             size="sm"
@@ -650,7 +649,7 @@ export function InventoryForm({
                             {(['', ...WINE_COLORS]).map((c) => (
                               <SelectItem key={c}>{c ? t(`inventory.color.${c}`) : <em>—</em>}</SelectItem>
                             ))}
-                          </Select>
+                          </SingleSelect>
                           <div className="col-span-2">
                             <Input
                               label={t('inventory.fields.region')}
@@ -666,7 +665,6 @@ export function InventoryForm({
                             size="sm"
                             value={values.alcoholDegree}
                             onValueChange={(v) => setField('alcoholDegree', v)}
-                            endContent={<span className="text-xs text-foreground-500">%</span>}
                           />
                         </>
                       )}
@@ -684,8 +682,7 @@ export function InventoryForm({
                             description={t('inventory.fields.noVintage')}
                             min={1800} max={new Date().getFullYear()}
                           />
-                          <Select
-                            disallowEmptySelection
+                          <SingleSelect
                             label={t('inventory.fields.sparklingType')}
                             variant="bordered"
                             size="sm"
@@ -695,9 +692,8 @@ export function InventoryForm({
                             {(['', ...SPARKLING_TYPES]).map((s) => (
                               <SelectItem key={s}>{s ? t(`inventory.sparklingTypes.${s}`) : <em>—</em>}</SelectItem>
                             ))}
-                          </Select>
-                          <Select
-                            disallowEmptySelection
+                          </SingleSelect>
+                          <SingleSelect
                             label={t('inventory.fields.sugarLevel')}
                             variant="bordered"
                             size="sm"
@@ -707,7 +703,7 @@ export function InventoryForm({
                             {(['', ...SUGAR_LEVELS]).map((s) => (
                               <SelectItem key={s}>{s ? t(`inventory.sugarLevels.${s}`) : <em>—</em>}</SelectItem>
                             ))}
-                          </Select>
+                          </SingleSelect>
                         </>
                       )}
 
@@ -715,8 +711,7 @@ export function InventoryForm({
                       {isSpirit && (
                         <>
                           <div className="col-span-2">
-                            <Select
-                              disallowEmptySelection
+                            <SingleSelect
                               label={t('inventory.fields.spiritType')}
                               variant="bordered"
                               size="sm"
@@ -726,7 +721,7 @@ export function InventoryForm({
                               {(['', 'whisky', 'rhum', 'gin', 'cognac', 'calvados', 'armagnac', 'vodka', 'tequila', 'mezcal', 'liqueur', 'other']).map((s) => (
                                 <SelectItem key={s}>{s ? t(`inventory.spiritTypes.${s}`) : <em>—</em>}</SelectItem>
                               ))}
-                            </Select>
+                            </SingleSelect>
                           </div>
                           <div className="col-span-2">
                             <Input
@@ -816,13 +811,12 @@ export function InventoryForm({
                             min={1800} max={2200}
                           />
                           {/* FEAT-86: consumption-curve shape override */}
-                          <Select
+                          <SingleSelect
                             className="col-span-2 sm:col-span-4"
                             label={t('inventory.fields.curveShape')}
                             description={t('inventory.fields.curveShapeHint')}
                             variant="bordered"
                             size="sm"
-                            disallowEmptySelection
                             popoverProps={{ placement: 'bottom', shouldFlip: true }}
                             selectedKeys={[values.curveShape ?? DEFAULT_CURVE_SHAPE]}
                             onSelectionChange={(keys) => setField('curveShape', Array.from(keys)[0] ?? null)}
@@ -840,7 +834,7 @@ export function InventoryForm({
                                 {t(curveShapeLabelKey(shape))}
                               </SelectItem>
                             ))}
-                          </Select>
+                          </SingleSelect>
                         </>
                       )}
                     </div>
@@ -946,7 +940,6 @@ export function InventoryForm({
                                 size="sm"
                                 value={values.caskProof}
                                 onValueChange={(v) => setField('caskProof', v)}
-                                endContent={<span className="text-xs text-foreground-500">%</span>}
                               />
                               <div className="flex items-center">
                                 <FilterChip
@@ -1132,13 +1125,14 @@ export function InventoryForm({
                               value={values.factoryCode ?? ''}
                               onValueChange={(v) => setField('factoryCode', v)}
                             />
+                            {/* Two columns: on one, its label ran over two lines and over the value (recette n°5 bis of #847). */}
                             <ParsedNumberInput decimal
+                              className="col-span-2"
                               label={t('inventory.fields.recommendedHumidity')}
                               variant="bordered"
                               size="sm"
                               value={values.recommendedHumidity}
                               onValueChange={(v) => setField('recommendedHumidity', v)}
-                              endContent={<span className="text-xs text-foreground-500">%</span>}
                             />
                             <div className="col-span-2">
                               <Input

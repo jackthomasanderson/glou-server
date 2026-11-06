@@ -197,3 +197,16 @@ describe('InventoryForm — adding cigars', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 });
+
+// Recette n°5 bis of #847: « Humidité recommandée (%) » showed « (%)% », the
+// label running over a « % » suffix. The unit is said once, in the label.
+describe('InventoryForm — a unit said once', () => {
+  it.each([
+    ['cigar', 'Humidité recommandée (%)'],
+    ['wine', "Degré d'alcool (%)"],
+  ] as const)('%s: « %s » has no « % » suffix', (category, label) => {
+    const { dialog } = draw({ defaultCategory: category, initialValues: { category, recommendedHumidity: 70, alcoholDegree: 13 } as Partial<InventoryItem> });
+    const field = within(dialog).queryByLabelText(label) ?? (fireEvent.click(within(dialog).getByRole('button', { name: t('actions.showMore') })), within(dialog).getByLabelText(label));
+    expect(field.closest('[data-slot="inner-wrapper"]')).not.toHaveTextContent('%');
+  });
+});
