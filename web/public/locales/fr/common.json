@@ -753,6 +753,13 @@
       "invalidUrl": "Saisissez une adresse d'image commençant par https://.",
       "fetchFailed": "Impossible de télécharger cette image. Vérifiez l'adresse ou choisissez-en une autre.",
       "failed": "La photo n'a pas pu être enregistrée. Vérifiez votre connexion et réessayez."
+    },
+    "suggestion": {
+      "badge": "Suggestion",
+      "question": "Utiliser cette photo ?",
+      "use": "Utiliser",
+      "another": "Une autre photo",
+      "dismiss": "Ignorer cette suggestion"
     }
   },
   "autocomplete": {

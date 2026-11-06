@@ -24,8 +24,11 @@ const UPLOAD_ERROR_BY_STATUS: Record<number, string> = {
 // Upload stays outside lib/api.ts's JSON-only `client` helper, same pattern
 // as lib/scan/client.ts and lib/import/client.ts.
 export const searchClient = {
-  async searchImages(query: string): Promise<ImageResult[]> {
-    const { data } = await client.get<ImageResult[]>(`/search/images?q=${encodeURIComponent(query)}`);
+  /** With a category, the API adds what is searched for ("wine bottle", "cigar"): #862. */
+  async searchImages(query: string, category?: string): Promise<ImageResult[]> {
+    const params = new URLSearchParams({ q: query });
+    if (category) params.set('category', category);
+    const { data } = await client.get<ImageResult[]>(`/search/images?${params}`);
     return data ?? [];
   },
 
