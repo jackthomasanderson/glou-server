@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { ComposableMap, Geographies, Geography, Marker } from 'react-simple-maps';
 import type { GeoJsonObject } from 'geojson';
 import geoUrl from 'world-atlas/countries-110m.json';
-import { ButtonGroup, Button, Select, SelectItem } from '@heroui/react';
+import { ButtonGroup, Button, SelectItem } from '@heroui/react';
 import { LayoutGrid, Flame } from 'lucide-react';
 import { getRegionCoordinates } from '@/lib/analytics/regionCoordinates';
 import { RegionCategoryStat } from '@/lib/analytics/types';
@@ -13,6 +13,7 @@ import { InventoryCategory } from '@/lib/inventory/types';
 import { useThemeMode } from '@/hooks/useThemeMode';
 import i18n from '@/lib/i18n';
 import { formatCurrency } from '@/lib/format';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -203,8 +204,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
         </ButtonGroup>
 
         {mode === 'heatmap' && (
-          <Select
-            disallowEmptySelection
+          <SingleSelect
             size="sm"
             radius="md"
             variant="flat"
@@ -216,7 +216,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
             {heatmapTypeOptions.map((opt) => (
               <SelectItem key={opt.key}>{opt.label}</SelectItem>
             ))}
-          </Select>
+          </SingleSelect>
         )}
       </div>
 

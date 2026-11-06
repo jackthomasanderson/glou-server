@@ -103,9 +103,12 @@ export function CorrectQuantityDialog({ item, ctx, isOpen, onClose, onTrashInste
           ? t('stockLine.correct.drinkHint', { context: ctx.kind })
           : t('stockLine.correct.toAdd', { action: t('addUnits.action') })}
       </p>
-      <p className={`text-xs text-foreground-500${toTrash ? '' : ' invisible'}`} aria-hidden={!toTrash}>
-        {t('stockLine.correct.trashHint')}
-      </p>
+      {/* Its room is kept, except when the cells to free take it (recette n°5 bis of #847: ~60 px of void above them). */}
+      {!(cells.needed > 0 && !toTrash) && (
+        <p className={`text-xs text-foreground-500${toTrash ? '' : ' invisible'}`} aria-hidden={!toTrash}>
+          {t('stockLine.correct.trashHint')}
+        </p>
+      )}
       {cells.needed > 0 && !toTrash && (
         <SlotPicker
           cellarId={item.cellarId}

@@ -398,8 +398,9 @@ describe('FamilyDrawer — opened from a cell of the plan (FEAT-93)', () => {
     }
     detail = detailOf({ items: [placed()] });
     const { rerender } = render(<><Where /><FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} /></>);
-    // jsdom: a drawer of no width leaves the whole window beside it.
-    expect(screen.getByTestId('toast-layout')).toHaveTextContent('top-left');
+    // jsdom: a drawer of no width leaves the whole window beside it — at
+    // the bottom, clear of the navigation too (recette n°5 bis).
+    expect(screen.getByTestId('toast-layout')).toHaveTextContent('bottom-right');
     rerender(<><Where /><FamilyDrawer productId={null} onClose={() => {}} slotContext={null} /></>);
     await waitFor(() => expect(screen.getByTestId('toast-layout')).toHaveTextContent('top-right'));
   });

@@ -1,7 +1,7 @@
 'use client';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Input, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem } from '@heroui/react';
+import { Button, Input, ModalBody, ModalContent, ModalFooter, ModalHeader, SelectItem } from '@heroui/react';
 import { Plus } from 'lucide-react';
 import { isIntactItem, itemUnits } from '@shared/units';
 import { CigarGroupFields } from './CigarGroupFields';
@@ -16,6 +16,7 @@ import { currencySymbol, todayLocalIso } from '@/lib/format';
 import { wineName } from '@/lib/products/stock';
 import type { UnitWrite } from '@/lib/products/client';
 import type { Product, ProductItem } from '@/lib/products/types';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 const NO_CELLAR = 'none';
 
@@ -139,8 +140,7 @@ export function AddUnitsForm({ product, onDone, onCancel = onDone, onAdded, star
             min={1} max={MAX_COPIES}
           />
           )}
-          <Select
-            disallowEmptySelection
+          <SingleSelect
             label={t('nav.caves')}
             variant="bordered"
             size="sm"
@@ -155,7 +155,7 @@ export function AddUnitsForm({ product, onDone, onCancel = onDone, onAdded, star
             }}
           >
             {(cellar) => <SelectItem key={cellar.id} textValue={cellar.name}>{cellar.name}</SelectItem>}
-          </Select>
+          </SingleSelect>
           <ParsedNumberInput decimal
             data-testid="add-units-price"
             label={t(isCigar ? cigarPriceKey(cigars.storage) : 'inventory.fields.unitPrice')}

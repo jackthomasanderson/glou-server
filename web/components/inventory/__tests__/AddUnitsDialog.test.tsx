@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { todayLocalIso } from '@/lib/format';
 import { product, unit, openedBottle } from '@/lib/products/__tests__/factories';
 import { frenchT } from '@/lib/products/__tests__/i18n';
@@ -96,6 +96,8 @@ describe('AddUnitsAction', () => {
     const garage = (await screen.findAllByRole('option')).find((option) => option.textContent === 'Garage') as HTMLElement;
     fireEvent.click(garage);
     expect(trigger).toHaveTextContent('Garage');
+    // And the list closes on that click, as on any other choice (recette n°5 bis: it stayed open until Échap).
+    await waitFor(() => expect(trigger).toHaveAttribute('aria-expanded', 'false'));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Ajouter' }));
     expect(sent().input.cellarId).toBe('garage');
   });

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Button, Input, Select, SelectItem, Textarea, Card, CardBody, Chip, Spinner,
+  Button, Input, SelectItem, Textarea, Card, CardBody, Chip, Spinner,
 } from '@heroui/react';
 import { Plus, Gift, Tag, ArrowRightCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +28,7 @@ import { latestLine } from '@/components/inventory/AddUnitsDialog';
 import { CigarGroupFields } from '@/components/inventory/CigarGroupFields';
 import { cigarGroupInput, cigarPriceKey, draftFrom, isCigarGroupValid, type CigarGroupDraft } from '@/lib/products/cigarGroup';
 import type { Product } from '@/lib/products/types';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 /** "Aucune cave", a choice of the convert form's cellar list. */
 const NO_CELLAR = 'none';
@@ -329,15 +330,14 @@ export function WishlistDashboard() {
                   onValueChange={(v) => setForm((f) => ({ ...f, producer: v }))}
                   variant="bordered" size="md" radius="md" labelPlacement="outside"
                 />
-                <Select
-                  disallowEmptySelection
+                <SingleSelect
                   label={t('wishlist.form.category')}
                   selectedKeys={[form.category]}
                   onSelectionChange={(keys) => setForm((f) => ({ ...f, category: Array.from(keys)[0] as WishlistCategory }))}
                   variant="bordered" size="md" labelPlacement="outside"
                 >
                   {CATEGORIES.map((c) => <SelectItem key={c}>{t(`wishlist.categories.${c}`)}</SelectItem>)}
-                </Select>
+                </SingleSelect>
                 <div className="grid grid-cols-2 gap-4">
                   <ParsedNumberInput
                     label={t('wishlist.form.vintage')}
@@ -469,8 +469,7 @@ export function WishlistDashboard() {
                   />
                   )}
                 </div>
-                <Select
-                  disallowEmptySelection
+                <SingleSelect
                   label={t('wishlist.convert.cellar')}
                   placeholder={t('wishlist.convert.cellarPlaceholder')}
                   selectedKeys={convertForm.cellarId ? [convertForm.cellarId] : []}
@@ -485,7 +484,7 @@ export function WishlistDashboard() {
                     <SelectItem key={NO_CELLAR} textValue={t('inventory.noCellar')}><em>{t('inventory.noCellar')}</em></SelectItem>,
                     ...(cellars ?? []).map((c) => <SelectItem key={c.id}>{c.name}</SelectItem>),
                   ]}
-                </Select>
+                </SingleSelect>
                 {joinsCigars ? (
                   // FEAT-95: closed boxes of M cigars or single cigars, so that the purchase can complete a box line.
                   <div className="grid grid-cols-2 gap-4">

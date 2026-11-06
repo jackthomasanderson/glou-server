@@ -2,7 +2,7 @@
 
 import React, { use, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Button, Chip, Input, Select, SelectItem, Spinner } from '@heroui/react';
+import { Button, Chip, Input, SelectItem, Spinner } from '@heroui/react';
 import { Eye, EyeOff, GlassWater, Lock, NotebookPen, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
@@ -13,6 +13,7 @@ import { GuestFamilyCard, isLinkGone, refusalKey, type GuestTastingTarget } from
 import { GuestTastingDialog } from '@/components/shares/GuestTastingDialog';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import type { GuestItem, GuestShareMeta, GuestTastingPayload } from '@/lib/shares/types';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
@@ -206,17 +207,16 @@ export function GuestPageContent({ token }: { token: string }) {
               value={search}
               onValueChange={(v) => { setSearch(v); setVisibleCount(GUEST_PAGE_SIZE); }}
             />
-            <Select
+            <SingleSelect
               size="sm" variant="bordered"
               label={t('shares.guest.sortBy')}
               selectedKeys={[sortKey]}
-              disallowEmptySelection
               onSelectionChange={(keys) => setSortKey(String(Array.from(keys)[0]) as 'name' | 'producer' | 'vintage')}
             >
               <SelectItem key="name">{t('inventory.fields.name')}</SelectItem>
               <SelectItem key="producer">{t('inventory.fields.producer')}</SelectItem>
               <SelectItem key="vintage">{t('inventory.fields.vintage')}</SelectItem>
-            </Select>
+            </SingleSelect>
           </div>
         )}
 

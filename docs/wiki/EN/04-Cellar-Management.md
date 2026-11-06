@@ -55,7 +55,7 @@ In the menu of an opened bottle, **Undo the opening** (or setting its level back
 A line's menu offers:
 - **Move**: "How many to move?" then the cellar. The line splits (Garage ×4, Kitchen ×2); a line that becomes identical to another one joins it, slots included. The bottles moved arrive unplaced in the new cellar.
 - **Change the price**: "For how many bottles?". Repricing only part of a line splits it. The bottles that change price are taken from the unplaced ones first; when that is not enough, Glou asks **Which slots take the new price?**: those slots stay occupied and follow the new line.
-- **Correct the number** (downwards, with its reason) and **Edit** (purchase date, place, location…): see [05-Bottle-Addition.md](./05-Bottle-Addition.md).
+- **Correct the number** (downwards, with its reason) and **Edit** (purchase date, place, free note…): see [05-Bottle-Addition.md](./05-Bottle-Addition.md).
 - **Move to trash**: the line can be restored from the trash.
 - When a correction, a write-off or a move leaves the line fewer bottles than it has slots, Glou asks **Which slots to free?** on a small plan of the cellar: touch exactly the number of slots asked. Unplaced bottles leave first, without a question.
 
