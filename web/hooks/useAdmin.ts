@@ -12,6 +12,8 @@ export interface AdminUser {
     displayName: string | null;
     isAdmin: boolean;
     isActive: boolean;
+    /** #638: resetting such a member's password asks for the admin's own password. */
+    isTwoFactorEnabled: boolean;
     createdAt: string;
 }
 
@@ -90,15 +92,16 @@ export function useUpdateUserStatus() {
 }
 
 // #336: no-SMTP account recovery — generates a one-time temporary password,
-// shown to the admin exactly once by the caller.
+// shown to the admin exactly once by the caller. #638: `password`/`code` are
+// the admin's own, asked when the member has 2FA on (the reset turns it off).
 export function useResetUserPassword() {
-    return useMutation({
+    return useMutation<{ tempPassword: string }, Error, { userId: string; password?: string; code?: string }>({
+        // Said by the reset dialog.
         meta: { handlesError: true },
-        mutationFn: async (userId: string) => {
-            const response = await api.post<{ tempPassword: string }>(`/admin/users/${userId}/reset-password`);
+        mutationFn: async ({ userId, ...reauth }) => {
+            const response = await api.post<{ tempPassword: string }>(`/admin/users/${userId}/reset-password`, reauth);
             return response.data;
         },
-        onError: () => notifyError('toast.admin.resetPasswordError'),
     });
 }
 

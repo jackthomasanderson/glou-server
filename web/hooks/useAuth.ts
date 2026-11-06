@@ -333,6 +333,8 @@ export function useBackupCodesCount(enabled: boolean) {
 export function useRegenerateBackupCodes() {
   const queryClient = useQueryClient();
   return useMutation<{ backupCodes: string[] }, Error, { password: string; code: string }>({
+    // Said by the dialog.
+    meta: { handlesError: true },
     mutationFn: (data) => apiFetch<{ backupCodes: string[] }>('/api/auth/2fa/backup-codes', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: BACKUP_CODES_KEY });

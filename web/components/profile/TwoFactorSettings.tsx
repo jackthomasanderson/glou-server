@@ -12,10 +12,10 @@ import {
 } from '@/hooks/useAuth';
 import { TwoFactorCodeInput } from '@/components/auth/TwoFactorCodeInput';
 import { BackupCodesDialog } from '@/components/profile/BackupCodesDialog';
+import { authErrorMessage } from '@/lib/auth/error-message';
 
 /** #638: at or below this many codes left, the count is shown as a warning. */
 const LOW_BACKUP_CODES = 2;
-import { authErrorMessage } from '@/lib/auth/error-message';
 
 export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
