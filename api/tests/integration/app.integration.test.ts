@@ -501,7 +501,9 @@ describe('POST /api/admin/users/:id/reset-password', () => {
 // admin account, so it asks for the same step-up as a password reset.
 describe('POST /api/admin/users/:id/role', () => {
   beforeEach(() => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'm1', isActive: true, isAdmin: true } as never);
+    // The caller is an active admin (auth + admin middleware); the target m1 is a member.
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      args.where.id === 'm1' ? { id: 'm1', isActive: true, isAdmin: false } : { id: args.where.id, isActive: true, isAdmin: true }) as never);
     (prisma.user as unknown as { update: ReturnType<typeof vi.fn> }).update = vi.fn().mockResolvedValue({ id: 'm1', isAdmin: true });
   });
   const post = (body: Record<string, unknown>) => request(app)
@@ -526,6 +528,26 @@ describe('POST /api/admin/users/:id/role', () => {
     expect(spy).toHaveBeenCalledWith('u1', { password: 'admin-pw', code: '123456' }, expect.anything(),
       { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: 'm1', isAdmin: true } });
     expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: { isAdmin: true } }));
+    spy.mockRestore();
+  });
+
+  it.each([
+    ['an unknown account', 'nobody', 404, 'USER_NOT_FOUND'],
+    ['an account already admin', 'a2', 409, 'ALREADY_ADMIN'],
+  ])('refuses a grant to %s before the step-up (no backup code spent)', async (_label, id, status, error) => {
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      args.where.id === 'nobody' ? null : { id: args.where.id, isActive: true, isAdmin: true }) as never);
+    // The middlewares look the caller (u1) up first; then the target.
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin');
+    const res = await request(app)
+      .post(`/api/admin/users/${id}/role`)
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .send({ isAdmin: true, password: 'admin-pw', code: 'ffff0000ffff0000ffff' });
+    expect(res.status).toBe(status);
+    expect(res.body.error).toBe(error);
+    expect(spy).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 

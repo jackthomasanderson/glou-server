@@ -106,6 +106,17 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
         // account — the same step-up as a password reset. Removing it lowers
         // privileges and only needs the session.
         if (isAdmin) {
+            // Checked first, so a request that would change nothing does not
+            // spend one of the admin's backup codes.
+            const target = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+            if (!target) {
+                res.status(404).json({ error: 'USER_NOT_FOUND' });
+                return;
+            }
+            if (target.isAdmin) {
+                res.status(409).json({ error: 'ALREADY_ADMIN' });
+                return;
+            }
             await authService.reauthenticateAdmin(req.userId, reauth.data, { ip, userAgent: req.headers['user-agent'] }, audit);
         }
         const user = await prisma.user.update({

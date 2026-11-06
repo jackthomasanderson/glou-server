@@ -94,7 +94,7 @@ export function useUpdateUserStatus() {
 
 // #336: no-SMTP account recovery — generates a one-time temporary password,
 // shown to the admin exactly once by the caller. #638: `password`/`code` are
-// the admin's own, asked when the member has 2FA on (the reset turns it off).
+// the admin's own, asked for every reset (the API refuses it without them).
 export function useResetUserPassword() {
     return useMutation<{ tempPassword: string }, Error, { userId: string; password?: string; code?: string }>({
         // Said by the reset dialog.
