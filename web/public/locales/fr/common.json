@@ -1094,6 +1094,9 @@
       "confirm": "Restaurer"
     },
     "restoreError": "Impossible de restaurer cette valeur.",
+    "restoreConflict": "Non restauré : ce vin a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez cette fenêtre : la fiche se met à jour, vous pourrez réessayer.",
+    "restoreConflict_spirit": "Non restauré : ce spiritueux a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez cette fenêtre : la fiche se met à jour, vous pourrez réessayer.",
+    "restoreConflict_cigar": "Non restauré : ce cigare a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez cette fenêtre : la fiche se met à jour, vous pourrez réessayer.",
     "booleanTrue": "Oui",
     "booleanFalse": "Non",
     "source": {

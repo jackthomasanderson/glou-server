@@ -1092,6 +1092,9 @@
       "confirm": "Restore"
     },
     "restoreError": "Unable to restore this value.",
+    "restoreConflict": "Not restored: this wine was changed meanwhile, by another member or on another device. Close this window: the card updates, and you can try again.",
+    "restoreConflict_spirit": "Not restored: this spirit was changed meanwhile, by another member or on another device. Close this window: the card updates, and you can try again.",
+    "restoreConflict_cigar": "Not restored: this cigar was changed meanwhile, by another member or on another device. Close this window: the card updates, and you can try again.",
     "booleanTrue": "Yes",
     "booleanFalse": "No",
     "source": {

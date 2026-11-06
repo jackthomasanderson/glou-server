@@ -209,11 +209,17 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     expect((await undone).status()).toBe(200);
     expect((await unitsOf(api, box.productId))[0]).toMatchObject({ id: box.id, isOpened: false, slots: [expect.objectContaining({ column: 1, row: 2 })] });
 
-    // Each entry is written once its request is answered: give the last one a moment, then only its placing is told.
-    await page.waitForTimeout(500);
-    const history = (await okData<{ history: { action: string; gesture?: string; changes: { field: string }[] | null }[] }>(
-      await api.get(`/api/products/${box.productId}`))).history.filter((entry) => entry.action !== 'CREATE');
-    expect(history.map((entry) => [entry.gesture ?? null, (entry.changes ?? []).map((change) => change.field)])).toEqual([[null, ['slot']]]);
+    // Each entry is written once its request is answered: only its placing is told,
+    // checked again over a few reads so an entry written late is seen too.
+    const told = async () => (await okData<{ history: { action: string; gesture?: string; changes: { field: string }[] | null }[] }>(
+      await api.get(`/api/products/${box.productId}`))).history.filter((entry) => entry.action !== 'CREATE')
+      .map((entry) => [entry.gesture ?? null, (entry.changes ?? []).map((change) => change.field)]);
+    let reads = 0;
+    await expect.poll(async () => {
+      const history = await told();
+      reads = JSON.stringify(history) === JSON.stringify([[null, ['slot']]]) ? reads + 1 : 0;
+      return reads >= 3 ? history : null;
+    }, { intervals: [200] }).toEqual([[null, ['slot']]]);
   });
 
   // Recette v3 of #471: the message covered the drawer's close button —

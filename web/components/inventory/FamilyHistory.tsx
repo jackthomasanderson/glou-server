@@ -47,6 +47,8 @@ interface FamilyHistoryProps {
   cellarName: (id: string) => string | undefined;
   /** What one copy of a line is called (bottle, box, cigar), for "2 bouteilles déplacées vers Cuisine". */
   nounOf?: (itemId: string | null) => UnitNoun;
+  /** The wine's category, for the words of a refusal (« ce cigare »). */
+  category?: string;
 }
 
 /**
@@ -76,7 +78,7 @@ const isShown = (entry: HistoryEntry) =>
  * a change made to a copy still there, and on a change of the wine's
  * description (no copy: restored on the wine, for all its bottles).
  */
-export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, cellarName, nounOf = () => 'bottle' }: FamilyHistoryProps) {
+export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, cellarName, nounOf = () => 'bottle', category }: FamilyHistoryProps) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const itemRollback = useRollbackField();
@@ -280,7 +282,9 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
                 {/* 409: the wine changed meanwhile — restoring now would overwrite that change. */}
                 {rollbackMutation.isError && (
                   <p className="text-xs text-danger">
-                    {t(rollbackMutation.error?.message === 'CONFLICT' ? 'familyDrawer.form.conflict' : 'traceability.restoreError')}
+                    {rollbackMutation.error?.message === 'CONFLICT'
+                      ? t('traceability.restoreConflict', category === 'cigar' || category === 'spirit' ? { context: category } : undefined)
+                      : t('traceability.restoreError')}
                   </p>
                 )}
               </ModalBody>

@@ -264,6 +264,25 @@ describe('FamilyHistory — gestures (recette #847)', () => {
     expect(single).toHaveTextContent('1 cigare fumé');
   });
 
+  // Review of #871: a field restored on a cigar refused (409) speaks of the cigar, not of a wine.
+  it('a restore refused because the cigar changed meanwhile says so of a cigar', async () => {
+    productRollback = mutation({ isError: true, error: new Error('CONFLICT') });
+    render(
+      <FamilyHistory
+        productId="p1"
+        productUpdatedAt="2026-10-30T10:00:00.000Z"
+        history={[entry({})]}
+        itemIds={new Set()}
+        cellarName={() => undefined}
+        category="cigar"
+      />,
+    );
+    fireEvent.click(restoreButtons()[0]);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Non restauré : ce cigare a été modifié entre-temps');
+    expect(dialog).not.toHaveTextContent(/vin|formulaire/);
+  });
+
   // Recette n°5 ter: « Bouteille entamée / ouverte : Non · Cigars Left : 25 » for a box.
   it('names the fields of a box in a box\'s words, never a raw key', () => {
     render(
