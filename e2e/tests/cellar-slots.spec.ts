@@ -422,6 +422,44 @@ test.describe('the cellar plan, one cell per bottle (FEAT-93)', () => {
     await expect(heldCell(page, 2, 1, wine)).toBeVisible();
   });
 
+  // Recette n°5 quater of #847: after "Modifier", the drawer came back without its cell and
+  // "J'en ouvre une" asked "De quelle case ?", preset on an unplaced bottle.
+  test('a cell touched stays named after "Ajouter des bouteilles" and "Modifier": the move takes its bottle', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    await placeAll(api, itemId);
+    await page.goto(`/cellars/${cellarId}`);
+
+    await heldCell(page, 2, 1, wine).click();
+    const drawer = drawerOf(page);
+    const banner = drawer.getByTestId('slot-context');
+    await expect(banner).toHaveText(/Case C2·R1/);
+
+    // One more bottle, unplaced: the cell is still the one touched.
+    const form = page.getByRole('dialog').filter({ has: page.getByTestId('add-units-submit') });
+    await drawer.getByTestId('add-units-button').click();
+    await form.getByTestId('add-units-submit').click();
+    await expect(form).toHaveCount(0);
+    await expect(drawer.getByTestId('family-drawer-stock')).toContainText('7');
+    await expect(banner).toHaveText(/Case C2·R1/);
+
+    // "Modifier", then the window closed: back on the same cell.
+    await drawer.getByRole('button', { name: 'Modifier' }).click();
+    await expect(page.locator('#inventory-detail-title')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(banner).toHaveText(/Case C2·R1/);
+
+    // From the cell: that very bottle — no "De quelle case ?", never the unplaced one.
+    const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH');
+    await drawer.getByTestId('stock-move-open').click();
+    expect((await sent).status()).toBe(200);
+    await expect(page.getByRole('dialog').filter({ hasText: 'De quelle case' })).toHaveCount(0);
+    const units = (await okData<{ items: Unit[] }>(await api.get(`/api/products/${productId}`))).items;
+    const opened = units.find((unit) => unit.parentItemId === itemId)!;
+    expect(cellsText(opened.slots)).toBe('2:1');
+  });
+
   test('c4: ×6 in 6 cells corrected to ×4 asks which 2 cells to free; the plan then shows 4', async ({ page }) => {
     const api = page.request;
     const wine = `E2E Plan ${stamp()}`;

@@ -305,14 +305,16 @@ export function CellarDetailClient() {
         // FEAT-104 c3: from a cellar's page, its line is preselected.
         viewedCellarIds={[cellarId]}
         // Recette #471: the same actions as from the list of wines.
-        onEdit={(product) => { viewWine(null); setEditing(product); }}
+        // Recette n°5 quater of #847: the drawer only steps aside for "Modifier": it comes
+        // back on the cell it was opened from, whose bottle the moves still take.
+        onEdit={(product) => { setViewingProductId(null); setEditing(product); }}
         // Recette n°5 of #847: new bottles are offered this cellar (or the touched cell's), not the latest line's.
         primaryAction={(product) => <AddUnitsAction product={product} start={cellarPageStart(cellarId, slotContext)} />}
       />
       <EditWineDialog
         product={editing}
-        onClose={() => { if (editing) viewWine(editing.id); setEditing(null); }}
-        onSaved={(product) => { setEditing(null); viewWine(product.id); }}
+        onClose={() => { if (editing) setViewingProductId(editing.id); setEditing(null); }}
+        onSaved={(product) => { setEditing(null); setViewingProductId(product.id); }}
       />
     </MainLayout>
   );

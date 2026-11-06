@@ -89,6 +89,55 @@ function orphans(): string[] {
   return found;
 }
 
+/** Columns a grid cell takes on a computer, where the grid has four (`sm:grid-cols-4`). */
+function desktopSpan(cell: Element): number {
+  const classes = cell.className.split(/\s+/);
+  const wide = classes.find((name) => /^sm:col-span-\d$/.test(name)) ?? classes.find((name) => /^col-span-\d$/.test(name));
+  return wide ? Number(wide.slice(-1)) : 1;
+}
+
+/**
+ * Recette n°5 quater of #847 (KO 5.1): on a computer, "Rappel de
+ * consommation" sat alone on the last row of a cigar's form, an empty half
+ * beside it. Lays the four-column grids out like {@link orphans} and names
+ * the field each hole follows: before a field too wide for what is left of
+ * its row, or at the end of the grid. Returns each grid's rows too, to read.
+ */
+function desktopHoles(): { holes: string[]; rows: string[] } {
+  const columns = 4;
+  const holes: string[] = [];
+  const rows: string[] = [];
+  for (const grid of screen.getByRole('dialog').querySelectorAll('.sm\\:grid-cols-4')) {
+    let used = 0;
+    let last = '';
+    let row: string[] = [];
+    for (const cell of grid.children) {
+      if (getComputedStyle(cell).display === 'none') continue;
+      const span = Math.min(desktopSpan(cell), columns);
+      if (used > 0 && used + span > columns) {
+        holes.push(last);
+        rows.push(row.join(' | '));
+        row = [];
+        used = 0;
+      }
+      used += span;
+      last = (cell.querySelector('label[data-slot="label"]')?.textContent ?? cell.textContent ?? '').trim().slice(0, 30);
+      row.push(`${last}:${span}`);
+      if (used === columns) {
+        rows.push(row.join(' | '));
+        row = [];
+        used = 0;
+      }
+    }
+    if (used > 0) {
+      holes.push(`${last} (last)`);
+      rows.push(row.join(' | '));
+    }
+    rows.push('---');
+  }
+  return { holes, rows };
+}
+
 function draw(t: T, category: InventoryCategory, mode: 'new' | 'openedUnit' | 'description') {
   const initialValues: Partial<InventoryItem> | undefined =
     mode === 'new' ? undefined
@@ -122,6 +171,9 @@ describe('InventoryForm — long labels of half-width fields (#867)', () => {
           expect(seen.length).toBeGreaterThan(0);
           expect(cramped).toEqual([]);
           expect(orphans()).toEqual([]);
+          // On a computer: no field left alone, a hole beside it, at the end of a grid.
+          const desktop = desktopHoles();
+          expect(desktop.holes.filter((hole) => hole.endsWith('(last)')), desktop.rows.join('\n')).toEqual([]);
           cleanup();
         });
       }
