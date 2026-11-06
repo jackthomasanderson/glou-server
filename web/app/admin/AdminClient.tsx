@@ -101,8 +101,12 @@ export function AdminClient() {
     }
   };
 
+  // #638: resetting a member's password also turns their 2FA off, never the
+  // admin's own (the API keeps it), so the self case has its own wording.
   const pendingActionMessage = pendingAction
-    ? t(`admin.users.${pendingAction.kind}Confirm`, { username: pendingAction.target.username })
+    ? pendingAction.kind === 'resetPassword' && pendingAction.target.id === user?.id
+      ? t('admin.users.resetPasswordConfirmSelf')
+      : t(`admin.users.${pendingAction.kind}Confirm`, { username: pendingAction.target.username })
     : '';
 
   const handleConfirmPurge = () => {

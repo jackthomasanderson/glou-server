@@ -19,6 +19,8 @@ const ME_KEY = ['auth', 'me'];
 // FEAT-90: "Later" belongs to one sign-in, so a new sign-in drops the cached state.
 const ONBOARDING_STATE_KEY = ['auth', 'onboarding'];
 const SESSIONS_KEY = ['auth', 'sessions'];
+// #638: how many 2FA backup codes are left.
+const BACKUP_CODES_KEY = ['auth', 'backup-codes'];
 
 export interface SessionInfo {
   id: string;
@@ -300,6 +302,7 @@ export function useTurnOn2fa() {
     mutationFn: (data) => apiFetch<{ backupCodes: string[] }>('/api/auth/2fa/turn-on', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
+      queryClient.invalidateQueries({ queryKey: BACKUP_CODES_KEY });
     },
   });
 }
@@ -312,6 +315,27 @@ export function useTurnOff2fa() {
     mutationFn: (data) => apiFetch<{ success: boolean }>('/api/auth/2fa/turn-off', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
+      queryClient.invalidateQueries({ queryKey: BACKUP_CODES_KEY });
+    },
+  });
+}
+
+/** #638: unused backup codes left, only asked for while 2FA is on. */
+export function useBackupCodesCount(enabled: boolean) {
+  return useQuery<number>({
+    queryKey: BACKUP_CODES_KEY,
+    queryFn: async () => (await apiFetch<{ remaining: number }>('/api/user/backup-codes')).remaining,
+    enabled,
+  });
+}
+
+/** #638: new backup codes (the old ones stop working), returned once. */
+export function useRegenerateBackupCodes() {
+  const queryClient = useQueryClient();
+  return useMutation<{ backupCodes: string[] }, Error, { password: string; code: string }>({
+    mutationFn: (data) => apiFetch<{ backupCodes: string[] }>('/api/auth/2fa/backup-codes', { method: 'POST', body: JSON.stringify(data) }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: BACKUP_CODES_KEY });
     },
   });
 }
