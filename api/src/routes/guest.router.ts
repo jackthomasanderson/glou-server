@@ -216,7 +216,11 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
         ip,
         bottleId: groupId,
         productId: result.item.productId,
-        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: [{ field: 'quantity', from, to }, ...slotChanges], outcome: result.outcome },
+        details: {
+          via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: [{ field: 'quantity', from, to }, ...slotChanges], outcome: result.outcome,
+          // The copy it is about, as a member's entry names it: its "Annuler" hides both (recette #847, KO 8.2).
+          subItemId: result.outcome === 'detached' ? result.item.id : itemId,
+        },
       });
     }
 

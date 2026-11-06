@@ -102,6 +102,14 @@ export function withoutUndone<L extends HistoryLog>(logs: readonly L[]): L[] {
       const aboutSub = subRecordOf(log) === sub || detailsOf(log).absorbedFrom === sub || log.bottleId === sub;
       return aboutSub && time >= from && time <= to;
     });
+    // Recette #847 (KO 8.2): the group's own entries ("Quantité : 6 → 5",
+    // "5 → 6") are written by the same requests but on their own, so a few
+    // milliseconds after (or before) the bottle's — the "→ 6" fell out of the
+    // window and stayed told. A guest's never named the bottle at all.
+    for (const [anchor, line] of [[opened, detailsOf(opened).targetItemId], [back, lineOf(back)]] as const) {
+      const group = groupEntryOf(chronological, anchor, line, sub);
+      if (group && !inWindow.includes(group)) inWindow.push(group);
+    }
     // Someone else wrote on that bottle meanwhile: nothing of it is hidden.
     if (inWindow.some((log) => actorOf(log) !== actorOf(back))) continue;
     for (const log of inWindow) hidden.add(log);
@@ -126,6 +134,22 @@ export function withoutUndone<L extends HistoryLog>(logs: readonly L[]): L[] {
   }
 
   return logs.filter((log) => !hidden.has(log));
+}
+
+/**
+ * The entry a group wrote for the same detach or reattach as `anchor` (the
+ * copy's own entry), on the group's `line`: it names the copy
+ * (`subItemId`), or — a guest's, recorded before recette #847 — it is the
+ * group's entry with that outcome by the same hand, nearest in time.
+ */
+function groupEntryOf<L extends HistoryLog>(logs: readonly L[], anchor: L, line: string | null | undefined, sub: string): L | undefined {
+  const outcome = detailsOf(anchor).outcome;
+  if (!line) return undefined;
+  return nearest(logs, anchor, (other) => {
+    const theirs = detailsOf(other);
+    if (theirs.outcome !== outcome || theirs.targetItemId || lineOf(other) !== line) return false;
+    return theirs.subItemId ? theirs.subItemId === sub : actorOf(other) === actorOf(anchor);
+  });
 }
 
 /** How far apart the entries one request wrote can be (each is written on its own, after the transaction). */
