@@ -16,15 +16,16 @@ Quand vous activez la 2FA, Glou affiche **10 codes de secours**, une seule fois.
 ## Téléphone perdu, codes de secours sous la main
 1. Sur la page de connexion, saisissez votre identifiant et votre mot de passe.
 2. À l'étape **Code d'authentification**, cliquez sur **Utiliser un code de secours** et saisissez l'un de vos codes.
-3. Allez dans **Profil → Sécurité & Authentification**, cliquez sur **Désactiver** (mot de passe + un autre code de secours), puis sur **Activer** et scannez le nouveau QR code avec votre nouveau téléphone. Vous obtenez 10 nouveaux codes de secours.
+3. Dans **Profil → Sessions actives**, cliquez sur **Déconnecter** sur la session du téléphone perdu (voir [Sessions](./11-Sessions-Appareils-De-Confiance.md)) : celui qui le trouve ne doit pas rester connecté.
+4. Allez dans **Profil → Sécurité & Authentification**, cliquez sur **Désactiver** (mot de passe + un autre code de secours), puis sur **Activer** et scannez le nouveau QR code avec votre nouveau téléphone. Vous obtenez 10 nouveaux codes de secours.
    Si vous venez de vous connecter avec votre dernier code, il n'en reste plus pour confirmer cette étape : demandez à un administrateur (section suivante).
 
 ## Téléphone perdu, aucun code de secours : demandez à un administrateur
-1. L'administrateur ouvre **Administration → Gestion des membres** et clique sur **Réinitialiser le mot de passe** (icône de clé) sur votre ligne. La confirmation indique que votre 2FA sera désactivée.
+1. L'administrateur ouvre **Administration → Gestion des membres** et clique sur **Réinitialiser le mot de passe** (icône de clé) sur votre ligne. La confirmation indique que votre 2FA sera désactivée, et demande **le mot de passe de l'administrateur lui-même**, plus un code de sa propre application si son compte a la 2FA : une session admin ouverte ne suffit pas à passer le second facteur de quelqu'un d'autre.
 2. Il vous transmet le mot de passe temporaire affiché une seule fois, par un moyen sûr (en personne, par téléphone).
 3. Connectez-vous avec : aucun code n'est demandé. Choisissez un nouveau mot de passe, puis réactivez la 2FA depuis votre profil.
 
-La réinitialisation déconnecte aussi toutes vos sessions et vos appareils de confiance, et elle est inscrite au journal d'audit. Un administrateur qui réinitialise **son propre** mot de passe garde sa 2FA : une session ouverte ne doit pas suffire à la retirer.
+La réinitialisation déconnecte aussi toutes vos sessions et vos appareils de confiance, et elle est inscrite au journal d'audit (une confirmation refusée aussi). Un administrateur qui réinitialise **son propre** mot de passe garde sa 2FA : une session ouverte ne doit pas suffire à la retirer.
 
 ## Seul administrateur, bloqué : commande en base de données
 Personne ne peut réinitialiser votre compte depuis l'application : désactivez donc votre 2FA directement dans la base. Sur la machine qui fait tourner Glou, dans le dossier de votre `docker-compose.yml` :
@@ -47,9 +48,11 @@ Personne ne peut réinitialiser votre compte depuis l'application : désactivez 
     WHERE username = 'alice';
    UPDATE "trusted_devices" SET "revokedAt" = now()
     WHERE "userId" = (SELECT id FROM "User" WHERE username = 'alice') AND "revokedAt" IS NULL;
+   UPDATE "sessions" SET "revokedAt" = now()
+    WHERE "userId" = (SELECT id FROM "User" WHERE username = 'alice') AND "revokedAt" IS NULL;
    SQL
    ```
-   psql répond `UPDATE 1` pour la première instruction. `UPDATE 0` signifie que l'identifiant est faux : rien n'a été modifié.
+   psql répond `UPDATE 1` pour la première instruction (les deux suivantes comptent les appareils de confiance et sessions déconnectés, dont celle du téléphone perdu). `UPDATE 0` en premier signifie que l'identifiant est faux : rien n'a été modifié.
 4. Connectez-vous avec votre mot de passe (aucun code n'est demandé), puis réactivez la 2FA depuis votre profil et sauvegardez les nouveaux codes de secours.
 
 (Utilisez vos propres `DB_USER` / `DB_NAME` si vous les avez changés dans `.env`.) Cela ne retire que le second facteur : votre mot de passe reste le même, et si vous l'avez oublié aussi, utilisez **Mot de passe oublié ?** sur la page de connexion (nécessite l'envoi d'e-mails configuré sur l'instance).
@@ -61,4 +64,5 @@ Personne ne peut réinitialiser votre compte depuis l'application : désactivez 
 | « Code de vérification incorrect » avec un code de secours | Chaque code ne sert qu'une fois ; il a peut-être déjà été utilisé. Vérifiez le nombre restant dans votre profil, essayez-en un autre. |
 | « Trop de codes incorrects. La vérification est bloquée pendant 15 minutes. » | Trop de codes faux d'affilée : attendez 15 minutes, puis réessayez avec un code de secours. |
 | Après la réinitialisation par l'admin, le code est encore demandé | L'administrateur a réinitialisé son propre compte (sa 2FA est conservée), ou votre Glou est plus ancien que cette page : mettez Glou à jour, ou utilisez la commande en base ci-dessus. |
+| « Mot de passe actuel incorrect » dans la fenêtre de réinitialisation de l'administrateur | Elle demande le mot de passe (et le code) **de l'administrateur**, pas celui du membre. |
 | `psql: error: ... role "glou" does not exist` | Vous avez changé `DB_USER` dans `.env` : mettez cette valeur après `-U`, et votre `DB_NAME` après `-d`. |

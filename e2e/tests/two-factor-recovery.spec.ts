@@ -1,5 +1,6 @@
 import { test, expect, request, type APIRequestContext, type APIResponse } from '@playwright/test';
 import { createHmac } from 'node:crypto';
+import { creds } from './_helpers';
 
 /**
  * #638: losing the phone with 2FA on meant losing the account — an admin
@@ -9,7 +10,8 @@ import { createHmac } from 'node:crypto';
  * API level, against the real stack: a member turns 2FA on, regenerates their
  * backup codes (the old ones stop working), then the suite's user (the
  * instance's admin on a fresh CI database) resets their password, and the
- * member signs in with the temporary one without being asked for a code.
+ * member signs in with the temporary one without being asked for a code —
+ * once the admin has confirmed with their own password.
  * Kept short on purpose: every sign-in and 2FA call spends the shared
  * per-IP auth rate limit (20 per 15 minutes).
  */
@@ -74,12 +76,20 @@ test('a lost phone is recoverable: new backup codes, then an admin reset turns 2
 
     expect(await okData<{ remaining: number }>(await member.get('/api/user/backup-codes'))).toEqual({ remaining: 10 });
 
-    // The admin resets the member's password.
-    const users = await okData<Array<{ id: string; username: string }>>(await admin.get('/api/admin/users'));
+    // The admin resets the member's password. The member has 2FA on, so the
+    // admin's session alone is not enough: they confirm with their password
+    // (the suite user has no 2FA of their own, so no code).
+    const users = await okData<Array<{ id: string; username: string; isTwoFactorEnabled: boolean }>>(await admin.get('/api/admin/users'));
     const target = users.find((u) => u.username === username);
-    expect(target).toBeTruthy();
+    expect(target?.isTwoFactorEnabled).toBe(true);
+    const bare = await admin.post(`/api/admin/users/${target!.id}/reset-password`);
+    expect(bare.status()).toBe(403);
+    expect((await bare.json()).error).toBe('REAUTH_REQUIRED');
+    const wrong = await admin.post(`/api/admin/users/${target!.id}/reset-password`, { data: { password: 'not-the-admin-password' } });
+    expect(wrong.status()).toBe(403);
+    expect((await wrong.json()).error).toBe('INVALID_PASSWORD');
     const { tempPassword } = await okData<{ tempPassword: string }>(
-      await admin.post(`/api/admin/users/${target!.id}/reset-password`),
+      await admin.post(`/api/admin/users/${target!.id}/reset-password`, { data: { password: creds().password } }),
     );
 
     // Signing in with the temporary password asks for no code any more.
