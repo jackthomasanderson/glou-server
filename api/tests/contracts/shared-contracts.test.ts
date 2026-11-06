@@ -1,7 +1,7 @@
 import { describe, it, expect, expectTypeOf } from 'vitest';
 import type { z } from 'zod';
 import {
-  BottleCategory, AlertStatus as PrismaAlertStatus, CurveShape as PrismaCurveShape,
+  Prisma, BottleCategory, AlertStatus as PrismaAlertStatus, CurveShape as PrismaCurveShape,
   type Theme as PrismaTheme, type Language as PrismaLanguage,
   type TempUnit as PrismaTempUnit, type DateFormat as PrismaDateFormat,
   TastingReadiness as PrismaTastingReadiness,
@@ -12,9 +12,10 @@ import type { DateFormat, Language, TempUnit, Theme } from '../../../shared/auth
 import type { CsvImportRow } from '../../../shared/import';
 import type { csvImportRowSchema } from '../../src/schemas/import.schema';
 import {
-  RESTORABLE_DESCRIPTION_FIELDS, TASTING_READINESS, type ItemView, type ProductCollection, type ProductTasting, type ProductView, type TastingReadiness,
+  HISTORY_FIELDS, RESTORABLE_DESCRIPTION_FIELDS, TASTING_READINESS, type ItemView, type ProductCollection, type ProductTasting, type ProductView, type TastingReadiness,
 } from '../../../shared/product';
-import { toUnitView, type ProductField } from '../../src/lib/product-fields';
+import { PRODUCT_FIELDS, toUnitView, type ProductField } from '../../src/lib/product-fields';
+import { inventoryPatchObject } from '../../src/schemas/inventory.schema';
 import { DESCRIPTION_PATCH_FIELDS } from '../../src/schemas/product.schema';
 
 // #466: shared/ may not import Prisma or zod, so each list or type that
@@ -81,5 +82,28 @@ describe('shared/product.ts matches the Prisma schema (#471)', () => {
 describe('shared/product.ts matches the description patch (#471, FEAT-05)', () => {
   it('restores exactly the description fields PATCH /api/products/:id writes', () => {
     expect(sorted(RESTORABLE_DESCRIPTION_FIELDS)).toEqual(sorted(DESCRIPTION_PATCH_FIELDS));
+  });
+});
+
+// Recette #847 (n°5 ter): "Cigars Left" — a field of the history without a
+// label. Every field the API records in a change is in HISTORY_FIELDS, whose
+// labels a web test checks in both languages.
+describe('shared/product.ts lists every field the history can name', () => {
+  /** Written by the services themselves, never told as a change; or instructions, never columns. */
+  const NEVER_TOLD = new Set([
+    'id', 'userId', 'productId', 'updatedBy', 'fieldSources', 'deletedAt', 'createdAt', 'updatedAt', 'otherPhotoUrls',
+    'smokeOne', 'keepTastings', 'tastingId', 'fromSlotId', 'fromUnplaced', 'placeAt', 'expectedUpdatedAt',
+  ]);
+  const recorded = [
+    ...Object.values(Prisma.InventoryItemScalarFieldEnum),
+    ...Object.values(Prisma.ProductScalarFieldEnum),
+    ...Object.keys(inventoryPatchObject.shape),
+    ...PRODUCT_FIELDS,
+    // FEAT-93: a cell of the plan.
+    'slot',
+  ].filter((field) => !NEVER_TOLD.has(field));
+
+  it('has them all', () => {
+    expect([...new Set(recorded)].filter((field) => !(HISTORY_FIELDS as readonly string[]).includes(field))).toEqual([]);
   });
 });

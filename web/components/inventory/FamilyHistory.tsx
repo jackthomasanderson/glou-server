@@ -86,7 +86,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
   const rollbackMutation = target?.itemId ? itemRollback : productRollback;
 
   const context = { lang: i18n.language, cellarName };
-  const fieldLabel = (field: string) => historyFieldLabel(field, t);
+  const fieldLabel = (field: string, itemId: string | null = null) => historyFieldLabel(field, t, nounOf(itemId));
   const actionLabel = (action: string) => {
     const key = action.toLowerCase();
     // « Références regroupées » for cigars (the wine's own noun: no copy named).
@@ -105,7 +105,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
     // "Nombre vérifié": only the mark of a guessed number changed (FEAT-102 c4).
     if (!entry.changes || entry.changes.length === 0 || entry.action === 'REVIEW_OK') return actionLabel(entry.action);
     if (entry.action === 'RESTORE_FIELD' && entry.changes.length === 1) {
-      return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field) });
+      return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field, entry.itemId) });
     }
     // "Vins regroupés · Région : Graves": the values the merge chose (FEAT-102 c2).
     const merged = entry.action === 'MERGE_PRODUCTS' ? [actionLabel(entry.action)] : [];
@@ -150,7 +150,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
         return `${t('inventory.detail.levelAdjusted')} ${level}`;
       }
       return t('traceability.changeLine', {
-        field: fieldLabel(change.field),
+        field: fieldLabel(change.field, entry.itemId),
         value: formatHistoryValue(change.field, change.to, t, context),
       });
     };
@@ -181,7 +181,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
     if (!entry.joinedChanges || typeof number?.from !== 'number' || typeof number.to !== 'number') return null;
     const what = entry.joinedChanges
       .filter((change) => change.field !== 'quantity')
-      .map((change) => `${fieldLabel(change.field).toLocaleLowerCase(i18n.language)} ${formatHistoryValue(change.field, change.from, t, context)} → ${formatHistoryValue(change.field, change.to, t, context)}`)
+      .map((change) => `${fieldLabel(change.field, entry.itemId).toLocaleLowerCase(i18n.language)} ${formatHistoryValue(change.field, change.from, t, context)} → ${formatHistoryValue(change.field, change.to, t, context)}`)
       .join(', ');
     // Nothing but the number joined: said as a number change, never "rejointes ()".
     if (!what) return null;
@@ -244,7 +244,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
               </p>
               {restorable.map((change, index) => (
                 <div key={`${entry.id}-${change.field}-${index}`} className="mt-1 pl-1 flex items-center justify-between gap-2">
-                  <span className="text-xs text-foreground-500 truncate">{fieldLabel(change.field)}</span>
+                  <span className="text-xs text-foreground-500 truncate">{fieldLabel(change.field, entry.itemId)}</span>
                   <Button
                     size="sm"
                     variant="light"
@@ -273,7 +273,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
               <ModalBody className="py-2">
                 <p className="text-sm text-foreground-500">
                   {target && t('traceability.restoreConfirm.body', {
-                    field: fieldLabel(target.change.field),
+                    field: fieldLabel(target.change.field, target.itemId),
                     value: formatHistoryValue(target.change.field, target.change.from, t, context),
                   })}
                 </p>

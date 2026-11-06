@@ -940,6 +940,51 @@ describe('InventoryService', () => {
     });
   });
 
+  // Recette #847 (KO 4.4): "J'en fume un" on a box of 25 placed in its cell,
+  // then "Annuler" — the two entries as written, read back: nothing left.
+  describe('a box smoked then taken back (recette #847, KO 4.4)', () => {
+    const box = (fields: Record<string, unknown> = {}) => unitRow({
+      cellarId: 'c1', quantity: 1, isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, cigarsPerBox: 25,
+      parentItemId: null, writtenOffAt: null, needsReview: false, purchasedAt: null, purchasePrice: 100, estimatedValue: null,
+      ...fields,
+    }, { name: 'Robusto', category: 'cigar' });
+
+    it('leaves nothing in the history', async () => {
+      const { withoutUndone } = await import('../src/lib/audit-history');
+      slots.rows.push(slot({ itemId: 'b1', column: 1, row: 2 }));
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(box() as never);
+      const smoked = await service.updateItem('u1', 'b1', { smokeOne: true });
+      if (!smoked || 'conflict' in smoked) throw new Error('expected a write');
+      const opened = { isOpened: true, cigarsLeft: 24, openedAt: smoked.changes.find((c) => c.field === 'openedAt')?.to ?? null };
+      expect(smoked.changes).toEqual(expect.arrayContaining([
+        { field: 'isOpened', from: false, to: true }, { field: 'cigarsLeft', from: null, to: 24 },
+      ]));
+
+      vi.clearAllMocks();
+      vi.mocked(prisma.$transaction).mockImplementation(((callback: (tx: unknown) => unknown) => callback(prisma)) as never);
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(box(opened) as never);
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue(box(opened) as never);
+      vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(box().product as never);
+      vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.tastingNote.count).mockResolvedValue(0 as never);
+      vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string }; data: Record<string, unknown> }) =>
+        Promise.resolve({ ...box(), ...args.data, id: args.where.id })) as never);
+      // The web's "Annuler" (undoPatch): closed, with all its cigars.
+      const back = await service.updateItem('u1', 'b1', { isOpened: false, fillLevel: null, cigarsLeft: 25 });
+      if (!back || 'conflict' in back) throw new Error('expected a write');
+
+      const at = (seconds: number) => new Date(Date.UTC(2026, 10, 6, 10, 0, seconds));
+      const entry = (seconds: number, details: Record<string, unknown>) =>
+        ({ userId: 'u1', action: 'UPDATE', bottleId: 'b1', details, createdAt: at(seconds) });
+      expect(withoutUndone([
+        entry(5, { changes: back.changes, ...(back.outcome ? { outcome: back.outcome, targetItemId: 'b1' } : {}) }),
+        entry(0, { changes: smoked.changes, smokeOne: true }),
+      ])).toEqual([]);
+    });
+  });
+
   // ─── FEAT-93 lot S2: the explicit choices of cells ───────────────────────
 
   describe('explicit choices of cells (FEAT-93, lot S2)', () => {

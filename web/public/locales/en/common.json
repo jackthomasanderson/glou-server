@@ -244,7 +244,17 @@
       "slotRow": "Row",
       "alertsPaused": "Peak alerts paused",
       "consumptionPostponedUntil": "Postponed until",
-      "lockedFields": "Locked fields"
+      "lockedFields": "Locked fields",
+      "isOpened_box": "Box opened",
+      "isOpened_cigar": "Cigar opened",
+      "openedAt_cigar": "Opened on",
+      "cigarsLeft": "Cigars left",
+      "cigarsPerBox": "Cigars per box",
+      "parentItemId": "Original line",
+      "writtenOffAt": "Broken, given away or lost on",
+      "writtenOffAt_cigar": "Broken, given away or lost on",
+      "needsReview": "Number to check",
+      "isOwned": "In my cellar"
     },
     "expertSection": {
       "title": "Advanced fields (collector)"
@@ -2627,9 +2637,15 @@
       "scopeCigar_one": "Edits this cigar for its only cigar in the cellar.",
       "scopeCigar_other": "Edits this cigar for its {{count}} cigars.",
       "saved": "Wine updated",
+      "saved_spirit": "Spirit updated",
+      "saved_cigar": "Cigar updated",
       "conflict": "Not saved: this wine was changed meanwhile, by another member or on another device. Close the form and open it again to start from the current version.",
+      "conflict_spirit": "Not saved: this spirit was changed meanwhile, by another member or on another device. Close the form and open it again to start from the current version.",
+      "conflict_cigar": "Not saved: this cigar was changed meanwhile, by another member or on another device. Close the form and open it again to start from the current version.",
       "rejected": "Not saved: the server refused one of the values. Check the form.",
       "error": "The wine could not be saved.",
+      "error_spirit": "The spirit could not be saved.",
+      "error_cigar": "The cigar could not be saved.",
       "thisWine": "this wine",
       "thisSpirit": "this spirit"
     },
