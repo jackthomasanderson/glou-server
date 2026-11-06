@@ -236,6 +236,97 @@ test.describe('the cellar plan, one cell per bottle (FEAT-93)', () => {
     await expect.poll(() => moves.at(-1)).toBe(JSON.stringify({ column: 3, row: 2 }));
   });
 
+  // Recette n°5 ter of #847: dnd-kit drops on the cell it computed at the last pointer
+  // move it has drawn, not on the cell under the pointer at the release. With pointer
+  // events sent in bursts (a test tool, a quick hand), a move followed at once by the
+  // release, or a release away from the last move, landed one cell short: on an
+  // occupied cell, the two bottles silently swapped.
+  test('with the mouse: the cell under the pointer at the release wins, never the last one drawn', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    await okData(await api.patch(`/api/cellars/${cellarId}`, { data: { columns: 5 } }));
+    const other = await okData<{ id: string; productId: string }>(await api.post('/api/inventory', {
+      data: { category: 'wine', name: `E2E Autre ${stamp()}`, producer: 'E2E Domaine', purchasePrice: 30, cellarId },
+    }));
+    expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column: 1, row: 2 } })).status()).toBe(201);
+    expect((await api.post(`/api/inventory/${other.id}/slots`, { data: { column: 3, row: 2 } })).status()).toBe(201);
+    const sent: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'PATCH' && request.url().includes('/api/slots/')) sent.push(`move ${request.postData()}`);
+      if (request.url().includes('/swap-slots')) sent.push('swap');
+    });
+    try {
+      await page.goto(`/cellars/${cellarId}`);
+      const box = async (column: number, row: number) => (await page.locator(`[data-cell="${column}:${row}"]`).locator('..').boundingBox())!;
+      const centre = async (column: number, row: number) => {
+        const b = await box(column, row);
+        return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      };
+      type Step = { type: 'mousedown' | 'mousemove' | 'mouseup'; x: number; y: number };
+      // Mouse events dispatched in one task: the plan draws nothing between them.
+      const burst = (steps: Step[], cell?: { column: number; row: number }) => page.evaluate(({ steps, cell }) => {
+        for (const { type, x, y } of steps) {
+          const target = type === 'mousedown' && cell ? document.querySelector(`[data-cell="${cell.column}:${cell.row}"]`)! : document;
+          target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: type === 'mouseup' ? 0 : 1 }));
+        }
+      }, { steps, cell });
+      const outlined = (column: number, row: number) =>
+        expect(page.locator(`[data-cell="${column}:${row}"]`).locator('..')).toHaveCSS('outline-style', 'solid');
+      const pickUp = async (column: number, row: number, over: { column: number; row: number }) => {
+        const from = await centre(column, row);
+        const via = await centre(over.column, over.row);
+        await burst([
+          { type: 'mousedown', ...from },
+          { type: 'mousemove', x: from.x + 10, y: from.y },
+          { type: 'mousemove', ...via },
+        ], { column, row });
+        // The plan has drawn the drag over that cell: dnd-kit's own target is now it.
+        await outlined(over.column, over.row);
+      };
+
+      // C1·R2, drawn over C3·R2 (the other wine), then moved to C4·R2 (empty) and released
+      // there at once: it moves to C4·R2 and the other wine is not swapped.
+      await pickUp(1, 2, { column: 3, row: 2 });
+      const c4 = await centre(4, 2);
+      await burst([{ type: 'mousemove', ...c4 }, { type: 'mouseup', ...c4 }]);
+      await expect.poll(() => sent).toEqual([`move ${JSON.stringify({ column: 4, row: 2 })}`]);
+      await expect(heldCell(page, 4, 2, wine)).toBeVisible();
+      await expect(heldCell(page, 3, 2, 'E2E Autre')).toBeVisible();
+
+      // C4·R2, drawn over C4·R1, released 3 px inside C5·R1 with no move there: C5·R1.
+      await pickUp(4, 2, { column: 4, row: 1 });
+      const c5 = await box(5, 1);
+      await burst([{ type: 'mouseup', x: c5.x + 3, y: c5.y + c5.height / 2 }]);
+      await expect.poll(() => sent.at(-1)).toBe(`move ${JSON.stringify({ column: 5, row: 1 })}`);
+      await expect(heldCell(page, 5, 1, wine)).toBeVisible();
+
+      // A swap still happens where the bottle is released: C5·R1, drawn over C4·R1, released
+      // on C3·R2 (the other wine) at once.
+      await pickUp(5, 1, { column: 4, row: 1 });
+      const c3 = await centre(3, 2);
+      await burst([{ type: 'mousemove', ...c3 }, { type: 'mouseup', ...c3 }]);
+      await expect.poll(() => sent.at(-1)).toBe('swap');
+      await expect(heldCell(page, 3, 2, wine)).toBeVisible();
+      await expect(heldCell(page, 5, 1, 'E2E Autre')).toBeVisible();
+
+      // Released off the plan, with the last move drawn over a cell: nothing moves.
+      await pickUp(3, 2, { column: 2, row: 2 });
+      const plan = await box(5, 3);
+      await burst([{ type: 'mouseup', x: plan.x + plan.width + 40, y: plan.y + plan.height + 40 }]);
+      await page.waitForTimeout(500);
+      expect(sent).toHaveLength(3);
+
+      await page.reload();
+      await expect(heldCell(page, 3, 2, wine)).toBeVisible();
+      await expect(heldCell(page, 5, 1, 'E2E Autre')).toBeVisible();
+      await expect(emptyCell(page, 4, 2)).toBeVisible();
+      await expect(emptyCell(page, 4, 1)).toBeVisible();
+    } finally {
+      await api.delete(`/api/products/${other.productId}`).catch(() => {});
+    }
+  });
+
   // Recette n°5 bis of #847: the tooltip of a cell, beside it, covers the next cells of
   // the row: a hover or a click there must reach the cell under it, never the tooltip.
   test('the tooltip of a cell never takes the pointer, closes on leaving its cell, and stays hidden while dragging', async ({ page }) => {
