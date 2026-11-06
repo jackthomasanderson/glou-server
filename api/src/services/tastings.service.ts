@@ -47,6 +47,22 @@ function servedNote({ item, ...note }: NoteRow) {
 }
 
 /**
+ * #837: what a tasting keeps of the bottle tasted, as it is when tasted —
+ * its cellar (id and name) and its purchase day — so moving or finishing the
+ * bottle afterwards changes nothing on the tasting.
+ */
+export const BOTTLE_SNAPSHOT_SELECT = {
+  cellarId: true,
+  purchasedAt: true,
+  cellar: { select: { name: true } },
+} as const satisfies Prisma.InventoryItemSelect;
+
+type BottleSnapshotRow = Prisma.InventoryItemGetPayload<{ select: typeof BOTTLE_SNAPSHOT_SELECT }>;
+
+export const bottleSnapshot = ({ cellarId, purchasedAt, cellar }: BottleSnapshotRow) =>
+  ({ cellarId, cellarName: cellar?.name ?? null, purchasedAt });
+
+/**
  * Key space of the advisory lock taken while a wine tasted elsewhere is
  * looked up then created (two int4 keys: never the CSV import's bigint key).
  */
@@ -144,12 +160,17 @@ export const tastingsService = {
    * new wine without any bottle ("Plus en cave", FEAT-101).
    */
   async create(userId: string, data: TastingCreateInput) {
-    const { wine, productId: givenProductId, ...fields } = data;
-    const write = async (client: PrismaClientOrTx, productId: string | undefined) => servedNote(await client.tastingNote.create({
+    const { wine, productId, ...fields } = data;
+    const write = async (
+      client: PrismaClientOrTx,
+      productId: string | undefined,
+      snapshot?: ReturnType<typeof bottleSnapshot>,
+    ) => servedNote(await client.tastingNote.create({
       data: {
         userId, // audit: who logged this tasting note
         ...fields,
         productId,
+        ...snapshot,
         tastedAt: fields.tastedAt ? new Date(fields.tastedAt) : new Date(),
       },
       include: NOTE_INCLUDE,
@@ -157,19 +178,19 @@ export const tastingsService = {
 
     if (wine) return prisma.$transaction(async (tx) => write(tx, await tastedWine(tx, userId, wine)));
 
-    let productId = givenProductId;
     if (fields.itemId) {
       // Shared inventory: any item in the instance can be tasted/logged
       // against, not just the ones the current user created.
       const item = await prisma.inventoryItem.findFirst({
         where: { id: fields.itemId, deletedAt: null },
-        select: { productId: true },
+        select: { productId: true, ...BOTTLE_SNAPSHOT_SELECT },
       });
       if (!item) throw new AppError(404, 'ITEM_NOT_FOUND');
       if (productId && productId !== item.productId) throw badRequest('ITEM_NOT_IN_PRODUCT');
       // #471: the tasting belongs to the wine (the family) of the bottle.
-      productId = item.productId;
-    } else if (productId) {
+      return write(prisma, item.productId, bottleSnapshot(item));
+    }
+    if (productId) {
       // A wine in the trash is not offered: it is restored first.
       const product = await prisma.product.findFirst({ where: { id: productId, ...LISTED_PRODUCT_FILTER }, select: { id: true } });
       if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND');
@@ -188,7 +209,7 @@ export const tastingsService = {
     // trash by now (or its wine), and the tasting must still be editable.
     const moved = data.itemId !== undefined && data.itemId !== existing.itemId;
     const item = moved
-      ? await prisma.inventoryItem.findFirst({ where: { id: data.itemId, deletedAt: null }, select: { productId: true } })
+      ? await prisma.inventoryItem.findFirst({ where: { id: data.itemId, deletedAt: null }, select: { productId: true, ...BOTTLE_SNAPSHOT_SELECT } })
       : null;
     if (moved && !item) throw new AppError(404, 'ITEM_NOT_FOUND');
     if (item && existing.productId && item.productId !== existing.productId) throw badRequest('ITEM_NOT_IN_PRODUCT');
@@ -196,7 +217,8 @@ export const tastingsService = {
       where: { id },
       data: {
         ...data,
-        ...(item ? { productId: item.productId } : {}),
+        // #837: moved to another bottle, it is of that bottle as it is now.
+        ...(item ? { productId: item.productId, ...bottleSnapshot(item) } : {}),
         tastedAt: data.tastedAt ? new Date(data.tastedAt) : undefined,
       },
       include: NOTE_INCLUDE,
