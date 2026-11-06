@@ -8,6 +8,13 @@
  */
 export const HALF_FIELD_LABEL_MAX = 16;
 
-/** The grid span of a half-width field of the form: two columns when its label is long. */
-export const halfFieldSpan = (label: string): string | undefined =>
-  label.trim().length > HALF_FIELD_LABEL_MAX ? 'col-span-2' : undefined;
+const isLong = (label: string) => label.trim().length > HALF_FIELD_LABEL_MAX;
+
+/**
+ * The grid span of a half-width field of the form: two columns when its label
+ * is long. Fields that share a phone row are decided together (review of
+ * #874): when one of them is long both take two columns, so the short one is
+ * not left alone beside an empty cell.
+ */
+export const halfFieldSpan = (label: string, partnerLabel?: string): string | undefined =>
+  isLong(label) || (partnerLabel !== undefined && isLong(partnerLabel)) ? 'col-span-2' : undefined;

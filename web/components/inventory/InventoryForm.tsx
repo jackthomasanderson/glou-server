@@ -48,8 +48,11 @@ import {
 import { SingleSelect } from '@/components/ui/SingleSelect';
 import { halfFieldSpan } from '@/lib/inventory/fieldSpan';
 
-/** A half-width field of the form's grids: its label, and two columns when that label is long (#867). */
-const halfField = (label: string) => ({ label, className: halfFieldSpan(label) });
+/**
+ * A half-width field of the form's grids: its label, and two columns when that
+ * label — or the one of the field sharing its phone row — is long (#867).
+ */
+const halfField = (label: string, partnerLabel?: string) => ({ label, className: halfFieldSpan(label, partnerLabel) });
 
 /**
  * What a new entry sends. `distinctFrom` (#471, FEAT-97 c5): the wines of the
@@ -699,6 +702,8 @@ export function InventoryForm({
                           </SingleSelect>
                           <SingleSelect
                             {...halfField(t('inventory.fields.sugarLevel'))}
+                            // Third short field of the row: the whole phone row, the end of the computer one (review of #874).
+                            className="col-span-2"
                             variant="bordered"
                             size="sm"
                             selectedKeys={values.sugarLevel ? [values.sugarLevel] : []}
@@ -766,14 +771,14 @@ export function InventoryForm({
                       {isCigar && (
                         <>
                           <Input
-                            {...halfField(t('inventory.fields.format'))}
+                            {...halfField(t('inventory.fields.format'), t('inventory.fields.manufactureYear'))}
                             variant="bordered"
                             size="sm"
                             value={values.format ?? ''}
                             onValueChange={(v) => setField('format', v)}
                           />
                           <ParsedNumberInput
-                            {...halfField(t('inventory.fields.manufactureYear'))}
+                            {...halfField(t('inventory.fields.manufactureYear'), t('inventory.fields.format'))}
                             variant="bordered"
                             size="sm"
                             value={values.manufactureYear}
@@ -906,14 +911,14 @@ export function InventoryForm({
                           </>
                           <>
                             <Input
-                                {...halfField(t('inventory.fields.lotNumber'))}
+                                {...halfField(t('inventory.fields.lotNumber'), t('inventory.fields.batchDate'))}
                                 variant="bordered"
                                 size="sm"
                                 value={values.lotNumber ?? ''}
                                 onValueChange={(v) => setField('lotNumber', v)}
                               />
                               <Input
-                                {...halfField(t('inventory.fields.batchDate'))}
+                                {...halfField(t('inventory.fields.batchDate'), t('inventory.fields.lotNumber'))}
                                 type="date"
                                 variant="bordered"
                                 size="sm"
@@ -931,20 +936,20 @@ export function InventoryForm({
                                 />
                               </div>
                               <Input
-                                {...halfField(t('inventory.fields.caskNumber'))}
+                                {...halfField(t('inventory.fields.caskNumber'), t('inventory.fields.caskProof'))}
                                 variant="bordered"
                                 size="sm"
                                 value={values.caskNumber ?? ''}
                                 onValueChange={(v) => setField('caskNumber', v)}
                               />
                               <ParsedNumberInput decimal
-                                {...halfField(t('inventory.fields.caskProof'))}
+                                {...halfField(t('inventory.fields.caskProof'), t('inventory.fields.caskNumber'))}
                                 variant="bordered"
                                 size="sm"
                                 value={values.caskProof}
                                 onValueChange={(v) => setField('caskProof', v)}
                               />
-                              <div className="flex items-center">
+                              <div className="col-span-2 flex items-center">
                                 <FilterChip
                                   size="md"
                                   selected={Boolean(values.isSingleCask)}
@@ -1063,7 +1068,7 @@ export function InventoryForm({
                             {isSparkling && (
                               <>
                                 <ParsedNumberInput
-                                  {...halfField(t('inventory.fields.baseYear'))}
+                                  {...halfField(t('inventory.fields.baseYear'), t('inventory.fields.disgorgingDate'))}
                                   variant="bordered"
                                   size="sm"
                                   value={values.baseYear}
@@ -1071,7 +1076,7 @@ export function InventoryForm({
                                   min={1800} max={2100}
                                 />
                                 <Input
-                                  {...halfField(t('inventory.fields.disgorgingDate'))}
+                                  {...halfField(t('inventory.fields.disgorgingDate'), t('inventory.fields.baseYear'))}
                                   type="date"
                                   variant="bordered"
                                   size="sm"
@@ -1122,14 +1127,14 @@ export function InventoryForm({
                               />
                             </div>
                             <Input
-                              {...halfField(t('inventory.fields.factoryCode'))}
+                              {...halfField(t('inventory.fields.factoryCode'), t('inventory.fields.recommendedHumidity'))}
                               variant="bordered"
                               size="sm"
                               value={values.factoryCode ?? ''}
                               onValueChange={(v) => setField('factoryCode', v)}
                             />
                             <ParsedNumberInput decimal
-                              {...halfField(t('inventory.fields.recommendedHumidity'))}
+                              {...halfField(t('inventory.fields.recommendedHumidity'), t('inventory.fields.factoryCode'))}
                               variant="bordered"
                               size="sm"
                               value={values.recommendedHumidity}
@@ -1205,7 +1210,7 @@ export function InventoryForm({
                             </div>
                             )}
                             <Input
-                              {...halfField(t('inventory.fields.openedAt'))}
+                              {...halfField(t('inventory.fields.openedAt'), t('inventory.fields.reminderDate'))}
                               type="date"
                               variant="bordered"
                               size="sm"
@@ -1213,7 +1218,7 @@ export function InventoryForm({
                               onValueChange={(v) => setField('openedAt', v || null)}
                             />
                             <Input
-                              {...halfField(t('inventory.fields.reminderDate'))}
+                              {...halfField(t('inventory.fields.reminderDate'), t('inventory.fields.openedAt'))}
                               type="date"
                               variant="bordered"
                               size="sm"

@@ -61,6 +61,34 @@ function crampedLabels(): { cramped: string[]; seen: string[] } {
   return { cramped, seen };
 }
 
+/** Columns a grid cell takes on a phone, where the grid has two. */
+const spans = (cell: Element) => (cell.className.split(/\s+/).includes('col-span-2') ? 2 : 1);
+
+/**
+ * Review of #874: a short field followed by a field taking the whole phone
+ * row was left alone beside an empty cell. Lays the cells out on a phone, in
+ * order (no dense packing, like the CSS grid), and names each field left
+ * beside an empty cell, before a wider field or at the end of its grid.
+ */
+function orphans(): string[] {
+  const columns = 2;
+  const found: string[] = [];
+  for (const grid of screen.getByRole('dialog').querySelectorAll('.grid-cols-2')) {
+    let used = 0;
+    let last = '';
+    for (const cell of grid.children) {
+      if (getComputedStyle(cell).display === 'none') continue;
+      const span = spans(cell);
+      if (used > 0 && used + span > columns) found.push(last);
+      if (used + span > columns) used = 0;
+      used = (used + span) % columns;
+      last = (cell.querySelector('label[data-slot="label"]')?.textContent ?? cell.textContent ?? '').trim();
+    }
+    if (used > 0) found.push(`${last} (last)`);
+  }
+  return found;
+}
+
 function draw(t: T, category: InventoryCategory, mode: 'new' | 'openedUnit' | 'description') {
   const initialValues: Partial<InventoryItem> | undefined =
     mode === 'new' ? undefined
@@ -87,12 +115,13 @@ describe('InventoryForm — long labels of half-width fields (#867)', () => {
   for (const lng of ['fr', 'en'] as const) {
     for (const category of CATEGORIES) {
       for (const mode of ['new', 'openedUnit', 'description'] as const) {
-        it(`${lng} · ${category} · ${mode}: a long label takes two columns`, () => {
+        it(`${lng} · ${category} · ${mode}: a long label takes two columns, no field left beside a hole`, () => {
           const t = translators[lng];
           draw(t, category, mode);
           const { cramped, seen } = crampedLabels();
           expect(seen.length).toBeGreaterThan(0);
           expect(cramped).toEqual([]);
+          expect(orphans()).toEqual([]);
           cleanup();
         });
       }
