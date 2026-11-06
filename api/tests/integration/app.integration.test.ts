@@ -369,6 +369,62 @@ describe('POST /api/auth/login refusals', () => {
   });
 });
 
+// #638: the profile shows how many backup codes are left.
+describe('GET /api/user/backup-codes', () => {
+  it('answers a count, never the codes', async () => {
+    const spy = vi.spyOn(authService, 'countBackupCodes').mockResolvedValueOnce(7);
+    const res = await request(app).get('/api/user/backup-codes').set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { remaining: 7 } });
+    expect(spy).toHaveBeenCalledWith('u1');
+    spy.mockRestore();
+  });
+
+  it('requires a session', async () => {
+    expect((await request(app).get('/api/user/backup-codes')).status).toBe(401);
+  });
+});
+
+// #638: regenerating the backup codes from the profile.
+describe('POST /api/auth/2fa/backup-codes', () => {
+  const post = (body: Record<string, unknown>) => request(app)
+    .post('/api/auth/2fa/backup-codes')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send(body);
+
+  it('requires a session', async () => {
+    const res = await request(app).post('/api/auth/2fa/backup-codes').set('Sec-Fetch-Site', 'same-origin').send({});
+    expect(res.status).toBe(401);
+  });
+
+  it('requires both the password and a code', async () => {
+    const spy = vi.spyOn(authService, 'regenerateBackupCodes');
+    expect((await post({ password: 'pw' })).body.error).toBe('VALIDATION_ERROR');
+    expect((await post({ code: '123456' })).body.error).toBe('VALIDATION_ERROR');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it.each(['INVALID_CREDENTIALS', 'INVALID_TOTP_CODE', '2FA_NOT_ENABLED'])('answers %s as is', async (code) => {
+    const spy = vi.spyOn(authService, 'regenerateBackupCodes').mockRejectedValueOnce(new Error(code));
+    const res = await post({ password: 'pw', code: '123456' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe(code);
+    spy.mockRestore();
+  });
+
+  it('returns the new codes once', async () => {
+    const backupCodes = Array.from({ length: 10 }, (_, i) => `${i}`.padStart(20, 'a'));
+    const spy = vi.spyOn(authService, 'regenerateBackupCodes').mockResolvedValueOnce({ backupCodes });
+    const res = await post({ password: 'pw', code: '123456' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.backupCodes).toEqual(backupCodes);
+    expect(spy).toHaveBeenCalledWith('u1', 'pw', '123456');
+    spy.mockRestore();
+  });
+});
+
 describe('GET /api/auth/registration-status', () => {
   it('reports closed once an account exists and registrations are closed', async () => {
     const { systemConfigService } = await import('../../src/services/system-config.service');

@@ -65,6 +65,13 @@ export const trustDeviceSchema = z.object({
   code: z.string().min(6).max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH').optional(),
 });
 
+// #638: same re-confirmation as turning 2FA off, the code being mandatory —
+// this route is only reachable with 2FA on.
+export const regenerateBackupCodesSchema = z.object({
+  password: z.string().min(1, 'PASSWORD_REQUIRED'),
+  code: z.string().min(6, 'INVALID_CODE_LENGTH').max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH'),
+});
+
 export type TurnOn2faInput = z.infer<typeof turnOn2faSchema>;
 export type TurnOff2faInput = z.infer<typeof turnOff2faSchema>;
 export type Verify2faInput = z.infer<typeof verify2faSchema>;

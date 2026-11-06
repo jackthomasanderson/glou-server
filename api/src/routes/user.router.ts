@@ -25,6 +25,15 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/user/backup-codes
+ * #638: how many 2FA backup codes are left — a count, never the codes. Kept
+ * out of /api/auth/2fa so a profile visit does not spend the sign-in rate limit.
+ */
+router.get('/backup-codes', authMiddleware, async (req: Request, res: Response) => {
+  res.json({ data: { remaining: await authService.countBackupCodes(req.userId) } });
+});
+
+/**
  * PATCH /api/user/profile
  * Update display name, avatar, app name, app slogan
  */
