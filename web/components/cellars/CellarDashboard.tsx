@@ -5,7 +5,6 @@ import React, { useState, useMemo, useCallback } from 'react';
 import {
   Button,
   Input,
-  Select,
   SelectItem,
   Chip,
   Card,
@@ -49,6 +48,7 @@ import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 interface GridFormData {
   columns: string;
@@ -331,21 +331,21 @@ export const CellarDashboard: React.FC = () => {
       {/* Filters (only shown when there are cellars) */}
       {(cellars?.length ?? 0) > 0 && (
         <div className="flex flex-col sm:flex-row gap-2 mb-5">
-          <Select
-            disallowEmptySelection
+          <SingleSelect
             size="sm"
             variant="bordered"
             selectedKeys={[typeFilter]}
             onSelectionChange={(keys) => handleType(Array.from(keys)[0] as CellarTypeFilter)}
-            className="w-full sm:w-44"
+            className="w-full sm:w-64"
+            // Recette n°5 bis of #847: « Vieillissement / … », « Armoire Climatis… » were cut.
+            listboxProps={{ itemClasses: { title: 'whitespace-normal' } }}
             aria-label={t('cellars.filterByType')}
           >
             {typeFilterOptions.map((opt) => (
               <SelectItem key={opt.key}>{opt.label}</SelectItem>
             ))}
-          </Select>
-          <Select
-            disallowEmptySelection
+          </SingleSelect>
+          <SingleSelect
             size="sm"
             variant="bordered"
             selectedKeys={[statusFilter]}
@@ -357,7 +357,7 @@ export const CellarDashboard: React.FC = () => {
             <SelectItem key="alerts">{t('cellars.status.withAlerts')}</SelectItem>
             <SelectItem key="no-alerts">{t('cellars.status.noAlerts')}</SelectItem>
             <SelectItem key="empty">{t('cellars.status.empty')}</SelectItem>
-          </Select>
+          </SingleSelect>
           {hasActiveFilters && (
             <Button size="sm" variant="light" isIconOnly onPress={clearFilters} aria-label={t('actions.clearAll')}>
               <X size={14} />
@@ -602,8 +602,7 @@ export const CellarDashboard: React.FC = () => {
                 isRequired
               />
 
-              <Select
-                disallowEmptySelection
+              <SingleSelect
                 label={t('cellars.type')}
                 selectedKeys={[formData.type]}
                 onSelectionChange={(keys) => {
@@ -614,7 +613,7 @@ export const CellarDashboard: React.FC = () => {
                 {cellarTypeOptions.map((opt) => (
                   <SelectItem key={opt.key}>{opt.label}</SelectItem>
                 ))}
-              </Select>
+              </SingleSelect>
 
               <Input
                 label={t('cellars.description')}

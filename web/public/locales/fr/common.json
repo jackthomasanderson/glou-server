@@ -173,7 +173,7 @@
         "spirit": "Distillerie / Marque",
         "cigar": "Fabricant / Marque"
       },
-      "location": "Emplacement",
+      "location": "Repère libre (étagère, carton…)",
       "collection": "Collection",
       "tags": "Étiquettes",
       "photoUrl": "URL de la photo",
@@ -2873,7 +2873,8 @@
   },
   "history": {
     "fields": {
-      "slot": "Case"
+      "slot": "Case",
+      "location": "Repère libre"
     },
     "slotNone": "aucune",
     "slotPlaced": "Case {{cell}} occupée",

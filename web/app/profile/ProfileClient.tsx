@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button, Input, Select, SelectItem, Switch, CircularProgress } from '@heroui/react';
+import { Button, Input, SelectItem, Switch, CircularProgress } from '@heroui/react';
 import { User, Settings, ShieldCheck, Compass, FlaskConical, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
@@ -15,6 +15,7 @@ import { AvatarUploader } from '@/components/profile/AvatarUploader';
 import { GdprSection } from '@/components/profile/GdprSection';
 import { SharesDashboard } from '@/components/shares/SharesDashboard';
 import { NotificationPreferences } from '@/components/profile/NotificationPreferences';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 const ACCENT_COLORS = [
   { name: 'indigo', val: '#6366f1' },
@@ -192,8 +193,7 @@ export function ProfileClient() {
             </div>
 
             <div className="flex flex-col gap-4">
-              <Select
-                disallowEmptySelection
+              <SingleSelect
                 label={t('profile.theme')}
                 selectedKeys={[prefsData.theme]}
                 onSelectionChange={(keys) => handlePrefsChange('theme', Array.from(keys)[0] as string)}
@@ -202,10 +202,9 @@ export function ProfileClient() {
                 <SelectItem key="SYSTEM">{t('profile.themes.SYSTEM')}</SelectItem>
                 <SelectItem key="LIGHT">{t('profile.themes.LIGHT')}</SelectItem>
                 <SelectItem key="DARK">{t('profile.themes.DARK')}</SelectItem>
-              </Select>
+              </SingleSelect>
 
-              <Select
-                disallowEmptySelection
+              <SingleSelect
                 label={t('profile.language')}
                 selectedKeys={[prefsData.language]}
                 onSelectionChange={(keys) => handlePrefsChange('language', Array.from(keys)[0] as string)}
@@ -213,10 +212,9 @@ export function ProfileClient() {
               >
                 <SelectItem key="FR">Français</SelectItem>
                 <SelectItem key="EN">English</SelectItem>
-              </Select>
+              </SingleSelect>
 
-              <Select
-                disallowEmptySelection
+              <SingleSelect
                 label={t('profile.tempUnit')}
                 selectedKeys={[prefsData.tempUnit]}
                 onSelectionChange={(keys) => handlePrefsChange('tempUnit', Array.from(keys)[0] as string)}
@@ -224,10 +222,9 @@ export function ProfileClient() {
               >
                 <SelectItem key="CELSIUS">°Celsius</SelectItem>
                 <SelectItem key="FAHRENHEIT">°Fahrenheit</SelectItem>
-              </Select>
+              </SingleSelect>
 
-              <Select
-                disallowEmptySelection
+              <SingleSelect
                 label={t('profile.dateFormat')}
                 selectedKeys={[prefsData.dateFormat]}
                 onSelectionChange={(keys) => handlePrefsChange('dateFormat', Array.from(keys)[0] as string)}
@@ -236,7 +233,7 @@ export function ProfileClient() {
                 <SelectItem key="SYSTEM">{t('profile.dateFormats.SYSTEM')}</SelectItem>
                 <SelectItem key="H24">{t('profile.dateFormats.H24')}</SelectItem>
                 <SelectItem key="H12">{t('profile.dateFormats.H12')}</SelectItem>
-              </Select>
+              </SingleSelect>
 
               <div>
                 <p className="text-xs text-foreground-500 mb-2">{t('profile.accentColor')}</p>

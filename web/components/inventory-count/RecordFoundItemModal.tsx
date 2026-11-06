@@ -7,7 +7,6 @@ import {
   ModalFooter,
   Button,
   Input,
-  Select,
   SelectItem,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
@@ -15,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useRecordFoundItem } from '@/hooks/useInventoryCount';
 import { InventoryCategory } from '@/lib/inventory-count/types';
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 interface RecordFoundItemModalProps {
   sessionId: string;
@@ -85,8 +85,7 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
               labelPlacement="outside"
               isRequired
             />
-            <Select
-              disallowEmptySelection
+            <SingleSelect
               label={t('inventoryCount.session.foundNew.categoryLabel')}
               selectedKeys={[category]}
               onSelectionChange={(keys) => setCategory(Array.from(keys)[0] as InventoryCategory)}
@@ -98,7 +97,7 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
               {CATEGORIES.map((c) => (
                 <SelectItem key={c}>{t(`categories.${c}`)}</SelectItem>
               ))}
-            </Select>
+            </SingleSelect>
             <Input
               type="number"
               min={1}

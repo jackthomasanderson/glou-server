@@ -216,6 +216,13 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
       return toast.x + toast.width <= header.x || toast.y >= header.y + header.height;
     };
     await expect.poll(clear, { timeout: 3000 }).toBe(true);
+    // Recette n°5 bis: nor the navigation — the side menu, the page's header and its back arrow.
+    const content = (await page.locator('#main-content').boundingBox())!;
+    const toast = (await shown.boundingBox())!;
+    if (toast.x + toast.width <= header.x) {
+      expect(toast.x).toBeGreaterThanOrEqual(content.x);
+      expect(toast.y).toBeGreaterThanOrEqual(content.y);
+    }
     await close.click();
     await expect(drawer).toBeHidden();
   });

@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  ModalContent, Button, Chip, Input, Select, SelectItem, Checkbox, CircularProgress,
+  ModalContent, Button, Chip, Input, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf, PenLine } from 'lucide-react';
@@ -19,6 +19,7 @@ import { KnownWineBanner } from './KnownWineBanner';
 import { AddUnitsModal } from './AddUnitsDialog';
 import { useKnownWine } from '@/hooks/useKnownWine';
 import type { Product } from '@/lib/products/types';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 type Phase = 'capture' | 'uploading' | 'processing' | 'review' | 'error';
 
@@ -431,7 +432,6 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                         isRequired
                         value={reviewValues.alcoholDegree != null ? String(reviewValues.alcoholDegree) : ''}
                         onValueChange={(v) => setReviewValues((prev) => (prev ? { ...prev, alcoholDegree: v ? Number(v) : undefined } : prev))}
-                        endContent={<span className="text-xs text-foreground-500">%</span>}
                         min={0}
                         max={100}
                         step={0.1}
@@ -460,8 +460,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       t={t}
                     />
 
-                    <Select
-                      disallowEmptySelection
+                    <SingleSelect
                       label={t('nav.caves')}
                       variant="bordered"
                       size="sm"
@@ -475,7 +474,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       {(item) => (
                         <SelectItem key={item.id} textValue={item.name}>{item.id === 'none' ? <em>{item.name}</em> : item.name}</SelectItem>
                       )}
-                    </Select>
+                    </SingleSelect>
 
                     {reviewValues.cellarId && (
                       <Checkbox isSelected={saveAsDefault} onValueChange={setSaveAsDefault} size="sm">

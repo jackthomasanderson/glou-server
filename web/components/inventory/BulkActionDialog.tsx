@@ -11,6 +11,7 @@ import { InventoryItem } from '@/lib/inventory/types';
 import { useCellars } from '@/hooks/useCellars';
 import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { useBulkPresets, useCreateBulkPreset, useDeleteBulkPreset } from '@/hooks/useBulkPresets';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 interface BulkActionDialogProps {
   open: boolean;
@@ -225,8 +226,7 @@ export function BulkActionDialog({
                     <span className="text-sm">{t('nav.caves')}</span>
                   </Checkbox>
                   {enabledFields.cellarId && (
-                    <Select
-                      disallowEmptySelection
+                    <SingleSelect
                       aria-label={t('nav.caves')}
                       label={t('nav.caves')}
                       variant="bordered"
@@ -241,7 +241,7 @@ export function BulkActionDialog({
                           {item.id === 'none' ? <em>{item.name}</em> : item.name}
                         </SelectItem>
                       )}
-                    </Select>
+                    </SingleSelect>
                   )}
                 </div>
 
@@ -287,8 +287,7 @@ export function BulkActionDialog({
                     <span className="text-sm">{t('inventory.fields.isOpened')}</span>
                   </Checkbox>
                   {enabledFields.isOpened && (
-                    <Select
-                      disallowEmptySelection
+                    <SingleSelect
                       aria-label={t('inventory.fields.isOpened')}
                       label={t('inventory.fields.isOpened')}
                       variant="bordered"
@@ -299,7 +298,7 @@ export function BulkActionDialog({
                     >
                       <SelectItem key="sealed">{t('inventory.sealedStatus.sealed')}</SelectItem>
                       <SelectItem key="opened">{t('inventory.sealedStatus.opened')}</SelectItem>
-                    </Select>
+                    </SingleSelect>
                   )}
                 </div>
 

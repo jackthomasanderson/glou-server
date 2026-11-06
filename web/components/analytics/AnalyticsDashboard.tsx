@@ -7,7 +7,6 @@ import {
   CardBody,
   Chip,
   Button,
-  Select,
   SelectItem,
 } from '@heroui/react';
 import {
@@ -41,6 +40,7 @@ import i18n from '@/lib/i18n';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import type { InventoryCategory } from '@/lib/inventory/types';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 type Period = '30d' | '90d' | '1y' | 'all';
 
@@ -639,8 +639,7 @@ export function AnalyticsDashboard() {
                 {t('analytics.movements.title')}
               </p>
             </div>
-            <Select
-              disallowEmptySelection
+            <SingleSelect
               size="sm"
               radius="md"
               variant="bordered"
@@ -656,7 +655,7 @@ export function AnalyticsDashboard() {
               <SelectItem key="90d">{t('analytics.period.90d')}</SelectItem>
               <SelectItem key="1y">{t('analytics.period.1y')}</SelectItem>
               <SelectItem key="all">{t('analytics.period.all')}</SelectItem>
-            </Select>
+            </SingleSelect>
           </div>
           <p className="text-xs text-foreground-500 mt-1 mb-4">
             {t('analytics.movements.scopeHint')}

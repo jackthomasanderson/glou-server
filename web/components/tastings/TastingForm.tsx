@@ -31,6 +31,7 @@ import { cellAskOf, type CellAsk } from '@/lib/products/cells';
 import { SLOT_CHANGED, SLOT_CHOICE_REQUIRED, type SlotChoiceFields } from '@shared/product';
 import { WhichCellDialog } from '@/components/inventory/WhichCellDialog';
 import { blankTastingValues } from '@/lib/tastings/formValues';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -269,17 +270,16 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                       name="wine.category"
                       control={control}
                       render={({ field }) => (
-                        <Select
+                        <SingleSelect
                           label={t('inventory.fields.category')}
                           selectedKeys={[field.value ?? 'wine']}
                           onSelectionChange={(keys) => field.onChange((Array.from(keys)[0] as InventoryCategory) ?? 'wine')}
-                          disallowEmptySelection
                           variant="bordered"
                         >
                           {CATEGORY_VALUES.map((category) => (
                             <SelectItem key={category}>{t(`categories.${category}`)}</SelectItem>
                           ))}
-                        </Select>
+                        </SingleSelect>
                       )}
                     />
                     <Controller
@@ -412,8 +412,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                     control={control}
                     rules={{ validate: (value) => !tastesBottle || !!value || t('tastings.errors.required') }}
                     render={({ field }) => (
-                      <Select
-                        disallowEmptySelection
+                      <SingleSelect
                         label={`${t(isCigar ? 'tastingWine.whichCigars' : 'tastingWine.whichBottle')} *`}
                         selectedKeys={field.value ? [field.value] : []}
                         onSelectionChange={(keys) => field.onChange((Array.from(keys)[0] as string) ?? undefined)}
@@ -424,7 +423,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                         {lines.inCellar.map((line) => (
                           <SelectItem key={line.id}>{lineParts(line, lineCtx).join(' · ')}</SelectItem>
                         ))}
-                      </Select>
+                      </SingleSelect>
                     )}
                   />
                 )}

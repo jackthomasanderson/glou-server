@@ -16,11 +16,21 @@ import i18n from '@/lib/i18n';
  * components and from the mutation hooks that own the server round-trip.
  */
 
+/** The CSS variable holding the room kept free right of the messages (lib/toastClearance.ts: a drawer). */
+export const TOAST_INSET_VAR = '--toast-inset-right';
+
 /**
  * Every message is read whole: HeroUI cuts a toast's title to one line
- * (« Bouteille remise avec les a… », recette #471). Given to ToastProvider.
+ * (« Bouteille remise avec les a… », recette #471). Beside a drawer, a
+ * message keeps clear of it ({@link TOAST_INSET_VAR}, recette n°5 bis of
+ * #847). Given to ToastProvider.
  */
-export const TOAST_PROPS = { classNames: { title: 'whitespace-normal break-words' } };
+export const TOAST_PROPS = {
+  classNames: {
+    title: 'whitespace-normal break-words',
+    motionDiv: 'data-[placement=bottom-right]:right-[var(--toast-inset-right,0px)]',
+  },
+};
 
 /** Success notifications are transient (ux-ui.md 9.4: 3 seconds). */
 const SUCCESS_TIMEOUT_MS = 3000;

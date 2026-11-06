@@ -173,7 +173,7 @@
         "spirit": "Distillery / Brand",
         "cigar": "Manufacturer / Brand"
       },
-      "location": "Location",
+      "location": "Free note (shelf, crate…)",
       "collection": "Collection",
       "tags": "Tags",
       "photoUrl": "Photo URL",
@@ -2871,7 +2871,8 @@
   },
   "history": {
     "fields": {
-      "slot": "Slot"
+      "slot": "Slot",
+      "location": "Free note"
     },
     "slotNone": "none",
     "slotPlaced": "Slot {{cell}} taken",
