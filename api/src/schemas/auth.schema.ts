@@ -72,6 +72,13 @@ export const regenerateBackupCodesSchema = z.object({
   code: z.string().min(6, 'INVALID_CODE_LENGTH').max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH'),
 });
 
+// #638: the acting admin's own re-authentication, required by the API only
+// when the reset turns another account's 2FA off. An empty body is valid.
+export const adminResetPasswordSchema = z.object({
+  password: z.string().max(1024).optional(),
+  code: z.string().max(BACKUP_CODE_MAX_LENGTH, 'INVALID_CODE_LENGTH').optional(),
+});
+
 export type TurnOn2faInput = z.infer<typeof turnOn2faSchema>;
 export type TurnOff2faInput = z.infer<typeof turnOff2faSchema>;
 export type Verify2faInput = z.infer<typeof verify2faSchema>;

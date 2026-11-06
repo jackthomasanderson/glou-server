@@ -20,9 +20,18 @@ import { authService } from '../services/auth.service';
 import { emailService } from '../services/email.service';
 import { backupService } from '../services/backup.service';
 import { auditLog } from '../services/audit.service';
+import { adminResetPasswordSchema } from '../schemas/auth.schema';
+import { authRateLimit } from '../lib/rate-limit';
 import type { PurgeResponse } from '../../../shared/maintenance';
 
 const adminRouter = Router();
+
+// #638: a reset may now ask for the admin's password and 2FA code — throttled
+// like the other password and 2FA checks.
+const resetPasswordLimiter = authRateLimit(20);
+
+/** Refusals of the admin's own re-authentication on a reset (#638). */
+const RESET_REAUTH_ERRORS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE']);
 
 // Audit log pages are bigger than the member-facing lists.
 const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit: 100 }).extend({
@@ -51,6 +60,8 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
                 displayName: true,
                 isAdmin: true,
                 isActive: true,
+                // #638: the reset dialog asks for the admin's password when on.
+                isTwoFactorEnabled: true,
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -174,17 +185,26 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
  *          their next successful login.
  * @access  Admin Private
  */
-adminRouter.post('/users/:userId/reset-password', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/users/:userId/reset-password', resetPasswordLimiter, async (req: Request, res: Response): Promise<void> => {
     const userId = routeParam(req.params.userId);
+    const reauth = adminResetPasswordSchema.safeParse(req.body ?? {});
+    if (!reauth.success) {
+        res.status(400).json({ error: 'VALIDATION_ERROR' });
+        return;
+    }
     try {
         const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
         if (!target) {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        const tempPassword = await authService.adminResetPassword(userId, req.userId, { ip: getClientIp(req) });
+        const tempPassword = await authService.adminResetPassword(userId, req.userId, { ip: getClientIp(req), userAgent: req.headers['user-agent'] }, reauth.data);
         res.json({ data: { tempPassword } });
     } catch (error) {
+        if (error instanceof Error && RESET_REAUTH_ERRORS.has(error.message)) {
+            res.status(403).json({ error: error.message });
+            return;
+        }
         console.error('[Admin] Error resetting user password:', error);
         res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
     }

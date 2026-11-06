@@ -420,7 +420,7 @@ describe('POST /api/auth/2fa/backup-codes', () => {
     const res = await post({ password: 'pw', code: '123456' });
     expect(res.status).toBe(200);
     expect(res.body.data.backupCodes).toEqual(backupCodes);
-    expect(spy).toHaveBeenCalledWith('u1', 'pw', '123456');
+    expect(spy).toHaveBeenCalledWith('u1', 'pw', '123456', expect.objectContaining({ ip: expect.any(String) }));
     spy.mockRestore();
   });
 });
@@ -441,6 +441,59 @@ describe('GET /api/auth/registration-status', () => {
     (prisma.user as unknown as { count: ReturnType<typeof vi.fn> }).count = vi.fn().mockResolvedValue(0);
     const res = await request(app).get('/api/auth/registration-status');
     expect(res.body.data.registrationOpen).toBe(true);
+  });
+});
+
+// #638: a reset that turns a member's 2FA off asks the admin to re-authenticate.
+describe('POST /api/admin/users/:id/reset-password', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'm1', isActive: true, isAdmin: true } as never);
+  });
+  const post = (body?: Record<string, unknown>) => request(app)
+    .post('/api/admin/users/m1/reset-password')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send(body ?? {});
+
+  it.each(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE'])('answers %s with 403', async (code) => {
+    const spy = vi.spyOn(authService, 'adminResetPassword').mockRejectedValueOnce(new Error(code));
+    const res = await post({ password: 'x' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe(code);
+    spy.mockRestore();
+  });
+
+  it('passes the admin\'s password and code to the service, and returns the temporary password', async () => {
+    const spy = vi.spyOn(authService, 'adminResetPassword').mockResolvedValueOnce('temp-pass-123');
+    const res = await post({ password: 'admin-pw', code: '123456' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.tempPassword).toBe('temp-pass-123');
+    expect(spy).toHaveBeenCalledWith('m1', 'u1', expect.objectContaining({ ip: expect.any(String) }), { password: 'admin-pw', code: '123456' });
+    spy.mockRestore();
+  });
+
+  it('still accepts an empty body (member without 2FA)', async () => {
+    const spy = vi.spyOn(authService, 'adminResetPassword').mockResolvedValueOnce('temp-pass-123');
+    const res = await request(app)
+      .post('/api/admin/users/m1/reset-password')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin');
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalledWith('m1', 'u1', expect.anything(), {});
+    spy.mockRestore();
+  });
+
+  it('rejects an oversized code', async () => {
+    expect((await post({ password: 'x', code: 'a'.repeat(21) })).body.error).toBe('VALIDATION_ERROR');
+  });
+
+  // Last in the block: it spends the route's limiter (20 per window).
+  it('is rate-limited like the other password and 2FA checks', async () => {
+    const spy = vi.spyOn(authService, 'adminResetPassword').mockRejectedValue(new Error('INVALID_PASSWORD'));
+    let status = 0;
+    for (let i = 0; i < 21 && status !== 429; i++) status = (await post({ password: 'guess' })).status;
+    expect(status).toBe(429);
+    spy.mockRestore();
   });
 });
 

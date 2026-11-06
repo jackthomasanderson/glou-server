@@ -288,7 +288,7 @@ router.post('/2fa/turn-off', authMiddleware, async (req: Request, res: Response)
 router.post('/2fa/backup-codes', authMiddleware, async (req: Request, res: Response): Promise<void> => {
   try {
     const { password, code } = regenerateBackupCodesSchema.parse(req.body);
-    const data = await authService.regenerateBackupCodes(req.userId, password, code);
+    const data = await authService.regenerateBackupCodes(req.userId, password, code, readDeviceInfo(req));
     res.json({ data });
   } catch (error) {
     if (error instanceof ZodError) {

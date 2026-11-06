@@ -12,6 +12,7 @@ vi.mock('../../src/lib/prisma', () => ({
       findUnique: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     session: {
       create: vi.fn(),
@@ -63,6 +64,7 @@ import { authenticator } from 'otplib';
 import { prisma } from '../../src/lib/prisma';
 import { authService } from '../../src/services/auth.service';
 import { auditLog } from '../../src/services/audit.service';
+import { notificationService } from '../../src/services/notification.service';
 
 const deviceInfo = { userAgent: 'test-agent', ip: '127.0.0.1' };
 const BACKUP_CODE = 'abcd1234abcd1234abcd';
@@ -109,21 +111,47 @@ beforeEach(() => {
   process.env.JWT_SECRET = 'test-secret';
   vi.mocked(bcrypt.hash).mockImplementation(async (value: string) => `hash(${value})`);
   vi.mocked(prisma.user.update).mockResolvedValue(userRow() as never);
+  vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 1 } as never);
   vi.mocked(prisma.session.updateMany).mockResolvedValue({ count: 1 } as never);
   vi.mocked(prisma.trustedDevice.updateMany).mockResolvedValue({ count: 1 } as never);
   vi.mocked(prisma.user.findUnique).mockResolvedValue({ language: 'FR', notifLanguage: null } as never);
 });
 
+/** Rows by id: the member being reset and the admin doing it. */
+function accounts(rows: Record<string, ReturnType<typeof userRow>>) {
+  vi.mocked(prisma.user.findUniqueOrThrow).mockImplementation((async (args: { where: { id: string } }) => {
+    const row = rows[args.where.id];
+    if (!row) throw new Error('not found');
+    return row;
+  }) as never);
+}
+
+const ADMIN_PASSWORD = 'admin-pw';
+const ADMIN_BACKUP = 'ffff0000ffff0000ffff';
+/** bcrypt.compare stand-in: the admin's password and backup code, nothing else. */
+function adminSecrets() {
+  vi.mocked(bcrypt.compare).mockImplementation(async (value: string, hash: string) =>
+    (value === ADMIN_PASSWORD && hash === 'admin-hash') || (value === ADMIN_BACKUP && hash === 'admin-code-2'));
+}
+const adminRow = (overrides: Record<string, unknown> = {}) => userRow({
+  id: 'admin', isAdmin: true, passwordHash: 'admin-hash', twoFactorSecret: 'ADMIN-SECRET',
+  backupCodes: ['admin-code-1', 'admin-code-2'], ...overrides,
+});
+
+const memberUpdate = () => userUpdates().find((u) => u.where.id === 'member');
+
 describe('adminResetPassword turns two-factor authentication off (#638)', () => {
   beforeEach(() => {
-    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow() as never);
+    accounts({ member: userRow(), admin: adminRow() });
+    adminSecrets();
+    vi.mocked(authenticator.verify).mockImplementation((({ token, secret }: { token: string; secret: string }) =>
+      token === '654321' && secret === 'ADMIN-SECRET') as never);
   });
 
-  it('erases the 2FA secret, the backup codes and the failure counter of the member', async () => {
-    await authService.adminResetPassword('member', 'admin', deviceInfo);
+  it('with the admin\'s password and code, erases the member\'s 2FA secret, backup codes and failure counter', async () => {
+    await authService.adminResetPassword('member', 'admin', deviceInfo, { password: ADMIN_PASSWORD, code: '654321' });
 
-    const update = userUpdates().find((u) => u.where.id === 'member');
-    expect(update?.data).toMatchObject({
+    expect(memberUpdate()?.data).toMatchObject({
       mustChangePassword: true,
       isTwoFactorEnabled: false,
       twoFactorSecret: null,
@@ -134,7 +162,7 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
   });
 
   it('still revokes every session and trusted device of the member', async () => {
-    await authService.adminResetPassword('member', 'admin', deviceInfo);
+    await authService.adminResetPassword('member', 'admin', deviceInfo, { password: ADMIN_PASSWORD, code: '654321' });
 
     expect(prisma.session.updateMany).toHaveBeenCalledWith({
       where: { userId: 'member', revokedAt: null },
@@ -147,30 +175,72 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
   });
 
   it('records the 2FA reset in the audit log, with no secret in it', async () => {
-    const tempPassword = await authService.adminResetPassword('member', 'admin', deviceInfo);
+    const tempPassword = await authService.adminResetPassword('member', 'admin', deviceInfo, { password: ADMIN_PASSWORD, code: '654321' });
 
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'admin',
+      status: 'success',
       details: { reason: 'admin_password_reset', targetUserId: 'member', twoFactorDisabled: true },
     }));
     const logged = JSON.stringify(vi.mocked(auditLog).mock.calls);
     expect(logged).not.toContain(tempPassword);
     expect(logged).not.toContain('SECRET');
+    expect(logged).not.toContain(ADMIN_PASSWORD);
   });
 
-  it('says no 2FA was turned off when the member did not have it', async () => {
-    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(
-      userRow({ isTwoFactorEnabled: false, twoFactorSecret: null, backupCodes: [] }) as never,
-    );
+  it.each([
+    ['no password', {}, 'REAUTH_REQUIRED'],
+    ['a wrong password', { password: 'guess', code: '654321' }, 'INVALID_PASSWORD'],
+    ['no code', { password: ADMIN_PASSWORD }, 'INVALID_TOTP_CODE'],
+    ['a wrong code', { password: ADMIN_PASSWORD, code: '000000' }, 'INVALID_TOTP_CODE'],
+    ['an unknown backup code', { password: ADMIN_PASSWORD, code: 'abcdabcdabcdabcdabcd' }, 'INVALID_TOTP_CODE'],
+  ])('with %s, refuses and leaves the member\'s password and 2FA untouched', async (_label, reauth, error) => {
+    await expect(authService.adminResetPassword('member', 'admin', deviceInfo, reauth)).rejects.toThrow(error);
+
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'admin',
+      status: 'error',
+      details: { reason: 'admin_password_reset', targetUserId: 'member', error },
+    }));
+    expect(JSON.stringify(vi.mocked(auditLog).mock.calls)).not.toContain(ADMIN_PASSWORD);
+  });
+
+  it('accepts one of the admin\'s backup codes and consumes it', async () => {
+    await authService.adminResetPassword('member', 'admin', deviceInfo, { password: ADMIN_PASSWORD, code: ADMIN_BACKUP });
+
+    expect(prisma.user.updateMany).toHaveBeenCalledWith({
+      where: { id: 'admin', backupCodes: { has: 'admin-code-2' } },
+      data: { backupCodes: ['admin-code-1'] },
+    });
+    expect(memberUpdate()?.data).toMatchObject({ isTwoFactorEnabled: false });
+  });
+
+  it('refuses a backup code a concurrent request already used', async () => {
+    vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 0 } as never);
+    await expect(authService.adminResetPassword('member', 'admin', deviceInfo, { password: ADMIN_PASSWORD, code: ADMIN_BACKUP }))
+      .rejects.toThrow('INVALID_TOTP_CODE');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('asks the password only, when the admin has no 2FA', async () => {
+    accounts({ member: userRow(), admin: adminRow({ isTwoFactorEnabled: false, twoFactorSecret: null, backupCodes: [] }) });
+    await authService.adminResetPassword('member', 'admin', deviceInfo, { password: ADMIN_PASSWORD });
+    expect(memberUpdate()?.data).toMatchObject({ isTwoFactorEnabled: false });
+  });
+
+  it('asks nothing more when the member has no 2FA (today\'s behaviour)', async () => {
+    accounts({ member: userRow({ isTwoFactorEnabled: false, twoFactorSecret: null, backupCodes: [] }), admin: adminRow() });
     await authService.adminResetPassword('member', 'admin', deviceInfo);
 
+    expect(memberUpdate()?.data).toMatchObject({ mustChangePassword: true });
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
       details: { reason: 'admin_password_reset', targetUserId: 'member', twoFactorDisabled: false },
     }));
   });
 
   it('leaves an admin\'s own 2FA in place: an open session alone must not strip it', async () => {
-    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ id: 'admin', isAdmin: true }) as never);
     await authService.adminResetPassword('admin', 'admin', deviceInfo);
 
     const update = userUpdates().find((u) => u.where.id === 'admin');
@@ -194,7 +264,7 @@ describe('regenerateBackupCodes (#638)', () => {
     vi.mocked(authenticator.verify).mockReturnValue(true);
 
     await expect(authService.regenerateBackupCodes('member', 'wrong', '123456')).rejects.toThrow('INVALID_CREDENTIALS');
-    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses a wrong authenticator code', async () => {
@@ -202,14 +272,14 @@ describe('regenerateBackupCodes (#638)', () => {
     vi.mocked(authenticator.verify).mockReturnValue(false);
 
     await expect(authService.regenerateBackupCodes('member', 'pw', '000000')).rejects.toThrow('INVALID_TOTP_CODE');
-    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses a backup code that matches none of the stored ones', async () => {
     vi.mocked(bcrypt.compare).mockImplementation(async (value: string) => value === 'pw');
 
     await expect(authService.regenerateBackupCodes('member', 'pw', BACKUP_CODE)).rejects.toThrow('INVALID_TOTP_CODE');
-    expect(prisma.user.update).not.toHaveBeenCalled();
+    expect(prisma.user.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses when 2FA is off', async () => {
@@ -229,11 +299,35 @@ describe('regenerateBackupCodes (#638)', () => {
     expect(new Set(backupCodes).size).toBe(10);
     for (const code of backupCodes) expect(code).toMatch(/^[0-9a-f]{20}$/);
 
-    const update = userUpdates().find((u) => u.where.id === 'member');
-    const stored = update?.data.backupCodes as string[];
+    const [args] = vi.mocked(prisma.user.updateMany).mock.calls[0] as unknown as [{ where: unknown; data: { backupCodes: string[] } }];
+    // Only if the old codes are still the current ones (remark: concurrent requests).
+    expect(args.where).toEqual({ id: 'member', backupCodes: { equals: ['old-hash-1', 'old-hash-2', 'old-hash-3'] } });
+    const stored = args.data.backupCodes;
     // Stored hashed, never in the clear; none of the old hashes survives.
     expect(stored).toEqual(backupCodes.map((c) => `hash(${c})`));
     for (const old of ['old-hash-1', 'old-hash-2', 'old-hash-3']) expect(stored).not.toContain(old);
+  });
+
+  it('is audited and notified, with no code in the audit entry', async () => {
+    vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+    vi.mocked(authenticator.verify).mockReturnValue(true);
+
+    const { backupCodes } = await authService.regenerateBackupCodes('member', 'pw', '123456', deviceInfo);
+
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ userId: 'member', action: 'BACKUP_CODES_REGENERATE', status: 'success' }));
+    const logged = JSON.stringify(vi.mocked(auditLog).mock.calls);
+    for (const code of backupCodes) expect(logged).not.toContain(code);
+    await vi.waitFor(() => expect(notificationService.send).toHaveBeenCalled());
+    expect(JSON.stringify(vi.mocked(notificationService.send).mock.calls)).toContain('Nouveaux codes de secours');
+  });
+
+  it('refuses when a concurrent request replaced the codes first', async () => {
+    vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+    vi.mocked(authenticator.verify).mockReturnValue(true);
+    vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 0 } as never);
+
+    await expect(authService.regenerateBackupCodes('member', 'pw', '123456')).rejects.toThrow('INVALID_TOTP_CODE');
+    expect(auditLog).not.toHaveBeenCalled();
   });
 
   it('also accepts a backup code as the second factor', async () => {

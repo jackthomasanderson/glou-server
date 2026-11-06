@@ -160,7 +160,8 @@ export type SecurityEventKey =
   | 'twoFactorDisabled'
   | 'sessionRevoked'
   | 'emailChanged'
-  | 'twoFactorLocked';
+  | 'twoFactorLocked'
+  | 'backupCodesRegenerated';
 
 const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subject: string; intro: string }> = {
   newDevice: (isEn) => isEn
@@ -187,6 +188,10 @@ const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subj
   twoFactorLocked: (isEn) => isEn
     ? { subject: 'Glou — Two-factor verification temporarily locked', intro: 'Too many incorrect two-factor codes were submitted on your account, so the verification step has been temporarily locked.' }
     : { subject: 'Glou — Vérification en deux étapes temporairement bloquée', intro: 'Trop de codes de double authentification incorrects ont été saisis sur votre compte : l’étape de vérification est temporairement bloquée.' },
+  // #638 — the whole set of backup codes was replaced; the old ones no longer work.
+  backupCodesRegenerated: (isEn) => isEn
+    ? { subject: 'Glou — New backup codes generated', intro: 'New two-factor backup codes were just generated for your account. The previous ones no longer work.' }
+    : { subject: 'Glou — Nouveaux codes de secours générés', intro: 'De nouveaux codes de secours de double authentification viennent d’être générés pour votre compte. Les précédents ne fonctionnent plus.' },
 };
 
 export class AuthService {
@@ -635,13 +640,28 @@ export class AuthService {
    * that, sign-in with the temporary password still stopped at the code step.
    * Not on the admin's own account: there an open session would be enough to
    * strip a second factor that turning 2FA off otherwise asks a code for.
+   *
+   * Since the temporary password goes to the admin, stripping a member's 2FA
+   * this way would let a stolen admin session take over any account. So when
+   * the target has 2FA on, the acting admin re-authenticates in the same
+   * request (`reauth`): password, plus their own code when they have 2FA on.
+   * A refusal leaves the target untouched and is audited.
    */
-  async adminResetPassword(userId: string, adminUserId: string, deviceInfo: DeviceInfo = {}): Promise<string> {
+  async adminResetPassword(
+    userId: string,
+    adminUserId: string,
+    deviceInfo: DeviceInfo = {},
+    reauth: { password?: string; code?: string } = {},
+  ): Promise<string> {
+    const target = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { isTwoFactorEnabled: true } });
+    const disableTwoFactor = userId !== adminUserId;
+    if (disableTwoFactor && target.isTwoFactorEnabled) {
+      await this.reauthenticateAdmin(adminUserId, reauth, deviceInfo, userId);
+    }
+
     const tempPassword = crypto.randomBytes(9).toString('base64url'); // 12 URL-safe chars
     const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
     const now = new Date();
-    const target = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { isTwoFactorEnabled: true } });
-    const disableTwoFactor = userId !== adminUserId;
     const twoFactorReset = disableTwoFactor
       ? { isTwoFactorEnabled: false, twoFactorSecret: null, backupCodes: [], twoFactorFailedAttempts: 0, twoFactorLockedUntil: null }
       : {};
@@ -662,6 +682,47 @@ export class AuthService {
     if (disableTwoFactor && target.isTwoFactorEnabled) this.notifySecurityEvent(userId, 'twoFactorDisabled', deviceInfo);
 
     return tempPassword;
+  }
+
+  /**
+   * #638: step-up check of the acting admin before a reset that turns another
+   * account's 2FA off. Throws REAUTH_REQUIRED (no password sent),
+   * INVALID_PASSWORD or INVALID_TOTP_CODE; a backup code used here is consumed.
+   */
+  private async reauthenticateAdmin(
+    adminUserId: string,
+    { password, code }: { password?: string; code?: string },
+    deviceInfo: DeviceInfo,
+    targetUserId: string,
+  ): Promise<void> {
+    const refuse = (error: string): never => {
+      void auditLog({
+        userId: adminUserId,
+        action: 'SESSION_REVOKE',
+        status: 'error',
+        ip: deviceInfo.ip ?? 'unknown',
+        details: { reason: 'admin_password_reset', targetUserId, error },
+      });
+      throw new Error(error);
+    };
+
+    if (!password) refuse('REAUTH_REQUIRED');
+    const admin = await prisma.user.findUniqueOrThrow({ where: { id: adminUserId } });
+    if (!(await bcrypt.compare(password as string, admin.passwordHash))) refuse('INVALID_PASSWORD');
+    if (!admin.isTwoFactorEnabled) return;
+
+    const match = await this.matchSecondFactor(admin, code);
+    if (!match) refuse('INVALID_TOTP_CODE');
+    if (match && match.backupCodeHash) {
+      const usedHash = match.backupCodeHash;
+      // Conditional on the code still being there: two requests racing with
+      // the same backup code cannot both use it.
+      const { count } = await prisma.user.updateMany({
+        where: { id: adminUserId, backupCodes: { has: usedHash } },
+        data: { backupCodes: admin.backupCodes.filter((c) => c !== usedHash) },
+      });
+      if (count === 0) refuse('INVALID_TOTP_CODE');
+    }
   }
 
   /**
@@ -797,15 +858,23 @@ export class AuthService {
    * the stored backup codes (compared with bcrypt, never in the clear).
    */
   private async matchesSecondFactor(user: { twoFactorSecret: string | null; backupCodes: string[] }, code?: string): Promise<boolean> {
+    return (await this.matchSecondFactor(user, code)) !== null;
+  }
+
+  /** Same check, telling which backup code matched (so a caller can consume it). */
+  private async matchSecondFactor(
+    user: { twoFactorSecret: string | null; backupCodes: string[] },
+    code?: string,
+  ): Promise<{ backupCodeHash: string | null } | null> {
     if (code && code.length === 6 && user.twoFactorSecret) {
-      return authenticator.verify({ token: code, secret: user.twoFactorSecret });
+      return authenticator.verify({ token: code, secret: user.twoFactorSecret }) ? { backupCodeHash: null } : null;
     }
     if (code && code.length === BACKUP_CODE_LENGTH) {
       for (const hashedCode of user.backupCodes) {
-        if (await bcrypt.compare(code, hashedCode)) return true;
+        if (await bcrypt.compare(code, hashedCode)) return { backupCodeHash: hashedCode };
       }
     }
-    return false;
+    return null;
   }
 
   /**
@@ -813,7 +882,7 @@ export class AuthService {
    * working at once. Same re-confirmation as turning 2FA off: password plus
    * a current authenticator or backup code.
    */
-  async regenerateBackupCodes(userId: string, password: string, code: string): Promise<{ backupCodes: string[] }> {
+  async regenerateBackupCodes(userId: string, password: string, code: string, deviceInfo: DeviceInfo = {}): Promise<{ backupCodes: string[] }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
 
@@ -823,7 +892,22 @@ export class AuthService {
     if (!(await this.matchesSecondFactor(user, code))) throw new Error('INVALID_TOTP_CODE');
 
     const { backupCodes, hashedBackupCodes } = await this.newBackupCodes();
-    await prisma.user.update({ where: { id: userId }, data: { backupCodes: hashedBackupCodes } });
+    // Conditional on the codes read above still being current: of two
+    // concurrent requests, only one replaces them (the other is refused
+    // instead of silently voiding the codes the first one showed).
+    const { count } = await prisma.user.updateMany({
+      where: { id: userId, backupCodes: { equals: user.backupCodes } },
+      data: { backupCodes: hashedBackupCodes },
+    });
+    if (count === 0) throw new Error('INVALID_TOTP_CODE');
+
+    void auditLog({
+      userId,
+      action: 'BACKUP_CODES_REGENERATE',
+      status: 'success',
+      ip: deviceInfo.ip ?? 'unknown',
+    });
+    this.notifySecurityEvent(userId, 'backupCodesRegenerated', deviceInfo);
     return { backupCodes }; // Return plain codes ONCE
   }
 
