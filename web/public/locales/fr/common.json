@@ -1537,10 +1537,11 @@
     },
     "valuation": {
       "title": "Analyse de valorisation",
-      "purchaseTotal": "Coût d'acquisition",
+      "inStockCost": "Coût du stock",
       "estimatedTotal": "Valeur de marché estimée",
       "roi": "Plus-value estimée",
-      "roiHint": "vs. prix d'achat total"
+      "roiHint": "vs. prix d'achat des bouteilles et cigares en stock",
+      "totalSpend": "Dépense totale : {{amount}}, bouteilles bues, cigares fumés et sorties de stock compris"
     },
     "period": {
       "label": "Période",
