@@ -268,7 +268,7 @@ function StatCardSkeleton() {
 
 // ─── Category breakdown ───────────────────────────────────────────────────────
 
-function CategoryBreakdown({
+export function CategoryBreakdown({
   items,
   total,
   t,
@@ -305,17 +305,21 @@ function CategoryBreakdown({
                 ? t('analytics.categories.unit.cigar', { count: item.count })
                 : t('analytics.categories.unit.bottle', { count: item.count });
               return (
-                <div key={item.category} className="flex items-center gap-1.5 mb-2">
+                // Recette n°5 quater of #847 (KO 6.4): the whole name, on two lines if need be.
+                <div key={item.category} className="flex items-start gap-1.5 mb-2" data-testid="analytics-category">
                   <div
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    className="w-2.5 h-2.5 rounded-full shrink-0 mt-[3px]"
                     style={{ backgroundColor: categoryHex(item.category) }}
                   />
-                  <span className="text-xs flex-1 min-w-0 truncate">
-                    {t(`analytics.categories.${item.category}`)}
-                  </span>
-                  <span className="text-xs font-semibold text-foreground-500 shrink-0">
-                    {item.count} {unit}
-                  </span>
+                  {/* The count under the name: the narrow column is the name's alone, broken between words. */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs break-words" data-testid="analytics-category-name">
+                      {t(`analytics.categories.${item.category}`)}
+                    </p>
+                    <p className="text-xs font-semibold text-foreground-500 whitespace-nowrap">
+                      {item.count} {unit}
+                    </p>
+                  </div>
                 </div>
               );
             })}

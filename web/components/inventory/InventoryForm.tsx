@@ -46,13 +46,16 @@ import {
   cigarGroupInput, cigarPriceKey, cigarValueKey, isCigarGroupValid, type CigarGroupDraft, type CigarStorage,
 } from '@/lib/products/cigarGroup';
 import { SingleSelect } from '@/components/ui/SingleSelect';
-import { halfFieldSpan } from '@/lib/inventory/fieldSpan';
+import { halfFieldColumns, halfFieldSpan, lastFieldDesktopSpan } from '@/lib/inventory/fieldSpan';
 
 /**
  * A half-width field of the form's grids: its label, and two columns when that
  * label — or the one of the field sharing its phone row — is long (#867).
  */
 const halfField = (label: string, partnerLabel?: string) => ({ label, className: halfFieldSpan(label, partnerLabel) });
+
+/** Class names joined, the missing ones left out. */
+const cx = (...names: (string | undefined)[]) => names.filter(Boolean).join(' ');
 
 /**
  * What a new entry sends. `distinctFrom` (#471, FEAT-97 c5): the wines of the
@@ -770,8 +773,10 @@ export function InventoryForm({
                       {/* Cigar essential */}
                       {isCigar && (
                         <>
+                          {/* Alone in their grid: half a row each on a computer (recette n°5 quater of #847). */}
                           <Input
                             {...halfField(t('inventory.fields.format'), t('inventory.fields.manufactureYear'))}
+                            className={cx(halfFieldSpan(t('inventory.fields.format'), t('inventory.fields.manufactureYear')), 'sm:col-span-2')}
                             variant="bordered"
                             size="sm"
                             value={values.format ?? ''}
@@ -779,6 +784,7 @@ export function InventoryForm({
                           />
                           <ParsedNumberInput
                             {...halfField(t('inventory.fields.manufactureYear'), t('inventory.fields.format'))}
+                            className={cx(halfFieldSpan(t('inventory.fields.manufactureYear'), t('inventory.fields.format')), 'sm:col-span-2')}
                             variant="bordered"
                             size="sm"
                             value={values.manufactureYear}
@@ -949,7 +955,12 @@ export function InventoryForm({
                                 value={values.caskProof}
                                 onValueChange={(v) => setField('caskProof', v)}
                               />
-                              <div className="col-span-2 flex items-center">
+                              {/* The last of the grid: ends its row on a computer (recette n°5 quater of #847). */}
+                              <div className={cx('col-span-2 flex items-center', lastFieldDesktopSpan([
+                                2,
+                                halfFieldColumns(t('inventory.fields.caskNumber'), t('inventory.fields.caskProof')),
+                                halfFieldColumns(t('inventory.fields.caskProof'), t('inventory.fields.caskNumber')),
+                              ], 2))}>
                                 <FilterChip
                                   size="md"
                                   selected={Boolean(values.isSingleCask)}
@@ -1231,7 +1242,25 @@ export function InventoryForm({
                         {/* #471: the reminder is the wine's, whatever its bottles. */}
                         {!showsBottle && (
                           <Input
-                            {...halfField(t('inventory.fields.reminderDate'))}
+                            label={t('inventory.fields.reminderDate')}
+                            // Recette n°5 quater of #847 (KO 5.1): the last field ends its row on a computer —
+                            // after the fields of the category, laid out from the full row of the notes.
+                            className={cx(halfFieldSpan(t('inventory.fields.reminderDate')), lastFieldDesktopSpan(
+                              isWine ? [halfFieldColumns(t('inventory.fields.serviceTemp')), 4, halfFieldColumns(t('inventory.fields.lotNumber')), 1]
+                                : isSparkling ? [
+                                  halfFieldColumns(t('inventory.fields.serviceTemp')),
+                                  halfFieldColumns(t('inventory.fields.baseYear'), t('inventory.fields.disgorgingDate')),
+                                  halfFieldColumns(t('inventory.fields.disgorgingDate'), t('inventory.fields.baseYear')),
+                                ]
+                                : isSpirit ? [2, 2]
+                                : isCigar ? [
+                                  2,
+                                  halfFieldColumns(t('inventory.fields.factoryCode'), t('inventory.fields.recommendedHumidity')),
+                                  halfFieldColumns(t('inventory.fields.recommendedHumidity'), t('inventory.fields.factoryCode')),
+                                  2,
+                                ] : [],
+                              halfFieldColumns(t('inventory.fields.reminderDate')),
+                            ))}
                             type="date"
                             variant="bordered"
                             size="sm"
