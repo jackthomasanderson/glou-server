@@ -2873,7 +2873,8 @@
   },
   "history": {
     "fields": {
-      "slot": "Case"
+      "slot": "Case",
+      "location": "Repère libre"
     },
     "slotNone": "aucune",
     "slotPlaced": "Case {{cell}} occupée",

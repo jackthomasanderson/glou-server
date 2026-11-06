@@ -2871,7 +2871,8 @@
   },
   "history": {
     "fields": {
-      "slot": "Slot"
+      "slot": "Slot",
+      "location": "Free note"
     },
     "slotNone": "none",
     "slotPlaced": "Slot {{cell}} taken",

@@ -9,6 +9,8 @@ const t = (key: string, options?: Record<string, unknown>) =>
     'actions.none': 'None',
     'categories.spirit': 'Spirit',
     'history.fields.slot': 'Case',
+    'history.fields.location': 'Repère libre',
+    'inventory.fields.location': 'Repère libre (étagère, carton…)',
     'history.slotNone': 'aucune',
   } as Record<string, string>)[key]
     ?? (key === 'cellars.grid.cellShort' ? `C${options?.col}·R${options?.row}` : undefined)
@@ -20,6 +22,8 @@ describe('item history formatting (#508)', () => {
   it('uses the translated field label', () => {
     expect(historyFieldLabel('cellarId', t)).toBe('Cellar');
     expect(historyFieldLabel('someNewField', t)).toBe('Some New Field');
+    // Recette n°5 bis of #847: the short name of the free-text place, not the form's long label.
+    expect(historyFieldLabel('location', t)).toBe('Repère libre');
   });
 
   it('shows the cellar name instead of its id', () => {

@@ -432,7 +432,6 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                         isRequired
                         value={reviewValues.alcoholDegree != null ? String(reviewValues.alcoholDegree) : ''}
                         onValueChange={(v) => setReviewValues((prev) => (prev ? { ...prev, alcoholDegree: v ? Number(v) : undefined } : prev))}
-                        endContent={<span className="text-xs text-foreground-500">%</span>}
                         min={0}
                         max={100}
                         step={0.1}

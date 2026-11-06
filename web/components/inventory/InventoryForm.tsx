@@ -742,7 +742,6 @@ export function InventoryForm({
                               errorMessage={t('inventory.validation.required')}
                               value={values.alcoholDegree}
                               onValueChange={(v) => setField('alcoholDegree', v)}
-                              endContent={<span className="text-xs text-foreground-500">%</span>}
                             />
                           </div>
                           <div className="col-span-2">

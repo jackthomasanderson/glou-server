@@ -55,7 +55,7 @@ Dans le menu d'une bouteille entamée, **Annuler l'ouverture** (ou remettre son 
 Le menu d'une ligne propose :
 - **Déplacer** : « Combien déplacer ? » puis la cave. La ligne se scinde (Garage ×4, Cuisine ×2) ; une ligne qui devient identique à une autre la rejoint, cases comprises. Les bouteilles déplacées arrivent non rangées dans la nouvelle cave.
 - **Changer le prix** : « Pour combien de bouteilles ? ». Le prix d'une partie seulement scinde la ligne. Les bouteilles qui changent de prix sont prises d'abord parmi les non rangées ; si cela ne suffit pas, Glou demande **Quelles cases passent au nouveau prix ?** : ces cases restent occupées et suivent la nouvelle ligne.
-- **Corriger le nombre** (à la baisse, avec son motif) et **Modifier** (date d'achat, lieu, emplacement…) : voir [05-Ajout-Bouteille.md](./05-Ajout-Bouteille.md).
+- **Corriger le nombre** (à la baisse, avec son motif) et **Modifier** (date d'achat, lieu, repère libre…) : voir [05-Ajout-Bouteille.md](./05-Ajout-Bouteille.md).
 - **Mettre à la corbeille** : la ligne se restaure depuis la corbeille.
 - Quand une correction, une sortie ou un déplacement laisse à la ligne moins de bouteilles qu'elle n'a de cases, Glou demande **Quelles cases libérer ?** sur un petit plan de la cave : touchez exactement le nombre de cases demandé. Les bouteilles non rangées partent d'abord, sans question.
 

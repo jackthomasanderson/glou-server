@@ -204,6 +204,7 @@ describe('InventoryForm — a unit said once', () => {
   it.each([
     ['cigar', 'Humidité recommandée (%)'],
     ['wine', "Degré d'alcool (%)"],
+    ['spirit', "Degré d'alcool (%)"],
   ] as const)('%s: « %s » has no « % » suffix', (category, label) => {
     const { dialog } = draw({ defaultCategory: category, initialValues: { category, recommendedHumidity: 70, alcoholDegree: 13 } as Partial<InventoryItem> });
     const field = within(dialog).queryByLabelText(label) ?? (fireEvent.click(within(dialog).getByRole('button', { name: t('actions.showMore') })), within(dialog).getByLabelText(label));

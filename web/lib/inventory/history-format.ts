@@ -18,6 +18,8 @@ const DAY_FIELDS = new Set(['purchasedAt']);
 export function historyFieldLabel(field: string, t: Translate): string {
   // FEAT-93: a cell of the cellar plan (`item_slots`), no column of the bottle.
   if (field === 'slot') return t('history.fields.slot');
+  // The free-text place: the form's long label (« Repère libre (étagère, carton…) ») is too long here (recette n°5 bis of #847).
+  if (field === 'location') return t('history.fields.location');
   return t(`inventory.fields.${field}`, {
     defaultValue: field.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase()),
   });
