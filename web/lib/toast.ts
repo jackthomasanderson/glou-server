@@ -29,7 +29,9 @@ export const TOAST_INSET_VAR = '--toast-inset-right';
  * (bottom-right), straight over the drawer's « Ajouter des bouteilles » and
  * « Modifier », and it caught a click meant for them (recette n°5 ter of
  * #847). There it now leaves downwards, in its own column; and a message
- * leaving — its 16 px hover margins included — lets every click through.
+ * leaving — its 16 px hover margins and the box HeroUI places it with
+ * (whose inline `pointer-events: all` only `!` outranks) included — lets
+ * every click through.
  */
 export const TOAST_PROPS = {
   classNames: {
@@ -41,7 +43,7 @@ export const TOAST_PROPS = {
       'data-[toast-exiting=true]:data-[placement=bottom-right]:translate-y-full',
     ].join(' '),
     title: 'whitespace-normal break-words',
-    motionDiv: 'data-[placement=bottom-right]:right-[var(--toast-inset-right,0px)]',
+    motionDiv: 'data-[placement=bottom-right]:right-[var(--toast-inset-right,0px)] has-[[data-toast-exiting=true]]:pointer-events-none!',
   },
 };
 

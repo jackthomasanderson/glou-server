@@ -149,11 +149,14 @@ test.describe('closing a drawer, a window or a message never takes a click (rece
         const message = Array.from(document.querySelectorAll<HTMLElement>('[data-toast]')).find((element) => element.textContent?.includes('3 bouteilles ajoutées'));
         if (!message) break;
         const box = message.getBoundingClientRect();
-        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+        // Where the message is drawn, and where the box HeroUI places it with stays while it leaves.
+        const holder = message.parentElement!.getBoundingClientRect();
+        const hits = [box, holder].map((rect) => document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2));
         seen.push({
           overDrawer: box.right > drawer.left + 1 && box.bottom > drawer.top && box.top < drawer.bottom,
           exiting: message.dataset.toastExiting === 'true',
-          catches: !!hit && message.contains(hit),
+          // The message, or the box HeroUI places it with, up to the messages' region.
+          catches: hits.some((hit) => !!hit && (message.contains(hit) || (hit.contains(message) && !!hit.closest('[data-placement]')))),
         });
         await new Promise((resolve) => requestAnimationFrame(resolve));
       }

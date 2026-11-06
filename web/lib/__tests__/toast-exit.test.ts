@@ -20,6 +20,8 @@ describe('a message leaving (TOAST_PROPS)', () => {
 
   it('lets every click through, its hover margins included', () => {
     for (const part of ['', 'before:', 'after:']) expect(classes).toContain(leaving(`${part}pointer-events-none`));
+    // The box HeroUI places it with stays where it was, with an inline `pointer-events: all`: only `!` outranks it.
+    expect(toast({}).motionDiv({ class: TOAST_PROPS.classNames.motionDiv }).split(/\s+/)).toContain('has-[[data-toast-exiting=true]]:pointer-events-none!');
   });
 
   it('keeps the other sides as HeroUI made them (top-right without a drawer)', () => {
