@@ -17,6 +17,15 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   cigar: <Leaf size={14} />,
 };
 
+/**
+ * Recette n°5 ter of #847: the table scrolled sideways at 1471 px. Region and
+ * cellar (both in the wine's drawer) are shown only when the table itself
+ * (its wrapper, `@container`) is wide enough — a container query, as the
+ * filter panel beside it takes part of the page's width.
+ */
+export const REGION_CELL = 'hidden @4xl:table-cell';
+export const CELLAR_CELL = 'hidden @2xl:table-cell';
+
 interface InventoryListRowProps {
   /** #471: one row per wine (family). */
   item: Product;
@@ -30,12 +39,15 @@ interface InventoryListRowProps {
   /** FEAT-16/23: true when this item has one or more offline mutations still
    * sitting in the local sync queue (not yet confirmed by the server). */
   hasPendingSync?: boolean;
+  /** A page of cigars only: no vintage nor drinking-window cell (see InventoryListView). */
+  cigarsOnly?: boolean;
 }
 
 export function InventoryListRow({
   item, stock, categoryLabel, cellarName,
   onEdit, onDelete, t,
   hasPendingSync = false,
+  cigarsOnly = false,
 }: InventoryListRowProps) {
   const isTemp = item.id.startsWith('temp-');
 
@@ -55,113 +67,128 @@ export function InventoryListRow({
         'transition-colors',
       ].filter(Boolean).join(' ')}
     >
-      <TableCell className="w-10 pr-0">
-        <Tooltip content={categoryLabel} delay={500}>
-          <Chip
-            startContent={CATEGORY_ICONS[item.category]}
-            color={CATEGORY_CHIP_COLOR[item.category]}
-            size="sm"
-            classNames={{ base: 'min-w-0 px-1' }}
-          >
-            <span className="sr-only">{categoryLabel}</span>
-          </Chip>
-        </Tooltip>
-      </TableCell>
+      {/* An array, so a page of cigars leaves two cells out (HeroUI rows take cells only). */}
+      {[
+        <TableCell key="icon" className="w-10 pr-0">
+          <Tooltip content={categoryLabel} delay={500}>
+            <Chip
+              startContent={CATEGORY_ICONS[item.category]}
+              color={CATEGORY_CHIP_COLOR[item.category]}
+              size="sm"
+              classNames={{ base: 'min-w-0 px-1' }}
+            >
+              <span className="sr-only">{categoryLabel}</span>
+            </Chip>
+          </Tooltip>
+        </TableCell>,
 
-      <TableCell>
-        <div className="flex items-center gap-1.5 min-w-0">
-          <p className="text-sm font-semibold truncate max-w-[200px]" title={item.name}>{item.name}</p>
-          {hasPendingSync && (
-            <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
-              <span className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700">
-                <Clock size={10} aria-label={t('offline.pendingSyncTooltip')} />
-              </span>
+        <TableCell key="name">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <p className="text-sm font-semibold line-clamp-2 break-words" title={item.name}>{item.name}</p>
+            {hasPendingSync && (
+              <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
+                <span className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700">
+                  <Clock size={10} aria-label={t('offline.pendingSyncTooltip')} />
+                </span>
+              </Tooltip>
+            )}
+          </div>
+        </TableCell>,
+
+        <TableCell key="producer" className="hidden sm:table-cell">
+          <p className="text-sm text-foreground-500 line-clamp-2 break-words" title={item.producer}>{item.producer}</p>
+        </TableCell>,
+
+        cigarsOnly ? null : (
+          <TableCell key="vintage" className="text-center">
+            <p className="text-sm text-foreground-500">{item.vintage ?? '—'}</p>
+          </TableCell>
+        ),
+
+        <TableCell key="region" className={REGION_CELL}>
+          <p className="text-sm text-foreground-500 line-clamp-2 break-words">{item.region ?? '—'}</p>
+        </TableCell>,
+
+        <TableCell key="cellar" className={CELLAR_CELL}>
+          <p className="text-sm text-foreground-500 line-clamp-2 break-words">{cellarName ?? '—'}</p>
+        </TableCell>,
+
+        // §10.2: the same short stock line as the card; a part never breaks
+        // inside, the line only wraps between parts (ux-ui.md, stock line).
+        <TableCell key="stock" className="min-w-28 whitespace-normal">
+          <p className="text-sm text-foreground-500" data-testid="family-stock-line">
+            <span className="sr-only">{stock.spoken}</span>
+            <span aria-hidden="true">
+              {(stock.parts.length > 0 ? stock.parts : [stock.badge ?? '']).map((part, index) => (
+                <React.Fragment key={index}>
+                  {index > 0 && ' · '}
+                  <span className="whitespace-nowrap">{keepNumbersWhole(part)}</span>
+                </React.Fragment>
+              ))}
+            </span>
+          </p>
+        </TableCell>,
+
+        cigarsOnly ? null : (
+          <TableCell key="peak" className="hidden sm:table-cell text-center">
+            <p className="text-sm text-foreground-500">{peakLabel ?? '—'}</p>
+          </TableCell>
+        ),
+
+        <TableCell key="status" className="hidden sm:table-cell">
+          {stock.hasOpened ? (
+            <Chip size="sm" color="warning" variant="flat">
+              {t(stock.kind === 'cigar' ? 'familyList.openedChipCigar' : 'familyList.openedChip')}
+            </Chip>
+          ) : (
+            <div className="flex items-center">
+              <DrinkingWindowBadge
+                alertStatus={item.alertStatus}
+                alertsPaused={item.alertsPaused}
+                peakMaturityFrom={item.peakMaturityFrom}
+                peakMaturityTo={item.peakMaturityTo}
+                readiness={item.readiness}
+                t={t}
+              />
+            </div>
+          )}
+        </TableCell>,
+
+        <TableCell key="actions"
+          className="text-right whitespace-nowrap"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {onEdit && (
+            <Tooltip content={t('actions.edit')} delay={500}>
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                onPress={() => onEdit(item)}
+                isDisabled={isTemp}
+                aria-label={t('actions.edit')}
+                className="text-foreground-500 hover:text-primary min-w-unit-7 w-7 h-7"
+              >
+                <Pencil size={14} />
+              </Button>
             </Tooltip>
           )}
-        </div>
-      </TableCell>
-
-      <TableCell className="hidden sm:table-cell">
-        <p className="text-sm text-foreground-500 truncate max-w-[160px]">{item.producer}</p>
-      </TableCell>
-
-      <TableCell className="text-center">
-        <p className="text-sm text-foreground-500">{item.vintage ?? '—'}</p>
-      </TableCell>
-
-      <TableCell className="hidden md:table-cell">
-        <p className="text-sm text-foreground-500 truncate max-w-[120px]">{item.region ?? '—'}</p>
-      </TableCell>
-
-      <TableCell className="hidden md:table-cell">
-        <p className="text-sm text-foreground-500 truncate max-w-[120px]">{cellarName ?? '—'}</p>
-      </TableCell>
-
-      {/* §10.2: the same short stock line as the card. */}
-      <TableCell className="min-w-28 max-w-56 whitespace-normal">
-        <p className="text-sm text-foreground-500" data-testid="family-stock-line">
-          <span className="sr-only">{stock.spoken}</span>
-          <span aria-hidden="true">{keepNumbersWhole(stock.parts.length > 0 ? stock.parts.join(' · ') : (stock.badge ?? ''))}</span>
-        </p>
-      </TableCell>
-
-      <TableCell className="hidden sm:table-cell text-center">
-        <p className="text-sm text-foreground-500">{peakLabel ?? '—'}</p>
-      </TableCell>
-
-      <TableCell className="hidden sm:table-cell">
-        {stock.hasOpened ? (
-          <Chip size="sm" color="warning" variant="flat">
-            {t(stock.kind === 'cigar' ? 'familyList.openedChipCigar' : 'familyList.openedChip')}
-          </Chip>
-        ) : (
-          <div className="flex items-center">
-            <DrinkingWindowBadge
-              alertStatus={item.alertStatus}
-              alertsPaused={item.alertsPaused}
-              peakMaturityFrom={item.peakMaturityFrom}
-              peakMaturityTo={item.peakMaturityTo}
-              readiness={item.readiness}
-              t={t}
-            />
-          </div>
-        )}
-      </TableCell>
-
-      <TableCell
-        className="text-right"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {onEdit && (
-          <Tooltip content={t('actions.edit')} delay={500}>
+          <Tooltip content={t('familyList.trash.action')} delay={500}>
             <Button
               isIconOnly
               size="sm"
               variant="light"
-              onPress={() => onEdit(item)}
+              color="danger"
+              onPress={() => onDelete(item)}
               isDisabled={isTemp}
-              aria-label={t('actions.edit')}
-              className="text-foreground-500 hover:text-primary min-w-unit-7 w-7 h-7"
+              aria-label={t('familyList.trash.action')}
+              className="min-w-unit-7 w-7 h-7"
             >
-              <Pencil size={14} />
+              <Trash2 size={14} />
             </Button>
           </Tooltip>
-        )}
-        <Tooltip content={t('familyList.trash.action')} delay={500}>
-          <Button
-            isIconOnly
-            size="sm"
-            variant="light"
-            color="danger"
-            onPress={() => onDelete(item)}
-            isDisabled={isTemp}
-            aria-label={t('familyList.trash.action')}
-            className="min-w-unit-7 w-7 h-7"
-          >
-            <Trash2 size={14} />
-          </Button>
-        </Tooltip>
-      </TableCell>
+        </TableCell>,
+      ].filter((cell) => cell !== null)}
     </TableRow>
   );
 }
