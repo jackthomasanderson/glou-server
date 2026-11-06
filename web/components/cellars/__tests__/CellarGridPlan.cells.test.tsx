@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within, fireEvent, act } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { CellarGridPlan, dropTarget } from '../CellarGridPlan';
+import { CellarGridPlan, cellAt as releasedOn, dropTarget } from '../CellarGridPlan';
 import type { CellarGridData } from '@/lib/cellars/types';
 
 // Recette n°5 of #847: how a cell of the plan shows what it holds — an
@@ -191,5 +191,31 @@ describe('dropTarget, the cell a bottle is dropped on (recette n°5 bis of #847)
 
   it('the keyboard, without a pointer, keeps the box of the preview', () => {
     expect(ids(args(null, 46))).toEqual(['slot-2:1']);
+  });
+});
+
+describe('cellAt, the cell under the pointer at the release (recette n°5 ter of #847)', () => {
+  // A row of two 44 px cells 4 px apart (C1 from x=0 to 44, C2 from 48 to 92), C1·R2 below C1·R1.
+  const placed = (col: number, row: number) => {
+    const left = (col - 1) * 48;
+    const top = (row - 1) * 48;
+    return { col, row, rect: { left, top, right: left + 44, bottom: top + 44 } };
+  };
+  const cells = [placed(1, 1), placed(2, 1), placed(1, 2)];
+
+  it('takes the cell the pointer is in, even 3 px inside its edge', () => {
+    expect(releasedOn({ x: 51, y: 20 }, cells)).toEqual({ col: 2, row: 1 });
+    expect(releasedOn({ x: 20, y: 51 }, cells)).toEqual({ col: 1, row: 2 });
+  });
+
+  it('a release in the gap goes to the nearer cell', () => {
+    expect(releasedOn({ x: 45, y: 20 }, cells)).toEqual({ col: 1, row: 1 });
+    expect(releasedOn({ x: 47, y: 20 }, cells)).toEqual({ col: 2, row: 1 });
+  });
+
+  it('a release off the grid, or no cell drawn, moves nothing', () => {
+    expect(releasedOn({ x: 120, y: 20 }, cells)).toBeNull();
+    expect(releasedOn({ x: 70, y: 70 }, cells)).toBeNull();
+    expect(releasedOn({ x: 20, y: 20 }, [])).toBeNull();
   });
 });

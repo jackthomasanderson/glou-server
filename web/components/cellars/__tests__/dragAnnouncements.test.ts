@@ -58,4 +58,13 @@ describe('dragAnnouncements onto a held cell (FEAT-93)', () => {
     expect(say().onDragOver?.({ active, over: sameLine } as Event)).toBe('Cuvée X est au-dessus de la colonne 3, rangée 4.');
     expect(say().onDragEnd({ active, over: sameLine } as Event)).toBe('Déplacement annulé. Cuvée X reste en place.');
   });
+
+  // Recette n°5 ter of #847: a pointer drag lands where it was released, which may not be
+  // dnd-kit's `over` (the cell of the last move it drew): the announcement says where it landed.
+  it('with a pointer, it names the cell released on, not the last one drawn', () => {
+    const empty = { col: 4, row: 4, item: null };
+    expect(dragAnnouncements(t, () => empty).onDragEnd({ active, over: held } as Event)).toBe('Cuvée X déposée en colonne 4, rangée 4.');
+    expect(dragAnnouncements(t, () => null).onDragEnd({ active, over: held } as Event)).toBe('Déplacement annulé. Cuvée X reste en place.');
+    expect(dragAnnouncements(t, () => undefined).onDragEnd({ active, over: held } as Event)).toMatch(/^Cuvée X échangée avec Cuvée Y/);
+  });
 });
