@@ -14,9 +14,20 @@ export const NEUTRAL_TAB_TITLE = 'Glou';
 const claims: { title: string }[] = [];
 let observer: MutationObserver | null = null;
 
+// The browser hands document.title back with its whitespace collapsed and
+// trimmed: the wanted title is normalized the same way, or a cellar named
+// "Cave du bas " would never compare equal and be written again forever.
+function normalizeTitle(title: string) {
+  return title.replace(/[\t\n\f\r ]+/g, ' ').trim();
+}
+
 function applyClaimedTitle() {
   const wanted = claims.at(-1)?.title;
-  if (wanted !== undefined && document.title !== wanted) document.title = wanted;
+  if (wanted === undefined || document.title === wanted) return;
+  document.title = wanted;
+  // Drop the mutations this write itself caused: whatever the browser does
+  // with the title, our own write never calls us again (no loop possible).
+  observer?.takeRecords();
 }
 
 // #428: Next.js metadata sets a static tab title because the server can't
@@ -28,7 +39,7 @@ function applyClaimedTitle() {
 // label of its own goes back to it rather than keeping the previous page's.
 export function useBrowserTabTitle(label: string | undefined) {
   useEffect(() => {
-    const claim = { title: label ? `${label} — ${NEUTRAL_TAB_TITLE}` : NEUTRAL_TAB_TITLE };
+    const claim = { title: normalizeTitle(label ? `${label} — ${NEUTRAL_TAB_TITLE}` : NEUTRAL_TAB_TITLE) };
     claims.push(claim);
     if (!observer) {
       observer = new MutationObserver(applyClaimedTitle);

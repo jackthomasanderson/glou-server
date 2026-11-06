@@ -5,9 +5,12 @@ import { Button } from '@heroui/react';
 import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 
 export default function ErrorPage({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const { t } = useTranslation();
+  // Review of #868: back to the neutral tab title, not the previous page's.
+  useBrowserTabTitle(undefined);
   return (
     <div className="min-h-screen flex items-center justify-center">
       <EmptyState

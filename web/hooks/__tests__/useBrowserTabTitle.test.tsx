@@ -44,4 +44,24 @@ describe('useBrowserTabTitle', () => {
     await waitFor(() => expect(document.title).toBe('Caves — Glou'));
     first.unmount();
   });
+
+  // Review of #868: the browser trims and collapses the whitespace of
+  // document.title, so a raw comparison never matched a cellar named with a
+  // trailing or double space and the hook rewrote the title forever.
+  it.each([['trailing space', 'Cave du bas '], ['double space', 'Cave  du bas'], ['leading tab', '\tCave du bas']])(
+    'a label with a %s ends written once, as the browser shows it',
+    async (_case, label) => {
+      document.title = 'Glou';
+      const title = document.querySelector('title')!;
+      let writes = 0;
+      const counter = new MutationObserver(records => { writes += records.length; });
+      counter.observe(title, { childList: true, characterData: true, subtree: true });
+      const { unmount } = renderHook(() => useBrowserTabTitle(label));
+      await new Promise(resolve => setTimeout(resolve, 20));
+      counter.disconnect();
+      expect(document.title).toBe('Cave du bas — Glou');
+      expect(writes).toBeLessThanOrEqual(1);
+      unmount();
+    },
+  );
 });
