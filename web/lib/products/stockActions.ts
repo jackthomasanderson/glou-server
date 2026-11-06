@@ -52,6 +52,25 @@ export function unitNoun(item: Pick<ProductItem, 'cigarsPerBox'>, kind: UnitKind
   return item.cigarsPerBox != null ? 'box' : 'cigar';
 }
 
+/**
+ * What the copy of a history entry is called, its line in stock or not: a
+ * box finished, broken or merged away is still a box (review of #871) —
+ * known from the counts of cigars its entries told.
+ */
+export function historyNounOf(
+  items: readonly Pick<ProductItem, 'id' | 'cigarsPerBox'>[],
+  history: readonly { itemId: string | null; changes: { field: string; from: unknown; to: unknown }[] | null }[],
+  kind: UnitKind,
+): (itemId: string | null) => UnitNoun {
+  return (itemId) => {
+    const item = items.find((unit) => unit.id === itemId);
+    if (item || kind === 'bottle' || itemId == null) return unitNoun(item ?? { cigarsPerBox: null }, kind);
+    const boxed = history.some((entry) => entry.itemId === itemId && (entry.changes ?? []).some((change) =>
+      (change.field === 'cigarsLeft' || change.field === 'cigarsPerBox') && (change.from != null || change.to != null)));
+    return boxed ? 'box' : 'cigar';
+  };
+}
+
 /** Copies on a line: a group's number, one for an opened bottle or box. */
 export function lineCopies(item: ProductItem): number {
   return isIntactItem(item) ? Math.max(item.quantity ?? 1, 0) : 1;

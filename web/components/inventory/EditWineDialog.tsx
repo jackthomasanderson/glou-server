@@ -46,6 +46,7 @@ export function EditWineDialog({ product, onClose, onSaved }: EditWineDialogProp
           id: product.id,
           patch,
           expectedUpdatedAt: version?.id === product.id ? version.updatedAt : product.updatedAt,
+          category: product.category,
         });
         setVersion({ id: product.id, updatedAt: saved.updatedAt });
       }
@@ -61,7 +62,8 @@ export function EditWineDialog({ product, onClose, onSaved }: EditWineDialogProp
       // Reported by the update's onError toast or by applyCollectionChanges; keep the form open.
       return;
     }
-    notifySuccess('familyDrawer.form.saved');
+    // Recette n°5 ter of #847: « Cigare mis à jour », not « Vin mis à jour ».
+    notifySuccess('familyDrawer.form.saved', product.category === 'cigar' || product.category === 'spirit' ? { context: product.category } : undefined);
     setVersion(null);
     onSaved(product);
   };

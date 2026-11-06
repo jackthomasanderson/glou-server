@@ -39,7 +39,7 @@ import { StockLineMenu } from './StockLineMenu';
 import { StockMoveActions } from './StockMoveActions';
 import { usePutBackOpened } from './PutBackOpened';
 import { ReviewLineActions } from './ReviewLineActions';
-import { unitNoun } from '@/lib/products/stockActions';
+import { historyNounOf } from '@/lib/products/stockActions';
 import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
@@ -467,7 +467,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           history={p.history}
           itemIds={new Set(p.items.map((item) => item.id))}
           cellarName={cellarName}
-          nounOf={(itemId) => unitNoun(p.items.find((item) => item.id === itemId) ?? { cigarsPerBox: null }, kind)}
+          category={p.category}
+          nounOf={historyNounOf(p.items, p.history, kind)}
         />
       </div>
     );

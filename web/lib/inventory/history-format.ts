@@ -10,17 +10,22 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/;
  */
 const DAY_FIELDS = new Set(['purchasedAt']);
 
+/** What one copy of the line a change was made on is (UnitNoun): a box or a cigar has its own words. */
+export type HistoryNoun = 'bottle' | 'box' | 'cigar';
+
 /**
  * #508: the item history showed raw technical names and values
  * ("cellarId: "3f2a…""). Translated field label, falling back to a
  * readable split of the camelCase key for the rare field without one.
  */
-export function historyFieldLabel(field: string, t: Translate): string {
+export function historyFieldLabel(field: string, t: Translate, noun?: HistoryNoun): string {
   // FEAT-93: a cell of the cellar plan (`item_slots`), no column of the bottle.
   if (field === 'slot') return t('history.fields.slot');
   // The free-text place: the form's long label (« Repère libre (étagère, carton…) ») is too long here (recette n°5 bis of #847).
   if (field === 'location') return t('history.fields.location');
   return t(`inventory.fields.${field}`, {
+    // Recette #847 (n°5 ter): « Boîte entamée », not « Bouteille entamée / ouverte », for a box.
+    ...(noun && noun !== 'bottle' ? { context: noun } : {}),
     defaultValue: field.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase()),
   });
 }

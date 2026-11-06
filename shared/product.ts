@@ -235,6 +235,21 @@ export interface FieldChange {
   to: unknown;
 }
 
+/**
+ * Recette #847 (n°5 ter): every field a change of the history can name —
+ * the wine's description, a copy's columns (state included), a cell of the
+ * plan, and the names recorded before (`slotColumn`/`slotRow`, `isOwned`).
+ * Each has a label in both languages (no raw key such as "Cigars Left"):
+ * a web test checks the labels, an API test that the API records no other.
+ */
+export const HISTORY_FIELDS = [
+  ...RESTORABLE_DESCRIPTION_FIELDS, 'alertStatus', 'consumptionPostponedUntil',
+  'cellarId', 'location', 'purchasedAt', 'purchasePrice', 'purchasePlace', 'estimatedValue', 'bottleSize',
+  'quantity', 'cigarsPerBox', 'isOpened', 'fillLevel', 'openedAt', 'cigarsLeft',
+  'parentItemId', 'writtenOffAt', 'needsReview', 'lockedFields',
+  'slot', 'slotColumn', 'slotRow', 'isOwned',
+] as const;
+
 /** Recette #847: what was done to a copy, said in one word ("1 bouteille ouverte", "1 bouteille bue", "1 cigare fumé"). */
 export type HistoryGesture = 'opened' | 'finished' | 'smoked';
 
