@@ -7,6 +7,9 @@ List the devices connected to your account, disconnect any of them remotely, and
 * Logged into your account.
 * Two-Factor Authentication enabled (see [01-Authentication.md](./01-Authentication.md)) for the "trust" feature to have any effect. Trusting a device only skips the 2FA re-prompt, it does not replace your password.
 
+> [!TIP]
+> Lost the phone that gives you your 2FA codes? See [Lost phone with 2FA on](./32-Lost-Phone-2FA.md).
+
 ## Action
 
 ### View and revoke sessions

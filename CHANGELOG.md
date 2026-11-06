@@ -10,11 +10,15 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Added
+- Two-factor authentication: **Profile → Security & Authentication** now says how many backup codes are left and offers **Generate new codes** (password and a current code asked), which replaces them all: the previous ones stop working at once. The window that shows the codes has a **Copy the codes** button and no longer closes, by Escape or a click outside, before **I've saved my codes** is ticked. A new wiki page, *Lost phone with 2FA on*, explains each way back in, including the database command for an instance whose only administrator is locked out (#638).
+
 ### Fixed
 - An action that fails now always says so: saving a budget envelope, a maturity reference or a humidor reading, pausing an alert, signing out a session, exporting your data or deleting your account, pausing or resuming a stock count, and other actions that used to fail without a word now show "An error occurred" (or "Cannot reach the server" without network). Actions that already had their own message keep it, without a second one; changes kept on the device while offline are still shown as waiting, not as failed. Creating, editing and deleting a budget envelope now also confirms it, and a failed save keeps its window open with what you typed (#616).
 - Profile photos now show on an installed instance: once uploaded, the photo stayed a broken image (or your initial) in the sidebar, the lock screen and the profile, on every device, because it pointed at an address the server does not publish. Photos uploaded before the update are fixed by the update itself (#668).
 - In a wine's drawer, each tasting now says which bottle it was as it was when tasted — "Garage · 20 € / bottle · bought Mar 12, 2025" — instead of where the bottle is now: moving the bottle afterwards no longer changes the cellar shown, two tastings of two bottles of the same wine show their purchase days, and a tasting keeps saying which bottle it was once the bottle is finished, in the trash, or its cellar deleted. Tastings noted before this version are shown as before (#837).
 - When you add a wine or a cigar, the photo found on the Internet is no longer attached without asking (it was often unrelated: a ball bearing for a cigar). It is now offered under the picture with **Use this photo?**: **Use** attaches it, **Another photo** shows the next one, the cross dismisses it, and the photo stays empty until you choose. Only pictures whose title names the item or its producer are offered, the search says what is looked for (wine bottle, cigar…), and a download that is not a real image is refused instead of being stored as a broken photo (#862).
+- An administrator's **Reset password** now also turns the member's two-factor authentication off, as its confirmation says: the member signs in with the temporary password without being asked for a code they can no longer get, and turns 2FA back on from their profile. An administrator resetting their own password keeps their 2FA (#638).
 
 ## v2026.11.1 - 2026-11-06
 

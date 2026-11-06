@@ -34,3 +34,4 @@ Cette documentation couvre l'installation, la configuration et le dépannage.
 29. [Changer les secrets](./29-Rotation-Des-Secrets.md)
 30. [Reprise après sinistre](./30-Reprise-Apres-Sinistre.md)
 31. [Mettre à jour & revenir en arrière](./31-Mises-A-Jour-Et-Retour-Arriere.md)
+32. [Téléphone perdu avec la 2FA](./32-Telephone-Perdu-2FA.md)
