@@ -60,7 +60,7 @@ export const BOTTLE_SNAPSHOT_SELECT = {
 type BottleSnapshotRow = Prisma.InventoryItemGetPayload<{ select: typeof BOTTLE_SNAPSHOT_SELECT }>;
 
 export const bottleSnapshot = ({ cellarId, purchasedAt, cellar }: BottleSnapshotRow) =>
-  ({ cellarId, cellarName: cellar?.name ?? null, purchasedAt });
+  ({ snapshotAt: new Date(), cellarId, cellarName: cellar?.name ?? null, purchasedAt });
 
 /**
  * Key space of the advisory lock taken while a wine tasted elsewhere is

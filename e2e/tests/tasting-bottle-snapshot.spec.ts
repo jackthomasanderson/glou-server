@@ -11,7 +11,7 @@ import { test, expect, type APIResponse } from '@playwright/test';
 const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
 
 type Row = { id: string };
-type Tasting = { id: string; itemId: string | null; cellarId: string | null; cellarName: string | null; purchasedAt: string | null };
+type Tasting = { id: string; itemId: string | null; snapshotAt: string | null; cellarId: string | null; cellarName: string | null; purchasedAt: string | null };
 
 async function okData<T>(res: APIResponse): Promise<T> {
   expect(res.ok(), `${res.url()} → ${res.status()} ${await res.text()}`).toBe(true);
@@ -35,6 +35,7 @@ test('a tasting keeps the cellar and purchase day of its bottle, moved or its ce
     const noted = await okData<Tasting>(await api.post('/api/tastings', { data: { itemId: bottle.id, rating: 4 } }));
     expect(noted).toMatchObject({ cellarId: garageId, cellarName: `E2E #837 Garage ${id}` });
     expect(noted.purchasedAt?.slice(0, 10)).toBe('2025-03-12');
+    expect(noted.snapshotAt).toBeTruthy();
 
     // Moved after its tasting: the tasting still says the cellar it was tasted in.
     await okData(await api.patch(`/api/inventory/${bottle.id}`, { data: { cellarId: kitchenId } }));

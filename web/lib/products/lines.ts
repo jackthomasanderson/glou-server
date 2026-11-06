@@ -86,7 +86,7 @@ function priceOf(item: ProductItem, ctx: LineContext): string | null {
 /** Which bottle a tasting was of: "Garage · 20 € / bouteille". */
 export const bottleLabel = (item: ProductItem, ctx: LineContext) => whereAndWhat(item, ctx, false).join(' · ');
 
-type TastedBottle = Pick<ProductDetailView['tastings'][number], 'cellarId' | 'cellarName' | 'purchasedAt'>;
+type TastedBottle = Pick<ProductDetailView['tastings'][number], 'snapshotAt' | 'cellarId' | 'cellarName' | 'purchasedAt'>;
 
 /**
  * #837: which bottle a tasting was of, as it was when tasted — "Garage · 20 € /
@@ -97,8 +97,8 @@ type TastedBottle = Pick<ProductDetailView['tastings'][number], 'cellarId' | 'ce
  * now, if listed ({@link bottleLabel}).
  */
 export function tastingBottleLabel(tasting: TastedBottle, bottle: ProductItem | undefined, ctx: LineContext): string | null {
-  const kept = tasting.cellarId != null || tasting.cellarName != null || tasting.purchasedAt != null;
-  if (!kept) return bottle ? bottleLabel(bottle, ctx) : null;
+  // `snapshotAt`: kept when tasted, even a bottle in no cellar ("Sans cave").
+  if (tasting.snapshotAt == null) return bottle ? bottleLabel(bottle, ctx) : null;
   const cellar = (tasting.cellarId ? ctx.cellarName(tasting.cellarId) : undefined)
     ?? tasting.cellarName ?? ctx.t('familyDrawer.lines.noCellar');
   const size = bottle && ctx.kind === 'bottle' ? bottle.bottleSize?.trim() : '';

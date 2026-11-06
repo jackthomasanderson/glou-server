@@ -3,9 +3,12 @@
 -- purchase day — written by the server from the bottle at creation. No
 -- backfill: the bottle as it is now would be exactly the wrong cellar this
 -- fixes; older tastings keep being shown from their bottle as it is now.
+-- "snapshotAt" is set with the snapshot: a bottle in no cellar and without a
+-- purchase day still reads as kept ("no cellar"), unlike an older tasting.
 
 -- AlterTable
 ALTER TABLE "tasting_notes" ADD COLUMN     "cellarId" TEXT,
+ADD COLUMN     "snapshotAt" TIMESTAMP(3),
 ADD COLUMN     "cellarName" TEXT,
 ADD COLUMN     "purchasedAt" DATE;
 

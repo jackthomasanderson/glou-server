@@ -577,6 +577,9 @@ model TastingNote {
   // cellar shows its name of now, and the name, kept when the cellar is
   // deleted — and its purchase day. All empty for a wine tasted elsewhere and
   // for a tasting noted before #837 (shown from its bottle as it is now).
+  // `snapshotAt` says these were kept (set with them), so a bottle in no
+  // cellar and without a purchase day is told from a tasting noted before.
+  snapshotAt  DateTime?
   cellarId    String?
   cellar      Cellar?           @relation(fields: [cellarId], references: [id], onDelete: SetNull)
   cellarName  String?

@@ -69,7 +69,7 @@ describe('createGuestTasting', () => {
 
     await createGuestTasting(SHARE, { productId: P1, itemId: B1 });
 
-    expect(created().data).toMatchObject({ itemId: B1, cellarId: 'garage', cellarName: 'Garage', purchasedAt: bought });
+    expect(created().data).toMatchObject({ itemId: B1, cellarId: 'garage', cellarName: 'Garage', purchasedAt: bought, snapshotAt: expect.any(Date) });
   });
 
   it('writes nothing of a bottle when none is given', async () => {

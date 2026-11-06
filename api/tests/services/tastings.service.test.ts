@@ -350,7 +350,7 @@ describe('tastingsService — the bottle tasted, as it was (#837)', () => {
 
     await tastingsService.create('u1', { itemId: 'b1', rating: 4 });
 
-    expect(created()).toMatchObject({ itemId: 'b1', cellarId: 'garage', cellarName: 'Garage', purchasedAt: BOUGHT });
+    expect(created()).toMatchObject({ itemId: 'b1', cellarId: 'garage', cellarName: 'Garage', purchasedAt: BOUGHT, snapshotAt: expect.any(Date) });
     const select = vi.mocked(prisma.inventoryItem.findFirst).mock.calls[0]?.[0]?.select;
     expect(select).toMatchObject({ cellarId: true, purchasedAt: true, cellar: { select: { name: true } } });
   });
@@ -362,7 +362,8 @@ describe('tastingsService — the bottle tasted, as it was (#837)', () => {
 
     await tastingsService.create('u1', { itemId: 'b1' });
 
-    expect(created()).toMatchObject({ cellarId: null, cellarName: null, purchasedAt: null });
+    // Marked as kept, so it never reads as a tasting noted before #837 (shown from the bottle as it is now).
+    expect(created()).toMatchObject({ cellarId: null, cellarName: null, purchasedAt: null, snapshotAt: expect.any(Date) });
   });
 
   it('writes nothing of a bottle for a wine tasted elsewhere', async () => {
@@ -373,6 +374,7 @@ describe('tastingsService — the bottle tasted, as it was (#837)', () => {
     expect(created()).not.toHaveProperty('cellarId');
     expect(created()).not.toHaveProperty('cellarName');
     expect(created()).not.toHaveProperty('purchasedAt');
+    expect(created()).not.toHaveProperty('snapshotAt');
   });
 
   it('takes the new bottle\'s when a tasting is moved to another bottle', async () => {
@@ -384,7 +386,7 @@ describe('tastingsService — the bottle tasted, as it was (#837)', () => {
     await tastingsService.update('t1', 'u1', { itemId: 'b2' });
 
     expect(vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]).toMatchObject({
-      data: { itemId: 'b2', cellarId: 'cuisine', cellarName: 'Cuisine', purchasedAt: BOUGHT },
+      data: { itemId: 'b2', cellarId: 'cuisine', cellarName: 'Cuisine', purchasedAt: BOUGHT, snapshotAt: expect.any(Date) },
     });
   });
 
@@ -397,5 +399,6 @@ describe('tastingsService — the bottle tasted, as it was (#837)', () => {
     expect(data).not.toHaveProperty('cellarId');
     expect(data).not.toHaveProperty('cellarName');
     expect(data).not.toHaveProperty('purchasedAt');
+    expect(data).not.toHaveProperty('snapshotAt');
   });
 });
