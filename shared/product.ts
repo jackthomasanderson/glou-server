@@ -292,6 +292,16 @@ export interface ProductTasting {
   itemId: string | null;
   productId: string | null;
   guestName: string | null;
+  /**
+   * #837: the bottle tasted as it was when tasted — its cellar (null once
+   * deleted: `cellarName` then) and its purchase day. All null for a wine
+   * tasted elsewhere and for a tasting noted before #837. `snapshotAt` is set
+   * with them: kept, even all null (a bottle in no cellar), when it is set.
+   */
+  snapshotAt: Date | null;
+  cellarId: string | null;
+  cellarName: string | null;
+  purchasedAt: Date | null;
   tastedAt: Date;
   context: string | null;
   rating: number | null;

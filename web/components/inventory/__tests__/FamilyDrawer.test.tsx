@@ -68,7 +68,7 @@ const detailOf = (over: Partial<ProductDetailView>): ProductDetailView =>
   ({ ...product(), tastings: [], history: [], ...over }) as ProductDetailView;
 
 const tasting = (over: Partial<ProductDetailView['tastings'][number]>) => ({
-  id: 't1', userId: 'user', itemId: null, productId: 'p1', guestName: null, tastedAt: '2026-10-01T00:00:00.000Z',
+  id: 't1', userId: 'user', itemId: null, productId: 'p1', guestName: null, cellarId: null, cellarName: null, purchasedAt: null, snapshotAt: null, tastedAt: '2026-10-01T00:00:00.000Z',
   context: null, rating: 4, readiness: null, notes: null, foodPairing: null, photoUrl: null, robe: null, nez: null,
   bouche: null, tanin: null, acidite: null, longueurBouche: null,
   createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z', ...over,
@@ -172,6 +172,75 @@ describe('FamilyDrawer', () => {
     const entry = within(screen.getByTestId('family-tastings')).getByRole('listitem');
     expect(entry).toHaveTextContent(/Garage · 20\s€ \/ bouteille/);
     expect(entry).toHaveTextContent('À point');
+  });
+
+  // #837: a tasting says which bottle it was as it was when tasted, not as it is now.
+  describe('the bottle of a tasting, as it was when tasted (#837)', () => {
+    const entries = () => within(screen.getByTestId('family-tastings')).getAllByRole('listitem');
+
+    it('a bottle moved after its tasting keeps the cellar it was tasted in, and says its purchase day', () => {
+      detail = detailOf({
+        items: [unit({ id: 'b1', quantity: 2, cellarId: 'cuisine', purchasePrice: 20, purchasedAt: '2025-03-12T00:00:00.000Z' })],
+        tastings: [tasting({ itemId: 'b1', cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2025-03-12T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' })],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      expect(entries()[0]).toHaveTextContent(/Garage · 20\s€ \/ bouteille · achat du 12\smars\s2025/);
+      expect(entries()[0]).not.toHaveTextContent('Sans cave');
+    });
+
+    it('two tastings of two bottles of the wine say what tells the bottles apart', () => {
+      detail = detailOf({
+        items: [unit({ id: 'b1', cellarId: 'garage' }), unit({ id: 'b2', cellarId: 'garage' })],
+        tastings: [
+          tasting({ id: 't1', itemId: 'b1', cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2025-03-12T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+          tasting({ id: 't2', itemId: 'b2', cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2024-01-05T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+        ],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      const [first, second] = entries();
+      expect(first).toHaveTextContent(/achat du 12\smars\s2025/);
+      expect(second).toHaveTextContent(/achat du 5\sjanv\.\s2024/);
+    });
+
+    it('a tasting whose bottle is no longer listed, or gone for good, still says which bottle it was', () => {
+      detail = detailOf({
+        items: [],
+        tastings: [
+          tasting({ id: 't1', itemId: 'trashed', cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2025-03-12T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+          tasting({ id: 't2', itemId: null, cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2025-03-12T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+        ],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      for (const entry of entries()) {
+        expect(entry).toHaveTextContent(/Garage · achat du 12\smars\s2025/);
+        expect(entry).not.toHaveTextContent('Goûté ailleurs');
+      }
+    });
+
+    it('a bottle in no cellar when tasted keeps saying so once put in one', () => {
+      detail = detailOf({
+        items: [unit({ id: 'b1', cellarId: 'garage' })],
+        tastings: [tasting({ itemId: 'b1', cellarId: null, cellarName: null, purchasedAt: null, snapshotAt: '2025-06-01T00:00:00.000Z' })],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      expect(entries()[0]).toHaveTextContent('Sans cave');
+      expect(entries()[0]).not.toHaveTextContent('Garage');
+    });
+
+    it('a renamed cellar shows its name of now; a deleted one, its name when tasted', () => {
+      detail = detailOf({
+        items: [],
+        tastings: [
+          tasting({ id: 't1', itemId: 'b1', cellarId: 'garage', cellarName: 'Vieux garage', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+          tasting({ id: 't2', itemId: 'b2', cellarId: null, cellarName: 'Cave démolie', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+        ],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      const [renamed, deleted] = entries();
+      expect(renamed).toHaveTextContent('Garage');
+      expect(renamed).not.toHaveTextContent('Vieux garage');
+      expect(deleted).toHaveTextContent('Cave démolie');
+    });
   });
 
   // Recette #471 (KO 8.4): only a tasting without any bottle was noted elsewhere.

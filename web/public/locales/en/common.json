@@ -2621,7 +2621,8 @@
       "empty": "No tasting of this wine yet.",
       "empty_spirit": "No tasting of this spirit yet.",
       "empty_cigar": "No tasting of this cigar yet.",
-      "elsewhere": "Tasted elsewhere"
+      "elsewhere": "Tasted elsewhere",
+      "boughtOn": "bought {{date}}"
     },
     "history": {
       "title": "History",

@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { IN_STOCK_ITEM_FILTER, isFinishedState } from '../lib/finished-item';
 import type { GuestTastingInput } from '../schemas/guest-tasting.schema';
+import { BOTTLE_SNAPSHOT_SELECT, bottleSnapshot } from './tastings.service';
 
 /**
  * #471 (FEAT-109 c3, D16): a tasting noted by a guest goes on the wine (the
@@ -55,15 +56,18 @@ export async function createGuestTasting(
   input: GuestTastingInput,
 ) {
   const writeCellars = { cellarId: { in: share.writeCellarIds } };
+  let snapshot: ReturnType<typeof bottleSnapshot> | undefined;
   // Decision 70: the bottle just drunk counts, even the last one (finished:
   // out of stock) — a bottle of that wine in such a cellar, not written off.
   if (input.itemId) {
     const bottle = await prisma.inventoryItem.findFirst({
       where: { id: input.itemId, productId: input.productId, ...writeCellars, deletedAt: null, writtenOffAt: null },
-      select: { id: true, isOpened: true, fillLevel: true },
+      select: { id: true, isOpened: true, fillLevel: true, ...BOTTLE_SNAPSHOT_SELECT },
     });
     if (!bottle) throw new AppError(403, 'READ_ONLY_ACCESS');
     if (isFinishedState(bottle) && !(await mayTasteFinished(bottle.id, share.id))) throw new AppError(403, 'READ_ONLY_ACCESS');
+    // #837: the bottle tasted, kept as it is now (its cellar, its purchase day).
+    snapshot = bottleSnapshot(bottle);
   } else {
     const inStock = await prisma.inventoryItem.findFirst({
       where: { productId: input.productId, ...writeCellars, ...IN_STOCK_ITEM_FILTER },
@@ -75,6 +79,7 @@ export async function createGuestTasting(
   return prisma.tastingNote.create({
     data: {
       ...fields,
+      ...snapshot,
       userId: share.userId,
       guestName: share.inviteeName?.trim() ?? '',
       tastedAt: tastedAt ? new Date(tastedAt) : new Date(),
