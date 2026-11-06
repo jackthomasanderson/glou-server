@@ -20,9 +20,19 @@ import { authService } from '../services/auth.service';
 import { emailService } from '../services/email.service';
 import { backupService } from '../services/backup.service';
 import { auditLog } from '../services/audit.service';
+import { adminReauthSchema } from '../schemas/auth.schema';
+import { authRateLimit } from '../lib/rate-limit';
 import type { PurgeResponse } from '../../../shared/maintenance';
 
 const adminRouter = Router();
+
+// #638: a reset and an admin-role grant ask for the admin's password and 2FA
+// code — throttled like the other password and 2FA checks.
+const resetPasswordLimiter = authRateLimit(20);
+const roleLimiter = authRateLimit(20);
+
+/** Refusals of the admin's own re-authentication (#638). */
+const REAUTH_ERRORS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE']);
 
 // Audit log pages are bigger than the member-facing lists.
 const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit: 100 }).extend({
@@ -51,6 +61,8 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
                 displayName: true,
                 isAdmin: true,
                 isActive: true,
+                // #638: the reset dialog asks for the admin's password when on.
+                isTwoFactorEnabled: true,
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -67,14 +79,21 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
  * @desc    Update a user's role
  * @access  Admin Private
  */
-adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: Response): Promise<void> => {
     const userId = routeParam(req.params.userId);
-    const { isAdmin } = req.body;
+    const { isAdmin } = req.body ?? {};
 
     if (typeof isAdmin !== 'boolean') {
         res.status(400).json({ error: 'INVALID_INPUT' });
         return;
     }
+    const reauth = adminReauthSchema.safeParse({ password: req.body.password, code: req.body.code });
+    if (!reauth.success) {
+        res.status(400).json({ error: 'VALIDATION_ERROR' });
+        return;
+    }
+    const ip = getClientIp(req);
+    const audit = { action: 'ADMIN_ROLE_CHANGE' as const, details: { targetUserId: userId, isAdmin } };
 
     // Prevent admin from removing their own admin privileges
     if (req.userId === userId && !isAdmin) {
@@ -83,6 +102,23 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
     }
 
     try {
+        // #638: granting the admin role hands a session holder a second admin
+        // account — the same step-up as a password reset. Removing it lowers
+        // privileges and only needs the session.
+        if (isAdmin) {
+            // Checked first, so a request that would change nothing does not
+            // spend one of the admin's backup codes.
+            const target = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+            if (!target) {
+                res.status(404).json({ error: 'USER_NOT_FOUND' });
+                return;
+            }
+            if (target.isAdmin) {
+                res.status(409).json({ error: 'ALREADY_ADMIN' });
+                return;
+            }
+            await authService.reauthenticateAdmin(req.userId, reauth.data, { ip, userAgent: req.headers['user-agent'] }, audit);
+        }
         const user = await prisma.user.update({
             where: { id: userId },
             data: { isAdmin },
@@ -94,8 +130,13 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
                 isActive: true,
             },
         });
+        void auditLog({ userId: req.userId, action: audit.action, status: 'success', ip, details: audit.details });
         res.json({ data: user });
     } catch (error: unknown) {
+        if (error instanceof Error && REAUTH_ERRORS.has(error.message)) {
+            res.status(403).json({ error: error.message });
+            return;
+        }
         console.error('[Admin] Error updating user role:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
@@ -174,17 +215,30 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
  *          their next successful login.
  * @access  Admin Private
  */
-adminRouter.post('/users/:userId/reset-password', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/users/:userId/reset-password', resetPasswordLimiter, async (req: Request, res: Response): Promise<void> => {
     const userId = routeParam(req.params.userId);
+    const reauth = adminReauthSchema.safeParse(req.body ?? {});
+    if (!reauth.success) {
+        res.status(400).json({ error: 'VALIDATION_ERROR' });
+        return;
+    }
     try {
         const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
         if (!target) {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        const tempPassword = await authService.adminResetPassword(userId, req.userId, { ip: getClientIp(req) });
+        const tempPassword = await authService.adminResetPassword(userId, req.userId, { ip: getClientIp(req), userAgent: req.headers['user-agent'] }, reauth.data);
         res.json({ data: { tempPassword } });
     } catch (error) {
+        if (error instanceof Error && REAUTH_ERRORS.has(error.message)) {
+            res.status(403).json({ error: error.message });
+            return;
+        }
+        if (error instanceof Error && error.message === 'TARGET_CHANGED') {
+            res.status(409).json({ error: 'TARGET_CHANGED' });
+            return;
+        }
         console.error('[Admin] Error resetting user password:', error);
         res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
     }

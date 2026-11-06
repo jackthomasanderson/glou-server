@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
-import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema } from '../schemas/auth.schema';
+import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema, regenerateBackupCodesSchema } from '../schemas/auth.schema';
 import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
 import { PASSWORD_MIN_LENGTH } from '../../../shared/auth';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
@@ -278,6 +278,24 @@ router.post('/2fa/turn-off', authMiddleware, async (req: Request, res: Response)
     }
     const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
     res.status(400).json({ error: msg });
+  }
+});
+
+// ─── POST /api/auth/2fa/backup-codes ──────────────────────────────────────────
+// #638: new backup codes, the old ones invalidated. Rate-limited with the rest
+// of /api/auth/2fa (app.ts). The codes are returned once and never logged.
+
+router.post('/2fa/backup-codes', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { password, code } = regenerateBackupCodesSchema.parse(req.body);
+    const data = await authService.regenerateBackupCodes(req.userId, password, code, readDeviceInfo(req));
+    res.json({ data });
+  } catch (error) {
+    if (error instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    res.status(400).json({ error: publicAuthError(error, 'POST /2fa/backup-codes') });
   }
 });
 

@@ -7,9 +7,15 @@ import {
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ShieldCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useGenerate2fa, useTurnOn2fa, useTurnOff2fa, PublicUser, useMe } from '@/hooks/useAuth';
+import {
+  useGenerate2fa, useTurnOn2fa, useTurnOff2fa, useBackupCodesCount, useRegenerateBackupCodes, PublicUser, useMe,
+} from '@/hooks/useAuth';
 import { TwoFactorCodeInput } from '@/components/auth/TwoFactorCodeInput';
+import { BackupCodesDialog } from '@/components/profile/BackupCodesDialog';
 import { authErrorMessage } from '@/lib/auth/error-message';
+
+/** #638: at or below this many codes left, the count is shown as a warning. */
+const LOW_BACKUP_CODES = 2;
 
 export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
@@ -19,7 +25,9 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const [setupData, setSetupData] = useState<{ qrCodeUrl: string; secret: string } | null>(null);
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
-  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [isRegenerateModalOpen, setIsRegenerateModalOpen] = useState(false);
+  // #638: codes shown once, by the same dialog after turning on or regenerating.
+  const [backupCodes, setBackupCodes] = useState<{ codes: string[]; successMessage: string } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // #652: codes like INVALID_TOTP_CODE used to be shown as is. Here the
@@ -30,6 +38,8 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const generateMutation = useGenerate2fa();
   const turnOnMutation = useTurnOn2fa();
   const turnOffMutation = useTurnOff2fa();
+  const regenerateMutation = useRegenerateBackupCodes();
+  const { data: backupCodesLeft } = useBackupCodesCount(user.isTwoFactorEnabled);
 
   const handleStartEnable = () => {
     setErrorMsg(null);
@@ -43,7 +53,11 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const handleConfirmEnable = () => {
     setErrorMsg(null);
     turnOnMutation.mutate({ code }, {
-      onSuccess: (res) => { setBackupCodes(res.backupCodes); refetchMe(); },
+      onSuccess: (res) => {
+        handleCloseEnable();
+        setBackupCodes({ codes: res.backupCodes, successMessage: t('profile.twoFactor.enableSuccess') });
+        refetchMe();
+      },
       onError: (err) => setErrorMsg(errorText(err)),
     });
   };
@@ -52,8 +66,25 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
     setIsTurnOnModalOpen(false);
     setSetupData(null);
     setCode('');
-    setBackupCodes(null);
     setErrorMsg(null);
+  };
+
+  const handleCloseRegenerate = () => {
+    setIsRegenerateModalOpen(false);
+    setPassword('');
+    setCode('');
+    setErrorMsg(null);
+  };
+
+  const handleConfirmRegenerate = () => {
+    setErrorMsg(null);
+    regenerateMutation.mutate({ password, code }, {
+      onSuccess: (res) => {
+        handleCloseRegenerate();
+        setBackupCodes({ codes: res.backupCodes, successMessage: t('profile.twoFactor.regenerateSuccess') });
+      },
+      onError: (err) => setErrorMsg(errorText(err)),
+    });
   };
 
   const handleConfirmDisable = () => {
@@ -100,7 +131,29 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
             </Button>
           )}
         </div>
+
+        {user.isTwoFactorEnabled && (
+          <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-default-50 rounded-xl">
+            <div>
+              <p className="text-sm font-medium">{t('profile.twoFactor.backupCodesHeading')}</p>
+              {backupCodesLeft !== undefined && (
+                <p className={`text-sm ${backupCodesLeft <= LOW_BACKUP_CODES ? 'text-warning-700 font-medium' : 'text-foreground-500'}`}>
+                  {t('profile.twoFactor.backupCodesLeft', { count: backupCodesLeft })}
+                </p>
+              )}
+            </div>
+            <Button color="primary" variant="bordered" size="sm" onPress={() => { setErrorMsg(null); setIsRegenerateModalOpen(true); }}>
+              {t('profile.twoFactor.regenerate')}
+            </Button>
+          </div>
+        )}
       </div>
+
+      <BackupCodesDialog
+        codes={backupCodes?.codes ?? null}
+        successMessage={backupCodes?.successMessage ?? ''}
+        onDone={() => setBackupCodes(null)}
+      />
 
       {/* Turn On Modal */}
       <ResponsiveModal isOpen={isTurnOnModalOpen} onClose={handleCloseEnable} size="md" radius="lg" backdrop="opaque" placement="center">
@@ -112,24 +165,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                 {errorMsg && (
                   <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
                 )}
-                {backupCodes ? (
-                  <div>
-                    <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-lg px-4 py-3 mb-4">
-                      {t('profile.twoFactor.enableSuccess')}
-                    </div>
-                    <p className="text-sm font-bold text-danger mb-2">
-                      {t('profile.twoFactor.backupCodesWarning')}
-                    </p>
-                    <p className="text-sm text-foreground-500 mb-3">
-                      {t('profile.twoFactor.backupCodesHint')}
-                    </p>
-                    <div className="bg-default-50 border border-divider rounded-xl p-4 grid grid-cols-2 gap-2">
-                      {backupCodes.map((bc, i) => (
-                        <code key={i} className="text-sm font-mono font-bold">{bc}</code>
-                      ))}
-                    </div>
-                  </div>
-                ) : generateMutation.isPending ? (
+                {generateMutation.isPending ? (
                   <div className="flex justify-center py-8" role="status" aria-live="polite">
                     <CircularProgress color="primary" isIndeterminate aria-label={t('status.loading')} />
                   </div>
@@ -156,27 +192,18 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                 ) : null}
               </ModalBody>
               <ModalFooter>
-                {!backupCodes && (
-                  <>
-                    <Button color="danger" variant="light" onPress={handleCloseEnable} isDisabled={turnOnMutation.isPending}>
-                      {t('actions.cancel')}
-                    </Button>
-                    <Button
-                      color="primary"
-                      variant="solid"
-                      onPress={handleConfirmEnable}
-                      isDisabled={code.length < 6 || turnOnMutation.isPending}
-                      isLoading={turnOnMutation.isPending}
-                    >
-                      {t('actions.confirm')}
-                    </Button>
-                  </>
-                )}
-                {backupCodes && (
-                  <Button color="primary" variant="solid" fullWidth onPress={handleCloseEnable}>
-                    {t('profile.twoFactor.codesConfirmed')}
-                  </Button>
-                )}
+                <Button color="danger" variant="light" onPress={handleCloseEnable} isDisabled={turnOnMutation.isPending}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  color="primary"
+                  variant="solid"
+                  onPress={handleConfirmEnable}
+                  isDisabled={code.length < 6 || turnOnMutation.isPending}
+                  isLoading={turnOnMutation.isPending}
+                >
+                  {t('actions.confirm')}
+                </Button>
               </ModalFooter>
             </>
           )}
@@ -227,6 +254,57 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                   isLoading={turnOffMutation.isPending}
                 >
                   {t('profile.twoFactor.disable')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </ResponsiveModal>
+
+      {/* #638: Regenerate backup codes — same re-confirmation as turning 2FA off */}
+      <ResponsiveModal
+        isOpen={isRegenerateModalOpen}
+        onClose={handleCloseRegenerate}
+        size="sm"
+        radius="lg"
+        backdrop="opaque"
+        placement="center"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>{t('profile.twoFactor.regenerateTitle')}</ModalHeader>
+              <ModalBody className="flex flex-col gap-3">
+                <p className="text-sm text-foreground-500">
+                  {t('profile.twoFactor.regenerateHint')}
+                </p>
+                {errorMsg && (
+                  <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{errorMsg}</div>
+                )}
+                <Input
+                  label={t('profile.passwordLabel')}
+                  type="password"
+                  value={password}
+                  onValueChange={setPassword}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                />
+                <TwoFactorCodeInput value={code} onValueChange={setCode} allowBackupCode isDisabled={regenerateMutation.isPending} />
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose} isDisabled={regenerateMutation.isPending}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  color="primary"
+                  variant="solid"
+                  onPress={handleConfirmRegenerate}
+                  isDisabled={!password || code.length < 6 || regenerateMutation.isPending}
+                  isLoading={regenerateMutation.isPending}
+                >
+                  {t('profile.twoFactor.regenerateConfirm')}
                 </Button>
               </ModalFooter>
             </>

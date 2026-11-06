@@ -7,6 +7,9 @@ Listez les appareils connectés à votre compte, déconnectez-en un à distance,
 * Être connecté à votre compte.
 * Avoir la Double Authentification (2FA) activée (voir [01-Authentification.md](./01-Authentification.md)) pour que la fonction "confiance" ait un effet. Elle ne fait que sauter la relance 2FA, elle ne remplace pas votre mot de passe.
 
+> [!TIP]
+> Vous avez perdu le téléphone qui vous donne vos codes 2FA ? Voir [Téléphone perdu avec la 2FA](./32-Telephone-Perdu-2FA.md).
+
 ## Action
 
 ### Consulter et révoquer une session

@@ -17,6 +17,9 @@ const translate = (k: string, o?: Record<string, unknown>) =>
 const generate = vi.fn();
 const turnOn = vi.fn();
 const turnOff = vi.fn();
+const regenerate = vi.fn();
+const copyText = vi.fn();
+let backupCodesLeft: number | undefined = 10;
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: translate }),
@@ -26,11 +29,26 @@ vi.mock('@/hooks/useAuth', () => ({
   useGenerate2fa: () => ({ mutate: generate, isPending: false }),
   useTurnOn2fa: () => ({ mutate: turnOn, isPending: false }),
   useTurnOff2fa: () => ({ mutate: turnOff, isPending: false }),
+  useRegenerateBackupCodes: () => ({ mutate: regenerate, isPending: false }),
+  useBackupCodesCount: (enabled: boolean) => ({ data: enabled ? backupCodesLeft : undefined }),
 }));
+vi.mock('@/lib/clipboard', () => ({ copyText: (text: string) => copyText(text) }));
 // Closed modals render nothing, like HeroUI's.
+// The dismissal props are exposed so the tests can check what HeroUI is told.
 vi.mock('@/components/ui/ResponsiveModal', () => ({
-  ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
-    isOpen ? <div role="dialog">{children}</div> : null,
+  ResponsiveModal: ({ isOpen, children, isDismissable, isKeyboardDismissDisabled, hideCloseButton }: {
+    isOpen?: boolean; children?: ReactNode; isDismissable?: boolean; isKeyboardDismissDisabled?: boolean; hideCloseButton?: boolean;
+  }) =>
+    isOpen ? (
+      <div
+        role="dialog"
+        data-dismissable={String(isDismissable ?? true)}
+        data-keyboard-dismiss-disabled={String(isKeyboardDismissDisabled ?? false)}
+        data-hide-close-button={String(hideCloseButton ?? false)}
+      >
+        {children}
+      </div>
+    ) : null,
 }));
 vi.mock('@heroui/react', () => ({
   Button: ({ children, onPress, isDisabled }: { children?: ReactNode; onPress?: () => void; isDisabled?: boolean }) => (
@@ -58,6 +76,9 @@ vi.mock('@heroui/react', () => ({
   ModalHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   ModalBody: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   ModalFooter: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
+  Checkbox: ({ children, isSelected, onValueChange }: { children?: ReactNode; isSelected?: boolean; onValueChange?: (v: boolean) => void }) => (
+    <label><input type="checkbox" checked={!!isSelected} onChange={(e) => onValueChange?.(e.target.checked)} />{children}</label>
+  ),
   Divider: () => <hr />,
   CircularProgress: () => <div />,
 }));
@@ -189,5 +210,117 @@ describe('TwoFactorSettings messages and code fields (#652)', () => {
     const backup = within(dialog).getByLabelText('Backup code');
     expect(backup.getAttribute('inputmode')).toBe('text');
     expect(backup.getAttribute('maxlength')).toBe('20');
+  });
+});
+
+// #638 — the backup codes were shown once, with no Copy button, in a dialog
+// Escape closed for good; they could not be regenerated nor counted.
+describe('TwoFactorSettings backup codes (#638)', () => {
+  const CODES = Array.from({ length: 10 }, (_, i) => `${i}`.repeat(20));
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    backupCodesLeft = 10;
+    await i18n.changeLanguage('en');
+    generate.mockImplementation((_v: unknown, o: MutateOptions<{ qrCodeUrl: string; secret: string }>) =>
+      o.onSuccess?.({ qrCodeUrl: 'data:image/png;base64,', secret: 'ABC' }));
+    turnOn.mockImplementation((_v: unknown, o: MutateOptions<{ backupCodes: string[] }>) => o.onSuccess?.({ backupCodes: CODES }));
+    copyText.mockResolvedValue(true);
+  });
+
+  function enableAndGetCodesDialog() {
+    render(<TwoFactorSettings user={makeUser(false)} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Enable' }));
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('6-digit code'), { target: { value: '123456' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }));
+    return screen.getByRole('dialog');
+  }
+
+  it('cannot be dismissed in any way until "I\'ve saved my codes" is ticked', () => {
+    const dialog = enableAndGetCodesDialog();
+    for (const code of CODES) expect(within(dialog).getByText(code)).toBeInTheDocument();
+
+    expect(dialog.dataset.dismissable).toBe('false');
+    expect(dialog.dataset.keyboardDismissDisabled).toBe('true');
+    expect(dialog.dataset.hideCloseButton).toBe('true');
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toBeDisabled();
+
+    fireEvent.click(within(dialog).getByLabelText("I've saved my codes"));
+
+    const ticked = screen.getByRole('dialog');
+    expect(ticked.dataset.dismissable).toBe('true');
+    expect(ticked.dataset.keyboardDismissDisabled).toBe('false');
+    expect(ticked.dataset.hideCloseButton).toBe('false');
+    fireEvent.click(within(ticked).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('copies every code, one per line', async () => {
+    const dialog = enableAndGetCodesDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy the codes' }));
+
+    expect(copyText).toHaveBeenCalledWith(CODES.join('\n'));
+    expect(await within(dialog).findByRole('button', { name: 'Codes copied' })).toBeInTheDocument();
+  });
+
+  it('says how to copy by hand when the browser refuses', async () => {
+    copyText.mockResolvedValue(false);
+    const dialog = enableAndGetCodesDialog();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Copy the codes' }));
+
+    expect((await within(dialog).findByRole('alert')).textContent).toBe(translate('profile.twoFactor.copyCodesFailed'));
+  });
+
+  it.each([
+    ['en', 3, '3 backup codes left'],
+    ['en', 1, '1 backup code left'],
+    ['fr', 3, '3 codes de secours restants'],
+  ])('%s: shows how many backup codes remain (%i)', async (lng, left, expected) => {
+    await i18n.changeLanguage(lng);
+    backupCodesLeft = left;
+    render(<TwoFactorSettings user={makeUser(true)} />);
+    expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
+  it('shows no count and no regenerate button while 2FA is off', () => {
+    render(<TwoFactorSettings user={makeUser(false)} />);
+    expect(screen.queryByRole('button', { name: 'Generate new codes' })).toBeNull();
+  });
+
+  function openRegenerate() {
+    render(<TwoFactorSettings user={makeUser(true)} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Generate new codes' }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Password'), { target: { value: 'pw' } });
+    fireEvent.change(within(dialog).getByLabelText('6-digit code'), { target: { value: '123456' } });
+    return dialog;
+  }
+
+  it('asks for the password and a code before generating new codes', () => {
+    render(<TwoFactorSettings user={makeUser(true)} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Generate new codes' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: 'Generate' })).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText('Password'), { target: { value: 'pw' } });
+    expect(within(dialog).getByRole('button', { name: 'Generate' })).toBeDisabled();
+  });
+
+  it('a wrong password when regenerating says the password is wrong', () => {
+    regenerate.mockImplementation((_v: unknown, o: MutateOptions<unknown>) => o.onError?.(new Error('INVALID_CREDENTIALS')));
+    const dialog = openRegenerate();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Generate' }));
+    expect(within(dialog).getByRole('alert').textContent).toBe('Incorrect current password');
+  });
+
+  it('shows the new codes in the same guarded dialog', () => {
+    regenerate.mockImplementation((v: unknown, o: MutateOptions<{ backupCodes: string[] }>) => o.onSuccess?.({ backupCodes: CODES }));
+    const dialog = openRegenerate();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Generate' }));
+
+    expect(regenerate).toHaveBeenCalledWith({ password: 'pw', code: '123456' }, expect.anything());
+    const codes = screen.getByRole('dialog');
+    expect(within(codes).getByText(translate('profile.twoFactor.regenerateSuccess'))).toBeInTheDocument();
+    expect(within(codes).getByText(CODES[0])).toBeInTheDocument();
+    expect(codes.dataset.keyboardDismissDisabled).toBe('true');
   });
 });

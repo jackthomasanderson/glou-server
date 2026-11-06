@@ -12,6 +12,8 @@ export interface AdminUser {
     displayName: string | null;
     isAdmin: boolean;
     isActive: boolean;
+    /** #638: resetting such a member's password asks for the admin's own password. */
+    isTwoFactorEnabled: boolean;
     createdAt: string;
 }
 
@@ -56,11 +58,12 @@ export function useUpdateUserRole() {
 
     return useMutation({
         meta: { handlesError: true },
-        mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
-            const response = await api.post<AdminUser>(`/admin/users/${userId}/role`, { isAdmin });
+        // #638: a grant carries the admin's own password (and code), and its
+        // refusals are said by the confirmation dialog; a removal's by the page.
+        mutationFn: async ({ userId, ...body }: { userId: string; isAdmin: boolean; password?: string; code?: string }) => {
+            const response = await api.post<AdminUser>(`/admin/users/${userId}/role`, body);
             return response.data;
         },
-        onError: () => notifyError('toast.admin.roleError'),
         onSuccess: () => {
             notifySuccess('toast.admin.roleSuccess');
             queryClient.invalidateQueries({ queryKey: ['admin_users'] });
@@ -90,15 +93,16 @@ export function useUpdateUserStatus() {
 }
 
 // #336: no-SMTP account recovery — generates a one-time temporary password,
-// shown to the admin exactly once by the caller.
+// shown to the admin exactly once by the caller. #638: `password`/`code` are
+// the admin's own, asked for every reset (the API refuses it without them).
 export function useResetUserPassword() {
-    return useMutation({
+    return useMutation<{ tempPassword: string }, Error, { userId: string; password?: string; code?: string }>({
+        // Said by the reset dialog.
         meta: { handlesError: true },
-        mutationFn: async (userId: string) => {
-            const response = await api.post<{ tempPassword: string }>(`/admin/users/${userId}/reset-password`);
+        mutationFn: async ({ userId, ...reauth }) => {
+            const response = await api.post<{ tempPassword: string }>(`/admin/users/${userId}/reset-password`, reauth);
             return response.data;
         },
-        onError: () => notifyError('toast.admin.resetPasswordError'),
     });
 }
 
