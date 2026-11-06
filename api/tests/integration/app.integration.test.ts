@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { Prisma } from '@prisma/client';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Every router imported by createApp() ultimately imports this module; the
 // mock replaces it wholesale so nothing tries to reach a real database.
@@ -525,5 +527,38 @@ describe('POST /api/admin/backups/:id/restore', () => {
     expect(res.status).toBe(403);
     expect(runSpy).not.toHaveBeenCalled();
     expect(restoreSpy).not.toHaveBeenCalled();
+  });
+});
+
+// #668: the avatar was saved as `${API_URL || 'http://localhost:3001'}/uploads/avatars/…`,
+// an address the production stack never publishes. Saved relative, like
+// product photos, it is served by the web app's /uploads rewrite.
+describe('POST /api/user/avatar', () => {
+  const savedApiUrl = process.env.API_URL;
+  const written: string[] = [];
+
+  afterEach(() => {
+    if (savedApiUrl === undefined) delete process.env.API_URL;
+    else process.env.API_URL = savedApiUrl;
+    for (const file of written.splice(0)) fs.rmSync(file, { force: true });
+  });
+
+  it('stores a relative /uploads/avatars/<file> path, whatever API_URL says', async () => {
+    process.env.API_URL = 'http://api.internal:3001';
+    const updateSpy = vi.spyOn(authService, 'updateProfile')
+      .mockImplementation(async (_userId, data) => ({ avatarUrl: data.avatarUrl } as never));
+
+    const res = await request(app)
+      .post('/api/user/avatar')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .attach('avatar', Buffer.from([0x89, 0x50, 0x4e, 0x47]), { filename: 'me.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(200);
+    const avatarUrl = updateSpy.mock.calls[0][1].avatarUrl as string;
+    written.push(path.join(process.cwd(), avatarUrl));
+    expect(avatarUrl).toMatch(/^\/uploads\/avatars\/[0-9a-f-]{36}\.png$/);
+    expect(res.body.data.avatarUrl).toBe(avatarUrl);
+    updateSpy.mockRestore();
   });
 });
