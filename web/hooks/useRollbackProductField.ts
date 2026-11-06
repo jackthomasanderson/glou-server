@@ -21,6 +21,8 @@ export interface RollbackProductFieldVariables {
 export function useRollbackProductField() {
   const queryClient = useQueryClient();
   return useMutation<Product, Error, RollbackProductFieldVariables>({
+    // Said by the history's restore dialog (FamilyHistory).
+    meta: { handlesError: true },
     mutationFn: ({ id, field, toValue, expectedUpdatedAt }) => productsClient.rollback(id, field, toValue, expectedUpdatedAt),
     onSuccess: (saved) => {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) =>

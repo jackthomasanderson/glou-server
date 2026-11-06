@@ -55,6 +55,7 @@ export function useUpdateUserRole() {
     const queryClient = useQueryClient();
 
     return useMutation({
+        meta: { handlesError: true },
         mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
             const response = await api.post<AdminUser>(`/admin/users/${userId}/role`, { isAdmin });
             return response.data;
@@ -72,6 +73,7 @@ export function useUpdateUserStatus() {
     const queryClient = useQueryClient();
 
     return useMutation({
+        meta: { handlesError: true },
         mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
             const response = await api.patch<AdminUser>(`/admin/users/${userId}/status`, { isActive });
             return response.data;
@@ -91,6 +93,7 @@ export function useUpdateUserStatus() {
 // shown to the admin exactly once by the caller.
 export function useResetUserPassword() {
     return useMutation({
+        meta: { handlesError: true },
         mutationFn: async (userId: string) => {
             const response = await api.post<{ tempPassword: string }>(`/admin/users/${userId}/reset-password`);
             return response.data;
@@ -127,6 +130,8 @@ export function usePurgeData() {
     const queryClient = useQueryClient();
 
     return useMutation({
+        // Said by the purge dialog (its own error line).
+        meta: { handlesError: true },
         // #489: the admin's password is re-checked server-side; `confirmation`
         // is the protocol keyword, whatever the UI language.
         mutationFn: async ({ password }: { password: string }) => {

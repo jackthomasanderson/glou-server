@@ -17,6 +17,7 @@ export function useShares() {
 export function useCreateShare() {
   const queryClient = useQueryClient();
   return useMutation<CreatedGuestShare, Error, ShareFormValues>({
+    meta: { handlesError: true },
     mutationFn: sharesClient.create,
     onSuccess: (created) => {
       queryClient.setQueryData<GuestShare[]>(SHARES_KEY, (old) =>
@@ -31,6 +32,7 @@ export function useCreateShare() {
 export function useRevokeShare() {
   const queryClient = useQueryClient();
   return useMutation<GuestShare, Error, string>({
+    meta: { handlesError: true },
     mutationFn: sharesClient.revoke,
     onSuccess: (updated) => {
       queryClient.setQueryData<GuestShare[]>(SHARES_KEY, (old) =>

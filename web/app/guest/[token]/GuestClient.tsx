@@ -55,6 +55,8 @@ export function GuestPageContent({ token }: { token: string }) {
   const [drunk, setDrunk] = useState<GuestTastingTarget | null>(null);
   const undone = (itemId: string) => setDrunk((current) => (current?.itemId === itemId ? null : current));
   const noteTasting = useMutation({
+    // Said by saveTasting below.
+    meta: { handlesError: true },
     mutationFn: (payload: GuestTastingPayload) => guestClient.createTasting(token, payload),
   });
   const saveTasting = async (target: GuestTastingTarget, payload: GuestTastingPayload) => {

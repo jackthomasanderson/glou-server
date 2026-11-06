@@ -164,6 +164,7 @@ export function useProductsTrash() {
 export function useTrashProduct() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
+    meta: { handlesError: true },
     mutationFn: productsClient.trash,
     onSuccess: (_result, id) => {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => old?.filter((product) => product.id !== id));
@@ -180,6 +181,7 @@ export function useTrashProduct() {
 export function useRestoreProduct() {
   const queryClient = useQueryClient();
   return useMutation<Product, Error, string>({
+    meta: { handlesError: true },
     mutationFn: productsClient.restore,
     onSuccess: (product) => notifySuccess('toast.product.restoreSuccess', productCtx(queryClient, product.id, product.category)),
     onError: (_error, id) => notifyError('toast.product.restoreError', productCtx(queryClient, id)),
@@ -199,6 +201,7 @@ export function useRestoreProduct() {
 export function useBulkWines() {
   const queryClient = useQueryClient();
   return useMutation<BulkStockResult, Error, BulkWinesAction>({
+    meta: { handlesError: true },
     mutationFn: productsClient.bulk,
     // A refusal the dialog can name (a wine with fewer bottles left, a line
     // over the maximum, a cellar deleted meanwhile); any other one is generic.
@@ -232,6 +235,7 @@ export interface UpdateProductVariables {
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
   return useMutation<Product, Error, UpdateProductVariables>({
+    meta: { handlesError: true },
     mutationFn: ({ id, patch, expectedUpdatedAt }) => productsClient.update(id, patch, expectedUpdatedAt),
     onSuccess: (saved) => {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) =>
@@ -277,6 +281,7 @@ const ADD_UNITS_REFUSALS: Record<string, string> = {
 export function useAddUnits() {
   const queryClient = useQueryClient();
   return useMutation<UnitWrite, Error, AddUnitsVariables>({
+    meta: { handlesError: true },
     mutationFn: ({ product, input }) => productsClient.addUnits(product.id, input),
     onSuccess: (write, { product, input }) => {
       const written = [write.data, ...write.changed];

@@ -29,6 +29,8 @@ export function useActiveCountSession() {
 export function useStartCountSession() {
   const queryClient = useQueryClient();
   return useMutation<CountSession, Error, StartSessionInput>({
+    // Said by StartSessionScreen.
+    meta: { handlesError: true },
     mutationFn: inventoryCountClient.startSession,
     onSuccess: (session) => {
       queryClient.setQueryData<CountSession | null>(ACTIVE_SESSION_KEY, session);
@@ -85,6 +87,7 @@ export interface ScanInput {
 export function useScanItem(sessionId: string) {
   const queryClient = useQueryClient();
   return useMutation<ScanEntry, Error, ScanInput>({
+    meta: { handlesError: true },
     mutationFn: ({ itemId, foundQuantity }: ScanInput) => inventoryCountClient.scan(sessionId, itemId, foundQuantity),
     onError: () => notifyError('toast.count.scanError'),
     onSettled: () => {
@@ -97,6 +100,7 @@ export function useScanItem(sessionId: string) {
 export function useRecordFoundItem(sessionId: string) {
   const queryClient = useQueryClient();
   return useMutation<RecordFoundItemResult, Error, RecordFoundItemInput>({
+    meta: { handlesError: true },
     mutationFn: (input: RecordFoundItemInput) => inventoryCountClient.recordFoundItem(sessionId, input),
     onError: () => notifyError('toast.count.recordError'),
     onSettled: () => {
@@ -108,6 +112,8 @@ export function useRecordFoundItem(sessionId: string) {
 export function useCompleteCountSession(sessionId: string) {
   const queryClient = useQueryClient();
   return useMutation<CompleteSessionResult, Error, Correction[]>({
+    // Said by SessionReportView.
+    meta: { handlesError: true },
     mutationFn: (corrections: Correction[]) => inventoryCountClient.complete(sessionId, corrections),
     onSuccess: (result) => {
       // #471 (FEAT-100): a correction the data no longer allowed (a line gone,

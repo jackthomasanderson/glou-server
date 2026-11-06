@@ -71,6 +71,8 @@ export function useLogin() {
   const queryClient = useQueryClient();
   const router = useRouter();
   return useMutation<PublicUser & { requires2fa?: boolean }, Error, { identifier: string; password: string; rememberMe?: boolean }>({
+    // Said by the sign-in form.
+    meta: { handlesError: true },
     mutationFn: (data) => apiFetch<PublicUser & { requires2fa?: boolean }>('/api/auth/login', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (data) => {
       if (data.requires2fa) {
@@ -97,6 +99,8 @@ export function useRegister() {
     Error,
     { username: string; email: string; password: string; language?: 'FR' | 'EN' }
   >({
+    // Said by the sign-up form.
+    meta: { handlesError: true },
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (user) => {
@@ -145,6 +149,8 @@ export function useLogout() {
   const queryClient = useQueryClient();
   const router = useRouter();
   return useMutation<void, Error, void>({
+    // Signed out on this device whatever the server answers: nothing to say.
+    meta: { handlesError: true },
     mutationFn: async () => {
       try {
         await apiFetch<void>('/api/auth/logout', { method: 'POST' });
@@ -170,6 +176,7 @@ export function useLogout() {
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
   return useMutation<PublicUser, Error, { username?: string; avatarUrl?: string | null; appName?: string | null; appSlogan?: string | null }>({
+    meta: { handlesError: true },
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/user/profile', { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: (updatedUser) => {
@@ -186,6 +193,8 @@ export function useUpdateProfile() {
 export function useUploadAvatar() {
   const queryClient = useQueryClient();
   return useMutation<PublicUser, Error, File>({
+    // Said by AvatarUploader.
+    meta: { handlesError: true },
     mutationFn: async (file) => {
       const formData = new FormData();
       formData.append('avatar', file);
@@ -210,6 +219,8 @@ export function useUploadAvatar() {
 export function useDeleteAvatar() {
   const queryClient = useQueryClient();
   return useMutation<PublicUser, Error, void>({
+    // Said by AvatarUploader.
+    meta: { handlesError: true },
     mutationFn: () => apiFetch<PublicUser>('/api/user/avatar', { method: 'DELETE' }),
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
@@ -223,6 +234,8 @@ export function useUpdateEmail() {
   // The current password is required server-side (ISSUE_042): changing the
   // account email reroutes the password-reset channel.
   return useMutation<PublicUser, Error, { email: string; currentPassword: string }>({
+    // Said by the form (AccountSecurity).
+    meta: { handlesError: true },
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/user/email', { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: (updatedUser) => {
@@ -235,6 +248,8 @@ export function useUpdateEmail() {
 
 export function useUpdatePassword() {
   return useMutation<{ success: boolean }, Error, { currentPassword: string; newPassword: string }>({
+    // Said by the form (AccountSecurity, ForcedPasswordChange).
+    meta: { handlesError: true },
     mutationFn: (data) =>
       apiFetch<{ success: boolean }>('/api/user/password', { method: 'PATCH', body: JSON.stringify(data) }),
   });
@@ -257,6 +272,7 @@ export function useUpdatePreferences() {
       expertMode?: boolean;
     }
   >({
+    meta: { handlesError: true },
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/user/preferences', { method: 'PATCH', body: JSON.stringify(data) }),
     onSuccess: (updatedUser) => {
@@ -270,6 +286,8 @@ export function useUpdatePreferences() {
 
 export function useGenerate2fa() {
   return useMutation<{ qrCodeUrl: string; secret: string }, Error, void>({
+    // Said by TwoFactorSettings.
+    meta: { handlesError: true },
     mutationFn: () => apiFetch<{ qrCodeUrl: string; secret: string }>('/api/auth/2fa/generate', { method: 'POST' }),
   });
 }
@@ -277,6 +295,8 @@ export function useGenerate2fa() {
 export function useTurnOn2fa() {
   const queryClient = useQueryClient();
   return useMutation<{ backupCodes: string[] }, Error, { code: string }>({
+    // Said by TwoFactorSettings.
+    meta: { handlesError: true },
     mutationFn: (data) => apiFetch<{ backupCodes: string[] }>('/api/auth/2fa/turn-on', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
@@ -287,6 +307,8 @@ export function useTurnOn2fa() {
 export function useTurnOff2fa() {
   const queryClient = useQueryClient();
   return useMutation<{ success: boolean }, Error, { password: string; code?: string }>({
+    // Said by TwoFactorSettings.
+    meta: { handlesError: true },
     mutationFn: (data) => apiFetch<{ success: boolean }>('/api/auth/2fa/turn-off', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
@@ -298,6 +320,8 @@ export function useVerify2faLogin() {
   const queryClient = useQueryClient();
   const router = useRouter();
   return useMutation<PublicUser, Error, { code: string; trustDevice?: boolean }>({
+    // Said by the sign-in form.
+    meta: { handlesError: true },
     mutationFn: (data) => apiFetch<PublicUser>('/api/auth/2fa/verify-login', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
@@ -335,6 +359,8 @@ export function useRevokeSession() {
 export function useTrustDevice() {
   const queryClient = useQueryClient();
   return useMutation<{ ok: boolean }, Error, { password: string; code?: string }>({
+    // Said by SessionsPanel.
+    meta: { handlesError: true },
     mutationFn: (body) => apiFetch<{ ok: boolean }>('/api/auth/trust-device', { method: 'POST', body: JSON.stringify(body) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
@@ -345,6 +371,8 @@ export function useTrustDevice() {
 export function useUntrustDevice() {
   const queryClient = useQueryClient();
   return useMutation<{ ok: boolean }, Error, void>({
+    // Said by SessionsPanel.
+    meta: { handlesError: true },
     mutationFn: () => apiFetch<{ ok: boolean }>('/api/auth/trust-device', { method: 'DELETE' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
@@ -403,6 +431,8 @@ export function useCancelAccountDeletion() {
 export function useSetPin() {
   const queryClient = useQueryClient();
   return useMutation<{ ok: boolean }, Error, { password: string; pin: string }>({
+    // Said by the form (AccountSecurity).
+    meta: { handlesError: true },
     mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/pin', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
@@ -413,6 +443,8 @@ export function useSetPin() {
 export function useRemovePin() {
   const queryClient = useQueryClient();
   return useMutation<{ ok: boolean }, Error, { password: string }>({
+    // Said by the form (AccountSecurity).
+    meta: { handlesError: true },
     mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/pin', { method: 'DELETE', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
@@ -422,6 +454,8 @@ export function useRemovePin() {
 
 export function useUnlock() {
   return useMutation<{ ok: boolean }, Error, { password?: string; pin?: string }>({
+    // Said by the lock screen.
+    meta: { handlesError: true },
     mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/unlock', { method: 'POST', body: JSON.stringify(data) }),
   });
 }
@@ -431,6 +465,7 @@ export function useUnlock() {
 export function useCompleteOnboarding() {
   const queryClient = useQueryClient();
   return useMutation<PublicUser, Error, { skipped: boolean }>({
+    meta: { handlesError: true },
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/user/onboarding/complete', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: (updatedUser, variables) => {
@@ -461,6 +496,7 @@ export function useOnboardingState(enabled: boolean) {
 export function usePostponeOnboarding() {
   const queryClient = useQueryClient();
   return useMutation<{ postponed: boolean }, Error, void>({
+    meta: { handlesError: true },
     mutationFn: () => apiFetch<{ postponed: boolean }>('/api/user/onboarding/postpone', { method: 'POST' }),
     onSuccess: () => {
       queryClient.setQueryData<OnboardingState>(ONBOARDING_STATE_KEY, (old) => (old ? { ...old, postponed: true } : old));

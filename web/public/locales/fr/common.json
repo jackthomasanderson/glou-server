@@ -434,6 +434,11 @@
       "priceError": "Impossible d'enregistrer le prix observé",
       "convertError": "Impossible de transformer le souhait en article de l'inventaire"
     },
+    "budget": {
+      "createSuccess": "Enveloppe budgétaire créée",
+      "updateSuccess": "Enveloppe budgétaire mise à jour",
+      "deleteSuccess": "Enveloppe budgétaire supprimée"
+    },
     "bulkUpdateError": "Impossible de modifier les vins sélectionnés",
     "bulkPreset": {
       "deleteError": "Impossible de supprimer le modèle d'actions"

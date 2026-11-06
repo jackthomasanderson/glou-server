@@ -36,6 +36,7 @@ const REFUSALS: Record<string, string> = {
 function useStockAction<TBody extends CorrectBody | MoveBody | RepriceBody>(action: StockAction) {
   const queryClient = useQueryClient();
   return useMutation<StockWrite, Error, StockVariables<TBody>>({
+    meta: { handlesError: true },
     // FEAT-108: offline, a correction is queued at once, and a move or a new
     // price says at once that it waits for the network (never held unseen).
     networkMode: 'always',

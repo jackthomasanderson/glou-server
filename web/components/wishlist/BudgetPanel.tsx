@@ -115,14 +115,24 @@ export function BudgetPanel() {
       periodEnd: new Date(form.periodEnd).toISOString(),
       amount,
     };
-    if (editing) await updateMutation.mutateAsync({ id: editing.id, data });
-    else await createMutation.mutateAsync(data);
+    try {
+      if (editing) await updateMutation.mutateAsync({ id: editing.id, data });
+      else await createMutation.mutateAsync(data);
+    } catch {
+      // Said by the shared failure message (#616); the dialog stays open with the entry.
+      return;
+    }
     setFormOpen(false);
   };
 
   const handleDelete = async () => {
     if (!deleting) return;
-    await deleteMutation.mutateAsync(deleting.id);
+    try {
+      await deleteMutation.mutateAsync(deleting.id);
+    } catch {
+      // Said by the shared failure message (#616).
+      return;
+    }
     setDeleting(null);
   };
 

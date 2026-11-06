@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Fixed
+- An action that fails now always says so: saving a budget envelope, a maturity reference or a humidor reading, pausing an alert, signing out a session, exporting your data or deleting your account, pausing or resuming a stock count, and other actions that used to fail without a word now show "An error occurred" (or "Cannot reach the server" without network). Actions that already had their own message keep it, without a second one; changes kept on the device while offline are still shown as waiting, not as failed. Creating, editing and deleting a budget envelope now also confirms it, and a failed save keeps its window open with what you typed (#616).
+
 ## v2026.11.1 - 2026-11-06
 
 > **Before you update:** this version changes how the cellar plan is stored. The update takes a backup of your database by itself, `./backups/glou-backup-before-migration-<date>.sql.gz`, then transforms your data once, entirely or not at all: every occupied slot is kept, identical lines left apart by the previous update only because each had its slot become one line holding all their slots (single cigars that each had a slot stay apart), and plan coordinates left on a bottle with no cellar, which showed on no plan, are dropped. To go back, restore that backup with the previous image (wiki 31, *Go back*): whatever you entered after the update is lost. On Linux, `mkdir -p backups && sudo chown 1001:1001 backups` first, or the API will not start (#847).

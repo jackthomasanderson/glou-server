@@ -177,6 +177,7 @@ function unitOfWines(queryClient: ReturnType<typeof useQueryClient>, id: string)
 export function useCreateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, Parameters<typeof inventoryClient.create>[0]>({
+    meta: { handlesError: true },
     mutationFn: inventoryClient.create,
     onSuccess: (newItem) => {
       queryClient.setQueryData<InventoryItem[]>(INVENTORY_KEY, (old) =>
@@ -224,6 +225,7 @@ export const REATTACH_REFUSALS: Record<string, string> = {
 export function useUpdateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, UpdateInventoryItemVariables>({
+    meta: { handlesError: true },
     // FEAT-108: offline, the change must reach the queue below at once —
     // React Query's default (`online`) would hold it, unseen, until the
     // network is back, and lose it on a reload.
@@ -332,6 +334,8 @@ export function useUpdateInventoryItem() {
 export function useRollbackField() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, { id: string; field: string; toValue: unknown }>({
+    // Said by the history's restore dialog (FamilyHistory).
+    meta: { handlesError: true },
     mutationFn: ({ id, field, toValue }) => inventoryClient.rollbackField(id, field, toValue),
     onSuccess: (_updatedItem, variables) => {
       void queryClient.invalidateQueries({ queryKey: ['inventory', variables.id, 'history'] });
@@ -348,6 +352,7 @@ export function useRollbackField() {
 export function useBulkUpdateInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<{ updatedCount: number }, Error, { ids: string[]; patch: Partial<InventoryItem> }>({
+    meta: { handlesError: true },
     mutationFn: ({ ids, patch }) => inventoryClient.bulkUpdate(ids, patch),
     onError: () => notifyError('toast.bulkUpdateError'),
     onSettled: () => {
@@ -362,6 +367,7 @@ export function useBulkUpdateInventoryItem() {
 export function useDeleteInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, string>({
+    meta: { handlesError: true },
     mutationFn: inventoryClient.delete,
     onSuccess: (_deletedItem, id) => {
       // ISSUE_381: drop the one row instead of invalidating the whole list.
@@ -390,6 +396,7 @@ export function useDeleteInventoryItem() {
 export function useRestoreInventoryItem() {
   const queryClient = useQueryClient();
   return useMutation<InventoryItem, Error, string>({
+    meta: { handlesError: true },
     mutationFn: inventoryClient.restore,
     onSuccess: (restored) => notifySuccess('toast.restoreSuccess', ...unitCtx(restored.category)),
     onError: (_error, id) => notifyError('toast.restoreError', ...unitCtx(cachedCategory(queryClient, id))),

@@ -59,6 +59,7 @@ export function useMergeFamilies() {
   const queryClient = useQueryClient();
   const refresh = useRefreshAfterReview();
   return useMutation<MergeAnswer, Error, MergeRequest>({
+    meta: { handlesError: true },
     mutationFn: reviewClient.merge,
     onSuccess: (answer) => {
       queryClient.setQueryData<ReviewCases>(REVIEW_KEY, (old) => old && {
@@ -77,6 +78,7 @@ export function useKeepApart() {
   const queryClient = useQueryClient();
   const refresh = useRefreshAfterReview();
   return useMutation<void, Error, string[]>({
+    meta: { handlesError: true },
     mutationFn: reviewClient.keepApart,
     onSuccess: (_answer, productIds) => {
       queryClient.setQueryData<ReviewCases>(REVIEW_KEY, (old) => old && {
@@ -94,6 +96,7 @@ export function useConfirmCount() {
   const queryClient = useQueryClient();
   const refresh = useRefreshAfterReview();
   return useMutation<ProductItem, Error, string>({
+    meta: { handlesError: true },
     mutationFn: reviewClient.confirmCount,
     onSuccess: (_item, itemId) => {
       queryClient.setQueryData<ReviewCases>(REVIEW_KEY, (old) => old && {
