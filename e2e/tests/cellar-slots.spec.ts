@@ -171,6 +171,98 @@ test.describe('the cellar plan, one cell per bottle (FEAT-93)', () => {
     }
   });
 
+  // Recette n°5 bis of #847: a bottle dragged with the mouse landed one cell past the
+  // one it was released on when the pointer moved before the plan had drawn the dragged
+  // bottle (a quick gesture, or pointer events sent in a burst): dnd-kit measured that
+  // drag preview already moved, then moved it again, so the target was hit twice as far.
+  test('with the mouse: a bottle lands in the cell it is released on, however quick the gesture', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column: 1, row: 1 } })).status()).toBe(201);
+    const moves: string[] = [];
+    page.on('request', (request) => { if (request.method() === 'PATCH' && request.url().includes('/api/slots/')) moves.push(request.postData() ?? ''); });
+    await page.goto(`/cellars/${cellarId}`);
+    const centre = async (column: number, row: number) => {
+      const box = (await page.locator(`[data-cell="${column}:${row}"]`).boundingBox())!;
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    };
+
+    // A real mouse, step by step: C1·R1 onto C1·R2.
+    let from = await centre(1, 1);
+    let to = await centre(1, 2);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 10 });
+    await page.mouse.up();
+    await expect(heldCell(page, 1, 2, wine)).toBeVisible();
+    await expect.poll(() => moves).toEqual([JSON.stringify({ column: 1, row: 2 })]);
+
+    // C1·R2 onto C2·R2, the pointer moved in one burst, before the plan draws anything
+    // (as a quick hand or a test tool does), then released once the drag is drawn.
+    from = await centre(1, 2);
+    to = await centre(2, 2);
+    await page.locator('[data-cell="1:2"]').evaluate((cell, { from, to }) => {
+      const mouse = (type: string, at: { x: number; y: number }, target: EventTarget = document) =>
+        target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: at.x, clientY: at.y, button: 0, buttons: 1 }));
+      mouse('mousedown', from, cell);
+      mouse('mousemove', { x: from.x + (to.x - from.x) / 2, y: from.y + (to.y - from.y) / 2 });
+      mouse('mousemove', to);
+    }, { from, to });
+    await expect(page.locator('[data-cell="2:2"]').locator('..')).toHaveCSS('outline-style', 'solid');
+    await page.evaluate((at) => document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: at.x, clientY: at.y, button: 0 })), to);
+    await expect(heldCell(page, 2, 2, wine)).toBeVisible();
+    await expect.poll(() => moves).toEqual([JSON.stringify({ column: 1, row: 2 }), JSON.stringify({ column: 2, row: 2 })]);
+    await page.reload();
+    await expect(heldCell(page, 2, 2, wine)).toBeVisible();
+    await expect(emptyCell(page, 3, 2)).toBeVisible();
+  });
+
+  // Recette n°5 bis of #847: the tooltip of a cell, beside it, covers the next cells of
+  // the row: a hover or a click there must reach the cell under it, never the tooltip.
+  test('the tooltip of a cell never takes the pointer, closes on leaving its cell, and stays hidden while dragging', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    for (const [column, row] of [[1, 1], [3, 1]] as const) {
+      expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column, row } })).status()).toBe(201);
+    }
+    await page.goto(`/cellars/${cellarId}`);
+    const centre = async (column: number, row: number) => {
+      const box = (await page.locator(`[data-cell="${column}:${row}"]`).boundingBox())!;
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    };
+    const tooltip = page.getByRole('tooltip');
+
+    const c1 = await centre(1, 1);
+    const c2 = await centre(2, 1);
+    // A first click on the page: react-aria shows a tooltip on hover once it knows a mouse is used.
+    await page.mouse.click(c2.x + 400, c2.y + 200);
+    await page.mouse.move(c1.x, c1.y);
+    await expect(tooltip).toContainText(wine);
+    // It does lie over C2·R1…
+    const box = (await tooltip.boundingBox())!;
+    expect(box.x).toBeLessThan(c2.x);
+    expect(box.x + box.width).toBeGreaterThan(c2.x);
+    // …yet a click there reaches the empty cell, and the tooltip is gone.
+    await page.mouse.click(c2.x, c2.y);
+    await expect(page.getByRole('dialog').filter({ hasText: 'C2·R1' })).toBeVisible();
+    await expect(tooltip).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    // Dragging C1·R1 and lingering over C3·R1: no tooltip, neither its own nor C3·R1's.
+    const c3 = await centre(3, 1);
+    await page.mouse.move(c1.x, c1.y);
+    await page.mouse.down();
+    await page.mouse.move(c3.x, c3.y, { steps: 10 });
+    await page.waitForTimeout(1200);
+    await expect(tooltip).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(heldCell(page, 1, 1, wine)).toBeVisible();
+  });
+
   /** Every copy of the line placed, by the API: C1·R1 … C3·R2. */
   async function placeAll(api: APIRequestContext, itemId: string) {
     for (const [column, row] of [[1, 1], [2, 1], [3, 1], [1, 2], [2, 2], [3, 2]] as const) {

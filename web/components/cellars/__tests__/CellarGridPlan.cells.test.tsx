@@ -30,8 +30,15 @@ vi.mock('@heroui/react', async (importActual) => {
     ModalHeader: Box,
     ModalBody: Box,
     ModalFooter: Box,
-    Tooltip: ({ children, content, placement, showArrow }: { children: React.ReactNode; content: React.ReactNode; placement?: string; showArrow?: boolean }) => (
-      <div data-testid="tooltip" data-placement={placement} data-arrow={showArrow ? 'true' : undefined}>
+    Tooltip: ({ children, content, placement, showArrow, closeDelay, isDisabled, style, classNames }: {
+      children: React.ReactNode; content: React.ReactNode; placement?: string; showArrow?: boolean; closeDelay?: number;
+      isDisabled?: boolean; style?: React.CSSProperties; classNames?: { base?: string };
+    }) => (
+      <div
+        data-testid="tooltip" data-placement={placement} data-arrow={showArrow ? 'true' : undefined}
+        data-close-delay={closeDelay} data-disabled={isDisabled ? 'true' : undefined}
+        data-pointer-events={style?.pointerEvents} data-base-class={classNames?.base}
+      >
         {children}
         <div data-testid="tooltip-content">{content}</div>
       </div>
@@ -99,6 +106,16 @@ describe('CellarGridPlan, an opened bottle on the plan (recette n°5 of #847)', 
     expect(screen.queryByTestId('grid-legend-opened')).toBeNull();
   });
 
+  it('an opened bottle and an opened box share one legend entry, their hatching being the same (recette n°5 bis)', () => {
+    const both = { ...data, items: [
+      opened(),
+      opened({ id: 'o2', category: 'cigar', color: null, cigarsPerBox: 25, cigarsLeft: 23, slots: [{ id: 's3', column: 1, row: 1 }] }),
+    ] } as unknown as CellarGridData;
+    renderGrid(both);
+    expect(screen.getAllByTestId('grid-legend-opened')).toHaveLength(1);
+    expect(screen.getByTestId('grid-legend-opened')).toHaveTextContent(/^familyDrawer\.lines\.opened$/);
+  });
+
   it('an opened box of cigars is hatched too, and its legend says "Boîte entamée"', () => {
     const cigars = { ...data, items: [opened({ category: 'cigar', color: null, cigarsPerBox: 25, cigarsLeft: 23 })] } as unknown as CellarGridData;
     renderGrid(cigars);
@@ -113,6 +130,15 @@ describe('CellarGridPlan, the tooltip of a cell (recette n°5 of #847)', () => {
     const tooltip = cellAt(2, 1).closest('[data-testid="tooltip"]') as HTMLElement;
     expect(tooltip).toHaveAttribute('data-placement', 'right-start');
     expect(tooltip).toHaveAttribute('data-arrow', 'true');
+  });
+
+  it('never takes the pointer and closes as soon as the pointer leaves its cell (recette n°5 bis)', () => {
+    renderGrid(withOpened);
+    const tooltip = cellAt(2, 1).closest('[data-testid="tooltip"]') as HTMLElement;
+    expect(tooltip).toHaveAttribute('data-pointer-events', 'none');
+    expect(tooltip.dataset.baseClass).toContain('pointer-events-none');
+    expect(tooltip).toHaveAttribute('data-close-delay', '0');
+    expect(tooltip).not.toHaveAttribute('data-disabled');
   });
 
   it('says what the cell holds on short lines (wine, producer, state), not one long line', () => {
