@@ -751,6 +751,13 @@
       "invalidUrl": "Enter an image address starting with https://.",
       "fetchFailed": "This image could not be downloaded. Check the address or choose another image.",
       "failed": "The photo could not be saved. Check your connection and try again."
+    },
+    "suggestion": {
+      "badge": "Suggestion",
+      "question": "Use this photo?",
+      "use": "Use",
+      "another": "Another photo",
+      "dismiss": "Dismiss this suggestion"
     }
   },
   "autocomplete": {

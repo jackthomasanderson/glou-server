@@ -1,7 +1,7 @@
 'use client';
 import React, { useRef, useState } from 'react';
 import { Button, Input, Tooltip } from '@heroui/react';
-import { Camera, Link2, Trash2, Check, X, Wine, Sparkles, GlassWater, Leaf, Loader2 } from 'lucide-react';
+import { Camera, Link2, Trash2, Check, X, Wine, Sparkles, GlassWater, Leaf, Loader2, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ImagePickerButton, ImageResult } from './ImagePicker';
 import { InventoryCategory } from '@/lib/inventory/types';
@@ -24,6 +24,15 @@ interface ItemImageSectionProps {
   autoSearchQuery?: string;
   preloadedResults?: ImageResult[];
   isAutoLoading?: boolean;
+  /** #862: a photo found for the item, shown until accepted or dismissed. */
+  suggestion?: PhotoSuggestion;
+}
+
+export interface PhotoSuggestion {
+  image: ImageResult;
+  hasMore: boolean;
+  onNext: () => void;
+  onDismiss: () => void;
 }
 
 type Mode = 'idle' | 'url';
@@ -49,6 +58,7 @@ export function ItemImageSection({
   autoSearchQuery = '',
   preloadedResults,
   isAutoLoading = false,
+  suggestion,
 }: ItemImageSectionProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -96,6 +106,13 @@ export function ItemImageSection({
 
   const isLocal = photoUrl.startsWith('/uploads/');
   const hasPhoto = Boolean(photoUrl);
+  const offered = !hasPhoto && !saving && !isAutoLoading ? suggestion : undefined;
+
+  // Stored as a photo picked from the search is; one that cannot be is passed over.
+  // The suggestion is captured: the name may change while it is stored.
+  const acceptSuggestion = async (accepted: PhotoSuggestion) => {
+    if (!(await savePhoto(() => searchClient.saveImageFromUrl(accepted.image.url)))) accepted.onNext();
+  };
 
   return (
     <div>
@@ -120,8 +137,22 @@ export function ItemImageSection({
             className="w-full h-full object-contain"
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
+        ) : offered ? (
+          <img loading="lazy" decoding="async"
+            key={offered.image.thumb}
+            src={offered.image.thumb}
+            alt={offered.image.title}
+            className="w-full h-full object-contain"
+            onError={offered.onNext}
+          />
         ) : (
           PLACEHOLDER_ICON[category]
+        )}
+
+        {offered && (
+          <span className="absolute bottom-2 left-2 bg-black/45 text-white px-1.5 py-0.5 rounded text-xs">
+            {t('itemImage.suggestion.badge')}
+          </span>
         )}
 
         {hasPhoto && !saving && !isAutoLoading && (
@@ -142,6 +173,39 @@ export function ItemImageSection({
           <span className="absolute bottom-2 left-2 bg-black/45 text-white px-1.5 py-0.5 rounded text-xs">
             {t('itemImage.savedLocally')}
           </span>
+        )}
+      </div>
+
+      {/* ── Photo suggestion (#862) ──────────────────────────── */}
+      {/* Always present, so screen readers announce a suggestion as it appears. */}
+      <div aria-live="polite">
+        {offered && (
+          <div role="group" aria-label={t('itemImage.suggestion.question')} className="mb-3 flex flex-col items-center gap-1.5">
+            <p className="text-xs text-foreground-500 text-center">{t('itemImage.suggestion.question')}</p>
+            <div className="flex items-center justify-center gap-1">
+              <Button
+                size="sm"
+                color="primary"
+                variant="flat"
+                startContent={<Check size={14} />}
+                onPress={() => acceptSuggestion(offered)}
+              >
+                {t('itemImage.suggestion.use')}
+              </Button>
+              {offered.hasMore && (
+                <Tooltip content={t('itemImage.suggestion.another')} delay={500}>
+                  <Button isIconOnly size="sm" variant="light" onPress={offered.onNext} aria-label={t('itemImage.suggestion.another')}>
+                    <RefreshCw size={14} />
+                  </Button>
+                </Tooltip>
+              )}
+              <Tooltip content={t('itemImage.suggestion.dismiss')} delay={500}>
+                <Button isIconOnly size="sm" variant="light" onPress={offered.onDismiss} aria-label={t('itemImage.suggestion.dismiss')}>
+                  <X size={14} />
+                </Button>
+              </Tooltip>
+            </div>
+          </div>
         )}
       </div>
 

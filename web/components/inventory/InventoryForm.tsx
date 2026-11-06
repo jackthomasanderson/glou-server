@@ -29,6 +29,7 @@ import { ParsedNumberInput, ParsedInput } from '@/components/ui/ParsedInput';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
 import { buildEditPatch } from '@/lib/forms/editPatch';
 import { searchClient } from '@/lib/search/client';
+import { isAboutItem } from '@/lib/search/relevance';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import {
@@ -168,8 +169,9 @@ export function InventoryForm({
   const [showOptionals, setShowOptionals] = useState(false);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
-  // Last automatic photo pick and the "producer name" it was made for.
-  const [autoPhoto, setAutoPhoto] = useState<{ query: string; path: string | null } | null>(null);
+  // #862: the photo suggested for "category producer name" — the results
+  // about the item and the one shown; never attached until accepted.
+  const [photoSuggestion, setPhotoSuggestion] = useState<{ key: string; results: ImageResult[]; index: number } | null>(null);
   const isEditing = Boolean(initialValues?.id);
   // A bottle's own fields (cellar, price, number, state): not in a wine's description.
   const showsBottle = !descriptionOf;
@@ -207,7 +209,7 @@ export function InventoryForm({
       setShowOptionals(false);
       setPrefetchedImages([]);
       setIsAutoLoading(false);
-      setAutoPhoto(null);
+      setPhotoSuggestion(null);
       setJoining(null);
       setDistinctFrom([]);
     }
@@ -226,41 +228,47 @@ export function InventoryForm({
     onClose();
   };
 
-  // The automatic photo (#227) follows the name until the user picks one.
-  // It used to be fetched once, after the first 1.2 s pause, so a pause while
-  // typing attached the photo of a half-typed name for good (#706).
+  // The photo suggestion (#227) follows the name until a photo is set; it
+  // waits for a 1.2 s pause so a half-typed name is not searched (#706). It
+  // used to download the first result as the photo without asking (#862).
+  const suggestionQuery = `${values.producer ?? ''} ${values.name ?? ''}`.trim();
+  const suggestionCategory = values.category ?? 'wine';
+  const suggestionKey = `${suggestionCategory} ${suggestionQuery}`;
+  const lastSuggestionKey = photoSuggestion?.key;
   useEffect(() => {
-    if (isEditing || !values.name?.trim() || !values.producer?.trim()) return;
-    const query = `${values.producer} ${values.name}`.trim();
-    const previousPath = autoPhoto?.path ?? null;
-    // A photo that is not the last automatic pick was chosen by the user.
-    const userPhoto = Boolean(values.photoUrl) && values.photoUrl !== previousPath;
-    // Same query as the last pick: done, even if the user removed that photo.
-    if (userPhoto || autoPhoto?.query === query) return;
+    if (isEditing || values.photoUrl || !values.name?.trim() || !values.producer?.trim()) return;
+    if (lastSuggestionKey === suggestionKey) return;
     let cancelled = false;
     const timer = setTimeout(async () => {
       setIsAutoLoading(true);
       try {
-        const results = await searchClient.searchImages(query);
+        const results = await searchClient.searchImages(suggestionQuery, suggestionCategory);
         if (cancelled) return;
         setPrefetchedImages(results);
-        const path = (results.length > 0 && (await searchClient.saveImageFromUrl(results[0].url))) || null;
-        // Typed on, or picked a photo, meanwhile: this result is stale.
-        if (cancelled) return;
-        setAutoPhoto({ query, path });
-        // Only an empty field or the previous automatic pick is replaced; with
-        // no photo found for the new name, the stale one is removed.
-        setValues((prev) =>
-          (!prev.photoUrl && !path) || (prev.photoUrl && prev.photoUrl !== previousPath)
-            ? prev
-            : { ...prev, photoUrl: path ?? undefined });
-      } catch { /* ignore */ } finally {
+        setPhotoSuggestion({
+          key: suggestionKey,
+          results: results.filter((result) => isAboutItem(result.title, values.name, values.producer)),
+          index: 0,
+        });
+      } catch { /* no suggestion: the photo stays empty */ } finally {
         // A newer search owns the spinner once this one is stale.
         if (!cancelled) setIsAutoLoading(false);
       }
     }, 1200);
     return () => { cancelled = true; clearTimeout(timer); setIsAutoLoading(false); };
-  }, [values.name, values.producer, values.photoUrl, isEditing, autoPhoto]);
+  }, [values.name, values.producer, values.photoUrl, isEditing, suggestionQuery, suggestionCategory, suggestionKey, lastSuggestionKey]);
+  // Only the suggestion for what is typed now; "dismiss" moves past the last one.
+  const suggestedPhoto = photoSuggestion?.key === suggestionKey ? photoSuggestion.results[photoSuggestion.index] : undefined;
+  // Bound to the name it was found for: an answer arriving after the name
+  // changed never moves the suggestion of the new name.
+  const showNextSuggestion = (key: string, count: number) =>
+    setPhotoSuggestion((prev) => prev && prev.key === key ? { ...prev, index: prev.index + count } : prev);
+  // Once a photo is set (the suggestion accepted or another one chosen), none
+  // is offered again for this name, even if that photo is removed.
+  const changePhoto = (url: string) => {
+    setField('photoUrl', url);
+    if (url) setPhotoSuggestion({ key: suggestionKey, results: [], index: 0 });
+  };
 
   const missingName = !values.name?.trim();
   const missingProducer = !values.producer?.trim();
@@ -420,11 +428,17 @@ export function InventoryForm({
               <div className="w-[170px] mx-auto sm:mx-0 shrink-0 border-b sm:border-b-0 sm:border-r border-divider px-4 py-5">
                 <ItemImageSection
                   photoUrl={values.photoUrl ?? ''}
-                  onPhotoChange={(url) => setField('photoUrl', url)}
+                  onPhotoChange={changePhoto}
                   category={category}
                   autoSearchQuery={[values.producer, values.name].filter(Boolean).join(' ')}
                   preloadedResults={prefetchedImages}
                   isAutoLoading={isAutoLoading}
+                  suggestion={suggestedPhoto && {
+                    image: suggestedPhoto,
+                    hasMore: photoSuggestion!.index + 1 < photoSuggestion!.results.length,
+                    onNext: () => showNextSuggestion(suggestionKey, 1),
+                    onDismiss: () => showNextSuggestion(suggestionKey, photoSuggestion!.results.length),
+                  }}
                 />
               </div>
 

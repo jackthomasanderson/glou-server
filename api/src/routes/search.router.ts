@@ -5,7 +5,7 @@ import path from 'path';
 import multer from 'multer';
 import { assertUrlAllowed, resolveSafeUrl } from '../lib/ssrf';
 import { AppError } from '../lib/errors';
-import { ALLOWED_IMAGE_TYPES } from '../lib/upload';
+import { ALLOWED_IMAGE_TYPES, detectImageExtension } from '../lib/upload';
 import { isCommercial, PRODUCER_EXTRA_TERMS } from '../lib/suggest-filter';
 
 const router = Router();
@@ -18,6 +18,12 @@ const PRODUCT_PREFIX: Record<string, Record<string, string>> = {
 const PRODUCER_PREFIX: Record<string, Record<string, string>> = {
   fr: { wine: 'château', sparkling: 'maison', spirit: 'distillerie', cigar: 'manufacture' },
   en: { wine: 'winery', sparkling: 'house', spirit: 'distillery', cigar: 'manufacturer' },
+};
+
+// #862: what the photo suggestion looks for, added to "producer name" — alone,
+// an uncommon or made-up name returned anything ("ZZ" is a ball-bearing code).
+const IMAGE_SUBJECT: Record<string, string> = {
+  wine: 'wine bottle', sparkling: 'champagne bottle', spirit: 'bottle', cigar: 'cigar',
 };
 
 function toTitleCase(s: string): string {
@@ -132,18 +138,6 @@ if (!fs.existsSync(PRODUCTS_UPLOAD_DIR)) {
   fs.mkdirSync(PRODUCTS_UPLOAD_DIR, { recursive: true });
 }
 
-function extFromUrl(url: string): string | null {
-  try {
-    const raw = path.extname(new URL(url).pathname).replace('.', '').toLowerCase();
-    const map: Record<string, string> = { jpg: 'jpg', jpeg: 'jpg', png: 'png', webp: 'webp', gif: 'gif', avif: 'avif' };
-    return map[raw] ?? null;
-  } catch {
-    // Unparseable URL — routine (not every result has a clean extension in
-    // its path), the caller already has its own further fallback.
-    return null;
-  }
-}
-
 const productImageUpload = multer({
   storage: multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, PRODUCTS_UPLOAD_DIR),
@@ -166,7 +160,10 @@ const productImageUpload = multer({
   },
 });
 
-// GET /api/search/images?q=...
+/** #862: answers that are surely a page, not an image. */
+const NOT_AN_IMAGE_TYPES = new Set(['text/html', 'application/xhtml+xml', 'application/json']);
+
+// GET /api/search/images?q=...&category=...
 // ISSUE_228: scrapes DuckDuckGo's image search HTML/JSON endpoints — there is
 // no official image-search API this project uses instead. That's a known,
 // accepted risk: it can break without notice on a DuckDuckGo-side change
@@ -179,8 +176,11 @@ const productImageUpload = multer({
 // already treat `unavailable`/an empty `data` as "no image results", not an
 // error.
 router.get('/images', authMiddleware, async (req, res) => {
-  const q = String(req.query.q ?? '').trim();
-  if (!q || q.length < 2) return res.json({ data: [] });
+  const typed = String(req.query.q ?? '').trim();
+  if (!typed || typed.length < 2) return res.json({ data: [] });
+  // A manual search (no category) is sent as typed.
+  const subject = IMAGE_SUBJECT[String(req.query.category ?? '')];
+  const q = subject ? `${typed} ${subject}` : typed;
 
   try {
     // Step 1: get vqd token from DuckDuckGo
@@ -269,9 +269,10 @@ router.post('/images/save', authMiddleware, async (req, res) => {
 
     if (!response.ok) return res.status(502).json({ error: 'FETCH_FAILED' });
 
+    // #862: a page (hotlink protection, an error) is refused before it is
+    // read; any other answer, even mislabelled, is judged on its bytes below.
     const rawType = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? '';
-    const ext = ALLOWED_IMAGE_TYPES[rawType] ?? extFromUrl(url);
-    if (!ext) return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
+    if (NOT_AN_IMAGE_TYPES.has(rawType)) return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
 
     const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
     const declaredLength = Number(response.headers.get('content-length'));
@@ -299,8 +300,14 @@ router.post('/images/save', authMiddleware, async (req, res) => {
       reader.releaseLock?.();
     }
 
+    // #862: only a file whose bytes are those of an image is stored, under the
+    // extension of what it really is: a broken photo is never attached.
+    const bytes = Buffer.concat(chunks);
+    const ext = detectImageExtension(bytes);
+    if (!ext) return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
+
     const filename = `${crypto.randomUUID()}.${ext}`;
-    fs.writeFileSync(path.join(PRODUCTS_UPLOAD_DIR, filename), Buffer.concat(chunks));
+    fs.writeFileSync(path.join(PRODUCTS_UPLOAD_DIR, filename), bytes);
 
     res.json({ data: { path: `/uploads/products/${filename}` } });
   } catch (error) {
