@@ -155,6 +155,36 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     await expect.poll(() => changesTold(api, bottle.productId)).toEqual(['UPDATE']);
   });
 
+  // Recette #847, KO 8.2: "Annuler" of a bottle opened from its cell left
+  // "Quantité : 2 → 3" — the group's entry, written a few milliseconds after
+  // the bottle's, fell out of what was hidden. With the real database's clock.
+  test('a bottle opened from its cell then put back: no number told in the history', async ({ page }) => {
+    const api = page.request;
+    const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E R6B Plan ${stamp()}`, columns: 3, rows: 3 } }))).id;
+    cellars.push(cellar);
+    const group = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name: `E2E R6B cell ${stamp()}`, producer: 'E2E Domaine', purchasePrice: 20, quantity: 3, cellarId: cellar },
+    }));
+    families.push(group.productId);
+    for (const column of [1, 2, 3]) expect((await api.post(`/api/inventory/${group.id}/slots`, { data: { column, row: 1 } })).status()).toBe(201);
+    const placed = (await unitsOf(api, group.productId))[0];
+    const cell = placed.slots.find((slot) => slot.column === 2)!;
+
+    for (let round = 0; round < 3; round++) {
+      const line = (await unitsOf(api, group.productId)).find((unit) => unit.id === group.id)!;
+      const opened = await okData<Unit & { updatedAt: string }>(await api.patch(`/api/inventory/${group.id}`, {
+        data: { isOpened: true, fillLevel: 100, openedAt: new Date().toISOString(), fromSlotId: line.slots.find((slot) => slot.column === 2)?.id ?? cell.id },
+      }));
+      expect(opened.parentItemId).toBe(group.id);
+      await okData(await api.patch(`/api/inventory/${opened.id}`, { data: { isOpened: false, fillLevel: 100, expectedUpdatedAt: opened.updatedAt } }));
+    }
+    expect((await unitsOf(api, group.productId)).map((unit) => [unit.id, unit.quantity, unit.slots.length])).toEqual([[group.id, 3, 3]]);
+    // Only its three placings are told: none of the openings taken back, nor their "3 → 2" / "2 → 3".
+    const numbersTold = async () => (await okData<{ history: { changes: { field: string }[] | null }[] }>(await api.get(`/api/products/${group.productId}`))).history
+      .filter((entry) => (entry.changes ?? []).some((change) => change.field === 'quantity' || change.field === 'isOpened')).length;
+    await expect.poll(numbersTold).toBe(0);
+  });
+
   // Recette v3 of #471: the message covered the drawer's close button —
   // pressing the cross closed the message, not the drawer.
   test('the message of a move never covers the close button of the drawer', async ({ page }) => {
