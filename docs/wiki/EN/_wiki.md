@@ -34,3 +34,4 @@ This documentation covers setup, configuration, and troubleshooting.
 29. [Rotate the Secrets](./29-Secret-Rotation.md)
 30. [Disaster Recovery](./30-Disaster-Recovery.md)
 31. [Upgrade & Roll Back](./31-Upgrades-And-Rollback.md)
+32. [Vivino Lookup](./32-Vivino-Lookup.md)

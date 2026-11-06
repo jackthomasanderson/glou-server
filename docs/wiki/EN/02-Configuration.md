@@ -30,6 +30,7 @@
 | `OLLAMA_URL` | `http://ollama:11434` | Vision model used by the [label scan](./26-Label-Scan.md) (only with `--profile scan`). |
 | `OLLAMA_MODEL` | `moondream` | Model name used for the scan. |
 | `OLLAMA_TIMEOUT_MS` | `600000` | Maximum time to wait for the model per scan, in milliseconds. |
+| `VIVINO_ENABLED` | `false` | `true` turns on the [Vivino lookup](./32-Vivino-Lookup.md). The producer, name and vintage of a wine you look up are then sent to vivino.com. |
 | `API_RATE_LIMIT_MAX` | `1000` | Advanced. Requests allowed per IP address every 15 minutes on the API and uploaded images; a positive whole number, anything else is ignored with a warning in the API logs. Raise it only if many devices share one address and get `Too many requests`. The sign-in and password-reset limits do not change. |
 
 > [!NOTE]

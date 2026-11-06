@@ -33,6 +33,7 @@ import { importRouter } from './routes/import.router';
 import wishlistRouter from './routes/wishlist.router';
 import { scanRouter } from './routes/scan.router';
 import humidorRouter from './routes/humidor.router';
+import { vivinoRouter } from './routes/vivino.router';
 import { APP_VERSION } from './lib/app-version';
 import { redactUrlSecrets } from './lib/log-redact';
 import { apiRateLimitMax } from './lib/rate-limit-max';
@@ -201,6 +202,7 @@ export function createApp(): express.Express {
   app.use('/api/wishlist', wishlistRouter);
   app.use('/api/scan', scanRouter);
   app.use('/api/humidor', humidorRouter);
+  app.use('/api/vivino', vivinoRouter);
 
   // ─── 404 handler ──────────────────────────────────────────────────────────
 
