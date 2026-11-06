@@ -249,6 +249,35 @@ describe('readFieldHistory', () => {
       ])).toEqual([]);
     });
 
+    // Recette #847 (KO 4.4): closing again clears the opening date without
+    // recording it, and "Annuler" of a box writes its size as cigars left.
+    it('a lone box smoked, or a lone bottle opened, then taken back: both entries go', async () => {
+      const openedAt = '2026-11-04T10:00:00.000Z';
+      expect(await read([
+        log(2, 4, 'x', { changes: [{ field: 'isOpened', from: true, to: false }, { field: 'cigarsLeft', from: 24, to: 25 }], outcome: 'regrouped', targetItemId: 'x' }),
+        log(1, 0, 'x', { changes: [{ field: 'isOpened', from: false, to: true }, { field: 'openedAt', from: null, to: openedAt }, { field: 'cigarsLeft', from: null, to: 24 }], smokeOne: true }),
+      ])).toEqual([]);
+      expect(await read([
+        log(2, 4, 'b', { changes: [{ field: 'isOpened', from: true, to: false }], outcome: 'regrouped', targetItemId: 'b' }),
+        log(1, 0, 'b', { changes: [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 100 }, { field: 'openedAt', from: null, to: openedAt }] }),
+      ])).toEqual([]);
+      // A guest's, through the same link (its "Annuler" puts the opening date back too); never another link's.
+      const guest = (row: ReturnType<typeof log>, shareId: string) =>
+        ({ ...row, action: 'GUEST_UPDATE', details: { ...(row.details as object), via: 'guest_share', shareId } });
+      const guestSmoke = guest(log(1, 0, 'x', { changes: [{ field: 'isOpened', from: false, to: true }, { field: 'openedAt', from: null, to: openedAt }, { field: 'cigarsLeft', from: null, to: 24 }], smokeOne: true }), 'sh1');
+      const guestBack = (shareId: string) => guest(log(2, 4, 'x', {
+        changes: [{ field: 'isOpened', from: true, to: false }, { field: 'openedAt', from: openedAt, to: null }, { field: 'cigarsLeft', from: 24, to: 25 }], outcome: 'regrouped', targetItemId: 'x',
+      }), shareId);
+      expect(await read([guestBack('sh1'), guestSmoke])).toEqual([]);
+      expect(await read([guestBack('sh2'), guestSmoke])).toEqual([2, 1]);
+    });
+
+    it('a box smoked then smoked again, or still opened, is told', async () => {
+      const smoked = log(1, 0, 'x', { changes: [{ field: 'isOpened', from: false, to: true }, { field: 'cigarsLeft', from: null, to: 24 }], smokeOne: true });
+      expect(await read([log(2, 4, 'x', { changes: [{ field: 'cigarsLeft', from: 24, to: 23 }], smokeOne: true }), smoked])).toEqual([2, 1]);
+      expect(await read([log(2, 4, 'x', { changes: [{ field: 'cigarsLeft', from: 24, to: 25 }] }), smoked])).toEqual([2, 1]);
+    });
+
     it('two writes that do not cancel out are both told', async () => {
       expect(await read([
         log(2, 4, 'b', { changes: [{ field: 'fillLevel', from: 50, to: 30 }] }),

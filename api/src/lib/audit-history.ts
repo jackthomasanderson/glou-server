@@ -56,11 +56,20 @@ const actorOf = (log: HistoryLog) =>
 
 /** A write of a copy's state (opened, level, cigars left); an in-place one is logged without `outcome`. */
 const STATE_FIELDS = new Set(['isOpened', 'fillLevel', 'cigarsLeft']);
+/** The actions that write a copy's state: a member's edit, a guest's move. */
+const STATE_ACTIONS = new Set(['UPDATE', 'GUEST_UPDATE']);
 const isStateWrite = (details: StateDetails) => (details.changes ?? []).some((change) => STATE_FIELDS.has(change.field));
 
 /** A closed bottle without a level is full: `fillLevel` null and 100 say the same. */
 const sameValue = (field: string, a: unknown, b: unknown) =>
   field === 'fillLevel' ? (a ?? 100) === (b ?? 100) : JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+/**
+ * What a closed copy's state does not say: a closed copy has no opening date
+ * (the date is cleared on closing, without being recorded), and a closed box
+ * is complete (its count is cleared, or recorded as the size of the box).
+ */
+const MOOT_WHEN_CLOSED = new Set(['openedAt', 'cigarsLeft']);
 
 /** `later` puts back every field `first` changed, and changes nothing else: together, nothing happened. */
 function cancelsOut(first: Change[], later: Change[]): boolean {
@@ -70,7 +79,12 @@ function cancelsOut(first: Change[], later: Change[]): boolean {
     if (!before.has(change.field)) before.set(change.field, change.from);
     after.set(change.field, change.to);
   }
-  return [...before.keys()].every((field) => sameValue(field, before.get(field), after.get(field)));
+  // Recette #847 (KO 4.4): "J'en fume un" on a closed box, then "Annuler" —
+  // opened at that time with 24 left, put back closed "with 25 left": closed
+  // on both ends, the same box.
+  const closed = before.has('isOpened') && before.get('isOpened') !== true && after.get('isOpened') !== true;
+  return [...before.keys()].every((field) =>
+    (closed && MOOT_WHEN_CLOSED.has(field)) || sameValue(field, before.get(field), after.get(field)));
 }
 
 /**
@@ -124,7 +138,8 @@ export function withoutUndone<L extends HistoryLog>(logs: readonly L[]): L[] {
     if (!previous || hidden.has(previous)) continue;
     const [first, later] = [detailsOf(previous), detailsOf(log)];
     if (!isStateWrite(first) || !isStateWrite(later) || later.deletedTastings) continue;
-    if (previous.action !== 'UPDATE' || log.action !== 'UPDATE' || actorOf(previous) !== actorOf(log)) continue;
+    // A guest's own move and its "Annuler" (GUEST_UPDATE, the same share) too.
+    if (!STATE_ACTIONS.has(previous.action) || !STATE_ACTIONS.has(log.action) || actorOf(previous) !== actorOf(log)) continue;
     if (log.createdAt.getTime() - previous.createdAt.getTime() > UNDO_WINDOW_MS) continue;
     if (cancelsOut(first.changes ?? [], later.changes ?? [])) {
       hidden.add(previous);

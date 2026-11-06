@@ -244,7 +244,17 @@
       "slotRow": "Rangée",
       "alertsPaused": "Alertes d'apogée en pause",
       "consumptionPostponedUntil": "Reportée jusqu'au",
-      "lockedFields": "Champs verrouillés"
+      "lockedFields": "Champs verrouillés",
+      "isOpened_box": "Boîte entamée",
+      "isOpened_cigar": "Cigare entamé",
+      "openedAt_cigar": "Entamé le",
+      "cigarsLeft": "Cigares restants",
+      "cigarsPerBox": "Cigares par boîte",
+      "parentItemId": "Ligne d'origine",
+      "writtenOffAt": "Cassée, offerte ou perdue le",
+      "writtenOffAt_cigar": "Cassé, offert ou perdu le",
+      "needsReview": "Nombre à vérifier",
+      "isOwned": "Dans ma cave"
     },
     "expertSection": {
       "title": "Champs avancés (collectionneur)"
@@ -1084,6 +1094,9 @@
       "confirm": "Restaurer"
     },
     "restoreError": "Impossible de restaurer cette valeur.",
+    "restoreConflict": "Non restauré : ce vin a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez cette fenêtre : la fiche se met à jour, vous pourrez réessayer.",
+    "restoreConflict_spirit": "Non restauré : ce spiritueux a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez cette fenêtre : la fiche se met à jour, vous pourrez réessayer.",
+    "restoreConflict_cigar": "Non restauré : ce cigare a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez cette fenêtre : la fiche se met à jour, vous pourrez réessayer.",
     "booleanTrue": "Oui",
     "booleanFalse": "Non",
     "source": {
@@ -2629,9 +2642,15 @@
       "scopeCigar_one": "Modifie ce cigare pour son seul cigare en cave.",
       "scopeCigar_other": "Modifie ce cigare pour ses {{count}} cigares.",
       "saved": "Vin mis à jour",
+      "saved_spirit": "Spiritueux mis à jour",
+      "saved_cigar": "Cigare mis à jour",
       "conflict": "Non enregistré : ce vin a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
+      "conflict_spirit": "Non enregistré : ce spiritueux a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
+      "conflict_cigar": "Non enregistré : ce cigare a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
       "rejected": "Non enregistré : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire.",
       "error": "Impossible d'enregistrer ce vin.",
+      "error_spirit": "Impossible d'enregistrer ce spiritueux.",
+      "error_cigar": "Impossible d'enregistrer ce cigare.",
       "thisWine": "ce vin",
       "thisSpirit": "ce spiritueux"
     },

@@ -185,6 +185,43 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     await expect.poll(numbersTold).toBe(0);
   });
 
+  // Recette n°5 ter of #847 (KO 4.4): a box of 25 smoked from its cell then
+  // "Annuler" left "1 cigare fumé" and "Bouteille entamée / ouverte : Non ·
+  // Cigars Left : 25" — the putting back wrote the box's size, not the opening date.
+  test('a box smoked from its cell then put back: nothing told in the history', async ({ page }) => {
+    const api = page.request;
+    const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E R7B Plan ${stamp()}`, columns: 3, rows: 3 } }))).id;
+    cellars.push(cellar);
+    const name = `E2E R7B box ${stamp()}`;
+    const box = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'cigar', name, producer: 'E2E Habanos', quantity: 1, cigarsPerBox: 25, purchasePrice: 100, cellarId: cellar },
+    }));
+    families.push(box.productId);
+    expect((await api.post(`/api/inventory/${box.id}/slots`, { data: { column: 1, row: 2 } })).status()).toBe(201);
+
+    const drawer = await openDrawer(page, box.productId, name);
+    const smoked = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${box.id}`) && r.request().method() === 'PATCH');
+    await drawer.getByTestId('stock-move-smoke').click();
+    expect((await smoked).status()).toBe(200);
+    await expect(message(page, '1 cigare fumé')).toBeVisible();
+    const undone = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${box.id}`) && r.request().method() === 'PATCH');
+    await page.locator('button', { hasText: /^Annuler$/ }).last().click();
+    expect((await undone).status()).toBe(200);
+    expect((await unitsOf(api, box.productId))[0]).toMatchObject({ id: box.id, isOpened: false, slots: [expect.objectContaining({ column: 1, row: 2 })] });
+
+    // Each entry is written once its request is answered: only its placing is told,
+    // checked again over a few reads so an entry written late is seen too.
+    const told = async () => (await okData<{ history: { action: string; gesture?: string; changes: { field: string }[] | null }[] }>(
+      await api.get(`/api/products/${box.productId}`))).history.filter((entry) => entry.action !== 'CREATE')
+      .map((entry) => [entry.gesture ?? null, (entry.changes ?? []).map((change) => change.field)]);
+    let reads = 0;
+    await expect.poll(async () => {
+      const history = await told();
+      reads = JSON.stringify(history) === JSON.stringify([[null, ['slot']]]) ? reads + 1 : 0;
+      return reads >= 3 ? history : null;
+    }, { intervals: [200] }).toEqual([[null, ['slot']]]);
+  });
+
   // Recette v3 of #471: the message covered the drawer's close button —
   // pressing the cross closed the message, not the drawer.
   test('the message of a move never covers the close button of the drawer', async ({ page }) => {

@@ -220,6 +220,8 @@ export interface UpdateProductVariables {
   patch: Partial<ProductDescription>;
   /** The wine's version the form started from (#572). */
   expectedUpdatedAt?: string;
+  /** Its category, for the words of a refusal (« ce cigare »); else read from the cached list. */
+  category?: string;
 }
 
 /**
@@ -235,12 +237,13 @@ export function useUpdateProduct() {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) =>
         old?.map((product) => (product.id === saved.id ? saved : product)));
     },
-    onError: (error) => {
+    onError: (error, { id, category }) => {
+      const context = productCtx(queryClient, id, category);
       if (error.message === 'CONFLICT') {
-        notifyError('familyDrawer.form.conflict');
+        notifyError('familyDrawer.form.conflict', context);
         return;
       }
-      notifyError(error.message === 'VALIDATION_ERROR' ? 'familyDrawer.form.rejected' : 'familyDrawer.form.error');
+      notifyError(error.message === 'VALIDATION_ERROR' ? 'familyDrawer.form.rejected' : 'familyDrawer.form.error', context);
     },
     onSettled: (_saved, _error, { id }) => {
       void queryClient.invalidateQueries({ queryKey: productDetailKey(id) });

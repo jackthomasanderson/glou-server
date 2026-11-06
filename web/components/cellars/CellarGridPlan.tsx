@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback, useId } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useId, useRef } from 'react';
 import {
   Button,
   Chip,
@@ -30,7 +30,7 @@ import {
   type DragEndEvent,
   type Announcements,
 } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { CSS, getEventCoordinates } from '@dnd-kit/utilities';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { GridItem, GridCell, CellarGridData } from '@/lib/cellars/types';
@@ -268,6 +268,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording
   return (
     <div
       ref={setNodeRef}
+      data-slot={`${col}:${row}`}
       className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded relative"
       style={{
         backgroundColor: item ? 'transparent' : ZONE_BG[zone],
@@ -494,6 +495,49 @@ export const dropTarget: CollisionDetection = (args) => {
   return pointerWithin({ ...args, droppableRects: grown });
 };
 
+/** A cell of the plan where it is drawn on the screen. */
+export interface PlacedCell { col: number; row: number; rect: { top: number; left: number; bottom: number; right: number } }
+
+/**
+ * Recette n°5 ter of #847: the cell a bottle released at `point` lands on, by
+ * the rule of `dropTarget` (the cell under the pointer, a gap to the nearer
+ * cell, off the grid nothing). dnd-kit drops on the cell it found at the last
+ * pointer move it has drawn: a release right after a move (pointer events in a
+ * burst, a quick hand) or away from the last move landed on the cell before.
+ */
+export function cellAt(point: { x: number; y: number }, cells: PlacedCell[]): { col: number; row: number } | null {
+  let best: { col: number; row: number } | null = null;
+  let bestDistance = Infinity;
+  for (const { col, row, rect } of cells) {
+    if (point.x < rect.left - HALF_GAP_PX || point.x > rect.right + HALF_GAP_PX
+      || point.y < rect.top - HALF_GAP_PX || point.y > rect.bottom + HALF_GAP_PX) continue;
+    const distance = Math.hypot(point.x - (rect.left + rect.right) / 2, point.y - (rect.top + rect.bottom) / 2);
+    if (distance < bestDistance) {
+      best = { col, row };
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/** Where the last pointer drag was released: a cell, null off the plan, undefined for the keyboard. */
+function releaseNote() {
+  let slot: DropSlot | null | undefined;
+  return {
+    get: () => slot,
+    set: (released: DropSlot | null | undefined) => { slot = released; },
+  };
+}
+
+/** The cells of a drawn plan, as they are on the screen now. */
+function placedCells(grid: HTMLElement | null): PlacedCell[] {
+  if (!grid) return [];
+  return Array.from(grid.querySelectorAll<HTMLElement>('[data-slot]'), (node) => {
+    const [col, row] = (node.dataset.slot ?? '').split(':').map(Number);
+    return { col, row, rect: node.getBoundingClientRect() };
+  });
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface CellarGridPlanProps {
@@ -505,14 +549,25 @@ interface CellarGridPlanProps {
   onOpenSlot: (cell: GridCell) => void;
 }
 
+/** A cell a bottle is dropped on, and what it holds. */
+type DropSlot = { col: number; row: number; item?: GridCell | null };
+
 /**
  * What a screen reader hears while a bottle or a cigar is moved on the plan,
  * in the member's language; French agrees with the thing moved (« Robusto
  * déposé », « Cuvée X déposée », review of #828).
  */
-export function dragAnnouncements(t: (key: string, options?: Record<string, unknown>) => string): Announcements {
+export function dragAnnouncements(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  /**
+   * Recette n°5 ter of #847: where a bottle moved with a pointer was released
+   * (null: off the plan), which the drop follows rather than dnd-kit's `over`;
+   * undefined for the keyboard, where `over` is right.
+   */
+  releasedOn?: () => DropSlot | null | undefined,
+): Announcements {
   const slotOf = (over: { data: { current?: unknown } } | null) =>
-    over?.data.current as { col: number; row: number; item?: GridCell | null } | undefined;
+    over?.data.current as DropSlot | undefined;
   const itemOf = (active: { data: { current?: unknown } }) => (active.data.current as { item: GridCell }).item;
   const say = (key: string, item: GridItem, values?: Record<string, unknown>) =>
     t(key, { name: item.name, context: item.category === 'cigar' ? 'cigar' : undefined, ...values });
@@ -534,7 +589,8 @@ export function dragAnnouncements(t: (key: string, options?: Record<string, unkn
         : say('cellars.grid.announceOver', itemOf(active), at);
     },
     onDragEnd: ({ active, over }) => {
-      const slot = slotOf(over);
+      const released = releasedOn?.();
+      const slot = released === undefined ? slotOf(over) : released ?? undefined;
       // Dropped nowhere, or on a cell of its own line (dropAction 'none'): nothing moved.
       if (!slot || (slot.item && dropAction(itemOf(active), slot.item) === 'none')) return say('cellars.grid.announceCancel', itemOf(active));
       const other = otherIn(active, slot);
@@ -620,21 +676,65 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
     })
   );
 
+  // Recette n°5 ter of #847: where the pointer is, read from every mouse or
+  // touch event while a bottle is dragged, the release included. dnd-kit only
+  // knows the last move it has drawn, and never reads the release's position.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const stopFollowingRef = useRef<(() => void) | null>(null);
+  // The cell the last pointer drag was released on, for its announcement.
+  const [releasedOn] = useState(releaseNote);
+
+  const stopFollowingPointer = useCallback(() => {
+    stopFollowingRef.current?.();
+    stopFollowingRef.current = null;
+  }, []);
+  useEffect(() => stopFollowingPointer, [stopFollowingPointer]);
+
   // dnd-kit's default screen-reader texts are English only.
-  const announcements = useMemo(() => dragAnnouncements(t), [t]);
+  const announcements = useMemo(() => dragAnnouncements(t, releasedOn.get), [t, releasedOn]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { item, fromCol, fromRow } = event.active.data.current as { item: GridCell; fromCol: number; fromRow: number };
     setActiveDrag({ item, fromCol, fromRow });
-  }, []);
+    stopFollowingPointer();
+    releasedOn.set(undefined);
+    // The keyboard has no pointer: dnd-kit's own target is right for it.
+    pointerRef.current = event.activatorEvent ? getEventCoordinates(event.activatorEvent) : null;
+    if (!pointerRef.current) return;
+    // On the window and capturing, so they run before dnd-kit's own listeners.
+    const follow = (e: Event) => {
+      const at = getEventCoordinates(e);
+      if (at) pointerRef.current = at;
+    };
+    const types = ['mousemove', 'mouseup', 'touchmove', 'touchend'] as const;
+    types.forEach((type) => window.addEventListener(type, follow, { capture: true, passive: true }));
+    stopFollowingRef.current = () => types.forEach((type) => window.removeEventListener(type, follow, { capture: true }));
+  }, [stopFollowingPointer, releasedOn]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveDrag(null);
+    stopFollowingPointer();
+  }, [stopFollowingPointer]);
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setActiveDrag(null);
+    stopFollowingPointer();
     const { active, over } = event;
-    if (!over) return;
+    // With a pointer, the cell under it at the release wins over dnd-kit's `over`.
+    let target = over?.data.current as DropSlot | undefined;
+    const point = pointerRef.current;
+    pointerRef.current = null;
+    if (point) {
+      const cell = cellAt(point, placedCells(gridRef.current));
+      target = cell ? { ...cell, item: slotMap.get(`${cell.col}:${cell.row}`) ?? null } : undefined;
+      releasedOn.set(target ?? null);
+    }
+    if (!target) return;
 
     const { item: draggedItem, fromCol, fromRow } = active.data.current as { item: GridCell; fromCol: number; fromRow: number };
-    const { col: toCol, row: toRow, item: targetItem } = over.data.current as { col: number; row: number; item: GridCell | null };
+    const { col: toCol, row: toRow } = target;
+    const targetItem = target.item ?? null;
 
     const action = dropAction(draggedItem, targetItem);
     if (action === 'none' || (fromCol === toCol && fromRow === toRow)) return;
@@ -656,7 +756,7 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
       invalidateGrid();
       notifyError('cellars.grid.moveError');
     }
-  }, [localItems, invalidateGrid, cellar.id]);
+  }, [localItems, slotMap, invalidateGrid, cellar.id, stopFollowingPointer, releasedOn]);
 
   if (cols === 0 || rows === 0) {
     return (
@@ -712,7 +812,7 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
         collisionDetection={dropTarget}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveDrag(null)}
+        onDragCancel={handleDragCancel}
         accessibility={{
           announcements,
           screenReaderInstructions: { draggable: t('cellars.grid.dragInstructions', wording) },
@@ -721,6 +821,7 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
         {/* Room for the "×25" badges of the top row and last column (recette v3 of #471). */}
         <div className="overflow-x-auto pt-2 pr-2 pb-1">
           <div
+            ref={gridRef}
             className="inline-grid"
             style={{
               gridTemplateColumns: `repeat(${cols}, auto)`,
