@@ -10,6 +10,8 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+## v2026.11.1 - 2026-11-06
+
 > **Before you update:** this version changes how the cellar plan is stored. The update takes a backup of your database by itself, `./backups/glou-backup-before-migration-<date>.sql.gz`, then transforms your data once, entirely or not at all: every occupied slot is kept, identical lines left apart by the previous update only because each had its slot become one line holding all their slots (single cigars that each had a slot stay apart), and plan coordinates left on a bottle with no cellar, which showed on no plan, are dropped. To go back, restore that backup with the previous image (wiki 31, *Go back*): whatever you entered after the update is lost. On Linux, `mkdir -p backups && sudo chown 1001:1001 backups` first, or the API will not start (#847).
 
 ### Added
