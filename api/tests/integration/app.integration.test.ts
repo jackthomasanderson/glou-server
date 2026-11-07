@@ -734,3 +734,90 @@ describe('POST /api/user/avatar', () => {
     updateSpy.mockRestore();
   });
 });
+
+// #599: the admin Gotify test followed redirects, so a public server could
+// bounce the POST (and the Gotify key) into the home network.
+describe('POST /api/admin/config/test/gotify', () => {
+  it('does not follow a redirect and reports it as DELIVERY_FAILED', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u1', isActive: true, isAdmin: true } as never);
+    const { systemConfigService } = await import('../../src/services/system-config.service');
+    const publicSpy = vi.spyOn(systemConfigService, 'getPublic').mockResolvedValueOnce({ gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4' } as never);
+    const gotifySpy = vi.spyOn(systemConfigService, 'getGotify').mockResolvedValueOnce({ gotifyUrl: 'https://1.2.3.4', gotifyToken: 'key' } as never);
+    // Like the real fetch: the redirect is followed unless `redirect: 'manual'`.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) =>
+      (init?.redirect === 'manual'
+        ? new Response(null, { status: 307, headers: { location: 'http://192.168.1.1/message' } })
+        : new Response('{}', { status: 200 })));
+    try {
+      const res = await request(app)
+        .post('/api/admin/config/test/gotify')
+        .set('Authorization', `Bearer ${authToken()}`)
+        .set('Sec-Fetch-Site', 'same-origin');
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ success: false, error: 'DELIVERY_FAILED' });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ redirect: 'manual' }));
+    } finally {
+      fetchSpy.mockRestore();
+      publicSpy.mockRestore();
+      gotifySpy.mockRestore();
+    }
+  });
+});
+
+// #605: deactivating a member only put their sessions, trusted devices and
+// guest links to sleep; reactivating the account woke them all up again.
+describe('PATCH /api/admin/users/:id/status', () => {
+  const p = prisma as unknown as Record<string, Record<string, ReturnType<typeof vi.fn>>> & { $transaction: ReturnType<typeof vi.fn> };
+  beforeEach(() => {
+    // The caller u1 is an active admin; the target m1 is an active member.
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      args.where.id === 'm1' ? { id: 'm1', isActive: true, isAdmin: false } : { id: args.where.id, isActive: true, isAdmin: true }) as never);
+    p.user.update = vi.fn().mockImplementation(async (args: { data: { isActive: boolean } }) => ({ id: 'm1', isAdmin: false, ...args.data }));
+    p.session.updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    p.trustedDevice = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
+    p.guestShare = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
+    p.auditLog.create = vi.fn().mockResolvedValue({});
+    p.$transaction = vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+  });
+  const patch = (isActive: boolean) => request(app)
+    .patch('/api/admin/users/m1/status')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send({ isActive });
+
+  it('deactivating revokes the member\'s sessions, trusted devices and guest links in the same transaction', async () => {
+    const res = await patch(false);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isActive).toBe(false);
+    expect(p.$transaction).toHaveBeenCalledTimes(1);
+    const now = expect.any(Date);
+    expect(p.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'm1' }, data: { isActive: false } }));
+    expect(p.session.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
+    expect(p.trustedDevice.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
+    expect(p.guestShare.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
+  });
+
+  it('deactivate then reactivate: what was revoked stays revoked, and both changes are audited', async () => {
+    await patch(false);
+    vi.mocked(p.session.updateMany).mockClear();
+    vi.mocked(p.trustedDevice.updateMany).mockClear();
+    vi.mocked(p.guestShare.updateMany).mockClear();
+
+    const res = await patch(true);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isActive).toBe(true);
+    expect(p.user.update).toHaveBeenLastCalledWith(expect.objectContaining({ where: { id: 'm1' }, data: { isActive: true } }));
+    // Nothing is handed back on reactivation.
+    expect(p.session.updateMany).not.toHaveBeenCalled();
+    expect(p.trustedDevice.updateMany).not.toHaveBeenCalled();
+    expect(p.guestShare.updateMany).not.toHaveBeenCalled();
+
+    expect(p.auditLog.create.mock.calls.map(([args]) => args.data)).toEqual([
+      expect.objectContaining({ userId: 'u1', action: 'ADMIN_STATUS_CHANGE', status: 'success', details: { targetUserId: 'm1', isActive: false } }),
+      expect.objectContaining({ userId: 'u1', action: 'ADMIN_STATUS_CHANGE', status: 'success', details: { targetUserId: 'm1', isActive: true } }),
+    ]);
+  });
+});

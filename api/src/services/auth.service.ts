@@ -8,7 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
-import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
+import { UpdateProfileInput, UpdatePreferencesInput, UPLOADED_AVATAR_PATH } from '../schemas/user.schema';
 import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '../lib/device';
 import { notificationService } from './notification.service';
@@ -512,9 +512,10 @@ export class AuthService {
   }
 
   /**
-   * Update user profile (UI-facing infos)
+   * Update user profile (UI-facing infos). `avatarUrl` comes only from the
+   * avatar routes, never from the request body (#880).
    */
-  async updateProfile(userId: string, data: UpdateProfileInput): Promise<PublicUser> {
+  async updateProfile(userId: string, data: UpdateProfileInput & { avatarUrl?: string | null }): Promise<PublicUser> {
     if (data.username) {
       const existing = await prisma.user.findFirst({
         where: { username: data.username, NOT: { id: userId } },
@@ -543,21 +544,7 @@ export class AuthService {
       select: { avatarUrl: true }
     });
 
-    if (user.avatarUrl) {
-      try {
-        const filename = path.basename(user.avatarUrl);
-        const uploadsDir = path.resolve(process.cwd(), 'uploads', 'avatars');
-        const filePath = path.resolve(uploadsDir, filename);
-        if (!filePath.startsWith(uploadsDir + path.sep)) throw new Error('INVALID_PATH');
-
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (err) {
-        console.error('Failed to delete avatar file:', err);
-        // We continue anyway to at least clear the DB field
-      }
-    }
+    if (user.avatarUrl) await this.deleteAvatarFile(user.avatarUrl, [userId]);
 
     return this.updateProfile(userId, { avatarUrl: null });
   }
@@ -1176,18 +1163,31 @@ export class AuthService {
     return { count: due.length, avatarPaths };
   }
 
-  /** Deletes local avatar files from disk. Never throws: one bad path must not block the rest. */
+  /** Deletes the purged accounts' avatar files from disk. Never throws: one bad path must not block the rest. */
   async deleteAvatarFiles(avatarUrls: string[]): Promise<void> {
-    const uploadsDir = path.resolve(process.cwd(), 'uploads', 'avatars');
-    for (const avatarUrl of avatarUrls) {
-      try {
-        const filename = path.basename(avatarUrl);
-        const filePath = path.resolve(uploadsDir, filename);
-        if (!filePath.startsWith(uploadsDir + path.sep)) continue;
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      } catch (err) {
-        console.error(`[auth] Failed to purge avatar file ${avatarUrl}:`, err);
-      }
+    // Called once the purge has cleared those accounts' `avatarUrl`.
+    for (const avatarUrl of avatarUrls) await this.deleteAvatarFile(avatarUrl, []);
+  }
+
+  /**
+   * #880: deletes an avatar file only if `avatarUrl` has the exact shape the
+   * upload route stores and no account other than `ownerIds` references the
+   * same file. Before #880 a member could point their `avatarUrl` at another
+   * member's file; such a file is kept. Never throws.
+   */
+  private async deleteAvatarFile(avatarUrl: string, ownerIds: string[]): Promise<void> {
+    const filename = UPLOADED_AVATAR_PATH.exec(avatarUrl)?.[1];
+    if (!filename) return;
+    try {
+      // `endsWith` also catches an absolute address left by an old version.
+      const sharedWith = await prisma.user.count({
+        where: { id: { notIn: ownerIds }, avatarUrl: { endsWith: `/${filename}` } },
+      });
+      if (sharedWith > 0) return;
+      const filePath = path.join(process.cwd(), 'uploads', 'avatars', filename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (err) {
+      console.error(`[auth] Failed to delete avatar file ${avatarUrl}:`, err);
     }
   }
 

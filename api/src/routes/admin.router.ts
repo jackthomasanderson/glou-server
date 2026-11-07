@@ -184,16 +184,35 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
             }
         }
 
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: { isActive },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                isAdmin: true,
-                isActive: true,
-            },
+        // #605: deactivating cuts the member's accesses for good, so that
+        // reactivating the account never wakes up a stolen session, a trusted
+        // device or a guest link (same revocation as adminResetPassword).
+        const user = await prisma.$transaction(async (tx) => {
+            const updated = await tx.user.update({
+                where: { id: userId },
+                data: { isActive },
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    isAdmin: true,
+                    isActive: true,
+                },
+            });
+            if (!isActive) {
+                const now = new Date();
+                await tx.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+                await tx.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+                await tx.guestShare.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+            }
+            return updated;
+        });
+        void auditLog({
+            userId: req.userId,
+            action: 'ADMIN_STATUS_CHANGE',
+            status: 'success',
+            ip: getClientIp(req),
+            details: { targetUserId: userId, isActive },
         });
         res.json({ data: user });
     } catch (error) {
@@ -578,6 +597,8 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
           title: 'Glou — Test',
           message: 'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
         }),
+        // #599: a redirect is never followed (only `url` was checked): a 3xx is not `ok`.
+        redirect: 'manual',
         signal: AbortSignal.timeout(5000),
       });
       // The raw HTTP status / network error message is a reconnaissance

@@ -165,3 +165,42 @@ describe('notificationService.testChannel — webhook (ISSUE_048)', () => {
     expect(res).toEqual({ success: true });
   });
 });
+
+// #599: the URL check only covered the first address; fetch then followed up
+// to 20 redirects, a 307 even replaying the POST into the home network.
+describe('webhook redirects (#599)', () => {
+  /**
+   * A public server answering with a 307 to an internal address. Like the
+   * real fetch: followed unless `redirect: 'manual'`, then the internal
+   * target answers 200.
+   */
+  function redirectingToInternal() {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) =>
+      init?.redirect === 'manual'
+        ? { ok: false, status: 307, headers: new Headers({ location: 'http://192.168.1.1/admin' }) }
+        : { ok: true, status: 200 });
+  }
+
+  it('the Test button reports a redirect as DELIVERY_FAILED, without following it', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
+    redirectingToInternal();
+
+    const res = await notificationService.testChannel('u1', 'webhook');
+
+    expect(res).toEqual({ success: false, error: 'DELIVERY_FAILED' });
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ redirect: 'manual' }));
+  });
+
+  it('a notification does not follow a redirect, and logs it as a failed delivery', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
+    redirectingToInternal();
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ redirect: 'manual' }));
+    expect(consoleError).toHaveBeenCalledWith('[notification] webhook delivery failed:', expect.objectContaining({ message: 'DELIVERY_FAILED' }));
+    consoleError.mockRestore();
+  });
+});

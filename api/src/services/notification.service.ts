@@ -65,21 +65,25 @@ export const notificationService = {
       }
     }
 
-    // Webhook (Gotify) channel. ISSUE_048: `lib/ssrf.ts` exists precisely so an
-    // authenticated member can't use a server-side fetch as a springboard into
-    // the Docker network — it was written for the image-import endpoint but
-    // never applied here, even though a webhook URL is exactly the same
-    // shape of user-supplied address.
+    // Webhook (Gotify) channel. ISSUE_048: the URL is checked with
+    // `lib/ssrf.ts` (HTTPS, public addresses only) so an authenticated member
+    // can't use this server-side call as a springboard into the home network.
+    // #599: that check covers this one address only, so redirects are not
+    // followed (a 307 would replay the POST elsewhere): a 3xx is a failure.
+    // Unlike the image import (`resolveSafeUrl`), no hop is ever re-checked
+    // and followed: a real Gotify server does not redirect its /message route.
     if (user.notifWebhook && user.webhookUrl) {
       try {
         const url = normalizeGotifyUrl(user.webhookUrl);
         await assertUrlAllowed(url);
-        await fetch(url, {
+        const res = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: payload.subject, message: htmlToPlainText(payload.htmlBody) }),
+          redirect: 'manual',
           signal: AbortSignal.timeout(5000),
         });
+        if (!res.ok) throw new Error('DELIVERY_FAILED');
       } catch (error) {
         // Same contract as the email channel above: swallowed, never silent.
         console.error('[notification] webhook delivery failed:', error);
@@ -111,6 +115,8 @@ export const notificationService = {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ title: 'Glou — Test', message: 'Notification de test Glou.' }),
+          // #599: never followed, a 3xx is not `ok` (see `send` above).
+          redirect: 'manual',
           signal: AbortSignal.timeout(5000),
         });
         return res.ok ? { success: true } : { success: false, error: 'DELIVERY_FAILED' };
