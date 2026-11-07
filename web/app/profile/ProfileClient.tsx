@@ -33,7 +33,7 @@ export function ProfileClient() {
   const updateProfile = useUpdateProfile();
   const updatePrefs = useUpdatePreferences();
 
-  const [profileData, setProfileData] = useState({ avatarUrl: '', displayName: '', appName: '', appSlogan: '' });
+  const [profileData, setProfileData] = useState({ displayName: '', appName: '', appSlogan: '' });
   const [prefsData, setPrefsData] = useState({
     theme: 'SYSTEM' as 'LIGHT' | 'DARK' | 'SYSTEM',
     language: 'FR' as 'FR' | 'EN',
@@ -50,7 +50,7 @@ export function ProfileClient() {
   if (user !== prevUser) {
     setPrevUser(user);
     if (user) {
-      setProfileData({ avatarUrl: user.avatarUrl || '', displayName: user.displayName || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
+      setProfileData({ displayName: user.displayName || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
       setPrefsData({
         theme: user.theme || 'SYSTEM',
         language: user.language || 'FR',

@@ -177,7 +177,7 @@ export function useLogout() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  return useMutation<PublicUser, Error, { username?: string; avatarUrl?: string | null; appName?: string | null; appSlogan?: string | null }>({
+  return useMutation<PublicUser, Error, { username?: string; displayName?: string | null; appName?: string | null; appSlogan?: string | null }>({
     meta: { handlesError: true },
     mutationFn: (data) =>
       apiFetch<PublicUser>('/api/user/profile', { method: 'PATCH', body: JSON.stringify(data) }),
