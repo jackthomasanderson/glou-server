@@ -136,10 +136,10 @@ export function usePurgeData() {
     return useMutation({
         // Said by the purge dialog (its own error line).
         meta: { handlesError: true },
-        // #489: the admin's password is re-checked server-side; `confirmation`
-        // is the protocol keyword, whatever the UI language.
-        mutationFn: async ({ password }: { password: string }) => {
-            const response = await api.post<PurgeResponse>('/admin/maintenance/purge', { confirmation: 'SUPPRIMER', password });
+        // #489 / #890: the admin's password and code are checked server-side;
+        // `confirmation` is the protocol keyword, whatever the UI language.
+        mutationFn: async (reauth: { password: string; code?: string }) => {
+            const response = await api.post<PurgeResponse>('/admin/maintenance/purge', { confirmation: 'SUPPRIMER', ...reauth });
             return response.data;
         },
         onSuccess: () => {

@@ -18,6 +18,8 @@ import { UNIT_SLOTS_INCLUDE } from '../lib/product-fields';
 import { isCookieSecure } from '../lib/cookie-secure';
 import { escapeHtml } from '../lib/html';
 import { isNotifEn } from '../lib/notif-lang';
+import { encrypt } from '../lib/crypto';
+import { openTwoFactorSecret } from '../lib/two-factor-secret';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
 
 // ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
@@ -769,17 +771,6 @@ export class AuthService {
   }
 
   /**
-   * #489: re-authentication for the most destructive admin actions (full
-   * purge, restore, downloading a dump that holds every password hash and
-   * 2FA secret). An open admin session alone is not enough for those.
-   */
-  async verifyPassword(userId: string, password: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
-    if (!user) return false;
-    return bcrypt.compare(password, user.passwordHash);
-  }
-
-  /**
    * Verify the password OR PIN supplied to unlock the client-side lock screen.
    * This is a pure verification — it never issues a new Session or JWT, and
    * never touches Session.lastActiveAt (already refreshed by authMiddleware).
@@ -804,7 +795,7 @@ export class AuthService {
 
     await prisma.user.update({
       where: { id: userId },
-      data: { twoFactorSecret: base32secret },
+      data: { twoFactorSecret: encrypt(base32secret) },
     });
 
     // Make sure the qr code and the text secret are perfectly aligned
@@ -819,12 +810,7 @@ export class AuthService {
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
     if (!user.twoFactorSecret) throw new Error('2FA_SECRET_NOT_GENERATED');
 
-    const isCodeValid = authenticator.verify({
-      token: code,
-      secret: user.twoFactorSecret,
-    });
-
-    if (!isCodeValid) throw new Error('INVALID_TOTP_CODE');
+    if (!(await this.checkTotp(user, code))) throw new Error('INVALID_TOTP_CODE');
 
     const { backupCodes, hashedBackupCodes } = await this.newBackupCodes();
 
@@ -855,20 +841,43 @@ export class AuthService {
   }
 
   /**
+   * #613: whether `code` is the current code of the user's authenticator app.
+   * A secret still stored in the clear is encrypted once it has matched,
+   * only if it was not changed in between (2FA turned off, a new secret).
+   * That write never blocks the sign-in or the action being confirmed.
+   */
+  private async checkTotp(user: { id: string; twoFactorSecret: string | null }, code: string): Promise<boolean> {
+    if (!user.twoFactorSecret) return false;
+    const { secret, legacy } = openTwoFactorSecret(user.twoFactorSecret);
+    if (!authenticator.verify({ token: code, secret })) return false;
+    if (legacy) {
+      try {
+        await prisma.user.updateMany({
+          where: { id: user.id, twoFactorSecret: user.twoFactorSecret },
+          data: { twoFactorSecret: encrypt(secret) },
+        });
+      } catch (err) {
+        console.error('[auth] Could not encrypt a 2FA secret stored in the clear:', err);
+      }
+    }
+    return true;
+  }
+
+  /**
    * Re-confirmation by second factor: a current authenticator code or one of
    * the stored backup codes (compared with bcrypt, never in the clear).
    */
-  private async matchesSecondFactor(user: { twoFactorSecret: string | null; backupCodes: string[] }, code?: string): Promise<boolean> {
+  private async matchesSecondFactor(user: { id: string; twoFactorSecret: string | null; backupCodes: string[] }, code?: string): Promise<boolean> {
     return (await this.matchSecondFactor(user, code)) !== null;
   }
 
   /** Same check, telling which backup code matched (so a caller can consume it). */
   private async matchSecondFactor(
-    user: { twoFactorSecret: string | null; backupCodes: string[] },
+    user: { id: string; twoFactorSecret: string | null; backupCodes: string[] },
     code?: string,
   ): Promise<{ backupCodeHash: string | null } | null> {
     if (code && code.length === 6 && user.twoFactorSecret) {
-      return authenticator.verify({ token: code, secret: user.twoFactorSecret }) ? { backupCodeHash: null } : null;
+      return (await this.checkTotp(user, code)) ? { backupCodeHash: null } : null;
     }
     if (code && code.length === BACKUP_CODE_LENGTH) {
       for (const hashedCode of user.backupCodes) {
@@ -1263,10 +1272,7 @@ export class AuthService {
     let usedBackupCodeHash: string | null = null;
 
     if (code.length === 6 && user.twoFactorSecret) {
-      validCode = authenticator.verify({
-        token: code,
-        secret: user.twoFactorSecret,
-      });
+      validCode = await this.checkTotp(user, code);
     } else if (code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       for (const hashedCode of user.backupCodes) {
         if (await bcrypt.compare(code, hashedCode)) {

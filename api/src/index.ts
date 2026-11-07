@@ -8,6 +8,7 @@ import { recomputeAlertStatuses } from './services/alert.service';
 import { checkHumidorDrift } from './services/humidor.service';
 import { backupService, BACKUPS_DIR } from './services/backup.service';
 import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
+import { encryptClearTwoFactorSecrets } from './lib/two-factor-secret';
 import { DAILY_ALERTS_CRON, DAILY_ALERTS_HOUR, isAlertsCatchUpWindow } from './lib/alerts-schedule';
 
 // ─── Startup secret guard ────────────────────────────────────────────────────
@@ -72,6 +73,12 @@ function logTimeZone(): void {
 async function bootstrap(): Promise<void> {
   logTimeZone();
   await connectWithRetry();
+
+  // #613: 2FA secrets stored in the clear before the update (or by a dump
+  // restored from the command line) are encrypted before anything else.
+  if ((await encryptClearTwoFactorSecrets()) === null) {
+    console.warn('[startup] CONFIG_ENCRYPTION_KEY is not set: two-factor secrets cannot be encrypted');
+  }
 
   // ISSUE_084: a ScanJob left in 'pending'/'processing' by a crash or deploy
   // mid-flight would otherwise poll forever from the client's point of view.

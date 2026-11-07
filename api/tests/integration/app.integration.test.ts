@@ -655,7 +655,7 @@ describe('POST /api/admin/backups/:id/restore', () => {
     .send({ confirm: true, password: 'pw' });
 
   it('answers with the safety backup taken before the restore', async () => {
-    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
     const restoreSpy = vi.spyOn(backupService, 'restoreBackup').mockResolvedValue({ safetyBackupRunId: 'safety-1' });
     spies.push(restoreSpy);
 
@@ -667,7 +667,7 @@ describe('POST /api/admin/backups/:id/restore', () => {
   });
 
   it('answers BACKUP_BEFORE_RESTORE_FAILED when the safety backup fails', async () => {
-    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
     spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error('BACKUP_BEFORE_RESTORE_FAILED')));
     spies.push(vi.spyOn(console, 'error').mockImplementation(() => {}));
 
@@ -679,7 +679,7 @@ describe('POST /api/admin/backups/:id/restore', () => {
 
   // #471 (lot Z): a backup of another version is refused with a code the dialog translates.
   it.each(['BACKUP_FROM_OLDER_VERSION', 'BACKUP_FROM_NEWER_VERSION'])('answers 409 %s', async (code) => {
-    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
     spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error(code)));
 
     const res = await restore();
@@ -689,7 +689,7 @@ describe('POST /api/admin/backups/:id/restore', () => {
   });
 
   it('takes no backup at all on a wrong password', async () => {
-    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(false));
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockRejectedValue(new Error('INVALID_PASSWORD')));
     const runSpy = vi.spyOn(backupService, 'runBackup');
     const restoreSpy = vi.spyOn(backupService, 'restoreBackup');
     spies.push(runSpy, restoreSpy);
@@ -743,6 +743,8 @@ describe('POST /api/admin/config/test/gotify', () => {
     const { systemConfigService } = await import('../../src/services/system-config.service');
     const publicSpy = vi.spyOn(systemConfigService, 'getPublic').mockResolvedValueOnce({ gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4' } as never);
     const gotifySpy = vi.spyOn(systemConfigService, 'getGotify').mockResolvedValueOnce({ gotifyUrl: 'https://1.2.3.4', gotifyToken: 'key' } as never);
+    // #890: the test asks for the admin's step-up, passed here.
+    const reauthSpy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
     // Like the real fetch: the redirect is followed unless `redirect: 'manual'`.
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) =>
       (init?.redirect === 'manual'
@@ -752,8 +754,10 @@ describe('POST /api/admin/config/test/gotify', () => {
       const res = await request(app)
         .post('/api/admin/config/test/gotify')
         .set('Authorization', `Bearer ${authToken()}`)
-        .set('Sec-Fetch-Site', 'same-origin');
+        .set('Sec-Fetch-Site', 'same-origin')
+        .send({ password: 'admin-pw' });
       expect(res.status).toBe(200);
+      expect(reauthSpy).toHaveBeenCalled();
       expect(res.body.data).toEqual({ success: false, error: 'DELIVERY_FAILED' });
       expect(fetchSpy).toHaveBeenCalledTimes(1);
       expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ redirect: 'manual' }));
@@ -761,6 +765,7 @@ describe('POST /api/admin/config/test/gotify', () => {
       fetchSpy.mockRestore();
       publicSpy.mockRestore();
       gotifySpy.mockRestore();
+      reauthSpy.mockRestore();
     }
   });
 });

@@ -24,7 +24,7 @@ describe('backup restore timeout', () => {
 
   it('is the budget the restore request is sent with', async () => {
     const post = vi.spyOn(client, 'post').mockResolvedValue({ data: { ok: true } });
-    await configClient.restoreBackup('b1', 'pw');
-    expect(post).toHaveBeenCalledWith('/admin/backups/b1/restore', { confirm: true, password: 'pw' }, { timeoutMs: RESTORE_TIMEOUT_MS });
+    await configClient.restoreBackup('b1', { password: 'pw', code: '123456' });
+    expect(post).toHaveBeenCalledWith('/admin/backups/b1/restore', { confirm: true, password: 'pw', code: '123456' }, { timeoutMs: RESTORE_TIMEOUT_MS });
   });
 });

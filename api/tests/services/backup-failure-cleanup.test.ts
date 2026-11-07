@@ -24,6 +24,8 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
 vi.mock('../../src/services/notification.service', () => ({ notificationService: { send: vi.fn() } }));
+const encryptClearTwoFactorSecrets = vi.fn().mockResolvedValue(0);
+vi.mock('../../src/lib/two-factor-secret', () => ({ encryptClearTwoFactorSecrets: () => encryptClearTwoFactorSecrets() }));
 
 import { backupService, BACKUPS_DIR } from '../../src/services/backup.service';
 
@@ -57,6 +59,8 @@ const before = new Set<string>(fs.existsSync(BACKUPS_DIR) ? fs.readdirSync(BACKU
 // Only files named like runBackup's own (timestamped), not other suites' fixtures.
 const created = () => fs.readdirSync(BACKUPS_DIR).filter((f) => !before.has(f) && /^glou-backup-\d{4}-/.test(f));
 const tick = () => new Promise((r) => setTimeout(r, 50));
+/** Until pg_dump is spawned (the 2FA secrets sweep runs first, #613). */
+const started = () => vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
 
 let retention: ReturnType<typeof vi.spyOn>;
 
@@ -64,6 +68,7 @@ beforeEach(() => {
   process.env.DATABASE_URL = 'postgresql://glou:pw@db:5432/glou_db';
   vi.spyOn(console, 'error').mockImplementation(() => {});
   runCreate.mockClear();
+  spawnMock.mockClear();
   retention = vi.spyOn(backupService, 'enforceRetention').mockResolvedValue(undefined);
 });
 
@@ -99,6 +104,23 @@ describe('backupService.runBackup — failed dump (#182)', () => {
   });
 });
 
+// #613 (review): a member who never types a code again kept a clear 2FA secret in every dump.
+describe('backupService.runBackup — no 2FA secret in the clear (#613)', () => {
+  it('encrypts the secrets still stored in the clear before dumping', async () => {
+    const dump = new FakeDump();
+    spawnMock.mockReturnValue(dump);
+    encryptClearTwoFactorSecrets.mockClear();
+    const run = backupService.runBackup('manual');
+    await tick();
+    dump.stdout.end('partial');
+    dump.emit('close', 1);
+    await run;
+
+    expect(encryptClearTwoFactorSecrets).toHaveBeenCalledTimes(1);
+    expect(encryptClearTwoFactorSecrets.mock.invocationCallOrder[0]).toBeLessThan(spawnMock.mock.invocationCallOrder.at(-1)!);
+  });
+});
+
 describe('backupService.runBackup — success only once the file is complete (#670)', () => {
   it('waits for the file to be fully written after pg_dump exits, then records its final size', async () => {
     let release!: () => void;
@@ -111,6 +133,7 @@ describe('backupService.runBackup — success only once the file is complete (#6
 
     let settled = false;
     const run = backupService.runBackup('manual').then((r) => { settled = true; return r; });
+    await started(); // #613: the 2FA sweep runs first
     dump.stdout.end('CREATE TABLE t (id int);\n');
     dump.emit('close', 0);
     await tick();
@@ -137,6 +160,7 @@ describe('backupService.runBackup — success only once the file is complete (#6
     spawnMock.mockReturnValue(dump);
 
     const run = backupService.runBackup('manual');
+    await started(); // #613: the 2FA sweep runs first
     dump.stdout.end('CREATE TABLE t (id int);\n'.repeat(1000));
     dump.emit('close', 0); // pg_dump itself succeeded
     await run;
@@ -154,6 +178,7 @@ describe('backupService.runBackup — success only once the file is complete (#6
     spawnMock.mockReturnValue(dump);
 
     const run = backupService.runBackup('manual');
+    await started(); // #613: the 2FA sweep runs first
     dump.stdout.write('CREATE TABLE t (id int);\n'.repeat(1000)); // pg_dump never exits on its own
     await run;
 
@@ -169,6 +194,7 @@ describe('backupService.runBackup — success only once the file is complete (#6
     spawnMock.mockReturnValue(dump);
 
     const run = backupService.runBackup('manual');
+    await started(); // #613: the 2FA sweep runs first
     dump.stdout.end('CREATE TABLE t (id int);\n');
     dump.emit('close', 0);
     await run;
@@ -211,6 +237,7 @@ describe('backupService.runBackup — the file restores on PostgreSQL 15 (#665)'
     spawnMock.mockReturnValue(dump);
 
     const run = backupService.runBackup('manual');
+    await started(); // #613: the 2FA sweep runs first
     // Odd-sized chunks, so lines and multi-byte characters straddle chunk boundaries.
     const bytes = Buffer.from(preamble + body, 'utf8');
     for (let i = 0; i < bytes.length; i += 1001) dump.stdout.write(bytes.subarray(i, i + 1001));

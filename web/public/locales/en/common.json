@@ -1014,12 +1014,11 @@
         "confirmDescription": "Warning! This action is irreversible. To confirm that you want to delete ALL business data, please enter the keyword below:",
         "keywordLabel": "Enter \"DELETE\" to confirm",
         "keywordValue": "DELETE",
-        "passwordLabel": "Your password",
+        "stepUp": "Delete ALL bottles and cigars, ALL cellars and ALL activity logs?",
         "backupFirst": "A backup is taken first; the purge is cancelled if it fails.",
         "success": "The database has been reset successfully.",
         "error": "An error occurred during data purge.",
         "errors": {
-          "INVALID_PASSWORD": "Incorrect password.",
           "BACKUP_BEFORE_PURGE_FAILED": "The backup taken before the purge failed, so nothing was deleted. Check the Backups tab."
         },
         "counts": {
@@ -1785,6 +1784,14 @@
     "title": "System Configuration",
     "subtitle": "Configure integrations and the notification policy for this instance.",
     "tabsAriaLabel": "Config sections",
+    "stepUp": {
+      "smtp": "The mail server sends password reset links and security alerts, so changing it is confirmed.",
+      "smtpTest": "The test connects to the saved mail server, and sends a message if you gave an address.",
+      "notifications": "These channels carry the security alerts sent to members, so changing them is confirmed.",
+      "gotify": "The Gotify server receives the security alerts, so changing it is confirmed.",
+      "gotifyTest": "The test sends a notification to the saved Gotify server.",
+      "network": "Password reset links are built from the public URL, so changing it is confirmed."
+    },
     "tabs": {
       "smtp": "SMTP / Email",
       "notifications": "Notif policy",
@@ -1906,11 +1913,8 @@
     },
     "backup": {
       "description": "Configure the automatic daily database backup (pg_dump), stored outside the application volume.",
-      "passwordLabel": "Your password",
-      "invalidPassword": "Incorrect password.",
       "download": {
-        "title": "Download this backup",
-        "body": "The file contains the whole database, including every account's password hash and two-factor secret. Confirm with your password.",
+        "body": "The file contains the whole database, including every account's password hash. Its two-factor secrets are encrypted, except in backups taken before the update that encrypts them.",
         "error": "Download failed."
       },
       "dirCheckFailed": "Glou could not check whether it can write to the backups folder. Reload the page; if this message stays, check the API logs (docker compose logs api).",
@@ -1946,6 +1950,7 @@
       },
       "restore": {
         "modalTitle": "Confirm restore",
+        "stepUp": "Restore this backup over all current data?",
         "modalBody": "This immediately overwrites all current data on this instance with the content of this backup.",
         "safetyCopy": "A backup of the current data is taken first and stays in the history: restore it to undo this restore. If that backup fails, nothing is restored.",
         "modalHint": "Type \"{{keyword}}\" to confirm:",

@@ -25,6 +25,8 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 const auditLog = vi.fn().mockResolvedValue(undefined);
 vi.mock('../../src/services/audit.service', () => ({ auditLog: (...a: unknown[]) => auditLog(...a) }));
+const encryptClearTwoFactorSecrets = vi.fn().mockResolvedValue(0);
+vi.mock('../../src/lib/two-factor-secret', () => ({ encryptClearTwoFactorSecrets: () => encryptClearTwoFactorSecrets() }));
 
 import { backupService, BACKUPS_DIR } from '../../src/services/backup.service';
 import { compareVersions, dumpedMigrations, shippedMigrations } from '../../src/lib/backup-version';
@@ -187,6 +189,19 @@ describe('backupService.restoreBackup — safety copy and history (#666)', () =>
     psql.emit('close', 0);
 
     await expect(done).resolves.toEqual({ safetyBackupRunId: 'safety-1' });
+  });
+
+  // #613 (review): a dump taken before the update holds 2FA secrets in the clear.
+  it('encrypts the 2FA secrets the restored dump held in the clear, once the data is back', async () => {
+    writeDump('CREATE TABLE t (id int);\n');
+    encryptClearTwoFactorSecrets.mockClear();
+    const done = backupService.restoreBackup(file, 'u1', '127.0.0.1');
+    await new Promise((r) => setTimeout(r, 50));
+    expect(encryptClearTwoFactorSecrets).not.toHaveBeenCalled();
+    psql.emit('close', 0);
+    await done;
+
+    expect(encryptClearTwoFactorSecrets).toHaveBeenCalledTimes(1);
   });
 
   it('does not put the history back when the restore itself failed (the database was rolled back)', async () => {
