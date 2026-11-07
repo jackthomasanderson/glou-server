@@ -27,7 +27,9 @@ export function decrypt(ciphertext: string): string {
   const iv = buf.subarray(0, IV_LENGTH);
   const tag = buf.subarray(IV_LENGTH, IV_LENGTH + TAG_LENGTH);
   const encrypted = buf.subarray(IV_LENGTH + TAG_LENGTH);
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+  // #613: a full-length tag only — a 2FA secret stored in the clear before
+  // is told apart by failing here (see auth.service openTwoFactorSecret).
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: TAG_LENGTH });
   decipher.setAuthTag(tag);
   return decipher.update(encrypted) + decipher.final('utf8');
 }

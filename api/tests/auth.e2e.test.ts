@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { authService } from '../src/services/auth.service';
 import { prisma } from '../src/lib/prisma';
 import { authenticator } from 'otplib';
+import { decrypt } from '../src/lib/crypto';
 import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 
 // ─── GitHub issue #7 ────────────────────────────────────────────────────────
@@ -86,6 +87,8 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     store = null;
+    // #613: the 2FA secret is encrypted with this key.
+    process.env.CONFIG_ENCRYPTION_KEY = 'ef'.repeat(32);
     process.env.JWT_SECRET = 'smoke-test-secret';
 
     // The mocked prisma import still carries @prisma/client's real method
@@ -168,7 +171,9 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
 
     // 3. Generate a 2FA secret and turn it on with a real TOTP code
     const { secret } = await authService.generateTwoFactorSecret(store!.id);
-    expect(store!.twoFactorSecret).toBe(secret);
+    // #613: stored encrypted with CONFIG_ENCRYPTION_KEY, never in the clear.
+    expect(store!.twoFactorSecret).not.toContain(secret);
+    expect(decrypt(store!.twoFactorSecret!)).toBe(secret);
 
     const firstCode = authenticator.generate(secret);
     const { backupCodes } = await authService.turnOnTwoFactorAuthentication(store!.id, firstCode, deviceInfo);
