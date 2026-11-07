@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useId, useRef } from 'react';
 import {
   Button,
   Chip,
@@ -23,21 +23,27 @@ import {
   useSensors,
   useDraggable,
   useDroppable,
+  pointerWithin,
+  rectIntersection,
+  type CollisionDetection,
   type DragStartEvent,
   type DragEndEvent,
   type Announcements,
 } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+import { CSS, getEventCoordinates } from '@dnd-kit/utilities';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { GridItem, CellarGridData } from '@/lib/cellars/types';
+import { GridItem, GridCell, CellarGridData } from '@/lib/cellars/types';
 import { useAssignSlot } from '@/hooks/useCellars';
+import { useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { client } from '@/lib/api';
 import { notifyError } from '@/lib/toast';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import { gridCoordinateGetter } from '@/lib/cellars/gridKeyboard';
-import { gridLineParts, slotUnits } from '@/lib/cellars/gridLine';
+import { cellBadge, cellParts, cellTooltipLines, gridLineParts, noUnplacedCopyText, placementText } from '@/lib/cellars/gridLine';
 import { gridWording, type GridWording } from '@/lib/cellars/gridWording';
+import { dropAction, moveSlot, swapOwners } from '@/lib/cellars/gridMoves';
+import { unitKind } from '@shared/units';
 
 // ─── Color mapping ────────────────────────────────────────────────────────────
 // Wine gets its own per-varietal-color dots (red/white/rosé/orange — that's
@@ -65,6 +71,18 @@ function getCellColor(item: GridItem): string {
   return CATEGORY_COLORS[item.category] ?? '#9E9E9E';
 }
 
+/**
+ * Recette n°5 of #847: an opened bottle (or box) is hatched over its colour
+ * (dark stripes, visible on a light colour such as white wine's yellow), so
+ * that it reads apart from a full one without relying on colour alone
+ * (ux-ui.md, accessibility); the legend says what the hatching means.
+ */
+const OPENED_PATTERN = 'repeating-linear-gradient(135deg, rgba(0,0,0,0.3) 0 3px, transparent 3px 7px)';
+
+function cellBackground(item: GridItem): React.CSSProperties {
+  return { backgroundColor: getCellColor(item), ...(item.isOpened ? { backgroundImage: OPENED_PATTERN } : {}) };
+}
+
 // ─── Zone helpers ─────────────────────────────────────────────────────────────
 
 type ZoneType = 'hot' | 'cold' | 'temperate';
@@ -82,13 +100,14 @@ const ZONE_BG: Record<ZoneType, string> = {
 };
 
 /**
- * "×4" on a slot that holds a group of several bottles (#471, FEAT-96), "×25"
- * on a box of 25 cigars (recette #471, KO 13.2); nothing for one.
+ * FEAT-93: "×4" on the one cell of a group of single cigars, the only cell
+ * that holds several things; nothing for a bottle or a box, which each have
+ * their own cell.
  */
 function CopiesBadge({ item }: { item: GridItem }) {
   const { t } = useTranslation();
-  const copies = slotUnits(item);
-  if (copies <= 1) return null;
+  const copies = cellBadge(item);
+  if (copies == null) return null;
   return (
     <span
       data-testid="slot-copies"
@@ -112,7 +131,7 @@ function BottleVisual({ item }: BottleVisualProps) {
   return (
     <div
       className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center"
-      style={{ backgroundColor: getCellColor(item) }}
+      style={cellBackground(item)}
     >
       <CopiesBadge item={item} />
       <span
@@ -128,51 +147,78 @@ function BottleVisual({ item }: BottleVisualProps) {
 // ─── Draggable bottle ─────────────────────────────────────────────────────────
 
 interface DraggableBottleProps {
-  item: GridItem;
+  item: GridCell;
   fromCol: number;
   fromRow: number;
   zone: ZoneType;
-  onClickOccupied: (item: GridItem) => void;
+  onOpenSlot: (item: GridCell) => void;
+  /** Offline (FEAT-108): the bottle opens its wine but does not move. */
+  disabled?: boolean;
+  /** A bottle of the plan is being dragged: no tooltip, on any cell. */
+  dragging?: boolean;
 }
 
-function DraggableBottle({ item, fromCol, fromRow, zone, onClickOccupied }: DraggableBottleProps) {
+function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = false, dragging = false }: DraggableBottleProps) {
   const { t, i18n } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `bottle-${item.id}`,
+    // One draggable per cell (FEAT-93: a line may hold several).
+    id: `bottle-${item.slotId}`,
     data: { item, fromCol, fromRow },
+    disabled,
   });
 
-  const copies = slotUnits(item);
-  // Recette #471 (KO 13.2): which line is on the slot (a closed box, an opened one…).
-  const line = item.isOpened !== undefined ? gridLineParts(item, t, i18n?.language) : [];
-  const tooltipContent = [item.name, item.producer, item.vintage, ...(line.length > 0 ? line : [copies > 1 ? t('cellars.grid.copies', { number: copies }) : null])]
+  // FEAT-93: what the cell holds — a bottle, "Boîte fermée de 25", "Boîte entamée · 23 restants"…
+  const tooltipContent = [item.name, item.producer, item.vintage, ...cellParts(item, t, i18n?.language)]
     .filter(Boolean).join(' · ');
+  const tooltipLines = cellTooltipLines(item, t, i18n?.language);
 
   const outlineStyle = zone !== 'temperate'
     ? { outline: `2px solid ${zone === 'hot' ? 'rgba(255,167,38,0.7)' : 'rgba(33,150,243,0.7)'}`, outlineOffset: '-2px' }
     : {};
 
   return (
-    <Tooltip delay={500} content={isDragging ? '' : tooltipContent} placement="top">
+    // Beside the cell, from its top edge, with an arrow: never over the row above
+    // nor the counter, even on two lines for a long name (recette n°5 of #847).
+    // Recette n°5 bis: it covers the next cells of the row, so it never takes the
+    // pointer (a hover or a click goes to the cell under it), closes as soon as
+    // the pointer leaves its cell, and never shows while a bottle is dragged.
+    <Tooltip
+      delay={500}
+      closeDelay={0}
+      isDisabled={dragging || isDragging}
+      placement="right-start"
+      showArrow
+      style={{ pointerEvents: 'none' }}
+      classNames={{ base: 'pointer-events-none', content: 'max-w-56 pointer-events-none' }}
+      content={
+        <div className="flex flex-col py-0.5">
+          {tooltipLines.map((line, index) => (
+            <span key={index} data-tooltip-line className={index === 0 ? 'font-semibold' : 'text-foreground-500'}>{line}</span>
+          ))}
+        </div>
+      }
+    >
       <div
         ref={setNodeRef}
         {...attributes}
         {...listeners}
+        data-cell={`${fromCol}:${fromRow}`}
+        data-opened={item.isOpened ? 'true' : undefined}
         aria-label={t('cellars.grid.cellLabelOccupied', { col: fromCol, row: fromRow, name: tooltipContent })}
-        onClick={() => onClickOccupied(item)}
+        onClick={() => onOpenSlot(item)}
         // Space picks the bottle up (dnd-kit's KeyboardSensor); Enter opens its
-        // details, the keyboard equivalent of the click. Not while dragging:
-        // there Enter is swallowed by the drop, and must not also open the dialog.
+        // wine, the keyboard equivalent of the click. Not while dragging:
+        // there Enter is swallowed by the drop, and must not also open the drawer.
         onKeyDown={(e) => {
           listeners?.onKeyDown?.(e);
           if (e.key === 'Enter' && !isDragging) {
             e.preventDefault();
-            onClickOccupied(item);
+            onOpenSlot(item);
           }
         }}
         className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-primary"
         style={{
-          backgroundColor: getCellColor(item),
+          ...cellBackground(item),
           cursor: isDragging ? 'grabbing' : 'grab',
           opacity: isDragging ? 0.35 : 1,
           transition: isDragging ? 'none' : 'all 0.15s',
@@ -198,13 +244,17 @@ interface DroppableSlotProps {
   col: number;
   row: number;
   zone: ZoneType;
-  item: GridItem | null;
+  item: GridCell | null;
   onClickEmpty: () => void;
-  onClickOccupied: (item: GridItem) => void;
+  onOpenSlot: (item: GridCell) => void;
   wording: GridWording;
+  /** Offline (FEAT-108): nothing is placed or moved; the id of the reason said. */
+  offlineReasonId?: string;
+  /** A bottle of the plan is being dragged. */
+  dragging?: boolean;
 }
 
-function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied, wording }: DroppableSlotProps) {
+function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording, offlineReasonId, dragging = false }: DroppableSlotProps) {
   const { t } = useTranslation();
   const { setNodeRef, isOver } = useDroppable({
     id: `slot-${col}:${row}`,
@@ -218,6 +268,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied, wo
   return (
     <div
       ref={setNodeRef}
+      data-slot={`${col}:${row}`}
       className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded relative"
       style={{
         backgroundColor: item ? 'transparent' : ZONE_BG[zone],
@@ -233,21 +284,26 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onClickOccupied, wo
           fromCol={col}
           fromRow={row}
           zone={zone}
-          onClickOccupied={onClickOccupied}
+          onOpenSlot={onOpenSlot}
+          disabled={offlineReasonId !== undefined}
+          dragging={dragging}
         />
       ) : (
         <div
           role="button"
           tabIndex={0}
+          data-cell={`${col}:${row}`}
           aria-label={t('cellars.grid.cellLabelEmpty', { col, row, ...wording })}
-          onClick={onClickEmpty}
+          aria-disabled={offlineReasonId ? true : undefined}
+          aria-describedby={offlineReasonId}
+          onClick={() => { if (!offlineReasonId) onClickEmpty(); }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              onClickEmpty();
+              if (!offlineReasonId) onClickEmpty();
             }
           }}
-          className="w-full h-full cursor-pointer hover:bg-default-100 rounded outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className={`w-full h-full rounded outline-none focus-visible:ring-2 focus-visible:ring-primary ${offlineReasonId ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-default-100'}`}
         />
       )}
     </div>
@@ -261,13 +317,21 @@ function GridLegend({ items }: { items: GridItem[] }) {
   const present = useMemo(() => {
     const keys = new Set<string>();
     items.forEach((item) => {
-      if (item.slotColumn != null) {
+      if (item.slots.length > 0) {
         const key = item.category === 'wine' ? `wine:${item.color ?? ''}` : item.category;
         keys.add(key);
       }
     });
     return Array.from(keys);
   }, [items]);
+
+  // Recette n°5 of #847: what the hatching of an opened bottle (or box) means.
+  // One entry, the hatching being the same (recette n°5 bis): « Boîte entamée »
+  // on a plan of cigars only, « Entamée » as soon as a bottle is opened on it.
+  const openedOnPlan = items.filter((item) => item.isOpened && item.slots.length > 0);
+  const openedLabel = openedOnPlan.length === 0
+    ? null
+    : openedOnPlan.every((item) => unitKind(item.category) === 'cigar') ? 'familyDrawer.lines.openedBox' : 'familyDrawer.lines.opened';
 
   if (present.length === 0) return null;
 
@@ -290,11 +354,25 @@ function GridLegend({ items }: { items: GridItem[] }) {
           {labelFor(key)}
         </span>
       ))}
+      {openedLabel && (
+        <span data-testid="grid-legend-opened" className="inline-flex items-center gap-1.5 px-1 text-xs text-foreground-500">
+          <span aria-hidden className="w-3.5 h-3.5 rounded" style={{ backgroundColor: '#9E9E9E', backgroundImage: OPENED_PATTERN }} />
+          {t(openedLabel)}
+        </span>
+      )}
     </div>
   );
 }
 
 // ─── Assign dialog ────────────────────────────────────────────────────────────
+
+/** Why "Assigner" was refused, when the plan was out of date (FEAT-93). */
+const ASSIGN_ERRORS: Record<string, string> = {
+  SLOT_OCCUPIED: 'cellars.grid.slotOccupied',
+  NOT_IN_STOCK: 'cellars.grid.notInStock',
+  NO_CELLAR: 'cellars.grid.noCellar',
+  OUTSIDE_GRID: 'cellars.grid.outsideGrid',
+};
 
 interface AssignDialogProps {
   open: boolean;
@@ -311,13 +389,18 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
   const assignSlot = useAssignSlot(cellarId);
   const [error, setError] = useState<string | null>(null);
 
-  const handleAssign = async (itemId: string) => {
+  const handleAssign = async (item: GridItem) => {
     setError(null);
     try {
-      await assignSlot.mutateAsync({ itemId, slotColumn: targetCol, slotRow: targetRow });
+      await assignSlot.mutateAsync({ itemId: item.id, column: targetCol, row: targetRow });
       onClose();
     } catch (err) {
-      setError(err instanceof Error && err.message === 'SLOT_OCCUPIED' ? t('cellars.grid.slotOccupied') : t('status.error'));
+      const code = err instanceof Error ? err.message : null;
+      // FEAT-93 c2: the line was placed in full meanwhile (another device): say why, and which line.
+      setError(code === 'NO_UNPLACED_COPY'
+        ? `${item.name} · ${noUnplacedCopyText(item, t)}`
+        // Cigars are smoked, not drunk (review of #855).
+        : code && code in ASSIGN_ERRORS ? t(ASSIGN_ERRORS[code], { context: item.category === 'cigar' ? 'cigar' : undefined }) : t('status.error'));
     }
   };
 
@@ -342,7 +425,7 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
               {unassignedItems.map((item) => (
                 <button
                   key={item.id}
-                  onClick={() => handleAssign(item.id)}
+                  onClick={() => handleAssign(item)}
                   disabled={assignSlot.isPending}
                   className="flex items-center gap-3 px-4 py-2.5 text-left hover:bg-default-50 disabled:opacity-50 transition-colors"
                 >
@@ -356,9 +439,13 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
                       {[item.producer, item.vintage].filter(Boolean).join(' · ')}
                     </div>
                     {/* Recette #471 (KO 13.2): two lines of the same wine read apart. */}
-                    {item.isOpened !== undefined && (
-                      <div className="text-xs text-foreground-500" data-testid="assign-line">
-                        {gridLineParts(item, t, i18n?.language).join(' · ')}
+                    <div className="text-xs text-foreground-500" data-testid="assign-line">
+                      {gridLineParts(item, t, i18n?.language).join(' · ')}
+                    </div>
+                    {/* FEAT-93 c2: "2 rangées, 4 non rangées". */}
+                    {placementText(item, t) && (
+                      <div className="text-xs text-foreground-600 font-medium" data-testid="assign-placement">
+                        {placementText(item, t)}
                       </div>
                     )}
                   </div>
@@ -380,89 +467,113 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
   );
 }
 
-// ─── Occupied cell dialog ─────────────────────────────────────────────────────
+/** Half the 4 px gap of the grid: a release in a gap goes to the nearer cell. */
+const HALF_GAP_PX = 2;
 
-interface OccupiedDialogProps {
-  open: boolean;
-  item: GridItem | null;
-  cellarId: string;
-  onClose: () => void;
+/**
+ * Recette n°5 bis of #847: a bottle dropped with the mouse (or a finger) lands
+ * in the cell under the pointer. dnd-kit's default rule compares the cells with
+ * the drag preview's box, measured once as it appears: when the pointer had
+ * already moved by then (a quick gesture, or pointer events sent in a burst),
+ * that box was measured already moved and then moved again by the same
+ * distance, so the cell hit was one past the one the bottle was released on.
+ * The cells are therefore taken grown by half a gap (a release between two
+ * cells goes to the nearer one), and a release off the grid moves nothing.
+ * Only the keyboard, which has no pointer, keeps the default rule: it moves the
+ * preview cell by cell, after it is drawn.
+ */
+export const dropTarget: CollisionDetection = (args) => {
+  if (!args.pointerCoordinates) return rectIntersection(args);
+  const grown = new Map(Array.from(args.droppableRects, ([id, rect]) => [id, {
+    top: rect.top - HALF_GAP_PX,
+    left: rect.left - HALF_GAP_PX,
+    bottom: rect.bottom + HALF_GAP_PX,
+    right: rect.right + HALF_GAP_PX,
+    width: rect.width + 2 * HALF_GAP_PX,
+    height: rect.height + 2 * HALF_GAP_PX,
+  }]));
+  return pointerWithin({ ...args, droppableRects: grown });
+};
+
+/** A cell of the plan where it is drawn on the screen. */
+export interface PlacedCell { col: number; row: number; rect: { top: number; left: number; bottom: number; right: number } }
+
+/**
+ * Recette n°5 ter of #847: the cell a bottle released at `point` lands on, by
+ * the rule of `dropTarget` (the cell under the pointer, a gap to the nearer
+ * cell, off the grid nothing). dnd-kit drops on the cell it found at the last
+ * pointer move it has drawn: a release right after a move (pointer events in a
+ * burst, a quick hand) or away from the last move landed on the cell before.
+ */
+export function cellAt(point: { x: number; y: number }, cells: PlacedCell[]): { col: number; row: number } | null {
+  let best: { col: number; row: number } | null = null;
+  let bestDistance = Infinity;
+  for (const { col, row, rect } of cells) {
+    if (point.x < rect.left - HALF_GAP_PX || point.x > rect.right + HALF_GAP_PX
+      || point.y < rect.top - HALF_GAP_PX || point.y > rect.bottom + HALF_GAP_PX) continue;
+    const distance = Math.hypot(point.x - (rect.left + rect.right) / 2, point.y - (rect.top + rect.bottom) / 2);
+    if (distance < bestDistance) {
+      best = { col, row };
+      bestDistance = distance;
+    }
+  }
+  return best;
 }
 
-function OccupiedDialog({ open, item, cellarId, onClose }: OccupiedDialogProps) {
-  const { t } = useTranslation();
-  const assignSlot = useAssignSlot(cellarId);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleRemove = async () => {
-    if (!item) return;
-    setError(null);
-    try {
-      await assignSlot.mutateAsync({ itemId: item.id, slotColumn: null, slotRow: null });
-      onClose();
-    } catch {
-      setError(t('status.error'));
-    }
+/** Where the last pointer drag was released: a cell, null off the plan, undefined for the keyboard. */
+function releaseNote() {
+  let slot: DropSlot | null | undefined;
+  return {
+    get: () => slot,
+    set: (released: DropSlot | null | undefined) => { slot = released; },
   };
+}
 
-  if (!item) return null;
-
-  return (
-    <ResponsiveModal isOpen={open} onClose={onClose} size="xs">
-      <ModalContent>
-        <ModalHeader>{item.name}</ModalHeader>
-        <ModalBody>
-          {error && (
-            <div role="alert" className="rounded-lg bg-danger-50 border border-danger-200 px-3 py-2 text-danger-700 text-sm mb-2">
-              {error}
-            </div>
-          )}
-          <p className="text-sm text-foreground-500">{item.producer}</p>
-          {item.vintage && (
-            <p className="text-sm text-foreground-500">
-              {t('inventory.fields.vintage')}: {item.vintage}
-            </p>
-          )}
-          <p className="text-sm text-foreground-500 mt-1">
-            {t(`categories.${item.category}`)}
-            {item.category === 'wine' && item.color && ` · ${t(`inventory.color.${item.color}`)}`}
-          </p>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="light" onPress={onClose}>
-            {t('actions.close')}
-          </Button>
-          <Button
-            color="warning"
-            variant="flat"
-            onPress={handleRemove}
-            isDisabled={assignSlot.isPending}
-          >
-            {t('cellars.grid.removeFromSlot')}
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </ResponsiveModal>
-  );
+/** The cells of a drawn plan, as they are on the screen now. */
+function placedCells(grid: HTMLElement | null): PlacedCell[] {
+  if (!grid) return [];
+  return Array.from(grid.querySelectorAll<HTMLElement>('[data-slot]'), (node) => {
+    const [col, row] = (node.dataset.slot ?? '').split(':').map(Number);
+    return { col, row, rect: node.getBoundingClientRect() };
+  });
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 interface CellarGridPlanProps {
   data: CellarGridData;
+  /**
+   * FEAT-93: a cell touched — its wine opens on the line, with the slot
+   * touched (the drawer's "Case C2·R3" and "Retirer de la case").
+   */
+  onOpenSlot: (cell: GridCell) => void;
 }
+
+/** A cell a bottle is dropped on, and what it holds. */
+type DropSlot = { col: number; row: number; item?: GridCell | null };
 
 /**
  * What a screen reader hears while a bottle or a cigar is moved on the plan,
  * in the member's language; French agrees with the thing moved (« Robusto
  * déposé », « Cuvée X déposée », review of #828).
  */
-export function dragAnnouncements(t: (key: string, options?: Record<string, unknown>) => string): Announcements {
+export function dragAnnouncements(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  /**
+   * Recette n°5 ter of #847: where a bottle moved with a pointer was released
+   * (null: off the plan), which the drop follows rather than dnd-kit's `over`;
+   * undefined for the keyboard, where `over` is right.
+   */
+  releasedOn?: () => DropSlot | null | undefined,
+): Announcements {
   const slotOf = (over: { data: { current?: unknown } } | null) =>
-    over?.data.current as { col: number; row: number } | undefined;
-  const itemOf = (active: { data: { current?: unknown } }) => (active.data.current as { item: GridItem }).item;
+    over?.data.current as DropSlot | undefined;
+  const itemOf = (active: { data: { current?: unknown } }) => (active.data.current as { item: GridCell }).item;
   const say = (key: string, item: GridItem, values?: Record<string, unknown>) =>
     t(key, { name: item.name, context: item.category === 'cigar' ? 'cigar' : undefined, ...values });
+  // FEAT-93: the copy in the cell aimed at, unless it is the one moved (its own cell).
+  const otherIn = (active: { data: { current?: unknown } }, slot: { item?: GridCell | null }) =>
+    slot.item && slot.item.id !== itemOf(active).id ? slot.item : null;
   return {
     onDragStart: ({ active }) => {
       const d = active.data.current as { item: GridItem; fromCol: number; fromRow: number };
@@ -470,17 +581,29 @@ export function dragAnnouncements(t: (key: string, options?: Record<string, unkn
     },
     onDragOver: ({ active, over }) => {
       const slot = slotOf(over);
-      return slot ? say('cellars.grid.announceOver', itemOf(active), slot) : undefined;
+      if (!slot) return undefined;
+      const other = otherIn(active, slot);
+      const at = { col: slot.col, row: slot.row };
+      return other
+        ? say('cellars.grid.announceOverOccupied', itemOf(active), { ...at, other: other.name })
+        : say('cellars.grid.announceOver', itemOf(active), at);
     },
     onDragEnd: ({ active, over }) => {
-      const slot = slotOf(over);
-      return slot ? say('cellars.grid.announceDrop', itemOf(active), slot) : say('cellars.grid.announceCancel', itemOf(active));
+      const released = releasedOn?.();
+      const slot = released === undefined ? slotOf(over) : released ?? undefined;
+      // Dropped nowhere, or on a cell of its own line (dropAction 'none'): nothing moved.
+      if (!slot || (slot.item && dropAction(itemOf(active), slot.item) === 'none')) return say('cellars.grid.announceCancel', itemOf(active));
+      const other = otherIn(active, slot);
+      const at = { col: slot.col, row: slot.row };
+      return other
+        ? say('cellars.grid.announceSwap', itemOf(active), { ...at, other: other.name })
+        : say('cellars.grid.announceDrop', itemOf(active), at);
     },
     onDragCancel: ({ active }) => say('cellars.grid.announceCancel', itemOf(active)),
   };
 }
 
-export function CellarGridPlan({ data }: CellarGridPlanProps) {
+export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { cellar, items } = data;
@@ -496,20 +619,22 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
   }
 
   const [assignTarget, setAssignTarget] = useState<{ col: number; row: number } | null>(null);
-  const [occupiedTarget, setOccupiedTarget] = useState<GridItem | null>(null);
-  const [activeDrag, setActiveDrag] = useState<{ item: GridItem; fromCol: number; fromRow: number } | null>(null);
+  // FEAT-93 (plan §4): placing, moving, swapping or taking out a bottle needs
+  // the server; offline the plan is read only, and says so.
+  const offline = useOfflineBlocked();
+  const offlineReasonId = useId();
+  const [activeDrag, setActiveDrag] = useState<{ item: GridCell; fromCol: number; fromRow: number } | null>(null);
 
   const cols = cellar.columns ?? 0;
   const rows = cellar.rows ?? 0;
   const hotZoneRows = cellar.hotZoneRows ?? 0;
   const coldZoneRows = cellar.coldZoneRows ?? 0;
 
+  // FEAT-93: one cell per slot of each line.
   const slotMap = useMemo(() => {
-    const map = new Map<string, GridItem>();
+    const map = new Map<string, GridCell>();
     localItems.forEach((item) => {
-      if (item.slotColumn != null && item.slotRow != null) {
-        map.set(`${item.slotColumn}:${item.slotRow}`, item);
-      }
+      item.slots.forEach((slot) => map.set(`${slot.column}:${slot.row}`, { ...item, slotId: slot.id }));
     });
     return map;
   }, [localItems]);
@@ -520,8 +645,9 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
 
   const wording = useMemo(() => gridWording(cellar.type, localItems), [cellar.type, localItems]);
 
+  // FEAT-93: the lines with a copy still unplaced.
   const unassignedItems = useMemo(
-    () => localItems.filter((item) => item.slotColumn == null || item.slotRow == null),
+    () => localItems.filter((item) => item.unplaced > 0),
     [localItems]
   );
 
@@ -550,68 +676,87 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
     })
   );
 
+  // Recette n°5 ter of #847: where the pointer is, read from every mouse or
+  // touch event while a bottle is dragged, the release included. dnd-kit only
+  // knows the last move it has drawn, and never reads the release's position.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const pointerRef = useRef<{ x: number; y: number } | null>(null);
+  const stopFollowingRef = useRef<(() => void) | null>(null);
+  // The cell the last pointer drag was released on, for its announcement.
+  const [releasedOn] = useState(releaseNote);
+
+  const stopFollowingPointer = useCallback(() => {
+    stopFollowingRef.current?.();
+    stopFollowingRef.current = null;
+  }, []);
+  useEffect(() => stopFollowingPointer, [stopFollowingPointer]);
+
   // dnd-kit's default screen-reader texts are English only.
-  const announcements = useMemo(() => dragAnnouncements(t), [t]);
+  const announcements = useMemo(() => dragAnnouncements(t, releasedOn.get), [t, releasedOn]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const { item, fromCol, fromRow } = event.active.data.current as { item: GridItem; fromCol: number; fromRow: number };
+    const { item, fromCol, fromRow } = event.active.data.current as { item: GridCell; fromCol: number; fromRow: number };
     setActiveDrag({ item, fromCol, fromRow });
-  }, []);
+    stopFollowingPointer();
+    releasedOn.set(undefined);
+    // The keyboard has no pointer: dnd-kit's own target is right for it.
+    pointerRef.current = event.activatorEvent ? getEventCoordinates(event.activatorEvent) : null;
+    if (!pointerRef.current) return;
+    // On the window and capturing, so they run before dnd-kit's own listeners.
+    const follow = (e: Event) => {
+      const at = getEventCoordinates(e);
+      if (at) pointerRef.current = at;
+    };
+    const types = ['mousemove', 'mouseup', 'touchmove', 'touchend'] as const;
+    types.forEach((type) => window.addEventListener(type, follow, { capture: true, passive: true }));
+    stopFollowingRef.current = () => types.forEach((type) => window.removeEventListener(type, follow, { capture: true }));
+  }, [stopFollowingPointer, releasedOn]);
+
+  const handleDragCancel = useCallback(() => {
+    setActiveDrag(null);
+    stopFollowingPointer();
+  }, [stopFollowingPointer]);
 
   const handleDragEnd = useCallback(async (event: DragEndEvent) => {
     setActiveDrag(null);
+    stopFollowingPointer();
     const { active, over } = event;
-    if (!over) return;
+    // With a pointer, the cell under it at the release wins over dnd-kit's `over`.
+    let target = over?.data.current as DropSlot | undefined;
+    const point = pointerRef.current;
+    pointerRef.current = null;
+    if (point) {
+      const cell = cellAt(point, placedCells(gridRef.current));
+      target = cell ? { ...cell, item: slotMap.get(`${cell.col}:${cell.row}`) ?? null } : undefined;
+      releasedOn.set(target ?? null);
+    }
+    if (!target) return;
 
-    const { item: draggedItem, fromCol, fromRow } = active.data.current as { item: GridItem; fromCol: number; fromRow: number };
-    const { col: toCol, row: toRow, item: targetItem } = over.data.current as { col: number; row: number; item: GridItem | null };
+    const { item: draggedItem, fromCol, fromRow } = active.data.current as { item: GridCell; fromCol: number; fromRow: number };
+    const { col: toCol, row: toRow } = target;
+    const targetItem = target.item ?? null;
 
-    if (fromCol === toCol && fromRow === toRow) return;
+    const action = dropAction(draggedItem, targetItem);
+    if (action === 'none' || (fromCol === toCol && fromRow === toRow)) return;
 
     const prevItems = [...localItems];
-
-    if (!targetItem) {
-      // ── Move to empty slot ──────────────────────────────────────────────
-      setLocalItems((prev) =>
-        prev.map((it) =>
-          it.id === draggedItem.id ? { ...it, slotColumn: toCol, slotRow: toRow } : it
-        )
-      );
-      try {
-        await client.patch(`/inventory/${draggedItem.id}`, { slotColumn: toCol, slotRow: toRow });
-        invalidateGrid();
-      } catch {
-        setLocalItems(prevItems);
-      }
-    } else {
-      // ── Swap two occupied slots ─────────────────────────────────────────
-      // ISSUE_037: this used to be three independent network calls (vacate,
-      // move target, move dragged); a dropped connection between any two of
-      // them left the database half-updated while the screen silently
-      // reverted to the old positions, lying about the real state. A single
-      // transactional endpoint now performs both moves atomically, and a
-      // failure triggers a real refetch (not just a local revert) plus an
-      // error toast, so the screen can never again disagree with the server.
-      setLocalItems((prev) =>
-        prev.map((it) => {
-          if (it.id === draggedItem.id) return { ...it, slotColumn: toCol, slotRow: toRow };
-          if (it.id === targetItem.id) return { ...it, slotColumn: fromCol, slotRow: fromRow };
-          return it;
-        })
-      );
-      try {
-        await client.post(`/cellars/${cellar.id}/swap-slots`, {
-          itemAId: draggedItem.id,
-          itemBId: targetItem.id,
-        });
-        invalidateGrid();
-      } catch {
-        setLocalItems(prevItems);
-        invalidateGrid();
-        notifyError('cellars.grid.moveError');
-      }
+    // FEAT-93: the screen shows what the server will do — a slot moves, or
+    // two slots keep their cells and swap their lines (swapOwners).
+    setLocalItems((prev) => (action === 'move'
+      ? moveSlot(prev, draggedItem.slotId, toCol, toRow)
+      : swapOwners(prev, draggedItem, targetItem as GridCell)));
+    try {
+      // ISSUE_037: a swap is one transactional request, never three.
+      if (action === 'move') await client.patch(`/slots/${draggedItem.slotId}`, { column: toCol, row: toRow });
+      else await client.post(`/cellars/${cellar.id}/swap-slots`, { slotAId: draggedItem.slotId, slotBId: (targetItem as GridCell).slotId });
+      invalidateGrid();
+    } catch {
+      // A refusal (cell taken or slot changed on another device): the server's plan, and why.
+      setLocalItems(prevItems);
+      invalidateGrid();
+      notifyError('cellars.grid.moveError');
     }
-  }, [localItems, invalidateGrid, cellar.id]);
+  }, [localItems, slotMap, invalidateGrid, cellar.id, stopFollowingPointer, releasedOn]);
 
   if (cols === 0 || rows === 0) {
     return (
@@ -655,11 +800,19 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
         )}
       </div>
 
+      {offline && (
+        <p id={offlineReasonId} role="status" className="mb-3 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-700" data-testid="grid-offline">
+          {t('cellars.grid.offline', wording)}
+        </p>
+      )}
+
       {/* Grid */}
       <DndContext
         sensors={sensors}
+        collisionDetection={dropTarget}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
         accessibility={{
           announcements,
           screenReaderInstructions: { draggable: t('cellars.grid.dragInstructions', wording) },
@@ -668,6 +821,7 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
         {/* Room for the "×25" badges of the top row and last column (recette v3 of #471). */}
         <div className="overflow-x-auto pt-2 pr-2 pb-1">
           <div
+            ref={gridRef}
             className="inline-grid"
             style={{
               gridTemplateColumns: `repeat(${cols}, auto)`,
@@ -688,8 +842,10 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
                     zone={zone}
                     item={item}
                     onClickEmpty={() => setAssignTarget({ col, row })}
-                    onClickOccupied={(it) => setOccupiedTarget(it)}
+                    onOpenSlot={onOpenSlot}
                     wording={wording}
+                    offlineReasonId={offline ? offlineReasonId : undefined}
+                    dragging={activeDrag !== null}
                   />
                 );
               });
@@ -739,19 +895,13 @@ export function CellarGridPlan({ data }: CellarGridPlanProps) {
 
       {/* Dialogs */}
       <AssignDialog
-        open={!!assignTarget}
+        open={!!assignTarget && !offline}
         targetCol={assignTarget?.col ?? 0}
         targetRow={assignTarget?.row ?? 0}
         unassignedItems={unassignedItems}
         cellarId={cellar.id}
         onClose={() => setAssignTarget(null)}
         wording={wording}
-      />
-      <OccupiedDialog
-        open={!!occupiedTarget}
-        item={occupiedTarget}
-        cellarId={cellar.id}
-        onClose={() => setOccupiedTarget(null)}
       />
     </div>
   );

@@ -25,104 +25,6 @@ beforeEach(() => {
   vi.mocked(prisma.$transaction).mockImplementation(((callback: (tx: unknown) => unknown) => callback(prisma)) as never);
 });
 
-describe('CellarService.swapSlots (ISSUE_037)', () => {
-  it('returns not_found when either item does not exist in this cellar', async () => {
-    vi.mocked(prisma.inventoryItem.findFirst)
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: 'b', slotColumn: 2, slotRow: 1 } as never);
-
-    const res = await CellarService.swapSlots('u1', 'c1', { itemAId: 'a', itemBId: 'b' });
-    expect(res).toEqual({ status: 'not_found' });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-  });
-
-  it('returns not_in_grid when either item has no slot assigned', async () => {
-    vi.mocked(prisma.inventoryItem.findFirst)
-      .mockResolvedValueOnce({ id: 'a', slotColumn: null, slotRow: null } as never)
-      .mockResolvedValueOnce({ id: 'b', slotColumn: 2, slotRow: 1 } as never);
-
-    const res = await CellarService.swapSlots('u1', 'c1', { itemAId: 'a', itemBId: 'b' });
-    expect(res).toEqual({ status: 'not_in_grid' });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
-  });
-
-  it('swaps both items\' slot coordinates inside a single transaction, freeing A\'s slot first (#173)', async () => {
-    vi.mocked(prisma.inventoryItem.findFirst)
-      .mockResolvedValueOnce({ id: 'a', slotColumn: 1, slotRow: 1 } as never)
-      .mockResolvedValueOnce({ id: 'b', slotColumn: 2, slotRow: 1 } as never);
-    vi.mocked(prisma.inventoryItem.update)
-      .mockResolvedValueOnce({ id: 'a', slotColumn: null, slotRow: null } as never)
-      .mockResolvedValueOnce({ id: 'b', slotColumn: 1, slotRow: 1 } as never)
-      .mockResolvedValueOnce({ id: 'a', slotColumn: 2, slotRow: 1 } as never);
-
-    const res = await CellarService.swapSlots('u1', 'c1', { itemAId: 'a', itemBId: 'b' });
-
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    // A's slot (cellarId, slotColumn, slotRow) is now protected by a partial
-    // unique index (#173) — moving A straight onto B's still-occupied slot
-    // would violate it immediately, so A is freed first, then B moves into
-    // A's old (now-free) slot, then A moves into B's old (now-free) slot.
-    expect(prisma.inventoryItem.update).toHaveBeenNthCalledWith(1, {
-      where: { id: 'a' },
-      data: { slotColumn: null, slotRow: null },
-    });
-    expect(prisma.inventoryItem.update).toHaveBeenNthCalledWith(2, {
-      where: { id: 'b' },
-      data: { slotColumn: 1, slotRow: 1 },
-    });
-    expect(prisma.inventoryItem.update).toHaveBeenNthCalledWith(3, {
-      where: { id: 'a' },
-      data: { slotColumn: 2, slotRow: 1 },
-    });
-    expect(res).toEqual({
-      status: 'success',
-      items: [
-        { id: 'a', slotColumn: 2, slotRow: 1 },
-        { id: 'b', slotColumn: 1, slotRow: 1 },
-      ],
-    });
-  });
-
-  // A2 (lock order, #787 review): both families locked first, in sorted
-  // order, before either unit is written.
-  it('locks the families of both items in sorted order before moving them', async () => {
-    vi.mocked(prisma.inventoryItem.findFirst)
-      .mockResolvedValueOnce({ id: 'a', productId: 'p2', slotColumn: 1, slotRow: 1 } as never)
-      .mockResolvedValueOnce({ id: 'b', productId: 'p1', slotColumn: 2, slotRow: 1 } as never);
-    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ id: 'x', slotColumn: 1, slotRow: 1 } as never);
-
-    await CellarService.swapSlots('u1', 'c1', { itemAId: 'a', itemBId: 'b' });
-
-    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['p1', 'p2']);
-    const lastLock = Math.max(...vi.mocked(prisma.$queryRaw).mock.invocationCallOrder);
-    expect(Math.min(...vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder)).toBeGreaterThan(lastLock);
-  });
-
-  it('locks a family shared by both items once', async () => {
-    vi.mocked(prisma.inventoryItem.findFirst)
-      .mockResolvedValueOnce({ id: 'a', productId: 'p1', slotColumn: 1, slotRow: 1 } as never)
-      .mockResolvedValueOnce({ id: 'b', productId: 'p1', slotColumn: 2, slotRow: 1 } as never);
-    vi.mocked(prisma.inventoryItem.update).mockResolvedValue({ id: 'x', slotColumn: 1, slotRow: 1 } as never);
-
-    await CellarService.swapSlots('u1', 'c1', { itemAId: 'a', itemBId: 'b' });
-
-    expect(vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1])).toEqual(['p1']);
-  });
-
-  it('scopes both lookups to the given cellar and excludes soft-deleted items', async () => {
-    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null as never);
-
-    await CellarService.swapSlots('u1', 'c1', { itemAId: 'a', itemBId: 'b' });
-
-    expect(prisma.inventoryItem.findFirst).toHaveBeenCalledWith({
-      where: { id: 'a', cellarId: 'c1', deletedAt: null },
-    });
-    expect(prisma.inventoryItem.findFirst).toHaveBeenCalledWith({
-      where: { id: 'b', cellarId: 'c1', deletedAt: null },
-    });
-  });
-});
-
 // ISSUE_239 + #573: a cellar counts and values what it still holds. A
 // finished bottle (opened, nothing left) stays in the inventory for its
 // history, but is neither counted in `bottles`/`cigars`, nor valued,
@@ -183,32 +85,38 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
     });
   });
 
-  it('getGridData only places the bottles still in stock on the map', async () => {
+  it('getGridData only places the bottles still in stock on the map, each copy in its cell (FEAT-93)', async () => {
     const cave = { id: 'c1', name: 'Cave A' };
     const state = { fillLevel: null, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null, purchasePrice: null, purchasedAt: null };
+    const cell = (id: string, column: number) => ({ id, column, row: 1 });
     const placed = [
-      { id: 'a', product: { name: 'Chambertin' }, slotColumn: 1, slotRow: 1, quantity: 4, isOpened: false, ...state },
-      { id: 'b', product: { name: 'Musigny' }, slotColumn: 2, slotRow: 1, quantity: null, isOpened: false, ...state },
-      { id: 'c', product: { name: 'Opened' }, slotColumn: 3, slotRow: 1, quantity: 1, isOpened: true, ...state, fillLevel: 60 },
+      { id: 'a', productId: 'p1', product: { name: 'Chambertin' }, slots: [cell('s1', 1), cell('s4', 4)], quantity: 4, isOpened: false, ...state },
+      { id: 'b', productId: 'p2', product: { name: 'Musigny' }, slots: [cell('s2', 2)], quantity: null, isOpened: false, ...state },
+      { id: 'c', productId: 'p3', product: { name: 'Opened' }, slots: [cell('s3', 3)], quantity: 1, isOpened: true, ...state, fillLevel: 60 },
     ];
     vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cave as never);
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(placed as never);
 
     const grid = await CellarService.getGridData('u1', 'c1');
 
-    // The group's size rides on its slot ("×4"); an empty quantity is one bottle.
+    // A group x4 in 2 cells has 2 copies unplaced; an empty quantity is one bottle.
     // #471 (lot Z): the description is read on the family, served flat as before.
+    const line = { cigarsPerBox: null, cigarsLeft: null, purchasePrice: null, purchasedAt: null };
     expect(grid).toEqual({
       cellar: cave,
       items: [
-        { id: 'a', name: 'Chambertin', slotColumn: 1, slotRow: 1, quantity: 4, units: 4, isOpened: false, cigarsPerBox: null, cigarsLeft: null, purchasePrice: null, purchasedAt: null },
-        { id: 'b', name: 'Musigny', slotColumn: 2, slotRow: 1, quantity: 1, units: 1, isOpened: false, cigarsPerBox: null, cigarsLeft: null, purchasePrice: null, purchasedAt: null },
-        { id: 'c', name: 'Opened', slotColumn: 3, slotRow: 1, quantity: 1, units: 1, isOpened: true, cigarsPerBox: null, cigarsLeft: null, purchasePrice: null, purchasedAt: null },
+        { id: 'a', productId: 'p1', name: 'Chambertin', slots: [cell('s1', 1), cell('s4', 4)], unplaced: 2, quantity: 4, units: 4, isOpened: false, ...line },
+        { id: 'b', productId: 'p2', name: 'Musigny', slots: [cell('s2', 2)], unplaced: 0, quantity: 1, units: 1, isOpened: false, ...line },
+        { id: 'c', productId: 'p3', name: 'Opened', slots: [cell('s3', 3)], unplaced: 0, quantity: 1, units: 1, isOpened: true, ...line },
       ],
     });
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: { cellarId: 'c1', ...IN_STOCK_SCOPE },
-      select: expect.objectContaining({ product: { select: { name: true, producer: true, category: true, color: true, vintage: true } } }),
+      select: expect.objectContaining({
+        product: { select: { name: true, producer: true, category: true, color: true, vintage: true } },
+        // Live cells only, by row then column.
+        slots: { where: { deletedAt: null }, select: { id: true, column: true, row: true }, orderBy: [{ row: 'asc' }, { column: 'asc' }] },
+      }),
       orderBy: { createdAt: 'asc' },
     });
   });
@@ -218,15 +126,18 @@ describe('CellarService — finished bottles are not in stock (ISSUE_239, #573)'
     const state = { fillLevel: null, cigarsLeft: null, writtenOffAt: null, purchasePrice: 200, purchasedAt: new Date('2026-11-03T00:00:00Z') };
     vi.mocked(prisma.cellar.findFirst).mockResolvedValue({ id: 'c1' } as never);
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      { id: 'closed', product: { name: 'Robusto' }, slotColumn: 1, slotRow: 1, quantity: 1, isOpened: false, cigarsPerBox: 25, ...state },
-      { id: 'opened', product: { name: 'Robusto' }, slotColumn: null, slotRow: null, quantity: 1, isOpened: true, cigarsPerBox: 25, ...state, cigarsLeft: 23 },
+      { id: 'closed', product: { name: 'Robusto', category: 'cigar' }, slots: [{ id: 's1', column: 1, row: 1 }], quantity: 1, isOpened: false, cigarsPerBox: 25, ...state },
+      { id: 'opened', product: { name: 'Robusto', category: 'cigar' }, slots: [], quantity: 1, isOpened: true, cigarsPerBox: 25, ...state, cigarsLeft: 23 },
+      { id: 'singles', product: { name: 'Robusto', category: 'cigar' }, slots: [], quantity: 6, isOpened: false, cigarsPerBox: null, ...state },
     ] as never);
 
     const grid = await CellarService.getGridData('u1', 'c1');
 
     expect(grid?.items).toEqual([
       expect.objectContaining({ id: 'closed', quantity: 1, units: 25, isOpened: false, cigarsPerBox: 25, cigarsLeft: null, purchasePrice: 200, purchasedAt: '2026-11-03' }),
-      expect.objectContaining({ id: 'opened', quantity: 1, units: 23, isOpened: true, cigarsPerBox: 25, cigarsLeft: 23 }),
+      expect.objectContaining({ id: 'opened', quantity: 1, units: 23, isOpened: true, cigarsPerBox: 25, cigarsLeft: 23, unplaced: 1 }),
+      // FEAT-93: a group of single cigars takes one cell for the group.
+      expect.objectContaining({ id: 'singles', quantity: 6, units: 6, unplaced: 1 }),
     ]);
   });
 });

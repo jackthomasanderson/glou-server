@@ -37,7 +37,9 @@ export interface GardePoint {
 }
 
 export interface CavePoint {
-  cellarId: string;
+  /** Null: the units in no cellar ("Sans cave"), so the distribution sums to the stock (recette #847, KO 10.2). */
+  cellarId: string | null;
+  /** Empty for the units in no cellar: the client names them. */
   cellarName: string;
   cellarType: string;
   count: number;
@@ -46,7 +48,11 @@ export interface CavePoint {
 
 export interface MovementStats {
   added: number;
-  /** Bottles finished during the period (opened, fill level 0), dated by `updatedAt` — not items moved to the trash. */
+  /**
+   * #838: units consumed during the period — each bottle drunk, each cigar
+   * smoked (shared/units.ts `consumedUnits`), dated by the item's `updatedAt`.
+   * Not written-off units, not items moved to the trash.
+   */
   consumed: number;
   /** Items moved to the trash during the period. */
   deleted: number;
@@ -73,12 +79,15 @@ export interface AnalyticsPeriod {
  * #471 (FEAT-96): every count is in units in stock (bottles, or cigars —
  * shared/units.ts `itemUnits`), every valuation follows `itemValue` (#594),
  * and `totalPurchasePrice` is spending (`itemSpend`: drunk and written-off
- * copies included).
+ * copies included). #838: the capital gain is `totalValuation −
+ * inStockPurchasePrice`, value and cost of the same units.
  */
 export interface AnalyticsStats {
   period: AnalyticsPeriod;
   totalValuation: number;
   totalPurchasePrice: number;
+  /** #838: purchase cost of the units in stock (`itemCostInStock`), what `totalValuation` compares to. */
+  inStockPurchasePrice: number;
   totalLiquidLiters: number;
   /** Cigars in stock. */
   cigarCount: number;

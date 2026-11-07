@@ -7,7 +7,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 type Row = Record<string, unknown> & { id: string };
 
-const db = vi.hoisted(() => ({ items: new Map<string, Record<string, unknown> & { id: string }>(), families: [] as Array<Record<string, unknown> & { id: string }>, cellars: new Set<string>(), order: [] as string[] }));
+const db = vi.hoisted(() => ({
+  items: new Map<string, Record<string, unknown> & { id: string }>(), families: [] as Array<Record<string, unknown> & { id: string }>,
+  cellars: new Set<string>(), order: [] as string[],
+  // FEAT-93: the cells of the plan (item_slots), a fakeSlots() set in beforeEach.
+  slots: null as unknown as ReturnType<typeof import('../support/fake-slots').fakeSlots>,
+}));
 
 /** A Prisma `where` of equalities and the operators the services use (not, in, gt, equals, NOT). */
 function matches(row: Record<string, unknown>, where: Record<string, unknown> = {}): boolean {
@@ -73,6 +78,7 @@ vi.mock('../../src/lib/prisma', () => {
       }),
     },
     inventoryCountEntry: { findMany: vi.fn(async () => []), updateMany: vi.fn(async () => ({ count: 0 })) },
+    get itemSlot() { return db.slots.delegate; },
     inventoryCountSession: { findFirst: vi.fn(async () => null) },
     $executeRaw: vi.fn(async () => 1),
     $queryRaw: vi.fn(async (_sql: unknown, id: string) => { db.order.push(`lock:${id}`); return []; }),
@@ -85,13 +91,14 @@ vi.mock('../../src/lib/prisma', () => {
 import { bulkStockService } from '../../src/services/bulk-stock.service';
 import { AppError } from '../../src/lib/errors';
 import { itemSpend, itemUnits } from '../../src/lib/finished-item';
+import { fakeSlots, slot } from '../support/fake-slots';
 
 const DAY = new Date('2026-01-15T00:00:00.000Z');
 
 /** A unit: an intact bottle of family p1, 20 € each, bought on DAY, in the garage. */
 function unit(fields: Partial<Row> & { id: string }): Row {
   return {
-    userId: 'u1', productId: 'p1', cellarId: 'garage', slotColumn: null, slotRow: null, location: null,
+    userId: 'u1', productId: 'p1', cellarId: 'garage', location: null,
     purchasePrice: 20, estimatedValue: null, purchasePlace: null, purchasedAt: DAY, bottleSize: null,
     quantity: 1, cigarsPerBox: null, cigarsLeft: null, isOpened: false, fillLevel: null, openedAt: null,
     parentItemId: null, writtenOffAt: null, needsReview: false, deletedAt: null,
@@ -128,6 +135,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.cellars = new Set(['garage', 'kitchen']);
   db.order = [];
+  db.slots = fakeSlots();
 });
 
 /**
@@ -137,13 +145,14 @@ beforeEach(() => {
  */
 function threeWines() {
   seed([
-    unit({ id: 'a-group', productId: P1, quantity: 6, slotColumn: 1, slotRow: 1 }),
+    unit({ id: 'a-group', productId: P1, quantity: 6 }),
     unit({ id: 'a-opened', productId: P1, isOpened: true, fillLevel: 60, openedAt: new Date('2026-10-01'), parentItemId: 'a-group' }),
     unit({ id: 'a-drunk', productId: P1, isOpened: true, fillLevel: 0, parentItemId: 'a-group' }),
     unit({ id: 'b-garage', productId: P2, quantity: 2 }),
     unit({ id: 'b-kitchen', productId: P2, quantity: 3, cellarId: 'kitchen', purchasedAt: new Date('2026-03-01T00:00:00Z') }),
     unit({ id: 'c-group', productId: P3, quantity: 2 }),
   ], [family(P1), family(P2), family(P3)]);
+  db.slots.rows.push(slot({ itemId: 'a-group', cellarId: 'garage', column: 1, row: 1 }));
 }
 
 describe('bulkStockService.move (FEAT-111 c1, c4)', () => {
@@ -159,8 +168,9 @@ describe('bulkStockService.move (FEAT-111 c1, c4)', () => {
     expect(unitsOf(P1, { cellarId: 'kitchen' }) + unitsOf(P2, { cellarId: 'kitchen' }) + unitsOf(P3, { cellarId: 'kitchen' })).toBe(14);
     // c4: the finished bottle is neither moved nor counted.
     expect(db.items.get('a-drunk')).toMatchObject({ cellarId: 'garage' });
-    // A moved group leaves its slot (a place in its old cellar's plan).
-    expect(db.items.get('a-group')).toMatchObject({ cellarId: 'kitchen', slotColumn: null, slotRow: null });
+    // A moved group leaves its cells (places in its old cellar's plan).
+    expect(db.items.get('a-group')).toMatchObject({ cellarId: 'kitchen' });
+    expect(db.slots.cellsOf('a-group')).toBe('');
     // The families are locked first, in sorted order, before any write.
     const locks = db.order.filter((step) => step.startsWith('lock:'));
     expect(locks).toEqual([`lock:${P1}`, `lock:${P2}`, `lock:${P3}`]);
@@ -199,14 +209,16 @@ describe('bulkStockService.move (FEAT-111 c1, c4)', () => {
   });
 
   it('an opened bottle moves on its own, unplaced, and is logged as a cellar change', async () => {
-    seed([unit({ id: 'o', productId: P1, isOpened: true, fillLevel: 40, slotColumn: 2, slotRow: 2 })], [family(P1)]);
+    seed([unit({ id: 'o', productId: P1, isOpened: true, fillLevel: 40 })], [family(P1)]);
+    db.slots.rows.push(slot({ itemId: 'o', cellarId: 'garage', column: 2, row: 2 }));
 
     const outcome = await bulkStockService.move('u1', { productIds: [P1], cellarId: null });
 
-    expect(db.items.get('o')).toMatchObject({ cellarId: null, slotColumn: null, slotRow: null, isOpened: true, fillLevel: 40 });
+    expect(db.items.get('o')).toMatchObject({ cellarId: null, isOpened: true, fillLevel: 40 });
+    expect(db.slots.cellsOf('o')).toBe('');
     expect(outcome.entries[0]).toMatchObject({
       action: 'UPDATE', bottleId: 'o',
-      details: { changes: [{ field: 'cellarId', from: 'garage', to: null }, { field: 'slotColumn', from: 2, to: null }, { field: 'slotRow', from: 2, to: null }] },
+      details: { changes: [{ field: 'cellarId', from: 'garage', to: null }, { field: 'slot', from: { column: 2, row: 2 }, to: null }] },
     });
   });
 
@@ -243,8 +255,11 @@ describe('bulkStockService.trash (FEAT-111 c2, c4)', () => {
     expect(new Set(trashed.map((row) => (row.deletedAt as Date).getTime())).size).toBe(1);
     expect(outcome.deletedAt).toEqual(trashed[0].deletedAt);
     expect(db.items.get('a-drunk')).toMatchObject({ deletedAt: null });
-    // The groups keep their number and their slot: a restore brings them back as they were.
-    expect(db.items.get('a-group')).toMatchObject({ quantity: 6, slotColumn: 1, slotRow: 1 });
+    // The groups keep their number and their cells, in the trash with them: a restore brings them back as they were.
+    expect(db.items.get('a-group')).toMatchObject({ quantity: 6 });
+    expect(db.slots.rows.filter((row) => row.itemId === 'a-group')).toEqual([
+      expect.objectContaining({ column: 1, row: 1, deletedAt: outcome.deletedAt }),
+    ]);
     expect(outcome.entries.map((entry) => [entry.action, entry.bottleId])).toContainEqual(['DELETE', 'c-group']);
     const locks = db.order.filter((step) => step.startsWith('lock:'));
     expect(locks).toEqual([`lock:${P1}`, `lock:${P2}`, `lock:${P3}`]);
@@ -252,11 +267,28 @@ describe('bulkStockService.trash (FEAT-111 c2, c4)', () => {
 });
 
 describe('bulkStockService.drink (FEAT-111 c3)', () => {
+  it('FEAT-93 (decision #471 point 75): from a group whose every bottle is placed, the most recent cell is freed and told in its history', async () => {
+    seed([unit({ id: 'two', productId: P1, quantity: 2 })], [family(P1)]);
+    db.slots.rows.push(
+      slot({ itemId: 'two', cellarId: 'garage', column: 1, row: 1 }),
+      slot({ itemId: 'two', cellarId: 'garage', column: 2, row: 1 }),
+    );
+
+    const outcome = await bulkStockService.drink('u1', { items: [{ productId: P1, count: 1 }] });
+
+    expect(db.slots.cellsOf('two')).toBe('1:1');
+    expect(outcome.entries).toContainEqual(expect.objectContaining({
+      bottleId: 'two',
+      details: expect.objectContaining({ changes: [{ field: 'quantity', from: 2, to: 1 }, { field: 'slot', from: { column: 2, row: 1 }, to: null }] }),
+    }));
+  });
+
   it('c3: 1 of a wine of 6 leaves 5, the wine of one bottle has none left', async () => {
     seed([
       unit({ id: 'six', productId: P1, quantity: 6 }),
-      unit({ id: 'one', productId: P2, quantity: 1, slotColumn: 3, slotRow: 1 }),
+      unit({ id: 'one', productId: P2, quantity: 1 }),
     ], [family(P1), family(P2)]);
+    db.slots.rows.push(slot({ itemId: 'one', cellarId: 'garage', column: 3, row: 1 }));
     const spend = spendOf(P1) + spendOf(P2);
 
     const outcome = await bulkStockService.drink('u1', { items: [{ productId: P1, count: 1 }, { productId: P2, count: 1 }] });
@@ -268,8 +300,12 @@ describe('bulkStockService.drink (FEAT-111 c3)', () => {
     expect(db.items.get('six')).toMatchObject({ quantity: 5, isOpened: false });
     const drunk = rows().find((row) => row.parentItemId === 'six')!;
     expect(drunk).toMatchObject({ isOpened: true, fillLevel: 0, quantity: 1 });
-    // A line of one is finished itself, and gives its slot back.
-    expect(db.items.get('one')).toMatchObject({ isOpened: true, fillLevel: 0, slotColumn: null });
+    // A line of one is finished itself, and gives its cell back; its history says which.
+    expect(db.items.get('one')).toMatchObject({ isOpened: true, fillLevel: 0 });
+    expect(db.slots.cellsOf('one')).toBe('');
+    expect(outcome.entries).toContainEqual(expect.objectContaining({
+      bottleId: 'one', details: expect.objectContaining({ changes: expect.arrayContaining([{ field: 'slot', from: { column: 3, row: 1 }, to: null }]) }),
+    }));
     // Drunk bottles stay in the spending.
     expect(spendOf(P1) + spendOf(P2)).toBe(spend);
     // The group's own history: one bottle fewer.
@@ -317,6 +353,10 @@ describe('bulkStockService.drink (FEAT-111 c3)', () => {
     expect(opened).toHaveLength(1);
     expect(opened[0]).toMatchObject({ isOpened: true, cigarsLeft: 22 });
     expect(unitsOf(P1)).toBe(47);
+    // Recette #847: each one told "1 cigare fumé" in the history, the first one too (it only opens the box in its changes).
+    const smoked = outcome.entries.filter((entry) => (entry.details as { targetItemId?: string }).targetItemId);
+    expect(smoked).toHaveLength(3);
+    for (const entry of smoked) expect(entry.details).toMatchObject({ smokeOne: true });
   });
 
   it('more than the wine has in the cellar is refused, and nothing is written', async () => {

@@ -87,6 +87,55 @@ export const isRestorableDescriptionField = (field: string): boolean => RESTORAB
 /** Per-field source tag of a table's own columns (FEAT-05); a field absent is 'manual'. */
 export type FieldSources = Record<string, string>;
 
+/** FEAT-93: one cell of the cellar plan (1-based) held by one copy of a unit. */
+export interface ItemSlotView {
+  id: string;
+  column: number;
+  row: number;
+}
+
+/** FEAT-93: a cell of the cellar plan (1-based), without the slot holding it. */
+export interface SlotCell {
+  column: number;
+  row: number;
+}
+
+/**
+ * FEAT-93 (lot S2): which copy an opening, a drink or a smoke takes off a
+ * line of several holding cells — the one in the cell `fromSlotId`, or an
+ * unplaced one (`fromUnplaced`). One or the other, never in bulk.
+ */
+// A type literal, not an interface: it joins a request body (`Record<string, unknown>`).
+export type SlotChoiceFields = {
+  fromSlotId?: string;
+  fromUnplaced?: true;
+};
+
+/**
+ * 409 of an opening, a drink or a smoke on a line of several copies holding
+ * at least one cell, sent without {@link SlotChoiceFields}: the cells of the
+ * line and its copies unplaced, to ask "De quelle case ?".
+ */
+export const SLOT_CHOICE_REQUIRED = 'SLOT_CHOICE_REQUIRED';
+/** 409: the cell chosen (`fromSlotId`) is no longer the line's, or no copy of it is unplaced any more. */
+export const SLOT_CHANGED = 'SLOT_CHANGED';
+export interface SlotChoiceDetails {
+  slots: ItemSlotView[];
+  unplaced: number;
+}
+
+/**
+ * 409 of a write that leaves a line fewer copies than cells (a correction,
+ * a write-off, a move or a new price of part of it, a lower number) sent
+ * without a valid `slotIds`: `needed` cells at least must be named among
+ * `slots` — freed (or, for a new price, following the copies repriced).
+ */
+export const SLOTS_TO_FREE_REQUIRED = 'SLOTS_TO_FREE_REQUIRED';
+export interface SlotsToFreeDetails {
+  needed: number;
+  slots: ItemSlotView[];
+}
+
 /**
  * A unit of a family: a group of identical intact copies, a sub-record with a
  * state of its own (opened, finished), or a write-off. No description field
@@ -100,8 +149,11 @@ export interface ItemView {
   userId: string;
   updatedBy: string | null;
   cellarId: string | null;
-  slotColumn: number | null;
-  slotRow: number | null;
+  /**
+   * FEAT-93: the cells of the cellar plan its copies occupy (live ones,
+   * by row then column): up to its copies in stock (`slotCapacity`).
+   */
+  slots: ItemSlotView[];
   location: string | null;
   /** Price and value of ONE copy (bottle, box, single cigar), never of the group. */
   purchasePrice: number | null;
@@ -183,6 +235,24 @@ export interface FieldChange {
   to: unknown;
 }
 
+/**
+ * Recette #847 (n°5 ter): every field a change of the history can name —
+ * the wine's description, a copy's columns (state included), a cell of the
+ * plan, and the names recorded before (`slotColumn`/`slotRow`, `isOwned`).
+ * Each has a label in both languages (no raw key such as "Cigars Left"):
+ * a web test checks the labels, an API test that the API records no other.
+ */
+export const HISTORY_FIELDS = [
+  ...RESTORABLE_DESCRIPTION_FIELDS, 'alertStatus', 'consumptionPostponedUntil',
+  'cellarId', 'location', 'purchasedAt', 'purchasePrice', 'purchasePlace', 'estimatedValue', 'bottleSize',
+  'quantity', 'cigarsPerBox', 'isOpened', 'fillLevel', 'openedAt', 'cigarsLeft',
+  'parentItemId', 'writtenOffAt', 'needsReview', 'lockedFields',
+  'slot', 'slotColumn', 'slotRow', 'isOwned',
+] as const;
+
+/** Recette #847: what was done to a copy, said in one word ("1 bouteille ouverte", "1 bouteille bue", "1 cigare fumé"). */
+export type HistoryGesture = 'opened' | 'finished' | 'smoked';
+
 /** One line of a family's history: a change of its description or of one of its units. */
 export interface ProductHistoryEntry {
   id: number;
@@ -207,6 +277,8 @@ export interface ProductHistoryEntry {
    * rewrite every copy of this line — never offered, refused by the API.
    */
   absorbed?: boolean;
+  /** Recette #847: the entry tells a copy opened, finished (drunk) or a cigar smoked. */
+  gesture?: HistoryGesture;
   createdAt: Date;
 }
 
@@ -220,6 +292,16 @@ export interface ProductTasting {
   itemId: string | null;
   productId: string | null;
   guestName: string | null;
+  /**
+   * #837: the bottle tasted as it was when tasted — its cellar (null once
+   * deleted: `cellarName` then) and its purchase day. All null for a wine
+   * tasted elsewhere and for a tasting noted before #837. `snapshotAt` is set
+   * with them: kept, even all null (a bottle in no cellar), when it is set.
+   */
+  snapshotAt: Date | null;
+  cellarId: string | null;
+  cellarName: string | null;
+  purchasedAt: Date | null;
   tastedAt: Date;
   context: string | null;
   rating: number | null;

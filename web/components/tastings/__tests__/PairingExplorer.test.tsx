@@ -7,16 +7,21 @@ import type { InventoryItem } from '@/lib/inventory/types';
 // pairing catalog was keyed in French, so no red or white wine was ever
 // suggested for a dish.
 
-function bottle(id: string, name: string, color: string): InventoryItem {
+function bottle(id: string, name: string, color: string, state: Partial<InventoryItem> = {}): InventoryItem {
   return {
     id, name, producer: 'Domaine Test', category: 'wine', color,
-    deletedAt: null, alertStatus: 'none', isOpened: false,
+    deletedAt: null, alertStatus: 'none', isOpened: false, ...state,
   } as unknown as InventoryItem;
 }
 
 const inventory = [
   bottle('r1', 'Pauillac', 'red'),
   bottle('w1', 'Chablis', 'white'),
+  // #849: only what is still in the cellar can be served.
+  bottle('r2', 'Graves', 'red', { isOpened: true, fillLevel: 40 }),
+  bottle('r3', 'Margaux', 'red', { isOpened: true, fillLevel: 0 }),
+  bottle('r4', 'Pomerol', 'red', { writtenOffAt: '2026-10-01' }),
+  bottle('r5', 'Médoc', 'red', { deletedAt: '2026-10-01T00:00:00.000Z' }),
 ];
 
 vi.mock('react-i18next', () => ({
@@ -59,5 +64,16 @@ describe('PairingExplorer wine colours (#703)', () => {
     search('poisson');
     expect(screen.getByText('Chablis — Domaine Test')).toBeInTheDocument();
     expect(screen.queryByText('Pauillac — Domaine Test')).toBeNull();
+  });
+});
+
+describe('PairingExplorer offers only bottles in stock (#849)', () => {
+  it('leaves out the bottles drunk, written off or in the trash, keeps an opened one', () => {
+    search('Viande');
+    expect(screen.getByText('Pauillac — Domaine Test')).toBeInTheDocument();
+    expect(screen.getByText('Graves — Domaine Test')).toBeInTheDocument();
+    for (const gone of ['Margaux', 'Pomerol', 'Médoc']) {
+      expect(screen.queryByText(`${gone} — Domaine Test`)).toBeNull();
+    }
   });
 });

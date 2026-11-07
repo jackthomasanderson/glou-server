@@ -1,12 +1,13 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Card, CardHeader, CardBody, CardFooter, Button, Input, Select, SelectItem, Tabs, Tab,
+  Card, CardHeader, CardBody, CardFooter, Button, Input, SelectItem, Tabs, Tab,
 } from '@heroui/react';
 import { ClipboardCheck, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCellars } from '@/hooks/useCellars';
 import { useStartCountSession } from '@/hooks/useInventoryCount';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 type ScopeMode = 'cellar' | 'custom';
 
@@ -69,7 +70,7 @@ export function StartSessionScreen() {
 
           {mode === 'cellar' ? (
             (cellars?.length ?? 0) > 0 ? (
-              <Select
+              <SingleSelect
                 label={t('inventoryCount.start.cellarLabel')}
                 placeholder={t('inventoryCount.start.cellarPlaceholder')}
                 variant="bordered"
@@ -83,7 +84,7 @@ export function StartSessionScreen() {
                     {c.name}
                   </SelectItem>
                 ))}
-              </Select>
+              </SingleSelect>
             ) : (
               <p className="text-sm text-foreground-400">{t('inventoryCount.start.noCellars')}</p>
             )

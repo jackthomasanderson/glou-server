@@ -134,4 +134,34 @@ describe('WishlistDashboard — a wish for a wine already known (FEAT-97 c4)', (
     expect(sent().data).toMatchObject({ distinctFrom: ['p1'], quantity: 2 });
     expect(sent().data).not.toHaveProperty('productId');
   });
+
+  const pickCellar = async (dialog: HTMLElement, name: string) => {
+    const trigger = within(dialog).getByRole('button', { name: /Cave/ });
+    fireEvent.click(trigger);
+    fireEvent.click((await screen.findAllByRole('option')).find((option) => option.textContent === name) as HTMLElement);
+    return trigger;
+  };
+
+  it('keeps the cellar picked again (recette n°5 of #847)', async () => {
+    wishes = [wish()];
+    sameName = [product({ id: 'p1', name: 'Cuvée X', producer: 'Domaine Y', vintage: 2018, items: [unit({ quantity: 6, cellarId: 'garage' })] })];
+    const dialog = openConversion();
+    fireEvent.click(within(dialog).getByTestId('known-wine-add'));
+    const trigger = await pickCellar(dialog, 'Garage');
+    expect(trigger).toHaveTextContent('Garage');
+    fireEvent.click(within(dialog).getByTestId('wishlist-convert-submit'));
+    await vi.waitFor(() => expect(convert).toHaveBeenCalled());
+    expect(sent().data).toMatchObject({ productId: 'p1', cellarId: 'garage' });
+  });
+
+  it('offers "Aucune cave" as a choice, sent as none, kept over the known wine\'s cellar', async () => {
+    wishes = [wish()];
+    sameName = [product({ id: 'p1', name: 'Cuvée X', producer: 'Domaine Y', vintage: 2018, items: [unit({ quantity: 6, cellarId: 'garage' })] })];
+    const dialog = openConversion();
+    await pickCellar(dialog, 'Aucune cave');
+    fireEvent.click(within(dialog).getByTestId('known-wine-add'));
+    fireEvent.click(within(dialog).getByTestId('wishlist-convert-submit'));
+    await vi.waitFor(() => expect(convert).toHaveBeenCalled());
+    expect(sent().data).toMatchObject({ productId: 'p1', cellarId: null });
+  });
 });

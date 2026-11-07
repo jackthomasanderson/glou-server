@@ -60,6 +60,26 @@ describe('createGuestTasting', () => {
     expect(where).toEqual({ id: B1, productId: P1, cellarId: { in: ['garage'] }, deletedAt: null, writtenOffAt: null });
   });
 
+  // #837: the bottle tasted is kept as it was: its cellar and purchase day.
+  it('writes the cellar and the purchase day of the bottle tasted', async () => {
+    const bought = new Date('2025-03-12T00:00:00.000Z');
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(
+      { id: B1, cellarId: 'garage', purchasedAt: bought, cellar: { name: 'Garage' } } as never,
+    );
+
+    await createGuestTasting(SHARE, { productId: P1, itemId: B1 });
+
+    expect(created().data).toMatchObject({ itemId: B1, cellarId: 'garage', cellarName: 'Garage', purchasedAt: bought, snapshotAt: expect.any(Date) });
+  });
+
+  it('writes nothing of a bottle when none is given', async () => {
+    await createGuestTasting(SHARE, { productId: P1 });
+
+    expect(created().data).not.toHaveProperty('cellarId');
+    expect(created().data).not.toHaveProperty('cellarName');
+    expect(created().data).not.toHaveProperty('purchasedAt');
+  });
+
   // Review of #829 (security, low): any finished bottle of a cellar shared
   // with write access took a guest's tasting, one drunk months ago included.
   describe('a finished bottle', () => {

@@ -33,6 +33,19 @@ html {
   --bottom-nav-h: calc(4rem + env(safe-area-inset-bottom));
 }
 
+/* Recette n°5 ter of #847: the first click after closing a drawer or a
+ * window was lost. HeroUI keeps a closed Modal/Drawer mounted while its exit
+ * animation runs: its full-screen wrapper and backdrop (both `fixed inset-0`)
+ * still caught clicks — a plan's cell, a view switch, a link of the side menu
+ * did nothing. That animation lasts as long as the browser takes to draw it:
+ * 0.3 s at best, much longer in a busy or backgrounded tab. A closed window
+ * drops its `data-open` at once: from then on, its overlay lets every click
+ * through to the page. */
+[tabindex="-1"]:has(> [data-slot="wrapper"] > [aria-modal="true"]:not([data-open])),
+[tabindex="-1"]:has(> [data-slot="wrapper"] > [aria-modal="true"]:not([data-open])) * {
+  pointer-events: none !important;
+}
+
 /* Safari before 18.2 ignores scrollbar-gutter: always reserve the scrollbar
    there instead (#214). */
 @supports not (scrollbar-gutter: stable) {

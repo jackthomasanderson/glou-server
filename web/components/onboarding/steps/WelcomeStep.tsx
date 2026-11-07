@@ -1,8 +1,9 @@
 'use client';
-import { Button, Select, SelectItem } from '@heroui/react';
+import { Button, SelectItem } from '@heroui/react';
 import { Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useUpdatePreferences } from '@/hooks/useAuth';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 interface WelcomeStepProps {
   /** FEAT-89: the member joins a cellar filled by others, they are not setting one up. */
@@ -25,7 +26,7 @@ export function WelcomeStep({ joining = false, onNext }: WelcomeStepProps) {
       </div>
 
       <div className="w-full max-w-xs">
-        <Select
+        <SingleSelect
           label={t('onboarding.welcome.languageLabel')}
           variant="bordered"
           size="md"
@@ -39,7 +40,7 @@ export function WelcomeStep({ joining = false, onNext }: WelcomeStepProps) {
         >
           <SelectItem key="FR">Français</SelectItem>
           <SelectItem key="EN">English</SelectItem>
-        </Select>
+        </SingleSelect>
       </div>
 
       <Button color="primary" variant="solid" size="md" radius="md" fullWidth className="max-w-xs" onPress={onNext}>

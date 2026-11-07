@@ -19,7 +19,9 @@ vi.mock('react-i18next', () => ({
 const toast = vi.hoisted(() => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
 vi.mock('@/lib/toast', () => toast);
 vi.mock('@/hooks/useCellars', () => ({
-  useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }, { id: 'kitchen', name: 'Cuisine' }] }),
+  useCellars: () => ({ data: [{ id: 'garage', name: 'Garage', columns: 4, rows: 3 }, { id: 'kitchen', name: 'Cuisine' }] }),
+  // The plan of the cellar (SlotPicker): another line holds C4·R3.
+  useCellarGrid: () => ({ data: { cellar: { id: 'garage', columns: 4, rows: 3 }, items: [{ id: 'other', slots: [{ id: 'x', column: 4, row: 3 }] }] } }),
 }));
 // The modal's frame only (no animation): what it asks is what is tested.
 vi.mock('@/components/ui/ResponsiveModal', () => ({
@@ -302,7 +304,9 @@ describe('EditLineDialog (§10.3 "Modifier", #726)', () => {
 
     fireEvent.change(screen.getByLabelText(/Date d'achat/), { target: { value: '2026-02-01' } });
     fireEvent.change(screen.getByLabelText(/Lieu d'achat/), { target: { value: 'Caviste du coin' } });
-    fireEvent.change(screen.getByLabelText(/Emplacement/), { target: { value: 'Étagère du haut' } });
+    // Recette n°5 bis of #847: a free note, not « Emplacement » — a cell of the plan is a « case ».
+    expect(screen.queryByLabelText(/Emplacement/)).toBeNull();
+    fireEvent.change(screen.getByLabelText('Repère libre (étagère, carton…)'), { target: { value: 'Étagère du haut' } });
     fireEvent.click(confirmButton('Enregistrer'));
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -368,5 +372,131 @@ describe('TrashLineDialog (§10.4.7)', () => {
   it('an opened bottle is one bottle', () => {
     renderIn(<TrashLineDialog item={openedBottle(40, { cellarId: 'garage' })} ctx={ctx()} isOpen onClose={vi.fn()} />);
     expect(screen.getByText('Mettre cette bouteille (Garage) à la corbeille ?')).toBeInTheDocument();
+  });
+});
+
+// FEAT-93 c4 (#847, lot S4): fewer copies than cells — "Quelles cases
+// libérer ?" (correct, move) and "Quelles cases passent au nouveau prix ?"
+// (reprice part, decision #471 point 74), exactly as many as needed.
+describe('the cells a dialog names (FEAT-93 c4)', () => {
+  const cells = (count: number) => Array.from({ length: count }, (_, index) => ({ id: `s${index + 1}`, column: (index % 4) + 1, row: Math.floor(index / 4) + 1 }));
+  const pick = (column: number, row: number) => fireEvent.click(screen.getByTestId(`slot-pick-${column}-${row}`));
+
+  it('c4: ×6 in 6 cells corrected to ×4 asks which 2 cells to free — exactly 2 — and sends them', async () => {
+    const onClose = vi.fn();
+    renderIn(<CorrectQuantityDialog item={group({ slots: cells(6) })} ctx={ctx()} isOpen onClose={onClose} onTrashInstead={vi.fn()} />);
+    expect(screen.queryByTestId('slot-picker')).toBeNull();
+    typeNumber(numberField('correct-quantity-input'), '4');
+    fireEvent.click(screen.getByRole('radio', { name: /Erreur de saisie/ }));
+
+    const picker = screen.getByTestId('slot-picker');
+    expect(within(picker).getByText('Quelles cases libérer ?')).toBeInTheDocument();
+    // Recette n°5 bis: right under the reminder, without the room kept for
+    // « Rien ne reste sur cette ligne » — never shown with the plan.
+    expect(screen.queryByText(/Rien ne reste sur cette ligne/)).toBeNull();
+    // Only the line's cells can be chosen, on the plan of its cellar.
+    expect(within(picker).getAllByRole('button')).toHaveLength(6);
+    expect(within(picker).getByRole('button', { name: 'Case C1·R1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(confirmButton('Corriger')).toBeDisabled();
+    pick(1, 1);
+    expect(confirmButton('Corriger')).toBeDisabled();
+    pick(2, 2);
+    // A third cannot be added: exactly 2.
+    pick(3, 1);
+    expect(within(picker).getByRole('button', { name: 'Case C3·R1' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByTestId('slot-pick-count')).toHaveTextContent('Cases choisies : 2 sur 2');
+    fireEvent.click(confirmButton('Corriger'));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(requests[0]).toMatchObject({ url: '/api/inventory/g/correct', body: { quantity: 4, reason: 'input_error', slotIds: ['s1', 's6'] } });
+  });
+
+  it('review 857: the plan is numbered (columns above, rows on the left); the line\'s cells carry a dot; freeing is drawn as a loss', () => {
+    renderIn(<CorrectQuantityDialog item={group({ slots: cells(6) })} ctx={ctx()} isOpen onClose={vi.fn()} onTrashInstead={vi.fn()} />);
+    typeNumber(numberField('correct-quantity-input'), '4');
+    const picker = screen.getByTestId('slot-picker');
+    expect(within(picker).getAllByTestId('slot-pick-column').map((label) => label.textContent)).toEqual(['C1', 'C2', 'C3', 'C4']);
+    expect(within(picker).getAllByTestId('slot-pick-row').map((label) => label.textContent)).toEqual(['R1', 'R2', 'R3']);
+    const cell = within(picker).getByRole('button', { name: 'Case C1·R1' });
+    expect(cell.querySelector('span.rounded-full')).not.toBeNull();
+    expect(cell).toHaveAttribute('data-tone', 'danger');
+  });
+
+  it('no question while the copies left hold every cell, nor when the whole line leaves', () => {
+    const { unmount } = renderIn(<CorrectQuantityDialog item={group({ slots: cells(2) })} ctx={ctx()} isOpen onClose={vi.fn()} onTrashInstead={vi.fn()} />);
+    typeNumber(numberField('correct-quantity-input'), '4');
+    expect(screen.queryByTestId('slot-picker')).toBeNull();
+    unmount();
+    renderIn(<CorrectQuantityDialog item={group({ slots: cells(6) })} ctx={ctx()} isOpen onClose={vi.fn()} onTrashInstead={vi.fn()} />);
+    typeNumber(numberField('correct-quantity-input'), '0');
+    fireEvent.click(screen.getByRole('radio', { name: /Cassée/ }));
+    expect(screen.queryByTestId('slot-picker')).toBeNull();
+    expect(confirmButton('Corriger')).toBeEnabled();
+  });
+
+  it('the line changed meanwhile (409 SLOTS_TO_FREE_REQUIRED): asked with the cells the API gives', async () => {
+    renderIn(<CorrectQuantityDialog item={group({ slots: [] })} ctx={ctx()} isOpen onClose={vi.fn()} onTrashInstead={vi.fn()} />);
+    typeNumber(numberField('correct-quantity-input'), '5');
+    fireEvent.click(screen.getByRole('radio', { name: /Erreur de saisie/ }));
+    answer = { status: 409, body: { error: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1, slots: [{ id: 'n1', column: 2, row: 3 }] } } };
+    fireEvent.click(confirmButton('Corriger'));
+
+    await waitFor(() => expect(screen.getByTestId('slot-picker')).toBeInTheDocument());
+    expect(toast.notifyError).toHaveBeenCalledWith('stockLine.errors.slotsToFree');
+    answer = { status: 200, body: { data: {}, changed: [], removedIds: [] } };
+    pick(2, 3);
+    fireEvent.click(confirmButton('Corriger'));
+    await waitFor(() => expect(requests).toHaveLength(2));
+    expect(requests[1].body).toMatchObject({ quantity: 5, slotIds: ['n1'] });
+  });
+
+  it('moving 2 of ×6 in 6 cells: the 2 moved leave unplaced — which 2 cells are freed', async () => {
+    renderIn(<MoveUnitsDialog item={group({ slots: cells(6) })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    typeNumber(numberField('move-count-input'), '2');
+    fireEvent.click(screen.getByRole('radio', { name: 'Cuisine' }));
+    expect(within(screen.getByTestId('slot-picker')).getByText('Quelles cases libérer ?')).toBeInTheDocument();
+    expect(confirmButton('Déplacer')).toBeDisabled();
+    pick(1, 1);
+    pick(2, 1);
+    fireEvent.click(confirmButton('Déplacer'));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].body).toMatchObject({ count: 2, cellarId: 'kitchen', slotIds: ['s1', 's2'] });
+  });
+
+  it('moving the whole line frees every cell without a question', () => {
+    renderIn(<MoveUnitsDialog item={group({ slots: cells(6) })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Cuisine' }));
+    expect(screen.queryByTestId('slot-picker')).toBeNull();
+    expect(confirmButton('Déplacer')).toBeEnabled();
+  });
+
+  it('decision 74: a new price for 2 of ×6 in 5 cells takes the unplaced one first, then asks which 1 cell follows', async () => {
+    renderIn(<RepriceDialog item={group({ slots: cells(5) })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    typeNumber(numberField('reprice-count-input'), '1');
+    typeNumber(screen.getByTestId('reprice-price-input'), '25');
+    // One copy repriced: the unplaced one, no question.
+    expect(screen.queryByTestId('slot-picker')).toBeNull();
+    typeNumber(numberField('reprice-count-input'), '2');
+    const picker = screen.getByTestId('slot-picker');
+    expect(within(picker).getByText('Quelles cases passent au nouveau prix ?')).toBeInTheDocument();
+    // Nothing is lost: the cells chosen follow the new price, not drawn as freed.
+    expect(within(picker).getByRole('button', { name: 'Case C1·R1' })).toHaveAttribute('data-tone', 'primary');
+    expect(confirmButton('Changer le prix')).toBeDisabled();
+    pick(1, 2);
+    fireEvent.click(confirmButton('Changer le prix'));
+    await waitFor(() => expect(requests).toHaveLength(1));
+    expect(requests[0].body).toMatchObject({ count: 2, purchasePrice: 25, slotIds: ['s5'] });
+  });
+
+  it('the hint matches the line: "Les non rangées ne suffisent pas" only when the line has unplaced copies (recette n°5 of #847)', () => {
+    const { unmount } = renderIn(<RepriceDialog item={group({ slots: cells(5) })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    typeNumber(numberField('reprice-count-input'), '2');
+    expect(screen.getByTestId('slot-picker')).toHaveTextContent('Les non rangées ne suffisent pas : choisissez la case qui passe au nouveau prix.');
+    unmount();
+    renderIn(<RepriceDialog item={group({ slots: cells(6) })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    typeNumber(numberField('reprice-count-input'), '2');
+    const picker = screen.getByTestId('slot-picker');
+    expect(picker).not.toHaveTextContent('non rangées');
+    expect(picker).toHaveTextContent('Toute la ligne est rangée : choisissez les 2 cases qui passent au nouveau prix. Elles restent occupées.');
   });
 });

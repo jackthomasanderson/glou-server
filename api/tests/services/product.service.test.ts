@@ -12,6 +12,8 @@ vi.mock('../../src/lib/prisma', () => ({
       update: vi.fn(),
     },
     inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), groupBy: vi.fn() },
+    // FEAT-93: the cells of the plan, a fakeSlots() set in beforeEach.
+    itemSlot: {},
     tastingNote: { findMany: vi.fn(), groupBy: vi.fn() },
     auditLog: { findMany: vi.fn() },
     user: { findMany: vi.fn() },
@@ -25,6 +27,14 @@ import { prisma } from '../../src/lib/prisma';
 import { productService } from '../../src/services/product.service';
 import { PRODUCT_FIELDS } from '../../src/lib/product-fields';
 import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../../src/lib/finished-item';
+import { fakeSlots, slot } from '../support/fake-slots';
+
+/** FEAT-93: the cells of the plan (item_slots). */
+let slots: ReturnType<typeof fakeSlots>;
+beforeEach(() => {
+  slots = fakeSlots();
+  Object.assign(prisma, { itemSlot: slots.delegate });
+});
 
 /** A family as Prisma returns it, every description field empty unless given. */
 function family(fields: Record<string, unknown> = {}) {
@@ -43,7 +53,7 @@ function family(fields: Record<string, unknown> = {}) {
 /** A unit row, with the transitional mirror columns a real row still carries. */
 function unit(fields: Record<string, unknown> = {}) {
   return {
-    id: 'b1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'c1', slotColumn: null, slotRow: null,
+    id: 'b1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'c1',
     location: null, purchasePrice: new Prisma.Decimal('20.00'), estimatedValue: null, purchasePlace: null,
     purchasedAt: new Date('2026-01-15T00:00:00Z'), bottleSize: null, quantity: 6, cigarsPerBox: null, cigarsLeft: null,
     isOpened: false, fillLevel: null, openedAt: null, parentItemId: null, writtenOffAt: null, needsReview: false,
@@ -92,7 +102,7 @@ describe('productService.list (D9)', () => {
   it('serves the description on the family and only the unit columns on its units', async () => {
     const year = new Date().getFullYear();
     vi.mocked(prisma.product.findMany).mockResolvedValue([
-      { ...family({ region: 'Médoc', peakMaturityFrom: year - 1, peakMaturityTo: year + 1, fieldSources: { region: 'ocr' }, collections: [{ id: 'col1', name: 'Fêtes', color: '#fff', icon: null }] }), items: [unit({ fieldSources: { region: 'ocr', purchasePrice: 'import_csv' } })] },
+      { ...family({ region: 'Médoc', peakMaturityFrom: year - 1, peakMaturityTo: year + 1, fieldSources: { region: 'ocr' }, collections: [{ id: 'col1', name: 'Fêtes', color: '#fff', icon: null }] }), items: [unit({ fieldSources: { region: 'ocr', purchasePrice: 'import_csv' }, slots: [{ id: 's1', column: 2, row: 1 }] })] },
       { ...family({ id: 'p2', name: 'Goûté ailleurs' }), items: [] },
     ] as never);
 
@@ -102,7 +112,7 @@ describe('productService.list (D9)', () => {
     expect(data[0]).toMatchObject({ id: 'p1', region: 'Médoc', fieldSources: { region: 'ocr' }, collections: [{ id: 'col1' }] });
     expect(data[0].readiness).toEqual(expect.any(Number));
     expect(data[0].items).toEqual([{
-      id: 'b1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'c1', slotColumn: null, slotRow: null,
+      id: 'b1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'c1', slots: [{ id: 's1', column: 2, row: 1 }],
       location: null, purchasePrice: 20, estimatedValue: null, purchasePlace: null,
       // D6: a day, never a timestamp.
       purchasedAt: '2026-01-15', bottleSize: null, quantity: 6, cigarsPerBox: null, cigarsLeft: null,
@@ -231,6 +241,32 @@ describe('productService.updateDescription (FEAT-92 c4)', () => {
     expect(result).toMatchObject({ changes: [{ field: 'region', from: null, to: 'Médoc' }] });
   });
 
+  // Review of #854: a wine made a cigar is a group of single cigars — one cell for the group.
+  it('FEAT-93: a new category frees the cells a unit can no longer hold, the most recent first, for its history', async () => {
+    vi.mocked(prisma.product.update).mockResolvedValue(family({ category: 'cigar' }) as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([unit({ id: 'b1', quantity: 3 })] as never);
+    slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+    const result = await productService.updateDescription('u2', 'p1', { category: 'cigar' });
+
+    expect(slots.cellsOf('b1')).toBe('1:1');
+    expect(result).toMatchObject({
+      unitSlotChanges: [{
+        itemId: 'b1',
+        changes: [{ field: 'slot', from: { column: 3, row: 1 }, to: null }, { field: 'slot', from: { column: 2, row: 1 }, to: null }],
+      }],
+    });
+  });
+
+  it('a description edit that keeps the category leaves the cells alone', async () => {
+    slots.rows.push(slot({ itemId: 'b1', column: 1, row: 1 }), slot({ itemId: 'b1', column: 2, row: 1 }));
+
+    const result = await productService.updateDescription('u2', 'p1', { region: 'Médoc' });
+
+    expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    expect(result).toMatchObject({ unitSlotChanges: [] });
+  });
+
   it('locks the family row in the transaction before checking it', async () => {
     await productService.updateDescription('u2', 'p1', { region: 'Médoc' });
 
@@ -291,6 +327,10 @@ describe('productService.trash / restore (D10)', () => {
 
     const unitWrite = vi.mocked(prisma.inventoryItem.updateMany).mock.calls[0][0]!;
     expect(unitWrite.where).toEqual({ productId: 'p1', deletedAt: null });
+    // FEAT-93 (#174): their cells go to the trash with them, same timestamp.
+    expect(slots.delegate.updateMany).toHaveBeenCalledWith({
+      where: { itemId: { in: ['b1', 'b2'] }, deletedAt: null }, data: { deletedAt: unitWrite.data.deletedAt },
+    });
     const familyWrite = vi.mocked(prisma.product.update).mock.calls[0][0];
     expect(familyWrite).toEqual({ where: { id: 'p1' }, data: { deletedAt: unitWrite.data.deletedAt } });
     expect(result).toEqual({ deletedAt: unitWrite.data.deletedAt, itemIds: ['b1', 'b2'] });
@@ -310,28 +350,49 @@ describe('productService.trash / restore (D10)', () => {
   it('brings back the units trashed with the family, not the ones trashed on their own before', async () => {
     const deletedAt = new Date(Date.now() - 60_000);
     vi.mocked(prisma.product.findFirst).mockResolvedValue(family({ deletedAt }) as never);
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ id: 'b1', cellarId: null, slotColumn: null, slotRow: null }] as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ id: 'b1' }] as never);
 
     const restored = await productService.restore('p1');
 
     expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.where).toMatchObject({ id: 'p1', deletedAt: { not: null, gte: expect.any(Date) } });
     expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]!.where).toEqual({ productId: 'p1', deletedAt });
-    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({ where: { id: 'b1' }, data: { deletedAt: null } });
+    expect(prisma.inventoryItem.updateMany).toHaveBeenCalledWith({ where: { id: { in: ['b1'] } }, data: { deletedAt: null } });
     expect(prisma.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { deletedAt: null } });
     expect(restored).toMatchObject({ id: 'p1' });
   });
 
-  // #174: the slot may have been given to another bottle meanwhile.
-  it('brings a unit back unplaced when its slot was taken meanwhile', async () => {
-    vi.mocked(prisma.product.findFirst).mockResolvedValue(family({ deletedAt: new Date() }) as never);
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ id: 'b1', cellarId: 'c1', slotColumn: 2, slotRow: 3 }] as never);
-    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ id: 'other' } as never);
+  // #174: a cell may have been given to another bottle meanwhile.
+  it('brings a copy back unplaced when its cell was taken meanwhile, the others in theirs (FEAT-93)', async () => {
+    const deletedAt = new Date(Date.now() - 60_000);
+    vi.mocked(prisma.product.findFirst).mockResolvedValue(family({ deletedAt }) as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ id: 'b1' }] as never);
+    slots.rows.push(
+      slot({ itemId: 'b1', column: 2, row: 3, deletedAt }),
+      slot({ itemId: 'b1', column: 4, row: 3, deletedAt }),
+      slot({ itemId: 'other', column: 2, row: 3 }),
+    );
 
     await productService.restore('p1');
 
-    expect(prisma.inventoryItem.update).toHaveBeenCalledWith({
-      where: { id: 'b1' }, data: { deletedAt: null, slotColumn: null, slotRow: null },
-    });
+    expect(slots.cellsOf('b1')).toBe('4:3');
+    expect(slots.rows.filter((row) => row.itemId === 'b1')).toHaveLength(1);
+    expect(slots.cellsOf('other')).toBe('2:3');
+  });
+
+  // Review of #854 (nit): cells its category no longer allows (made single cigars) — never a 500 at the commit.
+  it('a unit back with more cells than its family now allows keeps only what it may hold, told in its history', async () => {
+    const deletedAt = new Date(Date.now() - 60_000);
+    vi.mocked(prisma.product.findFirst).mockResolvedValue(family({ deletedAt, category: 'cigar' }) as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { id: 'b1', quantity: 3, cigarsPerBox: null, isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null, deletedAt: null },
+    ] as never);
+    slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1, deletedAt })));
+    const freed: Array<{ itemId: string; changes: unknown[] }> = [];
+
+    await productService.restore('p1', freed as never);
+
+    expect(slots.rows.filter((row) => row.itemId === 'b1' && row.deletedAt === null)).toHaveLength(1);
+    expect(freed).toEqual([{ itemId: 'b1', changes: [expect.objectContaining({ field: 'slot', to: null }), expect.objectContaining({ field: 'slot', to: null })] }]);
   });
 
   it('is null once the family is past the retention period', async () => {

@@ -15,7 +15,7 @@ Tell Glou the address people use to reach your instance from outside, so the lin
 3. Set **Access mode**:
    - **Direct**: the instance is reached directly.
    - **Reverse proxy**: the instance sits behind a reverse proxy (Nginx, Traefik, Caddy, etc.).
-4. Click **Save**. The panel shows the **effective URL** actually in use (your configured value, or the `APP_URL` fallback if you left the field empty).
+4. Click **Save**. The panel shows the **effective URL** actually in use (your configured value, or the `APP_URL` fallback if you left the field empty). Password reset links are built from this URL, so saving asks for your password, plus a code from your authenticator app if your account has two-factor authentication. The mail server, Gotify and notification channel settings ask the same.
 
 ### Run the consistency check
 1. Click **Verify consistency**.

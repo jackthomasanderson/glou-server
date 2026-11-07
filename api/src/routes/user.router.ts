@@ -5,7 +5,7 @@ import type { ExportCategory } from '../../../shared/auth';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
-import { updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema } from '../schemas/user.schema';
+import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema } from '../schemas/user.schema';
 import { prisma } from '../lib/prisma';
 import { assertUrlAllowed } from '../lib/ssrf';
 import { notificationService } from '../services/notification.service';
@@ -22,6 +22,15 @@ const router = Router();
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   const user = await authService.me(req.userId);
   res.json({ data: user });
+});
+
+/**
+ * GET /api/user/backup-codes
+ * #638: how many 2FA backup codes are left — a count, never the codes. Kept
+ * out of /api/auth/2fa so a profile visit does not spend the sign-in rate limit.
+ */
+router.get('/backup-codes', authMiddleware, async (req: Request, res: Response) => {
+  res.json({ data: { remaining: await authService.countBackupCodes(req.userId) } });
 });
 
 /**
@@ -52,8 +61,9 @@ router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), async (req
     return;
   }
 
-  // Construct the avatar URL path to reach the image
-  const avatarUrl = `${process.env.API_URL || 'http://localhost:3001'}/uploads/avatars/${req.file.filename}`;
+  // #668: a relative path, like product photos — the web app's /uploads
+  // rewrite serves it on whatever address the instance is reached at.
+  const avatarUrl = `${AVATAR_PATH_PREFIX}${req.file.filename}`;
 
   const user = await authService.updateProfile(req.userId, { avatarUrl });
   res.json({ data: user });

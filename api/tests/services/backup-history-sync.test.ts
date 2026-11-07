@@ -170,7 +170,7 @@ describe('backupService.syncHistoryWithFiles — backup being written (#666)', (
   it('does not list the file of a backup still in progress', async () => {
     process.env.DATABASE_URL = 'postgresql://glou:pw@db:5432/glou_db';
     const dump = new FakeDump();
-    spawnMock.mockReturnValue(dump);
+    spawnMock.mockClear().mockReturnValue(dump);
     let writing = '';
     vi.spyOn(fs, 'createWriteStream').mockImplementation(((p: fs.PathLike) => {
       writing = path.basename(String(p));
@@ -180,6 +180,8 @@ describe('backupService.syncHistoryWithFiles — backup being written (#666)', (
     create.mockResolvedValue({ id: 'r1', success: true });
 
     const run = backupService.runBackup('scheduled');
+    // The 2FA secrets sweep runs before the dump starts (#613).
+    await vi.waitFor(() => expect(spawnMock).toHaveBeenCalled());
     expect(writing).toMatch(/^glou-backup-\d{4}-.*\.sql\.gz$/);
     // Its first bytes may already be a valid gzip start: only the name tells.
     folderWith({ [writing]: backup() });

@@ -7,7 +7,7 @@ export function unit(over: Partial<ProductItem> = {}): ProductItem {
   seq += 1;
   return {
     id: `u${seq}`, productId: 'p1', userId: 'user', updatedBy: null,
-    cellarId: null, slotColumn: null, slotRow: null, location: null,
+    cellarId: null, slots: [], location: null,
     purchasePrice: null, estimatedValue: null, purchasePlace: null, purchasedAt: null,
     bottleSize: null, quantity: 1, cigarsPerBox: null, cigarsLeft: null,
     isOpened: false, fillLevel: null, openedAt: null, parentItemId: null, writtenOffAt: null,

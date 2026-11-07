@@ -6,6 +6,7 @@ import {
   turnOff2faSchema,
   verify2faSchema,
 } from '../../src/schemas/auth.schema';
+import { updateProfileSchema, UPLOADED_AVATAR_PATH } from '../../src/schemas/user.schema';
 
 describe('registerSchema', () => {
   const valid = {
@@ -106,5 +107,36 @@ describe('password minimum length', () => {
     expect(PASSWORD_MIN_LENGTH).toBe(12);
     expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'wine1234' }).success).toBe(false);
     expect(updatePasswordSchema.safeParse({ currentPassword: 'x', newPassword: 'a'.repeat(12) }).success).toBe(true);
+  });
+});
+
+// #880: only the avatar routes set `avatarUrl`; the profile form no longer
+// sends it, and a value sent anyway is dropped, never stored.
+describe('updateProfileSchema avatarUrl', () => {
+  it('drops any avatarUrl and keeps the name fields', () => {
+    for (const avatarUrl of ['/uploads/avatars/3f2b1c9e-0a4d-4c1b-9e7f-2d6a8b5c4e10.jpg', 'https://example.com/me.png', '', null]) {
+      const parsed = updateProfileSchema.safeParse({ avatarUrl, displayName: 'Jack' });
+      expect(parsed.success).toBe(true);
+      expect(parsed.data).toEqual({ displayName: 'Jack' });
+    }
+  });
+});
+
+// #668 / #880: the only shape the upload route stores, the one a file may be deleted for.
+describe('UPLOADED_AVATAR_PATH', () => {
+  it('matches an uploaded avatar, and the names older uploads kept (client extension in any case, or none)', () => {
+    for (const avatarUrl of [
+      '/uploads/avatars/3f2b1c9e-0a4d-4c1b-9e7f-2d6a8b5c4e10.jpg',
+      '/uploads/avatars/3f2b1c9e-0a4d-4c1b-9e7f-2d6a8b5c4e10-1722700000000.JPG',
+      '/uploads/avatars/3f2b1c9e-0a4d-4c1b-9e7f-2d6a8b5c4e10-1722700000000',
+    ]) {
+      expect(UPLOADED_AVATAR_PATH.exec(avatarUrl)?.[1]).toBe(avatarUrl.slice('/uploads/avatars/'.length));
+    }
+  });
+
+  it('matches nothing else', () => {
+    for (const avatarUrl of ['/uploads/products/x.jpg', '/uploads/avatars/../scans/x.jpg', '/uploads/avatars/', 'me.png', 'https://example.com/uploads/avatars/x.png']) {
+      expect(UPLOADED_AVATAR_PATH.test(avatarUrl)).toBe(false);
+    }
   });
 });

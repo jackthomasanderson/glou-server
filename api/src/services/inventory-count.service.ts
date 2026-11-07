@@ -3,7 +3,8 @@ import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
 import { InventoryInput } from '../schemas/inventory.schema';
-import { IN_STOCK_ITEM_FILTER, NO_SLOT, isFinishedState, isIntactItem } from '../lib/finished-item';
+import { IN_STOCK_ITEM_FILTER, isFinishedState, isIntactItem } from '../lib/finished-item';
+import { freeSlots, type SlotChange } from '../lib/slots';
 import { lockFamilies } from '../lib/product-fields';
 import { moveCountEntry } from '../lib/count-entries';
 import { finishUnits } from './stock-state.service';
@@ -701,26 +702,32 @@ async function applyCorrectionsInternal(
       // #471 (FEAT-100, FEAT-103): only the missing copies of a group are
       // finished, each one through the detach rule (a finished sub-record,
       // the last one the group itself), so the spending keeps them and a
-      // group never carries a state. The slot goes with the last one.
+      // group never carries a state. FEAT-93 (decision #471 point 75): an
+      // unplaced copy first, else the most recently placed cell is freed.
       const count = Math.min(correction.count ?? line.missingQuantity, line.expectedQuantity);
       if (count < 1 || item.writtenOffAt != null || isFinishedState(item)) {
         skip(item.id, correction.action, 'nothing_to_correct');
         continue;
       }
-      const finished = await finishUnits(tx, item.id, count, { userId: actingUserId });
+      const slotChanges: SlotChange[] = [];
+      const finished = await finishUnits(tx, item.id, count, { userId: actingUserId, slotChanges });
       const from = line.expectedQuantity;
       const to = from - finished.length;
-      // The group's own history: k copies fewer — unless the last one was
-      // the group itself, which then records its own finish below.
+      // The group's own history: k copies fewer, and the cells freed — unless
+      // the last one was the group itself, which then records its own finish below.
       if (to > 0) {
-        history.push({ action: 'UPDATE', itemId: item.id, productId: item.productId, details: { ...base, changes: [{ field: 'quantity', from, to }], finishedItemIds: finished } });
+        history.push({ action: 'UPDATE', itemId: item.id, productId: item.productId, details: { ...base, changes: [{ field: 'quantity', from, to }, ...slotChanges], finishedItemIds: finished } });
       }
       for (const finishedId of finished) {
         history.push({
           action: 'UPDATE',
           itemId: finishedId,
           productId: item.productId,
-          details: { ...base, changes: [{ field: 'fillLevel', from: item.fillLevel, to: 0 }], ...(finishedId === item.id ? {} : { outcome: 'detached', groupItemId: item.id }) },
+          details: {
+            ...base,
+            changes: [{ field: 'fillLevel', from: item.fillLevel, to: 0 }, ...(to === 0 && finishedId === item.id ? slotChanges : [])],
+            ...(finishedId === item.id ? {} : { outcome: 'detached', groupItemId: item.id }),
+          },
         });
       }
       appliedCount++;
@@ -741,7 +748,7 @@ async function applyCorrectionsInternal(
         skip(item.id, correction.action, 'nothing_to_correct');
         continue;
       }
-      const corrected = await correctQuantityIn(tx, actingUserId, item.id, item.productId, { quantity, reason: correction.reason });
+      const corrected = await correctQuantityIn(tx, actingUserId, item.id, item.productId, { quantity, reason: correction.reason }, 'auto');
       if (!corrected || 'conflict' in corrected) {
         skip(item.id, correction.action, 'item_not_found');
         continue;
@@ -788,13 +795,14 @@ async function applyCorrectionsInternal(
       skip(correction.itemId, correction.action, 'session_has_no_cellar');
       continue;
     }
+    // #798: the bottle's cells belong to its old cellar, so it arrives
+    // unplaced in the session's cellar — freed before the cellar is written
+    // (FEAT-93: the slot's key holds the cellar).
+    if (item.cellarId !== session.cellarId) await freeSlots(tx, item.id);
     await tx.inventoryItem.update({
       where: { id: item.id },
-      // #798: the bottle's slot coordinates belong to its old cellar, so it
-      // arrives unplaced in the session's cellar.
       data: {
         cellarId: session.cellarId,
-        ...(item.cellarId !== session.cellarId ? NO_SLOT : {}),
         updatedAt: new Date(),
         updatedBy: actingUserId,
       },

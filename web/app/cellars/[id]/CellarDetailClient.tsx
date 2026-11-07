@@ -1,7 +1,7 @@
 'use client';
 
 import { cellarContentsLabel } from '@/lib/cellars/contents';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button, Chip, CircularProgress, Tooltip, ButtonGroup, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Card, CardBody } from '@heroui/react';
 import { ArrowLeft, LayoutGrid, List, Map, Warehouse } from 'lucide-react';
@@ -12,10 +12,11 @@ import { useCellar, useCellarGrid } from '@/hooks/useCellars';
 import { useInventory } from '@/hooks/useInventory';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
 import { HumidorPanel } from '@/components/cellars/HumidorPanel';
-import { FamilyDrawer } from '@/components/inventory/FamilyDrawer';
-import { AddUnitsAction } from '@/components/inventory/AddUnitsDialog';
+import { FamilyDrawer, type SlotContext } from '@/components/inventory/FamilyDrawer';
+import { AddUnitsAction, cellarPageStart } from '@/components/inventory/AddUnitsDialog';
 import { EditWineDialog } from '@/components/inventory/EditWineDialog';
 import { InventoryItem } from '@/lib/inventory/types';
+import type { GridCell } from '@/lib/cellars/types';
 import type { Product } from '@/lib/products/types';
 import { describeStock, keepNumbersWhole } from '@/lib/products/stock';
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
@@ -23,6 +24,24 @@ import { useProducts } from '@/hooks/useProducts';
 import { useExpertMode } from '@/hooks/useExpertMode';
 
 type DetailView = 'grid' | 'list' | 'map';
+
+/**
+ * FEAT-93 (review of #855): once the drawer has gone, the focus goes back to
+ * the cell it was opened from — the same cell, empty or held, never the page
+ * body when the bottle was taken out of it (the element focused before is
+ * then gone).
+ */
+function focusCellOnceClosed(cell: string) {
+  const started = performance.now();
+  const step = () => {
+    if (document.getElementById('inventory-detail-title') && performance.now() - started < 2000) {
+      requestAnimationFrame(step);
+      return;
+    }
+    document.querySelector<HTMLElement>(`[data-cell="${cell}"]`)?.focus();
+  };
+  requestAnimationFrame(step);
+}
 
 /**
  * A wine of the cellar (recette #471): its photo, its name and how many of
@@ -69,8 +88,33 @@ export function CellarDetailClient() {
   const [view, setView] = useState<DetailView>('map');
   // #471: a bottle opens the drawer of its wine.
   const [viewingProductId, setViewingProductId] = useState<string | null>(null);
+  // FEAT-93: the drawer opened from a cell of the plan, on that cell's line.
+  const [slotContext, setSlotContext] = useState<SlotContext | null>(null);
   const [editing, setEditing] = useState<Product | null>(null);
-  const viewItem = (item: InventoryItem) => setViewingProductId(item.productId ?? item.id);
+  const viewWine = (productId: string | null) => {
+    setSlotContext(null);
+    setViewingProductId(productId);
+  };
+  const viewItem = (item: InventoryItem) => viewWine(item.productId ?? item.id);
+  // The cell the drawer was opened from: the focus comes back to it, even emptied meanwhile.
+  const touchedCell = useRef<string | null>(null);
+  const openSlot = (cell: GridCell) => {
+    const slot = cell.slots.find((s) => s.id === cell.slotId);
+    touchedCell.current = slot ? `${slot.column}:${slot.row}` : null;
+    setSlotContext({
+      itemId: cell.id,
+      slotId: cell.slotId,
+      label: slot ? t('cellars.grid.slotTitle', { col: slot.column, row: slot.row }) : '',
+      ...(slot ? { at: { cellarId, column: slot.column, row: slot.row } } : {}),
+    });
+    setViewingProductId(cell.productId);
+  };
+  const closeDrawer = () => {
+    const cell = touchedCell.current;
+    touchedCell.current = null;
+    viewWine(null);
+    if (cell) focusCellOnceClosed(cell);
+  };
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
   const { data: allInventory } = useInventory();
@@ -178,7 +222,7 @@ export function CellarDetailClient() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {cellarProducts.map((product) => (
-                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => setViewingProductId(product.id)} />
+                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => viewWine(product.id)} />
               ))}
             </div>
           )
@@ -210,8 +254,13 @@ export function CellarDetailClient() {
                     <TableCell><Chip size="sm" variant="flat">{t(`categories.${item.category}`)}</Chip></TableCell>
                     <TableCell className="text-sm">{item.vintage ?? '—'}</TableCell>
                     <TableCell>
-                      {item.slotColumn != null && item.slotRow != null ? (
-                        <Chip size="sm" variant="bordered">{`C${item.slotColumn}·R${item.slotRow}`}</Chip>
+                      {/* FEAT-93: every cell its copies occupy. */}
+                      {item.slots && item.slots.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {item.slots.map((slot) => (
+                            <Chip key={slot.id} size="sm" variant="bordered">{t('cellars.grid.cellShort', { col: slot.column, row: slot.row })}</Chip>
+                          ))}
+                        </div>
                       ) : <span className="text-foreground-400">—</span>}
                     </TableCell>
                   </TableRow>
@@ -228,7 +277,7 @@ export function CellarDetailClient() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {cellarProducts.map((product) => (
-                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => setViewingProductId(product.id)} />
+                <WineCard key={product.id} product={product} cellarId={cellarId} onPress={() => viewWine(product.id)} />
               ))}
             </div>
           )
@@ -239,7 +288,7 @@ export function CellarDetailClient() {
               <CircularProgress isIndeterminate color="primary" aria-label={t('status.loading')} />
             </div>
           ) : gridData ? (
-            <CellarGridPlan data={gridData} />
+            <CellarGridPlan data={gridData} onOpenSlot={openSlot} />
           ) : (
             <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
           )
@@ -251,12 +300,16 @@ export function CellarDetailClient() {
 
       <FamilyDrawer
         productId={viewingProductId}
-        onClose={() => setViewingProductId(null)}
+        onClose={closeDrawer}
+        slotContext={slotContext}
         // FEAT-104 c3: from a cellar's page, its line is preselected.
         viewedCellarIds={[cellarId]}
         // Recette #471: the same actions as from the list of wines.
+        // Recette n°5 quater of #847: the drawer only steps aside for "Modifier": it comes
+        // back on the cell it was opened from, whose bottle the moves still take.
         onEdit={(product) => { setViewingProductId(null); setEditing(product); }}
-        primaryAction={(product) => <AddUnitsAction product={product} />}
+        // Recette n°5 of #847: new bottles are offered this cellar (or the touched cell's), not the latest line's.
+        primaryAction={(product) => <AddUnitsAction product={product} start={cellarPageStart(cellarId, slotContext)} />}
       />
       <EditWineDialog
         product={editing}

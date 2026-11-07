@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    inventoryItem: { findMany: vi.fn(), count: vi.fn() },
+    inventoryItem: { findMany: vi.fn() },
     cellar: { findMany: vi.fn() },
     auditLog: { groupBy: vi.fn() },
   },
@@ -23,6 +23,7 @@ type ItemRow = {
   purchasePrice: number | null;
   bottleSize: string | null;
   cellarId: string | null;
+  updatedAt: Date;
   product: {
     category: string;
     region: string | null;
@@ -49,6 +50,7 @@ function item(overrides: Partial<Flat> = {}): ItemRow {
     purchasePrice: null,
     bottleSize: '75cl',
     cellarId: null,
+    updatedAt: new Date(),
     category: 'wine',
     region: 'Bordeaux',
     leafOrigin: null,
@@ -74,7 +76,6 @@ describe('getAnalytics — aggregation invariants', () => {
       { action: 'CREATE', _count: { action: 5 } },
       { action: 'DELETE', _count: { action: 2 } },
     ] as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(3 as never);
   });
 
   it('category counts and maturity buckets each sum to the active item total', async () => {
@@ -138,16 +139,16 @@ describe('getAnalytics — aggregation invariants', () => {
   });
 
   it('maps audit groupBy rows onto movement counters, consumed coming from item state', async () => {
-    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ isOpened: true, fillLevel: 0 }),
+      item({ isOpened: true, fillLevel: 0 }),
+      item({ isOpened: true, fillLevel: 0 }),
+    ] as never);
     const stats = await getAnalytics();
     // ISSUE_040: `consumed` counts finished bottles (isOpened + fillLevel 0),
     // NOT the DELETE audit rows, which are reported separately as `deleted`.
     expect(stats.movements).toEqual({ added: 5, consumed: 3, deleted: 2, restored: 0 });
-    const countCall = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
-      where: Record<string, unknown>;
-    };
-    expect(countCall.where).toMatchObject({ deletedAt: null, isOpened: true, fillLevel: 0 });
-    // Empty inventory → every percentage is 0, not NaN
+    // Nothing in stock → every percentage is 0, not NaN
     expect(stats.maturityPlanning.noWindow.percent).toBe(0);
   });
 
@@ -158,12 +159,8 @@ describe('getAnalytics — aggregation invariants', () => {
     await getAnalytics(from, to);
     const call = vi.mocked(prisma.auditLog.groupBy).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
     expect(call.where.createdAt).toEqual({ gte: from, lte: to });
-    // The consumed counter is dated by the item's own updatedAt stamp.
-    const countCall = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
-      where: Record<string, unknown>;
-    };
-    expect(countCall.where.updatedAt).toEqual({ gte: from, lte: to });
-    // ...and the inventory aggregate query itself stays unfiltered (beyond
+    // The consumed counter is dated by the item's own updatedAt stamp (#838
+    // case below); the inventory aggregate query itself stays unfiltered (beyond
     // the owned-items scope FEAT-87 applies everywhere in this function).
     const findCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
       where: Record<string, unknown>;
@@ -200,7 +197,6 @@ describe('getAnalytics — finished bottles are not valued', () => {
       { id: 'c1', name: 'Cave A', type: 'VINTAGE' },
     ] as never);
     vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(0 as never);
   });
 
   it('excludes a finished bottle from the collection valuation', async () => {
@@ -278,7 +274,6 @@ describe('getAnalytics — finished bottles are out of the maturity planning (#5
       { id: 'c1', name: 'Cave A', type: 'VINTAGE' },
     ] as never);
     vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(0 as never);
   });
 
   it('counts a finished bottle at its peak nowhere: not as a bottle, urgent, in a maturity bucket or in the garde histogram', async () => {
@@ -343,11 +338,10 @@ describe('getAnalytics — finished bottles are out of the maturity planning (#5
 // is out of every figure, counts included — so it is excluded in SQL rather
 // than zeroed out in the loop.
 describe('getAnalytics excludes non-owned references (FEAT-87)', () => {
-  it('restricts the inventory and consumed-count queries to owned items', async () => {
+  it('restricts the inventory query, consumed units included, to owned items', async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(0 as never);
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
 
     await getAnalytics();
@@ -356,11 +350,6 @@ describe('getAnalytics excludes non-owned references (FEAT-87)', () => {
       where: Record<string, unknown>;
     };
     expect(itemsCall.where).toMatchObject({ deletedAt: null });
-
-    const consumedCall = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
-      where: Record<string, unknown>;
-    };
-    expect(consumedCall.where).toMatchObject({ deletedAt: null });
   });
 });
 
@@ -371,7 +360,6 @@ describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)',
     vi.clearAllMocks();
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c1', name: 'Garage', type: 'VINTAGE' }] as never);
     vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(0 as never);
   });
 
   it('reads the units\' state and their family\'s description', async () => {
@@ -404,6 +392,25 @@ describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)',
     expect(stats.regionBreakdown).toEqual([{ region: 'Bordeaux', count: 9, valuation: 215 }]);
     // 8 full bottles of 0.75 l, plus one at 60 %.
     expect(stats.totalLiquidLiters).toBe(6.45);
+  });
+
+  it('counts the bottles in no cellar under their own entry, so the distribution sums to the stock (recette #847, KO 10.2)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ cellarId: 'c1', quantity: 104, purchasePrice: 10 }),
+      item({ cellarId: null, quantity: 1, purchasePrice: 30 }),
+      // Drunk, in no cellar: no unit in stock, never an entry of its own.
+      item({ cellarId: null, isOpened: true, fillLevel: 0, purchasePrice: 99 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.totalActiveItems).toBe(105);
+    expect(stats.caveDistribution).toEqual([
+      { cellarId: 'c1', cellarName: 'Garage', cellarType: 'VINTAGE', count: 104, valuation: 1040 },
+      { cellarId: null, cellarName: '', cellarType: 'VINTAGE', count: 1, valuation: 30 },
+    ]);
+    expect(stats.caveDistribution.reduce((sum, cave) => sum + cave.count, 0)).toBe(stats.totalActiveItems);
+    expect(stats.caveDistribution.reduce((sum, cave) => sum + cave.valuation, 0)).toBe(stats.totalValuation);
   });
 
   it('counts cigars in cigars: 3 boxes of 25, an opened box of 10, 4 single ones (89), the opened box worth its 10/25', async () => {
@@ -446,5 +453,96 @@ describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)',
     expect(stats.maturityPlanning.atPeak).toEqual({ count: 3, percent: 75 });
     expect(stats.maturityPlanning.noWindow).toEqual({ count: 1, percent: 25 });
     expect(stats.gardeHistogram).toEqual([{ year: thisYear, count: 3 }]);
+  });
+});
+
+// #838: "Consumed" counts units (each bottle drunk, each cigar smoked), and the
+// capital gain compares the value and the purchase cost of the same units:
+// those in stock. What was spent overall stays its own figure.
+describe('getAnalytics — consumed units and the capital gain (#838)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+  });
+
+  it('counts each cigar smoked, not each box finished', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      // 2 closed boxes: nothing smoked.
+      item({ category: 'cigar', quantity: 2, cigarsPerBox: 25, purchasePrice: 200 }),
+      // 2 cigars smoked out of an opened box.
+      item({ category: 'cigar', isOpened: true, cigarsPerBox: 25, cigarsLeft: 23, purchasePrice: 200 }),
+      // A box smoked to its last cigar: 25, not 1.
+      item({ category: 'cigar', isOpened: true, fillLevel: 0, cigarsPerBox: 25, cigarsLeft: 0, purchasePrice: 200 }),
+      // A single cigar smoked.
+      item({ category: 'cigar', isOpened: true, fillLevel: 0, purchasePrice: 9 }),
+      // A box given away is not smoked.
+      item({ category: 'cigar', cigarsPerBox: 25, writtenOffAt: new Date('2026-02-01'), purchasePrice: 200 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.movements.consumed).toBe(28);
+  });
+
+  it('counts a family with drunk bottles in bottles: 2 drunk, the opened one and the broken one not', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ quantity: 3, purchasePrice: 20 }),
+      item({ isOpened: true, fillLevel: 0, purchasePrice: 20 }),
+      item({ isOpened: true, fillLevel: 0, purchasePrice: 20 }),
+      item({ isOpened: true, fillLevel: 40, purchasePrice: 20 }),
+      item({ writtenOffAt: new Date('2026-02-01'), purchasePrice: 20 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.movements.consumed).toBe(2);
+  });
+
+  it('dates consumed units by their last write, within the period only', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ isOpened: true, fillLevel: 0, updatedAt: new Date('2026-03-10') }),
+      item({ isOpened: true, fillLevel: 0, updatedAt: new Date('2025-12-31') }),
+      item({ category: 'cigar', isOpened: true, cigarsPerBox: 20, cigarsLeft: 15, updatedAt: new Date('2026-04-01') }),
+      item({ quantity: 6, purchasePrice: 10, updatedAt: new Date('2024-01-01') }),
+    ] as never);
+
+    const stats = await getAnalytics(new Date('2026-01-01'), new Date('2026-06-30'));
+
+    expect(stats.movements.consumed).toBe(6);
+    // The rest of the page still describes the cellar as it stands.
+    expect(stats.totalActiveItems).toBe(6 + 15);
+  });
+
+  it('compares value and cost of the bottles in stock: drinking a bottle that kept its price leaves the gain at 0', async () => {
+    const family = [item({ quantity: 6, purchasePrice: 20 })];
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(family as never);
+    const before = await getAnalytics();
+
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ quantity: 4, purchasePrice: 20 }),
+      item({ isOpened: true, fillLevel: 0, purchasePrice: 20 }),
+      item({ writtenOffAt: new Date('2026-02-01'), purchasePrice: 20 }),
+    ] as never);
+    const after = await getAnalytics();
+
+    expect(before.totalValuation - before.inStockPurchasePrice).toBe(0);
+    expect(after.inStockPurchasePrice).toBe(80);
+    expect(after.totalValuation).toBe(80);
+    expect(after.totalValuation - after.inStockPurchasePrice).toBe(0);
+    // What was spent was spent: the drunk and the broken bottle included.
+    expect(after.totalPurchasePrice).toBe(120);
+  });
+
+  it('costs an opened box by its cigars left, like its value', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ category: 'cigar', isOpened: true, cigarsPerBox: 25, cigarsLeft: 23, purchasePrice: 200, estimatedValue: 250 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.inStockPurchasePrice).toBe(184);
+    expect(stats.totalValuation).toBe(230);
+    expect(stats.totalPurchasePrice).toBe(200);
   });
 });

@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import { Prisma } from '@prisma/client';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Every router imported by createApp() ultimately imports this module; the
 // mock replaces it wholesale so nothing tries to reach a real database.
@@ -367,6 +369,62 @@ describe('POST /api/auth/login refusals', () => {
   });
 });
 
+// #638: the profile shows how many backup codes are left.
+describe('GET /api/user/backup-codes', () => {
+  it('answers a count, never the codes', async () => {
+    const spy = vi.spyOn(authService, 'countBackupCodes').mockResolvedValueOnce(7);
+    const res = await request(app).get('/api/user/backup-codes').set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { remaining: 7 } });
+    expect(spy).toHaveBeenCalledWith('u1');
+    spy.mockRestore();
+  });
+
+  it('requires a session', async () => {
+    expect((await request(app).get('/api/user/backup-codes')).status).toBe(401);
+  });
+});
+
+// #638: regenerating the backup codes from the profile.
+describe('POST /api/auth/2fa/backup-codes', () => {
+  const post = (body: Record<string, unknown>) => request(app)
+    .post('/api/auth/2fa/backup-codes')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send(body);
+
+  it('requires a session', async () => {
+    const res = await request(app).post('/api/auth/2fa/backup-codes').set('Sec-Fetch-Site', 'same-origin').send({});
+    expect(res.status).toBe(401);
+  });
+
+  it('requires both the password and a code', async () => {
+    const spy = vi.spyOn(authService, 'regenerateBackupCodes');
+    expect((await post({ password: 'pw' })).body.error).toBe('VALIDATION_ERROR');
+    expect((await post({ code: '123456' })).body.error).toBe('VALIDATION_ERROR');
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it.each(['INVALID_CREDENTIALS', 'INVALID_TOTP_CODE', '2FA_NOT_ENABLED'])('answers %s as is', async (code) => {
+    const spy = vi.spyOn(authService, 'regenerateBackupCodes').mockRejectedValueOnce(new Error(code));
+    const res = await post({ password: 'pw', code: '123456' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe(code);
+    spy.mockRestore();
+  });
+
+  it('returns the new codes once', async () => {
+    const backupCodes = Array.from({ length: 10 }, (_, i) => `${i}`.padStart(20, 'a'));
+    const spy = vi.spyOn(authService, 'regenerateBackupCodes').mockResolvedValueOnce({ backupCodes });
+    const res = await post({ password: 'pw', code: '123456' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.backupCodes).toEqual(backupCodes);
+    expect(spy).toHaveBeenCalledWith('u1', 'pw', '123456', expect.objectContaining({ ip: expect.any(String) }));
+    spy.mockRestore();
+  });
+});
+
 describe('GET /api/auth/registration-status', () => {
   it('reports closed once an account exists and registrations are closed', async () => {
     const { systemConfigService } = await import('../../src/services/system-config.service');
@@ -383,6 +441,122 @@ describe('GET /api/auth/registration-status', () => {
     (prisma.user as unknown as { count: ReturnType<typeof vi.fn> }).count = vi.fn().mockResolvedValue(0);
     const res = await request(app).get('/api/auth/registration-status');
     expect(res.body.data.registrationOpen).toBe(true);
+  });
+});
+
+// #638: a reset that turns a member's 2FA off asks the admin to re-authenticate.
+describe('POST /api/admin/users/:id/reset-password', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'm1', isActive: true, isAdmin: true } as never);
+  });
+  const post = (body?: Record<string, unknown>) => request(app)
+    .post('/api/admin/users/m1/reset-password')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send(body ?? {});
+
+  it.each(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE'])('answers %s with 403', async (code) => {
+    const spy = vi.spyOn(authService, 'adminResetPassword').mockRejectedValueOnce(new Error(code));
+    const res = await post({ password: 'x' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe(code);
+    spy.mockRestore();
+  });
+
+  it('passes the admin\'s password and code to the service, and returns the temporary password', async () => {
+    const spy = vi.spyOn(authService, 'adminResetPassword').mockResolvedValueOnce('temp-pass-123');
+    const res = await post({ password: 'admin-pw', code: '123456' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.tempPassword).toBe('temp-pass-123');
+    expect(spy).toHaveBeenCalledWith('m1', 'u1', expect.objectContaining({ ip: expect.any(String) }), { password: 'admin-pw', code: '123456' });
+    spy.mockRestore();
+  });
+
+  it('an empty body is valid, the service then asks for the password', async () => {
+    const spy = vi.spyOn(authService, 'adminResetPassword').mockResolvedValueOnce('temp-pass-123');
+    const res = await request(app)
+      .post('/api/admin/users/m1/reset-password')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin');
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalledWith('m1', 'u1', expect.anything(), {});
+    spy.mockRestore();
+  });
+
+  it('rejects an oversized code', async () => {
+    expect((await post({ password: 'x', code: 'a'.repeat(21) })).body.error).toBe('VALIDATION_ERROR');
+  });
+
+  // Last in the block: it spends the route's limiter (20 per window).
+  it('is rate-limited like the other password and 2FA checks', async () => {
+    const spy = vi.spyOn(authService, 'adminResetPassword').mockRejectedValue(new Error('INVALID_PASSWORD'));
+    let status = 0;
+    for (let i = 0; i < 21 && status !== 429; i++) status = (await post({ password: 'guess' })).status;
+    expect(status).toBe(429);
+    spy.mockRestore();
+  });
+});
+
+// #638 (review): granting the admin role hands the session holder a second
+// admin account, so it asks for the same step-up as a password reset.
+describe('POST /api/admin/users/:id/role', () => {
+  beforeEach(() => {
+    // The caller is an active admin (auth + admin middleware); the target m1 is a member.
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      args.where.id === 'm1' ? { id: 'm1', isActive: true, isAdmin: false } : { id: args.where.id, isActive: true, isAdmin: true }) as never);
+    (prisma.user as unknown as { update: ReturnType<typeof vi.fn> }).update = vi.fn().mockResolvedValue({ id: 'm1', isAdmin: true });
+  });
+  const post = (body: Record<string, unknown>) => request(app)
+    .post('/api/admin/users/m1/role')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send(body);
+
+  it.each(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE'])('refuses a grant with %s (403), changing nothing', async (code) => {
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin').mockRejectedValueOnce(new Error(code));
+    const res = await post({ isAdmin: true, password: 'x' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe(code);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('grants with the admin\'s password and code, and audits it', async () => {
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
+    const res = await post({ isAdmin: true, password: 'admin-pw', code: '123456' });
+    expect(res.status).toBe(200);
+    expect(spy).toHaveBeenCalledWith('u1', { password: 'admin-pw', code: '123456' }, expect.anything(),
+      { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: 'm1', isAdmin: true } });
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: { isAdmin: true } }));
+    spy.mockRestore();
+  });
+
+  it.each([
+    ['an unknown account', 'nobody', 404, 'USER_NOT_FOUND'],
+    ['an account already admin', 'a2', 409, 'ALREADY_ADMIN'],
+  ])('refuses a grant to %s before the step-up (no backup code spent)', async (_label, id, status, error) => {
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      args.where.id === 'nobody' ? null : { id: args.where.id, isActive: true, isAdmin: true }) as never);
+    // The middlewares look the caller (u1) up first; then the target.
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin');
+    const res = await request(app)
+      .post(`/api/admin/users/${id}/role`)
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .send({ isAdmin: true, password: 'admin-pw', code: 'ffff0000ffff0000ffff' });
+    expect(res.status).toBe(status);
+    expect(res.body.error).toBe(error);
+    expect(spy).not.toHaveBeenCalled();
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('removing the role needs the session only', async () => {
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin');
+    const res = await post({ isAdmin: false });
+    expect(res.status).toBe(200);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
 
@@ -481,7 +655,7 @@ describe('POST /api/admin/backups/:id/restore', () => {
     .send({ confirm: true, password: 'pw' });
 
   it('answers with the safety backup taken before the restore', async () => {
-    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
     const restoreSpy = vi.spyOn(backupService, 'restoreBackup').mockResolvedValue({ safetyBackupRunId: 'safety-1' });
     spies.push(restoreSpy);
 
@@ -493,7 +667,7 @@ describe('POST /api/admin/backups/:id/restore', () => {
   });
 
   it('answers BACKUP_BEFORE_RESTORE_FAILED when the safety backup fails', async () => {
-    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
     spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error('BACKUP_BEFORE_RESTORE_FAILED')));
     spies.push(vi.spyOn(console, 'error').mockImplementation(() => {}));
 
@@ -505,7 +679,7 @@ describe('POST /api/admin/backups/:id/restore', () => {
 
   // #471 (lot Z): a backup of another version is refused with a code the dialog translates.
   it.each(['BACKUP_FROM_OLDER_VERSION', 'BACKUP_FROM_NEWER_VERSION'])('answers 409 %s', async (code) => {
-    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(true));
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
     spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error(code)));
 
     const res = await restore();
@@ -515,7 +689,7 @@ describe('POST /api/admin/backups/:id/restore', () => {
   });
 
   it('takes no backup at all on a wrong password', async () => {
-    spies.push(vi.spyOn(authService, 'verifyPassword').mockResolvedValue(false));
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockRejectedValue(new Error('INVALID_PASSWORD')));
     const runSpy = vi.spyOn(backupService, 'runBackup');
     const restoreSpy = vi.spyOn(backupService, 'restoreBackup');
     spies.push(runSpy, restoreSpy);
@@ -525,5 +699,130 @@ describe('POST /api/admin/backups/:id/restore', () => {
     expect(res.status).toBe(403);
     expect(runSpy).not.toHaveBeenCalled();
     expect(restoreSpy).not.toHaveBeenCalled();
+  });
+});
+
+// #668: the avatar was saved as `${API_URL || 'http://localhost:3001'}/uploads/avatars/…`,
+// an address the production stack never publishes. Saved relative, like
+// product photos, it is served by the web app's /uploads rewrite.
+describe('POST /api/user/avatar', () => {
+  const savedApiUrl = process.env.API_URL;
+  const written: string[] = [];
+
+  afterEach(() => {
+    if (savedApiUrl === undefined) delete process.env.API_URL;
+    else process.env.API_URL = savedApiUrl;
+    for (const file of written.splice(0)) fs.rmSync(file, { force: true });
+  });
+
+  it('stores a relative /uploads/avatars/<file> path, whatever API_URL says', async () => {
+    process.env.API_URL = 'http://api.internal:3001';
+    const updateSpy = vi.spyOn(authService, 'updateProfile')
+      .mockImplementation(async (_userId, data) => ({ avatarUrl: data.avatarUrl } as never));
+
+    const res = await request(app)
+      .post('/api/user/avatar')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .attach('avatar', Buffer.from([0x89, 0x50, 0x4e, 0x47]), { filename: 'me.png', contentType: 'image/png' });
+
+    expect(res.status).toBe(200);
+    const avatarUrl = updateSpy.mock.calls[0][1].avatarUrl as string;
+    written.push(path.join(process.cwd(), avatarUrl));
+    expect(avatarUrl).toMatch(/^\/uploads\/avatars\/[0-9a-f-]{36}\.png$/);
+    expect(res.body.data.avatarUrl).toBe(avatarUrl);
+    updateSpy.mockRestore();
+  });
+});
+
+// #599: the admin Gotify test followed redirects, so a public server could
+// bounce the POST (and the Gotify key) into the home network.
+describe('POST /api/admin/config/test/gotify', () => {
+  it('does not follow a redirect and reports it as DELIVERY_FAILED', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u1', isActive: true, isAdmin: true } as never);
+    const { systemConfigService } = await import('../../src/services/system-config.service');
+    const publicSpy = vi.spyOn(systemConfigService, 'getPublic').mockResolvedValueOnce({ gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4' } as never);
+    const gotifySpy = vi.spyOn(systemConfigService, 'getGotify').mockResolvedValueOnce({ gotifyUrl: 'https://1.2.3.4', gotifyToken: 'key' } as never);
+    // #890: the test asks for the admin's step-up, passed here.
+    const reauthSpy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
+    // Like the real fetch: the redirect is followed unless `redirect: 'manual'`.
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) =>
+      (init?.redirect === 'manual'
+        ? new Response(null, { status: 307, headers: { location: 'http://192.168.1.1/message' } })
+        : new Response('{}', { status: 200 })));
+    try {
+      const res = await request(app)
+        .post('/api/admin/config/test/gotify')
+        .set('Authorization', `Bearer ${authToken()}`)
+        .set('Sec-Fetch-Site', 'same-origin')
+        .send({ password: 'admin-pw' });
+      expect(res.status).toBe(200);
+      expect(reauthSpy).toHaveBeenCalled();
+      expect(res.body.data).toEqual({ success: false, error: 'DELIVERY_FAILED' });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ redirect: 'manual' }));
+    } finally {
+      fetchSpy.mockRestore();
+      publicSpy.mockRestore();
+      gotifySpy.mockRestore();
+      reauthSpy.mockRestore();
+    }
+  });
+});
+
+// #605: deactivating a member only put their sessions, trusted devices and
+// guest links to sleep; reactivating the account woke them all up again.
+describe('PATCH /api/admin/users/:id/status', () => {
+  const p = prisma as unknown as Record<string, Record<string, ReturnType<typeof vi.fn>>> & { $transaction: ReturnType<typeof vi.fn> };
+  beforeEach(() => {
+    // The caller u1 is an active admin; the target m1 is an active member.
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      args.where.id === 'm1' ? { id: 'm1', isActive: true, isAdmin: false } : { id: args.where.id, isActive: true, isAdmin: true }) as never);
+    p.user.update = vi.fn().mockImplementation(async (args: { data: { isActive: boolean } }) => ({ id: 'm1', isAdmin: false, ...args.data }));
+    p.session.updateMany = vi.fn().mockResolvedValue({ count: 2 });
+    p.trustedDevice = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
+    p.guestShare = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
+    p.auditLog.create = vi.fn().mockResolvedValue({});
+    p.$transaction = vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+  });
+  const patch = (isActive: boolean) => request(app)
+    .patch('/api/admin/users/m1/status')
+    .set('Authorization', `Bearer ${authToken()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send({ isActive });
+
+  it('deactivating revokes the member\'s sessions, trusted devices and guest links in the same transaction', async () => {
+    const res = await patch(false);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isActive).toBe(false);
+    expect(p.$transaction).toHaveBeenCalledTimes(1);
+    const now = expect.any(Date);
+    expect(p.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'm1' }, data: { isActive: false } }));
+    expect(p.session.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
+    expect(p.trustedDevice.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
+    expect(p.guestShare.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
+  });
+
+  it('deactivate then reactivate: what was revoked stays revoked, and both changes are audited', async () => {
+    await patch(false);
+    vi.mocked(p.session.updateMany).mockClear();
+    vi.mocked(p.trustedDevice.updateMany).mockClear();
+    vi.mocked(p.guestShare.updateMany).mockClear();
+
+    const res = await patch(true);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.isActive).toBe(true);
+    expect(p.user.update).toHaveBeenLastCalledWith(expect.objectContaining({ where: { id: 'm1' }, data: { isActive: true } }));
+    // Nothing is handed back on reactivation.
+    expect(p.session.updateMany).not.toHaveBeenCalled();
+    expect(p.trustedDevice.updateMany).not.toHaveBeenCalled();
+    expect(p.guestShare.updateMany).not.toHaveBeenCalled();
+
+    expect(p.auditLog.create.mock.calls.map(([args]) => args.data)).toEqual([
+      expect.objectContaining({ userId: 'u1', action: 'ADMIN_STATUS_CHANGE', status: 'success', details: { targetUserId: 'm1', isActive: false } }),
+      expect.objectContaining({ userId: 'u1', action: 'ADMIN_STATUS_CHANGE', status: 'success', details: { targetUserId: 'm1', isActive: true } }),
+    ]);
   });
 });

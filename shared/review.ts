@@ -121,8 +121,8 @@ export interface FusionUnit extends GroupKeyFields {
   writtenOffAt: Date | string | null;
   deletedAt: Date | string | null;
   needsReview: boolean;
-  slotColumn: number | null;
-  slotRow: number | null;
+  /** FEAT-93: its live cells of the cellar plan (the survivor takes them all). */
+  slotCount: number;
   createdAt: Date | string;
   /** The inventory sessions it is counted in. */
   sessionIds: string[];
@@ -168,37 +168,43 @@ export function placesAgree(
  * empty only: an empty value falls back on the price and the total value
  * would change) — fuse into the oldest, unless their place of purchase or
  * location disagree with what the group has gathered (empty agrees). Never
- * fused: a guessed group (`needsReview`, to review as it is), a group holding
- * a slot of the cellar plan (one slot per group until FEAT-93), two groups
- * counted in the same inventory session (one entry per unit), and a group
+ * fused: a guessed group (`needsReview`, to review as it is), two groups
+ * counted in the same inventory session (one entry per unit), a group
  * without a purchase day (its spending is dated by its creation, which the
- * survivor would not keep; the transformation always sets the day).
- * Walked by creation date then id, as the migration does.
+ * survivor would not keep; the transformation always sets the day), and
+ * (FEAT-93) two groups of single cigars each in a cell (one cell for the
+ * whole group). Otherwise the survivor takes every cell of the cellar plan.
+ * Walked by creation date then id, as the migrations do.
  */
 export function planGroupFusion(units: ReadonlyArray<FusionUnit>, kind: UnitKind): FusedGroup[] {
   const candidates = units
     // Without a purchase day, the budget falls back on each group's creation
     // day: fusing two of them could move a spending to another period.
-    .filter((unit) => isGroupableItem(unit) && !unit.needsReview && unit.slotColumn === null && unit.slotRow === null
-      && unit.purchasedAt !== null)
+    .filter((unit) => isGroupableItem(unit) && !unit.needsReview && unit.purchasedAt !== null)
     .sort((a, b) => time(a.createdAt) - time(b.createdAt) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
-  const groups: Array<{ key: string; members: FusionUnit[]; place: string | null; location: string | null; sessions: Set<string> }> = [];
+  const groups: Array<{
+    key: string; members: FusionUnit[]; place: string | null; location: string | null; sessions: Set<string>; placed: boolean;
+  }> = [];
   for (const unit of candidates) {
     const key = JSON.stringify([groupKey(unit, kind), unit.estimatedValue]);
     const place = blank(unit.purchasePlace);
     const location = blank(unit.location);
+    const placed = unit.slotCount > 0;
+    const single = kind === 'cigar' && unit.cigarsPerBox === null;
     const target = groups.find((group) => group.key === key
       && (group.place === null || place === null || group.place === place)
       && (group.location === null || location === null || group.location === location)
+      && !(single && placed && group.placed)
       && unit.sessionIds.every((session) => !group.sessions.has(session)));
     if (!target) {
-      groups.push({ key, members: [unit], place, location, sessions: new Set(unit.sessionIds) });
+      groups.push({ key, members: [unit], place, location, sessions: new Set(unit.sessionIds), placed });
       continue;
     }
     target.members.push(unit);
     target.place ??= place;
     target.location ??= location;
+    target.placed ||= placed;
     for (const session of unit.sessionIds) target.sessions.add(session);
   }
 

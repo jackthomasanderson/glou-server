@@ -164,6 +164,7 @@ export function useProductsTrash() {
 export function useTrashProduct() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
+    meta: { handlesError: true },
     mutationFn: productsClient.trash,
     onSuccess: (_result, id) => {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => old?.filter((product) => product.id !== id));
@@ -180,6 +181,7 @@ export function useTrashProduct() {
 export function useRestoreProduct() {
   const queryClient = useQueryClient();
   return useMutation<Product, Error, string>({
+    meta: { handlesError: true },
     mutationFn: productsClient.restore,
     onSuccess: (product) => notifySuccess('toast.product.restoreSuccess', productCtx(queryClient, product.id, product.category)),
     onError: (_error, id) => notifyError('toast.product.restoreError', productCtx(queryClient, id)),
@@ -199,6 +201,7 @@ export function useRestoreProduct() {
 export function useBulkWines() {
   const queryClient = useQueryClient();
   return useMutation<BulkStockResult, Error, BulkWinesAction>({
+    meta: { handlesError: true },
     mutationFn: productsClient.bulk,
     // A refusal the dialog can name (a wine with fewer bottles left, a line
     // over the maximum, a cellar deleted meanwhile); any other one is generic.
@@ -220,6 +223,8 @@ export interface UpdateProductVariables {
   patch: Partial<ProductDescription>;
   /** The wine's version the form started from (#572). */
   expectedUpdatedAt?: string;
+  /** Its category, for the words of a refusal (« ce cigare »); else read from the cached list. */
+  category?: string;
 }
 
 /**
@@ -230,17 +235,19 @@ export interface UpdateProductVariables {
 export function useUpdateProduct() {
   const queryClient = useQueryClient();
   return useMutation<Product, Error, UpdateProductVariables>({
+    meta: { handlesError: true },
     mutationFn: ({ id, patch, expectedUpdatedAt }) => productsClient.update(id, patch, expectedUpdatedAt),
     onSuccess: (saved) => {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) =>
         old?.map((product) => (product.id === saved.id ? saved : product)));
     },
-    onError: (error) => {
+    onError: (error, { id, category }) => {
+      const context = productCtx(queryClient, id, category);
       if (error.message === 'CONFLICT') {
-        notifyError('familyDrawer.form.conflict');
+        notifyError('familyDrawer.form.conflict', context);
         return;
       }
-      notifyError(error.message === 'VALIDATION_ERROR' ? 'familyDrawer.form.rejected' : 'familyDrawer.form.error');
+      notifyError(error.message === 'VALIDATION_ERROR' ? 'familyDrawer.form.rejected' : 'familyDrawer.form.error', context);
     },
     onSettled: (_saved, _error, { id }) => {
       void queryClient.invalidateQueries({ queryKey: productDetailKey(id) });
@@ -274,6 +281,7 @@ const ADD_UNITS_REFUSALS: Record<string, string> = {
 export function useAddUnits() {
   const queryClient = useQueryClient();
   return useMutation<UnitWrite, Error, AddUnitsVariables>({
+    meta: { handlesError: true },
     mutationFn: ({ product, input }) => productsClient.addUnits(product.id, input),
     onSuccess: (write, { product, input }) => {
       const written = [write.data, ...write.changed];

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { AppError } from '../../src/lib/errors';
 import {
-  checkGuestUndo, checkGuestWrite, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestMoveEntry,
+  checkGuestUndo, checkGuestWrite, freedCell, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestMoveEntry,
 } from '../../src/lib/guest-write';
 import { planState, type StateItem } from '../../src/services/stock-state.service';
 import { guestInventoryUpdateSchema, type GuestInventoryUpdate } from '../../src/schemas/inventory.schema';
@@ -15,7 +15,7 @@ const SHARE = { writeCellarIds: ['garage'] };
 
 function unit(fields: Partial<StateItem> = {}): StateItem {
   return {
-    id: 'u1', userId: 'creator', productId: 'p1', cellarId: 'garage', slotColumn: null, slotRow: null,
+    id: 'u1', userId: 'creator', productId: 'p1', cellarId: 'garage',
     purchasedAt: DAY, cigarsPerBox: null, cigarsLeft: null, parentItemId: null, writtenOffAt: null,
     needsReview: false, location: null,
     purchasePrice: 20, estimatedValue: null, purchasePlace: null, bottleSize: '75cl', quantity: 1,
@@ -165,22 +165,21 @@ describe('checkGuestUndo — only the guest\'s own move, just made', () => {
   });
 
   it('puts a bottle back closed and full — rejoining its line — and a box complete', () => {
-    const bottlePatch = undoPatch(stateBefore(group(6), false), null);
+    const bottlePatch = undoPatch(stateBefore(group(6)), null);
     expect(bottlePatch).toEqual({ isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null });
     expect(planState(unit({ isOpened: true, fillLevel: 100, parentItemId: 'g1' }), { state: bottlePatch }, 'bottle').outcome).toBe('reattached');
 
     const boxSub = boxes(1, { isOpened: true, cigarsLeft: 24, parentItemId: 'g1' });
-    const boxPatch = undoPatch(stateBefore(boxes(3), false), 25);
+    const boxPatch = undoPatch(stateBefore(boxes(3)), 25);
     expect(boxPatch.cigarsLeft).toBe(25);
     expect(planState(boxSub, { state: boxPatch }, 'cigar').outcome).toBe('reattached');
   });
 
-  it('gives a cigar back to an opened box, and a slot back to a line of one finished in place', () => {
+  // FEAT-93: the cell a line of one freed is not recorded until lot S2 (`placeAt`).
+  it('gives a cigar back to an opened box; no cell is written by the undo', () => {
     const openedBox = boxes(1, { isOpened: true, cigarsLeft: 10, parentItemId: 'g1' });
-    expect(undoPatch(stateBefore(openedBox, false), 25)).toMatchObject({ isOpened: true, cigarsLeft: 10 });
-    const placed = group(1, { slotColumn: 2, slotRow: 3 });
-    expect(undoPatch(stateBefore(placed, true), null)).toMatchObject({ slotColumn: 2, slotRow: 3 });
-    expect(undoPatch(stateBefore(placed, false), null)).not.toHaveProperty('slotColumn');
+    expect(undoPatch(stateBefore(openedBox), 25)).toMatchObject({ isOpened: true, cigarsLeft: 10 });
+    expect(undoPatch(stateBefore(group(1)), null)).toEqual({ isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null });
   });
 
   it('only a move is undoable, not a level set', () => {
@@ -194,7 +193,7 @@ describe('checkGuestUndo — only the guest\'s own move, just made', () => {
   it('« J\'en bois une » on the opened bottle is a move: undone back opened at its level, never closed', () => {
     expect(guestWrite(opened(), { isOpened: true, fillLevel: 0 })).toBe('updated');
     expect(isGuestMove({ isOpened: true, fillLevel: 0 }, opened())).toBe(true);
-    const back = undoPatch(stateBefore(opened({ openedAt: DAY }), false), null);
+    const back = undoPatch(stateBefore(opened({ openedAt: DAY })), null);
     expect(back).toEqual({ isOpened: true, fillLevel: 60, openedAt: DAY, cigarsLeft: null });
     expect(planState(finished(), { state: back }, 'bottle').outcome).not.toMatch(/reattached|regrouped/);
   });
@@ -203,6 +202,35 @@ describe('checkGuestUndo — only the guest\'s own move, just made', () => {
     expect(isGuestMove({ fillLevel: 0 }, opened())).toBe(false);
     expect(isGuestMove({ isOpened: true, fillLevel: 100 }, opened())).toBe(false);
     expect(isGuestMove({ isOpened: true, fillLevel: 30 }, opened())).toBe(false);
+  });
+});
+
+// FEAT-93 (lot S2): the cell a guest's move freed, given back by « Annuler » (placeAt).
+describe('freedCell / undoPatch — the cell of a move', () => {
+  const freed = (column: number, row: number) => ({ field: 'slot', from: { column, row }, to: null });
+  const placed = (column: number, row: number) => ({ field: 'slot', from: null, to: { column, row } });
+
+  it('a bottle alone drunk from its cell: that cell', () => {
+    expect(freedCell([{ field: 'fillLevel', from: null, to: 0 }, freed(2, 3)])).toEqual({ column: 2, row: 3 });
+  });
+
+  it('a bottle drunk off a group from a cell (automatic rule): the group\'s cell freed', () => {
+    expect(freedCell([{ field: 'fillLevel', from: null, to: 0 }], [freed(4, 1)])).toEqual({ column: 4, row: 1 });
+  });
+
+  it('a bottle opened off a group takes its cell: nothing freed', () => {
+    expect(freedCell([placed(4, 1)], [freed(4, 1)])).toBeNull();
+  });
+
+  it('no cell at all: null', () => {
+    expect(freedCell([{ field: 'isOpened', from: false, to: true }])).toBeNull();
+  });
+
+  it('undoPatch asks for the cell back, and ignores a cell that is no cell of a plan', () => {
+    const before = { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null };
+    expect(undoPatch(before, null, { column: 2, row: 3 })).toMatchObject({ placeAt: { column: 2, row: 3 } });
+    expect(undoPatch(before, null, { column: 0, row: 3 })).not.toHaveProperty('placeAt');
+    expect(undoPatch(before, null)).not.toHaveProperty('placeAt');
   });
 });
 

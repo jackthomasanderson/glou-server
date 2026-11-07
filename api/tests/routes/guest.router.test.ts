@@ -57,7 +57,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId', () => {
   it('writes the state of the bottle', async () => {
     const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 50 });
     expect(res.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { isOpened: true, fillLevel: 50 }, { guard: expect.any(Function) });
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { isOpened: true, fillLevel: 50 }, { guard: expect.any(Function), slotChoice: 'auto' });
   });
 
   it('answers with the share-redacted item, not the full updated row (#483)', async () => {
@@ -191,12 +191,12 @@ describe('POST /api/guest/:token/tastings', () => {
 describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
   type Guard = (unit: unknown, planned: () => string) => void;
   const STAMP = '2026-11-04T10:00:00.000Z';
-  const group = { id: 'i1', cellarId: 'c1', quantity: 6, isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null, openedAt: null, slotColumn: null, slotRow: null, category: 'wine', updatedAt: new Date('2026-11-01T00:00:00.000Z') };
+  const group = { id: 'i1', cellarId: 'c1', quantity: 6, isOpened: false, fillLevel: null, cigarsLeft: null, writtenOffAt: null, openedAt: null, category: 'wine', updatedAt: new Date('2026-11-01T00:00:00.000Z') };
 
   it('a move records what it found and the version it left, before answering', async () => {
     vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
       options?.guard?.(group, () => 'detached');
-      return { item: { id: 'sub', productId: 'p1', updatedAt: new Date(STAMP), slotColumn: null }, changes: [], changed: [], removedIds: [], outcome: 'detached' };
+      return { item: { id: 'sub', productId: 'p1', updatedAt: new Date(STAMP) }, changes: [], changed: [], removedIds: [], outcome: 'detached' };
     }) as never);
 
     const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 0 });
@@ -209,6 +209,54 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
         undo: { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: STAMP },
       }),
     }));
+  });
+
+  // FEAT-93 (lot S2): a bottle alone drunk from its cell — « Annuler » gives the cell back if still free.
+  it('a bottle drunk from its cell records the cell, and its « Annuler » asks for it back (placeAt)', async () => {
+    const alone = { ...group, quantity: 1 };
+    vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.(alone, () => 'updated');
+      return {
+        item: { id: 'i1', productId: 'p1', updatedAt: new Date(STAMP) },
+        changes: [{ field: 'fillLevel', from: null, to: 0 }, { field: 'slot', from: { column: 2, row: 3 }, to: null }],
+        changed: [], removedIds: [],
+      };
+    }) as never);
+
+    await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 0 });
+
+    const marker = { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, stampedAt: STAMP, slot: { column: 2, row: 3 } };
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ details: expect.objectContaining({ undo: marker }) }));
+
+    vi.mocked(sharesService.findLatestGuestMove).mockResolvedValue({ shareId: 's1', createdAt: new Date(), undo: marker } as never);
+    vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.({ cellarId: 'c1', updatedAt: new Date(STAMP) }, () => 'regrouped');
+      return { item: { id: 'i1', productId: 'p1', updatedAt: new Date() }, changes: [], changed: [], removedIds: [] };
+    }) as never);
+
+    expect((await request(app).patch('/api/guest/tok/inventory/i1').send({ undo: true })).status).toBe(200);
+    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'i1',
+      { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, placeAt: { column: 2, row: 3 } },
+      { guard: expect.any(Function), slotChoice: 'auto' });
+  });
+
+  it('a bottle opened from a group takes its cell with it: no cell recorded (it comes back with the bottle)', async () => {
+    vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.(group, () => 'detached');
+      return {
+        item: { id: 'sub', productId: 'p1', updatedAt: new Date(STAMP) },
+        changes: [{ field: 'isOpened', from: false, to: true }, { field: 'slot', from: null, to: { column: 1, row: 1 } }],
+        changed: [], removedIds: [], outcome: 'detached',
+        groupChange: { itemId: 'i1', from: 6, to: 5, slotChanges: [{ field: 'slot', from: { column: 1, row: 1 }, to: null }] },
+      };
+    }) as never);
+
+    await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true });
+
+    const details = (vi.mocked(auditLog).mock.calls[0]?.[0] as unknown as { details: { undo: Record<string, unknown> } }).details;
+    expect(details.undo).not.toHaveProperty('slot');
+    // Recette #847 (KO 8.2): its group's entry names the bottle, as a member's does, so "Annuler" hides both.
+    expect(vi.mocked(auditLog).mock.calls[1]?.[0]).toMatchObject({ bottleId: 'i1', details: { outcome: 'detached', subItemId: 'sub' } });
   });
 
   it('a level set records no "Annuler"', async () => {
@@ -231,7 +279,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     const sub = { ...group, id: 'sub', quantity: 1, isOpened: true, fillLevel: 60, openedAt: new Date(OPENED_AT) };
     vi.mocked(inventoryService.updateItem).mockImplementation((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
       options?.guard?.(sub, () => 'updated');
-      return { item: { id: 'sub', productId: 'p1', updatedAt: new Date(STAMP), slotColumn: null }, changes: [], changed: [], removedIds: [] };
+      return { item: { id: 'sub', productId: 'p1', updatedAt: new Date(STAMP) }, changes: [], changed: [], removedIds: [] };
     }) as never);
 
     const res = await request(app).patch('/api/guest/tok/inventory/sub').send({ isOpened: true, fillLevel: 0 });
@@ -249,7 +297,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     const undone = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
 
     expect(undone.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'sub', { isOpened: true, fillLevel: 60, openedAt: new Date(OPENED_AT), cigarsLeft: null }, { guard: expect.any(Function) });
+    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'sub', { isOpened: true, fillLevel: 60, openedAt: new Date(OPENED_AT), cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto' });
   });
 
   it('still refuses a level on a group of more than one, and closing the opened bottle', async () => {
@@ -278,7 +326,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     const res = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
 
     expect(res.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'sub', { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, { guard: expect.any(Function) });
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'sub', { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto' });
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ details: expect.objectContaining({ undoOf: STAMP }) }));
   });
 
@@ -309,54 +357,27 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
   });
 });
 
-// Review of #820: an « Annuler » whose grid slot was taken meanwhile still
-// brings the bottle back (without a slot); a write that wrote nothing is
-// never logged as a success.
-describe('PATCH /api/guest/:token/inventory/:itemId — a grid slot taken meanwhile', () => {
+// FEAT-93: the cells left `bottles`; a marker written before the update may
+// still name the cell a line of one freed — « Annuler » puts the state back,
+// never the old coordinates (the cell comes back with lot S2's `placeAt`).
+describe('PATCH /api/guest/:token/inventory/:itemId — an « Annuler » marker from before the cells table', () => {
   type Guard = (unit: unknown, planned: () => string) => void;
   const STAMP = '2026-11-04T10:00:00.000Z';
   const placedMove = {
     shareId: 's1', createdAt: new Date(),
     undo: { before: { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, slotColumn: 1, slotRow: 1 }, stampedAt: STAMP },
   };
-  const successes = () => vi.mocked(auditLog).mock.calls.filter(([entry]) => (entry as { status: string }).status === 'success');
 
-  it('« Annuler » brings the bottle back without its slot when someone took it', async () => {
+  it('puts the state back, without the former slot coordinates', async () => {
     vi.mocked(sharesService.findLatestGuestMove).mockResolvedValue(placedMove as never);
-    vi.mocked(inventoryService.updateItem)
-      .mockResolvedValueOnce({ item: { id: 'b1' }, changes: [], changed: [], removedIds: [], slotConflict: true } as never)
-      .mockImplementationOnce((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
-        options?.guard?.({ cellarId: 'c1', updatedAt: new Date(STAMP) }, () => 'regrouped');
-        return { item: { id: 'b1', productId: 'p1', updatedAt: new Date() }, changes: [], changed: [], removedIds: [], outcome: 'regrouped' };
-      }) as never);
+    vi.mocked(inventoryService.updateItem).mockImplementationOnce((async (_u: string, _id: string, _p: unknown, options?: { guard?: Guard }) => {
+      options?.guard?.({ cellarId: 'c1', updatedAt: new Date(STAMP) }, () => 'regrouped');
+      return { item: { id: 'b1', productId: 'p1', updatedAt: new Date() }, changes: [], changed: [], removedIds: [], outcome: 'regrouped' };
+    }) as never);
 
     const res = await request(app).patch('/api/guest/tok/inventory/b1').send({ undo: true });
 
     expect(res.status).toBe(200);
-    const calls = vi.mocked(inventoryService.updateItem).mock.calls;
-    expect(calls[0][2]).toMatchObject({ isOpened: false, slotColumn: 1, slotRow: 1 });
-    expect(calls[1][2]).toEqual({ isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null });
-    expect(successes()).toHaveLength(1);
-  });
-
-  it('answers 409 SLOT_OCCUPIED, never a success, when a write wrote nothing', async () => {
-    vi.mocked(inventoryService.updateItem).mockResolvedValue({ item: { id: 'i1' }, changes: [], changed: [], removedIds: [], slotConflict: true } as never);
-
-    const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 0 });
-
-    expect(res.status).toBe(409);
-    expect(res.body.error).toBe('SLOT_OCCUPIED');
-    expect(successes()).toHaveLength(0);
-    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ status: 'error', details: expect.objectContaining({ reason: 'SLOT_OCCUPIED' }) }));
-  });
-
-  it('an « Annuler » refused twice by the slot rule is a 409 too, not a success', async () => {
-    vi.mocked(sharesService.findLatestGuestMove).mockResolvedValue(placedMove as never);
-    vi.mocked(inventoryService.updateItem).mockResolvedValue({ item: { id: 'b1' }, changes: [], changed: [], removedIds: [], slotConflict: true } as never);
-
-    const res = await request(app).patch('/api/guest/tok/inventory/b1').send({ undo: true });
-
-    expect(res.status).toBe(409);
-    expect(successes()).toHaveLength(0);
+    expect(vi.mocked(inventoryService.updateItem).mock.calls[0][2]).toEqual({ isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null });
   });
 });

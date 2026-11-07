@@ -29,6 +29,7 @@ export function useTastings(page = 1, limit = 20, itemId?: string, search?: stri
 export function useCreateTasting() {
   const queryClient = useQueryClient();
   return useMutation<TastingNote, Error, TastingFormValues>({
+    meta: { handlesError: true },
     mutationFn: tastingsClient.create,
     onSuccess: () => notifySuccess('toast.tasting.createSuccess'),
     onError: () => notifyError('toast.tasting.createError'),
@@ -39,6 +40,7 @@ export function useCreateTasting() {
 export function useUpdateTasting() {
   const queryClient = useQueryClient();
   return useMutation<TastingNote, Error, { id: string; data: Partial<TastingFormValues> }>({
+    meta: { handlesError: true },
     mutationFn: ({ id, data }) => tastingsClient.update(id, data),
     onSuccess: () => notifySuccess('toast.tasting.updateSuccess'),
     onError: () => notifyError('toast.tasting.updateError'),
@@ -49,6 +51,7 @@ export function useUpdateTasting() {
 export function useDeleteTasting() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
+    meta: { handlesError: true },
     mutationFn: tastingsClient.delete,
     onSuccess: () => notifySuccess('toast.tasting.deleteSuccess'),
     onError: () => notifyError('toast.tasting.deleteError'),

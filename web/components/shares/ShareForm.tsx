@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import {
   Button,
   Input,
-  Select,
   SelectItem,
   Switch,
   Checkbox,
@@ -16,6 +15,7 @@ import { ShareFormValues } from '@/lib/shares/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
 import { todayLocalIso } from '@/lib/format';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 type DurationKey = '1d' | '7d' | '30d' | 'custom' | 'unlimited';
 
@@ -118,7 +118,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
 
       {/* Duration */}
       <div className="flex flex-col gap-2">
-        <Select
+        <SingleSelect
           label={t('shares.fields.duration')}
           selectedKeys={[duration]}
           onSelectionChange={(keys) => setDuration(Array.from(keys)[0] as DurationKey)}
@@ -132,7 +132,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
           <SelectItem key="30d">{t('shares.fields.durations.30d')}</SelectItem>
           <SelectItem key="custom">{t('shares.fields.durations.custom')}</SelectItem>
           <SelectItem key="unlimited">{t('shares.fields.durations.unlimited')}</SelectItem>
-        </Select>
+        </SingleSelect>
 
         {duration === 'custom' && (
           <Input

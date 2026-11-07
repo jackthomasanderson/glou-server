@@ -4,9 +4,10 @@ on:
   push:
     branches: [main, dev]
   pull_request:
-    # feat/families: integration branch of the family model (#471); its lot PRs
+    # feat/families, feat/slots: integration branches of the family model
+    # (#471) and of several plan slots per line (FEAT-93, #847); their lot PRs
     # run the test job, publishing stays limited to pushes on main/dev.
-    branches: [main, dev, feat/families]
+    branches: [main, dev, feat/families, feat/slots]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -189,6 +190,15 @@ jobs:
       # (e2e/migration/). Before the suite: it fails in seconds.
       - name: Migration bench (families)
         run: bash e2e/migration/check-families-migration.sh
+
+      # FEAT-93: the slots migration (several cellar-plan cells per unit)
+      # replayed the same way, on an instance at the families schema.
+      - name: Migration bench (slots)
+        run: bash e2e/migration/check-slots-migration.sh
+
+      # #668: avatars saved with an absolute localhost address become relative.
+      - name: Migration bench (avatar addresses)
+        run: bash e2e/migration/check-avatar-url-migration.sh
 
       # Deterministic user-journey specs only. The gremlins fuzz
       # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the

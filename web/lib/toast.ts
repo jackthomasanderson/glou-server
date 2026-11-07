@@ -16,18 +16,36 @@ import i18n from '@/lib/i18n';
  * components and from the mutation hooks that own the server round-trip.
  */
 
-/**
- * Every message is read whole: HeroUI cuts a toast's title to one line
- * (« Bouteille remise avec les a… », recette #471). Given to ToastProvider.
- */
-export const TOAST_PROPS = { classNames: { title: 'whitespace-normal break-words' } };
+/** The CSS variable holding the room kept free right of the messages (lib/toastClearance.ts: a drawer). */
+export const TOAST_INSET_VAR = '--toast-inset-right';
 
 /**
- * Messages start this far below the top edge: at the top, a message covered
- * the close button of a drawer, so pressing the cross closed the message
- * instead of the drawer (recette v3 of #471). Still top-right (ux-ui.md 9.4).
+ * Every message is read whole: HeroUI cuts a toast's title to one line
+ * (« Bouteille remise avec les a… », recette #471). Beside a drawer, a
+ * message keeps clear of it ({@link TOAST_INSET_VAR}, recette n°5 bis of
+ * #847). Given to ToastProvider.
+ *
+ * Leaving, a message slid sideways by its own width: beside a drawer
+ * (bottom-right), straight over the drawer's « Ajouter des bouteilles » and
+ * « Modifier », and it caught a click meant for them (recette n°5 ter of
+ * #847). There it now leaves downwards, in its own column; and a message
+ * leaving — its 16 px hover margins and the box HeroUI places it with
+ * (whose inline `pointer-events: all` only `!` outranks) included — lets
+ * every click through.
  */
-export const TOAST_OFFSET_PX = 64;
+export const TOAST_PROPS = {
+  classNames: {
+    base: [
+      'data-[toast-exiting=true]:pointer-events-none',
+      'data-[toast-exiting=true]:before:pointer-events-none',
+      'data-[toast-exiting=true]:after:pointer-events-none',
+      'data-[toast-exiting=true]:data-[placement=bottom-right]:translate-x-0',
+      'data-[toast-exiting=true]:data-[placement=bottom-right]:translate-y-full',
+    ].join(' '),
+    title: 'whitespace-normal break-words',
+    motionDiv: 'data-[placement=bottom-right]:right-[var(--toast-inset-right,0px)] has-[[data-toast-exiting=true]]:pointer-events-none!',
+  },
+};
 
 /** Success notifications are transient (ux-ui.md 9.4: 3 seconds). */
 const SUCCESS_TIMEOUT_MS = 3000;

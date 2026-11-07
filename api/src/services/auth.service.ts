@@ -8,15 +8,18 @@ import fs from 'fs';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
-import { UpdateProfileInput, UpdatePreferencesInput } from '../schemas/user.schema';
+import { UpdateProfileInput, UpdatePreferencesInput, UPLOADED_AVATAR_PATH } from '../schemas/user.schema';
 import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
-import { auditLog } from './audit.service';
+import { auditLog, type AuditAction } from './audit.service';
+import { UNIT_SLOTS_INCLUDE } from '../lib/product-fields';
 import { isCookieSecure } from '../lib/cookie-secure';
 import { escapeHtml } from '../lib/html';
 import { isNotifEn } from '../lib/notif-lang';
+import { encrypt } from '../lib/crypto';
+import { openTwoFactorSecret } from '../lib/two-factor-secret';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
 
 // ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
@@ -159,7 +162,8 @@ export type SecurityEventKey =
   | 'twoFactorDisabled'
   | 'sessionRevoked'
   | 'emailChanged'
-  | 'twoFactorLocked';
+  | 'twoFactorLocked'
+  | 'backupCodesRegenerated';
 
 const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subject: string; intro: string }> = {
   newDevice: (isEn) => isEn
@@ -186,6 +190,10 @@ const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subj
   twoFactorLocked: (isEn) => isEn
     ? { subject: 'Glou — Two-factor verification temporarily locked', intro: 'Too many incorrect two-factor codes were submitted on your account, so the verification step has been temporarily locked.' }
     : { subject: 'Glou — Vérification en deux étapes temporairement bloquée', intro: 'Trop de codes de double authentification incorrects ont été saisis sur votre compte : l’étape de vérification est temporairement bloquée.' },
+  // #638 — the whole set of backup codes was replaced; the old ones no longer work.
+  backupCodesRegenerated: (isEn) => isEn
+    ? { subject: 'Glou — New backup codes generated', intro: 'New two-factor backup codes were just generated for your account. The previous ones no longer work.' }
+    : { subject: 'Glou — Nouveaux codes de secours générés', intro: 'De nouveaux codes de secours de double authentification viennent d’être générés pour votre compte. Les précédents ne fonctionnent plus.' },
 };
 
 export class AuthService {
@@ -506,9 +514,10 @@ export class AuthService {
   }
 
   /**
-   * Update user profile (UI-facing infos)
+   * Update user profile (UI-facing infos). `avatarUrl` comes only from the
+   * avatar routes, never from the request body (#880).
    */
-  async updateProfile(userId: string, data: UpdateProfileInput): Promise<PublicUser> {
+  async updateProfile(userId: string, data: UpdateProfileInput & { avatarUrl?: string | null }): Promise<PublicUser> {
     if (data.username) {
       const existing = await prisma.user.findFirst({
         where: { username: data.username, NOT: { id: userId } },
@@ -537,21 +546,7 @@ export class AuthService {
       select: { avatarUrl: true }
     });
 
-    if (user.avatarUrl) {
-      try {
-        const filename = path.basename(user.avatarUrl);
-        const uploadsDir = path.resolve(process.cwd(), 'uploads', 'avatars');
-        const filePath = path.resolve(uploadsDir, filename);
-        if (!filePath.startsWith(uploadsDir + path.sep)) throw new Error('INVALID_PATH');
-
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      } catch (err) {
-        console.error('Failed to delete avatar file:', err);
-        // We continue anyway to at least clear the DB field
-      }
-    }
+    if (user.avatarUrl) await this.deleteAvatarFile(user.avatarUrl, [userId]);
 
     return this.updateProfile(userId, { avatarUrl: null });
   }
@@ -628,27 +623,109 @@ export class AuthService {
    * existing `updatePassword` flow), and every existing session/trusted
    * device is revoked — the same security posture as a self-service reset
    * (password-reset.service.ts#resetPassword).
+   *
+   * #638: it also turns the member's 2FA off (secret, backup codes and
+   * failure counter erased), so a lost phone has one recovery path: without
+   * that, sign-in with the temporary password still stopped at the code step.
+   * Not on the admin's own account: there an open session would be enough to
+   * strip a second factor that turning 2FA off otherwise asks a code for.
+   *
+   * Since the temporary password goes to the admin, a reset on the session
+   * alone would let a stolen admin session take over accounts. So every
+   * reset asks the acting admin to re-authenticate in the same request
+   * (`reauth`, see reauthenticateAdmin). A refusal leaves the target
+   * untouched and is audited.
    */
-  async adminResetPassword(userId: string, adminUserId: string, deviceInfo: DeviceInfo = {}): Promise<string> {
+  async adminResetPassword(
+    userId: string,
+    adminUserId: string,
+    deviceInfo: DeviceInfo = {},
+    reauth: { password?: string; code?: string } = {},
+  ): Promise<string> {
+    const target = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { isTwoFactorEnabled: true } });
+    const audit = { action: 'SESSION_REVOKE' as const, details: { reason: 'admin_password_reset', targetUserId: userId } };
+    // Every reset, the admin's own included: a temporary password handed to
+    // the session holder is a credential, and a known password is what the
+    // step-up itself accepts (review: resetting oneself or a member without
+    // 2FA, then promoting them, would otherwise pass it).
+    await this.reauthenticateAdmin(adminUserId, reauth, deviceInfo, audit);
+
+    const disableTwoFactor = userId !== adminUserId;
     const tempPassword = crypto.randomBytes(9).toString('base64url'); // 12 URL-safe chars
     const passwordHash = await bcrypt.hash(tempPassword, BCRYPT_ROUNDS);
     const now = new Date();
+    const twoFactorReset = disableTwoFactor
+      ? { isTwoFactorEnabled: false, twoFactorSecret: null, backupCodes: [], twoFactorFailedAttempts: 0, twoFactorLockedUntil: null }
+      : {};
 
-    await prisma.$transaction([
-      prisma.user.update({ where: { id: userId }, data: { passwordHash, mustChangePassword: true } }),
-      prisma.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
-      prisma.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } }),
-    ]);
+    await prisma.$transaction(async (tx) => {
+      // Conditional on the 2FA state read above, so what the audit entry and
+      // the notification say is what was actually changed.
+      const { count } = await tx.user.updateMany({
+        where: { id: userId, isTwoFactorEnabled: target.isTwoFactorEnabled },
+        data: { passwordHash, mustChangePassword: true, ...twoFactorReset },
+      });
+      if (count === 0) throw new Error('TARGET_CHANGED');
+      await tx.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+      await tx.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+    });
 
     void auditLog({
       userId: adminUserId,
-      action: 'SESSION_REVOKE',
+      action: audit.action,
       status: 'success',
       ip: deviceInfo.ip ?? 'unknown',
-      details: { reason: 'admin_password_reset', targetUserId: userId },
+      details: { ...audit.details, twoFactorDisabled: disableTwoFactor && target.isTwoFactorEnabled },
     });
+    if (disableTwoFactor && target.isTwoFactorEnabled) this.notifySecurityEvent(userId, 'twoFactorDisabled', deviceInfo);
 
     return tempPassword;
+  }
+
+  /**
+   * #638: step-up check of the acting admin before an action that hands the
+   * session holder an admin-capable credential (a password reset, granting
+   * the admin role). An open admin session alone is not enough: password,
+   * plus the admin's own TOTP or backup code when they have 2FA on (a backup
+   * code used here is consumed). Throws REAUTH_REQUIRED (no password sent),
+   * INVALID_PASSWORD or INVALID_TOTP_CODE; each refusal is audited with the
+   * caller's action and details.
+   */
+  async reauthenticateAdmin(
+    adminUserId: string,
+    { password, code }: { password?: string; code?: string },
+    deviceInfo: DeviceInfo,
+    audit: { action: AuditAction; details: Record<string, unknown> },
+  ): Promise<void> {
+    const refuse = (error: string): never => {
+      void auditLog({
+        userId: adminUserId,
+        action: audit.action,
+        status: 'error',
+        ip: deviceInfo.ip ?? 'unknown',
+        details: { ...audit.details, error },
+      });
+      throw new Error(error);
+    };
+
+    if (!password) refuse('REAUTH_REQUIRED');
+    const admin = await prisma.user.findUniqueOrThrow({ where: { id: adminUserId } });
+    if (!(await bcrypt.compare(password as string, admin.passwordHash))) refuse('INVALID_PASSWORD');
+    if (!admin.isTwoFactorEnabled) return;
+
+    const match = await this.matchSecondFactor(admin, code);
+    if (!match) refuse('INVALID_TOTP_CODE');
+    if (match && match.backupCodeHash) {
+      const usedHash = match.backupCodeHash;
+      // Conditional on the list read above: two requests racing with the same
+      // code, or with two different codes, cannot both write (the second
+      // would bring the first one's code back).
+      const { count } = await prisma.user.updateMany({
+        where: { id: adminUserId, backupCodes: { equals: admin.backupCodes } },
+        data: { backupCodes: admin.backupCodes.filter((c) => c !== usedHash) },
+      });
+      if (count === 0) refuse('INVALID_TOTP_CODE');
+    }
   }
 
   /**
@@ -694,17 +771,6 @@ export class AuthService {
   }
 
   /**
-   * #489: re-authentication for the most destructive admin actions (full
-   * purge, restore, downloading a dump that holds every password hash and
-   * 2FA secret). An open admin session alone is not enough for those.
-   */
-  async verifyPassword(userId: string, password: string): Promise<boolean> {
-    const user = await prisma.user.findUnique({ where: { id: userId }, select: { passwordHash: true } });
-    if (!user) return false;
-    return bcrypt.compare(password, user.passwordHash);
-  }
-
-  /**
    * Verify the password OR PIN supplied to unlock the client-side lock screen.
    * This is a pure verification — it never issues a new Session or JWT, and
    * never touches Session.lastActiveAt (already refreshed by authMiddleware).
@@ -729,7 +795,7 @@ export class AuthService {
 
     await prisma.user.update({
       where: { id: userId },
-      data: { twoFactorSecret: base32secret },
+      data: { twoFactorSecret: encrypt(base32secret) },
     });
 
     // Make sure the qr code and the text secret are perfectly aligned
@@ -744,20 +810,9 @@ export class AuthService {
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
     if (!user.twoFactorSecret) throw new Error('2FA_SECRET_NOT_GENERATED');
 
-    const isCodeValid = authenticator.verify({
-      token: code,
-      secret: user.twoFactorSecret,
-    });
+    if (!(await this.checkTotp(user, code))) throw new Error('INVALID_TOTP_CODE');
 
-    if (!isCodeValid) throw new Error('INVALID_TOTP_CODE');
-
-    // Generate 10 backup codes. 10 bytes (20 hex chars, 80 bits of entropy)
-    // rather than the earlier 4 bytes (32 bits) — ISSUE_047: brute force was
-    // slowed only by bcrypt and the login rate limiter, not by the codes
-    // themselves. See BACKUP_CODE_LENGTH below, which every verification
-    // site keys off of.
-    const backupCodes = Array.from({ length: 10 }).map(() => crypto.randomBytes(10).toString('hex'));
-    const hashedBackupCodes = await Promise.all(backupCodes.map(bc => bcrypt.hash(bc, BCRYPT_ROUNDS)));
+    const { backupCodes, hashedBackupCodes } = await this.newBackupCodes();
 
     await prisma.user.update({
       where: { id: userId },
@@ -772,6 +827,109 @@ export class AuthService {
     return { backupCodes }; // Return plain codes ONCE
   }
 
+  /**
+   * Ten fresh backup codes, in the clear (shown once) and bcrypt-hashed (the
+   * only form stored). 10 bytes (20 hex chars, 80 bits of entropy) rather than
+   * the earlier 4 bytes (32 bits) — ISSUE_047: brute force was slowed only by
+   * bcrypt and the login rate limiter, not by the codes themselves. See
+   * BACKUP_CODE_LENGTH, which every verification site keys off of.
+   */
+  private async newBackupCodes(): Promise<{ backupCodes: string[]; hashedBackupCodes: string[] }> {
+    const backupCodes = Array.from({ length: 10 }).map(() => crypto.randomBytes(10).toString('hex'));
+    const hashedBackupCodes = await Promise.all(backupCodes.map(bc => bcrypt.hash(bc, BCRYPT_ROUNDS)));
+    return { backupCodes, hashedBackupCodes };
+  }
+
+  /**
+   * #613: whether `code` is the current code of the user's authenticator app.
+   * A secret still stored in the clear is encrypted once it has matched,
+   * only if it was not changed in between (2FA turned off, a new secret).
+   * That write never blocks the sign-in or the action being confirmed.
+   */
+  private async checkTotp(user: { id: string; twoFactorSecret: string | null }, code: string): Promise<boolean> {
+    if (!user.twoFactorSecret) return false;
+    const { secret, legacy } = openTwoFactorSecret(user.twoFactorSecret);
+    if (!authenticator.verify({ token: code, secret })) return false;
+    if (legacy) {
+      try {
+        await prisma.user.updateMany({
+          where: { id: user.id, twoFactorSecret: user.twoFactorSecret },
+          data: { twoFactorSecret: encrypt(secret) },
+        });
+      } catch (err) {
+        console.error('[auth] Could not encrypt a 2FA secret stored in the clear:', err);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Re-confirmation by second factor: a current authenticator code or one of
+   * the stored backup codes (compared with bcrypt, never in the clear).
+   */
+  private async matchesSecondFactor(user: { id: string; twoFactorSecret: string | null; backupCodes: string[] }, code?: string): Promise<boolean> {
+    return (await this.matchSecondFactor(user, code)) !== null;
+  }
+
+  /** Same check, telling which backup code matched (so a caller can consume it). */
+  private async matchSecondFactor(
+    user: { id: string; twoFactorSecret: string | null; backupCodes: string[] },
+    code?: string,
+  ): Promise<{ backupCodeHash: string | null } | null> {
+    if (code && code.length === 6 && user.twoFactorSecret) {
+      return (await this.checkTotp(user, code)) ? { backupCodeHash: null } : null;
+    }
+    if (code && code.length === BACKUP_CODE_LENGTH) {
+      for (const hashedCode of user.backupCodes) {
+        if (await bcrypt.compare(code, hashedCode)) return { backupCodeHash: hashedCode };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * #638: replace every backup code by ten new ones — the old ones stop
+   * working at once. Same re-confirmation as turning 2FA off: password plus
+   * a current authenticator or backup code.
+   */
+  async regenerateBackupCodes(userId: string, password: string, code: string, deviceInfo: DeviceInfo = {}): Promise<{ backupCodes: string[] }> {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
+
+    const validPwd = await bcrypt.compare(password, user.passwordHash);
+    if (!validPwd) throw new Error('INVALID_CREDENTIALS');
+
+    if (!(await this.matchesSecondFactor(user, code))) throw new Error('INVALID_TOTP_CODE');
+
+    const { backupCodes, hashedBackupCodes } = await this.newBackupCodes();
+    // Conditional on the codes read above still being current: of two
+    // concurrent requests, only one replaces them (the other is refused
+    // instead of silently voiding the codes the first one showed).
+    const { count } = await prisma.user.updateMany({
+      where: { id: userId, backupCodes: { equals: user.backupCodes } },
+      data: { backupCodes: hashedBackupCodes },
+    });
+    if (count === 0) throw new Error('INVALID_TOTP_CODE');
+
+    void auditLog({
+      userId,
+      action: 'BACKUP_CODES_REGENERATE',
+      status: 'success',
+      ip: deviceInfo.ip ?? 'unknown',
+    });
+    this.notifySecurityEvent(userId, 'backupCodesRegenerated', deviceInfo);
+    return { backupCodes }; // Return plain codes ONCE
+  }
+
+  /**
+   * #638: how many unused backup codes are left (0 when 2FA is off). Read on
+   * its own, not through PUBLIC_USER_SELECT, which never touches the hashes.
+   */
+  async countBackupCodes(userId: string): Promise<number> {
+    const { backupCodes } = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { backupCodes: true } });
+    return backupCodes.length;
+  }
+
   async turnOffTwoFactorAuthentication(userId: string, password: string, deviceInfo: DeviceInfo, currentSessionId: string, code?: string): Promise<void> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
@@ -779,26 +937,8 @@ export class AuthService {
     const validPwd = await bcrypt.compare(password, user.passwordHash);
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
-    // Verify code: either TOTP or a matching backup code
-    let validCode = false;
-
-    if (code && code.length === 6 && user.twoFactorSecret) {
-      validCode = authenticator.verify({
-        token: code,
-        secret: user.twoFactorSecret,
-      });
-    } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
-      // Check backup codes
-      for (const hashedCode of user.backupCodes) {
-        if (await bcrypt.compare(code, hashedCode)) {
-          validCode = true;
-          // Could remove used code, but turning off drops them anyway
-          break;
-        }
-      }
-    }
-
-    if (!validCode) throw new Error('INVALID_TOTP_CODE');
+    // Either TOTP or a matching backup code (turning off drops them anyway).
+    if (!(await this.matchesSecondFactor(user, code))) throw new Error('INVALID_TOTP_CODE');
 
     await prisma.user.update({
       where: { id: userId },
@@ -832,7 +972,8 @@ export class AuthService {
       where: { id: userId },
       include: {
         // #471: each unit with its family, which holds the description.
-        inventory: { where: { deletedAt: null }, include: { product: true } },
+        // FEAT-93: and the cells of the cellar plan its copies occupy.
+        inventory: { where: { deletedAt: null }, include: { product: true, slots: UNIT_SLOTS_INCLUDE } },
         cellars: true,
         // #471: a collection holds families.
         collections: { include: { products: { select: { id: true, name: true } } } },
@@ -1031,18 +1172,31 @@ export class AuthService {
     return { count: due.length, avatarPaths };
   }
 
-  /** Deletes local avatar files from disk. Never throws: one bad path must not block the rest. */
+  /** Deletes the purged accounts' avatar files from disk. Never throws: one bad path must not block the rest. */
   async deleteAvatarFiles(avatarUrls: string[]): Promise<void> {
-    const uploadsDir = path.resolve(process.cwd(), 'uploads', 'avatars');
-    for (const avatarUrl of avatarUrls) {
-      try {
-        const filename = path.basename(avatarUrl);
-        const filePath = path.resolve(uploadsDir, filename);
-        if (!filePath.startsWith(uploadsDir + path.sep)) continue;
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      } catch (err) {
-        console.error(`[auth] Failed to purge avatar file ${avatarUrl}:`, err);
-      }
+    // Called once the purge has cleared those accounts' `avatarUrl`.
+    for (const avatarUrl of avatarUrls) await this.deleteAvatarFile(avatarUrl, []);
+  }
+
+  /**
+   * #880: deletes an avatar file only if `avatarUrl` has the exact shape the
+   * upload route stores and no account other than `ownerIds` references the
+   * same file. Before #880 a member could point their `avatarUrl` at another
+   * member's file; such a file is kept. Never throws.
+   */
+  private async deleteAvatarFile(avatarUrl: string, ownerIds: string[]): Promise<void> {
+    const filename = UPLOADED_AVATAR_PATH.exec(avatarUrl)?.[1];
+    if (!filename) return;
+    try {
+      // `endsWith` also catches an absolute address left by an old version.
+      const sharedWith = await prisma.user.count({
+        where: { id: { notIn: ownerIds }, avatarUrl: { endsWith: `/${filename}` } },
+      });
+      if (sharedWith > 0) return;
+      const filePath = path.join(process.cwd(), 'uploads', 'avatars', filename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch (err) {
+      console.error(`[auth] Failed to delete avatar file ${avatarUrl}:`, err);
     }
   }
 
@@ -1118,10 +1272,7 @@ export class AuthService {
     let usedBackupCodeHash: string | null = null;
 
     if (code.length === 6 && user.twoFactorSecret) {
-      validCode = authenticator.verify({
-        token: code,
-        secret: user.twoFactorSecret,
-      });
+      validCode = await this.checkTotp(user, code);
     } else if (code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
       for (const hashedCode of user.backupCodes) {
         if (await bcrypt.compare(code, hashedCode)) {
@@ -1225,22 +1376,8 @@ export class AuthService {
     const validPwd = await bcrypt.compare(password, user.passwordHash);
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
-    if (user.isTwoFactorEnabled) {
-      let validCode = false;
-      if (code && code.length === 6 && user.twoFactorSecret) {
-        validCode = authenticator.verify({
-          token: code,
-          secret: user.twoFactorSecret,
-        });
-      } else if (code && code.length === BACKUP_CODE_LENGTH && user.backupCodes.length > 0) {
-        for (const hashedCode of user.backupCodes) {
-          if (await bcrypt.compare(code, hashedCode)) {
-            validCode = true;
-            break;
-          }
-        }
-      }
-      if (!validCode) throw new Error('INVALID_CODE');
+    if (user.isTwoFactorEnabled && !(await this.matchesSecondFactor(user, code))) {
+      throw new Error('INVALID_CODE');
     }
 
     const token = await this.createTrustedDevice(userId, deviceInfo);

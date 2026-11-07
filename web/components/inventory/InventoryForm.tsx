@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Button, Chip, Divider, Input, Select, SelectItem,
+  Button, Chip, Divider, Input, SelectItem,
 } from '@heroui/react';
 import i18n from '@/lib/i18n';
 import { currencySymbol, todayLocalIso } from '@/lib/format';
@@ -29,6 +29,7 @@ import { ParsedNumberInput, ParsedInput } from '@/components/ui/ParsedInput';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
 import { buildEditPatch } from '@/lib/forms/editPatch';
 import { searchClient } from '@/lib/search/client';
+import { isAboutItem } from '@/lib/search/relevance';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import {
@@ -45,6 +46,17 @@ import type { Product } from '@/lib/products/types';
 import {
   cigarGroupInput, cigarPriceKey, cigarValueKey, isCigarGroupValid, type CigarGroupDraft, type CigarStorage,
 } from '@/lib/products/cigarGroup';
+import { SingleSelect } from '@/components/ui/SingleSelect';
+import { halfFieldColumns, halfFieldSpan, lastFieldDesktopSpan } from '@/lib/inventory/fieldSpan';
+
+/**
+ * A half-width field of the form's grids: its label, and two columns when that
+ * label — or the one of the field sharing its phone row — is long (#867).
+ */
+const halfField = (label: string, partnerLabel?: string) => ({ label, className: halfFieldSpan(label, partnerLabel) });
+
+/** Class names joined, the missing ones left out. */
+const cx = (...names: (string | undefined)[]) => names.filter(Boolean).join(' ');
 
 /**
  * What a new entry sends. `distinctFrom` (#471, FEAT-97 c5): the wines of the
@@ -157,8 +169,9 @@ export function InventoryForm({
   const [showOptionals, setShowOptionals] = useState(false);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
-  // Last automatic photo pick and the "producer name" it was made for.
-  const [autoPhoto, setAutoPhoto] = useState<{ query: string; path: string | null } | null>(null);
+  // #862: the photo suggested for "category producer name" — the results
+  // about the item and the one shown; never attached until accepted.
+  const [photoSuggestion, setPhotoSuggestion] = useState<{ key: string; results: ImageResult[]; index: number } | null>(null);
   const isEditing = Boolean(initialValues?.id);
   // A bottle's own fields (cellar, price, number, state): not in a wine's description.
   const showsBottle = !descriptionOf;
@@ -196,7 +209,7 @@ export function InventoryForm({
       setShowOptionals(false);
       setPrefetchedImages([]);
       setIsAutoLoading(false);
-      setAutoPhoto(null);
+      setPhotoSuggestion(null);
       setJoining(null);
       setDistinctFrom([]);
     }
@@ -215,41 +228,47 @@ export function InventoryForm({
     onClose();
   };
 
-  // The automatic photo (#227) follows the name until the user picks one.
-  // It used to be fetched once, after the first 1.2 s pause, so a pause while
-  // typing attached the photo of a half-typed name for good (#706).
+  // The photo suggestion (#227) follows the name until a photo is set; it
+  // waits for a 1.2 s pause so a half-typed name is not searched (#706). It
+  // used to download the first result as the photo without asking (#862).
+  const suggestionQuery = `${values.producer ?? ''} ${values.name ?? ''}`.trim();
+  const suggestionCategory = values.category ?? 'wine';
+  const suggestionKey = `${suggestionCategory} ${suggestionQuery}`;
+  const lastSuggestionKey = photoSuggestion?.key;
   useEffect(() => {
-    if (isEditing || !values.name?.trim() || !values.producer?.trim()) return;
-    const query = `${values.producer} ${values.name}`.trim();
-    const previousPath = autoPhoto?.path ?? null;
-    // A photo that is not the last automatic pick was chosen by the user.
-    const userPhoto = Boolean(values.photoUrl) && values.photoUrl !== previousPath;
-    // Same query as the last pick: done, even if the user removed that photo.
-    if (userPhoto || autoPhoto?.query === query) return;
+    if (isEditing || values.photoUrl || !values.name?.trim() || !values.producer?.trim()) return;
+    if (lastSuggestionKey === suggestionKey) return;
     let cancelled = false;
     const timer = setTimeout(async () => {
       setIsAutoLoading(true);
       try {
-        const results = await searchClient.searchImages(query);
+        const results = await searchClient.searchImages(suggestionQuery, suggestionCategory);
         if (cancelled) return;
         setPrefetchedImages(results);
-        const path = (results.length > 0 && (await searchClient.saveImageFromUrl(results[0].url))) || null;
-        // Typed on, or picked a photo, meanwhile: this result is stale.
-        if (cancelled) return;
-        setAutoPhoto({ query, path });
-        // Only an empty field or the previous automatic pick is replaced; with
-        // no photo found for the new name, the stale one is removed.
-        setValues((prev) =>
-          (!prev.photoUrl && !path) || (prev.photoUrl && prev.photoUrl !== previousPath)
-            ? prev
-            : { ...prev, photoUrl: path ?? undefined });
-      } catch { /* ignore */ } finally {
+        setPhotoSuggestion({
+          key: suggestionKey,
+          results: results.filter((result) => isAboutItem(result.title, values.name, values.producer)),
+          index: 0,
+        });
+      } catch { /* no suggestion: the photo stays empty */ } finally {
         // A newer search owns the spinner once this one is stale.
         if (!cancelled) setIsAutoLoading(false);
       }
     }, 1200);
     return () => { cancelled = true; clearTimeout(timer); setIsAutoLoading(false); };
-  }, [values.name, values.producer, values.photoUrl, isEditing, autoPhoto]);
+  }, [values.name, values.producer, values.photoUrl, isEditing, suggestionQuery, suggestionCategory, suggestionKey, lastSuggestionKey]);
+  // Only the suggestion for what is typed now; "dismiss" moves past the last one.
+  const suggestedPhoto = photoSuggestion?.key === suggestionKey ? photoSuggestion.results[photoSuggestion.index] : undefined;
+  // Bound to the name it was found for: an answer arriving after the name
+  // changed never moves the suggestion of the new name.
+  const showNextSuggestion = (key: string, count: number) =>
+    setPhotoSuggestion((prev) => prev && prev.key === key ? { ...prev, index: prev.index + count } : prev);
+  // Once a photo is set (the suggestion accepted or another one chosen), none
+  // is offered again for this name, even if that photo is removed.
+  const changePhoto = (url: string) => {
+    setField('photoUrl', url);
+    if (url) setPhotoSuggestion({ key: suggestionKey, results: [], index: 0 });
+  };
 
   const missingName = !values.name?.trim();
   const missingProducer = !values.producer?.trim();
@@ -409,11 +428,17 @@ export function InventoryForm({
               <div className="w-[170px] mx-auto sm:mx-0 shrink-0 border-b sm:border-b-0 sm:border-r border-divider px-4 py-5">
                 <ItemImageSection
                   photoUrl={values.photoUrl ?? ''}
-                  onPhotoChange={(url) => setField('photoUrl', url)}
+                  onPhotoChange={changePhoto}
                   category={category}
                   autoSearchQuery={[values.producer, values.name].filter(Boolean).join(' ')}
                   preloadedResults={prefetchedImages}
                   isAutoLoading={isAutoLoading}
+                  suggestion={suggestedPhoto && {
+                    image: suggestedPhoto,
+                    hasMore: photoSuggestion!.index + 1 < photoSuggestion!.results.length,
+                    onNext: () => showNextSuggestion(suggestionKey, 1),
+                    onDismiss: () => showNextSuggestion(suggestionKey, photoSuggestion!.results.length),
+                  }}
                 />
               </div>
 
@@ -490,7 +515,7 @@ export function InventoryForm({
                         isInvalid={submitAttempted && missingProducer}
                       />
                       {showsBottle && (
-                      <Select
+                      <SingleSelect
                         label={t('nav.caves')}
                         variant="bordered"
                         size="sm"
@@ -505,7 +530,7 @@ export function InventoryForm({
                             {item.id === 'none' ? <em>{item.name}</em> : item.name}
                           </SelectItem>
                         )}
-                      </Select>
+                      </SingleSelect>
                       )}
                     </div>
 
@@ -630,7 +655,7 @@ export function InventoryForm({
                         <>
                           <ParsedNumberInput
                             data-testid="inventory-vintage-input"
-                            label={t('inventory.fields.vintage')}
+                            {...halfField(t('inventory.fields.vintage'))}
                             variant="bordered"
                             size="sm"
                             value={values.vintage}
@@ -638,8 +663,8 @@ export function InventoryForm({
                             description={t('inventory.fields.noVintage')}
                             min={1800} max={new Date().getFullYear()}
                           />
-                          <Select
-                            label={t('inventory.fields.color')}
+                          <SingleSelect
+                            {...halfField(t('inventory.fields.color'))}
                             variant="bordered"
                             size="sm"
                             selectedKeys={values.color ? [values.color] : []}
@@ -648,7 +673,7 @@ export function InventoryForm({
                             {(['', ...WINE_COLORS]).map((c) => (
                               <SelectItem key={c}>{c ? t(`inventory.color.${c}`) : <em>—</em>}</SelectItem>
                             ))}
-                          </Select>
+                          </SingleSelect>
                           <div className="col-span-2">
                             <Input
                               label={t('inventory.fields.region')}
@@ -659,12 +684,11 @@ export function InventoryForm({
                             />
                           </div>
                           <ParsedNumberInput decimal
-                            label={t('inventory.fields.alcoholDegree')}
+                            {...halfField(t('inventory.fields.alcoholDegree'))}
                             variant="bordered"
                             size="sm"
                             value={values.alcoholDegree}
                             onValueChange={(v) => setField('alcoholDegree', v)}
-                            endContent={<span className="text-xs text-foreground-500">%</span>}
                           />
                         </>
                       )}
@@ -674,7 +698,7 @@ export function InventoryForm({
                         <>
                           <ParsedNumberInput
                             data-testid="inventory-vintage-input"
-                            label={t('inventory.fields.vintage')}
+                            {...halfField(t('inventory.fields.vintage'))}
                             variant="bordered"
                             size="sm"
                             value={values.vintage}
@@ -682,8 +706,8 @@ export function InventoryForm({
                             description={t('inventory.fields.noVintage')}
                             min={1800} max={new Date().getFullYear()}
                           />
-                          <Select
-                            label={t('inventory.fields.sparklingType')}
+                          <SingleSelect
+                            {...halfField(t('inventory.fields.sparklingType'))}
                             variant="bordered"
                             size="sm"
                             selectedKeys={values.sparklingType ? [values.sparklingType] : []}
@@ -692,9 +716,11 @@ export function InventoryForm({
                             {(['', ...SPARKLING_TYPES]).map((s) => (
                               <SelectItem key={s}>{s ? t(`inventory.sparklingTypes.${s}`) : <em>—</em>}</SelectItem>
                             ))}
-                          </Select>
-                          <Select
-                            label={t('inventory.fields.sugarLevel')}
+                          </SingleSelect>
+                          <SingleSelect
+                            {...halfField(t('inventory.fields.sugarLevel'))}
+                            // Third short field of the row: the whole phone row, the end of the computer one (review of #874).
+                            className="col-span-2"
                             variant="bordered"
                             size="sm"
                             selectedKeys={values.sugarLevel ? [values.sugarLevel] : []}
@@ -703,7 +729,7 @@ export function InventoryForm({
                             {(['', ...SUGAR_LEVELS]).map((s) => (
                               <SelectItem key={s}>{s ? t(`inventory.sugarLevels.${s}`) : <em>—</em>}</SelectItem>
                             ))}
-                          </Select>
+                          </SingleSelect>
                         </>
                       )}
 
@@ -711,7 +737,7 @@ export function InventoryForm({
                       {isSpirit && (
                         <>
                           <div className="col-span-2">
-                            <Select
+                            <SingleSelect
                               label={t('inventory.fields.spiritType')}
                               variant="bordered"
                               size="sm"
@@ -721,7 +747,7 @@ export function InventoryForm({
                               {(['', 'whisky', 'rhum', 'gin', 'cognac', 'calvados', 'armagnac', 'vodka', 'tequila', 'mezcal', 'liqueur', 'other']).map((s) => (
                                 <SelectItem key={s}>{s ? t(`inventory.spiritTypes.${s}`) : <em>—</em>}</SelectItem>
                               ))}
-                            </Select>
+                            </SingleSelect>
                           </div>
                           <div className="col-span-2">
                             <Input
@@ -742,7 +768,6 @@ export function InventoryForm({
                               errorMessage={t('inventory.validation.required')}
                               value={values.alcoholDegree}
                               onValueChange={(v) => setField('alcoholDegree', v)}
-                              endContent={<span className="text-xs text-foreground-500">%</span>}
                             />
                           </div>
                           <div className="col-span-2">
@@ -762,15 +787,18 @@ export function InventoryForm({
                       {/* Cigar essential */}
                       {isCigar && (
                         <>
+                          {/* Alone in their grid: half a row each on a computer (recette n°5 quater of #847). */}
                           <Input
-                            label={t('inventory.fields.format')}
+                            {...halfField(t('inventory.fields.format'), t('inventory.fields.manufactureYear'))}
+                            className={cx(halfFieldSpan(t('inventory.fields.format'), t('inventory.fields.manufactureYear')), 'sm:col-span-2')}
                             variant="bordered"
                             size="sm"
                             value={values.format ?? ''}
                             onValueChange={(v) => setField('format', v)}
                           />
                           <ParsedNumberInput
-                            label={t('inventory.fields.manufactureYear')}
+                            {...halfField(t('inventory.fields.manufactureYear'), t('inventory.fields.format'))}
+                            className={cx(halfFieldSpan(t('inventory.fields.manufactureYear'), t('inventory.fields.format')), 'sm:col-span-2')}
                             variant="bordered"
                             size="sm"
                             value={values.manufactureYear}
@@ -789,7 +817,7 @@ export function InventoryForm({
                             <div className="flex-1 h-px bg-divider" />
                           </div>
                           <ParsedNumberInput
-                            label={t('inventory.fields.peakMaturityFrom')}
+                            {...halfField(t('inventory.fields.peakMaturityFrom'))}
                             variant="bordered"
                             size="sm"
                             placeholder={t('inventory.fields.yearExample', { year: 2025 })}
@@ -799,7 +827,7 @@ export function InventoryForm({
                             min={1800} max={2200}
                           />
                           <ParsedNumberInput
-                            label={t('inventory.fields.peakMaturityTo')}
+                            {...halfField(t('inventory.fields.peakMaturityTo'))}
                             variant="bordered"
                             size="sm"
                             placeholder={t('inventory.fields.yearExample', { year: 2030 })}
@@ -811,13 +839,12 @@ export function InventoryForm({
                             min={1800} max={2200}
                           />
                           {/* FEAT-86: consumption-curve shape override */}
-                          <Select
+                          <SingleSelect
                             className="col-span-2 sm:col-span-4"
                             label={t('inventory.fields.curveShape')}
                             description={t('inventory.fields.curveShapeHint')}
                             variant="bordered"
                             size="sm"
-                            disallowEmptySelection
                             popoverProps={{ placement: 'bottom', shouldFlip: true }}
                             selectedKeys={[values.curveShape ?? DEFAULT_CURVE_SHAPE]}
                             onSelectionChange={(keys) => setField('curveShape', Array.from(keys)[0] ?? null)}
@@ -835,7 +862,7 @@ export function InventoryForm({
                                 {t(curveShapeLabelKey(shape))}
                               </SelectItem>
                             ))}
-                          </Select>
+                          </SingleSelect>
                         </>
                       )}
                     </div>
@@ -904,14 +931,14 @@ export function InventoryForm({
                           </>
                           <>
                             <Input
-                                label={t('inventory.fields.lotNumber')}
+                                {...halfField(t('inventory.fields.lotNumber'), t('inventory.fields.batchDate'))}
                                 variant="bordered"
                                 size="sm"
                                 value={values.lotNumber ?? ''}
                                 onValueChange={(v) => setField('lotNumber', v)}
                               />
                               <Input
-                                label={t('inventory.fields.batchDate')}
+                                {...halfField(t('inventory.fields.batchDate'), t('inventory.fields.lotNumber'))}
                                 type="date"
                                 variant="bordered"
                                 size="sm"
@@ -929,21 +956,25 @@ export function InventoryForm({
                                 />
                               </div>
                               <Input
-                                label={t('inventory.fields.caskNumber')}
+                                {...halfField(t('inventory.fields.caskNumber'), t('inventory.fields.caskProof'))}
                                 variant="bordered"
                                 size="sm"
                                 value={values.caskNumber ?? ''}
                                 onValueChange={(v) => setField('caskNumber', v)}
                               />
                               <ParsedNumberInput decimal
-                                label={t('inventory.fields.caskProof')}
+                                {...halfField(t('inventory.fields.caskProof'), t('inventory.fields.caskNumber'))}
                                 variant="bordered"
                                 size="sm"
                                 value={values.caskProof}
                                 onValueChange={(v) => setField('caskProof', v)}
-                                endContent={<span className="text-xs text-foreground-500">%</span>}
                               />
-                              <div className="flex items-center">
+                              {/* The last of the grid: ends its row on a computer (recette n°5 quater of #847). */}
+                              <div className={cx('col-span-2 flex items-center', lastFieldDesktopSpan([
+                                2,
+                                halfFieldColumns(t('inventory.fields.caskNumber'), t('inventory.fields.caskProof')),
+                                halfFieldColumns(t('inventory.fields.caskProof'), t('inventory.fields.caskNumber')),
+                              ], 2))}>
                                 <FilterChip
                                   size="md"
                                   selected={Boolean(values.isSingleCask)}
@@ -996,7 +1027,7 @@ export function InventoryForm({
 
                         {/* Estimated value */}
                         <ParsedNumberInput decimal
-                          label={t(isCigar ? cigarValueKey(cigarStorage) : 'inventory.fields.unitValue')}
+                          {...halfField(t(isCigar ? cigarValueKey(cigarStorage) : 'inventory.fields.unitValue'))}
                           variant="bordered"
                           size="sm"
                           value={values.estimatedValue}
@@ -1020,7 +1051,7 @@ export function InventoryForm({
                         {isWineOrSparkling && (
                           <>
                             <Input
-                              label={t('inventory.fields.serviceTemp')}
+                              {...halfField(t('inventory.fields.serviceTemp'))}
                               placeholder={t('inventory.fields.serviceTempPlaceholder')}
                               variant="bordered"
                               size="sm"
@@ -1042,7 +1073,7 @@ export function InventoryForm({
                                   />
                                 </div>
                                 <Input
-                                  label={t('inventory.fields.lotNumber')}
+                                  {...halfField(t('inventory.fields.lotNumber'))}
                                   variant="bordered"
                                   size="sm"
                                   value={values.lotNumber ?? ''}
@@ -1062,7 +1093,7 @@ export function InventoryForm({
                             {isSparkling && (
                               <>
                                 <ParsedNumberInput
-                                  label={t('inventory.fields.baseYear')}
+                                  {...halfField(t('inventory.fields.baseYear'), t('inventory.fields.disgorgingDate'))}
                                   variant="bordered"
                                   size="sm"
                                   value={values.baseYear}
@@ -1070,7 +1101,7 @@ export function InventoryForm({
                                   min={1800} max={2100}
                                 />
                                 <Input
-                                  label={t('inventory.fields.disgorgingDate')}
+                                  {...halfField(t('inventory.fields.disgorgingDate'), t('inventory.fields.baseYear'))}
                                   type="date"
                                   variant="bordered"
                                   size="sm"
@@ -1121,19 +1152,18 @@ export function InventoryForm({
                               />
                             </div>
                             <Input
-                              label={t('inventory.fields.factoryCode')}
+                              {...halfField(t('inventory.fields.factoryCode'), t('inventory.fields.recommendedHumidity'))}
                               variant="bordered"
                               size="sm"
                               value={values.factoryCode ?? ''}
                               onValueChange={(v) => setField('factoryCode', v)}
                             />
                             <ParsedNumberInput decimal
-                              label={t('inventory.fields.recommendedHumidity')}
+                              {...halfField(t('inventory.fields.recommendedHumidity'), t('inventory.fields.factoryCode'))}
                               variant="bordered"
                               size="sm"
                               value={values.recommendedHumidity}
                               onValueChange={(v) => setField('recommendedHumidity', v)}
-                              endContent={<span className="text-xs text-foreground-500">%</span>}
                             />
                             <div className="col-span-2">
                               <Input
@@ -1173,7 +1203,7 @@ export function InventoryForm({
                         {showsBottle && isCigar && opensBox && (
                           <ParsedNumberInput
                             data-testid="cigars-left-input"
-                            label={t('cigarGroup.cigarsLeft')}
+                            {...halfField(t('cigarGroup.cigarsLeft'))}
                             variant="bordered"
                             size="sm"
                             isRequired
@@ -1205,7 +1235,7 @@ export function InventoryForm({
                             </div>
                             )}
                             <Input
-                              label={t('inventory.fields.openedAt')}
+                              {...halfField(t('inventory.fields.openedAt'), t('inventory.fields.reminderDate'))}
                               type="date"
                               variant="bordered"
                               size="sm"
@@ -1213,7 +1243,7 @@ export function InventoryForm({
                               onValueChange={(v) => setField('openedAt', v || null)}
                             />
                             <Input
-                              label={t('inventory.fields.reminderDate')}
+                              {...halfField(t('inventory.fields.reminderDate'), t('inventory.fields.openedAt'))}
                               type="date"
                               variant="bordered"
                               size="sm"
@@ -1227,6 +1257,24 @@ export function InventoryForm({
                         {!showsBottle && (
                           <Input
                             label={t('inventory.fields.reminderDate')}
+                            // Recette n°5 quater of #847 (KO 5.1): the last field ends its row on a computer —
+                            // after the fields of the category, laid out from the full row of the notes.
+                            className={cx(halfFieldSpan(t('inventory.fields.reminderDate')), lastFieldDesktopSpan(
+                              isWine ? [halfFieldColumns(t('inventory.fields.serviceTemp')), 4, halfFieldColumns(t('inventory.fields.lotNumber')), 1]
+                                : isSparkling ? [
+                                  halfFieldColumns(t('inventory.fields.serviceTemp')),
+                                  halfFieldColumns(t('inventory.fields.baseYear'), t('inventory.fields.disgorgingDate')),
+                                  halfFieldColumns(t('inventory.fields.disgorgingDate'), t('inventory.fields.baseYear')),
+                                ]
+                                : isSpirit ? [2, 2]
+                                : isCigar ? [
+                                  2,
+                                  halfFieldColumns(t('inventory.fields.factoryCode'), t('inventory.fields.recommendedHumidity')),
+                                  halfFieldColumns(t('inventory.fields.recommendedHumidity'), t('inventory.fields.factoryCode')),
+                                  2,
+                                ] : [],
+                              halfFieldColumns(t('inventory.fields.reminderDate')),
+                            ))}
                             type="date"
                             variant="bordered"
                             size="sm"

@@ -13,16 +13,65 @@ import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/re
 import { networkConfigSchema } from '../schemas/network-config.schema';
 import { registrationConfigSchema } from '../schemas/registration-config.schema';
 import { smtpConfigSchema, gotifyConfigSchema, integrationsConfigSchema } from '../schemas/system-config.schema';
-import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema, backupDownloadSchema, purgeSchema } from '../schemas/backup.schema';
+import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema, purgeSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
 import { authService } from '../services/auth.service';
 import { emailService } from '../services/email.service';
 import { backupService } from '../services/backup.service';
-import { auditLog } from '../services/audit.service';
+import { auditLog, type AuditAction } from '../services/audit.service';
+import { adminReauthSchema } from '../schemas/auth.schema';
+import { authRateLimit } from '../lib/rate-limit';
 import type { PurgeResponse } from '../../../shared/maintenance';
 
 const adminRouter = Router();
+
+// #638: a reset and an admin-role grant ask for the admin's password and 2FA
+// code — throttled like the other password and 2FA checks.
+const resetPasswordLimiter = authRateLimit(20);
+const roleLimiter = authRateLimit(20);
+
+/** Refusals of the admin's own re-authentication (#638). */
+const REAUTH_ERRORS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE']);
+
+// #890: one limiter for every other step-up route, counting refusals only — a
+// password or code guess spends it whatever the route, an admin saving their
+// settings does not.
+const stepUpLimiter = authRateLimit(20, { skipSuccessfulRequests: true });
+
+type StepUpAudit = { action: AuditAction; details: Record<string, unknown> };
+
+/**
+ * #890: the settings that decide where reset links, mail and security alerts
+ * go, and the backup routes (a dump holds every password hash and 2FA
+ * secret), ask for the same step-up as a password reset (#638): the admin's
+ * `password` in the body, plus their `code` when they have 2FA. A refusal is
+ * answered (403 with its code) and audited, and false is returned.
+ */
+async function stepUp(req: Request, res: Response, audit: StepUpAudit): Promise<boolean> {
+    const reauth = adminReauthSchema.safeParse({ password: req.body?.password, code: req.body?.code });
+    if (!reauth.success) {
+        res.status(400).json({ error: 'VALIDATION_ERROR' });
+        return false;
+    }
+    try {
+        await authService.reauthenticateAdmin(req.userId, reauth.data, { ip: getClientIp(req), userAgent: req.headers['user-agent'] }, audit);
+        return true;
+    } catch (error) {
+        if (error instanceof Error && REAUTH_ERRORS.has(error.message)) {
+            res.status(403).json({ error: error.message });
+            return false;
+        }
+        throw error;
+    }
+}
+
+/** #890: what a gated settings change or test is audited as. */
+const configAudit = (action: 'CONFIG_UPDATE' | 'CONFIG_TEST', section: string): StepUpAudit => ({ action, details: { section } });
+
+const auditSuccess = (req: Request, audit: StepUpAudit): void => {
+    void auditLog({ userId: req.userId, action: audit.action, status: 'success', ip: getClientIp(req), details: audit.details });
+};
 
 // Audit log pages are bigger than the member-facing lists.
 const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit: 100 }).extend({
@@ -51,6 +100,8 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
                 displayName: true,
                 isAdmin: true,
                 isActive: true,
+                // #638: the reset dialog asks for the admin's password when on.
+                isTwoFactorEnabled: true,
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -67,14 +118,21 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
  * @desc    Update a user's role
  * @access  Admin Private
  */
-adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: Response): Promise<void> => {
     const userId = routeParam(req.params.userId);
-    const { isAdmin } = req.body;
+    const { isAdmin } = req.body ?? {};
 
     if (typeof isAdmin !== 'boolean') {
         res.status(400).json({ error: 'INVALID_INPUT' });
         return;
     }
+    const reauth = adminReauthSchema.safeParse({ password: req.body.password, code: req.body.code });
+    if (!reauth.success) {
+        res.status(400).json({ error: 'VALIDATION_ERROR' });
+        return;
+    }
+    const ip = getClientIp(req);
+    const audit = { action: 'ADMIN_ROLE_CHANGE' as const, details: { targetUserId: userId, isAdmin } };
 
     // Prevent admin from removing their own admin privileges
     if (req.userId === userId && !isAdmin) {
@@ -83,6 +141,23 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
     }
 
     try {
+        // #638: granting the admin role hands a session holder a second admin
+        // account — the same step-up as a password reset. Removing it lowers
+        // privileges and only needs the session.
+        if (isAdmin) {
+            // Checked first, so a request that would change nothing does not
+            // spend one of the admin's backup codes.
+            const target = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+            if (!target) {
+                res.status(404).json({ error: 'USER_NOT_FOUND' });
+                return;
+            }
+            if (target.isAdmin) {
+                res.status(409).json({ error: 'ALREADY_ADMIN' });
+                return;
+            }
+            await authService.reauthenticateAdmin(req.userId, reauth.data, { ip, userAgent: req.headers['user-agent'] }, audit);
+        }
         const user = await prisma.user.update({
             where: { id: userId },
             data: { isAdmin },
@@ -94,8 +169,13 @@ adminRouter.post('/users/:userId/role', async (req: Request, res: Response): Pro
                 isActive: true,
             },
         });
+        void auditLog({ userId: req.userId, action: audit.action, status: 'success', ip, details: audit.details });
         res.json({ data: user });
     } catch (error: unknown) {
+        if (error instanceof Error && REAUTH_ERRORS.has(error.message)) {
+            res.status(403).json({ error: error.message });
+            return;
+        }
         console.error('[Admin] Error updating user role:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
@@ -143,16 +223,35 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
             }
         }
 
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: { isActive },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                isAdmin: true,
-                isActive: true,
-            },
+        // #605: deactivating cuts the member's accesses for good, so that
+        // reactivating the account never wakes up a stolen session, a trusted
+        // device or a guest link (same revocation as adminResetPassword).
+        const user = await prisma.$transaction(async (tx) => {
+            const updated = await tx.user.update({
+                where: { id: userId },
+                data: { isActive },
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    isAdmin: true,
+                    isActive: true,
+                },
+            });
+            if (!isActive) {
+                const now = new Date();
+                await tx.session.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+                await tx.trustedDevice.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+                await tx.guestShare.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: now } });
+            }
+            return updated;
+        });
+        void auditLog({
+            userId: req.userId,
+            action: 'ADMIN_STATUS_CHANGE',
+            status: 'success',
+            ip: getClientIp(req),
+            details: { targetUserId: userId, isActive },
         });
         res.json({ data: user });
     } catch (error) {
@@ -174,17 +273,30 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
  *          their next successful login.
  * @access  Admin Private
  */
-adminRouter.post('/users/:userId/reset-password', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/users/:userId/reset-password', resetPasswordLimiter, async (req: Request, res: Response): Promise<void> => {
     const userId = routeParam(req.params.userId);
+    const reauth = adminReauthSchema.safeParse(req.body ?? {});
+    if (!reauth.success) {
+        res.status(400).json({ error: 'VALIDATION_ERROR' });
+        return;
+    }
     try {
         const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
         if (!target) {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        const tempPassword = await authService.adminResetPassword(userId, req.userId, { ip: getClientIp(req) });
+        const tempPassword = await authService.adminResetPassword(userId, req.userId, { ip: getClientIp(req), userAgent: req.headers['user-agent'] }, reauth.data);
         res.json({ data: { tempPassword } });
     } catch (error) {
+        if (error instanceof Error && REAUTH_ERRORS.has(error.message)) {
+            res.status(403).json({ error: error.message });
+            return;
+        }
+        if (error instanceof Error && error.message === 'TARGET_CHANGED') {
+            res.status(409).json({ error: 'TARGET_CHANGED' });
+            return;
+        }
         console.error('[Admin] Error resetting user password:', error);
         res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
     }
@@ -258,7 +370,7 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
  * @desc    Purge all business data (inventory items, cellars, logs)
  * @access  Admin Private
  */
-adminRouter.post('/maintenance/purge', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/maintenance/purge', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
     const parsed = purgeSchema.safeParse(req.body);
     if (!parsed.success) {
         res.status(400).json({ error: 'INVALID_CONFIRMATION' });
@@ -267,13 +379,10 @@ adminRouter.post('/maintenance/purge', async (req: Request, res: Response): Prom
     const ip = getClientIp(req);
 
     try {
-        // #489: re-authenticate, take a backup first (abort if it fails), and
-        // leave a trace of who purged, written after the purge since the
-        // purge wipes the audit log itself.
-        if (!(await authService.verifyPassword(req.userId, parsed.data.password))) {
-            res.status(403).json({ error: 'INVALID_PASSWORD' });
-            return;
-        }
+        // #489: re-authenticate (#890: with the admin's code too), take a
+        // backup first (abort if it fails), and leave a trace of who purged,
+        // written after the purge since the purge wipes the audit log itself.
+        if (!(await stepUp(req, res, { action: 'PURGE', details: {} }))) return;
         const backup = await backupService.runBackup('manual', req.userId);
         if (!backup.success) {
             res.status(500).json({ error: 'BACKUP_BEFORE_PURGE_FAILED' });
@@ -376,10 +485,16 @@ adminRouter.get('/config', async (_req: Request, res: Response): Promise<void> =
   res.json({ data: config });
 });
 
-adminRouter.put('/config/smtp', async (req: Request, res: Response): Promise<void> => {
+// #890: the SMTP server, the Gotify server and the notification channels
+// decide where reset links and security alerts go, and the public URL is the
+// host of every reset link: each asks for the step-up (stepUp above).
+adminRouter.put('/config/smtp', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = smtpConfigSchema.parse(req.body);
+    const audit = configAudit('CONFIG_UPDATE', 'smtp');
+    if (!(await stepUp(req, res, audit))) return;
     const config = await systemConfigService.updateSmtp(parsed, req.userId);
+    auditSuccess(req, audit);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/smtp error:', err);
@@ -391,7 +506,7 @@ adminRouter.put('/config/smtp', async (req: Request, res: Response): Promise<voi
   }
 });
 
-adminRouter.put('/config/gotify', async (req: Request, res: Response): Promise<void> => {
+adminRouter.put('/config/gotify', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = gotifyConfigSchema.parse(req.body);
     // ISSUE_048: this address is fetched server-side on every test and every
@@ -405,7 +520,10 @@ adminRouter.put('/config/gotify', async (req: Request, res: Response): Promise<v
         return;
       }
     }
+    const audit = configAudit('CONFIG_UPDATE', 'gotify');
+    if (!(await stepUp(req, res, audit))) return;
     const config = await systemConfigService.updateGotify(parsed, req.userId);
+    auditSuccess(req, audit);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/gotify error:', err);
@@ -417,14 +535,17 @@ adminRouter.put('/config/gotify', async (req: Request, res: Response): Promise<v
   }
 });
 
-adminRouter.put('/config/notifications', async (req: Request, res: Response): Promise<void> => {
+adminRouter.put('/config/notifications', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { smtpEnabled, gotifyEnabled, inAppEnabled } = req.body;
     if (typeof smtpEnabled !== 'boolean' || typeof gotifyEnabled !== 'boolean' || typeof inAppEnabled !== 'boolean') {
       res.status(400).json({ error: 'INVALID_INPUT' });
       return;
     }
+    const audit = configAudit('CONFIG_UPDATE', 'notifications');
+    if (!(await stepUp(req, res, audit))) return;
     const config = await systemConfigService.updateNotificationPolicy({ smtpEnabled, gotifyEnabled, inAppEnabled }, req.userId);
+    auditSuccess(req, audit);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/notifications error:', err);
@@ -477,9 +598,12 @@ adminRouter.put('/config/backup', async (req: Request, res: Response): Promise<v
   }
 });
 
-adminRouter.post('/config/test/smtp', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/config/test/smtp', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { email } = req.body;
+    const audit = configAudit('CONFIG_TEST', 'smtp');
+    if (!(await stepUp(req, res, audit))) return;
+    auditSuccess(req, audit);
     let result: { success: boolean; error?: string };
     if (email) {
       result = await emailService.sendTestEmail(email as string);
@@ -493,8 +617,11 @@ adminRouter.post('/config/test/smtp', async (req: Request, res: Response): Promi
   }
 });
 
-adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/config/test/gotify', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
+    const audit = configAudit('CONFIG_TEST', 'gotify');
+    if (!(await stepUp(req, res, audit))) return;
+    auditSuccess(req, audit);
     const cfg = await systemConfigService.getPublic();
     if (!cfg.gotifyEnabled || !cfg.gotifyUrl) {
       res.status(400).json({ error: 'GOTIFY_NOT_CONFIGURED' });
@@ -524,6 +651,8 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
           title: 'Glou — Test',
           message: 'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
         }),
+        // #599: a redirect is never followed (only `url` was checked): a 3xx is not `ok`.
+        redirect: 'manual',
         signal: AbortSignal.timeout(5000),
       });
       // The raw HTTP status / network error message is a reconnaissance
@@ -542,10 +671,13 @@ adminRouter.post('/config/test/gotify', async (req: Request, res: Response): Pro
 
 // ─── Network Configuration & External Access (FEAT-54) ──────────────────────
 
-adminRouter.put('/config/network', async (req: Request, res: Response): Promise<void> => {
+adminRouter.put('/config/network', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = networkConfigSchema.parse(req.body);
+    const audit = configAudit('CONFIG_UPDATE', 'network');
+    if (!(await stepUp(req, res, audit))) return;
     const config = await systemConfigService.updateNetworkConfig(parsed, req.userId);
+    auditSuccess(req, audit);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/network error:', err);
@@ -645,19 +777,18 @@ adminRouter.post('/backups/run', async (req: Request, res: Response): Promise<vo
  *          accident (the frontend additionally requires a typed keyword).
  * @access  Admin Private
  */
-adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/backups/:id/restore', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   try {
-    const { password } = backupRestoreSchema.parse(req.body);
-    if (!(await authService.verifyPassword(req.userId, password))) {
-      res.status(403).json({ error: 'INVALID_PASSWORD' });
-      return;
-    }
+    backupRestoreSchema.parse(req.body);
     const run = await prisma.backupRun.findUnique({ where: { id } });
     if (!run || !run.success || !run.filePath) {
       res.status(404).json({ error: 'BACKUP_NOT_FOUND' });
       return;
     }
+    // #489 / #890: the step-up, checked once the backup is known to exist so
+    // a wrong id spends no backup code. The restore audits its own outcome.
+    if (!(await stepUp(req, res, { action: 'BACKUP_RESTORE', details: { backupRunId: id } }))) return;
     // Takes a safety backup first and refuses the restore if it fails (#666).
     const { safetyBackupRunId } = await backupService.restoreBackup(run.filePath, req.userId, getClientIp(req));
     res.json({ data: { ok: true, safetyBackupRunId } });
@@ -680,24 +811,19 @@ adminRouter.post('/backups/:id/restore', async (req: Request, res: Response): Pr
 /**
  * @route   POST /api/admin/backups/:id/download
  * @desc    Downloads a previous backup dump file. POST, not GET: the admin's
- *          password travels in the body (#489) — a dump holds every password
- *          hash and 2FA secret of the instance.
+ *          password and code travel in the body (#489, #890) — a dump holds
+ *          every password hash of the instance (2FA secrets are encrypted
+ *          with CONFIG_ENCRYPTION_KEY since #613).
  * @access  Admin Private
  */
-adminRouter.post('/backups/:id/download', async (req: Request, res: Response): Promise<void> => {
+adminRouter.post('/backups/:id/download', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   try {
-    const parsed = backupDownloadSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: 'PASSWORD_REQUIRED' });
-      return;
-    }
-    if (!(await authService.verifyPassword(req.userId, parsed.data.password))) {
-      res.status(403).json({ error: 'INVALID_PASSWORD' });
-      return;
-    }
+    // Found first, so a stale id spends no backup code (as for a restore).
     const { path: filePath, filename } = await backupService.getDownloadTarget(id);
-    void auditLog({ userId: req.userId, action: 'BACKUP_DOWNLOAD', status: 'success', ip: getClientIp(req), details: { backupRunId: id } });
+    const audit: StepUpAudit = { action: 'BACKUP_DOWNLOAD', details: { backupRunId: id } };
+    if (!(await stepUp(req, res, audit))) return;
+    auditSuccess(req, audit);
     res.download(filePath, filename, (err) => {
       if (err) console.error('[Admin] Backup download stream error:', err);
     });

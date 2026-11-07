@@ -13,7 +13,8 @@ const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
 type Unit = {
   id: string; productId: string; cellarId: string | null; quantity: number | null; purchasePrice: number | null;
   isOpened: boolean; fillLevel: number | null; parentItemId: string | null; writtenOffAt: string | null; deletedAt: string | null;
-  slotColumn: number | null; slotRow: number | null;
+  /** FEAT-93: the cells of the plan its copies occupy. */
+  slots: Array<{ id: string; column: number; row: number }>;
 };
 
 async function okData<T>(res: APIResponse): Promise<T> {
@@ -28,6 +29,13 @@ const changesTold = async (api: APIRequestContext, productId: string) =>
 
 const unitsOf = async (api: APIRequestContext, productId: string) =>
   (await okData<{ items: Unit[] }>(await api.get(`/api/products/${productId}`))).items.filter((unit) => unit.deletedAt == null);
+
+/**
+ * The message of a gesture ("1 bouteille ouverte · Annuler"), not the drawer's
+ * history, which says the same words since recette #847.
+ */
+const message = (page: Page, text: string) =>
+  page.getByText(text).and(page.locator(':not([data-testid="family-history"] *)'));
 
 /** The drawer of a wine, opened from its link. */
 async function openDrawer(page: Page, productId: string, name: string): Promise<Locator> {
@@ -70,7 +78,7 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     expect(units.filter((unit) => unit.isOpened && unit.parentItemId === group.id)).toHaveLength(1);
 
     // "1 bouteille ouverte · Annuler": back to ×6.
-    await expect(page.getByText('1 bouteille ouverte')).toBeVisible();
+    await expect(message(page, '1 bouteille ouverte')).toBeVisible();
     const undone = page.waitForResponse((r) => r.request().method() === 'PATCH' && r.url().includes('/api/inventory/'));
     await page.locator('button', { hasText: /^Annuler$/ }).last().click();
     expect((await undone).status()).toBe(200);
@@ -118,7 +126,7 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
   });
 
   // Review of L1: a bottle alone in its grid slot, drunk, gives the slot back
-  // (#573); "Annuler" puts it back in that slot.
+  // (#573); "Annuler" puts it back in that slot (FEAT-93: `placeAt`).
   test('"Annuler" a bottle alone in its slot puts it back in the slot', async ({ page }) => {
     const api = page.request;
     const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E L1 Plan ${stamp()}`, columns: 3, rows: 3 } }))).id;
@@ -128,21 +136,90 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
       data: { category: 'wine', name, producer: 'E2E Domaine', purchasePrice: 20, cellarId: cellar },
     }));
     families.push(bottle.productId);
-    await okData(await api.patch(`/api/inventory/${bottle.id}`, { data: { slotColumn: 2, slotRow: 3 } }));
+    expect((await api.post(`/api/inventory/${bottle.id}/slots`, { data: { column: 2, row: 3 } })).status()).toBe(201);
 
     const drawer = await openDrawer(page, bottle.productId, name);
     const drunk = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${bottle.id}`) && r.request().method() === 'PATCH');
     await drawer.getByTestId('stock-move-drink').click();
     expect((await drunk).status()).toBe(200);
-    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ fillLevel: 0, slotColumn: null, slotRow: null });
+    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ fillLevel: 0, slots: [] });
 
-    await expect(page.getByText('1 bouteille bue')).toBeVisible();
+    await expect(message(page, '1 bouteille bue')).toBeVisible();
     const undone = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${bottle.id}`) && r.request().method() === 'PATCH');
     await page.locator('button', { hasText: /^Annuler$/ }).last().click();
     expect((await undone).status()).toBe(200);
-    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({ id: bottle.id, isOpened: false, fillLevel: 100, slotColumn: 2, slotRow: 3 });
+    expect((await unitsOf(api, bottle.productId))[0]).toMatchObject({
+      id: bottle.id, isOpened: false, fillLevel: 100, slots: [expect.objectContaining({ column: 2, row: 3 })],
+    });
     // Only its placing in the slot is told, not the drink taken back (recette #471).
     await expect.poll(() => changesTold(api, bottle.productId)).toEqual(['UPDATE']);
+  });
+
+  // Recette #847, KO 8.2: "Annuler" of a bottle opened from its cell left
+  // "Quantité : 2 → 3" — the group's entry, written a few milliseconds after
+  // the bottle's, fell out of what was hidden. With the real database's clock.
+  test('a bottle opened from its cell then put back: no number told in the history', async ({ page }) => {
+    const api = page.request;
+    const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E R6B Plan ${stamp()}`, columns: 3, rows: 3 } }))).id;
+    cellars.push(cellar);
+    const group = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name: `E2E R6B cell ${stamp()}`, producer: 'E2E Domaine', purchasePrice: 20, quantity: 3, cellarId: cellar },
+    }));
+    families.push(group.productId);
+    for (const column of [1, 2, 3]) expect((await api.post(`/api/inventory/${group.id}/slots`, { data: { column, row: 1 } })).status()).toBe(201);
+    const placed = (await unitsOf(api, group.productId))[0];
+    const cell = placed.slots.find((slot) => slot.column === 2)!;
+
+    for (let round = 0; round < 3; round++) {
+      const line = (await unitsOf(api, group.productId)).find((unit) => unit.id === group.id)!;
+      const opened = await okData<Unit & { updatedAt: string }>(await api.patch(`/api/inventory/${group.id}`, {
+        data: { isOpened: true, fillLevel: 100, openedAt: new Date().toISOString(), fromSlotId: line.slots.find((slot) => slot.column === 2)?.id ?? cell.id },
+      }));
+      expect(opened.parentItemId).toBe(group.id);
+      await okData(await api.patch(`/api/inventory/${opened.id}`, { data: { isOpened: false, fillLevel: 100, expectedUpdatedAt: opened.updatedAt } }));
+    }
+    expect((await unitsOf(api, group.productId)).map((unit) => [unit.id, unit.quantity, unit.slots.length])).toEqual([[group.id, 3, 3]]);
+    // Only its three placings are told: none of the openings taken back, nor their "3 → 2" / "2 → 3".
+    const numbersTold = async () => (await okData<{ history: { changes: { field: string }[] | null }[] }>(await api.get(`/api/products/${group.productId}`))).history
+      .filter((entry) => (entry.changes ?? []).some((change) => change.field === 'quantity' || change.field === 'isOpened')).length;
+    await expect.poll(numbersTold).toBe(0);
+  });
+
+  // Recette n°5 ter of #847 (KO 4.4): a box of 25 smoked from its cell then
+  // "Annuler" left "1 cigare fumé" and "Bouteille entamée / ouverte : Non ·
+  // Cigars Left : 25" — the putting back wrote the box's size, not the opening date.
+  test('a box smoked from its cell then put back: nothing told in the history', async ({ page }) => {
+    const api = page.request;
+    const cellar = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E R7B Plan ${stamp()}`, columns: 3, rows: 3 } }))).id;
+    cellars.push(cellar);
+    const name = `E2E R7B box ${stamp()}`;
+    const box = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'cigar', name, producer: 'E2E Habanos', quantity: 1, cigarsPerBox: 25, purchasePrice: 100, cellarId: cellar },
+    }));
+    families.push(box.productId);
+    expect((await api.post(`/api/inventory/${box.id}/slots`, { data: { column: 1, row: 2 } })).status()).toBe(201);
+
+    const drawer = await openDrawer(page, box.productId, name);
+    const smoked = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${box.id}`) && r.request().method() === 'PATCH');
+    await drawer.getByTestId('stock-move-smoke').click();
+    expect((await smoked).status()).toBe(200);
+    await expect(message(page, '1 cigare fumé')).toBeVisible();
+    const undone = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${box.id}`) && r.request().method() === 'PATCH');
+    await page.locator('button', { hasText: /^Annuler$/ }).last().click();
+    expect((await undone).status()).toBe(200);
+    expect((await unitsOf(api, box.productId))[0]).toMatchObject({ id: box.id, isOpened: false, slots: [expect.objectContaining({ column: 1, row: 2 })] });
+
+    // Each entry is written once its request is answered: only its placing is told,
+    // checked again over a few reads so an entry written late is seen too.
+    const told = async () => (await okData<{ history: { action: string; gesture?: string; changes: { field: string }[] | null }[] }>(
+      await api.get(`/api/products/${box.productId}`))).history.filter((entry) => entry.action !== 'CREATE')
+      .map((entry) => [entry.gesture ?? null, (entry.changes ?? []).map((change) => change.field)]);
+    let reads = 0;
+    await expect.poll(async () => {
+      const history = await told();
+      reads = JSON.stringify(history) === JSON.stringify([[null, ['slot']]]) ? reads + 1 : 0;
+      return reads >= 3 ? history : null;
+    }, { intervals: [200] }).toEqual([[null, ['slot']]]);
   });
 
   // Recette v3 of #471: the message covered the drawer's close button —
@@ -157,7 +234,7 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
 
     const drawer = await openDrawer(page, group.productId, name);
     await drawer.getByTestId('stock-move-open').click();
-    await expect(page.getByText('1 bouteille ouverte')).toBeVisible();
+    await expect(message(page, '1 bouteille ouverte')).toBeVisible();
 
     const close = drawer.getByRole('button', { name: 'Fermer' }).first();
     const box = (await close.boundingBox())!;
@@ -165,6 +242,24 @@ test.describe('open or drink one bottle of a wine (#471, L1)', () => {
     const onTop = () => page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.getAttribute('aria-label') ?? null,
       [box.x + box.width / 2, box.y + box.height / 2] as const);
     await expect.poll(onTop, { timeout: 3000 }).toBe('Fermer');
+    // Recette n°5 of #847: nor the header's actions (« Retirer de la case »):
+    // beside the drawer when the window leaves room, below its header otherwise.
+    const header = (await drawer.getByTestId('family-drawer-header').boundingBox())!;
+    // The message is an alertdialog, outside the drawer's modal tree (aria-hidden): found by CSS, not by role.
+    const shown = page.locator('[role="alertdialog"]').filter({ hasText: '1 bouteille ouverte' });
+    const clear = async () => {
+      const toast = await shown.boundingBox();
+      if (!toast) return false;
+      return toast.x + toast.width <= header.x || toast.y >= header.y + header.height;
+    };
+    await expect.poll(clear, { timeout: 3000 }).toBe(true);
+    // Recette n°5 bis: nor the navigation — the side menu, the page's header and its back arrow.
+    const content = (await page.locator('#main-content').boundingBox())!;
+    const toast = (await shown.boundingBox())!;
+    if (toast.x + toast.width <= header.x) {
+      expect(toast.x).toBeGreaterThanOrEqual(content.x);
+      expect(toast.y).toBeGreaterThanOrEqual(content.y);
+    }
     await close.click();
     await expect(drawer).toBeHidden();
   });

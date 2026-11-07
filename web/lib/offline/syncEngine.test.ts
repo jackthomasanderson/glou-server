@@ -50,6 +50,7 @@ import {
   resolveConflictKeepLocal, SYNC_LOCK_NAME, removeQueuedMutation,
 } from './syncEngine';
 import { provisionalIdOf } from './optimistic';
+import { refusalKey } from './describe';
 import type { InventoryItem } from '@/lib/inventory/types';
 
 function fakeQueryClient() {
@@ -739,6 +740,35 @@ describe('FEAT-108 — shown at once, sent once', () => {
     for (const shown of [drawer, card]) expect(shown.map((u) => [u.id, u.quantity])).toEqual([['h', 4]]);
     // Not carried to the absorbed bottle's version: the later change is refused, said in words.
     expect(store.get(later.id)).toMatchObject({ status: 'failed', errorCode: 'ITEM_NOT_FOUND', expectedUpdatedAt: 's-1' });
+  });
+
+  // FEAT-93 (lot S2): the choice of a cell is replayed as made; a line whose cells changed since refuses it, a conflict.
+  it.each(['SLOT_CHANGED', 'SLOTS_TO_FREE_REQUIRED', 'SLOT_CHOICE_REQUIRED'])('a drink from a cell is replayed with its cell; %s is kept, failed, with its code', async (code) => {
+    queue({ id: 'p1', itemId: 'g', createdAt: 't1', patch: { isOpened: true, fillLevel: 0, fromSlotId: 'slot-1' } });
+    const fetchMock = vi.fn(async () => errResponse(409, { error: code, details: { slots: [], unplaced: 0 } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await flushQueue(fakeQueryClient());
+
+    const sent = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(sent).toMatchObject({ fromSlotId: 'slot-1' });
+    expect(store.get('p1')).toMatchObject({ status: 'failed', errorCode: code });
+    // The cells changed meanwhile: a conflict. A line placed with no cell
+    // named (queued before the question): said as such — it did not change.
+    expect(refusalKey(code)).toBe(code === 'SLOT_CHOICE_REQUIRED' ? 'offline.errors.slotChoice' : refusalKey('CONFLICT'));
+  });
+
+  it('a correction naming the cells to free is replayed with them', async () => {
+    queue({ id: 'p1', itemId: 'g', createdAt: 't1', kind: 'correct', patch: { quantity: 4, reason: 'written_off', slotIds: ['slot-1'] } });
+    const fetchMock = vi.fn(async () => errResponse(409, { error: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1, slots: [] } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await flushQueue(fakeQueryClient());
+
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe('/api/inventory/g/correct');
+    expect(JSON.parse(init.body as string)).toMatchObject({ slotIds: ['slot-1'] });
+    expect(store.get('p1')).toMatchObject({ status: 'failed', errorCode: 'SLOTS_TO_FREE_REQUIRED' });
   });
 
   it('a refusal said by its code (a tasting on the bottle) is kept for the panel', async () => {

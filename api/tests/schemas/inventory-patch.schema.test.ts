@@ -66,13 +66,18 @@ describe('inventoryPatchSchema', () => {
     expect(inventoryPatchSchema.safeParse({ expectedUpdatedAt: 'yesterday' }).success).toBe(false);
   });
 
-  it('bounds cigar quantity and grid slot coordinates', () => {
+  it('bounds cigar quantity', () => {
     // ISSUE_101/ISSUE_029: 0 is a real, representable state (an emptied
     // cigar box) — only negative/out-of-range values are rejected.
     expect(inventoryPatchSchema.safeParse({ quantity: 0 }).success).toBe(true);
     expect(inventoryPatchSchema.safeParse({ quantity: -1 }).success).toBe(false);
-    expect(inventoryPatchSchema.safeParse({ slotColumn: 0 }).success).toBe(false);
-    expect(inventoryPatchSchema.safeParse({ slotRow: 101 }).success).toBe(false);
+  });
+
+  // FEAT-93: cells of the plan go through the slot routes; an older client's
+  // coordinates (its offline queue) are stripped, never written.
+  it('strips the former slotColumn / slotRow', () => {
+    const parsed = inventoryPatchSchema.parse({ fillLevel: 50, slotColumn: 2, slotRow: 3 });
+    expect(parsed).toEqual({ fillLevel: 50 });
   });
 
   // #706: what the bottle form sends, both ends at once.

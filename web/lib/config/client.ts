@@ -8,6 +8,15 @@ import { client, handleResponse } from '@/lib/api';
  */
 export const RESTORE_TIMEOUT_MS = 75_000;
 
+/**
+ * #890: the admin's own password, plus their code when they have 2FA, sent
+ * with the settings and backup actions a stolen session could misuse.
+ */
+export interface AdminReauth {
+  password: string;
+  code?: string;
+}
+
 export interface SystemConfigPublic {
   smtpEnabled: boolean;
   smtpHost: string | null;
@@ -133,18 +142,18 @@ export const configClient = {
     return data;
   },
 
-  async updateSmtp(payload: Record<string, unknown>): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/smtp', payload);
+  async updateSmtp(payload: Record<string, unknown>, reauth: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/smtp', { ...payload, ...reauth });
     return data;
   },
 
-  async updateGotify(payload: Record<string, unknown>): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/gotify', payload);
+  async updateGotify(payload: Record<string, unknown>, reauth: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/gotify', { ...payload, ...reauth });
     return data;
   },
 
-  async updateNotifPolicy(payload: { smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean }): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/notifications', payload);
+  async updateNotifPolicy(payload: { smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean }, reauth: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/notifications', { ...payload, ...reauth });
     return data;
   },
 
@@ -158,8 +167,8 @@ export const configClient = {
     return data;
   },
 
-  async updateNetwork(payload: NetworkConfig): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/network', payload);
+  async updateNetwork(payload: NetworkConfig, reauth: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/network', { ...payload, ...reauth });
     return data;
   },
 
@@ -183,13 +192,13 @@ export const configClient = {
     return data;
   },
 
-  async testSmtp(email?: string): Promise<{ success: boolean; error?: string }> {
-    const { data } = await client.post<{ success: boolean; error?: string }>('/admin/config/test/smtp', { email });
+  async testSmtp(email: string | undefined, reauth: AdminReauth): Promise<{ success: boolean; error?: string }> {
+    const { data } = await client.post<{ success: boolean; error?: string }>('/admin/config/test/smtp', { email, ...reauth });
     return data;
   },
 
-  async testGotify(): Promise<{ success: boolean; error?: string }> {
-    const { data } = await client.post<{ success: boolean; error?: string }>('/admin/config/test/gotify', {});
+  async testGotify(reauth: AdminReauth): Promise<{ success: boolean; error?: string }> {
+    const { data } = await client.post<{ success: boolean; error?: string }>('/admin/config/test/gotify', reauth);
     return data;
   },
 
@@ -218,18 +227,18 @@ export const configClient = {
     return data;
   },
 
-  // #489: restore and download re-ask the admin's password.
-  async restoreBackup(id: string, password: string): Promise<void> {
-    await client.post(`/admin/backups/${id}/restore`, { confirm: true, password }, { timeoutMs: RESTORE_TIMEOUT_MS });
+  // #489 / #890: restore and download ask for the admin's password and code.
+  async restoreBackup(id: string, reauth: AdminReauth): Promise<void> {
+    await client.post(`/admin/backups/${id}/restore`, { confirm: true, ...reauth }, { timeoutMs: RESTORE_TIMEOUT_MS });
   },
 
-  /** POST (password in the body), returned as a file to save. */
-  async downloadBackup(id: string, password: string): Promise<{ blob: Blob; filename: string }> {
+  /** POST (password and code in the body), returned as a file to save. */
+  async downloadBackup(id: string, reauth: AdminReauth): Promise<{ blob: Blob; filename: string }> {
     const res = await fetch(`/api/admin/backups/${id}/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ password }),
+      body: JSON.stringify(reauth),
     });
     if (!res.ok) await handleResponse(res); // throws Error(<API code>)
     const disposition = res.headers.get('Content-Disposition') ?? '';

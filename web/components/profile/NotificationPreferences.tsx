@@ -1,12 +1,13 @@
 'use client';
 import React, { useState, useEffect, useId } from 'react';
-import { Button, Input, Switch, Chip, Skeleton, Select, SelectItem } from '@heroui/react';
+import { Button, Input, Switch, Chip, Skeleton, SelectItem } from '@heroui/react';
 import { Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, NotificationPrefs } from '@/lib/config/client';
 import {
   DAILY_ALERTS_HOUR, NOTIFICATION_CATEGORIES, isNotificationCategoryEnabled, type NotificationCategory,
 } from '@shared/notifications';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
@@ -203,7 +204,7 @@ export function NotificationPreferences() {
         <p className="text-xs text-foreground-500">{t('notifications.quietHours.description')}</p>
         <p className="text-xs text-foreground-400">{t('notifications.quietHours.dropped', { hour: DAILY_ALERTS_HOUR })}</p>
         <div className="flex items-center gap-3 flex-wrap">
-          <Select
+          <SingleSelect
             variant="flat"
             size="sm"
             className="w-28"
@@ -213,15 +214,14 @@ export function NotificationPreferences() {
               save({ notifQuietStart: v === 'disabled' ? null : parseInt(v, 10) });
             }}
             aria-label={t('notifications.quietHours.from')}
-            disallowEmptySelection
           >
             {[
               <SelectItem key="disabled">{t('notifications.quietHours.disabled')}</SelectItem>,
               ...HOURS.map(h => <SelectItem key={String(h)}>{h}{t('notifications.quietHours.hour')}</SelectItem>),
             ]}
-          </Select>
+          </SingleSelect>
           <span className="text-sm text-foreground-500">{t('notifications.quietHours.to').toLowerCase()}</span>
-          <Select
+          <SingleSelect
             variant="flat"
             size="sm"
             className="w-28"
@@ -231,20 +231,19 @@ export function NotificationPreferences() {
               save({ notifQuietEnd: v === 'disabled' ? null : parseInt(v, 10) });
             }}
             aria-label={t('notifications.quietHours.to')}
-            disallowEmptySelection
           >
             {[
               <SelectItem key="disabled">{t('notifications.quietHours.disabled')}</SelectItem>,
               ...HOURS.map(h => <SelectItem key={String(h)}>{h}{t('notifications.quietHours.hour')}</SelectItem>),
             ]}
-          </Select>
+          </SingleSelect>
         </div>
       </div>
 
       {/* Notification language */}
       <div className="pt-4 border-t border-divider">
         <p className="text-xs font-semibold text-foreground-400 uppercase tracking-wide mb-3">{t('notifications.language.title')}</p>
-        <Select
+        <SingleSelect
           variant="flat"
           size="sm"
           className="w-48"
@@ -254,12 +253,11 @@ export function NotificationPreferences() {
             save({ notifLanguage: v === 'UI' ? null : v });
           }}
           aria-label={t('notifications.language.title')}
-          disallowEmptySelection
         >
           <SelectItem key="UI">{t('notifications.language.useUI')}</SelectItem>
           <SelectItem key="FR">Français</SelectItem>
           <SelectItem key="EN">English</SelectItem>
-        </Select>
+        </SingleSelect>
       </div>
     </div>
   );

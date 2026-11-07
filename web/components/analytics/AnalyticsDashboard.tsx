@@ -7,7 +7,6 @@ import {
   CardBody,
   Chip,
   Button,
-  Select,
   SelectItem,
 } from '@heroui/react';
 import {
@@ -41,6 +40,7 @@ import i18n from '@/lib/i18n';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
 import type { InventoryCategory } from '@/lib/inventory/types';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 type Period = '30d' | '90d' | '1y' | 'all';
 
@@ -72,17 +72,23 @@ const MapExplorer = dynamic(
 
 // ─── Valuation breakdown ──────────────────────────────────────────────────────
 
-function ValuationBreakdown({
+// #838: the gain compares the value and the purchase cost of the same units,
+// those in stock — a bottle drunk is worth nothing but was paid for, so
+// comparing the value to the total spend showed a loss at every bottle drunk.
+// The total spend stays, as a line of its own.
+export function ValuationBreakdown({
   totalValuation,
+  inStockPurchasePrice,
   totalPurchasePrice,
   t,
 }: {
   totalValuation: number;
+  inStockPurchasePrice: number;
   totalPurchasePrice: number;
   t: (k: string, opts?: Record<string, unknown>) => string;
 }) {
-  const delta = totalValuation - totalPurchasePrice;
-  const roiPercent = totalPurchasePrice > 0 ? Math.round((delta / totalPurchasePrice) * 100) : null;
+  const delta = totalValuation - inStockPurchasePrice;
+  const roiPercent = inStockPurchasePrice > 0 ? Math.round((delta / inStockPurchasePrice) * 100) : null;
   const isPositive = delta >= 0;
   // #519: theme classes keep the ROI readable in both modes (fixed hex failed AA).
   const roiColorClass = isPositive ? 'text-success-700 dark:text-success' : 'text-danger';
@@ -99,10 +105,10 @@ function ValuationBreakdown({
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="flex flex-col gap-0.5">
             <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
-              {t('analytics.valuation.purchaseTotal')}
+              {t('analytics.valuation.inStockCost')}
             </p>
-            <p className="text-2xl font-extrabold leading-tight">
-              {fmtCurrency(totalPurchasePrice)}
+            <p className="text-2xl font-extrabold leading-tight" data-testid="valuation-in-stock-cost">
+              {fmtCurrency(inStockPurchasePrice)}
             </p>
           </div>
           <div className="flex flex-col gap-0.5">
@@ -113,8 +119,8 @@ function ValuationBreakdown({
               {fmtCurrency(totalValuation)}
             </p>
           </div>
-          {totalPurchasePrice > 0 && (
-            <div className="flex flex-col gap-0.5">
+          {inStockPurchasePrice > 0 && (
+            <div className="flex flex-col gap-0.5" data-testid="valuation-gain">
               <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">
                 {t('analytics.valuation.roi')}
               </p>
@@ -137,6 +143,9 @@ function ValuationBreakdown({
             </div>
           )}
         </div>
+        <p className="mt-4 text-sm text-foreground-500" data-testid="valuation-total-spend">
+          {t('analytics.valuation.totalSpend', { amount: fmtCurrency(totalPurchasePrice) })}
+        </p>
       </CardBody>
     </Card>
   );
@@ -268,7 +277,7 @@ function StatCardSkeleton() {
 
 // ─── Category breakdown ───────────────────────────────────────────────────────
 
-function CategoryBreakdown({
+export function CategoryBreakdown({
   items,
   total,
   t,
@@ -305,17 +314,21 @@ function CategoryBreakdown({
                 ? t('analytics.categories.unit.cigar', { count: item.count })
                 : t('analytics.categories.unit.bottle', { count: item.count });
               return (
-                <div key={item.category} className="flex items-center gap-1.5 mb-2">
+                // Recette n°5 quater of #847 (KO 6.4): the whole name, on two lines if need be.
+                <div key={item.category} className="flex items-start gap-1.5 mb-2" data-testid="analytics-category">
                   <div
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                    className="w-2.5 h-2.5 rounded-full shrink-0 mt-[3px]"
                     style={{ backgroundColor: categoryHex(item.category) }}
                   />
-                  <span className="text-xs flex-1 min-w-0 truncate">
-                    {t(`analytics.categories.${item.category}`)}
-                  </span>
-                  <span className="text-xs font-semibold text-foreground-500 shrink-0">
-                    {item.count} {unit}
-                  </span>
+                  {/* The count under the name: the narrow column is the name's alone, broken between words. */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs break-words" data-testid="analytics-category-name">
+                      {t(`analytics.categories.${item.category}`)}
+                    </p>
+                    <p className="text-xs font-semibold text-foreground-500 whitespace-nowrap">
+                      {item.count} {unit}
+                    </p>
+                  </div>
                 </div>
               );
             })}
@@ -483,7 +496,7 @@ function GardePlanningSection({
 
 // ─── Cave distribution ────────────────────────────────────────────────────────
 
-function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => string }) {
+export function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => string }) {
   if (caves.length === 0) return null;
   const maxCount = Math.max(...caves.map((c) => c.count), 1);
 
@@ -497,9 +510,10 @@ function CaveDistribution({ caves, t }: { caves: CavePoint[]; t: (k: string) => 
           </p>
         </div>
         {caves.map((cave) => (
-          <div key={cave.cellarId} className="mb-4">
+          <div key={cave.cellarId ?? ''} className="mb-4" data-testid="analytics-cave">
             <div className="flex justify-between mb-1">
-              <span className="text-xs font-semibold truncate">{cave.cellarName}</span>
+              {/* Recette #847 (KO 10.2): the units in no cellar have their own row. */}
+              <span className="text-xs font-semibold truncate">{cave.cellarId === null ? t('analytics.caves.noCellar') : cave.cellarName}</span>
               <span className="text-xs text-foreground-500 shrink-0 ml-2">
                 {cave.count} — {fmtCurrency(cave.valuation)}
               </span>
@@ -638,7 +652,7 @@ export function AnalyticsDashboard() {
                 {t('analytics.movements.title')}
               </p>
             </div>
-            <Select
+            <SingleSelect
               size="sm"
               radius="md"
               variant="bordered"
@@ -654,7 +668,7 @@ export function AnalyticsDashboard() {
               <SelectItem key="90d">{t('analytics.period.90d')}</SelectItem>
               <SelectItem key="1y">{t('analytics.period.1y')}</SelectItem>
               <SelectItem key="all">{t('analytics.period.all')}</SelectItem>
-            </Select>
+            </SingleSelect>
           </div>
           <p className="text-xs text-foreground-500 mt-1 mb-4">
             {t('analytics.movements.scopeHint')}
@@ -696,6 +710,7 @@ export function AnalyticsDashboard() {
       {!isLoading && (data?.totalPurchasePrice ?? 0) > 0 && (
         <ValuationBreakdown
           totalValuation={data?.totalValuation ?? 0}
+          inStockPurchasePrice={data?.inStockPurchasePrice ?? 0}
           totalPurchasePrice={data?.totalPurchasePrice ?? 0}
           t={t as (k: string, opts?: Record<string, unknown>) => string}
         />

@@ -1,13 +1,14 @@
 'use client';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Chip, Drawer, DrawerContent, Spinner, Tooltip } from '@heroui/react';
 import {
   X, Pencil, Flame, Thermometer, Droplets, Wine, BookMarked, GlassWater, Leaf, Sparkles, QrCode,
-  TrendingUp, Bell, BellOff, Star, Grape,
+  TrendingUp, Bell, BellOff, Star, Grape, LayoutGrid,
 } from 'lucide-react';
 import { isIntactItem, unitKind } from '@shared/units';
-import { useCellars } from '@/hooks/useCellars';
+import { useCellars, useRemoveSlot } from '@/hooks/useCellars';
+import { notifyError } from '@/lib/toast';
 import { productDetailKey, useProductDetail } from '@/hooks/useProducts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
@@ -23,7 +24,8 @@ import { DEFAULT_CURVE_SHAPE, curveShapeDescriptionKey, curveShapeLabelKey } fro
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { formatCurrency, formatDate, formatNumber } from '@/lib/format';
 import { describeStock, keepNumbersWhole, wineName } from '@/lib/products/stock';
-import { bottleLabel, familyLines, formatPurchaseDay, hasOwnLevel, type LineContext } from '@/lib/products/lines';
+import { toastClearanceRef } from '@/lib/toastClearance';
+import { familyLines, formatPurchaseDay, hasOwnLevel, tastingBottleLabel, type LineContext } from '@/lib/products/lines';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { QrCodeModal } from './QrCodeModal';
@@ -37,7 +39,8 @@ import { StockLineMenu } from './StockLineMenu';
 import { StockMoveActions } from './StockMoveActions';
 import { usePutBackOpened } from './PutBackOpened';
 import { ReviewLineActions } from './ReviewLineActions';
-import { unitNoun } from '@/lib/products/stockActions';
+import { historyNounOf } from '@/lib/products/stockActions';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 
 const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
   wine: <Wine size={64} className="opacity-20 text-white" />,
@@ -89,6 +92,22 @@ function averageRating(tastings: ProductDetailView['tastings']): number | null {
   return ratings.length > 0 ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length : null;
 }
 
+/**
+ * FEAT-93: the cell of the cellar plan the drawer was opened from — the
+ * line it holds a bottle of, the slot, and how the cell is named ("Case
+ * C2·R3").
+ */
+export interface SlotContext {
+  itemId: string;
+  slotId: string;
+  label: string;
+  /**
+   * Where the cell is: a bottle put back in it by "Annuler" holds it again
+   * under a new slot — the cell is still the one touched.
+   */
+  at?: { cellarId: string; column: number; row: number };
+}
+
 const SectionTitle = ({ children, icon }: { children: React.ReactNode; icon?: React.ReactNode }) => (
   <div className="flex items-center gap-1.5 mb-2">
     {icon}
@@ -115,6 +134,8 @@ export interface FamilyDrawerProps {
    * page): "Quelles bouteilles ?" preselects their line (FEAT-104 c3).
    */
   viewedCellarIds?: readonly string[];
+  /** FEAT-93: opened from a cell of the cellar plan: its line is led to, and the cell named. */
+  slotContext?: SlotContext | null;
 }
 
 /**
@@ -124,7 +145,7 @@ export interface FamilyDrawerProps {
  * The state of a group of bottles is never set from here: only the level
  * of a bottle already opened (a single copy, nothing detached).
  */
-export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryAction, viewedCellarIds }: FamilyDrawerProps) {
+export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryAction, viewedCellarIds, slotContext }: FamilyDrawerProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const hasMounted = useHasMounted();
@@ -135,13 +156,57 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const togglePause = useToggleAlertPause();
   const [tastingOpen, setTastingOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
-  // "Finir l'entamée" (FEAT-105 c2): the opened bottle led to.
-  const [focusLine, setFocusLine] = useState<{ id: string; nonce: number } | null>(null);
+  // The line led to: "Finir l'entamée" (FEAT-105 c2), or the line of the cell touched (FEAT-93).
+  // The nonce only grows, so leading to the same line again focuses it again.
+  const [lead, setLead] = useState<{ id: string | null; nonce: number }>({ id: null, nonce: 0 });
+  const focusLine = useMemo(() => (lead.id ? { id: lead.id, nonce: lead.nonce } : null), [lead]);
   const finishOpened = useCallback((item: ProductItem) => {
-    setFocusLine((previous) => ({ id: item.id, nonce: (previous?.nonce ?? 0) + 1 }));
+    setLead((previous) => ({ id: item.id, nonce: previous.nonce + 1 }));
   }, []);
+  // Each opening starts afresh (adjusted during render): the line of the cell
+  // touched, or no line led to — never the one of a previous opening.
+  const opening = productId ? `${productId}|${slotContext?.slotId ?? ''}` : null;
+  const [prevOpening, setPrevOpening] = useState<string | null>(null);
+  const [removedNotice, setRemovedNotice] = useState('');
+  if (opening !== prevOpening) {
+    setPrevOpening(opening);
+    setRemovedNotice('');
+    setLead((previous) => ({ id: opening && slotContext ? slotContext.itemId : null, nonce: previous.nonce + 1 }));
+  }
+  // The cell, while it still holds a bottle (not once taken out or drunk): of
+  // the line touched, or of the bottle opened from it, which took the cell along.
+  // The same cell under a new slot counts too (a bottle drunk from it, then put back by "Annuler").
+  const isTouched = (item: ProductItem, slot: ProductItem['slots'][number]) => slotContext != null && (slot.id === slotContext.slotId
+    || (slotContext.at != null && item.cellarId === slotContext.at.cellarId
+      && slot.column === slotContext.at.column && slot.row === slotContext.at.row));
+  const slotLine = slotContext
+    ? product?.items.find((item) => item.slots.some((slot) => isTouched(item, slot)))
+    : undefined;
+  const heldSlot = slotLine?.slots.find((slot) => isTouched(slotLine, slot));
+  const cell = slotContext && heldSlot ? { ...slotContext, slotId: heldSlot.id } : null;
+  // FEAT-108 (plan §4): the gestures of the plan wait for the network.
+  const offline = useOfflineBlocked();
+  const removeSlot = useRemoveSlot(slotLine?.cellarId ?? '');
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const removeFromCell = async (slotId: string) => {
+    try {
+      await removeSlot.mutateAsync({ slotId });
+      // The button goes with the banner: focus stays in the drawer, and the removal is said.
+      titleRef.current?.focus();
+      const context = slotLine && product && unitKind(product.category) === 'cigar'
+        ? (slotLine.cigarsPerBox != null || slotLine.isOpened ? 'box' : 'cigar')
+        : undefined;
+      setRemovedNotice(t('cellars.grid.removedFromSlot', { context }));
+    } catch (error) {
+      notifyError(error instanceof Error && error.message === 'SLOT_NOT_FOUND' ? 'cellars.grid.slotNotFound' : 'status.error');
+    }
+  };
 
   const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
+  const hasPlan = useCallback((id: string) => {
+    const cellar = cellars?.find((candidate) => candidate.id === id);
+    return !!(cellar?.columns && cellar?.rows);
+  }, [cellars]);
   const kind = unitKind(product?.category ?? 'wine');
   const name = product ? wineName(product) : undefined;
   const ctx: LineContext = useMemo(() => ({
@@ -152,7 +217,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
     formatDay: (day) => formatPurchaseDay(day, lang),
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
     wineName: name,
-  }), [kind, t, cellarName, lang, name]);
+    hasPlan,
+  }), [kind, t, cellarName, lang, name, hasPlan]);
   const lines = useMemo(() => familyLines(product?.items ?? [], cellarName), [product?.items, cellarName]);
   // FEAT-108: the lines with a change waiting for the network ("en attente").
   const syncQueue = useSyncQueue();
@@ -188,8 +254,10 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   // Several lines and none opened: the member picks the bottle — never a full
   // one chosen for them, which a "Bue" answer would then detach.
   // A copy still waiting for the network (FEAT-108) has no id on the server yet.
+  // Opened from a cell of the plan: the cell says which bottle (decision 77, recette n°5 7.1).
   const tastingLines = lines.inCellar.filter((item) => !isProvisional(item));
-  const tastingPreset = tastingLines.find((item) => !isIntactItem(item))
+  const tastingPreset = (cell ? tastingLines.find((item) => item.id === slotLine?.id) : undefined)
+    ?? tastingLines.find((item) => !isIntactItem(item))
     ?? (tastingLines.length === 1 ? tastingLines[0] : undefined);
 
   const renderBody = (p: ProductDetailView) => {
@@ -362,13 +430,14 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
             <ul className="flex flex-col gap-2" data-testid="family-tastings">
               {p.tastings.map((tasting) => {
                 const bottle = tasting.itemId ? p.items.find((item) => item.id === tasting.itemId) : undefined;
-                // "Garage · 20 € / bouteille": where the bottle tasted was, and its price.
+                // "Garage · 20 € / bouteille · achat du 12 mars 2025": the bottle as it was
+                // when tasted (#837), even moved, finished or no longer listed.
                 // FEAT-109: noted through a guest link — "Marie (invité)"; without a
                 // bottle, on a wine of the shared cellar, not "tasted elsewhere" — nor
                 // one of a bottle no longer listed (in the trash): only a tasting
                 // without any bottle was noted elsewhere (recette #471, KO 8.4).
                 const guest = guestSignature(tasting.guestName, t);
-                const which = bottle ? bottleLabel(bottle, ctx) : isTastedElsewhere(tasting) ? t('familyDrawer.tastings.elsewhere') : null;
+                const which = tastingBottleLabel(tasting, bottle, ctx) ?? (isTastedElsewhere(tasting) ? t('familyDrawer.tastings.elsewhere') : null);
                 return (
                   <li key={tasting.id} className="p-3 rounded-xl border border-divider">
                     <div className="flex items-center justify-between gap-2 text-xs text-foreground-500">
@@ -399,7 +468,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           history={p.history}
           itemIds={new Set(p.items.map((item) => item.id))}
           cellarName={cellarName}
-          nounOf={(itemId) => unitNoun(p.items.find((item) => item.id === itemId) ?? { cigarsPerBox: null }, kind)}
+          category={p.category}
+          nounOf={historyNounOf(p.items, p.history, kind)}
         />
       </div>
     );
@@ -410,13 +480,14 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
       <Drawer isOpen={isOpen} onClose={onClose} placement="right" backdrop="opaque" hideCloseButton classNames={{ base: 'max-w-[440px] shadow-xl' }}>
         <DrawerContent>
           <>
-            <div className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
+            {/* Messages keep clear of this header and its actions (recette n°5 of #847). */}
+            <div ref={toastClearanceRef} data-testid="family-drawer-header" className="px-5 pt-5 pb-3 border-b border-divider shrink-0">
               <p className="text-xs font-bold uppercase tracking-widest text-secondary mb-0.5">
                 {product ? t(`categories.${product.category}`) : ' '}
               </p>
               <div className="flex justify-between items-start gap-2">
                 <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                  <h2 id="inventory-detail-title" className="text-lg font-bold leading-tight break-words">{product?.name ?? ''}</h2>
+                  <h2 id="inventory-detail-title" ref={titleRef} tabIndex={-1} className="outline-none text-lg font-bold leading-tight break-words">{product?.name ?? ''}</h2>
                   <FieldSourceBadge source={product?.fieldSources?.name} t={t} />
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -445,6 +516,26 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                     ))}
                 </p>
               )}
+              <p role="status" aria-live="polite" className="sr-only" data-testid="slot-removed">{removedNotice}</p>
+              {/* FEAT-93: the cell of the plan this drawer was opened from, kept in sight above the lines. */}
+              {cell && (
+                <div className="flex items-center justify-between gap-2 mt-2 rounded-xl border border-primary-200 bg-primary-50 px-3 py-1.5" data-testid="slot-context">
+                  <span className="flex items-center gap-1.5 text-sm font-semibold text-primary-700">
+                    <LayoutGrid size={14} aria-hidden />
+                    {cell.label}
+                  </span>
+                  <OfflineBlockedButton
+                    blocked={offline}
+                    size="sm"
+                    variant="flat"
+                    color="warning"
+                    onPress={() => removeFromCell(cell.slotId)}
+                    isLoading={removeSlot.isPending}
+                  >
+                    {t('cellars.grid.removeFromSlot')}
+                  </OfflineBlockedButton>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -463,7 +554,13 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
             {product && (
               <div className="px-5 py-3 border-t border-divider flex flex-wrap gap-2 shrink-0">
-                <StockMoveActions product={product} ctx={ctx} viewedCellarIds={viewedCellarIds} onFinishOpened={finishOpened} />
+                <StockMoveActions
+                  product={product}
+                  ctx={ctx}
+                  viewedCellarIds={viewedCellarIds}
+                  onFinishOpened={finishOpened}
+                  cell={cell && slotLine ? { line: slotLine, slotId: cell.slotId } : null}
+                />
                 {primaryAction?.(product)}
                 <Button
                   variant="bordered"
@@ -489,7 +586,14 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
       {putBackDialog}
 
       {/* FEAT-107: on this wine — one of its bottles, or tasted elsewhere (a wine without any bottle). */}
-      <TastingForm open={tastingOpen} onClose={() => setTastingOpen(false)} initialProductId={product?.id} initialItemId={tastingPreset?.id} />
+      <TastingForm
+        open={tastingOpen}
+        onClose={() => setTastingOpen(false)}
+        initialProductId={product?.id}
+        initialItemId={tastingPreset?.id}
+        // FEAT-93 (decision 77): opened from a cell, the cell says which bottle — no "De quelle case ?" again.
+        fromCell={cell && slotLine ? { itemId: slotLine.id, slotId: cell.slotId } : undefined}
+      />
 
       {product && (
         <QrCodeModal isOpen={qrOpen} onClose={() => setQrOpen(false)} itemId={product.id} itemName={wineName(product)} />

@@ -9,6 +9,7 @@ import { auditLog } from './audit.service';
 import { notificationService } from './notification.service';
 import { isNotifEn } from '../lib/notif-lang';
 import { escapeHtml } from '../lib/html';
+import { encryptClearTwoFactorSecrets } from '../lib/two-factor-secret';
 import { BACKUPS_DIR, CHILD_PROCESS_TIMEOUT_MS, DbConnParams, backupFileDate, backupFileName, ensureBackupsDir, execPgDump, filterUnsupportedSetStatements, isBackupFileName, isCompleteGzip, isBeforeMigrationBackup, parseDatabaseUrl } from '../lib/pg-dump';
 
 export { BACKUPS_DIR };
@@ -242,6 +243,8 @@ export const backupService = {
       destPath = path.join(BACKUPS_DIR, filename);
       backupsInProgress.add(filename);
 
+      // #613: no 2FA secret goes into a dump in the clear.
+      await encryptClearTwoFactorSecrets();
       await execPgDump(conn, destPath);
       const stats = fs.statSync(destPath);
 
@@ -381,6 +384,8 @@ export const backupService = {
         const history = await prisma.backupRun.findMany();
         await execPsqlRestore(conn, safePath);
         await this.carryOverHistory(history);
+        // #613: a dump from before the update brings 2FA secrets back in the clear.
+        await encryptClearTwoFactorSecrets();
         return safetyCopy.id;
       });
 

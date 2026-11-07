@@ -2,9 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    product: { findFirst: vi.fn(), findUnique: vi.fn() },
+    product: { findFirst: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn() },
     cellar: { findUnique: vi.fn() },
-    inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn() },
+    itemSlot: {},
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -12,9 +13,13 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 
 import { prisma } from '../../src/lib/prisma';
-import { stockService } from '../../src/services/stock.service';
+import { correctQuantityIn, stockService } from '../../src/services/stock.service';
 import { PRODUCT_FIELDS } from '../../src/lib/product-fields';
 import { AppError } from '../../src/lib/errors';
+import { fakeSlots, slot } from '../support/fake-slots';
+
+/** FEAT-93: the cells of the plan (item_slots). */
+let slots: ReturnType<typeof fakeSlots>;
 
 /** A family as Prisma returns it, every description field empty unless given. */
 function family(fields: Record<string, unknown> = {}) {
@@ -32,7 +37,7 @@ function family(fields: Record<string, unknown> = {}) {
 /** A unit row (money columns as numbers, as the extended client reads them at the top level). */
 function unit(fields: Record<string, unknown> = {}) {
   return {
-    id: 'b1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'c1', slotColumn: null, slotRow: null,
+    id: 'b1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'c1',
     location: null, purchasePrice: 20, estimatedValue: null, purchasePlace: null,
     purchasedAt: new Date('2026-01-15T00:00:00Z'), bottleSize: null, quantity: 6, cigarsPerBox: null, cigarsLeft: null,
     isOpened: false, fillLevel: null, openedAt: null, parentItemId: null, writtenOffAt: null, needsReview: false,
@@ -44,8 +49,11 @@ function unit(fields: Record<string, unknown> = {}) {
   };
 }
 
-const updateArgs = (call = 0) => vi.mocked(prisma.inventoryItem.update).mock.calls[call]?.[0] as
-  { where: { id: string }; data: Record<string, unknown> } | undefined;
+const updateArgs = (call = 0) => {
+  const args = vi.mocked(prisma.inventoryItem.update).mock.calls[call]?.[0] as
+    { where: { id: string }; data: Record<string, unknown> } | undefined;
+  return args && { where: args.where, data: args.data };
+};
 const createData = () => (vi.mocked(prisma.inventoryItem.create).mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
 const lockedIds = () => vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1]);
 
@@ -71,6 +79,11 @@ async function rejection(promise: Promise<unknown>): Promise<AppError> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  slots = fakeSlots();
+  Object.assign(prisma, { itemSlot: slots.delegate });
+  vi.mocked(prisma.product.findUniqueOrThrow).mockImplementation((() => Promise.resolve(family())) as never);
+  vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation(((args: { where: { id: string } }) =>
+    Promise.resolve(unit({ id: args.where.id }))) as never);
   vi.mocked(prisma.$transaction).mockImplementation(((callback: (tx: unknown) => unknown) => callback(prisma)) as never);
   vi.mocked(prisma.product.findFirst).mockResolvedValue(family() as never);
   vi.mocked(prisma.product.findUnique).mockResolvedValue(family() as never);
@@ -264,9 +277,133 @@ describe('stockService.addUnits (FEAT-92 c1-c2, D5)', () => {
   });
 });
 
+describe('stockService.correctQuantity — cells of the plan (FEAT-93 criterion 4, lot S2)', () => {
+  /** A group of `quantity` with a cell in columns 1..`placed` of row 1 (the last one placed most recently). */
+  function placedGroup(quantity: number, placed: number, fields: Record<string, unknown> = {}) {
+    storeGroup({ quantity, ...fields });
+    const rows = Array.from({ length: placed }, (_, i) => slot({ itemId: 'b1', column: i + 1, row: 1 }));
+    slots.rows.push(...rows);
+    return rows;
+  }
+
+  it('q=6, s=6, input error to 4 without slotIds: 409 SLOTS_TO_FREE_REQUIRED {needed: 2, slots}, nothing written', async () => {
+    placedGroup(6, 6);
+
+    const error = await rejection(stockService.correctQuantity('u1', 'b1', { quantity: 4, reason: 'input_error' }));
+
+    expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED' });
+    expect(error.details).toEqual({
+      needed: 2,
+      slots: [1, 2, 3, 4, 5, 6].map((column) => ({ id: expect.any(String), column, row: 1 })),
+    });
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    expect(slots.cellsOf('b1')).toBe('1:1 2:1 3:1 4:1 5:1 6:1');
+  });
+
+  it('q=6, s=6, input error to 4 with the two cells named: exactly those are freed and told', async () => {
+    const rows = placedGroup(6, 6);
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', {
+      quantity: 4, reason: 'input_error', slotIds: [rows[0].id, rows[2].id],
+    }));
+
+    expect(slots.cellsOf('b1')).toBe('2:1 4:1 5:1 6:1');
+    expect(outcome.changes).toEqual([
+      { field: 'quantity', from: 6, to: 4 },
+      { field: 'slot', from: { column: 3, row: 1 }, to: null },
+      { field: 'slot', from: { column: 1, row: 1 }, to: null },
+    ]);
+  });
+
+  it.each([
+    ['too few cells', (ids: string[]) => [ids[0]]],
+    ['more cells than copies leaving', (ids: string[]) => [ids[0], ids[1], ids[2]]],
+    ['a cell named twice', (ids: string[]) => [ids[0], ids[0]]],
+    ['a cell of another line', (ids: string[]) => [ids[0], '00000000-0000-4000-8000-000000000000']],
+  ])('q=6, s=6, input error to 4 with %s: 409 SLOTS_TO_FREE_REQUIRED', async (_label, choose) => {
+    const rows = placedGroup(6, 6);
+
+    const error = await rejection(stockService.correctQuantity('u1', 'b1', {
+      quantity: 4, reason: 'input_error', slotIds: choose(rows.map((row) => row.id)),
+    }));
+
+    expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 2 } });
+    expect(slots.rows).toHaveLength(6);
+  });
+
+  it('q=6, s=5, written off 2 with one cell named (the other copy was unplaced): the write-off detaches, one cell freed', async () => {
+    const rows = placedGroup(6, 5);
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', {
+      quantity: 4, reason: 'written_off', slotIds: [rows[4].id],
+    }));
+
+    expect(slots.cellsOf('b1')).toBe('1:1 2:1 3:1 4:1');
+    expect(outcome.changes).toEqual([
+      { field: 'quantity', from: 6, to: 4 },
+      { field: 'slot', from: { column: 5, row: 1 }, to: null },
+    ]);
+    expect(createData()).toMatchObject({ quantity: 2, writtenOffAt: expect.any(Date) });
+  });
+
+  it('q=6, s=2, written off 4: the copies leaving are unplaced ones, no question, no cell freed', async () => {
+    placedGroup(6, 2);
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', { quantity: 2, reason: 'written_off' }));
+
+    expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    expect(outcome.changes).toEqual([{ field: 'quantity', from: 6, to: 2 }]);
+  });
+
+  it('q=6, s=2, written off 1 from a cell (the member named it although not needed): that cell is freed', async () => {
+    const rows = placedGroup(6, 2);
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', { quantity: 5, reason: 'written_off', slotIds: [rows[0].id] }));
+
+    expect(slots.cellsOf('b1')).toBe('2:1');
+    expect(outcome.changes).toEqual([{ field: 'quantity', from: 6, to: 5 }, { field: 'slot', from: { column: 1, row: 1 }, to: null }]);
+  });
+
+  it('a whole group written off frees every cell without asking', async () => {
+    placedGroup(3, 3);
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', { quantity: 0, reason: 'written_off' }));
+
+    expect(slots.cellsOf('b1')).toBe('');
+    expect(outcome.changes).toHaveLength(4);
+  });
+
+  it('a group of single cigars keeps its one cell: never asked while a cigar is left', async () => {
+    vi.mocked(prisma.product.findUniqueOrThrow).mockImplementation((() => Promise.resolve(family({ category: 'cigar' }))) as never);
+    placedGroup(10, 1, { category: 'cigar' });
+
+    const outcome = applied(await stockService.correctQuantity('u1', 'b1', { quantity: 3, reason: 'input_error' }));
+
+    expect(slots.cellsOf('b1')).toBe('1:1');
+    expect(outcome.changes).toEqual([{ field: 'quantity', from: 10, to: 3 }]);
+  });
+});
+
+describe('correctQuantityIn — the rotating inventory\'s closure (automatic rule, decision #471 point 75)', () => {
+  it('frees the most recently placed cells without asking', async () => {
+    storeGroup({ quantity: 6 });
+    slots.rows.push(...[1, 2, 3, 4, 5, 6].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+    const outcome = await correctQuantityIn(prisma as never, 'u1', 'b1', 'p1', { quantity: 4, reason: 'input_error' }, 'auto');
+
+    expect(slots.cellsOf('b1')).toBe('1:1 2:1 3:1 4:1');
+    expect(outcome && 'changes' in outcome ? outcome.changes : null).toEqual([
+      { field: 'quantity', from: 6, to: 4 },
+      { field: 'slot', from: { column: 6, row: 1 }, to: null },
+      { field: 'slot', from: { column: 5, row: 1 }, to: null },
+    ]);
+  });
+});
+
 describe('stockService.correctQuantity (FEAT-92 c3, point 34)', () => {
   beforeEach(() => {
-    storeGroup({ quantity: 7, needsReview: true, slotColumn: 2, slotRow: 3 });
+    storeGroup({ quantity: 7, needsReview: true });
+    slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3 }));
   });
 
   it('an input error lowers the group\'s number: never existed, out of the spending', async () => {
@@ -293,14 +430,14 @@ describe('stockService.correctQuantity (FEAT-92 c3, point 34)', () => {
       .toMatchObject({ status: 400, code: 'QUANTITY_NOT_LOWER' });
   });
 
-  it('broken / given away / lost detaches a write-off of k copies; the group keeps its slot', async () => {
+  it('broken / given away / lost detaches a write-off of k copies; the group keeps its cell (unplaced copies leave first)', async () => {
     const outcome = applied(await stockService.correctQuantity('u2', 'b1', { quantity: 5, reason: 'written_off' }));
 
     expect(updateArgs()).toEqual({ where: { id: 'b1' }, data: { quantity: 5, needsReview: false, updatedBy: 'u2' } });
     const data = createData();
     expect(data).toMatchObject({
       productId: 'p1', userId: 'u2', quantity: 2, cellarId: 'c1', purchasePrice: 20,
-      purchasedAt: new Date('2026-01-15T00:00:00Z'), slotColumn: null, slotRow: null,
+      purchasedAt: new Date('2026-01-15T00:00:00Z'),
       parentItemId: null, needsReview: false, writtenOffAt: expect.any(Date),
       // Mirror of the description, like any unit for now.
       name: 'Cuvée X', region: 'Bordeaux',
@@ -310,17 +447,20 @@ describe('stockService.correctQuantity (FEAT-92 c3, point 34)', () => {
     expect(outcome.result.data).toMatchObject({ quantity: 2, writtenOffAt: expect.any(Date) });
     expect(outcome.result.changed).toEqual([expect.objectContaining({ id: 'b1', quantity: 5 })]);
     expect(outcome.changes).toEqual([{ field: 'quantity', from: 7, to: 5 }]);
+    expect(slots.cellsOf('b1')).toBe('2:3');
     expect(outcome.writtenOffItemId).toBe(outcome.result.data.id);
   });
 
-  it('a whole group written off is marked itself and gives its slot back', async () => {
+  it('a whole group written off is marked itself and gives its cells back', async () => {
     const outcome = applied(await stockService.correctQuantity('u2', 'b1', { quantity: 0, reason: 'written_off' }));
 
     expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
     expect(updateArgs()).toEqual({
       where: { id: 'b1' },
-      data: { writtenOffAt: expect.any(Date), needsReview: false, slotColumn: null, slotRow: null, updatedBy: 'u2' },
+      data: { writtenOffAt: expect.any(Date), needsReview: false, updatedBy: 'u2' },
     });
+    expect(slots.cellsOf('b1')).toBe('');
+    expect(outcome.changes).toContainEqual({ field: 'slot', from: { column: 2, row: 3 }, to: null });
     expect(outcome.result).toMatchObject({ data: { id: 'b1', quantity: 7 }, changed: [] });
     expect(outcome.writtenOffItemId).toBe('b1');
   });

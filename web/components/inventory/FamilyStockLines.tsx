@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { isProvisional } from '@/lib/offline/optimistic';
 import { isIntactItem } from '@shared/units';
 import { goneParts, goneSummary, hasOwnLevel, lineParts, VISIBLE_LINES, type FamilyLines, type LineContext } from '@/lib/products/lines';
+import { slotSummary } from '@/lib/products/cells';
 import type { ProductItem } from '@/lib/products/types';
 import { FieldSourceBadge } from './FieldSourceBadge';
 
@@ -165,9 +166,10 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
   const [showGone, setShowGone] = useState(false);
   const lineRefs = useRef(new Map<string, HTMLLIElement>());
   // A line led to behind "Voir les N autres" is shown first (adjusted during render).
-  const [prevFocus, setPrevFocus] = useState(focus);
-  if (focus !== prevFocus) {
-    setPrevFocus(focus);
+  // From null: a line led to as the lines first show (a cell of the plan, FEAT-93) is shown too.
+  const [prevFocus, setPrevFocus] = useState<typeof focus>(null);
+  if ((focus ?? null) !== prevFocus) {
+    setPrevFocus(focus ?? null);
     if (focus && lines.inCellar.findIndex((item) => item.id === focus.id) >= VISIBLE_LINES) setShowAll(true);
   }
   const focused = useRef<number | null>(null);
@@ -221,6 +223,11 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
                     </p>
                     {!provisional && lineActions?.(item)}
                   </div>
+                  {/* FEAT-93: where its copies are on the plan — in a cellar without a plan, nothing. */}
+                  {(() => {
+                    const cells = slotSummary(item, kind, t, item.cellarId != null && (ctx.hasPlan?.(item.cellarId) ?? false));
+                    return cells ? <p className="text-xs text-foreground-500 mt-0.5" data-testid="line-slots">{cells}</p> : null;
+                  })()}
                   {item.needsReview && (
                     <>
                       <Chip size="sm" variant="flat" color="primary" className="mt-1">{t('familyDrawer.lines.needsReview')}</Chip>

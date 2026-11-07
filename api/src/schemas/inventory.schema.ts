@@ -4,6 +4,7 @@ import { categorySchema } from '../lib/category';
 import { ALERT_STATUSES, SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '../../../shared/inventory';
 import { MAX_COPIES } from '../../../shared/product';
 import { unitPrice } from './stock.schema';
+import { slotCellSchema } from './cellar.schema';
 
 // ─── Common fields (all categories) ─────────────────────────────────────────
 
@@ -293,9 +294,18 @@ export const inventoryPatchObject = z.object({
   recommendedHumidity: z.number().min(50).max(100).optional().nullable(),
   humidificationSystem: z.string().max(200).optional().nullable(),
   cellarId: z.preprocess(v => (v === 'none' || v === '') ? null : v, z.string().optional().nullable()),
-  // Grid slot assignment (FEAT-68)
-  slotColumn: z.number().int().min(1).max(100).optional().nullable(),
-  slotRow: z.number().int().min(1).max(100).optional().nullable(),
+  // FEAT-93: the cells of the cellar plan are no column of the unit any more
+  // (POST /api/inventory/:id/slots, PATCH/DELETE /api/slots/:slotId); an
+  // older client's `slotColumn`/`slotRow` is stripped like any unknown key.
+  // FEAT-93 (lot S2): which copy an opening, a drink or a smoke takes off a
+  // line of several holding cells — the cell `fromSlotId`, or an unplaced
+  // copy (one or the other; without, 409 SLOT_CHOICE_REQUIRED when it
+  // matters). `placeAt`: "Annuler" of a line finished in place puts the
+  // copy back in that cell if it is still free (else it comes back unplaced).
+  // Instructions to the detach rule, never columns; never in bulk.
+  fromSlotId: z.string().guid().optional(),
+  fromUnplaced: z.literal(true).optional(),
+  placeAt: slotCellSchema.optional(),
   // ─── Offline sync optimistic concurrency (FEAT-16/23) ──────────────────────
   // Set by the web app's offline sync queue and bottle edit form (#572): the
   // `updatedAt` of the item AS KNOWN when the change was made. Opt-in — if
@@ -307,7 +317,12 @@ export const inventoryPatchObject = z.object({
   // only one is checked against the stored other one in updateItem.
 });
 
-export const inventoryPatchSchema = inventoryPatchObject.refine(peakWindowInOrder, PEAK_WINDOW_ORDER);
+export const inventoryPatchSchema = inventoryPatchObject
+  .refine(peakWindowInOrder, PEAK_WINDOW_ORDER)
+  .refine((patch) => !(patch.fromSlotId !== undefined && patch.fromUnplaced !== undefined), {
+    message: 'fromSlotId or fromUnplaced, not both',
+    path: ['fromUnplaced'],
+  });
 
 export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 
@@ -320,7 +335,11 @@ export type InventoryPatch = z.infer<typeof inventoryPatchSchema>;
 // each wine, is the only bulk write of a state. Refused in a bulk edit and in
 // a saved preset alike (the old presets that wrote one were deleted by the
 // update, QP6).
-export const BULK_REFUSED_FIELDS = ['isOpened', 'fillLevel', 'openedAt', 'cigarsLeft', 'smokeOne', 'keepTastings', 'tastingId'] as const;
+// FEAT-93 (lot S2): nor a cell chosen — a cell is one line's.
+export const BULK_REFUSED_FIELDS = [
+  'isOpened', 'fillLevel', 'openedAt', 'cigarsLeft', 'smokeOne', 'keepTastings', 'tastingId',
+  'fromSlotId', 'fromUnplaced', 'placeAt',
+] as const;
 
 export const bulkPatchSchema = inventoryPatchSchema.superRefine((patch, ctx) => {
   for (const field of BULK_REFUSED_FIELDS) {

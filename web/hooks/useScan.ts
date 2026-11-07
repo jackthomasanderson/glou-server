@@ -24,6 +24,8 @@ export function useScanAvailability(): boolean {
 /** POST /api/scan — uploads the label photo, returns the created job id (202). */
 export function useUploadScan() {
   return useMutation<{ jobId: string }, Error, File>({
+    // Said by ScanFlow.
+    meta: { handlesError: true },
     mutationFn: (file) => scanClient.upload(file),
   });
 }

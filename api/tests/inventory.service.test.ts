@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
 import { InventoryService } from '../src/services/inventory.service';
 import { PRODUCT_FIELDS } from '../src/lib/product-fields';
 
@@ -23,9 +24,13 @@ vi.mock('../src/lib/prisma', () => ({
       deleteMany: vi.fn(),
     },
     tastingNote: { deleteMany: vi.fn(), count: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
+    // FEAT-93 (lot S2): "Annuler" puts a bottle back in a cell of the cellar's grid.
+    cellar: { findUnique: vi.fn() },
     // #471 (FEAT-100): a detach during an open count adjusts its entries.
     inventoryCountEntry: { updateMany: vi.fn(), create: vi.fn(), findMany: vi.fn() },
     inventoryCountSession: { findFirst: vi.fn() },
+    // FEAT-93: the cells of the plan, a fakeSlots() set in beforeEach.
+    itemSlot: {},
     $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -41,6 +46,10 @@ vi.mock('fs/promises', () => ({
 }));
 
 import { prisma } from '../src/lib/prisma';
+import { fakeSlots, slot } from './support/fake-slots';
+
+/** FEAT-93: the cells of the plan (item_slots). */
+let slots: ReturnType<typeof fakeSlots>;
 
 /** #471: a family as Prisma returns it, every description field empty unless given. */
 function family(fields: Record<string, unknown> = {}) {
@@ -69,6 +78,8 @@ describe('InventoryService', () => {
   beforeEach(() => {
     service = new InventoryService();
     vi.clearAllMocks();
+    slots = fakeSlots();
+    Object.assign(prisma, { itemSlot: slots.delegate });
     // Interactive transactions run against the mocked client itself.
     vi.mocked(prisma.$transaction).mockImplementation(((callback: (tx: unknown) => unknown) => callback(prisma)) as never);
     vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string } }) =>
@@ -115,6 +126,8 @@ describe('InventoryService', () => {
       orderBy: { createdAt: 'desc' },
       include: {
         product: { include: { collections: { select: { id: true, name: true, color: true, icon: true } } } },
+        // FEAT-93: the cells of the plan, live ones by row then column.
+        slots: { where: { deletedAt: null }, select: { id: true, column: true, row: true }, orderBy: [{ row: 'asc' }, { column: 'asc' }] },
       },
       take: 2001,
     });
@@ -151,19 +164,64 @@ describe('InventoryService', () => {
     expect(result).toBeNull();
   });
 
-  describe('restore - grid slot (#174)', () => {
-    const trashed = unitRow({ cellarId: 'c1', slotColumn: 2, slotRow: 3, deletedAt: new Date() });
+  describe('restore - cells of the plan (#174, FEAT-93)', () => {
+    const trashedAt = new Date('2026-10-01T10:00:00Z');
+    const trashed = unitRow({ cellarId: 'c1', deletedAt: trashedAt });
 
-    it('restores unplaced when another bottle took the slot meanwhile', async () => {
-      vi.mocked(prisma.inventoryItem.findFirst)
-        .mockResolvedValueOnce(trashed as never)
-        .mockResolvedValueOnce({ id: 'other' } as never);
+    beforeEach(() => {
+      vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation((async () => unitRow({ cellarId: 'c1' })) as never);
+    });
+
+    it('comes back unplaced when another bottle took its cell meanwhile', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(trashed as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3, deletedAt: trashedAt }), slot({ itemId: 'other', column: 2, row: 3 }));
+
       await service.restore('u1', 'b1');
 
-      expect(prisma.inventoryItem.update).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: 'b1' },
-        data: { deletedAt: null, slotColumn: null, slotRow: null },
-      }));
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith({ where: { id: 'b1' }, data: { deletedAt: null } });
+      expect(slots.rows.filter((row) => row.itemId === 'b1')).toEqual([]);
+      expect(slots.cellsOf('other')).toBe('2:3');
+    });
+
+    // Review of #854: a cell taken between the check and the write (the live-cell index) — tried once more, unplaced.
+    it('comes back unplaced when the cell is taken in the instant of the restore (P2002), never a 500', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(trashed as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3, deletedAt: trashedAt }));
+      // The first revival meets a cell just taken; on the retry, the check sees the occupant.
+      slots.delegate.updateMany.mockImplementationOnce(async () => {
+        slots.rows.push(slot({ itemId: 'other', column: 2, row: 3 }));
+        throw new Prisma.PrismaClientKnownRequestError('unique', { code: 'P2002', clientVersion: 'x' });
+      });
+
+      const restored = await service.restore('u1', 'b1');
+
+      expect(restored).toMatchObject({ id: 'b1' });
+      expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      expect(slots.rows.filter((row) => row.itemId === 'b1')).toEqual([]);
+    });
+
+    // Review of #854 (nit): trashed with three cells, its family made single cigars meanwhile — never a 500.
+    it('keeps only what it may hold now its family is single cigars, and tells the cells freed', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(trashed as never);
+      vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation((async () =>
+        unitRow({ cellarId: 'c1', quantity: 3, cigarsPerBox: null, isOpened: false, fillLevel: null, writtenOffAt: null }, { category: 'cigar' })) as never);
+      slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1, deletedAt: trashedAt })));
+      const freed: unknown[] = [];
+
+      await service.restore('u1', 'b1', freed as never);
+
+      expect(slots.rows.filter((row) => row.itemId === 'b1' && row.deletedAt === null)).toHaveLength(1);
+      expect(freed).toHaveLength(2);
+      expect(freed[0]).toMatchObject({ field: 'slot', to: null });
+    });
+
+    it('keeps its cell when it is still free', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(trashed as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3, deletedAt: trashedAt }));
+
+      await service.restore('u1', 'b1');
+
+      expect(slots.cellsOf('b1')).toBe('2:3');
     });
 
     // Review #789: the locking rule — the family before its unit.
@@ -187,7 +245,7 @@ describe('InventoryService', () => {
       await service.restore('u1', 'b1');
 
       expect(prisma.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { deletedAt: null } });
-      expect(prisma.inventoryItem.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'b1' }, data: { deletedAt: null } }));
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith({ where: { id: 'b1' }, data: { deletedAt: null } });
     });
 
     it('leaves a family that is not in the trash alone', async () => {
@@ -196,15 +254,16 @@ describe('InventoryService', () => {
 
       expect(prisma.product.update).not.toHaveBeenCalled();
     });
+  });
 
-    it('keeps the slot when it is still free', async () => {
-      vi.mocked(prisma.inventoryItem.findFirst)
-        .mockResolvedValueOnce(trashed as never)
-        .mockResolvedValueOnce(null);
-      await service.restore('u1', 'b1');
+  it('softDelete - its cells go to the trash with it, same timestamp (FEAT-93, #174)', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ cellarId: 'c1' }) as never);
+    slots.rows.push(slot({ itemId: 'b1', column: 1, row: 1 }));
 
-      expect(prisma.inventoryItem.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'b1' }, data: { deletedAt: null } }));
-    });
+    await service.softDelete('u1', 'b1');
+
+    const { data } = vi.mocked(prisma.inventoryItem.update).mock.calls[0][0] as unknown as { data: { deletedAt: Date } };
+    expect(slots.rows.find((row) => row.itemId === 'b1')).toMatchObject({ deletedAt: data.deletedAt });
   });
 
   it('updateItem - a manual edit overrides lockedFields (manual entry has priority)', async () => {
@@ -348,7 +407,7 @@ describe('InventoryService', () => {
     const DAY = new Date('2026-01-15T00:00:00.000Z');
     const group = () => unitRow({
       quantity: 6, cigarsPerBox: null, cigarsLeft: null, writtenOffAt: null, parentItemId: null, cellarId: 'c1',
-      purchasePrice: 20, estimatedValue: null, purchasedAt: DAY, bottleSize: '75cl', slotColumn: null, slotRow: null, updatedAt: DAY,
+      purchasePrice: 20, estimatedValue: null, purchasedAt: DAY, bottleSize: '75cl', updatedAt: DAY,
     }, { name: 'Talbot', category: 'wine' });
 
     beforeEach(() => {
@@ -374,7 +433,7 @@ describe('InventoryService', () => {
       // The group's history gets its own line: one copy fewer.
       expect(result.groupChange).toEqual({ itemId: 'b1', from: 6, to: 5 });
       const created = vi.mocked(prisma.inventoryItem.create).mock.calls[0]?.[0] as { data: Record<string, unknown> };
-      expect(created.data).toMatchObject({ productId: 'p1', quantity: 1, isOpened: true, fillLevel: 60, parentItemId: 'b1', slotColumn: null });
+      expect(created.data).toMatchObject({ productId: 'p1', quantity: 1, isOpened: true, fillLevel: 60, parentItemId: 'b1' });
     });
 
     it('locks the family, then reads the unit again, before deciding', async () => {
@@ -517,7 +576,7 @@ describe('InventoryService', () => {
       const line = (id: string, fields: Record<string, unknown> = {}) => ({
         id, userId: 'u1', productId: 'p1', cellarId: 'garage', purchasePrice: 20, estimatedValue: null, bottleSize: null,
         cigarsPerBox: null, cigarsLeft: null, isOpened: false, fillLevel: null, openedAt: null, writtenOffAt: null,
-        deletedAt: null, needsReview: false, slotColumn: null, slotRow: null, parentItemId: null,
+        deletedAt: null, needsReview: false, parentItemId: null,
         purchasePlace: null, location: null, lockedFields: [], fieldSources: null,
         createdAt: new Date('2026-01-01T00:00:00.000Z'), updatedAt: new Date('2026-10-02T00:00:00.000Z'), ...fields,
       });
@@ -569,15 +628,23 @@ describe('InventoryService', () => {
         expect(result).not.toHaveProperty('joined');
       });
 
-      it('never with a group still to review, nor when both are in a slot', async () => {
+      it('never with a group still to review', async () => {
         vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([] as never); // settledOnly: none settled
         expect(await service.updateItem('u1', 'b2', { purchasedAt: OCT })).not.toHaveProperty('joined');
-
-        vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string } }) =>
-          Promise.resolve({ ...line(args.where.id, { quantity: 2, purchasedAt: OCT, slotColumn: 1, slotRow: 1 }), product: family() })) as never);
-        vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([line('b6', { quantity: 6, purchasedAt: OCT, slotColumn: 2, slotRow: 1 })] as never);
-        expect(await service.updateItem('u1', 'b2', { purchasedAt: OCT })).not.toHaveProperty('joined');
         expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+      });
+
+      it('FEAT-93: both in cells of the plan, they join and the survivor holds the cells of both', async () => {
+        slots.rows.push(slot({ itemId: 'b2', column: 1, row: 1 }), slot({ itemId: 'b6', column: 2, row: 1 }));
+
+        expect(await service.updateItem('u1', 'b2', { purchasedAt: OCT })).toMatchObject({ joined: { from: 6, to: 8 } });
+
+        // absorbGroups hands the edited group's cells to the survivor before deleting it.
+        const sql = vi.mocked(prisma.$executeRaw).mock.calls.map((call) => (call[0] as unknown as string[]).join('?'));
+        const moved = sql.findIndex((text) => text.includes('UPDATE "item_slots" SET "itemId"'));
+        expect(moved).toBeGreaterThanOrEqual(0);
+        expect(vi.mocked(prisma.$executeRaw).mock.invocationCallOrder[moved])
+          .toBeLessThan(vi.mocked(prisma.inventoryItem.deleteMany).mock.invocationCallOrder[0]);
       });
 
       it.each([
@@ -726,7 +793,7 @@ describe('InventoryService', () => {
       return row ? { quantity: 1, writtenOffAt: null, purchasedAt: null, ...row } : null;
     });
     vi.mocked(prisma.$transaction).mockImplementation(
-      ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update, findUnique, findFirst }, $queryRaw: prisma.$queryRaw })) as never,
+      ((callback: (tx: unknown) => unknown) => callback({ inventoryItem: { update, findUnique, findFirst }, itemSlot: slots.delegate, $queryRaw: prisma.$queryRaw })) as never,
     );
     return update;
   }
@@ -838,143 +905,323 @@ describe('InventoryService', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  // ─── #573: a finished bottle gives its grid slot back ──────────────────────
+  // ─── #573 / FEAT-93: a finished bottle gives its cells back ─────────────────
 
-  describe('finished bottle - grid slot (#573)', () => {
-    const slotted = unitRow({ cellarId: 'c1', slotColumn: 2, slotRow: 3, isOpened: true, fillLevel: 25 });
+  describe('finished bottle - cells of the plan (#573, FEAT-93)', () => {
+    const opened = unitRow({ cellarId: 'c1', isOpened: true, fillLevel: 25, quantity: 1 });
 
     function updateData() {
       return (vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
     }
 
-    it('updateItem - finishing a slotted bottle clears its slot without the occupancy check', async () => {
-      // Every lookup returns a row: had the slot-occupancy query run, it
-      // would have reported the slot as taken and refused the write.
-      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(slotted as never);
+    it('updateItem - finishing a placed bottle frees its cell, and the history says which', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(opened as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3 }));
 
       const result = await service.updateItem('u1', 'b1', { fillLevel: 0 });
 
-      expect(prisma.inventoryItem.findFirst).toHaveBeenCalledTimes(1);
-      expect(result).not.toHaveProperty('slotConflict');
-      expect(updateData()).toMatchObject({ fillLevel: 0, slotColumn: null, slotRow: null });
-      // The history records which slot the bottle left.
+      expect(updateData()).toMatchObject({ fillLevel: 0 });
+      expect(slots.cellsOf('b1')).toBe('');
       expect(result && 'changes' in result ? result.changes : null).toEqual([
         { field: 'fillLevel', from: 25, to: 0 },
-        { field: 'slotColumn', from: 2, to: null },
-        { field: 'slotRow', from: 3, to: null },
+        { field: 'slot', from: { column: 2, row: 3 }, to: null },
       ]);
     });
 
-    it('updateItem - the released slot wins over a slot sent alongside', async () => {
-      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(slotted as never);
-
-      await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0, slotColumn: 2, slotRow: 3 });
-
-      expect(prisma.inventoryItem.findFirst).toHaveBeenCalledTimes(1);
-      expect(updateData()).toMatchObject({ slotColumn: null, slotRow: null });
-    });
-
-    it('updateItem - a bottle that is not finished keeps its slot', async () => {
-      vi.mocked(prisma.inventoryItem.findFirst)
-        .mockResolvedValueOnce(slotted as never)
-        .mockResolvedValueOnce(null); // the slot-occupancy check still runs, and passes
+    it('updateItem - a bottle that is not finished keeps its cell', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(opened as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3 }));
 
       const result = await service.updateItem('u1', 'b1', { fillLevel: 50 });
 
-      expect(prisma.inventoryItem.findFirst).toHaveBeenCalledTimes(2);
-      const data = updateData();
-      expect(data.fillLevel).toBe(50);
-      expect(data).not.toHaveProperty('slotColumn');
-      expect(data).not.toHaveProperty('slotRow');
-      expect(result && 'changes' in result ? result.changes : null).toEqual([
-        { field: 'fillLevel', from: 25, to: 50 },
-      ]);
+      expect(updateData().fillLevel).toBe(50);
+      expect(slots.cellsOf('b1')).toBe('2:3');
+      expect(result && 'changes' in result ? result.changes : null).toEqual([{ field: 'fillLevel', from: 25, to: 50 }]);
     });
-
   });
 
-  // ─── #798: moving a bottle to another cellar ───────────────────────────────
+  // Recette #847 (KO 4.4): "J'en fume un" on a box of 25 placed in its cell,
+  // then "Annuler" — the two entries as written, read back: nothing left.
+  describe('a box smoked then taken back (recette #847, KO 4.4)', () => {
+    const box = (fields: Record<string, unknown> = {}) => unitRow({
+      cellarId: 'c1', quantity: 1, isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, cigarsPerBox: 25,
+      parentItemId: null, writtenOffAt: null, needsReview: false, purchasedAt: null, purchasePrice: 100, estimatedValue: null,
+      ...fields,
+    }, { name: 'Robusto', category: 'cigar' });
 
-  describe('cellar move - grid slot (#798)', () => {
+    it('leaves nothing in the history', async () => {
+      const { withoutUndone } = await import('../src/lib/audit-history');
+      slots.rows.push(slot({ itemId: 'b1', column: 1, row: 2 }));
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(box() as never);
+      const smoked = await service.updateItem('u1', 'b1', { smokeOne: true });
+      if (!smoked || 'conflict' in smoked) throw new Error('expected a write');
+      const opened = { isOpened: true, cigarsLeft: 24, openedAt: smoked.changes.find((c) => c.field === 'openedAt')?.to ?? null };
+      expect(smoked.changes).toEqual(expect.arrayContaining([
+        { field: 'isOpened', from: false, to: true }, { field: 'cigarsLeft', from: null, to: 24 },
+      ]));
+
+      vi.clearAllMocks();
+      vi.mocked(prisma.$transaction).mockImplementation(((callback: (tx: unknown) => unknown) => callback(prisma)) as never);
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(box(opened) as never);
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue(box(opened) as never);
+      vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(box().product as never);
+      vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.tastingNote.count).mockResolvedValue(0 as never);
+      vi.mocked(prisma.inventoryItem.update).mockImplementation(((args: { where: { id: string }; data: Record<string, unknown> }) =>
+        Promise.resolve({ ...box(), ...args.data, id: args.where.id })) as never);
+      // The web's "Annuler" (undoPatch): closed, with all its cigars.
+      const back = await service.updateItem('u1', 'b1', { isOpened: false, fillLevel: null, cigarsLeft: 25 });
+      if (!back || 'conflict' in back) throw new Error('expected a write');
+
+      const at = (seconds: number) => new Date(Date.UTC(2026, 10, 6, 10, 0, seconds));
+      const entry = (seconds: number, details: Record<string, unknown>) =>
+        ({ userId: 'u1', action: 'UPDATE', bottleId: 'b1', details, createdAt: at(seconds) });
+      expect(withoutUndone([
+        entry(5, { changes: back.changes, ...(back.outcome ? { outcome: back.outcome, targetItemId: 'b1' } : {}) }),
+        entry(0, { changes: smoked.changes, smokeOne: true }),
+      ])).toEqual([]);
+    });
+  });
+
+  // ─── FEAT-93 lot S2: the explicit choices of cells ───────────────────────
+
+  describe('explicit choices of cells (FEAT-93, lot S2)', () => {
+    const DAY = new Date('2026-01-15T00:00:00Z');
+    /** A group of `quantity` in cellar c1, read with its family. */
+    const group = (quantity: number, fields: Record<string, unknown> = {}, product: Record<string, unknown> = {}) => unitRow({
+      cellarId: 'c1', quantity, isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, cigarsPerBox: null,
+      parentItemId: null, writtenOffAt: null, needsReview: false, purchasedAt: null, purchasePrice: 20, estimatedValue: null,
+      updatedAt: DAY, createdAt: DAY, ...fields,
+    }, { category: 'wine', ...product });
+    const rejected = (promise: Promise<unknown>) => promise.then(() => null, (error: unknown) => error as { status: number; code: string; details: unknown });
+
+    beforeEach(() => {
+      vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation((async (args: { where: { id: string } }) =>
+        unitRow({ id: args.where.id, cellarId: 'c1' })) as never);
+      vi.mocked(prisma.inventoryItem.create).mockImplementation((async (args: { data: Record<string, unknown> }) => args.data) as never);
+      vi.mocked(prisma.inventoryCountEntry.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.inventoryItem.update).mockImplementation((async (args: { where: { id: string }; data: Record<string, unknown> }) =>
+        ({ ...group(3), id: args.where.id, ...args.data })) as never);
+    });
+
+    it('drinking one of ×3 holding two cells without a choice: 409 SLOT_CHOICE_REQUIRED {slots, unplaced: 1}, nothing written', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 1 }), slot({ itemId: 'b1', column: 1, row: 1 }));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0 }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOT_CHOICE_REQUIRED' });
+      expect(error?.details).toEqual({
+        slots: [{ id: expect.any(String), column: 1, row: 1 }, { id: expect.any(String), column: 2, row: 1 }],
+        unplaced: 1,
+      });
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    });
+
+    it('a guest (slotChoice auto) drinks from the same line without a question', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 1 }), slot({ itemId: 'b1', column: 1, row: 1 }));
+
+      await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0 }, { slotChoice: 'auto' });
+
+      // One copy unplaced: it is the one drunk.
+      expect(prisma.inventoryItem.create).toHaveBeenCalledTimes(1);
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    });
+
+    it('drinking from the cell chosen frees exactly that cell; the choice is no field of the history', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      const chosen = slot({ itemId: 'b1', column: 1, row: 1 });
+      slots.rows.push(chosen, slot({ itemId: 'b1', column: 2, row: 1 }));
+
+      const result = await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 0, fromSlotId: chosen.id });
+
+      expect(slots.cellsOf('b1')).toBe('2:1');
+      expect(result && 'groupChange' in result ? result.groupChange?.slotChanges : null)
+        .toEqual([{ field: 'slot', from: { column: 1, row: 1 }, to: null }]);
+      const changes = result && 'changes' in result ? result.changes : [];
+      expect(changes.map((change) => change.field)).not.toContain('fromSlotId');
+    });
+
+    it('opening from an unplaced copy leaves the cells to the line', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 1, row: 1 }));
+
+      await service.updateItem('u1', 'b1', { isOpened: true, fromUnplaced: true });
+
+      expect(slots.cellsOf('b1')).toBe('1:1');
+      expect(prisma.inventoryItem.create).toHaveBeenCalledTimes(1);
+    });
+
+    it('a cell chosen that is no longer the line\'s: 409 SLOT_CHANGED with the line as it is', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 1, row: 1 }));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { isOpened: true, fromSlotId: '00000000-0000-4000-8000-000000000000' }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOT_CHANGED', details: { unplaced: 2 } });
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+    });
+
+    it('a number lowered below the cells (PATCH quantity): 409 SLOTS_TO_FREE_REQUIRED {needed}, nothing written', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { quantity: 1 }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 2 } });
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      expect(slots.rows).toHaveLength(3);
+    });
+
+    it('a number restored from the history (slotChoice auto) below the cells is refused all the same', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(...[1, 2].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { quantity: 1 }, { slotChoice: 'auto' }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
+    });
+
+    it('review 856 (b): a lower number sent with a state is judged on the number — 409, never the database guard', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      const cells = [1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 }));
+      slots.rows.push(...cells);
+
+      const error = await rejected(service.updateItem('u1', 'b1', { quantity: 2, isOpened: true, fromSlotId: cells[0].id }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    });
+
+    it('review 857 (4): {quantity: 2, isOpened, fromUnplaced} on ×3 holding 2 cells — 409 SLOT_CHANGED, never the database guard', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(...[1, 2].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      const error = await rejected(service.updateItem('u1', 'b1', { quantity: 2, isOpened: true, fromUnplaced: true }));
+
+      expect(error).toMatchObject({ status: 409, code: 'SLOT_CHANGED' });
+      expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    });
+
+    it('a number lowered that still holds the cells goes through', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(group(3) as never);
+      slots.rows.push(...[1, 2].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      await service.updateItem('u1', 'b1', { quantity: 2 });
+
+      expect(prisma.inventoryItem.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ quantity: 2 }) }));
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1');
+    });
+
+    describe('placeAt — "Annuler" of a bottle alone finished in its cell', () => {
+      const drunk = () => group(1, { isOpened: true, fillLevel: 0, openedAt: DAY });
+
+      it('puts the bottle back in its cell when it is still free, and tells it', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(drunk() as never);
+        vi.mocked(prisma.inventoryItem.update).mockImplementation((async (args: { where: { id: string }; data: Record<string, unknown> }) =>
+          ({ ...drunk(), ...args.data })) as never);
+        vi.mocked(prisma.cellar.findUnique).mockResolvedValue({ columns: 3, rows: 3 } as never);
+        vi.mocked(prisma.$executeRaw).mockResolvedValue(1 as never);
+
+        const result = await service.updateItem('u1', 'b1', { isOpened: false, fillLevel: null, openedAt: null, placeAt: { column: 2, row: 3 } });
+
+        const insert = vi.mocked(prisma.$executeRaw).mock.calls.find((call) => (call[0] as unknown as string[]).join('?').includes('INSERT INTO "item_slots"'));
+        expect(insert?.slice(2)).toEqual(['b1', 'c1', 2, 3]);
+        expect((insert?.[0] as unknown as string[]).join('?')).toContain('ON CONFLICT');
+        const changes = result && 'changes' in result ? result.changes : [];
+        expect(changes).toContainEqual({ field: 'slot', from: null, to: { column: 2, row: 3 } });
+        expect(changes.map((change) => change.field)).not.toContain('placeAt');
+      });
+
+      it('leaves it unplaced when the cell was taken since (nothing inserted, nothing told)', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(drunk() as never);
+        vi.mocked(prisma.inventoryItem.update).mockImplementation((async (args: { data: Record<string, unknown> }) =>
+          ({ ...drunk(), ...args.data })) as never);
+        vi.mocked(prisma.cellar.findUnique).mockResolvedValue({ columns: 3, rows: 3 } as never);
+        vi.mocked(prisma.$executeRaw).mockResolvedValue(0 as never);
+
+        const result = await service.updateItem('u1', 'b1', { isOpened: false, fillLevel: null, openedAt: null, placeAt: { column: 2, row: 3 } });
+
+        expect(result && 'changes' in result ? result.changes.filter((change) => change.field === 'slot') : null).toEqual([]);
+      });
+
+      it('leaves it unplaced when the grid no longer holds the cell', async () => {
+        vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(drunk() as never);
+        vi.mocked(prisma.inventoryItem.update).mockImplementation((async (args: { data: Record<string, unknown> }) =>
+          ({ ...drunk(), ...args.data })) as never);
+        vi.mocked(prisma.cellar.findUnique).mockResolvedValue({ columns: 1, rows: 1 } as never);
+
+        await service.updateItem('u1', 'b1', { isOpened: false, fillLevel: null, openedAt: null, placeAt: { column: 2, row: 3 } });
+
+        expect(vi.mocked(prisma.$executeRaw).mock.calls.some((call) => (call[0] as unknown as string[]).join('?').includes('item_slots'))).toBe(false);
+      });
+    });
+
+    // Review of #854 (nit): one PATCH making a wine ×3 a box of 25 keeps its three cells (boxes, not single cigars).
+    it('a category and a box size changed in one PATCH: the cells are fitted to the unit as written', async () => {
+      const wine = group(3);
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(wine as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ ...wine, product: undefined }] as never);
+      vi.mocked(prisma.product.update).mockImplementation((async (args: { data: Record<string, unknown> }) => ({ ...family(), ...args.data })) as never);
+      slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+
+      await service.updateItem('u1', 'b1', { category: 'cigar', cigarsPerBox: 25 });
+
+      expect(slots.cellsOf('b1')).toBe('1:1 2:1 3:1');
+    });
+  });
+
+  // ─── #798 / FEAT-93: moving a bottle to another cellar ─────────────────────
+
+  describe('cellar move - cells of the plan (#798, FEAT-93)', () => {
     // #471: a unit read with its family, as `updateItem`/`bulkUpdate` read it.
-    const slotted = unitRow({ cellarId: 'c1', slotColumn: 2, slotRow: 3, isOpened: false, fillLevel: 100 });
+    const placed = unitRow({ cellarId: 'c1', isOpened: false, fillLevel: 100 });
 
     function updateData() {
       return (vi.mocked(prisma.inventoryItem.update).mock.calls[0]?.[0] as { data: Record<string, unknown> }).data;
     }
 
-    it('updateItem - a cellar change without slot coordinates clears the slot', async () => {
-      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(slotted as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue(unitRow({ cellarId: 'c2', slotColumn: null, slotRow: null }) as never);
+    it('updateItem - a cellar change frees the cells before the cellar is written', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(placed as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue(unitRow({ cellarId: 'c2' }) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3 }));
 
       const result = await service.updateItem('u1', 'b1', { cellarId: 'c2' });
 
-      expect(result).not.toHaveProperty('slotConflict');
-      expect(updateData()).toMatchObject({ cellarId: 'c2', slotColumn: null, slotRow: null });
+      expect(updateData()).toMatchObject({ cellarId: 'c2' });
+      expect(slots.cellsOf('b1')).toBe('');
+      expect(slots.delegate.deleteMany.mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
       expect(result && 'changes' in result ? result.changes : null).toEqual([
         { field: 'cellarId', from: 'c1', to: 'c2' },
-        { field: 'slotColumn', from: 2, to: null },
-        { field: 'slotRow', from: 3, to: null },
+        { field: 'slot', from: { column: 2, row: 3 }, to: null },
       ]);
     });
 
-    it('updateItem - the old coordinates being taken in the new cellar no longer refuses the move', async () => {
-      // Every lookup returns a row: had the occupancy query run on
-      // (c2, 2, 3), it would have reported the slot as taken (409).
-      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(slotted as never);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue(unitRow({ cellarId: 'c2', slotColumn: null, slotRow: null }) as never);
-
-      const result = await service.updateItem('u1', 'b1', { cellarId: 'c2' });
-
-      expect(prisma.inventoryItem.findFirst).toHaveBeenCalledTimes(1);
-      expect(result).not.toHaveProperty('slotConflict');
-      expect(updateData()).toMatchObject({ cellarId: 'c2', slotColumn: null, slotRow: null });
-    });
-
-    it('updateItem - a cellar change with explicit coordinates places the bottle there', async () => {
-      vi.mocked(prisma.inventoryItem.findFirst)
-        .mockResolvedValueOnce(slotted as never)
-        .mockResolvedValueOnce(null); // the target slot is free
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue(unitRow({ cellarId: 'c2', slotColumn: 1, slotRow: 4 }) as never);
-
-      const result = await service.updateItem('u1', 'b1', { cellarId: 'c2', slotColumn: 1, slotRow: 4 });
-
-      expect(result).not.toHaveProperty('slotConflict');
-      expect(vi.mocked(prisma.inventoryItem.findFirst).mock.calls[1]?.[0]).toMatchObject({
-        where: { cellarId: 'c2', slotColumn: 1, slotRow: 4, id: { not: 'b1' } },
-      });
-      expect(updateData()).toMatchObject({ cellarId: 'c2', slotColumn: 1, slotRow: 4 });
-    });
-
-    it('updateItem - a cellar change with explicit coordinates taken in the new cellar is refused', async () => {
-      vi.mocked(prisma.inventoryItem.findFirst)
-        .mockResolvedValueOnce(slotted as never)
-        .mockResolvedValueOnce({ id: 'other' } as never);
-
-      const result = await service.updateItem('u1', 'b1', { cellarId: 'c2', slotColumn: 1, slotRow: 4 });
-
-      expect(result).toMatchObject({ slotConflict: true });
-      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
-    });
-
-    it('updateItem - resending the same cellar keeps the slot', async () => {
-      vi.mocked(prisma.inventoryItem.findFirst)
-        .mockResolvedValueOnce(slotted as never)
-        .mockResolvedValueOnce(null);
-      vi.mocked(prisma.inventoryItem.update).mockResolvedValue(unitRow({ cellarId: 'c1', slotColumn: 2, slotRow: 3, notes: 'x' }) as never);
+    it('updateItem - resending the same cellar keeps the cells', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(placed as never);
+      vi.mocked(prisma.inventoryItem.update).mockResolvedValue(unitRow({ cellarId: 'c1', notes: 'x' }) as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3 }));
 
       await service.updateItem('u1', 'b1', { cellarId: 'c1', notes: 'x' });
 
-      const data = updateData();
-      expect(data).not.toHaveProperty('slotColumn');
-      expect(data).not.toHaveProperty('slotRow');
+      expect(slots.cellsOf('b1')).toBe('2:3');
     });
 
-    it('bulkUpdate - moving items to another cellar clears their slot', async () => {
+    it('bulkUpdate - moving an opened bottle to another cellar frees its cell first', async () => {
+      const openedOne = unitRow({ cellarId: 'c1', isOpened: true, fillLevel: 60, quantity: 1 });
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-        slotted,
-        { ...slotted, id: 'b2', cellarId: 'c2', slotColumn: 5, slotRow: 1 },
+        openedOne,
+        { ...openedOne, id: 'b2', cellarId: 'c2' },
       ] as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 5, row: 1 }), slot({ itemId: 'b2', cellarId: 'c2', column: 5, row: 1 }));
       const txUpdate = mockTransactionClient();
 
       const count = await service.bulkUpdate('u1', ['b1', 'b2'], { cellarId: 'c2' });
@@ -982,17 +1229,34 @@ describe('InventoryService', () => {
       // b2 is already in c2: unchanged, so neither written nor unplaced.
       expect(count).toBe(1);
       expect(txUpdate).toHaveBeenCalledTimes(1);
-      expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({
-        where: { id: 'b1' },
-        data: { cellarId: 'c2', slotColumn: null, slotRow: null },
-      });
+      expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'b1' }, data: { cellarId: 'c2' } });
+      expect(slots.cellsOf('b1')).toBe('');
+      expect(slots.cellsOf('b2')).toBe('5:1');
+    });
+
+    // Review of #854: a bulk count lowered under the cells never reaches the guard (no 500).
+    it('bulkUpdate - a count lowered frees the cells beyond it, the most recent first, for its history', async () => {
+      const opened = unitRow({ cellarId: 'c1', quantity: 3 });
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([opened] as never);
+      slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 })));
+      const txUpdate = mockTransactionClient();
+      const slotChanges: Array<{ itemId: string; changes: unknown[] }> = [];
+
+      expect(await service.bulkUpdate('u1', ['b1'], { quantity: 1 }, slotChanges as never)).toBe(1);
+
+      expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'b1' }, data: { quantity: 1 } });
+      expect(slots.cellsOf('b1')).toBe('1:1');
+      expect(slotChanges).toEqual([{
+        itemId: 'b1',
+        changes: [{ field: 'slot', from: { column: 3, row: 1 }, to: null }, { field: 'slot', from: { column: 2, row: 1 }, to: null }],
+      }]);
     });
 
     it('bulkUpdate - a group moved next to its identical group joins it (FEAT-111, a preset or the bulk edit)', async () => {
       const day = new Date('2026-01-15T00:00:00Z');
       const moved = unitRow({
         id: 'b1', cellarId: 'c1', quantity: 2, purchasePrice: 20, estimatedValue: null, purchasedAt: day, bottleSize: null, cigarsPerBox: null, cigarsLeft: null,
-        purchasePlace: null, location: null, slotColumn: null, slotRow: null, writtenOffAt: null, needsReview: false, createdAt: day,
+        purchasePlace: null, location: null, writtenOffAt: null, needsReview: false, createdAt: day,
       });
       const target = { ...moved, id: 'b9', cellarId: 'c2', quantity: 4, product: undefined };
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([moved] as never);
@@ -1006,6 +1270,7 @@ describe('InventoryService', () => {
           findMany: vi.fn(async () => [target]),
         },
         inventoryCountEntry: { findMany: vi.fn(async () => []) },
+        itemSlot: slots.delegate,
         $queryRaw: prisma.$queryRaw,
         $executeRaw: vi.fn(async () => 1),
       };
@@ -1018,6 +1283,18 @@ describe('InventoryService', () => {
       expect(update).toHaveBeenCalledTimes(1);
       expect(update.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'b9' }, data: { quantity: 6 } });
     });
+  });
+
+  // FEAT-93: the cells left `bottles` — an older history line of
+  // slotColumn/slotRow is still shown, but no longer restorable.
+  it('rollbackField - refuses an old slotColumn / slotRow value: no column any more', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow() as never);
+    const update = vi.spyOn(service, 'updateItem');
+
+    expect(await service.rollbackField('u1', 'b1', 'slotColumn', 2)).toEqual({ status: 'invalid_value' });
+    expect(await service.rollbackField('u1', 'b1', 'slotRow', 3)).toEqual({ status: 'invalid_value' });
+    expect(await service.rollbackField('u1', 'b1', 'slot', { column: 2, row: 3 })).toEqual({ status: 'invalid_value' });
+    expect(update).not.toHaveBeenCalled();
   });
 
   describe('rollbackField - history of an absorbed line (#471)', () => {
@@ -1072,7 +1349,7 @@ describe('InventoryService', () => {
       const update = vi.spyOn(service, 'updateItem').mockResolvedValue({ item: { id: 'b1' }, changes: [] } as never);
 
       expect(await service.rollbackField('u1', 'b1', 'region', 'Bordeaux')).toMatchObject({ status: 'success' });
-      expect(update).toHaveBeenCalledWith('u1', 'b1', { region: 'Bordeaux' }, { isManualEdit: true, bypassFieldLock: true });
+      expect(update).toHaveBeenCalledWith('u1', 'b1', { region: 'Bordeaux' }, { isManualEdit: true, bypassFieldLock: true, slotChoice: 'auto' });
     });
 
     it('drops the former ownership flag of an older client from an edit, without locking it', async () => {
@@ -1092,7 +1369,7 @@ describe('InventoryService', () => {
       const update = vi.spyOn(service, 'updateItem').mockResolvedValue({ item: { id: 'b1' }, changes: [] } as never);
 
       expect(await service.rollbackField('u1', 'b1', 'location', 'Rack A')).toMatchObject({ status: 'success' });
-      expect(update).toHaveBeenCalledWith('u1', 'b1', { location: 'Rack A' }, { isManualEdit: true, bypassFieldLock: true });
+      expect(update).toHaveBeenCalledWith('u1', 'b1', { location: 'Rack A' }, { isManualEdit: true, bypassFieldLock: true, slotChoice: 'auto' });
     });
   });
 

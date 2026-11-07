@@ -168,6 +168,22 @@ describe('FamilyStockLines', () => {
     expect(screen.getByText('Plus aucune bouteille en cave.')).toBeInTheDocument();
   });
 
+  it('in a cellar with a plan, a line ×1 without a cell says "1 non rangée" like the others; nothing without a plan (recette n°5 of #847)', () => {
+    const planned = { ...ctx, hasPlan: (id: string) => id === 'garage' };
+    render(<FamilyStockLines
+      lines={familyLines([
+        unit({ id: 'placed', quantity: 2, cellarId: 'garage', purchasedAt: '2026-01-01', slots: [{ id: 's1', column: 1, row: 1 }] }),
+        unit({ id: 'alone', quantity: 1, cellarId: 'garage', purchasedAt: '2026-02-01', slots: [] }),
+        unit({ id: 'noPlan', quantity: 1, cellarId: 'kitchen', slots: [] }),
+      ], ctx.cellarName)}
+      ctx={planned}
+    />);
+    const slotsOf = (id: string) => document.querySelector(`[data-line-id="${id}"] [data-testid="line-slots"]`)?.textContent ?? null;
+    expect(slotsOf('placed')).toBe('1 rangée, 1 non rangée · C1·R1');
+    expect(slotsOf('alone')).toBe('1 non rangée');
+    expect(slotsOf('noPlan')).toBeNull();
+  });
+
   it('offers the line menu slot of the next lots on every line', () => {
     draw([unit({ quantity: 2 }), openedBottle(40)], { lineActions: (item) => <button type="button">menu {item.quantity}</button> });
     expect(screen.getAllByRole('button', { name: /^menu/ })).toHaveLength(2);
@@ -183,6 +199,13 @@ describe('FamilyStockLines', () => {
     expect(screen.getAllByTestId('family-line')).toHaveLength(7);
     const opened = screen.getAllByTestId('family-line').find((line) => line.dataset.lineId === 'sub');
     expect(opened).toHaveFocus();
+  });
+
+  it('a line led to as the lines first show (a cell of the plan, FEAT-93) is shown and focused, even behind "Voir les N autres"', () => {
+    const items = Array.from({ length: 7 }, (_, i) => unit({ id: `line${i}`, quantity: 2, purchasePrice: 10 + i }));
+    render(<FamilyStockLines lines={familyLines(items, ctx.cellarName)} ctx={ctx} focus={{ id: 'line6', nonce: 1 }} />);
+    expect(screen.getAllByTestId('family-line')).toHaveLength(7);
+    expect(screen.getAllByTestId('family-line').find((line) => line.dataset.lineId === 'line6')).toHaveFocus();
   });
 
   it('the focus ring shows only on the line led to, and goes at blur (a plain click draws none)', () => {
@@ -230,5 +253,26 @@ describe('FamilyStockLines — waiting for the network (FEAT-108, ux-ui.md §10.
   it('no mark without a change waiting', () => {
     draw([unit({ id: 'g', quantity: 6 })], { pendingIds: new Set() });
     expect(screen.queryByTestId('line-pending')).toBeNull();
+  });
+});
+
+// FEAT-93 (#847, lot S4, plan §5): where the copies of a line are on the plan.
+describe('FamilyStockLines — the cells of a line (FEAT-93)', () => {
+  const cells = (count: number) => Array.from({ length: count }, (_, i) => ({ id: `s${i}`, column: i + 1, row: 1 }));
+
+  it('c1: a group ×6 in 6 cells says « 6 rangées » and where; c2: « 2 rangées, 4 non rangées »', () => {
+    draw([
+      unit({ id: 'all', quantity: 6, cellarId: 'garage', slots: cells(6) }),
+      unit({ id: 'two', quantity: 6, cellarId: 'kitchen', slots: cells(2) }),
+    ]);
+    expect(screen.getAllByTestId('line-slots').map((line) => line.textContent)).toEqual([
+      '2 rangées, 4 non rangées · C1·R1, C2·R1',
+      '6 rangées · C1·R1, C2·R1, C3·R1, C4·R1, C5·R1, C6·R1',
+    ]);
+  });
+
+  it('nothing on a line that holds no cell', () => {
+    draw([unit({ quantity: 6, cellarId: 'garage', slots: [] })]);
+    expect(screen.queryByTestId('line-slots')).toBeNull();
   });
 });

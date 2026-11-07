@@ -173,7 +173,7 @@
         "spirit": "Distillery / Brand",
         "cigar": "Manufacturer / Brand"
       },
-      "location": "Location",
+      "location": "Free note (shelf, crate…)",
       "collection": "Collection",
       "tags": "Tags",
       "photoUrl": "Photo URL",
@@ -244,7 +244,17 @@
       "slotRow": "Row",
       "alertsPaused": "Peak alerts paused",
       "consumptionPostponedUntil": "Postponed until",
-      "lockedFields": "Locked fields"
+      "lockedFields": "Locked fields",
+      "isOpened_box": "Box opened",
+      "isOpened_cigar": "Cigar opened",
+      "openedAt_cigar": "Opened on",
+      "cigarsLeft": "Cigars left",
+      "cigarsPerBox": "Cigars per box",
+      "parentItemId": "Original line",
+      "writtenOffAt": "Broken, given away or lost on",
+      "writtenOffAt_cigar": "Broken, given away or lost on",
+      "needsReview": "Number to check",
+      "isOwned": "In my cellar"
     },
     "expertSection": {
       "title": "Advanced fields (collector)"
@@ -423,6 +433,11 @@
       "deleteError": "Could not delete the wish",
       "priceError": "Could not save the observed price",
       "convertError": "Could not turn the wish into an inventory item"
+    },
+    "budget": {
+      "createSuccess": "Budget envelope created",
+      "updateSuccess": "Budget envelope updated",
+      "deleteSuccess": "Budget envelope deleted"
     },
     "bulkUpdateError": "Could not update the selected wines",
     "bulkPreset": {
@@ -622,8 +637,11 @@
       "announceStart": "Picked up {{name}} from column {{col}}, row {{row}}.",
       "announceStart_cigar": "Picked up {{name}} from column {{col}}, row {{row}}.",
       "announceOver": "{{name}} is over column {{col}}, row {{row}}.",
+      "announceOverOccupied": "{{name}} is over column {{col}}, row {{row}}, held by {{other}}.",
       "announceDrop": "{{name}} dropped on column {{col}}, row {{row}}.",
       "announceDrop_cigar": "{{name}} dropped on column {{col}}, row {{row}}.",
+      "announceSwap": "{{name}} swapped with {{other}}: column {{col}}, row {{row}}.",
+      "announceSwap_cigar": "{{name}} swapped with {{other}}: column {{col}}, row {{row}}.",
       "announceCancel": "Move cancelled. {{name}} stays in place.",
       "assignTitle": "Assign a bottle to slot C{{col}}·R{{row}}",
       "assignTitle_cigar": "Assign a cigar or a box to slot C{{col}}·R{{row}}",
@@ -635,7 +653,30 @@
       "removeFromSlot": "Remove from slot",
       "slot": "Slot",
       "moveError": "The move failed — the grid was resynced with the server.",
-      "copies": "×{{number}}"
+      "copies": "×{{number}}",
+      "closedBox": "Closed box of {{size}}",
+      "placed_one": "{{count}} placed",
+      "placed_other": "{{count}} placed",
+      "unplaced_one": "{{count}} unplaced",
+      "unplaced_other": "{{count}} unplaced",
+      "noUnplacedCopy_one": "The bottle of this line is already placed.",
+      "noUnplacedCopy_other": "All {{count}} bottles of this line are already placed.",
+      "noUnplacedCopy_box_one": "The box of this line is already placed.",
+      "noUnplacedCopy_box_other": "All {{count}} boxes of this line are already placed.",
+      "noUnplacedCopy_cigar": "These single cigars already have their slot.",
+      "slotTitle": "Slot C{{col}}·R{{row}}",
+      "cellShort": "C{{col}}·R{{row}}",
+      "notInStock": "This line is no longer in the cellar: it was drunk or taken out meanwhile.",
+      "noCellar": "This line is no longer in a cellar.",
+      "outsideGrid": "This slot no longer exists: the cellar plan was made smaller.",
+      "slotNotFound": "This slot no longer holds this bottle: it changed on another device.",
+      "removedFromSlot": "Bottle removed from its slot.",
+      "removedFromSlot_box": "Box removed from its slot.",
+      "removedFromSlot_cigar": "Cigars removed from their slot.",
+      "offline": "Offline, the plan can only be viewed. Placing, moving or taking out a bottle: available when the connection is back.",
+      "notInStock_cigar": "This line is no longer in the cellar: it was smoked or taken out meanwhile.",
+      "offline_cigar": "Offline, the plan can only be viewed. Placing, moving or taking out a box or cigars: available when the connection is back.",
+      "offline_mixed": "Offline, the plan can only be viewed. Placing, moving or taking out a bottle, a box or cigars: available when the connection is back."
     },
     "filterByType": "Filter by type",
     "filterByStatus": "Filter by status",
@@ -710,6 +751,13 @@
       "invalidUrl": "Enter an image address starting with https://.",
       "fetchFailed": "This image could not be downloaded. Check the address or choose another image.",
       "failed": "The photo could not be saved. Check your connection and try again."
+    },
+    "suggestion": {
+      "badge": "Suggestion",
+      "question": "Use this photo?",
+      "use": "Use",
+      "another": "Another photo",
+      "dismiss": "Dismiss this suggestion"
     }
   },
   "autocomplete": {
@@ -815,7 +863,19 @@
       "codesConfirmed": "I've saved my codes",
       "disableTitle": "Disable two-factor authentication",
       "disableHint": "For security reasons, please enter your current password and a valid 2FA code.",
-      "backupCodeLabel": "Backup code"
+      "backupCodeLabel": "Backup code",
+      "backupCodesTitle": "Your backup codes",
+      "backupCodesHeading": "Backup codes",
+      "backupCodesLeft_one": "{{count}} backup code left",
+      "backupCodesLeft_other": "{{count}} backup codes left",
+      "copyCodes": "Copy the codes",
+      "codesCopied": "Codes copied",
+      "copyCodesFailed": "Copying is not possible here. Select the codes and copy them by hand.",
+      "regenerate": "Generate new codes",
+      "regenerateTitle": "Generate new backup codes",
+      "regenerateHint": "Your current backup codes will stop working. To confirm, enter your password and a code from your authenticator app (or a backup code).",
+      "regenerateConfirm": "Generate",
+      "regenerateSuccess": "New backup codes generated. The previous ones no longer work."
     },
     "sessions": {
       "title": "Active Sessions",
@@ -858,11 +918,16 @@
       "deactivate": "Deactivate",
       "deactivateSelf": "You cannot deactivate your own account",
       "grantAdminConfirm": "Grant administrator rights to {{username}}?",
-      "deactivateConfirm": "Cut off {{username}}'s access to this instance?",
+      "deactivateConfirm": "Cut off {{username}}'s access to this instance? Their sessions, trusted devices and guest links will be revoked for good: reactivating the account later will not bring them back, they will have to sign in again and create new guest links.",
       "deactivateLastAdmin": "You cannot deactivate the last administrator",
       "me": "me",
       "resetPassword": "Reset password",
-      "resetPasswordConfirm": "Generate a new temporary password for {{username}}? Their current sessions and trusted devices will be signed out, and they will have to set a new password on their next login.",
+      "resetPasswordConfirm": "Generate a new temporary password for {{username}}? Their current sessions and trusted devices will be signed out, two-factor authentication will be turned off if it is on (they can turn it back on from their profile), and they will have to set a new password on their next login.",
+      "resetPasswordConfirmSelf": "Generate a new temporary password for your own account? Your current sessions and trusted devices will be signed out and you will have to set a new password on your next login. Your two-factor authentication stays on.",
+      "stepUpHint": "Confirm with your own password, and a code from your authenticator app (or a backup code) if your account has two-factor authentication.",
+      "stepUpPassword": "Your password",
+      "stepUpRequired": "Enter your password to confirm.",
+      "stepUpErrors": { "UNEXPECTED_ERROR": "This could not be done. Try again." },
       "resetPasswordResultTitle": "Temporary password for {{username}}",
       "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login.",
       "statusEnabled": "Enabled",
@@ -949,12 +1014,11 @@
         "confirmDescription": "Warning! This action is irreversible. To confirm that you want to delete ALL business data, please enter the keyword below:",
         "keywordLabel": "Enter \"DELETE\" to confirm",
         "keywordValue": "DELETE",
-        "passwordLabel": "Your password",
+        "stepUp": "Delete ALL bottles and cigars, ALL cellars and ALL activity logs?",
         "backupFirst": "A backup is taken first; the purge is cancelled if it fails.",
         "success": "The database has been reset successfully.",
         "error": "An error occurred during data purge.",
         "errors": {
-          "INVALID_PASSWORD": "Incorrect password.",
           "BACKUP_BEFORE_PURGE_FAILED": "The backup taken before the purge failed, so nothing was deleted. Check the Backups tab."
         },
         "counts": {
@@ -1056,6 +1120,9 @@
       "confirm": "Restore"
     },
     "restoreError": "Unable to restore this value.",
+    "restoreConflict": "Not restored: this wine was changed meanwhile, by another member or on another device. Close this window: the card updates, and you can try again.",
+    "restoreConflict_spirit": "Not restored: this spirit was changed meanwhile, by another member or on another device. Close this window: the card updates, and you can try again.",
+    "restoreConflict_cigar": "Not restored: this cigar was changed meanwhile, by another member or on another device. Close this window: the card updates, and you can try again.",
     "booleanTrue": "Yes",
     "booleanFalse": "No",
     "source": {
@@ -1441,7 +1508,8 @@
       "countColumn": "Bottles at peak"
     },
     "caves": {
-      "title": "Distribution by cellar"
+      "title": "Distribution by cellar",
+      "noCellar": "No cellar"
     },
     "maturity": {
       "title": "Optimal Consumption Planning (Peak)",
@@ -1466,10 +1534,11 @@
     },
     "valuation": {
       "title": "Valuation Analysis",
-      "purchaseTotal": "Acquisition cost",
+      "inStockCost": "Cost of stock",
       "estimatedTotal": "Estimated market value",
       "roi": "Estimated appreciation",
-      "roiHint": "vs. total purchase price"
+      "roiHint": "vs. purchase price of the bottles and cigars in stock",
+      "totalSpend": "Total spend: {{amount}}, bottles drunk, cigars smoked and stock written off included"
     },
     "period": {
       "label": "Period",
@@ -1715,6 +1784,14 @@
     "title": "System Configuration",
     "subtitle": "Configure integrations and the notification policy for this instance.",
     "tabsAriaLabel": "Config sections",
+    "stepUp": {
+      "smtp": "The mail server sends password reset links and security alerts, so changing it is confirmed.",
+      "smtpTest": "The test connects to the saved mail server, and sends a message if you gave an address.",
+      "notifications": "These channels carry the security alerts sent to members, so changing them is confirmed.",
+      "gotify": "The Gotify server receives the security alerts, so changing it is confirmed.",
+      "gotifyTest": "The test sends a notification to the saved Gotify server.",
+      "network": "Password reset links are built from the public URL, so changing it is confirmed."
+    },
     "tabs": {
       "smtp": "SMTP / Email",
       "notifications": "Notif policy",
@@ -1836,11 +1913,8 @@
     },
     "backup": {
       "description": "Configure the automatic daily database backup (pg_dump), stored outside the application volume.",
-      "passwordLabel": "Your password",
-      "invalidPassword": "Incorrect password.",
       "download": {
-        "title": "Download this backup",
-        "body": "The file contains the whole database, including every account's password hash and two-factor secret. Confirm with your password.",
+        "body": "The file contains the whole database, including every account's password hash. Its two-factor secrets are encrypted, except in backups taken before the update that encrypts them.",
         "error": "Download failed."
       },
       "dirCheckFailed": "Glou could not check whether it can write to the backups folder. Reload the page; if this message stays, check the API logs (docker compose logs api).",
@@ -1876,6 +1950,7 @@
       },
       "restore": {
         "modalTitle": "Confirm restore",
+        "stepUp": "Restore this backup over all current data?",
         "modalBody": "This immediately overwrites all current data on this instance with the content of this backup.",
         "safetyCopy": "A backup of the current data is taken first and stays in the history: restore it to undo this restore. If that backup fails, nothing is restored.",
         "modalHint": "Type \"{{keyword}}\" to confirm:",
@@ -2216,7 +2291,8 @@
       "belowOne": "Not saved: an input error cannot go below 1; move the line to the trash instead.",
       "gone": "Not saved: this bottle no longer exists (put back with the others or deleted meanwhile).",
       "rejected": "Not saved: the server refused this value.",
-      "changed": "Not saved: the line changed meanwhile."
+      "changed": "Not saved: the line changed meanwhile.",
+      "slotChoice": "Not saved: this line is placed in slots of the plan. Do it again from the wine's sheet to say which slot the bottle comes from."
     }
   },
   "scan": {
@@ -2385,6 +2461,20 @@
       "joined_box_other": "{{count}} boxes joined ({{what}})",
       "joined_cigar_one": "{{count}} cigar joined ({{what}})",
       "joined_cigar_other": "{{count}} cigars joined ({{what}})",
+      "opened_bottle_one": "{{count}} bottle opened",
+      "opened_bottle_other": "{{count}} bottles opened",
+      "opened_box_one": "{{count}} box opened",
+      "opened_box_other": "{{count}} boxes opened",
+      "opened_cigar_one": "{{count}} cigar started",
+      "opened_cigar_other": "{{count}} cigars started",
+      "finished_bottle_one": "{{count}} bottle drunk",
+      "finished_bottle_other": "{{count}} bottles drunk",
+      "finished_box_one": "{{count}} box finished",
+      "finished_box_other": "{{count}} boxes finished",
+      "finished_cigar_one": "{{count}} cigar smoked",
+      "finished_cigar_other": "{{count}} cigars smoked",
+      "smoked_one": "{{count}} cigar smoked",
+      "smoked_other": "{{count}} cigars smoked",
       "reasons": {
         "input_error": "input error",
         "written_off": "broken, given away or lost"
@@ -2395,7 +2485,31 @@
       "tooLarge": "Not saved: the line they go to would hold more than 1,000.",
       "cellarGone": "Not saved: this cellar no longer exists.",
       "offline": "Without a network, this action is not possible. Try again once the connection is back.",
-      "failed": "Could not save this action."
+      "failed": "Could not save this action.",
+      "slotChanged": "This line's slots changed meanwhile, on another device or by another member: choose again.",
+      "slotChoice": "This line is placed in slots of the plan: say which slot the bottle comes from.",
+      "slotsToFree": "This line's slots changed meanwhile: choose the slots again."
+    },
+    "slots": {
+      "whichTitle": "Which slot?",
+      "unplacedChoice": "Unplaced",
+      "unplacedCount_one": "{{count}} unplaced on this line",
+      "unplacedCount_other": "{{count}} unplaced on this line",
+      "freeTitle": "Which slots to free?",
+      "freeHint_one": "Choose on the plan the slot to free.",
+      "freeHint_other": "Choose on the plan the {{count}} slots to free.",
+      "followTitle": "Which slots take the new price?",
+      "followHint_one": "The unplaced ones are not enough: choose the slot that takes the new price. It stays occupied.",
+      "followHint_other": "The unplaced ones are not enough: choose the {{count}} slots that take the new price. They stay occupied.",
+      "followHintAllPlaced_one": "The whole line is placed: choose the slot that takes the new price. It stays occupied.",
+      "followHintAllPlaced_other": "The whole line is placed: choose the {{count}} slots that take the new price. They stay occupied.",
+      "pickCount_one": "{{chosen}} of {{count}} slot chosen",
+      "pickCount_other": "{{chosen}} of {{count}} slots chosen",
+      "hintFreed": "Slot {{cell}} will be freed.",
+      "hintKept": "The opened bottle stays in {{cell}}.",
+      "hintKept_box": "The opened box stays in {{cell}}.",
+      "columnShort": "C{{col}}",
+      "rowShort": "R{{row}}"
     }
   },
   "familyList": {
@@ -2537,7 +2651,8 @@
       "empty": "No tasting of this wine yet.",
       "empty_spirit": "No tasting of this spirit yet.",
       "empty_cigar": "No tasting of this cigar yet.",
-      "elsewhere": "Tasted elsewhere"
+      "elsewhere": "Tasted elsewhere",
+      "boughtOn": "bought {{date}}"
     },
     "history": {
       "title": "History",
@@ -2561,11 +2676,26 @@
       "scopeCigar_one": "Edits this cigar for its only cigar in the cellar.",
       "scopeCigar_other": "Edits this cigar for its {{count}} cigars.",
       "saved": "Wine updated",
+      "saved_spirit": "Spirit updated",
+      "saved_cigar": "Cigar updated",
       "conflict": "Not saved: this wine was changed meanwhile, by another member or on another device. Close the form and open it again to start from the current version.",
+      "conflict_spirit": "Not saved: this spirit was changed meanwhile, by another member or on another device. Close the form and open it again to start from the current version.",
+      "conflict_cigar": "Not saved: this cigar was changed meanwhile, by another member or on another device. Close the form and open it again to start from the current version.",
       "rejected": "Not saved: the server refused one of the values. Check the form.",
       "error": "The wine could not be saved.",
+      "error_spirit": "The spirit could not be saved.",
+      "error_cigar": "The cigar could not be saved.",
       "thisWine": "this wine",
       "thisSpirit": "this spirit"
+    },
+    "slots": {
+      "placed_one": "{{count}} placed",
+      "placed_other": "{{count}} placed",
+      "unplaced_one": "{{count}} unplaced",
+      "unplaced_other": "{{count}} unplaced",
+      "summary": "{{counts}} · {{cells}}",
+      "groupCell": "Placed in {{cells}}",
+      "groupUnplaced": "Unplaced"
     }
   },
   "cigarGroup": {
@@ -2793,5 +2923,15 @@
     "joining": "These bottles will join {{name}}.",
     "joiningCigar": "These cigars will join {{name}}.",
     "addAria": "{{action}}: {{wine}}, {{stock}}"
+  },
+  "history": {
+    "fields": {
+      "slot": "Slot",
+      "location": "Free note"
+    },
+    "slotNone": "none",
+    "slotPlaced": "Slot {{cell}} taken",
+    "slotFreed": "Slot {{cell}} freed",
+    "slotMoved": "Slot {{from}} → {{to}}"
   }
 }

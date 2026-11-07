@@ -8,7 +8,7 @@ import { useRollbackField } from '@/hooks/useInventory';
 import { useRollbackProductField } from '@/hooks/useRollbackProductField';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { formatDate } from '@/lib/format';
-import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
+import { formatHistoryValue, formatSlotChange, historyFieldLabel } from '@/lib/inventory/history-format';
 import { isRestorableDescriptionField } from '@shared/product';
 import type { UnitNoun } from '@/lib/products/stockActions';
 import type { ProductDetailView } from '@/lib/products/types';
@@ -25,6 +25,10 @@ const NOT_RESTORABLE = new Set([
   'fillLevel', 'isOpened', 'openedAt', 'quantity', 'cigarsLeft', 'writtenOffAt', 'parentItemId', 'needsReview',
   // FEAT-87's reference flag, gone with lot Z (#471): a reference is a wine without bottles.
   'isOwned',
+  // FEAT-93: a cell is placed, moved or freed on the plan, never restored
+  // from here — nor the coordinates written before the plan held several
+  // cells per line (still read, `slotColumn`/`slotRow`).
+  'slot', 'slotColumn', 'slotRow',
 ]);
 
 /** Actions said by the drawer's own words (#471); the others keep the traceability labels. */
@@ -43,7 +47,19 @@ interface FamilyHistoryProps {
   cellarName: (id: string) => string | undefined;
   /** What one copy of a line is called (bottle, box, cigar), for "2 bouteilles déplacées vers Cuisine". */
   nounOf?: (itemId: string | null) => UnitNoun;
+  /** The wine's category, for the words of a refusal (« ce cigare »). */
+  category?: string;
 }
+
+/**
+ * Recette #847: the state columns a gesture ("1 bouteille ouverte", "bue",
+ * "1 cigare fumé") says in its own words — never "Bouteille entamée /
+ * ouverte : Oui · Niveau ajusté à Vide".
+ */
+const GESTURE_FIELDS = new Set(['isOpened', 'fillLevel', 'openedAt', 'cigarsLeft']);
+
+/** A cell of the plan freed for good (not moved, not placed). */
+const isCellFreed = (change: FieldChange) => change.field === 'slot' && change.from != null && change.to == null;
 
 /** FEAT-98 (point 57): the field a move or a new price changes on the copies taken. */
 const SPLIT_FIELD: Record<string, string> = { MOVE_UNITS: 'cellarId', REPRICE_UNITS: 'purchasePrice' };
@@ -62,7 +78,7 @@ const isShown = (entry: HistoryEntry) =>
  * a change made to a copy still there, and on a change of the wine's
  * description (no copy: restored on the wine, for all its bottles).
  */
-export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, cellarName, nounOf = () => 'bottle' }: FamilyHistoryProps) {
+export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, cellarName, nounOf = () => 'bottle', category }: FamilyHistoryProps) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const itemRollback = useRollbackField();
@@ -72,7 +88,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
   const rollbackMutation = target?.itemId ? itemRollback : productRollback;
 
   const context = { lang: i18n.language, cellarName };
-  const fieldLabel = (field: string) => historyFieldLabel(field, t);
+  const fieldLabel = (field: string, itemId: string | null = null) => historyFieldLabel(field, t, nounOf(itemId));
   const actionLabel = (action: string) => {
     const key = action.toLowerCase();
     // « Références regroupées » for cigars (the wine's own noun: no copy named).
@@ -91,34 +107,56 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
     // "Nombre vérifié": only the mark of a guessed number changed (FEAT-102 c4).
     if (!entry.changes || entry.changes.length === 0 || entry.action === 'REVIEW_OK') return actionLabel(entry.action);
     if (entry.action === 'RESTORE_FIELD' && entry.changes.length === 1) {
-      return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field) });
+      return t('traceability.restoredField', { field: fieldLabel(entry.changes[0].field, entry.itemId) });
     }
     // "Vins regroupés · Région : Graves": the values the merge chose (FEAT-102 c2).
     const merged = entry.action === 'MERGE_PRODUCTS' ? [actionLabel(entry.action)] : [];
-    return merged.concat(entry.changes
-      .map((change) => {
-        // §10.3: "Nombre corrigé : 2 → 1", "Bouteilles ajoutées : 1 → 3".
-        if (change.field === 'quantity' && typeof change.from === 'number' && typeof change.to === 'number') {
-          const what = entry.action === 'ADD_UNITS' || entry.action === 'CORRECT_QUANTITY' ? actionLabel(entry.action) : fieldLabel('quantity');
-          const line = t('familyDrawer.history.numberChange', { what, from: change.from, to: change.to });
-          // §10.3: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)".
-          return entry.reason ? `${line} (${t(`stockLine.history.reasons.${entry.reason}`)})` : line;
-        }
-        // Recette #471 (KO 4.2): an add that made a new line has no number before it.
-        if (change.field === 'quantity' && entry.action === 'ADD_UNITS' && change.from == null && typeof change.to === 'number') {
-          return t('familyDrawer.history.numberAdded', { what: actionLabel(entry.action), number: change.to });
-        }
-        if (change.field === 'fillLevel' && typeof change.to === 'number') {
-          const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;
-          return `${t('inventory.detail.levelAdjusted')} ${level}`;
-        }
-        return t('traceability.changeLine', {
-          field: fieldLabel(change.field),
-          value: formatHistoryValue(change.field, change.to, t, context),
-        });
-      }))
-      .join(' · ');
+    const gesture = describeGesture(entry);
+    if (gesture) return [gesture, ...gestureRest(entry).map(describeChange(entry))].join(' · ');
+    return merged.concat(entry.changes.map(describeChange(entry))).join(' · ');
   };
+
+  /** Recette #847: "1 bouteille ouverte", "1 bouteille bue", "1 cigare fumé". */
+  function describeGesture(entry: HistoryEntry): string | null {
+    if (!entry.gesture) return null;
+    if (entry.gesture === 'smoked') return t('stockLine.history.smoked', { count: 1 });
+    return t(`stockLine.history.${entry.gesture}`, { context: nounOf(entry.itemId), count: 1 });
+  }
+
+  /**
+   * What a gesture's entry says besides it: the cells freed ("Case C2·R1
+   * libérée"), any other field — and the level of a bottle opened short of full.
+   */
+  function gestureRest(entry: HistoryEntry): FieldChange[] {
+    return (entry.changes ?? []).filter((change) => !GESTURE_FIELDS.has(change.field) || (
+      entry.gesture === 'opened' && change.field === 'fillLevel' && typeof change.to === 'number' && change.to > 0 && change.to < 100
+    ));
+  }
+
+  function describeChange(entry: HistoryEntry) {
+    return (change: FieldChange): string => {
+      // §10.3: "Nombre corrigé : 2 → 1", "Bouteilles ajoutées : 1 → 3".
+      if (change.field === 'quantity' && typeof change.from === 'number' && typeof change.to === 'number') {
+        const what = entry.action === 'ADD_UNITS' || entry.action === 'CORRECT_QUANTITY' ? actionLabel(entry.action) : fieldLabel('quantity');
+        const line = t('familyDrawer.history.numberChange', { what, from: change.from, to: change.to });
+        // §10.3: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)".
+        return entry.reason ? `${line} (${t(`stockLine.history.reasons.${entry.reason}`)})` : line;
+      }
+      // Recette #471 (KO 4.2): an add that made a new line has no number before it.
+      if (change.field === 'quantity' && entry.action === 'ADD_UNITS' && change.from == null && typeof change.to === 'number') {
+        return t('familyDrawer.history.numberAdded', { what: actionLabel(entry.action), number: change.to });
+      }
+      if (change.field === 'slot') return formatSlotChange(change.from, change.to, t);
+      if (change.field === 'fillLevel' && typeof change.to === 'number') {
+        const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;
+        return `${t('inventory.detail.levelAdjusted')} ${level}`;
+      }
+      return t('traceability.changeLine', {
+        field: fieldLabel(change.field, entry.itemId),
+        value: formatHistoryValue(change.field, change.to, t, context),
+      });
+    };
+  }
 
   /** "2 bouteilles déplacées vers Cuisine", "Prix de 2 bouteilles : 20 € → 25 €". */
   function describeSplit(entry: HistoryEntry): string | null {
@@ -130,7 +168,9 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
     const options = { context: nounOf(entry.itemId), count };
     if (moved.field === 'cellarId') {
       const cellar = typeof moved.to === 'string' ? cellarName(moved.to) ?? '—' : t('familyDrawer.lines.noCellar');
-      return t('stockLine.history.moved', { ...options, cellar });
+      // Recette #847 (KO 6.6): "· Case C2·R2 libérée", the cells left in the old cellar's plan.
+      const freed = (entry.changes ?? []).filter(isCellFreed).map((change) => formatSlotChange(change.from, change.to, t));
+      return [t('stockLine.history.moved', { ...options, cellar }), ...freed].join(' · ');
     }
     const price = (value: unknown) =>
       value == null ? t('stockLine.reprice.noPrice') : formatHistoryValue('purchasePrice', value, t, context);
@@ -143,7 +183,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
     if (!entry.joinedChanges || typeof number?.from !== 'number' || typeof number.to !== 'number') return null;
     const what = entry.joinedChanges
       .filter((change) => change.field !== 'quantity')
-      .map((change) => `${fieldLabel(change.field).toLocaleLowerCase(i18n.language)} ${formatHistoryValue(change.field, change.from, t, context)} → ${formatHistoryValue(change.field, change.to, t, context)}`)
+      .map((change) => `${fieldLabel(change.field, entry.itemId).toLocaleLowerCase(i18n.language)} ${formatHistoryValue(change.field, change.from, t, context)} → ${formatHistoryValue(change.field, change.to, t, context)}`)
       .join(', ');
     // Nothing but the number joined: said as a number change, never "rejointes ()".
     if (!what) return null;
@@ -206,7 +246,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
               </p>
               {restorable.map((change, index) => (
                 <div key={`${entry.id}-${change.field}-${index}`} className="mt-1 pl-1 flex items-center justify-between gap-2">
-                  <span className="text-xs text-foreground-500 truncate">{fieldLabel(change.field)}</span>
+                  <span className="text-xs text-foreground-500 truncate">{fieldLabel(change.field, entry.itemId)}</span>
                   <Button
                     size="sm"
                     variant="light"
@@ -235,14 +275,16 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
               <ModalBody className="py-2">
                 <p className="text-sm text-foreground-500">
                   {target && t('traceability.restoreConfirm.body', {
-                    field: fieldLabel(target.change.field),
+                    field: fieldLabel(target.change.field, target.itemId),
                     value: formatHistoryValue(target.change.field, target.change.from, t, context),
                   })}
                 </p>
                 {/* 409: the wine changed meanwhile — restoring now would overwrite that change. */}
                 {rollbackMutation.isError && (
                   <p className="text-xs text-danger">
-                    {t(rollbackMutation.error?.message === 'CONFLICT' ? 'familyDrawer.form.conflict' : 'traceability.restoreError')}
+                    {rollbackMutation.error?.message === 'CONFLICT'
+                      ? t('traceability.restoreConflict', category === 'cigar' || category === 'spirit' ? { context: category } : undefined)
+                      : t('traceability.restoreError')}
                   </p>
                 )}
               </ModalBody>

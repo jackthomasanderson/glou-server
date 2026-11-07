@@ -1,10 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { Button, Input, Select, SelectItem } from '@heroui/react';
+import { Button, Input, SelectItem } from '@heroui/react';
 import { Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCreateCellar } from '@/hooks/useCellars';
 import { Cellar, CellarType } from '@/lib/cellars/types';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 interface CellarStepProps {
   /** The cellar this wizard already created (#685): shown instead of the creation form. */
@@ -66,7 +67,7 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
           isRequired
           isDisabled={createCellar.isPending}
         />
-        <Select
+        <SingleSelect
           label={t('cellars.type')}
           selectedKeys={[type]}
           onSelectionChange={(keys) => {
@@ -82,7 +83,7 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
           <SelectItem key="VINTAGE">{t('cellars.types.VINTAGE')}</SelectItem>
           <SelectItem key="COOLER">{t('cellars.types.COOLER')}</SelectItem>
           <SelectItem key="SHELF">{t('cellars.types.SHELF')}</SelectItem>
-        </Select>
+        </SingleSelect>
       </div>
 
       {/* Three buttons do not fit side by side on a phone (#686): they wrap,

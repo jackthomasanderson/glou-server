@@ -336,3 +336,69 @@ describe('tastingsService — tastings of the wine (FEAT-107)', () => {
     expect(stats.topItems).toEqual([{ id: 'p1', name: 'A', producer: 'X', avgRating: 4, count: 2 }]);
   });
 });
+
+// #837: a tasting keeps which bottle it was of, as the bottle was when tasted —
+// its cellar (id and name) and its purchase day — not as it is now.
+describe('tastingsService — the bottle tasted, as it was (#837)', () => {
+  const BOUGHT = new Date('2025-03-12T00:00:00.000Z');
+  const created = () => vi.mocked(prisma.tastingNote.create).mock.calls[0]?.[0]?.data as Record<string, unknown>;
+
+  it('writes the cellar and the purchase day of the bottle tasted', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(
+      { productId: 'p1', cellarId: 'garage', purchasedAt: BOUGHT, cellar: { name: 'Garage' } } as never,
+    );
+
+    await tastingsService.create('u1', { itemId: 'b1', rating: 4 });
+
+    expect(created()).toMatchObject({ itemId: 'b1', cellarId: 'garage', cellarName: 'Garage', purchasedAt: BOUGHT, snapshotAt: expect.any(Date) });
+    const select = vi.mocked(prisma.inventoryItem.findFirst).mock.calls[0]?.[0]?.select;
+    expect(select).toMatchObject({ cellarId: true, purchasedAt: true, cellar: { select: { name: true } } });
+  });
+
+  it('writes a bottle without a cellar nor a purchase day as such', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(
+      { productId: 'p1', cellarId: null, purchasedAt: null, cellar: null } as never,
+    );
+
+    await tastingsService.create('u1', { itemId: 'b1' });
+
+    // Marked as kept, so it never reads as a tasting noted before #837 (shown from the bottle as it is now).
+    expect(created()).toMatchObject({ cellarId: null, cellarName: null, purchasedAt: null, snapshotAt: expect.any(Date) });
+  });
+
+  it('writes nothing of a bottle for a wine tasted elsewhere', async () => {
+    vi.mocked(prisma.product.findFirst).mockResolvedValue({ id: 'p1' } as never);
+
+    await tastingsService.create('u1', { productId: 'p1' });
+
+    expect(created()).not.toHaveProperty('cellarId');
+    expect(created()).not.toHaveProperty('cellarName');
+    expect(created()).not.toHaveProperty('purchasedAt');
+    expect(created()).not.toHaveProperty('snapshotAt');
+  });
+
+  it('takes the new bottle\'s when a tasting is moved to another bottle', async () => {
+    vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', itemId: 'b1', productId: 'p1' } as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(
+      { productId: 'p1', cellarId: 'cuisine', purchasedAt: BOUGHT, cellar: { name: 'Cuisine' } } as never,
+    );
+
+    await tastingsService.update('t1', 'u1', { itemId: 'b2' });
+
+    expect(vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]).toMatchObject({
+      data: { itemId: 'b2', cellarId: 'cuisine', cellarName: 'Cuisine', purchasedAt: BOUGHT, snapshotAt: expect.any(Date) },
+    });
+  });
+
+  it('keeps what it wrote on any other edit, its own bottle resent included', async () => {
+    vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', itemId: 'b1', productId: 'p1' } as never);
+
+    await tastingsService.update('t1', 'u1', { itemId: 'b1', rating: 3 });
+
+    const data = vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]?.data as Record<string, unknown>;
+    expect(data).not.toHaveProperty('cellarId');
+    expect(data).not.toHaveProperty('cellarName');
+    expect(data).not.toHaveProperty('purchasedAt');
+    expect(data).not.toHaveProperty('snapshotAt');
+  });
+});

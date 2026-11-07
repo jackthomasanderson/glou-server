@@ -95,3 +95,44 @@ describe('InventoryListView rows are wines', () => {
     expect(opened).toEqual(['b1']);
   });
 });
+
+// Recette n°5 ter of #847: the list of cigars scrolled sideways at 1471 px and
+// its Stock column ran over two or three lines, cut anywhere.
+describe('InventoryListView fits its width', () => {
+  const cigar = product({
+    id: 'c1', name: 'Siglo VI', category: 'cigar', vintage: null,
+    items: [unit({ quantity: 3, cigarsPerBox: 25 }), unit({ quantity: 4, cigarsPerBox: null })],
+  });
+  const headers = () => screen.getAllByRole('columnheader').map((th) => th.textContent);
+
+  it('leaves out the vintage and drinking-window columns, always empty, on a page of cigars only', () => {
+    render(view({ items: [cigar] }));
+    expect(headers()).not.toContain('inventory.fields.vintage');
+    expect(headers()).not.toContain('view.columns.peak');
+    // Every row has as many cells as the header has columns.
+    for (const r of screen.getAllByRole('row').slice(1)) expect(r.querySelectorAll('td').length).toBe(headers().length);
+  });
+
+  it('keeps them as soon as a wine is on the page', () => {
+    render(view({ items: [cigar, bottle] }));
+    expect(headers()).toContain('inventory.fields.vintage');
+    expect(headers()).toContain('view.columns.peak');
+  });
+
+  it('wraps the stock line only between its parts, never inside one', () => {
+    render(view({ items: [cigar] }));
+    const line = screen.getByTestId('family-stock-line');
+    const parts = [...line.querySelectorAll('span[aria-hidden="true"] > span')];
+    expect(parts.map((part) => part.textContent)).toEqual(['familyList.stock.closedBoxes:3', 'familyList.stock.singleCigars:4']);
+    for (const part of parts) expect(part.className).toContain('whitespace-nowrap');
+  });
+
+  it('shows region and cellar only when the table is wide enough (a container query, not the page width)', () => {
+    render(view());
+    const table = screen.getByRole('grid');
+    expect(table.closest('.\\@container')).not.toBeNull();
+    const cellar = within(row()).getByText('Cave du bas').closest('td');
+    expect(cellar?.className).toMatch(/(^|\s)hidden(\s|$)/);
+    expect(cellar?.className).toMatch(/@2xl:table-cell/);
+  });
+});

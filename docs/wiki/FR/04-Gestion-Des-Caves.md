@@ -20,9 +20,13 @@
    - Sélectionnez la cave de destination dans le menu déroulant "Caves".
 4. **Modifier ou supprimer** : Utilisez les icônes crayon (éditer) ou poubelle (supprimer) sur chaque carte de cave.
 
-### Déplacer des bouteilles dans la grille, à la souris ou au clavier
-- **Souris ou tactile** : glissez une bouteille sur un emplacement vide.
-- **Clavier** : placez le focus sur un emplacement, puis `Entrée` ouvre le détail de la bouteille et `Espace` la saisit. Déplacez-la avec les flèches, une case à la fois, puis rappuyez sur `Espace` pour la déposer. `Échap` annule. Chaque étape est annoncée aux lecteurs d'écran.
+### Le plan de cave : une case par bouteille
+Une cave dont le plan est configuré (colonnes × rangées) affiche une grille. Chaque bouteille y a **sa propre case** : une ligne de 6 bouteilles identiques peut occuper 6 cases, et une boîte de cigares occupe une case. Seul un groupe de **cigares à l'unité** tient dans **une** case pour tous ses cigares, avec un badge « ×4 ». Le compteur (« 6 / 9 occupés ») compte les cases.
+- **Ranger une bouteille** : touchez une case vide. **Assigner une bouteille à la case C2·R3** liste les lignes qui ont encore des bouteilles non rangées, avec leur compte (« 2 rangées, 4 non rangées »). Une ligne dont toutes les bouteilles ont déjà leur case est refusée avec la raison : « Les 6 bouteilles de cette ligne sont déjà rangées. »
+- **Toucher une case occupée** ouvre le vin sur sa ligne, avec la case en tête du tiroir (« Case C2·R3 ») et **Retirer de la case**. **J'en ouvre une** ou **J'en bois une** depuis là prend la bouteille de **cette** case, sans autre question : ouverte, elle garde sa case ; bue, elle la libère. Si la case touchée est celle de la bouteille entamée, **Finir l'entamée** vient en premier.
+- **Déplacer** : glissez une bouteille sur une case vide ; sur une case occupée, les deux bouteilles échangent leurs cases.
+- **Clavier** : placez le focus sur une case, puis `Entrée` ouvre le vin (ou, sur une case vide, l'assignation) et `Espace` saisit la bouteille. Déplacez-la avec les flèches, une case à la fois, puis rappuyez sur `Espace` pour la déposer. `Échap` annule. Chaque étape est annoncée aux lecteurs d'écran.
+- Hors connexion, le plan se consulte seulement : ranger, déplacer ou retirer une bouteille attend le retour de la connexion.
 
 ## Un vin, ses lignes et ses bouteilles
 
@@ -33,12 +37,14 @@
 - Les chiffres comptent des **bouteilles** (ou des **cigares**), pas des enregistrements : « 142 bouteilles · 58 vins » sur Vins, « 23 bouteilles · 17 spiritueux » sur Spiritueux, « 34 bouteilles · 12 cuvées » sur Bulles, « 89 cigares · 12 références » sur Cigares, « 165 bouteilles · 89 cigares » sur l'accueil. La valeur et les dépenses suivent : prix et valeur estimée sont ceux d'**une** bouteille, multipliés par le nombre.
 - Filtrée par cave, la carte indique « 2 ici · 9 en tout ».
 - Un vin dont il ne reste aucune bouteille (tout bu, ou goûté ailleurs) est **caché** de la liste. Le filtre **Plus en cave** l'affiche (« Plus de bouteille » ; « Plus de cigare ») ; la recherche le retrouve toujours. **Ajouter des bouteilles** le remet en cave. Il garde ses dégustations et son historique.
-- Un plan de cave affiche une ligne de bouteilles identiques sur **une** case, avec un badge « ×4 ».
+- Dans le tiroir, une ligne dont des bouteilles sont rangées sur le plan dit où : « 4 rangées, 2 non rangées · C1·R1, C1·R2, … » (pour des cigares à l'unité : « Rangés en C1·R1 »). Rien n'est affiché pour une ligne sans case.
 
 ### J'en ouvre une, j'en bois une, j'en fume un
 Dans le tiroir du vin, **J'en ouvre une** (bouton principal ; **J'en fume un** pour un cigare) et **J'en bois une** (bouton secondaire) agissent sur **une seule** bouteille : elle se détache de sa ligne (×4 devient ×3) et devient une bouteille à part, entamée ou bue. Une bouteille bue reste dans votre historique et vos dépenses. Pour une ligne d'une seule bouteille, c'est cette bouteille qui change d'état.
 - Si plusieurs lignes peuvent servir, Glou demande **Quelles bouteilles ?** avec un choix déjà sélectionné : la cave que vous regardiez, sinon l'achat le plus ancien ; à égalité de date (ou sans date), la moins chère puis la ligne la plus nombreuse.
-- Un message **« 1 bouteille ouverte · Annuler »** reste affiché 8 secondes : **Annuler** remet la bouteille avec les autres.
+- Si la ligne a des bouteilles rangées sur le plan, Glou demande **De quelle case ?** : les cases de la ligne, plus **Non rangée** tant qu'il en reste une, présélectionnée dans ce cas (sinon rien n'est présélectionné : touchez la case de la bouteille). Une bouteille ouverte garde sa case, une bouteille bue libère la sienne. La question ne se pose pas pour une ligne d'une seule bouteille ni pour des cigares à l'unité (leur case reste au groupe jusqu'au dernier).
+- Un message **« 1 bouteille ouverte · Annuler »** reste affiché 8 secondes : **Annuler** remet la bouteille avec les autres, dans sa case si elle est encore libre.
+- Les gestes faits sans le plan sous les yeux (**Marquer comme bus** groupé, inventaire physique, invité) ne posent pas la question : Glou prend une bouteille non rangée d'abord, sinon celle de la case rangée le plus récemment, et l'historique dit quelle case a été libérée (« Case C2·R3 libérée »).
 - Si une bouteille de ce vin est déjà entamée, Glou vous le rappelle : « Une bouteille est déjà entamée (60 %) » — **Finir l'entamée** ou **En ouvrir une nouvelle**. En marquant une bouteille comme bue : « C'est elle que vous avez finie ? » (Oui : l'entamée passe en bue ; Non : une bouteille pleine passe en bue). Le [plan de consommation](./22-Plan-De-Consommation.md) propose de finir l'entamée d'abord.
 - Cigares : fumer le premier cigare d'une boîte fermée l'entame (« boîte entamée, 24 restants »). Avec une boîte entamée et des boîtes fermées, Glou demande « Dans la boîte entamée ou en ouvrir une nouvelle ? ». Un cigare à l'unité fumé reste dans l'historique comme une bouteille bue.
 
@@ -47,10 +53,11 @@ Dans le menu d'une bouteille entamée, **Annuler l'ouverture** (ou remettre son 
 
 ### Actions sur une ligne
 Le menu d'une ligne propose :
-- **Déplacer** : « Combien déplacer ? » puis la cave. La ligne se scinde (Garage ×4, Cuisine ×2) ; une ligne qui devient identique à une autre la rejoint.
-- **Changer le prix** : « Pour combien de bouteilles ? ». Le prix d'une partie seulement scinde la ligne.
-- **Corriger le nombre** (à la baisse, avec son motif) et **Modifier** (date d'achat, lieu, emplacement…) : voir [05-Ajout-Bouteille.md](./05-Ajout-Bouteille.md).
+- **Déplacer** : « Combien déplacer ? » puis la cave. La ligne se scinde (Garage ×4, Cuisine ×2) ; une ligne qui devient identique à une autre la rejoint, cases comprises. Les bouteilles déplacées arrivent non rangées dans la nouvelle cave.
+- **Changer le prix** : « Pour combien de bouteilles ? ». Le prix d'une partie seulement scinde la ligne. Les bouteilles qui changent de prix sont prises d'abord parmi les non rangées ; si cela ne suffit pas, Glou demande **Quelles cases passent au nouveau prix ?** : ces cases restent occupées et suivent la nouvelle ligne.
+- **Corriger le nombre** (à la baisse, avec son motif) et **Modifier** (date d'achat, lieu, repère libre…) : voir [05-Ajout-Bouteille.md](./05-Ajout-Bouteille.md).
 - **Mettre à la corbeille** : la ligne se restaure depuis la corbeille.
+- Quand une correction, une sortie ou un déplacement laisse à la ligne moins de bouteilles qu'elle n'a de cases, Glou demande **Quelles cases libérer ?** sur un petit plan de la cave : touchez exactement le nombre de cases demandé. Les bouteilles non rangées partent d'abord, sans question.
 
 La description du vin (nom, région, cépages, notes…) se modifie **une fois pour toutes ses bouteilles** depuis le bouton de modification du tiroir.
 

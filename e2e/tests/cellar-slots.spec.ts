@@ -1,0 +1,504 @@
+import { test, expect, type APIRequestContext, type APIResponse, type Page } from '@playwright/test';
+
+/**
+ * FEAT-93 (#847, lot S3): the cellar plan, one cell per bottle. Criterion 1
+ * (a group x6 placed in 6 cells shows in those 6 cells) and criterion 2
+ * (2 placed of 6 reads "2 rangées, 4 non rangées"; a 7th is refused with an
+ * explanation), through the plan's interface on the real stack. A cell
+ * touched opens the wine on its line, with the cell named. Lot S4:
+ * criterion 3 (a bottle opened from a cell keeps that cell, the line its 5
+ * others) and criterion 4 (×6 in 6 cells corrected to ×4 asks which 2 cells
+ * to free; the plan then shows 4).
+ */
+
+type Cell = { id: string; column: number; row: number };
+type Unit = { id: string; quantity: number; isOpened: boolean; parentItemId: string | null; slots: Cell[] };
+const cellsText = (cells: Cell[]) => cells.map((cell) => `${cell.column}:${cell.row}`).sort().join(' ');
+
+const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
+
+async function okData<T>(res: APIResponse): Promise<T> {
+  expect(res.ok(), `${res.url()} → ${res.status()} ${await res.text()}`).toBe(true);
+  return (await res.json()).data as T;
+}
+
+/** French puts a (non-breaking) space before « : ». */
+const cellName = (column: number, row: number, rest: string) => new RegExp(`^Colonne ${column}, rangée ${row}\\s:\\s${rest}`);
+
+const emptyCell = (page: Page, column: number, row: number) =>
+  page.getByRole('button', { name: cellName(column, row, 'vide') });
+const heldCell = (page: Page, column: number, row: number, wine: string) =>
+  page.getByRole('button', { name: cellName(column, row, wine) });
+
+test.describe('the cellar plan, one cell per bottle (FEAT-93)', () => {
+  let productId: string | null = null;
+  let cellarId: string | null = null;
+  test.afterEach(async ({ page }) => {
+    if (productId) await page.request.delete(`/api/products/${productId}`).catch(() => {});
+    if (cellarId) await page.request.delete(`/api/cellars/${cellarId}`).catch(() => {});
+    productId = null;
+    cellarId = null;
+  });
+
+  async function cellarWithSix(api: APIRequestContext, wine: string): Promise<string> {
+    cellarId = (await okData<{ id: string }>(await api.post('/api/cellars', { data: { name: `E2E plan ${stamp()}`, columns: 3, rows: 3 } }))).id;
+    const unit = await okData<{ id: string; productId: string }>(await api.post('/api/inventory', {
+      data: { category: 'wine', name: wine, producer: 'E2E Domaine', purchasePrice: 20, cellarId },
+    }));
+    productId = unit.productId;
+    await okData(await api.patch(`/api/inventory/${unit.id}`, { data: { quantity: 6 } }));
+    return unit.id;
+  }
+
+  /** "Assigner" from an empty cell: the line of the wine, with its placement. */
+  async function openAssign(page: Page, column: number, row: number, wine: string) {
+    await emptyCell(page, column, row).click();
+    const dialog = page.getByRole('dialog').filter({ hasText: `C${column}·R${row}` });
+    const line = dialog.getByRole('button').filter({ hasText: wine });
+    await expect(line).toBeVisible();
+    return { dialog, line };
+  }
+
+  test('c1-c2: 2 placed read "2 rangées, 4 non rangées"; 6 placed show in their 6 cells; a 7th is refused with why', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    await page.goto(`/cellars/${cellarId}`);
+
+    // Nothing placed: "6 non rangées".
+    let assign = await openAssign(page, 1, 1, wine);
+    await expect(assign.line.getByTestId('assign-placement')).toHaveText('6 non rangées');
+    await assign.line.click();
+    await expect(heldCell(page, 1, 1, wine)).toBeVisible();
+
+    assign = await openAssign(page, 2, 1, wine);
+    await assign.line.click();
+    await expect(heldCell(page, 2, 1, wine)).toBeVisible();
+
+    // c2: two placed of six.
+    assign = await openAssign(page, 3, 1, wine);
+    await expect(assign.line.getByTestId('assign-placement')).toHaveText('2 rangées, 4 non rangées');
+    await assign.line.click();
+    for (const [column, row] of [[1, 2], [2, 2]] as const) {
+      await (await openAssign(page, column, row, wine)).line.click();
+      await expect(heldCell(page, column, row, wine)).toBeVisible();
+    }
+
+    // The last copy is placed from another device while "Assigner" is open here.
+    assign = await openAssign(page, 3, 2, wine);
+    await expect(assign.line.getByTestId('assign-placement')).toHaveText('5 rangées, 1 non rangée');
+    expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column: 1, row: 3 } })).status()).toBe(201);
+    await assign.line.click();
+    // c2: the 7th is refused, with why.
+    await expect(assign.dialog.getByRole('alert')).toContainText('Les 6 bouteilles de cette ligne sont déjà rangées.');
+    await assign.dialog.getByRole('button', { name: 'Annuler' }).click();
+
+    // c1: the six cells, and only them, hold the wine; the counter counts cells.
+    for (const [column, row] of [[1, 1], [2, 1], [3, 1], [1, 2], [2, 2], [1, 3]] as const) {
+      await expect(heldCell(page, column, row, wine)).toBeVisible();
+    }
+    await expect(page.getByRole('button', { name: new RegExp(`^Colonne \\d, rangée \\d\\s:\\s${wine}`) })).toHaveCount(6);
+    await expect(emptyCell(page, 3, 2)).toBeVisible();
+    await expect(page.getByText(/^6 \/ 9 occupés$/)).toBeVisible();
+  });
+
+  test('a cell touched opens its wine on the line, names the cell and takes the bottle out of it', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    for (const column of [1, 2]) expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column, row: 3 } })).status()).toBe(201);
+    await page.goto(`/cellars/${cellarId}`);
+
+    await heldCell(page, 2, 3, wine).click();
+    const drawer = page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
+    const banner = drawer.getByTestId('slot-context');
+    await expect(banner).toHaveText(/Case C2·R3/);
+    await banner.getByRole('button', { name: 'Retirer de la case' }).click();
+    await expect(banner).toHaveCount(0);
+    await expect(drawer.getByTestId('slot-removed')).toHaveText('Bouteille retirée de la case.');
+    await drawer.getByRole('button', { name: 'Fermer' }).first().click();
+
+    // The focus comes back to the cell touched, now empty — never the page body.
+    await expect(emptyCell(page, 2, 3)).toBeFocused();
+    await expect(heldCell(page, 1, 3, wine)).toBeVisible();
+    await expect(page.getByText(/^1 \/ 9 occupé$/)).toBeVisible();
+  });
+
+  // Review of #855: a swap shows what the server does (the bottles swap, each slot stays in
+  // its cell), and two cells of the same line never swap (no request, no false history).
+  test('with the keyboard: two wines swap their cells; two cells of the same wine stay as they are', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    const other = await okData<{ id: string; productId: string }>(await api.post('/api/inventory', {
+      data: { category: 'wine', name: `E2E Autre ${stamp()}`, producer: 'E2E Domaine', purchasePrice: 30, cellarId },
+    }));
+    for (const column of [1, 2]) expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column, row: 1 } })).status()).toBe(201);
+    expect((await api.post(`/api/inventory/${other.id}/slots`, { data: { column: 3, row: 1 } })).status()).toBe(201);
+    const swaps: string[] = [];
+    page.on('request', (request) => { if (request.url().includes('/swap-slots')) swaps.push(request.url()); });
+    try {
+      await page.goto(`/cellars/${cellarId}`);
+      // dnd-kit's keyboard drag, step by step as its screen-reader announcements say.
+      const said = page.getByRole('status').filter({ hasText: wine.split(' ')[0] });
+      const drag = async (column: number, row: number, name: string) => {
+        await heldCell(page, column, row, name).focus();
+        await page.keyboard.press('Space');
+        await expect(said.filter({ hasText: `au-dessus de la colonne ${column}, rangée ${row}` })).toHaveCount(1);
+        // dnd-kit measures the cells just after the pick-up: an arrow pressed before moves nothing, press again.
+        await expect(async () => {
+          if (await said.filter({ hasText: `au-dessus de la colonne ${column}, rangée ${row}` }).count() > 0) await page.keyboard.press('ArrowRight');
+          await expect(said.filter({ hasText: `au-dessus de la colonne ${column + 1}, rangée ${row}` })).toHaveCount(1, { timeout: 500 });
+        }).toPass();
+        await page.keyboard.press('Space');
+      };
+
+      // C1·R1 onto C2·R1: the same wine — nothing is sent.
+      await drag(1, 1, wine);
+      await expect(heldCell(page, 1, 1, wine)).toBeVisible();
+      await expect(heldCell(page, 2, 1, wine)).toBeVisible();
+
+      // C2·R1 onto C3·R1: the other wine — they swap, and stay swapped once the plan reloads.
+      await drag(2, 1, wine);
+      await expect(heldCell(page, 3, 1, wine)).toBeVisible();
+      await expect(heldCell(page, 2, 1, 'E2E Autre')).toBeVisible();
+      await page.reload();
+      await expect(heldCell(page, 3, 1, wine)).toBeVisible();
+      await expect(heldCell(page, 2, 1, 'E2E Autre')).toBeVisible();
+      expect(swaps).toHaveLength(1);
+    } finally {
+      await api.delete(`/api/products/${other.productId}`).catch(() => {});
+    }
+  });
+
+  // Recette n°5 bis of #847: a bottle dragged with the mouse landed one cell past the
+  // one it was released on when the pointer moved before the plan had drawn the dragged
+  // bottle (a quick gesture, or pointer events sent in a burst): dnd-kit measured that
+  // drag preview already moved, then moved it again, so the target was hit twice as far.
+  test('with the mouse: a bottle lands in the cell it is released on, however quick the gesture', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column: 1, row: 1 } })).status()).toBe(201);
+    // Five columns: room for a box measured one or two cells too far.
+    await okData(await api.patch(`/api/cellars/${cellarId}`, { data: { columns: 5 } }));
+    const moves: string[] = [];
+    page.on('request', (request) => { if (request.method() === 'PATCH' && request.url().includes('/api/slots/')) moves.push(request.postData() ?? ''); });
+    await page.goto(`/cellars/${cellarId}`);
+    const centre = async (column: number, row: number) => {
+      const box = (await page.locator(`[data-cell="${column}:${row}"]`).boundingBox())!;
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    };
+
+    // A real mouse, step by step: C1·R1 onto C1·R2.
+    const from = await centre(1, 1);
+    let to = await centre(1, 2);
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(to.x, to.y, { steps: 10 });
+    await page.mouse.up();
+    await expect(heldCell(page, 1, 2, wine)).toBeVisible();
+    await expect.poll(() => moves).toEqual([JSON.stringify({ column: 1, row: 2 })]);
+
+    // C1·R2 onto C2·R2, the pointer moved in one burst, before the plan draws anything
+    // (as a quick hand or a test tool does), then released once the drag is drawn.
+    const burst = async (column: number, row: number, to: { x: number; y: number }) => {
+      const from = await centre(column, row);
+      await page.locator(`[data-cell="${column}:${row}"]`).evaluate((cell, { from, to }) => {
+        const mouse = (type: string, at: { x: number; y: number }, target: EventTarget = document) =>
+          target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: at.x, clientY: at.y, button: 0, buttons: 1 }));
+        mouse('mousedown', from, cell);
+        mouse('mousemove', { x: from.x + (to.x - from.x) / 2, y: from.y + (to.y - from.y) / 2 });
+        mouse('mousemove', to);
+      }, { from, to });
+    };
+    const release = (at: { x: number; y: number }) =>
+      page.evaluate((at) => document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: at.x, clientY: at.y, button: 0 })), at);
+    to = await centre(2, 2);
+    await burst(1, 2, to);
+    await expect(page.locator('[data-cell="2:2"]').locator('..')).toHaveCSS('outline-style', 'solid');
+    await release(to);
+    await expect(heldCell(page, 2, 2, wine)).toBeVisible();
+    await expect.poll(() => moves).toEqual([JSON.stringify({ column: 1, row: 2 }), JSON.stringify({ column: 2, row: 2 })]);
+    await page.reload();
+    await expect(heldCell(page, 2, 2, wine)).toBeVisible();
+    await expect(emptyCell(page, 3, 2)).toBeVisible();
+
+    // The same burst released in the 4 px gap between C3·R2 and C4·R2, 1 px from C3·R2:
+    // the nearer cell, C3·R2 — not C4·R2 nor C5·R2 from the preview's box.
+    // The box of the cell itself (an empty cell's button sits inside its dashed border).
+    const target = (await page.locator('[data-cell="3:2"]').locator('..').boundingBox())!;
+    to = { x: target.x + target.width + 1, y: target.y + target.height / 2 };
+    await burst(2, 2, to);
+    await expect(page.locator('[data-cell="3:2"]').locator('..')).toHaveCSS('outline-style', 'solid');
+    await release(to);
+    await expect(heldCell(page, 3, 2, wine)).toBeVisible();
+    await expect.poll(() => moves.at(-1)).toBe(JSON.stringify({ column: 3, row: 2 }));
+  });
+
+  // Recette n°5 ter of #847: dnd-kit drops on the cell it computed at the last pointer
+  // move it has drawn, not on the cell under the pointer at the release. With pointer
+  // events sent in bursts (a test tool, a quick hand), a move followed at once by the
+  // release, or a release away from the last move, landed one cell short: on an
+  // occupied cell, the two bottles silently swapped.
+  test('with the mouse: the cell under the pointer at the release wins, never the last one drawn', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    await okData(await api.patch(`/api/cellars/${cellarId}`, { data: { columns: 5 } }));
+    const other = await okData<{ id: string; productId: string }>(await api.post('/api/inventory', {
+      data: { category: 'wine', name: `E2E Autre ${stamp()}`, producer: 'E2E Domaine', purchasePrice: 30, cellarId },
+    }));
+    expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column: 1, row: 2 } })).status()).toBe(201);
+    expect((await api.post(`/api/inventory/${other.id}/slots`, { data: { column: 3, row: 2 } })).status()).toBe(201);
+    const sent: string[] = [];
+    page.on('request', (request) => {
+      if (request.method() === 'PATCH' && request.url().includes('/api/slots/')) sent.push(`move ${request.postData()}`);
+      if (request.url().includes('/swap-slots')) sent.push('swap');
+    });
+    try {
+      await page.goto(`/cellars/${cellarId}`);
+      const box = async (column: number, row: number) => (await page.locator(`[data-cell="${column}:${row}"]`).locator('..').boundingBox())!;
+      const centre = async (column: number, row: number) => {
+        const b = await box(column, row);
+        return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+      };
+      type Step = { type: 'mousedown' | 'mousemove' | 'mouseup'; x: number; y: number };
+      // Mouse events dispatched in one task: the plan draws nothing between them.
+      const burst = (steps: Step[], cell?: { column: number; row: number }) => page.evaluate(({ steps, cell }) => {
+        for (const { type, x, y } of steps) {
+          const target = type === 'mousedown' && cell ? document.querySelector(`[data-cell="${cell.column}:${cell.row}"]`)! : document;
+          target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 0, buttons: type === 'mouseup' ? 0 : 1 }));
+        }
+      }, { steps, cell });
+      const outlined = (column: number, row: number) =>
+        expect(page.locator(`[data-cell="${column}:${row}"]`).locator('..')).toHaveCSS('outline-style', 'solid');
+      const pickUp = async (column: number, row: number, over: { column: number; row: number }) => {
+        const from = await centre(column, row);
+        const via = await centre(over.column, over.row);
+        await burst([
+          { type: 'mousedown', ...from },
+          { type: 'mousemove', x: from.x + 10, y: from.y },
+          { type: 'mousemove', ...via },
+        ], { column, row });
+        // The plan has drawn the drag over that cell: dnd-kit's own target is now it.
+        await outlined(over.column, over.row);
+      };
+
+      // C1·R2, drawn over C3·R2 (the other wine), then moved to C4·R2 (empty) and released
+      // there at once: it moves to C4·R2 and the other wine is not swapped.
+      await pickUp(1, 2, { column: 3, row: 2 });
+      const c4 = await centre(4, 2);
+      await burst([{ type: 'mousemove', ...c4 }, { type: 'mouseup', ...c4 }]);
+      await expect.poll(() => sent).toEqual([`move ${JSON.stringify({ column: 4, row: 2 })}`]);
+      await expect(heldCell(page, 4, 2, wine)).toBeVisible();
+      await expect(heldCell(page, 3, 2, 'E2E Autre')).toBeVisible();
+
+      // C4·R2, drawn over C4·R1, released 3 px inside C5·R1 with no move there: C5·R1.
+      await pickUp(4, 2, { column: 4, row: 1 });
+      const c5 = await box(5, 1);
+      await burst([{ type: 'mouseup', x: c5.x + 3, y: c5.y + c5.height / 2 }]);
+      await expect.poll(() => sent.at(-1)).toBe(`move ${JSON.stringify({ column: 5, row: 1 })}`);
+      await expect(heldCell(page, 5, 1, wine)).toBeVisible();
+
+      // A swap still happens where the bottle is released: C5·R1, drawn over C4·R1, released
+      // on C3·R2 (the other wine) at once.
+      await pickUp(5, 1, { column: 4, row: 1 });
+      const c3 = await centre(3, 2);
+      await burst([{ type: 'mousemove', ...c3 }, { type: 'mouseup', ...c3 }]);
+      await expect.poll(() => sent.at(-1)).toBe('swap');
+      await expect(heldCell(page, 3, 2, wine)).toBeVisible();
+      await expect(heldCell(page, 5, 1, 'E2E Autre')).toBeVisible();
+
+      // Released off the plan, with the last move drawn over a cell: nothing moves.
+      await pickUp(3, 2, { column: 2, row: 2 });
+      const plan = await box(5, 3);
+      await burst([{ type: 'mouseup', x: plan.x + plan.width + 40, y: plan.y + plan.height + 40 }]);
+      await page.waitForTimeout(500);
+      expect(sent).toHaveLength(3);
+
+      await page.reload();
+      await expect(heldCell(page, 3, 2, wine)).toBeVisible();
+      await expect(heldCell(page, 5, 1, 'E2E Autre')).toBeVisible();
+      await expect(emptyCell(page, 4, 2)).toBeVisible();
+      await expect(emptyCell(page, 4, 1)).toBeVisible();
+    } finally {
+      await api.delete(`/api/products/${other.productId}`).catch(() => {});
+    }
+  });
+
+  // Recette n°5 bis of #847: the tooltip of a cell, beside it, covers the next cells of
+  // the row: a hover or a click there must reach the cell under it, never the tooltip.
+  test('the tooltip of a cell never takes the pointer, closes on leaving its cell, and stays hidden while dragging', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    for (const [column, row] of [[1, 1], [3, 1]] as const) {
+      expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column, row } })).status()).toBe(201);
+    }
+    await page.goto(`/cellars/${cellarId}`);
+    const centre = async (column: number, row: number) => {
+      const box = (await page.locator(`[data-cell="${column}:${row}"]`).boundingBox())!;
+      return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+    };
+    const tooltip = page.getByRole('tooltip');
+
+    const c1 = await centre(1, 1);
+    const c2 = await centre(2, 1);
+    // A first click on the page's title: react-aria shows a tooltip on hover once it knows a mouse is used.
+    await page.getByRole('heading', { level: 1, name: /^E2E plan / }).click();
+    await page.mouse.move(c1.x, c1.y);
+    await expect(tooltip).toContainText(wine);
+    // It does lie over C2·R1…
+    const box = (await tooltip.boundingBox())!;
+    expect(box.x).toBeLessThan(c2.x);
+    expect(box.x + box.width).toBeGreaterThan(c2.x);
+    // …yet a click there reaches the empty cell, and the tooltip is gone.
+    await page.mouse.click(c2.x, c2.y);
+    await expect(page.getByRole('dialog').filter({ hasText: 'C2·R1' })).toBeVisible();
+    await expect(tooltip).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+
+    // Dragging C1·R1 and lingering over C3·R1: no tooltip, neither its own nor C3·R1's.
+    const c3 = await centre(3, 1);
+    await page.mouse.move(c1.x, c1.y);
+    await page.mouse.down();
+    await page.mouse.move(c3.x, c3.y, { steps: 10 });
+    await page.waitForTimeout(1200);
+    await expect(tooltip).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await page.mouse.up();
+    await expect(heldCell(page, 1, 1, wine)).toBeVisible();
+  });
+
+  /** Every copy of the line placed, by the API: C1·R1 … C3·R2. */
+  async function placeAll(api: APIRequestContext, itemId: string) {
+    for (const [column, row] of [[1, 1], [2, 1], [3, 1], [1, 2], [2, 2], [3, 2]] as const) {
+      expect((await api.post(`/api/inventory/${itemId}/slots`, { data: { column, row } })).status()).toBe(201);
+    }
+  }
+
+  const drawerOf = (page: Page) => page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
+
+  test('c3: a bottle opened from a cell keeps that cell; the line, now ×5, keeps its 5 other cells', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    await placeAll(api, itemId);
+    await page.goto(`/cellars/${cellarId}`);
+
+    await heldCell(page, 2, 1, wine).click();
+    const drawer = drawerOf(page);
+    await expect(drawer.getByTestId('slot-context')).toHaveText(/Case C2·R1/);
+    // c1: the drawer says where the six are.
+    await expect(drawer.locator(`[data-line-id="${itemId}"]`).getByTestId('line-slots')).toHaveText(/^6 rangées · /);
+
+    // From the cell: that very bottle — no "De quelle case ?", no reminder.
+    const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH');
+    await drawer.getByTestId('stock-move-open').click();
+    const res = await sent;
+    expect(res.status(), await res.text()).toBe(200);
+    expect(JSON.parse(res.request().postData() ?? '{}')).toMatchObject({ isOpened: true });
+    await expect(page.getByRole('dialog').filter({ hasText: 'De quelle case' })).toHaveCount(0);
+
+    const units = (await okData<{ items: Unit[] }>(await api.get(`/api/products/${productId}`))).items;
+    const group = units.find((unit) => unit.id === itemId)!;
+    const opened = units.find((unit) => unit.parentItemId === itemId)!;
+    expect(group.quantity).toBe(5);
+    expect(cellsText(group.slots)).toBe('1:1 1:2 2:2 3:1 3:2');
+    expect(opened.isOpened).toBe(true);
+    expect(cellsText(opened.slots)).toBe('2:1');
+
+    // The drawer follows the bottle into its cell: the cell still named, "Finir l'entamée" first (decision 77).
+    await expect(drawer.getByTestId('slot-context')).toHaveText(/Case C2·R1/);
+    await expect(drawer.getByTestId('stock-move-finish')).toHaveText("Finir l'entamée");
+    await expect(drawer.locator(`[data-line-id="${itemId}"]`).getByTestId('line-slots')).toHaveText(/^5 rangées · /);
+    await drawer.getByRole('button', { name: 'Fermer' }).first().click();
+
+    // The plan still shows the six bottles where they are.
+    await page.reload();
+    await expect(page.getByRole('button', { name: new RegExp(`^Colonne \\d, rangée \\d\\s:\\s${wine}`) })).toHaveCount(6);
+    await expect(heldCell(page, 2, 1, wine)).toBeVisible();
+  });
+
+  // Recette n°5 quater of #847: after "Modifier", the drawer came back without its cell and
+  // "J'en ouvre une" asked "De quelle case ?", preset on an unplaced bottle.
+  test('a cell touched stays named after "Ajouter des bouteilles" and "Modifier": the move takes its bottle', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    await placeAll(api, itemId);
+    await page.goto(`/cellars/${cellarId}`);
+
+    await heldCell(page, 2, 1, wine).click();
+    const drawer = drawerOf(page);
+    const banner = drawer.getByTestId('slot-context');
+    await expect(banner).toHaveText(/Case C2·R1/);
+
+    // One more bottle, unplaced: the cell is still the one touched.
+    const form = page.getByRole('dialog').filter({ has: page.getByTestId('add-units-submit') });
+    await drawer.getByTestId('add-units-button').click();
+    await form.getByTestId('add-units-submit').click();
+    await expect(form).toHaveCount(0);
+    await expect(drawer.getByTestId('family-drawer-stock')).toContainText('7');
+    await expect(banner).toHaveText(/Case C2·R1/);
+
+    // "Modifier", then the window closed: back on the same cell.
+    await drawer.getByRole('button', { name: 'Modifier' }).click();
+    await expect(page.locator('#inventory-detail-title')).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await expect(banner).toHaveText(/Case C2·R1/);
+
+    // From the cell: that very bottle — no "De quelle case ?", never the unplaced one.
+    const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${itemId}`) && r.request().method() === 'PATCH');
+    await drawer.getByTestId('stock-move-open').click();
+    expect((await sent).status()).toBe(200);
+    await expect(page.getByRole('dialog').filter({ hasText: 'De quelle case' })).toHaveCount(0);
+    const units = (await okData<{ items: Unit[] }>(await api.get(`/api/products/${productId}`))).items;
+    const opened = units.find((unit) => unit.parentItemId === itemId)!;
+    expect(cellsText(opened.slots)).toBe('2:1');
+  });
+
+  test('c4: ×6 in 6 cells corrected to ×4 asks which 2 cells to free; the plan then shows 4', async ({ page }) => {
+    const api = page.request;
+    const wine = `E2E Plan ${stamp()}`;
+    const itemId = await cellarWithSix(api, wine);
+    await placeAll(api, itemId);
+    await page.goto(`/cellars/${cellarId}`);
+
+    await heldCell(page, 1, 1, wine).click();
+    const drawer = drawerOf(page);
+    const line = drawer.locator(`[data-line-id="${itemId}"]`);
+    await expect(line).toBeVisible();
+    await page.waitForLoadState('networkidle');
+    await line.getByRole('button', { name: 'Actions de cette ligne' }).click();
+    // By CSS: the open menu is kept out of the accessibility tree while the drawer is open (#727).
+    await page.locator('[role="menuitem"]').filter({ hasText: 'Corriger le nombre' }).click();
+
+    const dialog = page.getByRole('dialog').filter({ has: page.locator('header', { hasText: 'Corriger le nombre' }) });
+    await dialog.getByLabel('Nombre de bouteilles').fill('4');
+    await dialog.getByRole('radio', { name: /Erreur de saisie/ }).check();
+    const picker = dialog.getByTestId('slot-picker');
+    await expect(picker).toContainText('Quelles cases libérer ?');
+    const confirm = dialog.getByRole('button', { name: 'Corriger', exact: true });
+    await expect(confirm).toBeDisabled();
+    await picker.getByRole('button', { name: 'Case C3·R2' }).click();
+    await picker.getByRole('button', { name: 'Case C2·R2' }).click();
+    await expect(picker.getByTestId('slot-pick-count')).toHaveText(/2 sur 2/);
+
+    const sent = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${itemId}/correct`));
+    await confirm.click();
+    const res = await sent;
+    expect(res.status(), await res.text()).toBe(200);
+    await expect(dialog).toBeHidden();
+    await expect(line.getByTestId('line-slots')).toHaveText(/^4 rangées · /);
+    await drawer.getByRole('button', { name: 'Fermer' }).first().click();
+
+    await expect(page.getByRole('button', { name: new RegExp(`^Colonne \\d, rangée \\d\\s:\\s${wine}`) })).toHaveCount(4);
+    await expect(emptyCell(page, 3, 2)).toBeVisible();
+    await expect(emptyCell(page, 2, 2)).toBeVisible();
+    await expect(page.getByText(/^4 \/ 9 occupés$/)).toBeVisible();
+  });
+});
+

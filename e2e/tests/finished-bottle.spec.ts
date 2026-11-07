@@ -34,6 +34,12 @@ async function createCellar(api: APIRequestContext, label: string): Promise<stri
   return cellar.id;
 }
 
+/** FEAT-93: one copy of the line placed in a cell of the plan. */
+async function place(api: APIRequestContext, itemId: string, column: number, row: number): Promise<void> {
+  const res = await api.post(`/api/inventory/${itemId}/slots`, { data: { column, row } });
+  expect(res.status(), await res.text()).toBe(201);
+}
+
 async function createItem(api: APIRequestContext, data: Record<string, unknown>): Promise<string> {
   const item = await okData<Row>(await api.post('/api/inventory', { data }));
   expect(item.id).toBeTruthy();
@@ -79,7 +85,7 @@ test('a finished bottle leaves alerts, suggestions, the map and the counters', a
     // (a) A full bottle on the shelf, at its peak.
     const full = await createItem(api, wine('Full', { estimatedValue: 30 }));
     itemIds.push(full);
-    await okData(await api.patch(`/api/inventory/${full}`, { data: { slotColumn: 1, slotRow: 1 } }));
+    await place(api, full, 1, 1);
 
     // (b) Opened, level never entered (`fillLevel` null): still in stock — the
     // null-safety case of the "not finished" filter.
@@ -90,12 +96,12 @@ test('a finished bottle leaves alerts, suggestions, the map and the counters', a
     // choice does it.
     const finished = await createItem(api, wine('Finished', { estimatedValue: 100 }));
     itemIds.push(finished);
-    await okData(await api.patch(`/api/inventory/${finished}`, { data: { slotColumn: 2, slotRow: 1 } }));
+    await place(api, finished, 2, 1);
     await okData(await api.patch(`/api/inventory/${finished}`, { data: { isOpened: true, fillLevel: 0 } }));
 
     // It stays in the inventory, but has left its rack.
     expect(await okData<Record<string, unknown>>(await api.get(`/api/inventory/${finished}`))).toMatchObject({
-      isOpened: true, fillLevel: 0, slotColumn: null, slotRow: null,
+      isOpened: true, fillLevel: 0, slots: [],
     });
 
     // Sidebar counter: only the two bottles in stock were added.
@@ -124,9 +130,9 @@ test('a finished bottle leaves alerts, suggestions, the map and the counters', a
     expect(cellar.stats.estimatedValue).toBe(50);
 
     // The freed slot takes another bottle (no 409 SLOT_OCCUPIED).
-    const moved = await api.patch(`/api/inventory/${opened}`, { data: { slotColumn: 2, slotRow: 1 } });
-    expect(moved.status(), await moved.text()).toBe(200);
-    expect((await moved.json()).data).toMatchObject({ slotColumn: 2, slotRow: 1 });
+    const moved = await api.post(`/api/inventory/${opened}/slots`, { data: { column: 2, row: 1 } });
+    expect(moved.status(), await moved.text()).toBe(201);
+    expect((await moved.json()).data).toMatchObject({ itemId: opened, slot: { column: 2, row: 1 } });
   } finally {
     for (const itemId of itemIds) await api.delete(`/api/inventory/${itemId}`).catch(() => {});
     if (cellarId) await api.delete(`/api/cellars/${cellarId}`).catch(() => {});
@@ -143,7 +149,7 @@ test('a bottle marked consumed at a count is not missing at the next count', asy
     cellarId = await createCellar(api, 'count');
     const gone = await createItem(api, { category: 'wine', name: `E2E #573 Gone ${id}`, producer: 'E2E Domaine', cellarId });
     itemIds.push(gone);
-    await okData(await api.patch(`/api/inventory/${gone}`, { data: { slotColumn: 1, slotRow: 1 } }));
+    await place(api, gone, 1, 1);
     const there = await createItem(api, { category: 'wine', name: `E2E #573 There ${id}`, producer: 'E2E Domaine', cellarId });
     itemIds.push(there);
 
@@ -165,7 +171,7 @@ test('a bottle marked consumed at a count is not missing at the next count', asy
 
     // The consumed bottle is finished and gave its slot back.
     expect(await okData<Record<string, unknown>>(await api.get(`/api/inventory/${gone}`))).toMatchObject({
-      isOpened: true, fillLevel: 0, slotColumn: null, slotRow: null,
+      isOpened: true, fillLevel: 0, slots: [],
     });
 
     // Second count: it is no longer expected, so no longer missing.
@@ -193,15 +199,18 @@ test('drinking one bottle of a shelved group leaves the others on the shelf', as
     cellarId = await createCellar(api, 'group');
     const group = await createItem(api, { category: 'wine', name: `E2E #471 Shelf ${id}`, producer: 'E2E Domaine', cellarId, estimatedValue: 30 });
     productId = (await okData<{ productId: string }>(await api.get(`/api/inventory/${group}`))).productId;
-    await okData(await api.patch(`/api/inventory/${group}`, { data: { quantity: 3, slotColumn: 1, slotRow: 1 } }));
+    await okData(await api.patch(`/api/inventory/${group}`, { data: { quantity: 3 } }));
+    await place(api, group, 1, 1);
 
+    // FEAT-93 (lot S2): « De quelle case ? » answered « Non rangée ».
     const drunk = await okData<Row & Record<string, unknown>>(
-      await api.patch(`/api/inventory/${group}`, { data: { isOpened: true, fillLevel: 0 } }),
+      await api.patch(`/api/inventory/${group}`, { data: { isOpened: true, fillLevel: 0, fromUnplaced: true } }),
     );
 
-    expect(drunk).toMatchObject({ isOpened: true, fillLevel: 0, quantity: 1, parentItemId: group, slotColumn: null });
+    // FEAT-93: two of the three were unplaced: the bottle drunk is one of them.
+    expect(drunk).toMatchObject({ isOpened: true, fillLevel: 0, quantity: 1, parentItemId: group, slots: [] });
     expect(await okData<Record<string, unknown>>(await api.get(`/api/inventory/${group}`))).toMatchObject({
-      quantity: 2, isOpened: false, slotColumn: 1, slotRow: 1,
+      quantity: 2, isOpened: false, slots: [expect.objectContaining({ column: 1, row: 1 })],
     });
     const grid = await okData<{ items: Row[] }>(await api.get(`/api/cellars/${cellarId}/grid`));
     expect(ids(grid.items)).toEqual([group]);

@@ -54,6 +54,23 @@ function copiesInStock(item: UnitState): number {
 }
 
 /**
+ * FEAT-93: the cells of the cellar plan a unit may hold — one per copy in
+ * stock (bottle, box), 1 for an opened sub-record, 1 for a group of single
+ * cigars (one cell for the whole group, decision #471 point 48), 0 once
+ * finished, written off or in the trash. The database guard
+ * (`item_slots_violation`, migration 20261106120000_item_slots) applies the
+ * same rule at commit.
+ */
+export function slotCapacity(item: UnitState & { deletedAt?: DayValue }, kind: UnitKind): number {
+  if (item.deletedAt != null) return 0;
+  const copies = copiesInStock(item);
+  if (copies === 0) return 0;
+  if (item.isOpened) return 1;
+  if (kind === 'cigar' && item.cigarsPerBox == null) return 1;
+  return copies;
+}
+
+/**
  * Units in stock: bottles of a group (`quantity`), cigars of a group of boxes
  * (`quantity × cigarsPerBox`) or of single cigars (`quantity`), 1 bottle or
  * `cigarsLeft` cigars for an opened sub-record, 0 once finished or written off.
@@ -85,6 +102,31 @@ function heldShare(item: Pick<UnitState, 'isOpened' | 'cigarsPerBox' | 'cigarsLe
  */
 export function itemValue(item: UnitState & UnitPrices): number {
   return (item.estimatedValue ?? item.purchasePrice ?? 0) * copiesInStock(item) * heldShare(item);
+}
+
+/**
+ * #838: what the copies in stock cost — the purchase price of each copy held,
+ * an opened box the share of its cigars left, like {@link itemValue}, so that
+ * value and cost compare the same units (the capital gain). Spending, drunk
+ * and written-off copies included, is {@link itemSpend}.
+ */
+export function itemCostInStock(item: UnitState & Pick<UnitPrices, 'purchasePrice'>): number {
+  return (item.purchasePrice ?? 0) * copiesInStock(item) * heldShare(item);
+}
+
+/**
+ * #838: units consumed out of a unit — 1 for a bottle drunk (finished) or a
+ * single cigar smoked, the cigars smoked out of an opened or finished box
+ * (`cigarsPerBox − cigarsLeft`), 0 for anything else (a closed group, an
+ * opened bottle not finished, a write-off: broken, given away or lost is not
+ * consumed).
+ */
+export function consumedUnits(item: Pick<UnitState, 'isOpened' | 'fillLevel' | 'cigarsPerBox' | 'cigarsLeft'>): number {
+  if (!item.isOpened) return 0;
+  const finished = isFinishedState(item);
+  if (item.cigarsPerBox == null || item.cigarsPerBox <= 0) return finished ? 1 : 0;
+  const left = finished ? 0 : Math.min(Math.max(item.cigarsLeft ?? item.cigarsPerBox, 0), item.cigarsPerBox);
+  return item.cigarsPerBox - left;
 }
 
 /**

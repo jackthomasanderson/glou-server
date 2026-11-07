@@ -52,6 +52,10 @@ describe('auth rate limiters answer JSON (#640)', () => {
     expectTooManyRequests(await exhaust('/api/auth/2fa/verify-login', 20));
   });
 
+  it('authLimiter also covers backup-code regeneration (#638)', async () => {
+    expectTooManyRequests(await exhaust('/api/auth/2fa/backup-codes', 20));
+  });
+
   it('passwordResetLimiter: the 6th reset request gets TOO_MANY_REQUESTS', async () => {
     expectTooManyRequests(await exhaust('/api/auth/forgot-password', 5));
   });

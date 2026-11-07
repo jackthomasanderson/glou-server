@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import {
   Button, Chip, Input, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
-  Skeleton, Tooltip, ButtonGroup, Select, SelectItem,
+  Skeleton, Tooltip, ButtonGroup, SelectItem,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays, ArrowUp, ArrowDown } from 'lucide-react';
@@ -21,6 +21,7 @@ import {
 } from '@/hooks/useAdmin';
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { CURVE_SHAPES, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 const CATEGORY_CONFIG = {
   wine:      { hasColor: true,  hasVintage: true,  forceAbsolute: false },
@@ -240,7 +241,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
               </div>
 
               {/* FEAT-86: consumption-curve shape */}
-              <Select
+              <SingleSelect
                 label={t('admin.maturityRefs.fields.curveShape')}
                 description={t('admin.maturityRefs.hints.curveShape')}
                 variant="bordered"
@@ -264,7 +265,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                     </div>
                   </SelectItem>
                 ))}
-              </Select>
+              </SingleSelect>
 
               <div className="relative flex items-center gap-2">
                 <div className="flex-1 h-px bg-divider" />

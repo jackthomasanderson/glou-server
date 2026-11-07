@@ -1,12 +1,13 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter, Select, SelectItem } from '@heroui/react';
+import { Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter, SelectItem } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Lock } from 'lucide-react';
 import { PublicUser, useUpdateEmail, useUpdatePassword, useUpdatePreferences, useSetPin, useRemovePin } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
 import { PASSWORD_MIN_LENGTH } from '@shared/auth';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 export function AccountSecurity({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
@@ -176,7 +177,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
             <p className="text-xs text-foreground-500">{t('profile.autoLockDelay')}</p>
             <p className="text-sm font-medium">{t('profile.autoLockHint')}</p>
           </div>
-          <Select
+          <SingleSelect
             aria-label={t('profile.autoLockDelay')}
             selectedKeys={[autoLockValue]}
             onSelectionChange={(keys) => handleAutoLockChange(Array.from(keys)[0] as string)}
@@ -190,7 +191,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
             <SelectItem key="5">{t('profile.autoLockMinutes', { count: 5 })}</SelectItem>
             <SelectItem key="15">{t('profile.autoLockMinutes', { count: 15 })}</SelectItem>
             <SelectItem key="30">{t('profile.autoLockMinutes', { count: 30 })}</SelectItem>
-          </Select>
+          </SingleSelect>
         </div>
 
         {/* FEAT-30: Unlock PIN */}

@@ -6,21 +6,25 @@ import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
-import { isFinishedItem, isGroupableItem, NO_SLOT, unitKind, type UnitKind } from '../lib/finished-item';
+import { isGroupableItem, unitKind, type UnitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
   compareFamilyIds, isProductField, lockFamilies, lockFamily, nextLocksAndSources, pickProductFields, purchaseDayFromInput,
-  toItemView, toUnitView,
+  toItemView, toUnitView, UNIT_SLOTS_INCLUDE,
   type FlatItemView,
 } from '../lib/product-fields';
 import {
   applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
 } from './stock-state.service';
-import { writeFamilyDescription } from './product.service';
+import { writeFamilyDescription, type UnitSlotChanges } from './product.service';
 import { rememberDistinct } from './review.service';
 import { GROUP_KEY_FIELDS, joinIdenticalGroup, splitLockedGroup } from './stock-split.service';
-import { isSlotTaken } from '../lib/slots';
+import {
+  fitSlotsTo, freeSlots, liveSlotsOf, placeBack, reviveSlots, slotsFreed, slotsLeaving, slotsPlaced, trashSlots,
+  type SlotChoice,
+} from '../lib/slots';
+import { slotCapacity } from '../../../shared/units';
 
 // ISSUE_096: only a photoUrl saved by search.router.ts's product-image
 // endpoints (uploads/products/*) is ever safe to delete from disk — an
@@ -59,7 +63,6 @@ export type { FieldSource };
 export type RollbackFieldResult =
   | { status: 'not_found' }
   | { status: 'invalid_value' }
-  | { status: 'slot_conflict' }
   | { status: 'success'; item: InventoryItemView; changes: FieldChange[]; joined?: { from: number; to: number } };
 
 /**
@@ -84,7 +87,7 @@ export type UpdateItemResult =
       /** How the detach / reattach rule applied the state, when it did more than update the unit. */
       outcome?: Exclude<StateOutcome, 'updated'>;
       /** The group whose count moved (−1 detached, +1 reattached): logged in its own history. */
-      groupChange?: { itemId: string; from: number; to: number };
+      groupChange?: { itemId: string; from: number; to: number; slotChanges?: FieldChange[] };
       /** Tastings deleted by a reattach answered `keepTastings: false`. */
       deletedTastings?: number;
       /**
@@ -92,7 +95,8 @@ export type UpdateItemResult =
        * it — `item` is that group, at `to` copies; the edited one is in `removedIds`.
        */
       joined?: { from: number; to: number };
-      slotConflict?: boolean;
+      /** FEAT-93: other units of the family that gave up cells with its new category. */
+      unitSlotChanges?: UnitSlotChanges[];
     }
   | { conflict: true; serverItem: InventoryItemView };
 
@@ -124,6 +128,8 @@ const RESTORABLE_UNIT_FIELDS: ReadonlySet<string> = new Set(
 
 const INVENTORY_ITEM_INCLUDE = {
   product: { include: { collections: { select: { id: true, name: true, color: true, icon: true } } } },
+  // FEAT-93: the unit's live cells of the cellar plan.
+  slots: UNIT_SLOTS_INCLUDE,
 } satisfies Prisma.InventoryItemInclude;
 
 // ISSUE_172: the schema-level GetPayload type doesn't know about the
@@ -354,6 +360,14 @@ export class InventoryService {
        * AppError to refuse; nothing is written then.
        */
       guard?: (unit: StateItem, planned: () => StateOutcome, kind: UnitKind) => void;
+      /**
+       * FEAT-93 (lot S2): which copy an opening, a drink or a smoke takes off
+       * a line holding cells when the patch names none (`fromSlotId`,
+       * `fromUnplaced`): `'ask'` (a member's write, the default — 409
+       * SLOT_CHOICE_REQUIRED when it matters) or `'auto'` (a guest, who has
+       * no plan in sight, decision #471 point 75).
+       */
+      slotChoice?: 'ask' | 'auto';
     },
   ): Promise<UpdateItemResult | null> {
     const { fieldSources, isManualEdit = true, bypassFieldLock = false } = options ?? {};
@@ -365,7 +379,15 @@ export class InventoryService {
     // reattach rule (stock-state.service.ts), not columns either; nor is
     // `tastingId`, the tasting that follows a detached copy (FEAT-107).
     // #471 (lot Z): `isOwned` is only an older client's leftover (schema: `true` ignored, `false` refused).
-    const { expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, isOwned: _legacy, ...patch } = rawPatch;
+    // FEAT-93 (lot S2): `fromSlotId`/`fromUnplaced` (the copy taken) and
+    // `placeAt` (the cell given back by "Annuler") are instructions too.
+    const {
+      expectedUpdatedAt, alertStatus: _derived, smokeOne, keepTastings, tastingId, isOwned: _legacy,
+      fromSlotId, fromUnplaced, placeAt, ...patch
+    } = rawPatch;
+    const slotChoice: SlotChoice = fromSlotId !== undefined ? { fromSlotId }
+      : fromUnplaced ? { fromUnplaced: true }
+      : options?.slotChoice ?? 'ask';
     const row = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
@@ -406,47 +428,12 @@ export class InventoryService {
         ) as InventoryPatch)
       : patch;
 
-    // #573: a bottle this patch leaves finished gives its grid slot back (see
-    // lib/finished-item.ts) — the cellar map hides it, so a slot it kept would
-    // look free yet refuse every other bottle. Judged on `safePatch`, i.e. on
-    // what is really written: a locked `fillLevel` stripped from an automated
-    // update must not unplace a bottle that stays full. #471: decided again
-    // by the detach rule, which keeps the slot with the group when a finished
-    // copy is detached from it.
-    const finished = this.isFinishedAfter(existing, safePatch);
-    // #798: a bottle moved to another cellar without new slot coordinates
-    // arrives unplaced — its old coordinates mean nothing in the new cellar.
-    const leavesSlot = finished || this.leavesSlotByMove(existing, safePatch);
-
-    // Slot uniqueness: if assigning a grid slot, verify it is not occupied by
-    // another item. Not for a bottle leaving its slot (finished #573, or moved
-    // to another cellar #798): it cannot conflict with anyone.
-    const targetCellarId = 'cellarId' in patch ? patch.cellarId : existing.cellarId;
-    const targetSlotColumn = 'slotColumn' in patch ? patch.slotColumn : existing.slotColumn;
-    const targetSlotRow = 'slotRow' in patch ? patch.slotRow : existing.slotRow;
-
-    if (!leavesSlot && targetCellarId && targetSlotColumn != null && targetSlotRow != null) {
-      const conflict = await prisma.inventoryItem.findFirst({
-        where: {
-          cellarId: targetCellarId,
-          slotColumn: targetSlotColumn,
-          slotRow: targetSlotRow,
-          id: { not: id },
-          deletedAt: null,
-        },
-      });
-      if (conflict) return { item: existing, changes: [], changed: [], removedIds: [], slotConflict: true };
-    }
-
     // #471: the family's fields go to the family, the rest
-    // to the unit — each with its own locks and field sources (D1).
-    // #798: a unit moved to another cellar gives its slot back with the move
-    // (its coordinates mean nothing in the new cellar); recorded in the
-    // changes below like any written field. A finished unit's slot is
-    // released by the detach rule instead (#573), which keeps it with the
-    // group when a finished copy is detached from it.
-    const writePatch: InventoryPatch = this.leavesSlotByMove(existing, safePatch) ? { ...safePatch, ...NO_SLOT } : safePatch;
-    const dbData = this.mapInputToDb(writePatch);
+    // to the unit — each with its own locks and field sources (D1). FEAT-93:
+    // the cells of the cellar plan are not columns of the unit (routes of
+    // slot.service.ts); the detach rule frees them when the unit is finished
+    // (#573) or changes cellar (#798), and records which in the changes.
+    const dbData = this.mapInputToDb(safePatch);
     const familyPatch = pickProductFields(dbData);
     const itemData = Object.fromEntries(Object.entries(dbData).filter(([key]) => !isProductField(key)));
 
@@ -461,86 +448,91 @@ export class InventoryService {
     const state = Object.fromEntries(Object.entries(unitWrite).filter(([key]) => isStateField(key))) as StatePatch;
     const unit = Object.fromEntries(Object.entries(unitWrite).filter(([key]) => !isStateField(key)));
 
-    let outcome: ApplyStateResult<InventoryItemRow>;
-    let current: StateItem;
     let familyChanges = new Map<string, FieldChange>();
-    let joined: { from: number; to: number } | null = null;
-    try {
-      const written = await prisma.$transaction(async (tx) => {
-        // #471: the family first (the locking rule), then the unit as it is
-        // once nobody else can write it — a detach decided on a stale count
-        // would create a copy out of nothing.
-        await lockFamily(tx, row.productId);
-        const fresh = await tx.inventoryItem.findUnique({ where: { id } });
-        if (!fresh || fresh.deletedAt) return null;
-        if (isStale(fresh.updatedAt)) return { conflict: true as const };
-        const kind = unitKind(safePatch.category ?? row.product.category);
-        options?.guard?.(fresh as StateItem, () =>
-          planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, kind).outcome, kind);
-        // Also when the patch holds no family field: the derived alert may
-        // need realigning, and that is decided on the locked family (#706
-        // window check included — a ZodError, answered with 400).
-        const family = await writeFamilyDescription(tx, row.productId, familyPatch, {
-          userId, touched, fieldSources, isManualEdit, autoLock, respectLocks,
-        });
-        familyChanges = new Map(family.changes.map((change) => [change.field, change]));
-        // The unit is always stamped: the flat record it stands for changed.
-        const result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
-          tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
-          { userId, kind, include: INVENTORY_ITEM_INCLUDE },
-        );
-        // FEAT-107 c3: the tasting noted on the group goes with the copy taken
-        // off it — the finished bottle is the one that was tasted.
-        if (tastingId && result.outcome === 'detached') {
-          await tx.tastingNote.updateMany({ where: { id: tastingId, itemId: id }, data: { itemId: result.data.id } });
-        }
-        // A whole group made identical to another one by this edit joins it
-        // (design.md rule 4): the answer is then that group (D8). So does a
-        // copy put back intact that became a line of its own (its line of
-        // origin finished or gone meanwhile): two « Annuler » in either order
-        // end as one line, never two identical ones side by side.
-        const regroups = result.outcome === 'regrouped' || (result.outcome === 'updated'
-          && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field])));
-        const joined = regroups ? await joinIdenticalGroup(tx, result.data, kind, userId) : null;
-        if (!joined) return { result, fresh: fresh as StateItem, joined: null };
-        const survivor = await tx.inventoryItem.findUniqueOrThrow({ where: { id: joined.survivorId }, include: INVENTORY_ITEM_INCLUDE });
-        return {
-          result: { ...result, data: survivor as InventoryItemRow, removedIds: [...result.removedIds, id] },
-          fresh: fresh as StateItem,
-          joined: { from: joined.from, to: joined.to },
-        };
+    let familySlots: UnitSlotChanges[] = [];
+    const written = await prisma.$transaction(async (tx) => {
+      // #471: the family first (the locking rule), then the unit as it is
+      // once nobody else can write it — a detach decided on a stale count
+      // would create a copy out of nothing.
+      await lockFamily(tx, row.productId);
+      const fresh = await tx.inventoryItem.findUnique({ where: { id } });
+      if (!fresh || fresh.deletedAt) return null;
+      if (isStale(fresh.updatedAt)) return { conflict: true as const };
+      const kind = unitKind(safePatch.category ?? row.product.category);
+      options?.guard?.(fresh as StateItem, () =>
+        planState(fresh as StateItem, { unit, state, smokeOne, keepTastings }, kind).outcome, kind);
+      // FEAT-93 (lot S2): a number lowered below the line's cells is refused
+      // — "Corriger le nombre" asks which cells to free (`slotIds`).
+      await assertNumberHoldsSlots(tx, fresh as StateItem, { ...fresh, ...unit, ...state } as StateItem, kind);
+      // Also when the patch holds no family field: the derived alert may
+      // need realigning, and that is decided on the locked family (#706
+      // window check included — a ZodError, answered with 400). Its cells
+      // fitted to a new category are judged on the unit as this patch
+      // leaves it (a box size written with the category).
+      const family = await writeFamilyDescription(tx, row.productId, familyPatch, {
+        userId, touched, fieldSources, isManualEdit, autoLock, respectLocks, unitPatch: { ids: [id], columns: unit },
       });
-      if (!written) return null;
-      if ('conflict' in written) {
-        const server = await this.getItem(userId, id);
-        return server ? { conflict: true, serverItem: server } : null;
+      familyChanges = new Map(family.changes.map((change) => [change.field, change]));
+      familySlots = family.unitSlotChanges;
+      // The unit is always stamped: the flat record it stands for changed.
+      let result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
+        tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
+        { userId, kind, include: INVENTORY_ITEM_INCLUDE, slotChoice },
+      );
+      // "Annuler" of a line finished in place: the copy put back takes its
+      // cell again if nobody took it since (FEAT-93 lot S2), before a join
+      // carries the cells to the survivor.
+      const placed = placeAt ? await placeBack(tx, result.data as unknown as StateItem, kind, placeAt) : null;
+      if (placed) {
+        result.slotChanges.push(...slotsPlaced([placed]));
+        result = { ...result, data: await tx.inventoryItem.findUniqueOrThrow({ where: { id: result.data.id }, include: INVENTORY_ITEM_INCLUDE }) as InventoryItemRow };
       }
-      outcome = written.result;
-      current = written.fresh;
-      joined = written.joined;
-    } catch (err) {
-      // #173: the application-level check above closes almost every window,
-      // but the database's partial unique index is the actual guarantee — a
-      // concurrent request that slipped past that check still hits this and
-      // gets the same clean slotConflict response instead of a 500.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        return { item: existing, changes: [], changed: [], removedIds: [], slotConflict: true };
+      // FEAT-107 c3: the tasting noted on the group goes with the copy taken
+      // off it — the finished bottle is the one that was tasted.
+      if (tastingId && result.outcome === 'detached') {
+        await tx.tastingNote.updateMany({ where: { id: tastingId, itemId: id }, data: { itemId: result.data.id } });
       }
-      throw err;
+      // A whole group made identical to another one by this edit joins it
+      // (design.md rule 4): the answer is then that group (D8). So does a
+      // copy put back intact that became a line of its own (its line of
+      // origin finished or gone meanwhile): two « Annuler » in either order
+      // end as one line, never two identical ones side by side.
+      const regroups = result.outcome === 'regrouped' || (result.outcome === 'updated'
+        && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field])));
+      const joined = regroups ? await joinIdenticalGroup(tx, result.data, kind, userId) : null;
+      if (!joined) return { result, fresh: fresh as StateItem, joined: null };
+      const survivor = await tx.inventoryItem.findUniqueOrThrow({ where: { id: joined.survivorId }, include: INVENTORY_ITEM_INCLUDE });
+      return {
+        result: { ...result, data: survivor as InventoryItemRow, removedIds: [...result.removedIds, id] },
+        fresh: fresh as StateItem,
+        joined: { from: joined.from, to: joined.to },
+      };
+    });
+    if (!written) return null;
+    if ('conflict' in written) {
+      const server = await this.getItem(userId, id);
+      return server ? { conflict: true, serverItem: server } : null;
     }
+    const outcome: ApplyStateResult<InventoryItemRow> = written.result;
+    const current: StateItem = written.fresh;
+    const joined = written.joined;
 
-    // #573: the released slot goes into the recorded changes, so the history
-    // records which slot the bottle left — and never a slot sent alongside
-    // that the release overrides. #471: recorded from the unit as read once
-    // locked, with the state as the detach rule wrote it (a smoked cigar).
-    const recorded: Record<string, unknown> = { ...dbData, ...(outcome.releasedSlot ? NO_SLOT : {}) };
+    // #471: recorded from the unit as read once locked, with the state as
+    // the detach rule wrote it (a smoked cigar).
+    const recorded: Record<string, unknown> = { ...dbData };
     if (smokeOne) Object.assign(recorded, outcome.state);
     const unitChanges = new Map(Object.entries(recorded)
       .filter(([key, value]) => !isProductField(key) && JSON.stringify(this.getField(current, key)) !== JSON.stringify(value))
       .map(([key, value]) => [key, { field: key, from: this.getField(current, key), to: value }]));
-    const changes = Object.keys(recorded)
-      .map((key) => familyChanges.get(key) ?? unitChanges.get(key))
-      .filter((change): change is FieldChange => change !== undefined);
+    const changes = [
+      ...Object.keys(recorded)
+        .map((key) => familyChanges.get(key) ?? unitChanges.get(key))
+        .filter((change): change is FieldChange => change !== undefined),
+      // FEAT-93 (#573): the cells the unit gave up, so its history says which.
+      ...outcome.slotChanges,
+      // And those it gave up with its family's new category (a wine made a cigar).
+      ...familySlots.filter((unit) => unit.itemId === id).flatMap((unit) => unit.changes),
+    ];
     return {
       item: toItemView(outcome.data),
       changes,
@@ -550,6 +542,8 @@ export class InventoryService {
       ...(outcome.groupChange ? { groupChange: outcome.groupChange } : {}),
       ...(outcome.deletedTastings ? { deletedTastings: outcome.deletedTastings } : {}),
       ...(joined ? { joined } : {}),
+      // FEAT-93: the other units of the family that gave up cells with it.
+      ...(familySlots.some((unit) => unit.itemId !== id) ? { unitSlotChanges: familySlots.filter((unit) => unit.itemId !== id) } : {}),
     };
   }
 
@@ -601,7 +595,10 @@ export class InventoryService {
     // is validated at runtime just above against the item's real change
     // history, and `updateItem` re-filters by `lockedFields`/known columns.
     const patch = { [field]: toValue } as InventoryPatch;
-    const result = await this.updateItem(userId, itemId, patch, { isManualEdit: true, bypassFieldLock: true });
+    // A state restored on a group takes its copy by the automatic rule (no
+    // cell can be chosen from the history); a number restored below the
+    // line's cells is refused all the same (assertNumberHoldsSlots).
+    const result = await this.updateItem(userId, itemId, patch, { isManualEdit: true, bypassFieldLock: true, slotChoice: 'auto' });
     if (!result) return { status: 'not_found' };
     if ('conflict' in result) {
       // Defensive narrowing only: rollbackField never sets `expectedUpdatedAt`
@@ -609,7 +606,6 @@ export class InventoryService {
       // actually trigger here. Kept exhaustive for type-safety.
       return { status: 'invalid_value' };
     }
-    if (result.slotConflict) return { status: 'slot_conflict' };
 
     return { status: 'success', item: result.item, changes: result.changes, ...(result.joined ? { joined: result.joined } : {}) };
   }
@@ -617,7 +613,9 @@ export class InventoryService {
   async bulkUpdate(
     userId: string,
     ids: string[],
-    patch: InventoryPatch
+    patch: InventoryPatch,
+    /** FEAT-93: filled with the cells each unit gave up, for its history. */
+    slotChanges: UnitSlotChanges[] = [],
   ): Promise<number> {
     const rows = await prisma.inventoryItem.findMany({
       where: { id: { in: ids }, deletedAt: null },
@@ -649,15 +647,20 @@ export class InventoryService {
       const familyChanged = new Map<string, boolean>();
       for (const { row, view: item } of existing) {
         if (!familyChanged.has(row.productId)) {
-          const changed = Object.keys(familyPatch).length > 0
-            && (await writeFamilyDescription(tx, row.productId, familyPatch, {
+          const family = Object.keys(familyPatch).length > 0
+            ? await writeFamilyDescription(tx, row.productId, familyPatch, {
               // A bulk action is an explicit user action, exactly like the regular
               // single-item PATCH: `lockedFields` only shields a field from a later
               // *automated* pass (see `updateItem`), never from the user. Filtering
               // the patch here silently turned a bulk edit into a no-op on every
               // field once adjusted by hand — and still counted it (ISSUE_034).
               userId, isManualEdit: false, autoLock: false, respectLocks: false, onlyChanged: true,
-            })).changes.length > 0;
+              // FEAT-93: the selection's cells fitted to what this edit makes of them.
+              unitPatch: { ids, columns: unitPatch },
+            })
+            : null;
+          slotChanges.push(...(family?.unitSlotChanges ?? []));
+          const changed = (family?.changes.length ?? 0) > 0;
           familyChanged.set(row.productId, changed);
         }
         const changedEntries = Object.entries(unitPatch).filter(
@@ -686,12 +689,22 @@ export class InventoryService {
           updatedCount++;
           continue;
         }
+        // #798: an item moved to another cellar arrives unplaced (an opened
+        // bottle; a group joins above): its cells are freed before the cellar
+        // is written (FEAT-93, the slot's key includes the cellar).
+        // A count or box size lowered, or the family's new category (single
+        // cigars: one cell for the group), frees the cells beyond what the
+        // unit may hold — the most recently placed first (automatic rule
+        // until lot S2), never a commit refused by the cells' guard.
+        const freed = [
+          ...(changed.cellarId !== undefined && changed.cellarId !== fresh.cellarId ? await freeSlots(tx, item.id) : []),
+          ...await fitSlotsTo(tx, item.id, { ...fresh, ...changed } as typeof fresh, unitKind(familyPatch.category ?? row.product.category)),
+        ];
+        if (freed.length > 0) slotChanges.push({ itemId: item.id, changes: slotsFreed(freed) });
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
             ...changed,
-            // #798: an item moved to another cellar arrives unplaced (an opened bottle; a group joins above).
-            ...(this.leavesSlotByMove(item, changed) ? NO_SLOT : {}),
             updatedAt: new Date(),
             updatedBy: userId,
           } as never,
@@ -709,15 +722,21 @@ export class InventoryService {
     });
     if (!existing) return null;
 
-    const trashed = await prisma.inventoryItem.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-      include: INVENTORY_ITEM_INCLUDE,
+    // FEAT-93 (#174): its cells go to the trash with it, same timestamp.
+    const deletedAt = new Date();
+    const trashed = await prisma.$transaction(async (tx) => {
+      await trashSlots(tx, [id], deletedAt);
+      return tx.inventoryItem.update({ where: { id }, data: { deletedAt }, include: INVENTORY_ITEM_INCLUDE });
     });
     return toItemView(trashed);
   }
 
-  async restore(_userId: string, id: string): Promise<InventoryItemView | null> {
+  async restore(
+    _userId: string,
+    id: string,
+    /** FEAT-93: filled with the cells it could not take back (see restoreOnce), for its history. */
+    slotChanges: FieldChange[] = [],
+  ): Promise<InventoryItemView | null> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const existing = await prisma.inventoryItem.findFirst({
       where: {
@@ -728,32 +747,43 @@ export class InventoryService {
     });
     if (!existing) return null;
 
-    // A trashed bottle keeps its grid slot, which may have been given to another
-    // bottle since (#174). Restore it unplaced rather than assign the slot twice.
-    const slotTaken = await isSlotTaken(prisma, existing);
     // #471 (D10): a unit back in stock brings its family out of the trash with
     // it — otherwise it would come back inside a family nobody sees.
-    const restoreUnit = (data: Prisma.InventoryItemUpdateInput) => prisma.$transaction(async (tx) => {
+    // FEAT-93 (#174): its cells come back with it, except a cell given to
+    // another bottle since: that copy comes back unplaced. #173: the partial
+    // unique index is the real guarantee against a cell taken between the
+    // check and the write — tried once more, the check then sees it.
+    let restored: { item: InventoryItemView; freed: FieldChange[] };
+    try {
+      restored = await this.restoreOnce(existing);
+    } catch (err) {
+      if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err;
+      restored = await this.restoreOnce(existing);
+    }
+    slotChanges.push(...restored.freed);
+    return restored.item;
+  }
+
+  private restoreOnce(
+    existing: { productId: string; id: string; product: { deletedAt: Date | null } },
+  ): Promise<{ item: InventoryItemView; freed: FieldChange[] }> {
+    const { id } = existing;
+    return prisma.$transaction(async (tx) => {
       // The locking rule: the family first, then its unit.
       await lockFamily(tx, existing.productId);
       if (existing.product.deletedAt) {
         await tx.product.update({ where: { id: existing.productId }, data: { deletedAt: null } });
       }
-      return toItemView(await tx.inventoryItem.update({ where: { id }, data, include: INVENTORY_ITEM_INCLUDE }));
+      await tx.inventoryItem.update({ where: { id }, data: { deletedAt: null } });
+      await reviveSlots(tx, [id]);
+      // Its family may have changed meanwhile (made single cigars: one cell
+      // for the line): the cells beyond what it may hold now are freed, the
+      // automatic rule (review of #854).
+      const unit = await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE });
+      const freed = slotsFreed(await fitSlotsTo(tx, id, unit, unitKind(unit.product.category)));
+      if (freed.length === 0) return { item: toItemView(unit), freed };
+      return { item: toItemView(await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE })), freed };
     });
-
-    try {
-      return await restoreUnit(slotTaken ? { deletedAt: null, ...NO_SLOT } : { deletedAt: null });
-    } catch (err) {
-      // #173: the occupant check above closes almost every window; the
-      // database's partial unique index is the actual guarantee against a
-      // slot having been taken in the instant between that check and this
-      // write — fall back to restoring unplaced rather than erroring out.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        return restoreUnit({ deletedAt: null, ...NO_SLOT });
-      }
-      throw err;
-    }
   }
 
   /**
@@ -914,32 +944,25 @@ export class InventoryService {
   private getField(item: object, key: string): unknown {
     return (item as Record<string, unknown>)[key];
   }
+}
 
-  /**
-   * #798: whether `patch` moves `item` to another cellar without giving it
-   * new slot coordinates. Its stored coordinates belong to the old cellar,
-   * so it must arrive unplaced rather than claim the same cell in the new one.
-   */
-  private leavesSlotByMove(item: Pick<InventoryItem, 'cellarId'>, patch: InventoryPatch): boolean {
-    return (
-      patch.cellarId !== undefined &&
-      patch.cellarId !== item.cellarId &&
-      patch.slotColumn === undefined &&
-      patch.slotRow === undefined
-    );
-  }
-
-  /**
-   * #573: whether `item` is finished once `patch` is applied. A field the
-   * patch leaves `undefined` keeps its stored value (`mapInputToDb` drops
-   * it); an explicit `fillLevel: null` does overwrite it.
-   */
-  private isFinishedAfter(item: { isOpened: boolean; fillLevel: number | null }, patch: InventoryPatch): boolean {
-    return isFinishedItem({
-      isOpened: patch.isOpened === undefined ? item.isOpened : patch.isOpened,
-      fillLevel: patch.fillLevel === undefined ? item.fillLevel : patch.fillLevel,
-    });
-  }
+/**
+ * FEAT-93 (lot S2, criterion 4): a line's number written lower (PATCH
+ * `quantity`, its rollback) so that its copies cannot hold its cells any
+ * more is refused, 409 SLOTS_TO_FREE_REQUIRED — "Corriger le nombre" asks
+ * which cells to free. Only the number is judged: a line finished, written
+ * off or made single cigars frees its cells itself.
+ */
+async function assertNumberHoldsSlots(tx: PrismaClientOrTx, item: StateItem, next: StateItem, kind: UnitKind): Promise<void> {
+  // Judged on the line in its own state with the number written: a state
+  // sent with a lower number (opened: one cell) would hide it, and the
+  // database guard would then refuse the write at commit (review of #856).
+  const asLine: StateItem = {
+    ...next, isOpened: item.isOpened, fillLevel: item.fillLevel, openedAt: item.openedAt, cigarsLeft: item.cigarsLeft,
+  };
+  const keep = slotCapacity(asLine, kind);
+  if (keep >= slotCapacity({ ...asLine, quantity: item.quantity }, kind)) return;
+  slotsLeaving(await liveSlotsOf(tx, item.id), keep, 0, {});
 }
 
 export const inventoryService = new InventoryService();

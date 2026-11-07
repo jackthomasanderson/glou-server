@@ -163,6 +163,8 @@ model Cellar {
 
   inventory       InventoryItem[]
   humidorReadings HumidorReading[]
+  slots           ItemSlot[]
+  tastingNotes    TastingNote[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -302,10 +304,6 @@ model InventoryItem {
   cellarId String?
   cellar   Cellar? @relation(fields: [cellarId], references: [id], onDelete: SetNull)
 
-  // Grid slot assignment (FEAT-68) — 1-based coordinates, null = no slot
-  slotColumn Int?
-  slotRow    Int?
-
   // #471: day of purchase, part of a group's identity (groupKey). A date, no
   // time: exchanged as a YYYY-MM-DD string, never turned into a local Date.
   purchasedAt   DateTime?       @db.Date
@@ -354,6 +352,8 @@ model InventoryItem {
   auditLogs    AuditLog[]
   tastingNotes TastingNote[]
   countEntries InventoryCountEntry[]
+  // FEAT-93: the cells of the cellar plan its copies occupy.
+  slots        ItemSlot[]
 
   // ISSUE_004: `userId` is audit-only here (design.md), never queried alone
   // or as the leading column of a filter — `listInventory` never filters by
@@ -366,14 +366,44 @@ model InventoryItem {
   @@index([cellarId, deletedAt])
   @@index([productId])
   @@index([parentItemId])
-  // #173: a partial UNIQUE INDEX on (cellarId, slotColumn, slotRow) WHERE
-  // "deletedAt" IS NULL also exists in the database (migration
-  // 20261010020000_unique_slot_and_session_constraints) — Prisma's schema
-  // language can't express a WHERE-qualified unique index, so it is not
-  // declared here. `updateItem`'s slot-conflict check stays in place to
-  // return a clean error; this index is only the last-resort guarantee
-  // against two concurrent requests both passing that check.
+  // FEAT-93: the target of ItemSlot's (itemId, cellarId) key, which keeps a
+  // slot in its unit's cellar.
+  @@unique([id, cellarId])
   @@map("bottles")
+}
+
+// FEAT-93: one cell of a cellar's grid plan occupied by one copy of a unit
+// (a bottle, a box; a group of single cigars takes one cell for the group).
+// A unit holds from 0 up to `slotCapacity` (shared/units.ts) live slots.
+//
+// Kept in the database (migration 20261106120000_item_slots), not expressible
+// in Prisma's schema language:
+// - a partial UNIQUE INDEX `item_slots_cell_unique` on (cellarId, column, row)
+//   WHERE "deletedAt" IS NULL: one live slot per cell, while a slot in the
+//   trash (its unit's `deletedAt`, #174) reserves nothing;
+// - CHECK `item_slots_cell_range`: column and row from 1 to 100;
+// - a deferred constraint trigger `item_slots_guard` (on item_slots and on
+//   the state columns of bottles): at commit, a unit holds no more live slots
+//   than its capacity, none once out of stock or in the trash. The services
+//   free slots first and answer with typed errors; this is the safety net.
+model ItemSlot {
+  id        String        @id @default(uuid())
+  itemId    String
+  // The unit's cellar: the composite key below refuses a slot in another
+  // cellar than its unit's, so a unit changing cellar frees its slots first.
+  cellarId  String
+  item      InventoryItem @relation(fields: [itemId, cellarId], references: [id, cellarId], onDelete: Cascade, onUpdate: NoAction)
+  cellar    Cellar        @relation(fields: [cellarId], references: [id], onDelete: Cascade)
+  column    Int
+  row       Int
+  // The same timestamp as its unit's while the unit is in the trash.
+  deletedAt DateTime?
+  // When the copy was placed: the automatic rule frees the most recent first.
+  createdAt DateTime      @default(now())
+
+  @@index([itemId])
+  @@index([cellarId, column, row])
+  @@map("item_slots")
 }
 
 model AuditLog {
@@ -542,6 +572,18 @@ model TastingNote {
   // #471: copy of the guest's name when a guest notes the tasting (not a
   // foreign key: the share may be deleted afterwards).
   guestName   String?
+  // #837: the bottle tasted as it was when tasted, written by the server from
+  // `itemId` (never sent by a client): its cellar — the id, so a renamed
+  // cellar shows its name of now, and the name, kept when the cellar is
+  // deleted — and its purchase day. All empty for a wine tasted elsewhere and
+  // for a tasting noted before #837 (shown from its bottle as it is now).
+  // `snapshotAt` says these were kept (set with them), so a bottle in no
+  // cellar and without a purchase day is told from a tasting noted before.
+  snapshotAt  DateTime?
+  cellarId    String?
+  cellar      Cellar?           @relation(fields: [cellarId], references: [id], onDelete: SetNull)
+  cellarName  String?
+  purchasedAt DateTime?         @db.Date
   tastedAt    DateTime          @default(now())
   context     String?
   rating      Int?
@@ -572,6 +614,7 @@ model TastingNote {
   @@index([userId])
   @@index([itemId])
   @@index([productId])
+  @@index([cellarId])
   @@map("tasting_notes")
 }
 

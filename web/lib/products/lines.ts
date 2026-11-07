@@ -1,6 +1,6 @@
 import { isFinishedState, isIntactItem, itemUnits, type UnitKind } from '@shared/units';
 import { formatDate } from '@/lib/format';
-import type { ProductItem } from './types';
+import type { ProductDetailView, ProductItem } from './types';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -28,6 +28,8 @@ export interface LineContext {
   formatDate: (iso: string) => string;
   /** The wine the lines are of ("Cuvée X 2020"), named by a line's dialogs (recette #471). */
   wineName?: string;
+  /** Whether a cellar has a plan: a line there without any cell says "1 non rangée" (recette n°5 of #847). */
+  hasPlan?: (cellarId: string) => boolean;
 }
 
 /**
@@ -83,6 +85,30 @@ function priceOf(item: ProductItem, ctx: LineContext): string | null {
 
 /** Which bottle a tasting was of: "Garage · 20 € / bouteille". */
 export const bottleLabel = (item: ProductItem, ctx: LineContext) => whereAndWhat(item, ctx, false).join(' · ');
+
+type TastedBottle = Pick<ProductDetailView['tastings'][number], 'snapshotAt' | 'cellarId' | 'cellarName' | 'purchasedAt'>;
+
+/**
+ * #837: which bottle a tasting was of, as it was when tasted — "Garage · 20 € /
+ * bouteille · achat du 12 mars 2025" — even once the bottle moved, finished or
+ * left the list. The cellar by its name of now while it exists (renamed, it is
+ * the same place), else by its name then; price and size from the bottle when
+ * still listed. A tasting noted before #837 kept nothing: its bottle as it is
+ * now, if listed ({@link bottleLabel}).
+ */
+export function tastingBottleLabel(tasting: TastedBottle, bottle: ProductItem | undefined, ctx: LineContext): string | null {
+  // `snapshotAt`: kept when tasted, even a bottle in no cellar ("Sans cave").
+  if (tasting.snapshotAt == null) return bottle ? bottleLabel(bottle, ctx) : null;
+  const cellar = (tasting.cellarId ? ctx.cellarName(tasting.cellarId) : undefined)
+    ?? tasting.cellarName ?? ctx.t('familyDrawer.lines.noCellar');
+  const size = bottle && ctx.kind === 'bottle' ? bottle.bottleSize?.trim() : '';
+  return [
+    cellar,
+    bottle ? priceOf(bottle, ctx) : null,
+    size || null,
+    tasting.purchasedAt ? ctx.t('familyDrawer.tastings.boughtOn', { date: ctx.formatDay(tasting.purchasedAt) }) : null,
+  ].filter((part): part is string => Boolean(part)).join(' · ');
+}
 
 /** Where the copy is: its cellar, and the free-text place within it ("Étagère du haut"). */
 function where(item: ProductItem, ctx: LineContext): string[] {

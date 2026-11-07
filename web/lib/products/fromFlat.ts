@@ -3,7 +3,7 @@ import type { InventoryItem } from '@/lib/inventory/types';
 import type { Product, ProductItem } from './types';
 
 const UNIT_FIELDS = [
-  'id', 'productId', 'userId', 'updatedBy', 'cellarId', 'slotColumn', 'slotRow', 'location',
+  'id', 'productId', 'userId', 'updatedBy', 'cellarId', 'slots', 'location',
   'purchasePrice', 'estimatedValue', 'purchasePlace', 'purchasedAt', 'bottleSize', 'quantity',
   'cigarsPerBox', 'cigarsLeft', 'isOpened', 'fillLevel', 'openedAt', 'parentItemId', 'writtenOffAt',
   'needsReview', 'fieldSources', 'deletedAt', 'createdAt', 'updatedAt',

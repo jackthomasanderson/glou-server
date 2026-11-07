@@ -173,7 +173,7 @@
         "spirit": "Distillerie / Marque",
         "cigar": "Fabricant / Marque"
       },
-      "location": "Emplacement",
+      "location": "Repère libre (étagère, carton…)",
       "collection": "Collection",
       "tags": "Étiquettes",
       "photoUrl": "URL de la photo",
@@ -244,7 +244,17 @@
       "slotRow": "Rangée",
       "alertsPaused": "Alertes d'apogée en pause",
       "consumptionPostponedUntil": "Reportée jusqu'au",
-      "lockedFields": "Champs verrouillés"
+      "lockedFields": "Champs verrouillés",
+      "isOpened_box": "Boîte entamée",
+      "isOpened_cigar": "Cigare entamé",
+      "openedAt_cigar": "Entamé le",
+      "cigarsLeft": "Cigares restants",
+      "cigarsPerBox": "Cigares par boîte",
+      "parentItemId": "Ligne d'origine",
+      "writtenOffAt": "Cassée, offerte ou perdue le",
+      "writtenOffAt_cigar": "Cassé, offert ou perdu le",
+      "needsReview": "Nombre à vérifier",
+      "isOwned": "Dans ma cave"
     },
     "expertSection": {
       "title": "Champs avancés (collectionneur)"
@@ -423,6 +433,11 @@
       "deleteError": "Impossible de supprimer le souhait",
       "priceError": "Impossible d'enregistrer le prix observé",
       "convertError": "Impossible de transformer le souhait en article de l'inventaire"
+    },
+    "budget": {
+      "createSuccess": "Enveloppe budgétaire créée",
+      "updateSuccess": "Enveloppe budgétaire mise à jour",
+      "deleteSuccess": "Enveloppe budgétaire supprimée"
     },
     "bulkUpdateError": "Impossible de modifier les vins sélectionnés",
     "bulkPreset": {
@@ -618,26 +633,52 @@
       "cellLabelEmpty_cigar": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner un cigare ou une boîte.",
       "cellLabelEmpty_mixed": "Colonne {{col}}, rangée {{row}} : vide. Entrée pour assigner une bouteille, une boîte ou un cigare.",
       "cellLabelOccupied": "Colonne {{col}}, rangée {{row}} : {{name}}. Entrée pour le détail, Espace pour déplacer.",
-      "dragInstructions": "Pour déplacer cette bouteille, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour la déposer. Échap annule.",
-      "dragInstructions_cigar": "Pour déplacer ce cigare, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour le déposer. Échap annule.",
-      "dragInstructions_mixed": "Pour déplacer, appuyez sur Espace, choisissez un emplacement avec les flèches, puis rappuyez sur Espace pour déposer. Échap annule.",
+      "dragInstructions": "Pour déplacer cette bouteille, appuyez sur Espace, choisissez une case avec les flèches, puis rappuyez sur Espace pour la déposer. Échap annule.",
+      "dragInstructions_cigar": "Pour déplacer ce cigare, appuyez sur Espace, choisissez une case avec les flèches, puis rappuyez sur Espace pour le déposer. Échap annule.",
+      "dragInstructions_mixed": "Pour déplacer, appuyez sur Espace, choisissez une case avec les flèches, puis rappuyez sur Espace pour déposer. Échap annule.",
       "announceStart": "{{name}} saisie depuis la colonne {{col}}, rangée {{row}}.",
       "announceStart_cigar": "{{name}} saisi depuis la colonne {{col}}, rangée {{row}}.",
       "announceOver": "{{name}} est au-dessus de la colonne {{col}}, rangée {{row}}.",
+      "announceOverOccupied": "{{name}} est au-dessus de la colonne {{col}}, rangée {{row}}, occupée par {{other}}.",
       "announceDrop": "{{name}} déposée en colonne {{col}}, rangée {{row}}.",
       "announceDrop_cigar": "{{name}} déposé en colonne {{col}}, rangée {{row}}.",
+      "announceSwap": "{{name}} échangée avec {{other}} : colonne {{col}}, rangée {{row}}.",
+      "announceSwap_cigar": "{{name}} échangé avec {{other}} : colonne {{col}}, rangée {{row}}.",
       "announceCancel": "Déplacement annulé. {{name}} reste en place.",
-      "assignTitle": "Assigner une bouteille à l'emplacement C{{col}}·R{{row}}",
-      "assignTitle_cigar": "Assigner un cigare ou une boîte à l'emplacement C{{col}}·R{{row}}",
-      "assignTitle_mixed": "Assigner une bouteille, une boîte ou un cigare à l'emplacement C{{col}}·R{{row}}",
-      "noUnassignedBottles": "Toutes les bouteilles de cette cave sont déjà assignées à un emplacement.",
-      "noUnassignedBottles_cigar": "Tous les cigares de cette cave sont déjà assignés à un emplacement.",
-      "noUnassignedBottles_mixed": "Toutes les bouteilles et tous les cigares de cette cave sont déjà assignés à un emplacement.",
-      "slotOccupied": "Cet emplacement est déjà occupé.",
-      "removeFromSlot": "Retirer de l'emplacement",
-      "slot": "Emplacement",
+      "assignTitle": "Assigner une bouteille à la case C{{col}}·R{{row}}",
+      "assignTitle_cigar": "Assigner un cigare ou une boîte à la case C{{col}}·R{{row}}",
+      "assignTitle_mixed": "Assigner une bouteille, une boîte ou un cigare à la case C{{col}}·R{{row}}",
+      "noUnassignedBottles": "Toutes les bouteilles de cette cave sont déjà rangées dans une case.",
+      "noUnassignedBottles_cigar": "Tous les cigares de cette cave sont déjà rangés dans une case.",
+      "noUnassignedBottles_mixed": "Toutes les bouteilles et tous les cigares de cette cave sont déjà rangés dans une case.",
+      "slotOccupied": "Cette case est déjà occupée.",
+      "removeFromSlot": "Retirer de la case",
+      "slot": "Case",
       "moveError": "Le déplacement a échoué, la grille a été resynchronisée avec le serveur.",
-      "copies": "×{{number}}"
+      "copies": "×{{number}}",
+      "closedBox": "Boîte fermée de {{size}}",
+      "placed_one": "{{count}} rangée",
+      "placed_other": "{{count}} rangées",
+      "unplaced_one": "{{count}} non rangée",
+      "unplaced_other": "{{count}} non rangées",
+      "noUnplacedCopy_one": "La bouteille de cette ligne est déjà rangée.",
+      "noUnplacedCopy_other": "Les {{count}} bouteilles de cette ligne sont déjà rangées.",
+      "noUnplacedCopy_box_one": "La boîte de cette ligne est déjà rangée.",
+      "noUnplacedCopy_box_other": "Les {{count}} boîtes de cette ligne sont déjà rangées.",
+      "noUnplacedCopy_cigar": "Ces cigares à l'unité ont déjà leur case.",
+      "slotTitle": "Case C{{col}}·R{{row}}",
+      "cellShort": "C{{col}}·R{{row}}",
+      "notInStock": "Cette ligne n'est plus en cave : elle a été bue ou sortie entre-temps.",
+      "noCellar": "Cette ligne n'est plus dans une cave.",
+      "outsideGrid": "Cette case n'existe plus : le plan de la cave a été réduit.",
+      "slotNotFound": "Cette case ne tient plus cette bouteille : elle a changé sur un autre appareil.",
+      "removedFromSlot": "Bouteille retirée de la case.",
+      "removedFromSlot_box": "Boîte retirée de la case.",
+      "removedFromSlot_cigar": "Cigares retirés de la case.",
+      "offline": "Hors connexion, le plan se consulte seulement. Ranger, déplacer ou retirer une bouteille : disponible au retour de la connexion.",
+      "notInStock_cigar": "Cette ligne n'est plus en cave : elle a été fumée ou sortie entre-temps.",
+      "offline_cigar": "Hors connexion, le plan se consulte seulement. Ranger, déplacer ou retirer une boîte ou des cigares : disponible au retour de la connexion.",
+      "offline_mixed": "Hors connexion, le plan se consulte seulement. Ranger, déplacer ou retirer une bouteille, une boîte ou des cigares : disponible au retour de la connexion."
     },
     "filterByType": "Filtrer par type",
     "filterByStatus": "Filtrer par état",
@@ -712,6 +753,13 @@
       "invalidUrl": "Saisissez une adresse d'image commençant par https://.",
       "fetchFailed": "Impossible de télécharger cette image. Vérifiez l'adresse ou choisissez-en une autre.",
       "failed": "La photo n'a pas pu être enregistrée. Vérifiez votre connexion et réessayez."
+    },
+    "suggestion": {
+      "badge": "Suggestion",
+      "question": "Utiliser cette photo ?",
+      "use": "Utiliser",
+      "another": "Une autre photo",
+      "dismiss": "Ignorer cette suggestion"
     }
   },
   "autocomplete": {
@@ -817,7 +865,19 @@
       "codesConfirmed": "J'ai sauvegardé mes codes",
       "disableTitle": "Désactiver la double authentification",
       "disableHint": "Pour des raisons de sécurité, veuillez renseigner votre mot de passe actuel ainsi qu'un code 2FA valide.",
-      "backupCodeLabel": "Code de secours"
+      "backupCodeLabel": "Code de secours",
+      "backupCodesTitle": "Vos codes de secours",
+      "backupCodesHeading": "Codes de secours",
+      "backupCodesLeft_one": "{{count}} code de secours restant",
+      "backupCodesLeft_other": "{{count}} codes de secours restants",
+      "copyCodes": "Copier les codes",
+      "codesCopied": "Codes copiés",
+      "copyCodesFailed": "La copie n'est pas possible ici. Sélectionnez les codes et copiez-les à la main.",
+      "regenerate": "Générer de nouveaux codes",
+      "regenerateTitle": "Générer de nouveaux codes de secours",
+      "regenerateHint": "Vos codes de secours actuels ne fonctionneront plus. Pour confirmer, saisissez votre mot de passe et un code de votre application d'authentification (ou un code de secours).",
+      "regenerateConfirm": "Générer",
+      "regenerateSuccess": "Nouveaux codes de secours générés. Les précédents ne fonctionnent plus."
     },
     "sessions": {
       "title": "Sessions actives",
@@ -860,11 +920,16 @@
       "deactivate": "Désactiver",
       "deactivateSelf": "Impossible de désactiver votre propre compte",
       "grantAdminConfirm": "Donner les droits d'administrateur à {{username}} ?",
-      "deactivateConfirm": "Couper l'accès de {{username}} à cette instance ?",
+      "deactivateConfirm": "Couper l'accès de {{username}} à cette instance ? Ses sessions, appareils de confiance et liens invités seront révoqués définitivement : réactiver le compte plus tard ne les rétablira pas, il devra se reconnecter et créer de nouveaux liens invités.",
       "deactivateLastAdmin": "Impossible de désactiver le dernier administrateur",
       "me": "moi",
       "resetPassword": "Réinitialiser le mot de passe",
-      "resetPasswordConfirm": "Générer un nouveau mot de passe temporaire pour {{username}} ? Ses sessions et appareils de confiance actuels seront déconnectés, et il devra choisir un nouveau mot de passe à sa prochaine connexion.",
+      "resetPasswordConfirm": "Générer un nouveau mot de passe temporaire pour {{username}} ? Ses sessions et appareils de confiance actuels seront déconnectés, la double authentification sera désactivée si elle est active (il pourra la réactiver depuis son profil), et il devra choisir un nouveau mot de passe à sa prochaine connexion.",
+      "resetPasswordConfirmSelf": "Générer un nouveau mot de passe temporaire pour votre propre compte ? Vos sessions et appareils de confiance actuels seront déconnectés et vous devrez choisir un nouveau mot de passe à votre prochaine connexion. Votre double authentification reste active.",
+      "stepUpHint": "Confirmez avec votre propre mot de passe, et un code de votre application d'authentification (ou un code de secours) si votre compte a la double authentification.",
+      "stepUpPassword": "Votre mot de passe",
+      "stepUpRequired": "Saisissez votre mot de passe pour confirmer.",
+      "stepUpErrors": { "UNEXPECTED_ERROR": "L'action n'a pas pu aboutir. Réessayez." },
       "resetPasswordResultTitle": "Mot de passe temporaire pour {{username}}",
       "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion.",
       "statusEnabled": "Activé",
@@ -951,12 +1016,11 @@
         "confirmDescription": "Attention ! Cette action est irréversible. Pour confirmer que vous souhaitez supprimer TOUTES les données métier, veuillez saisir le mot-clé ci-dessous :",
         "keywordLabel": "Saisissez \"SUPPRIMER\" pour confirmer",
         "keywordValue": "SUPPRIMER",
-        "passwordLabel": "Votre mot de passe",
+        "stepUp": "Supprimer TOUTES les bouteilles et TOUS les cigares, TOUTES les caves et TOUS les journaux d'activité ?",
         "backupFirst": "Une sauvegarde est faite avant ; la purge est annulée si elle échoue.",
         "success": "La base de données a été remise à zéro avec succès.",
         "error": "Une erreur est survenue lors de la purge des données.",
         "errors": {
-          "INVALID_PASSWORD": "Mot de passe incorrect.",
           "BACKUP_BEFORE_PURGE_FAILED": "La sauvegarde préalable à la purge a échoué : rien n'a été supprimé. Consultez l'onglet Sauvegardes."
         },
         "counts": {
@@ -1058,6 +1122,9 @@
       "confirm": "Restaurer"
     },
     "restoreError": "Impossible de restaurer cette valeur.",
+    "restoreConflict": "Non restauré : ce vin a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez cette fenêtre : la fiche se met à jour, vous pourrez réessayer.",
+    "restoreConflict_spirit": "Non restauré : ce spiritueux a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez cette fenêtre : la fiche se met à jour, vous pourrez réessayer.",
+    "restoreConflict_cigar": "Non restauré : ce cigare a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez cette fenêtre : la fiche se met à jour, vous pourrez réessayer.",
     "booleanTrue": "Oui",
     "booleanFalse": "Non",
     "source": {
@@ -1443,7 +1510,8 @@
       "countColumn": "Bouteilles à l'apogée"
     },
     "caves": {
-      "title": "Répartition par cave"
+      "title": "Répartition par cave",
+      "noCellar": "Sans cave"
     },
     "maturity": {
       "title": "Planning optimal de consommation (Apogée)",
@@ -1468,10 +1536,11 @@
     },
     "valuation": {
       "title": "Analyse de valorisation",
-      "purchaseTotal": "Coût d'acquisition",
+      "inStockCost": "Coût du stock",
       "estimatedTotal": "Valeur de marché estimée",
       "roi": "Plus-value estimée",
-      "roiHint": "vs. prix d'achat total"
+      "roiHint": "vs. prix d'achat des bouteilles et cigares en stock",
+      "totalSpend": "Dépense totale : {{amount}}, bouteilles bues, cigares fumés et sorties de stock compris"
     },
     "period": {
       "label": "Période",
@@ -1717,6 +1786,14 @@
     "title": "Configuration Système",
     "subtitle": "Paramétrez les intégrations et la politique de notifications de l'instance.",
     "tabsAriaLabel": "Sections de configuration",
+    "stepUp": {
+      "smtp": "Le serveur de messagerie envoie les liens de réinitialisation du mot de passe et les alertes de sécurité : sa modification est confirmée.",
+      "smtpTest": "Le test se connecte au serveur de messagerie enregistré, et envoie un message si vous avez donné une adresse.",
+      "notifications": "Ces canaux portent les alertes de sécurité envoyées aux membres : leur modification est confirmée.",
+      "gotify": "Le serveur Gotify reçoit les alertes de sécurité : sa modification est confirmée.",
+      "gotifyTest": "Le test envoie une notification au serveur Gotify enregistré.",
+      "network": "Les liens de réinitialisation du mot de passe sont construits à partir de l'URL publique : sa modification est confirmée."
+    },
     "tabs": {
       "smtp": "SMTP / Email",
       "notifications": "Politique de notifs",
@@ -1838,11 +1915,8 @@
     },
     "backup": {
       "description": "Configurez la sauvegarde automatique quotidienne de la base de données (pg_dump), stockée en dehors du volume applicatif.",
-      "passwordLabel": "Votre mot de passe",
-      "invalidPassword": "Mot de passe incorrect.",
       "download": {
-        "title": "Télécharger cette sauvegarde",
-        "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe et le secret de double authentification de chaque compte. Confirmez avec votre mot de passe.",
+        "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe de chaque compte. Ses secrets de double authentification sont chiffrés, sauf dans les sauvegardes prises avant la mise à jour qui les chiffre.",
         "error": "Le téléchargement a échoué."
       },
       "dirCheckFailed": "Glou n'a pas pu vérifier s'il peut écrire dans le dossier des sauvegardes. Rechargez la page ; si ce message reste affiché, consultez les journaux de l'API (docker compose logs api).",
@@ -1878,6 +1952,7 @@
       },
       "restore": {
         "modalTitle": "Confirmer la restauration",
+        "stepUp": "Restaurer cette sauvegarde à la place de toutes les données actuelles ?",
         "modalBody": "Cette action écrase immédiatement toutes les données actuelles de l'instance par le contenu de cette sauvegarde.",
         "safetyCopy": "Une sauvegarde des données actuelles est prise d'abord et reste dans l'historique : restaurez-la pour annuler cette restauration. Si cette sauvegarde échoue, rien n'est restauré.",
         "modalHint": "Saisissez « {{keyword}} » pour confirmer :",
@@ -2218,7 +2293,8 @@
       "belowOne": "Non enregistré : une erreur de saisie ne descend pas sous 1 ; mettez plutôt la ligne à la corbeille.",
       "gone": "Non enregistré : cette bouteille n'existe plus (remise avec les autres ou supprimée entre-temps).",
       "rejected": "Non enregistré : le serveur a refusé cette valeur.",
-      "changed": "Non enregistré : la ligne a changé entre-temps."
+      "changed": "Non enregistré : la ligne a changé entre-temps.",
+      "slotChoice": "Non enregistré : cette ligne est rangée dans des cases du plan. Refaites le geste depuis la fiche du vin pour dire de quelle case vient la bouteille."
     }
   },
   "scan": {
@@ -2387,6 +2463,20 @@
       "joined_box_other": "{{count}} boîtes rejointes ({{what}})",
       "joined_cigar_one": "{{count}} cigare rejoint ({{what}})",
       "joined_cigar_other": "{{count}} cigares rejoints ({{what}})",
+      "opened_bottle_one": "{{count}} bouteille ouverte",
+      "opened_bottle_other": "{{count}} bouteilles ouvertes",
+      "opened_box_one": "{{count}} boîte ouverte",
+      "opened_box_other": "{{count}} boîtes ouvertes",
+      "opened_cigar_one": "{{count}} cigare entamé",
+      "opened_cigar_other": "{{count}} cigares entamés",
+      "finished_bottle_one": "{{count}} bouteille bue",
+      "finished_bottle_other": "{{count}} bouteilles bues",
+      "finished_box_one": "{{count}} boîte terminée",
+      "finished_box_other": "{{count}} boîtes terminées",
+      "finished_cigar_one": "{{count}} cigare fumé",
+      "finished_cigar_other": "{{count}} cigares fumés",
+      "smoked_one": "{{count}} cigare fumé",
+      "smoked_other": "{{count}} cigares fumés",
       "reasons": {
         "input_error": "erreur de saisie",
         "written_off": "cassée, offerte ou perdue"
@@ -2397,7 +2487,31 @@
       "tooLarge": "Non enregistré : la ligne d'arrivée dépasserait 1 000 exemplaires.",
       "cellarGone": "Non enregistré : cette cave n'existe plus.",
       "offline": "Sans réseau, cette action n'est pas possible. Réessayez une fois la connexion revenue.",
-      "failed": "Impossible d'enregistrer cette action."
+      "failed": "Impossible d'enregistrer cette action.",
+      "slotChanged": "Les cases de cette ligne ont changé entre-temps, sur un autre appareil ou par un autre membre : choisissez à nouveau.",
+      "slotChoice": "Cette ligne est rangée dans des cases du plan : dites de quelle case vient la bouteille.",
+      "slotsToFree": "Les cases de cette ligne ont changé entre-temps : choisissez à nouveau les cases."
+    },
+    "slots": {
+      "whichTitle": "De quelle case ?",
+      "unplacedChoice": "Non rangée",
+      "unplacedCount_one": "{{count}} non rangée sur cette ligne",
+      "unplacedCount_other": "{{count}} non rangées sur cette ligne",
+      "freeTitle": "Quelles cases libérer ?",
+      "freeHint_one": "Choisissez sur le plan la case à libérer.",
+      "freeHint_other": "Choisissez sur le plan les {{count}} cases à libérer.",
+      "followTitle": "Quelles cases passent au nouveau prix ?",
+      "followHint_one": "Les non rangées ne suffisent pas : choisissez la case qui passe au nouveau prix. Elle reste occupée.",
+      "followHint_other": "Les non rangées ne suffisent pas : choisissez les {{count}} cases qui passent au nouveau prix. Elles restent occupées.",
+      "followHintAllPlaced_one": "Toute la ligne est rangée : choisissez la case qui passe au nouveau prix. Elle reste occupée.",
+      "followHintAllPlaced_other": "Toute la ligne est rangée : choisissez les {{count}} cases qui passent au nouveau prix. Elles restent occupées.",
+      "pickCount_one": "Case choisie : {{chosen}} sur {{count}}",
+      "pickCount_other": "Cases choisies : {{chosen}} sur {{count}}",
+      "hintFreed": "La case {{cell}} sera libérée.",
+      "hintKept": "La bouteille ouverte reste en {{cell}}.",
+      "hintKept_box": "La boîte ouverte reste en {{cell}}.",
+      "columnShort": "C{{col}}",
+      "rowShort": "R{{row}}"
     }
   },
   "familyList": {
@@ -2539,7 +2653,8 @@
       "empty": "Aucune dégustation de ce vin pour l'instant.",
       "empty_spirit": "Aucune dégustation de ce spiritueux pour l'instant.",
       "empty_cigar": "Aucune dégustation de ce cigare pour l'instant.",
-      "elsewhere": "Goûté ailleurs"
+      "elsewhere": "Goûté ailleurs",
+      "boughtOn": "achat du {{date}}"
     },
     "history": {
       "title": "Historique",
@@ -2563,11 +2678,26 @@
       "scopeCigar_one": "Modifie ce cigare pour son seul cigare en cave.",
       "scopeCigar_other": "Modifie ce cigare pour ses {{count}} cigares.",
       "saved": "Vin mis à jour",
+      "saved_spirit": "Spiritueux mis à jour",
+      "saved_cigar": "Cigare mis à jour",
       "conflict": "Non enregistré : ce vin a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
+      "conflict_spirit": "Non enregistré : ce spiritueux a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
+      "conflict_cigar": "Non enregistré : ce cigare a été modifié entre-temps, par un autre membre ou sur un autre appareil. Fermez le formulaire et rouvrez-le pour repartir de la version à jour.",
       "rejected": "Non enregistré : le serveur a refusé une des valeurs saisies. Vérifiez le formulaire.",
       "error": "Impossible d'enregistrer ce vin.",
+      "error_spirit": "Impossible d'enregistrer ce spiritueux.",
+      "error_cigar": "Impossible d'enregistrer ce cigare.",
       "thisWine": "ce vin",
       "thisSpirit": "ce spiritueux"
+    },
+    "slots": {
+      "placed_one": "{{count}} rangée",
+      "placed_other": "{{count}} rangées",
+      "unplaced_one": "{{count}} non rangée",
+      "unplaced_other": "{{count}} non rangées",
+      "summary": "{{counts}} · {{cells}}",
+      "groupCell": "Rangés en {{cells}}",
+      "groupUnplaced": "Non rangés"
     }
   },
   "cigarGroup": {
@@ -2795,5 +2925,15 @@
     "joining": "Ces bouteilles rejoindront {{name}}.",
     "joiningCigar": "Ces cigares rejoindront {{name}}.",
     "addAria": "{{action}} : {{wine}}, {{stock}}"
+  },
+  "history": {
+    "fields": {
+      "slot": "Case",
+      "location": "Repère libre"
+    },
+    "slotNone": "aucune",
+    "slotPlaced": "Case {{cell}} occupée",
+    "slotFreed": "Case {{cell}} libérée",
+    "slotMoved": "Case {{from}} → {{to}}"
   }
 }

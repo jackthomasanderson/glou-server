@@ -11,7 +11,7 @@ import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
 import { getClientIp } from '../middleware/auth.middleware';
 import {
-  checkGuestUndo, checkGuestWrite, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestUndoMarker,
+  checkGuestUndo, checkGuestWrite, freedCell, GUEST_UNDO_WINDOW_MS, isGuestMove, stateBefore, undoPatch, type GuestUndoMarker,
 } from '../lib/guest-write';
 import type { StateItem } from '../services/stock-state.service';
 import { guestTastingSchema } from '../schemas/guest-tasting.schema';
@@ -146,23 +146,21 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       const entry = await sharesService.findLatestGuestMove(itemId, new Date(Date.now() - GUEST_UNDO_WINDOW_MS));
       if (!entry?.undo) throw new AppError(403, 'GUEST_UNDO_REFUSED');
       const marker = entry.undo;
-      const restore = undoPatch(marker.before, item.cigarsPerBox ?? null);
-      const options = { guard: (unit: StateItem) => { checkGuestUndo(share, entry, unit); } };
+      const restore = undoPatch(marker.before, item.cigarsPerBox ?? null, marker.slot);
+      const options = { guard: (unit: StateItem) => { checkGuestUndo(share, entry, unit); }, slotChoice: 'auto' as const };
       result = await inventoryService.updateItem(share.userId, itemId, restore, options);
-      if (result && 'slotConflict' in result && result.slotConflict) {
-        // Its grid slot was taken meanwhile: the bottle still comes back, without a slot.
-        const { slotColumn: _column, slotRow: _row, ...unplaced } = restore as typeof restore & { slotColumn?: number; slotRow?: number };
-        result = await inventoryService.updateItem(share.userId, itemId, unplaced, options);
-      }
       undone = marker;
     } else {
       // #471 (FEAT-109): one copy opened, drunk or smoked, a level set — never
       // a number changed; decided on the unit as read under its family's lock.
+      // FEAT-93: a guest has no plan in sight — the copy taken off a line
+      // holding cells follows the automatic rule (decision #471 point 75).
       result = await inventoryService.updateItem(share.userId, itemId, patch, {
         guard: (unit, planned, kind) => {
           checkGuestWrite(share, patch, unit, planned, kind);
           before = unit;
         },
+        slotChoice: 'auto',
       });
     }
 
@@ -178,21 +176,17 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       res.status(409).json({ error: 'CONFLICT', data: result.serverItem });
       return;
     }
-    if (result.slotConflict) {
-      // Nothing was written (inventory.router answers the same): never logged as a success.
-      throw new AppError(409, 'SLOT_OCCUPIED');
-    }
-
     // A move (not a level set) can be undone for a moment (decision 68): what
     // it found, and the version of the unit it left. Awaited, so the
     // "Annuler" that follows the answer always finds it.
     const moved = before as StateItem | null;
-    const sameUnit = result.item.id === itemId;
+    const freed = freedCell(result.changes, result.groupChange?.slotChanges);
     const marker: GuestUndoMarker | null = moved && isGuestMove(patch, moved)
       ? {
-        // The grid slot only when the unit gave it back itself (a line of one finished in place).
-        before: stateBefore(moved, sameUnit && result.item.slotColumn == null),
+        before: stateBefore(moved),
         stampedAt: new Date(result.item.updatedAt).toISOString(),
+        // FEAT-93: the cell it freed, put back by "Annuler" if still free.
+        ...(freed ? { slot: freed } : {}),
       }
       : null;
     await auditLog({
@@ -206,13 +200,15 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       details: {
         via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: result.changes,
         ...(result.outcome ? { outcome: result.outcome, targetItemId: itemId } : {}),
+        // Recette #847: told "1 cigare fumé" (the first of a box only opens it in its changes).
+        ...(patch.smokeOne ? { smokeOne: true } : {}),
         ...(marker ? { undo: marker } : {}),
         ...(undone ? { undoOf: undone.stampedAt } : {}),
       },
     });
     // The group's own history: one copy fewer (detached) or one more (reattached).
     if (result.groupChange) {
-      const { itemId: groupId, from, to } = result.groupChange;
+      const { itemId: groupId, from, to, slotChanges = [] } = result.groupChange;
       void auditLog({
         userId: share.userId,
         action: 'GUEST_UPDATE',
@@ -220,7 +216,11 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
         ip,
         bottleId: groupId,
         productId: result.item.productId,
-        details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: [{ field: 'quantity', from, to }], outcome: result.outcome },
+        details: {
+          via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, changes: [{ field: 'quantity', from, to }, ...slotChanges], outcome: result.outcome,
+          // The copy it is about, as a member's entry names it: its "Annuler" hides both (recette #847, KO 8.2).
+          subItemId: result.outcome === 'detached' ? result.item.id : itemId,
+        },
       });
     }
 

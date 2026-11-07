@@ -3,6 +3,7 @@ import { isFinishedState, isIntactItem } from './finished-item';
 import type { GuestInventoryUpdate } from '../schemas/inventory.schema';
 import type { StateItem, StateOutcome } from '../services/stock-state.service';
 import type { UnitKind } from '../../../shared/units';
+import type { FieldChange, SlotCell } from '../../../shared/product';
 
 type GuestUnit = Pick<StateItem, 'cellarId' | 'quantity' | 'isOpened' | 'fillLevel' | 'cigarsLeft' | 'writtenOffAt'>;
 
@@ -64,9 +65,6 @@ export interface GuestStateBefore {
   fillLevel: number | null;
   openedAt: string | null;
   cigarsLeft: number | null;
-  /** The grid slot a line of one gave back when finished in place (#573). */
-  slotColumn?: number | null;
-  slotRow?: number | null;
 }
 
 /**
@@ -78,6 +76,8 @@ export interface GuestStateBefore {
 export interface GuestUndoMarker {
   before: GuestStateBefore;
   stampedAt: string;
+  /** FEAT-93: the cell of the plan the move freed (a bottle drunk from it), given back by "Annuler" if still free. */
+  slot?: SlotCell;
 }
 
 /**
@@ -91,14 +91,36 @@ export const isGuestMove = (patch: GuestInventoryUpdate, before: Pick<StateItem,
   patch.smokeOne === true
   || (patch.isOpened === true && (isIntactItem(before) || (patch.fillLevel === 0 && !isFinishedState(before))));
 
-export function stateBefore(unit: StateItem, keepSlot: boolean): GuestStateBefore {
+export function stateBefore(unit: StateItem): GuestStateBefore {
   return {
     isOpened: unit.isOpened,
     fillLevel: unit.fillLevel,
     openedAt: unit.openedAt ? unit.openedAt.toISOString() : null,
     cigarsLeft: unit.cigarsLeft,
-    ...(keepSlot && unit.slotColumn != null && unit.slotRow != null ? { slotColumn: unit.slotColumn, slotRow: unit.slotRow } : {}),
   };
+}
+
+/** A cell as the audit log holds it (read back from JSON): two positions of the plan. */
+const isCell = (cell: SlotCell): boolean =>
+  [cell.column, cell.row].every((n) => Number.isInteger(n) && n >= 1 && n <= 100);
+
+const isSlotChange = (change: FieldChange): change is FieldChange & { from: SlotCell | null; to: SlotCell | null } =>
+  change.field === 'slot';
+
+/**
+ * FEAT-93 (lot S2): the cell a guest's move freed for good — a bottle drunk
+ * (or a cigar smoked out) from it, alone on its line or taken off a group —
+ * as the history of the unit (`changes`) and of its group (`groupChanges`)
+ * tell it; not a cell an opened copy took with it (back with it on
+ * "Annuler", when it rejoins its line). Null when none.
+ */
+export function freedCell(changes: readonly FieldChange[], groupChanges: readonly FieldChange[] = []): SlotCell | null {
+  const key = (cell: SlotCell) => `${cell.column}:${cell.row}`;
+  const taken = new Set(changes.filter(isSlotChange).flatMap((change) => (change.from === null && change.to ? [key(change.to)] : [])));
+  const freed = [...changes, ...groupChanges].filter(isSlotChange)
+    .flatMap((change) => (change.to === null && change.from ? [change.from] : []))
+    .find((cell) => !taken.has(key(cell)));
+  return freed ? { column: freed.column, row: freed.row } : null;
 }
 
 /**
@@ -106,16 +128,16 @@ export function stateBefore(unit: StateItem, keepSlot: boolean): GuestStateBefor
  * (a box with all its cigars) — rejoining its line — or an opened box with
  * its cigar back.
  */
-export function undoPatch(before: GuestStateBefore, cigarsPerBox: number | null) {
+export function undoPatch(before: GuestStateBefore, cigarsPerBox: number | null, slot?: SlotCell) {
   const intact = isIntactItem(before);
   return {
+    // FEAT-93: the cell the move freed, if nobody took it since (`placeAt`).
+    ...(slot && isCell(slot) ? { placeAt: { column: slot.column, row: slot.row } } : {}),
     isOpened: before.isOpened,
     fillLevel: before.fillLevel,
     openedAt: before.openedAt ? new Date(before.openedAt) : null,
     // A closed box is put back complete (normalizeCigarState); an opened one with its count.
     cigarsLeft: intact && cigarsPerBox != null ? cigarsPerBox : before.cigarsLeft,
-    // Recorded only when the unit gave its slot back itself; still free, or the version check refuses.
-    ...(before.slotColumn != null && before.slotRow != null ? { slotColumn: before.slotColumn, slotRow: before.slotRow } : {}),
   };
 }
 

@@ -25,16 +25,28 @@ vi.mock('@/hooks/useProducts', () => ({
 }));
 // ResponsiveModal (the history's restore confirmation) reads window.matchMedia.
 vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
-vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
-vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }] }) }));
+vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn(), notifyUndoable: vi.fn() }));
+const removeSlot = vi.fn<(vars: { slotId: string }) => Promise<void>>(async () => undefined);
+vi.mock('@/hooks/useCellars', () => ({
+  useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }] }),
+  useRemoveSlot: () => ({ mutateAsync: removeSlot, isPending: false }),
+}));
 vi.mock('@/hooks/useInventory', () => ({
   useUpdateInventoryItem: () => ({ mutateAsync: mutate, isPending: false }),
   useRollbackField: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, isError: false }),
 }));
 vi.mock('@/hooks/useAlerts', () => ({ useToggleAlertPause: () => ({ mutate: vi.fn(), isPending: false }) }));
+// Connectivity is probed by a GET of its own (FEAT-108): set by the test.
+const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
+vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('@/components/collections/CollectionPickerInline', () => ({ CollectionPickerInline: () => null }));
+const tastingFromCell: { value?: { itemId: string; slotId: string } } = {};
 vi.mock('@/components/tastings/TastingForm', () => ({
-  TastingForm: ({ initialItemId }: { initialItemId?: string }) => { tastingPreset.id = initialItemId; return null; },
+  TastingForm: ({ initialItemId, fromCell }: { initialItemId?: string; fromCell?: { itemId: string; slotId: string } }) => {
+    tastingPreset.id = initialItemId;
+    tastingFromCell.value = fromCell;
+    return null;
+  },
 }));
 vi.mock('../QrCodeModal', () => ({ QrCodeModal: () => null }));
 // The drawer's frame only: its content is what is tested.
@@ -56,13 +68,13 @@ const detailOf = (over: Partial<ProductDetailView>): ProductDetailView =>
   ({ ...product(), tastings: [], history: [], ...over }) as ProductDetailView;
 
 const tasting = (over: Partial<ProductDetailView['tastings'][number]>) => ({
-  id: 't1', userId: 'user', itemId: null, productId: 'p1', guestName: null, tastedAt: '2026-10-01T00:00:00.000Z',
+  id: 't1', userId: 'user', itemId: null, productId: 'p1', guestName: null, cellarId: null, cellarName: null, purchasedAt: null, snapshotAt: null, tastedAt: '2026-10-01T00:00:00.000Z',
   context: null, rating: 4, readiness: null, notes: null, foodPairing: null, photoUrl: null, robe: null, nez: null,
   bouche: null, tanin: null, acidite: null, longueurBouche: null,
   createdAt: '2026-10-01T00:00:00.000Z', updatedAt: '2026-10-01T00:00:00.000Z', ...over,
 });
 
-beforeEach(() => { mutate.mockClear(); queryClient = new QueryClient(); });
+beforeEach(() => { mutate.mockClear(); queryClient = new QueryClient(); connectivity.online = true; });
 
 describe('FamilyDrawer', () => {
   it('opens a wine known without any bottle: its name, no line, its tastings', () => {
@@ -160,6 +172,75 @@ describe('FamilyDrawer', () => {
     const entry = within(screen.getByTestId('family-tastings')).getByRole('listitem');
     expect(entry).toHaveTextContent(/Garage · 20\s€ \/ bouteille/);
     expect(entry).toHaveTextContent('À point');
+  });
+
+  // #837: a tasting says which bottle it was as it was when tasted, not as it is now.
+  describe('the bottle of a tasting, as it was when tasted (#837)', () => {
+    const entries = () => within(screen.getByTestId('family-tastings')).getAllByRole('listitem');
+
+    it('a bottle moved after its tasting keeps the cellar it was tasted in, and says its purchase day', () => {
+      detail = detailOf({
+        items: [unit({ id: 'b1', quantity: 2, cellarId: 'cuisine', purchasePrice: 20, purchasedAt: '2025-03-12T00:00:00.000Z' })],
+        tastings: [tasting({ itemId: 'b1', cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2025-03-12T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' })],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      expect(entries()[0]).toHaveTextContent(/Garage · 20\s€ \/ bouteille · achat du 12\smars\s2025/);
+      expect(entries()[0]).not.toHaveTextContent('Sans cave');
+    });
+
+    it('two tastings of two bottles of the wine say what tells the bottles apart', () => {
+      detail = detailOf({
+        items: [unit({ id: 'b1', cellarId: 'garage' }), unit({ id: 'b2', cellarId: 'garage' })],
+        tastings: [
+          tasting({ id: 't1', itemId: 'b1', cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2025-03-12T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+          tasting({ id: 't2', itemId: 'b2', cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2024-01-05T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+        ],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      const [first, second] = entries();
+      expect(first).toHaveTextContent(/achat du 12\smars\s2025/);
+      expect(second).toHaveTextContent(/achat du 5\sjanv\.\s2024/);
+    });
+
+    it('a tasting whose bottle is no longer listed, or gone for good, still says which bottle it was', () => {
+      detail = detailOf({
+        items: [],
+        tastings: [
+          tasting({ id: 't1', itemId: 'trashed', cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2025-03-12T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+          tasting({ id: 't2', itemId: null, cellarId: 'garage', cellarName: 'Garage', purchasedAt: '2025-03-12T00:00:00.000Z', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+        ],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      for (const entry of entries()) {
+        expect(entry).toHaveTextContent(/Garage · achat du 12\smars\s2025/);
+        expect(entry).not.toHaveTextContent('Goûté ailleurs');
+      }
+    });
+
+    it('a bottle in no cellar when tasted keeps saying so once put in one', () => {
+      detail = detailOf({
+        items: [unit({ id: 'b1', cellarId: 'garage' })],
+        tastings: [tasting({ itemId: 'b1', cellarId: null, cellarName: null, purchasedAt: null, snapshotAt: '2025-06-01T00:00:00.000Z' })],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      expect(entries()[0]).toHaveTextContent('Sans cave');
+      expect(entries()[0]).not.toHaveTextContent('Garage');
+    });
+
+    it('a renamed cellar shows its name of now; a deleted one, its name when tasted', () => {
+      detail = detailOf({
+        items: [],
+        tastings: [
+          tasting({ id: 't1', itemId: 'b1', cellarId: 'garage', cellarName: 'Vieux garage', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+          tasting({ id: 't2', itemId: 'b2', cellarId: null, cellarName: 'Cave démolie', snapshotAt: '2025-06-01T00:00:00.000Z' }),
+        ],
+      });
+      render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+      const [renamed, deleted] = entries();
+      expect(renamed).toHaveTextContent('Garage');
+      expect(renamed).not.toHaveTextContent('Vieux garage');
+      expect(deleted).toHaveTextContent('Cave démolie');
+    });
   });
 
   // Recette #471 (KO 8.4): only a tasting without any bottle was noted elsewhere.
@@ -361,3 +442,139 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
     expect(within(history).queryByRole('button', { name: 'Restaurer cette valeur' })).toBeNull();
   });
 });
+
+// FEAT-93: a cell of the cellar plan touched opens its wine on its line, with the cell.
+describe('FamilyDrawer — opened from a cell of the plan (FEAT-93)', () => {
+  const placed = () => unit({ id: 'group', quantity: 6, cellarId: 'garage', slots: [{ id: 's23', column: 2, row: 3 }, { id: 's24', column: 2, row: 4 }] });
+  const slotContext = { itemId: 'group', slotId: 's23', label: 'Case C2·R3' };
+
+  it('says which cell, leads to its line, and offers "Retirer de la case"', async () => {
+    removeSlot.mockClear();
+    detail = detailOf({ items: [unit({ id: 'other', quantity: 2, cellarId: 'garage' }), placed()] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    const banner = screen.getByTestId('slot-context');
+    expect(banner).toHaveTextContent('Case C2·R3');
+    await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-line-id="group"]')));
+    fireEvent.click(within(banner).getByRole('button', { name: 'Retirer de la case' }));
+    await waitFor(() => expect(removeSlot).toHaveBeenCalledWith({ slotId: 's23' }));
+  });
+
+  it('while open, messages keep clear of the drawer and its « Retirer de la case » (recette n°5 of #847)', async () => {
+    const { useToastLayout } = await import('@/lib/toastClearance');
+    function Where() {
+      const layout = useToastLayout();
+      return <output data-testid="toast-layout">{layout.placement}</output>;
+    }
+    detail = detailOf({ items: [placed()] });
+    const { rerender } = render(<><Where /><FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} /></>);
+    // jsdom: a drawer of no width leaves the whole window beside it — at
+    // the bottom, clear of the navigation too (recette n°5 bis).
+    expect(screen.getByTestId('toast-layout')).toHaveTextContent('bottom-right');
+    rerender(<><Where /><FamilyDrawer productId={null} onClose={() => {}} slotContext={null} /></>);
+    await waitFor(() => expect(screen.getByTestId('toast-layout')).toHaveTextContent('top-right'));
+  });
+
+  it('the removal is said, and the focus stays in the drawer (review of #855)', async () => {
+    removeSlot.mockClear();
+    detail = detailOf({ items: [placed()] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    fireEvent.click(within(screen.getByTestId('slot-context')).getByRole('button', { name: 'Retirer de la case' }));
+    await waitFor(() => expect(screen.getByTestId('slot-removed')).toHaveTextContent('Bouteille retirée de la case.'));
+    expect(document.activeElement).toBe(document.getElementById('inventory-detail-title'));
+  });
+
+  it('a cell changed on another device: says so, not "Une erreur est survenue"', async () => {
+    const { notifyError } = await import('@/lib/toast');
+    removeSlot.mockRejectedValueOnce(new Error('SLOT_NOT_FOUND'));
+    detail = detailOf({ items: [placed()] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    fireEvent.click(within(screen.getByTestId('slot-context')).getByRole('button', { name: 'Retirer de la case' }));
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('cellars.grid.slotNotFound'));
+  });
+
+  it('closed, then opened again without a cell: no line is led to any more (review of #855)', async () => {
+    detail = detailOf({ items: [unit({ id: 'other', quantity: 2, cellarId: 'garage' }), placed()] });
+    const { rerender } = render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-line-id="group"]')));
+    rerender(<FamilyDrawer productId={null} onClose={() => {}} slotContext={null} />);
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    rerender(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={null} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(document.activeElement).not.toBe(document.querySelector('[data-line-id="group"]'));
+    expect(document.querySelector('[data-line-id="group"]')?.getAttribute('data-ringed')).toBeNull();
+  });
+
+  it('no banner once the cell no longer holds a bottle of the line (taken out, drunk elsewhere)', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage', slots: [{ id: 's24', column: 2, row: 4 }] })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    expect(screen.queryByTestId('slot-context')).toBeNull();
+  });
+
+  // FEAT-93 c3 / decision #471 point 77: from a cell, the footer takes that very copy.
+  it('from a full cell: "J\'en ouvre une" opens the bottle of that cell, no question', async () => {
+    detail = detailOf({ items: [placed(), openedBottle(40, { id: 'o', cellarId: 'garage' })] });
+    queryClient.setQueryData(['inventory', 'product', 'p1'], detail);
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    fireEvent.click(screen.getByTestId('stock-move-open'));
+    await waitFor(() => expect(mutate).toHaveBeenCalled());
+    expect(mutate).toHaveBeenCalledWith(expect.objectContaining({ id: 'group', patch: expect.objectContaining({ isOpened: true, fromSlotId: 's23' }) }));
+    expect(screen.queryByText(/déjà entamée/)).toBeNull();
+  });
+
+  it('c3: the bottle opened from the cell took it along — the banner stays, "Finir l\'entamée" comes first', () => {
+    detail = detailOf({
+      items: [
+        unit({ id: 'group', quantity: 5, cellarId: 'garage', slots: [{ id: 's24', column: 2, row: 4 }] }),
+        openedBottle(100, { id: 'sub', cellarId: 'garage', parentItemId: 'group', slots: [{ id: 's23', column: 2, row: 3 }] }),
+      ],
+    });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    expect(screen.getByTestId('slot-context')).toHaveTextContent('Case C2·R3');
+    const finish = screen.getByTestId('stock-move-finish');
+    expect(finish).toHaveTextContent("Finir l'entamée");
+    expect(finish).toHaveAttribute('data-primary', 'true');
+  });
+
+  it('offline: "Retirer de la case" stays visible, says why, and does nothing (FEAT-108)', async () => {
+    connectivity.online = false;
+    removeSlot.mockClear();
+    detail = detailOf({ items: [placed()] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    const remove = within(screen.getByTestId('slot-context')).getByRole('button', { name: 'Retirer de la case' });
+    expect(remove).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getByText('Disponible au retour de la connexion')).toBeInTheDocument();
+    fireEvent.click(remove);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(removeSlot).not.toHaveBeenCalled();
+  });
+
+  it('review 857: a bottle put back in the cell by "Annuler" (a new slot there) keeps the banner', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage', slots: [{ id: 'new', column: 2, row: 3 }] })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={{ ...slotContext, at: { cellarId: 'garage', column: 2, row: 3 } }} />);
+    expect(screen.getByTestId('slot-context')).toHaveTextContent('Case C2·R3');
+    // The tasting of that line takes the bottle of the cell, under its slot of now.
+    expect(tastingFromCell.value).toEqual({ itemId: 'group', slotId: 'new' });
+  });
+
+  // Recette n°5 (7.1): "Noter une dégustation" from a cell — the line of the cell is the bottle tasted.
+  it('from a cell: the tasting presets the line of the cell, among several full lines', () => {
+    detail = detailOf({ items: [unit({ id: 'other', quantity: 2, cellarId: 'garage' }), placed()] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    expect(tastingPreset.id).toBe('group');
+    expect(tastingFromCell.value).toEqual({ itemId: 'group', slotId: 's23' });
+  });
+
+  it('from a full cell: the tasting presets that bottle, not the opened one elsewhere (decision 77)', () => {
+    detail = detailOf({ items: [placed(), openedBottle(40, { id: 'o', cellarId: 'garage' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
+    expect(tastingPreset.id).toBe('group');
+  });
+
+  it('the same cell number in another cellar is not the cell touched', () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'kitchen', slots: [{ id: 'other', column: 2, row: 3 }] })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={{ ...slotContext, at: { cellarId: 'garage', column: 2, row: 3 } }} />);
+    expect(screen.queryByTestId('slot-context')).toBeNull();
+    expect(tastingFromCell.value).toBeUndefined();
+  });
+});
+

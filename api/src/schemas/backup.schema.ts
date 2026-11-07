@@ -22,19 +22,15 @@ export const backupRunsQuerySchema = z.object({
 // trigger a restore by accident.
 export const backupRestoreSchema = z.object({
   confirm: z.literal(true),
-  // #489: the admin re-enters their password.
-  password: z.string().min(1),
 });
 
-/** #489: downloading a dump (every password hash and 2FA secret) re-asks the password. */
-export const backupDownloadSchema = z.object({
-  password: z.string().min(1),
-});
+// #489 / #890: restore, download and purge also ask for the admin's step-up
+// (password, plus their code when they have 2FA), read by the admin router
+// with adminReauthSchema — a dump holds every password hash and 2FA secret.
 
-/** #489: the full purge re-asks the password on top of the typed keyword. */
+/** The full purge asks for the protocol keyword on top of the step-up. */
 export const purgeSchema = z.object({
   confirmation: z.literal('SUPPRIMER'),
-  password: z.string().min(1),
 });
 
 export type BackupRestoreInput = z.infer<typeof backupRestoreSchema>;

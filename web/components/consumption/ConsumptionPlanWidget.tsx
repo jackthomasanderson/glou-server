@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import {
-  Card, CardHeader, CardBody, Button, Chip, Avatar, Skeleton, Progress, Input, Select, SelectItem,
+  Card, CardHeader, CardBody, Button, Chip, Avatar, Skeleton, Progress, Input, SelectItem,
 } from '@heroui/react';
 import { Wine, Clock, RotateCcw, Target } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +12,7 @@ import { ConsumptionSuggestion, GoalTargetType, SuggestionReason } from '@/lib/c
 import { consumeLabel } from '@/lib/consumption-plan/label';
 import { TastingForm } from '@/components/tastings/TastingForm';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 
 const SUGGESTIONS_LIMIT = 7;
 
@@ -95,7 +96,7 @@ export function ConsumptionPlanWidget() {
             <Skeleton className="h-10 w-full rounded-lg" />
           ) : editingGoal ? (
             <div className="flex flex-col gap-3 max-w-sm">
-              <Select
+              <SingleSelect
                 label={t('consumptionPlan.goal.targetType')}
                 selectedKeys={[targetType]}
                 onSelectionChange={(keys) => setTargetType((Array.from(keys)[0] as GoalTargetType) ?? 'count')}
@@ -104,7 +105,7 @@ export function ConsumptionPlanWidget() {
               >
                 <SelectItem key="count">{t('consumptionPlan.goal.targetTypeCount')}</SelectItem>
                 <SelectItem key="volume">{t('consumptionPlan.goal.targetTypeVolume')}</SelectItem>
-              </Select>
+              </SingleSelect>
               <Input
                 type="number"
                 min={1}

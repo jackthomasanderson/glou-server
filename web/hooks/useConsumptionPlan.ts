@@ -57,6 +57,8 @@ export function useGoalProgress() {
 export function useSetGoal() {
   const queryClient = useQueryClient();
   return useMutation<ConsumptionGoal, Error, SetGoalInput>({
+    // Said by the goal form (ConsumptionPlanWidget).
+    meta: { handlesError: true },
     mutationFn: consumptionPlanClient.setGoal,
     onSettled: () => void queryClient.invalidateQueries({ queryKey: GOAL_KEY }),
   });

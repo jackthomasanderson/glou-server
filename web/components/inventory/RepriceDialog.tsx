@@ -8,6 +8,8 @@ import { lineParts, type LineContext } from '@/lib/products/lines';
 import { lineCopies, unitNoun } from '@/lib/products/stockActions';
 import type { ProductItem } from '@/lib/products/types';
 import { CountField, isCountIn, isPrice, LineDialogFrame } from './StockLineDialogParts';
+import { SlotPicker, useCellsToName } from '@/components/cellars/SlotPicker';
+import { unplacedCopies } from '@/lib/products/cells';
 
 interface RepriceDialogProps {
   item: ProductItem;
@@ -30,15 +32,19 @@ export function RepriceDialog({ item, ctx, isOpen, onClose }: RepriceDialogProps
   const [price, setPrice] = useState<number | undefined>(item.purchasePrice ?? undefined);
 
   const newPrice = price ?? null;
-  const canConfirm = isCountIn(count, 1, total) && isPrice(price) && newPrice !== (item.purchasePrice ?? null);
+  // FEAT-93, decision #471 point 74: unplaced copies take the new price first;
+  // beyond them, the cells named follow the copies repriced (still occupied).
+  const cells = useCellsToName(item, isCountIn(count, 1, total) ? total - count : undefined, ctx.kind);
+  const canConfirm = isCountIn(count, 1, total) && isPrice(price) && newPrice !== (item.purchasePrice ?? null) && cells.ready;
   const priceText = (value: number | null) => (value == null ? t('stockLine.reprice.noPrice') : ctx.formatPrice(value));
 
   const confirm = () => {
-    if (!isCountIn(count, 1, total)) return;
+    if (!isCountIn(count, 1, total) || !cells.ready) return;
     const from = item.purchasePrice ?? null;
     reprice.mutate(
-      { item, body: { count, purchasePrice: newPrice } },
+      { item, body: { count, purchasePrice: newPrice, ...cells.body } },
       {
+        onError: (error) => { cells.refused(error); },
         onSuccess: () => {
           notifySuccess('stockLine.reprice.done', { context: noun, count, from: priceText(from), to: priceText(newPrice) });
           onClose();
@@ -81,6 +87,19 @@ export function RepriceDialog({ item, ctx, isOpen, onClose }: RepriceDialogProps
         errorMessage={t('stockLine.priceInvalid')}
         data-testid="reprice-price-input"
       />
+      {cells.needed > 0 && (
+        <SlotPicker
+          cellarId={item.cellarId}
+          slots={cells.slots}
+          needed={cells.needed}
+          selected={cells.selected}
+          onChange={cells.setSelected}
+          title={t('stockLine.slots.followTitle')}
+          tone="primary"
+          // Recette n°5 of #847: "the unplaced ones are not enough" only said when the line has some.
+          hint={t(unplacedCopies(item, ctx.kind) > 0 ? 'stockLine.slots.followHint' : 'stockLine.slots.followHintAllPlaced', { count: cells.needed })}
+        />
+      )}
     </LineDialogFrame>
   );
 }

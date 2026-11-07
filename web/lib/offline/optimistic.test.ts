@@ -11,7 +11,7 @@ import {
 const AT = '2026-11-04T10:00:00.000Z';
 const group = (quantity: number, extra: Record<string, unknown> = {}): UnitLike => ({
   id: 'g', productId: 'p1', quantity, isOpened: false, fillLevel: 100, openedAt: null, cigarsLeft: null,
-  cigarsPerBox: null, parentItemId: null, writtenOffAt: null, slotColumn: 2, slotRow: 3, updatedAt: 'v1', ...extra,
+  cigarsPerBox: null, parentItemId: null, writtenOffAt: null, slots: [{ id: 's1', column: 2, row: 3 }], updatedAt: 'v1', ...extra,
 });
 const change = (patch: Record<string, unknown>, extra: Partial<QueuedChange> = {}): QueuedChange =>
   ({ id: 'm1', itemId: 'g', patch, createdAt: AT, status: 'pending', ...extra });
@@ -23,8 +23,8 @@ describe('applyChange — one copy of a group (FEAT-108 c1)', () => {
   it('opening one of ×6 shows ×5 and one opened bottle, provisional, the slot left to the group', () => {
     const [g, copy, ...rest] = applyChange([group(6)], change(OPEN));
     expect(rest).toEqual([]);
-    expect(g).toMatchObject({ id: 'g', quantity: 5, isOpened: false, fillLevel: 100, slotColumn: 2 });
-    expect(copy).toMatchObject({ id: provisionalIdOf('m1'), quantity: 1, isOpened: true, fillLevel: 100, parentItemId: 'g', slotColumn: null, slotRow: null });
+    expect(g).toMatchObject({ id: 'g', quantity: 5, isOpened: false, fillLevel: 100, slots: [{ id: 's1', column: 2, row: 3 }] });
+    expect(copy).toMatchObject({ id: provisionalIdOf('m1'), quantity: 1, isOpened: true, fillLevel: 100, parentItemId: 'g', slots: [] });
     expect(isProvisional(copy)).toBe(true);
     expect(unitInStock(copy)).toBe(true);
   });
@@ -93,7 +93,7 @@ describe('applyChange — "Corriger le nombre" (FEAT-108 c5)', () => {
 
   it('the whole line broken: the line itself leaves the stock', () => {
     const [g] = applyChange([group(2)], change({ quantity: 0, reason: 'written_off' }, { kind: 'correct' }));
-    expect(g).toMatchObject({ writtenOffAt: AT, slotColumn: null });
+    expect(g).toMatchObject({ writtenOffAt: AT, slots: [] });
     expect(unitInStock(g)).toBe(false);
   });
 });
@@ -121,12 +121,54 @@ describe('revertChange — "Annuler" before the network is back', () => {
 
   it('gives a unit changed itself back what it was', () => {
     const shown = applyChange([group(1)], change(DRINK));
-    expect(revertChange(shown, change(DRINK), beforeOf(group(1)))[0]).toMatchObject({ isOpened: false, fillLevel: 100, slotColumn: 2, slotRow: 3 });
+    expect(revertChange(shown, change(DRINK), beforeOf(group(1)))[0]).toMatchObject({ isOpened: false, fillLevel: 100, slots: [{ id: 's1', column: 2, row: 3 }] });
   });
 
   it('a correction with copies gone: back to the number before', () => {
     const correction = change({ quantity: 4, reason: 'written_off' }, { kind: 'correct' });
     expect(revertChange(applyChange([group(6)], correction), correction, beforeOf(group(6))).map((u) => u.quantity)).toEqual([6]);
+  });
+});
+
+// FEAT-93 (#847, lot S4): the copy's cell, chosen in "De quelle case ?" or
+// touched on the plan, is shown where the server will put it.
+describe('applyChange — the cells of the plan (FEAT-93)', () => {
+  const placed = (quantity: number) => group(quantity, { slots: [{ id: 's1', column: 1, row: 1 }, { id: 's2', column: 2, row: 1 }] });
+
+  it('opened from a cell: the opened bottle holds it, the group keeps the others', () => {
+    const [g, copy] = applyChange([placed(3)], change({ ...OPEN, fromSlotId: 's1' }));
+    expect(g).toMatchObject({ quantity: 2, slots: [{ id: 's2', column: 2, row: 1 }] });
+    expect(copy).toMatchObject({ isOpened: true, slots: [{ id: 's1', column: 1, row: 1 }] });
+    expect(copy).not.toHaveProperty('fromSlotId');
+  });
+
+  it('drunk from a cell: the cell is freed', () => {
+    const [g, copy] = applyChange([placed(3)], change({ ...DRINK, fromSlotId: 's2' }));
+    expect(g.slots).toEqual([{ id: 's1', column: 1, row: 1 }]);
+    expect(copy.slots).toEqual([]);
+  });
+
+  it('an unplaced copy: the cells stay with the group', () => {
+    const [g, copy] = applyChange([placed(3)], change({ ...DRINK, fromUnplaced: true }));
+    expect(g.slots).toHaveLength(2);
+    expect(copy.slots).toEqual([]);
+    expect(copy).not.toHaveProperty('fromUnplaced');
+  });
+
+  it('a correction frees the cells it names', () => {
+    const correction = change({ quantity: 1, reason: 'input_error', slotIds: ['s2'] }, { kind: 'correct' });
+    expect(applyChange([placed(3)], correction)[0]).toMatchObject({ quantity: 1, slots: [{ id: 's1', column: 1, row: 1 }] });
+  });
+
+  it('"Annuler" before the network is back gives the group its cell back', () => {
+    const drink = change({ ...DRINK, fromSlotId: 's2' });
+    const reverted = revertChange(applyChange([placed(3)], drink), drink, beforeOf(placed(3)));
+    expect(reverted).toEqual([expect.objectContaining({ quantity: 3, slots: placed(3).slots })]);
+  });
+
+  it('a move from a cell is still an everyday action, not an edit', () => {
+    expect(actionOf(change({ ...DRINK, fromSlotId: 's1' }))).toBe('drink');
+    expect(actionOf(change({ ...OPEN, fromUnplaced: true }))).toBe('open');
   });
 });
 

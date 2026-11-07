@@ -10,13 +10,22 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/;
  */
 const DAY_FIELDS = new Set(['purchasedAt']);
 
+/** What one copy of the line a change was made on is (UnitNoun): a box or a cigar has its own words. */
+export type HistoryNoun = 'bottle' | 'box' | 'cigar';
+
 /**
  * #508: the item history showed raw technical names and values
  * ("cellarId: "3f2a…""). Translated field label, falling back to a
  * readable split of the camelCase key for the rare field without one.
  */
-export function historyFieldLabel(field: string, t: Translate): string {
+export function historyFieldLabel(field: string, t: Translate, noun?: HistoryNoun): string {
+  // FEAT-93: a cell of the cellar plan (`item_slots`), no column of the bottle.
+  if (field === 'slot') return t('history.fields.slot');
+  // The free-text place: the form's long label (« Repère libre (étagère, carton…) ») is too long here (recette n°5 bis of #847).
+  if (field === 'location') return t('history.fields.location');
   return t(`inventory.fields.${field}`, {
+    // Recette #847 (n°5 ter): « Boîte entamée », not « Bouteille entamée / ouverte », for a box.
+    ...(noun && noun !== 'bottle' ? { context: noun } : {}),
     defaultValue: field.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase()),
   });
 }
@@ -38,8 +47,27 @@ function formatListEntry(entry: unknown): string {
   return String(entry);
 }
 
+const isCell = (value: unknown): value is { column: number; row: number } =>
+  typeof value === 'object' && value !== null
+  && typeof (value as { column?: unknown }).column === 'number' && typeof (value as { row?: unknown }).row === 'number';
+
+/** FEAT-93: a cell of the plan as the history records it — "C2·R3", or "aucune". */
+const cellText = (value: unknown, t: Translate) =>
+  (isCell(value) ? t('cellars.grid.cellShort', { col: value.column, row: value.row }) : t('history.slotNone'));
+
+/**
+ * FEAT-93: a cell placed, freed or moved — "Case C2·R2 occupée", "Case
+ * C2·R3 libérée", "Case C1·R1 → C2·R1" (true of a bottle, a box or cigars).
+ */
+export function formatSlotChange(from: unknown, to: unknown, t: Translate): string {
+  if (isCell(from) && isCell(to)) return t('history.slotMoved', { from: cellText(from, t), to: cellText(to, t) });
+  if (isCell(to)) return t('history.slotPlaced', { cell: cellText(to, t) });
+  return t('history.slotFreed', { cell: cellText(from, t) });
+}
+
 /** Human-readable rendering of a raw field value from the history or a sync conflict. */
 export function formatHistoryValue(field: string, value: unknown, t: Translate, ctx: HistoryValueContext = {}): string {
+  if (field === 'slot') return cellText(value, t);
   if (value === null || value === undefined || value === '') return t('actions.none');
   if (typeof value === 'boolean') return value ? t('traceability.booleanTrue') : t('traceability.booleanFalse');
   if (Array.isArray(value)) return value.length > 0 ? value.map(formatListEntry).join(', ') : t('actions.none');

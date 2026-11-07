@@ -4,7 +4,8 @@ vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     product: { findFirst: vi.fn(), findUnique: vi.fn() },
     cellar: { findUnique: vi.fn() },
-    inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
+    inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
+    itemSlot: {},
     inventoryCountEntry: { findMany: vi.fn() },
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
@@ -18,6 +19,7 @@ import { stockSplitService, type SplitOutcome } from '../../src/services/stock-s
 import { PRODUCT_FIELDS } from '../../src/lib/product-fields';
 import { AppError } from '../../src/lib/errors';
 import { itemSpend, itemUnits, itemValue } from '../../../shared/units';
+import { fakeSlots, slot, type FakeSlot } from '../support/fake-slots';
 
 function family(fields: Record<string, unknown> = {}) {
   return {
@@ -34,7 +36,7 @@ function family(fields: Record<string, unknown> = {}) {
 /** A unit row (money columns as numbers, as the extended client reads them). */
 function unit(fields: Record<string, unknown> = {}) {
   return {
-    id: 'g1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'garage', slotColumn: null, slotRow: null,
+    id: 'g1', productId: 'p1', userId: 'u1', updatedBy: null, cellarId: 'garage',
     location: null, purchasePrice: 20, estimatedValue: null, purchasePlace: 'Caviste',
     purchasedAt: new Date('2026-01-15T00:00:00Z'), bottleSize: null, quantity: 6, cigarsPerBox: null, cigarsLeft: null,
     isOpened: false, fillLevel: null, openedAt: null, parentItemId: null, writtenOffAt: null, needsReview: false,
@@ -49,8 +51,13 @@ type Row = ReturnType<typeof unit>;
 
 /** The rows of the family as the transaction reads them; writes are applied to them. */
 let rows: Row[];
+/** FEAT-93: the cells of the plan (item_slots). */
+let slots: ReturnType<typeof fakeSlots>;
+const placeIn = (...placed: FakeSlot[]) => { slots.rows.push(...placed); };
 
-const updates = () => vi.mocked(prisma.inventoryItem.update).mock.calls.map((call) => call[0] as { where: { id: string }; data: Record<string, unknown> });
+const updates = () => vi.mocked(prisma.inventoryItem.update).mock.calls
+  .map((call) => call[0] as { where: { id: string }; data: Record<string, unknown> })
+  .map(({ where, data }) => ({ where, data }));
 const created = () => vi.mocked(prisma.inventoryItem.create).mock.calls.map((call) => (call[0] as { data: Record<string, unknown> }).data);
 /** The ids whose inventory entries were frozen (`keepFoundQuantities`), per call. */
 const foundKeptFor = () => vi.mocked(prisma.$executeRaw).mock.calls
@@ -86,6 +93,10 @@ const copy = (row: Row | undefined) => (row ? { ...row } : null);
 beforeEach(() => {
   vi.clearAllMocks();
   rows = [unit()];
+  slots = fakeSlots();
+  Object.assign(prisma, { itemSlot: slots.delegate });
+  vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation(((args: { where: { id: string } }) =>
+    Promise.resolve({ ...rows.find((row) => row.id === args.where.id)!, slots: slots.viewsOf(args.where.id) })) as never);
   vi.mocked(prisma.$transaction).mockImplementation(((callback: (tx: unknown) => unknown) => callback(prisma)) as never);
   vi.mocked(prisma.product.findFirst).mockResolvedValue(family() as never);
   vi.mocked(prisma.product.findUnique).mockResolvedValue(family() as never);
@@ -129,7 +140,7 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     // The price, the size and the purchase day follow the bottles; no slot, no parent, nothing to review.
     expect(created()[0]).toMatchObject({
       productId: 'p1', userId: 'u2', cellarId: 'kitchen', quantity: 2, purchasePrice: 20, purchasePlace: 'Caviste',
-      purchasedAt: new Date('2026-01-15T00:00:00Z'), slotColumn: null, slotRow: null, parentItemId: null, needsReview: false,
+      purchasedAt: new Date('2026-01-15T00:00:00Z'), parentItemId: null, needsReview: false,
     });
     expect(created()[0].id).not.toBe('g1');
     expect(outcome.result).toMatchObject({
@@ -152,13 +163,16 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     ]);
   });
 
-  it('leaves the grid slot and the sub-records with the group of origin', async () => {
-    rows = [unit({ slotColumn: 2, slotRow: 3 }), unit({ id: 'opened', quantity: 1, isOpened: true, fillLevel: 60, parentItemId: 'g1' })];
+  it('leaves the cells of placed copies and the sub-records with the group of origin (unplaced copies move first)', async () => {
+    rows = [unit(), unit({ id: 'opened', quantity: 1, isOpened: true, fillLevel: 60, parentItemId: 'g1' })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 3 }));
 
     const outcome = applied(await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' }));
 
-    expect(rows.find((row) => row.id === 'g1')).toMatchObject({ slotColumn: 2, slotRow: 3, quantity: 4 });
-    expect(created()[0]).toMatchObject({ slotColumn: null, slotRow: null, parentItemId: null });
+    expect(rows.find((row) => row.id === 'g1')).toMatchObject({ quantity: 4 });
+    expect(slots.cellsOf('g1')).toBe('2:3');
+    expect(slots.cellsOf(created()[0].id as string)).toBe('');
+    expect(created()[0]).toMatchObject({ parentItemId: null });
     expect(rows.find((row) => row.id === 'opened')).toMatchObject({ parentItemId: 'g1', cellarId: 'garage' });
     expect(prisma.$executeRaw).not.toHaveBeenCalled();
     expect(outcome.result.changed.map((row) => row.id)).toEqual(['g1']);
@@ -245,20 +259,77 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
     expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
   });
 
-  it('moves a whole group by changing its cellar, and its slot stays behind', async () => {
-    rows = [unit({ slotColumn: 1, slotRow: 1 })];
+  it('moves a whole group by changing its cellar, and its cells stay behind (freed before the cellar is written)', async () => {
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }));
     const before = totals();
 
     const outcome = applied(await stockSplitService.moveUnits('u2', 'g1', { count: 6, cellarId: 'kitchen' }));
 
     expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
-    expect(updates()).toEqual([{ where: { id: 'g1' }, data: { cellarId: 'kitchen', slotColumn: null, slotRow: null, updatedBy: 'u2' } }]);
+    expect(updates()).toEqual([{ where: { id: 'g1' }, data: { cellarId: 'kitchen', updatedBy: 'u2' } }]);
+    expect(slots.cellsOf('g1')).toBe('');
+    expect(slots.delegate.deleteMany.mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
     expect(outcome.result).toMatchObject({ data: { id: 'g1', cellarId: 'kitchen', quantity: 6 }, changed: [], removedIds: [] });
     expect(outcome.entries).toEqual([{
       itemId: 'g1',
-      changes: [{ field: 'cellarId', from: 'garage', to: 'kitchen' }, { field: 'slotColumn', from: 1, to: null }, { field: 'slotRow', from: 1, to: null }],
+      changes: [{ field: 'cellarId', from: 'garage', to: 'kitchen' }, { field: 'slot', from: { column: 1, row: 1 }, to: null }],
     }]);
     expect(totals()).toEqual(before);
+  });
+
+  it('FEAT-93 (q=3, s=3, 2 moved) without slotIds: 409 SLOTS_TO_FREE_REQUIRED {needed: 2}, nothing written', async () => {
+    rows = [unit({ quantity: 3 })];
+    placeIn(
+      slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }),
+      slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }),
+      slot({ itemId: 'g1', cellarId: 'garage', column: 3, row: 1 }),
+    );
+
+    const error = await rejection(stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' }));
+
+    expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 2 } });
+    expect((error.details as { slots: unknown[] }).slots).toHaveLength(3);
+    expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+    expect(slots.cellsOf('g1')).toBe('1:1 2:1 3:1');
+  });
+
+  it('FEAT-93 (q=3, s=3, 2 moved) with the cells named: those are freed, the copies arrive unplaced', async () => {
+    rows = [unit({ quantity: 3 })];
+    const [first, second, third] = [
+      slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }),
+      slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }),
+      slot({ itemId: 'g1', cellarId: 'garage', column: 3, row: 1 }),
+    ];
+    placeIn(first, second, third);
+
+    const outcome = applied(await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen', slotIds: [first.id, third.id] }));
+
+    expect(slots.cellsOf('g1')).toBe('2:1');
+    expect(slots.cellsOf(outcome.result.data.id)).toBe('');
+    expect(outcome.entries[0].changes).toEqual([
+      { field: 'quantity', from: 3, to: 1 },
+      { field: 'slot', from: { column: 3, row: 1 }, to: null },
+      { field: 'slot', from: { column: 1, row: 1 }, to: null },
+    ]);
+  });
+
+  it('FEAT-93 (q=3, s=1, 2 moved): unplaced copies leave, no question, the cell stays', async () => {
+    rows = [unit({ quantity: 3 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }));
+
+    applied(await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' }));
+
+    expect(slots.cellsOf('g1')).toBe('1:1');
+  });
+
+  it('FEAT-93: a whole group moved frees every cell without asking', async () => {
+    rows = [unit({ quantity: 2 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }), slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }));
+
+    applied(await stockSplitService.moveUnits('u1', 'g1', { count: 2, cellarId: 'kitchen' }));
+
+    expect(slots.cellsOf('g1')).toBe('');
   });
 
   it('moves a group of one without asking how many, out of any cellar too', async () => {
@@ -306,6 +377,21 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
       itemId: 'k1', fromItemId: 'g1', changes: [{ field: 'quantity', from: 1, to: 7 }, { field: 'cellarId', from: 'garage', to: 'kitchen' }],
     }]);
     expect(totals()).toEqual(before);
+  });
+
+  it('a whole group placed joining an identical one tells the cells it freed on the line it joined (recette #847, KO 6.6)', async () => {
+    rows = [unit({ quantity: 2 }), unit({ id: 'k1', cellarId: 'kitchen', quantity: 1 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 2 }));
+
+    const outcome = applied(await stockSplitService.moveUnits('u2', 'g1', { count: 2, cellarId: 'kitchen' }));
+
+    expect(slots.cellsOf('g1')).toBe('');
+    expect(outcome.entries).toEqual([{
+      itemId: 'k1', fromItemId: 'g1', changes: [
+        { field: 'quantity', from: 1, to: 3 }, { field: 'cellarId', from: 'garage', to: 'kitchen' },
+        { field: 'slot', from: { column: 2, row: 2 }, to: null },
+      ],
+    }]);
   });
 
   it('a whole group counted in the same inventory session as the identical one simply changes cellar', async () => {
@@ -461,13 +547,14 @@ describe('stockSplitService.repriceUnits (FEAT-98 c5)', () => {
     expect(totals()).toEqual({ units: 6, value: 180, spend: 130 });
   });
 
-  it('the whole group simply changes price', async () => {
-    rows = [unit({ slotColumn: 1, slotRow: 2 })];
+  it('the whole group simply changes price, its cells kept', async () => {
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 2 }));
 
     const outcome = applied(await stockSplitService.repriceUnits('u2', 'g1', { count: 6, purchasePrice: 25 }));
 
     expect(updates()).toEqual([{ where: { id: 'g1' }, data: { purchasePrice: 25, updatedBy: 'u2' } }]);
-    expect(outcome.result.data).toMatchObject({ id: 'g1', purchasePrice: 25, slotColumn: 1, slotRow: 2 });
+    expect(outcome.result.data).toMatchObject({ id: 'g1', purchasePrice: 25 });
+    expect(slots.cellsOf('g1')).toBe('1:2');
     expect(outcome.entries).toEqual([{ itemId: 'g1', changes: [{ field: 'purchasePrice', from: 20, to: 25 }] }]);
     expect(totals().spend).toBe(150);
   });
@@ -482,25 +569,64 @@ describe('stockSplitService.repriceUnits (FEAT-98 c5)', () => {
     expect(totals()).toEqual({ units: 7, value: 155, spend: 155 });
   });
 
-  it('the whole group joining the one at the new price hands it its slot when that one has none', async () => {
-    rows = [unit({ slotColumn: 4, slotRow: 1 }), unit({ id: 'g25', purchasePrice: 25, quantity: 1 })];
+  it('FEAT-93: the whole group joining the one at the new price, both placed: their cells are united on the survivor', async () => {
+    rows = [unit(), unit({ id: 'g25', purchasePrice: 25, quantity: 1 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 4, row: 1 }), slot({ itemId: 'g25', cellarId: 'garage', column: 5, row: 1 }));
 
     const outcome = applied(await stockSplitService.repriceUnits('u1', 'g1', { count: 6, purchasePrice: 25 }));
 
-    expect(outcome.result).toMatchObject({ data: { id: 'g25', quantity: 7, slotColumn: 4, slotRow: 1 }, removedIds: ['g1'] });
-    // Deleted before the slot is handed over: one slot, one unit.
-    expect(vi.mocked(prisma.inventoryItem.deleteMany).mock.invocationCallOrder[0])
-      .toBeLessThan(vi.mocked(prisma.inventoryItem.update).mock.invocationCallOrder[0]);
+    expect(outcome.result).toMatchObject({ data: { id: 'g25', quantity: 7 }, removedIds: ['g1'] });
+    // absorbGroups moves the absorbed group's cells to the survivor before deleting it.
+    const moveSlots = sqlTexts().findIndex((sql) => sql.includes('UPDATE "item_slots" SET "itemId"'));
+    expect(moveSlots).toBeGreaterThanOrEqual(0);
+    expect(vi.mocked(prisma.$executeRaw).mock.invocationCallOrder[moveSlots])
+      .toBeLessThan(vi.mocked(prisma.inventoryItem.deleteMany).mock.invocationCallOrder[0]);
   });
 
-  it('the whole group and the one at the new price both in a slot: the group simply changes price, no slot lost', async () => {
-    rows = [unit({ slotColumn: 4, slotRow: 1 }), unit({ id: 'g25', purchasePrice: 25, quantity: 1, slotColumn: 5, slotRow: 1 })];
+  it('FEAT-93: two groups of single cigars each in a cell: the group simply changes price, no cell lost', async () => {
+    vi.mocked(prisma.product.findFirst).mockResolvedValue(family({ category: 'cigar' }) as never);
+    rows = [unit({ category: 'cigar' }), unit({ id: 'g25', purchasePrice: 25, quantity: 1, category: 'cigar' })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 4, row: 1 }), slot({ itemId: 'g25', cellarId: 'garage', column: 5, row: 1 }));
 
     const outcome = applied(await stockSplitService.repriceUnits('u1', 'g1', { count: 6, purchasePrice: 25 }));
 
     expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
-    expect(outcome.result).toMatchObject({ data: { id: 'g1', purchasePrice: 25, slotColumn: 4, slotRow: 1 }, removedIds: [] });
-    expect(rows.find((row) => row.id === 'g25')).toMatchObject({ quantity: 1, slotColumn: 5 });
+    expect(outcome.result).toMatchObject({ data: { id: 'g1', purchasePrice: 25 }, removedIds: [] });
+    expect(slots.cellsOf('g1')).toBe('4:1');
+    expect(slots.cellsOf('g25')).toBe('5:1');
+  });
+
+  it('FEAT-93 (decision #471 point 74, q=3, s=1, 2 repriced): unplaced copies take the new price, no question', async () => {
+    rows = [unit({ quantity: 3 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }));
+
+    const outcome = applied(await stockSplitService.repriceUnits('u1', 'g1', { count: 2, purchasePrice: 25 }));
+
+    expect(slots.cellsOf('g1')).toBe('1:1');
+    expect(slots.cellsOf(outcome.result.data.id)).toBe('');
+  });
+
+  it('FEAT-93 (point 74, q=3, s=2, 2 repriced) without slotIds: 409 SLOTS_TO_FREE_REQUIRED {needed: 1}', async () => {
+    rows = [unit({ quantity: 3 })];
+    placeIn(slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 }), slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }));
+
+    const error = await rejection(stockSplitService.repriceUnits('u1', 'g1', { count: 2, purchasePrice: 25 }));
+
+    expect(error).toMatchObject({ status: 409, code: 'SLOTS_TO_FREE_REQUIRED', details: { needed: 1 } });
+    expect(prisma.inventoryItem.create).not.toHaveBeenCalled();
+  });
+
+  it('FEAT-93 (point 74, q=3, s=2, 2 repriced) with the cell named: it stays occupied and follows the line at the new price', async () => {
+    rows = [unit({ quantity: 3 })];
+    const first = slot({ itemId: 'g1', cellarId: 'garage', column: 1, row: 1 });
+    placeIn(first, slot({ itemId: 'g1', cellarId: 'garage', column: 2, row: 1 }));
+
+    const outcome = applied(await stockSplitService.repriceUnits('u1', 'g1', { count: 2, purchasePrice: 25, slotIds: [first.id] }));
+
+    expect(slots.cellsOf('g1')).toBe('2:1');
+    expect(slots.cellsOf(outcome.result.data.id)).toBe('1:1');
+    expect(outcome.entries[0].changes).toContainEqual({ field: 'slot', from: { column: 1, row: 1 }, to: null });
+    expect(outcome.entries[1].changes).toContainEqual({ field: 'slot', from: null, to: { column: 1, row: 1 } });
   });
 
   it('an empty price is a price of its own (≠ 0), and so is 0', async () => {

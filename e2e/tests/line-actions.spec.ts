@@ -215,7 +215,7 @@ test.describe('the actions of a line in the drawer of a wine (#471, W3)', () => 
     const dialog = dialogTitled(page, 'Modifier cette ligne');
     await expect(dialog).toContainText("S'applique aux 6 bouteilles de cette ligne.");
     await dialog.getByLabel("Date d'achat").fill('2025-12-24');
-    await dialog.getByLabel('Emplacement').fill('Étagère du haut');
+    await dialog.getByLabel('Repère libre (étagère, carton…)').fill('Étagère du haut');
     const saved = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${group.id}`) && r.request().method() === 'PATCH');
     await dialog.getByRole('button', { name: 'Enregistrer' }).click();
     expect((await saved).status()).toBe(200);

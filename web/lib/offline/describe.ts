@@ -20,6 +20,14 @@ const REFUSALS: Record<string, string> = {
   ITEM_NOT_FOUND: 'offline.errors.gone',
   VALIDATION_ERROR: 'offline.errors.rejected',
   CONFLICT: 'offline.errors.changed',
+  // FEAT-93: the cells of the line changed since the change was made (the
+  // cell chosen is gone, cells must be named): a conflict like any other.
+  SLOT_CHANGED: 'offline.errors.changed',
+  SLOTS_TO_FREE_REQUIRED: 'offline.errors.changed',
+  // The line was already placed on the plan and nobody said from which cell
+  // (a change queued before the question existed): it did not change — the
+  // gesture is to be made again, from the drawer, which asks.
+  SLOT_CHOICE_REQUIRED: 'offline.errors.slotChoice',
 };
 
 /** What a queued change does, in words: "J'en ouvre une", "Nombre corrigé : 6 → 5". */

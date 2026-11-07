@@ -1,9 +1,9 @@
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
-import { withoutUndone } from '../lib/audit-history';
+import { foldSplitEntries, gestureOf, withoutUndone } from '../lib/audit-history';
 import { CORRECTION_REASONS, type CorrectionReason, type FieldChange, type ProductHistoryEntry } from '../../../shared/product';
 
-export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'RESTORE_FIELD' | 'LOGIN' | 'LOGIN_2FA' | 'LOGOUT' | 'REGISTER' | 'CELLAR_CREATE' | 'CELLAR_READ' | 'CELLAR_UPDATE' | 'CELLAR_DELETE' | 'CELLAR_SWAP_SLOTS' | 'COLLECTION_CREATE' | 'COLLECTION_UPDATE' | 'COLLECTION_DELETE' | 'SESSION_REVOKE' | 'TRUST_DEVICE' | 'UNTRUST_DEVICE' | 'PIN_SET' | 'PIN_REMOVE' | 'GUEST_UPDATE' | 'GUEST_TASTING' | 'ONBOARDING_COMPLETE' | 'IMPORT_CSV' | 'BACKUP_RESTORE' | 'PURGE' | 'BACKUP_DOWNLOAD' | 'SCAN' | 'HUMIDOR_READING_CREATE' | 'ADD_UNITS' | 'CORRECT_QUANTITY' | 'MERGE_PRODUCTS' | 'DISTINGUISH_PRODUCTS' | 'REVIEW_OK' | 'MOVE_UNITS' | 'REPRICE_UNITS';
+export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'RESTORE_FIELD' | 'LOGIN' | 'LOGIN_2FA' | 'LOGOUT' | 'REGISTER' | 'CELLAR_CREATE' | 'CELLAR_READ' | 'CELLAR_UPDATE' | 'CELLAR_DELETE' | 'CELLAR_SWAP_SLOTS' | 'COLLECTION_CREATE' | 'COLLECTION_UPDATE' | 'COLLECTION_DELETE' | 'SESSION_REVOKE' | 'TRUST_DEVICE' | 'BACKUP_CODES_REGENERATE' | 'ADMIN_ROLE_CHANGE' | 'ADMIN_STATUS_CHANGE' | 'UNTRUST_DEVICE' | 'PIN_SET' | 'PIN_REMOVE' | 'GUEST_UPDATE' | 'GUEST_TASTING' | 'ONBOARDING_COMPLETE' | 'IMPORT_CSV' | 'BACKUP_RESTORE' | 'PURGE' | 'BACKUP_DOWNLOAD' | 'SCAN' | 'HUMIDOR_READING_CREATE' | 'ADD_UNITS' | 'CORRECT_QUANTITY' | 'MERGE_PRODUCTS' | 'DISTINGUISH_PRODUCTS' | 'REVIEW_OK' | 'MOVE_UNITS' | 'REPRICE_UNITS' | 'CONFIG_UPDATE' | 'CONFIG_TEST';
 
 export type AuditStatus = 'success' | 'error' | 'validation_error' | 'not_found';
 
@@ -84,10 +84,11 @@ const isCorrectionReason = (value: unknown): value is CorrectionReason =>
  */
 export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promise<ProductHistoryEntry[]> {
   // Recette #471: an action taken back at once ("Annuler") is not told.
-  const logs = withoutUndone(await prisma.auditLog.findMany({
+  // Recette #847: a copy taken off a group, or moved away, told once.
+  const logs = foldSplitEntries(withoutUndone(await prisma.auditLog.findMany({
     where: { ...where, action: { in: FIELD_HISTORY_ACTIONS }, status: 'success' },
     orderBy: { createdAt: 'desc' },
-  }));
+  })));
 
   const uniqueUserIds = [...new Set(logs.map((l) => l.userId))];
   const users = await prisma.user.findMany({
@@ -102,6 +103,7 @@ export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promis
     // the guest's name instead so the history does not blame the member.
     const viaGuest = log.action === 'GUEST_UPDATE';
     const guestName = viaGuest && typeof details?.['inviteeName'] === 'string' ? details['inviteeName'] : null;
+    const gesture = gestureOf(log.action, details);
     return {
       id: log.id,
       action: log.action,
@@ -117,6 +119,8 @@ export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promis
       ...(Array.isArray(details?.['joinedChanges']) ? { joinedChanges: details['joinedChanges'] as FieldChange[] } : {}),
       // #471: moved here from a line since absorbed (absorbGroups): not restorable.
       ...(typeof details?.['absorbedFrom'] === 'string' ? { absorbed: true } : {}),
+      // Recette #847: "1 bouteille ouverte", "1 bouteille bue", "1 cigare fumé".
+      ...(gesture ? { gesture } : {}),
       createdAt: log.createdAt,
     };
   });

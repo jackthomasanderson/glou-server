@@ -3,8 +3,8 @@ import { isFinishedState } from '../../../shared/units';
 // #471: the pure counting rules and state predicates live in shared/units.ts
 // (the web needs them too); the Prisma filter fragments below cannot.
 export {
-  isFinishedState, isIntactItem, isGroupableItem, itemUnits, itemValue, itemSpend, unitKind, productKey, groupKey,
-  summarizeStock,
+  isFinishedState, isIntactItem, isGroupableItem, itemUnits, itemValue, itemSpend, itemCostInStock, consumedUnits, unitKind, productKey, groupKey,
+  summarizeStock, slotCapacity,
 } from '../../../shared/units';
 export type { UnitKind, UnitState, StockSummary } from '../../../shared/units';
 
@@ -56,12 +56,6 @@ export const IN_STOCK_ITEM_FILTER = {
   writtenOffAt: null,
   ...NOT_FINISHED_ITEM_FILTER,
 } as const;
-
-/**
- * #573: a finished bottle has left its rack, so it gives its grid slot back.
- * Written together with the finished state by every path that sets it.
- */
-export const NO_SLOT = { slotColumn: null, slotRow: null } as const;
 
 /** In-memory counterpart of {@link FINISHED_ITEM_STATE} (shared/units.ts `isFinishedState`). */
 export const isFinishedItem = isFinishedState;

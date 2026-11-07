@@ -7,6 +7,8 @@ import fr from '../../public/locales/fr/common.json';
 import { getShareStatus, type GuestShare } from '../shares/types';
 import { gridWording } from '../cellars/gridWording';
 import { NEUTRAL_TAB_TITLE } from '@/hooks/useBrowserTabTitle';
+import { HISTORY_FIELDS } from '@shared/product';
+import { historyFieldLabel } from '../inventory/history-format';
 
 // #471 (recette v2): labels seen as raw keys, in both languages at once, or
 // speaking of wine for a cigar.
@@ -79,8 +81,8 @@ describe('cigar wording', () => {
       }
     }
     const i = await translator('fr');
-    expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'cigar' })).toBe("Assigner un cigare ou une boîte à l'emplacement C1·R2");
-    expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'mixed' })).toBe("Assigner une bouteille, une boîte ou un cigare à l'emplacement C1·R2");
+    expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'cigar' })).toBe("Assigner un cigare ou une boîte à la case C1·R2");
+    expect(i.t('cellars.grid.assignTitle', { col: 1, row: 2, context: 'mixed' })).toBe("Assigner une bouteille, une boîte ou un cigare à la case C1·R2");
     for (const lng of ['fr', 'en'] as const) {
       const both = await translator(lng);
       for (const key of ['assignTitle', 'noUnassignedBottles', 'cellLabelEmpty', 'dragInstructions']) {
@@ -97,5 +99,54 @@ describe('deleting a cellar', () => {
     const text = i.t('cellars.deleteConfirm', { name: 'ZZ R3 B' });
     expect(text).toContain('ZZ R3 B');
     expect(text).not.toMatch(/cette cave|this cellar/);
+  });
+});
+
+// Recette n°5 ter of #847: « Cigars Left » (a raw key) and « Bouteille
+// entamée / ouverte » in the history of a box of cigars.
+describe('history field labels', () => {
+  const nouns = ['bottle', 'box', 'cigar'] as const;
+
+  it.each(['fr', 'en'] as const)('every field the history can name has a %s label', async (lng) => {
+    const i = await translator(lng);
+    for (const field of HISTORY_FIELDS) {
+      const key = field === 'slot' || field === 'location' ? `history.fields.${field}` : `inventory.fields.${field}`;
+      expect(i.exists(key), key).toBe(true);
+      for (const noun of nouns) {
+        const label = historyFieldLabel(field, i.t.bind(i) as never, noun);
+        expect(typeof label, `${field} (${noun})`).toBe('string');
+        expect(label, `${field} (${noun})`).not.toMatch(/\{\{|^inventory\./);
+        // A box or a cigar is never called a bottle (the size of a bottle is a bottle's field only).
+        if (noun !== 'bottle' && field !== 'bottleSize') expect(label, `${field} (${noun})`).not.toMatch(/bouteille|bottle/i);
+      }
+    }
+  });
+
+  it('a box is « Boîte entamée » with its « Cigares restants », a bottle keeps its words', async () => {
+    const fr = await translator('fr');
+    const label = (field: string, noun: (typeof nouns)[number]) => historyFieldLabel(field, fr.t.bind(fr) as never, noun);
+    expect(label('isOpened', 'box')).toBe('Boîte entamée');
+    expect(label('isOpened', 'cigar')).toBe('Cigare entamé');
+    expect(label('cigarsLeft', 'box')).toBe('Cigares restants');
+    expect(label('isOpened', 'bottle')).toBe('Bouteille entamée / ouverte');
+    const en = await translator('en');
+    expect(historyFieldLabel('cigarsLeft', en.t.bind(en) as never, 'box')).toBe('Cigars left');
+    expect(historyFieldLabel('isOpened', en.t.bind(en) as never, 'box')).toBe('Box opened');
+  });
+});
+
+// Recette n°5 ter of #847: « Vin mis à jour » after « Mettre à jour » a cigar.
+describe('the edit form\'s messages', () => {
+  it.each(['fr', 'en'] as const)('speak of a cigar or a spirit in its own words (%s)', async (lng) => {
+    const i = await translator(lng);
+    for (const key of ['familyDrawer.form.saved', 'familyDrawer.form.conflict', 'familyDrawer.form.error']) {
+      const wine = i.t(key);
+      for (const context of ['cigar', 'spirit']) {
+        const text = i.t(key, { context });
+        expect(text, `${key} (${context})`).not.toBe(wine);
+        expect(text, `${key} (${context})`).not.toMatch(/\b(vin|wine)\b/i);
+      }
+    }
+    expect((await translator('fr')).t('familyDrawer.form.saved', { context: 'cigar' })).toBe('Cigare mis à jour');
   });
 });

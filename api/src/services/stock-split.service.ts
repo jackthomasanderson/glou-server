@@ -2,8 +2,12 @@ import { Prisma } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { badRequest, conflict } from '../lib/errors';
-import { isGroupableItem, NO_SLOT, unitKind } from '../lib/finished-item';
-import { fieldSourcesOf, toUnitView } from '../lib/product-fields';
+import { isGroupableItem, unitKind } from '../lib/finished-item';
+import { fieldSourcesOf, toUnitView, unitViewOf, UNIT_SLOTS } from '../lib/product-fields';
+import {
+  freeSlots, liveSlotsOf, moveSlots, slotsFreed, slotsLeaving, slotsPlaced, type SlotChange, type SlotRow, type SlotsToFree,
+} from '../lib/slots';
+import { slotCapacity } from '../../../shared/units';
 import { MAX_COPIES, type MoveUnitsInput, type RepriceUnitsInput } from '../schemas/stock.schema';
 import { findGroupFor, keepFoundQuantities, lockedListedFamily } from './stock.service';
 import { absorbGroups } from './review.service';
@@ -18,9 +22,13 @@ import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/pro
 // as asked.
 //
 // - All the copies: the group itself changes (a whole group moved leaves its
-//   grid slot, a slot being a place in its old cellar's plan).
-// - Part of them: the group keeps the rest, its slot (the slots of each copy
-//   come with step 3, FEAT-93) and its sub-records.
+//   cells, places in its old cellar's plan; a new price keeps them).
+// - Part of them: the group keeps the rest and its sub-records. FEAT-93
+//   (decision #471 point 74, criterion 4): the copies taken are unplaced
+//   ones first; only when the rest cannot hold every cell, the member names
+//   the cells of copies taken (`slotIds`, else 409 SLOTS_TO_FREE_REQUIRED).
+//   Moved, they arrive unplaced (their cells are freed); repriced, they
+//   stay where they are, their cells following the new line.
 // - Either way the copies taken complete the identical group of the family
 //   (`findGroupFor`: D5 `groupKey`, the same estimated value, else the value
 //   would change, never a group still to review, never without a purchase
@@ -86,7 +94,7 @@ const changeData = (change: SplitChange) =>
 
 /**
  * The new line of `count` copies taken from `origin`, `change` applied:
- * everything of the group but its slot, its sub-records (they stay on it)
+ * everything of the group but its cells (moved by the caller), its sub-records (they stay on it)
  * and its guessed number (`needsReview`: the member just said how many).
  * Without a purchase day, the line keeps the group's creation date, which
  * then dates its spending (budget: `purchasedAt ?? createdAt`).
@@ -103,7 +111,6 @@ function splitLineOf(origin: UnitRecord, userId: string, count: number, change: 
     userId,
     ...changeData(change),
     quantity: count,
-    ...NO_SLOT,
     parentItemId: null,
     needsReview: false,
   };
@@ -124,10 +131,10 @@ export const GROUP_KEY_FIELDS = ['cellarId', 'purchasePrice', 'purchasedAt', 'bo
  * just edited ("Modifier", a restored value) so that it is now identical to
  * another group of its family joins it, their places of purchase and
  * locations agreeing (empty agrees) — the older one stays, takes its
- * copies and everything hanging on it, the edited one is gone. Not for a
- * group still to review (`needsReview`), for two groups each in a slot (one
- * slot, one unit), for two groups counted in one inventory session, nor
- * beyond {@link MAX_COPIES}. Run in the transaction holding the family's
+ * copies, its cells of the plan (FEAT-93) and everything hanging on it, the
+ * edited one is gone. Not for a group still to review (`needsReview`), for
+ * two groups of single cigars each in a cell (one cell per group), for two
+ * groups counted in one inventory session, nor beyond {@link MAX_COPIES}. Run in the transaction holding the family's
  * lock, after the write. Null when nothing joined.
  */
 export async function joinIdenticalGroup(
@@ -144,18 +151,25 @@ export async function joinIdenticalGroup(
   const from = target.quantity ?? 1;
   const to = from + (group.quantity ?? 1);
   if (to > MAX_COPIES) return null;
-  if (group.slotColumn !== null && target.slotColumn !== null) return null;
+  if (await twoSingleCigarCells(tx, group, target, kind)) return null;
   if (await sharesAnInventorySession(tx, group.id, target.id)) return null;
   await keepFoundQuantities(tx, [target.id, group.id]);
-  // The edited group's slot goes to the survivor that has none (deleted first: one slot, one unit).
-  const keepsSlot = target.slotColumn === null && group.slotColumn !== null
-    ? { slotColumn: group.slotColumn, slotRow: group.slotRow } : {};
+  // The edited group's cells go to the survivor (absorbGroups).
   await absorbGroups(tx, target.id, [group.id]);
   await tx.inventoryItem.update({
     where: { id: target.id },
-    data: { ...completion(target, group, to), ...keepsSlot, updatedBy: userId },
+    data: { ...completion(target, group, to), updatedBy: userId },
   });
   return { survivorId: target.id, from, to };
+}
+
+/** A group of single cigars takes one cell: two such groups each in a cell cannot become one. */
+async function twoSingleCigarCells(
+  tx: PrismaClientOrTx, a: UnitRecord, b: UnitRecord, kind: ReturnType<typeof unitKind>,
+): Promise<boolean> {
+  if (kind !== 'cigar' || a.cigarsPerBox != null) return false;
+  const [ofA, ofB] = await Promise.all([liveSlotsOf(tx, a.id), liveSlotsOf(tx, b.id)]);
+  return ofA.length > 0 && ofB.length > 0;
 }
 
 /**
@@ -173,6 +187,7 @@ async function splitUnits(
   count: number,
   expectedUpdatedAt: string | undefined,
   change: SplitChange,
+  slotIds: string[] | undefined,
 ): Promise<SplitOutcome | null> {
   const head = await prisma.inventoryItem.findFirst({ where: { id: groupId, deletedAt: null }, select: { productId: true } });
   if (!head) return null;
@@ -183,7 +198,7 @@ async function splitUnits(
     if (!group) return null;
     const stale = expectedUpdatedAt !== undefined && new Date(expectedUpdatedAt).getTime() !== group.updatedAt.getTime();
     // Moved to another family meanwhile (a merge): its lock was not the one taken.
-    if (stale || group.productId !== head.productId) return { conflict: true, item: toUnitView(group) };
+    if (stale || group.productId !== head.productId) return { conflict: true, item: await unitViewOf(tx, group) };
     if (!isGroupableItem(group)) throw conflict('NOT_A_GROUP');
 
     const from = group.quantity ?? 1;
@@ -195,7 +210,7 @@ async function splitUnits(
       throw badRequest('CELLAR_NOT_FOUND');
     }
 
-    return splitLockedGroup(tx, userId, group, count, change, unitKind(product.category));
+    return splitLockedGroup(tx, userId, group, count, change, unitKind(product.category), { slotIds });
   });
 }
 
@@ -205,7 +220,8 @@ async function splitUnits(
  * the identical group of the family, or makes a line of its own (see
  * {@link splitUnits}). Also the step of a bulk move (lot P, FEAT-111): each
  * group moved whole joins its identical group in the destination, never a
- * line apart.
+ * line apart. `slotsToFree`: the cells of the copies taken from part of a
+ * group — the member's `slotIds`, or the automatic rule.
  */
 export async function splitLockedGroup(
   tx: PrismaClientOrTx,
@@ -214,6 +230,7 @@ export async function splitLockedGroup(
   count: number,
   change: SplitChange,
   kind: ReturnType<typeof unitKind>,
+  slotsToFree: SlotsToFree = 'auto',
 ): Promise<SplitApplied> {
   const from = group.quantity ?? 1;
   const before = group[change.field];
@@ -228,43 +245,53 @@ export async function splitLockedGroup(
   });
   if (target && count === from) {
     // Two groups counted in the same inventory session keep their entries
-    // apart (one per unit); a new price for a group and the identical
-    // group both in a slot would lose one slot. The whole group then
-    // simply changes, next to the other.
-    const twoSlots = change.field === 'purchasePrice' && group.slotColumn !== null && target.slotColumn !== null;
-    if (twoSlots || await sharesAnInventorySession(tx, group.id, target.id)) target = null;
+    // apart (one per unit); a new price for a group of single cigars and
+    // the identical group both in a cell would lose one cell. The whole
+    // group then simply changes, next to the other.
+    const twoCells = change.field === 'purchasePrice' && await twoSingleCigarCells(tx, group, target, kind);
+    if (twoCells || await sharesAnInventorySession(tx, group.id, target.id)) target = null;
   }
   if (target && (target.quantity ?? 1) + count > MAX_COPIES) throw badRequest('QUANTITY_TOO_LARGE');
 
+  // FEAT-93: the cells of the copies taken. Moved to another cellar, every
+  // one of them is freed (a place in the old cellar's plan, and the slot's
+  // key holds the cellar) — before the cellar is written. Repriced, they
+  // follow the copies to their new line, in the same cellar.
+  const moving = change.field === 'cellarId';
+  const single = kind === 'cigar' && group.cigarsPerBox == null;
+  const slots = await liveSlotsOf(tx, group.id);
+  const taken: SlotRow[] = count === from
+    ? slots
+    : slotsLeaving(slots, slotCapacity({ ...group, quantity: from - count }, kind), single ? 0 : count, slotsToFree);
+  const groupSlots: SlotChange[] = moving ? slotsFreed(await freeSlots(tx, group.id, taken.map((slot) => slot.id))) : [];
+
   if (count === from) {
     if (!target) {
-      // A whole group moved leaves its slot: a place in its old cellar's plan.
-      const leaves = change.field === 'cellarId' && group.slotColumn !== null ? NO_SLOT : {};
-      const changed = await tx.inventoryItem.update({ where: { id: group.id }, data: { ...changeData(change), ...leaves, ...stamp } });
-      const slotChanges = Object.keys(leaves).map((field) => ({ field, from: group[field as keyof typeof NO_SLOT], to: null }));
-      return done({ data: toUnitView(changed), changed: [], removedIds: [] }, [{ itemId: group.id, changes: [moved, ...slotChanges] }]);
+      const changed = await tx.inventoryItem.update({ where: { id: group.id }, data: { ...changeData(change), ...stamp }, include: UNIT_SLOTS });
+      return done({ data: toUnitView(changed), changed: [], removedIds: [] }, [{ itemId: group.id, changes: [moved, ...groupSlots] }]);
     }
-    // The whole group completes the identical one: it takes its copies and
-    // everything hanging on it, the group is gone.
+    // The whole group completes the identical one: it takes its copies, its
+    // cells (a new price: the copies stay where they were) and everything
+    // hanging on it, the group is gone.
     const to = (target.quantity ?? 1) + count;
     await keepFoundQuantities(tx, [group.id, target.id]);
     await absorbGroups(tx, target.id, [group.id]);
-    // A new price in the same cellar: the copies stay where they were, so
-    // the group's slot goes to the line that has none (deleted first: one slot, one unit).
-    const keepsSlot = change.field === 'purchasePrice' && group.slotColumn !== null
-      ? { slotColumn: group.slotColumn, slotRow: group.slotRow } : {};
     const completed = await tx.inventoryItem.update({
       where: { id: target.id },
       data: {
         ...completion(target, group, to),
         needsReview: target.needsReview || group.needsReview,
-        ...keepsSlot,
         ...stamp,
       },
+      include: UNIT_SLOTS,
     });
     return done(
       { data: toUnitView(completed), changed: [], removedIds: [group.id] },
-      [{ itemId: target.id, fromItemId: group.id, changes: [{ field: 'quantity', from: target.quantity ?? 1, to }, moved] }],
+      [{
+        itemId: target.id, fromItemId: group.id,
+        // Moved, the group's cells were freed: told here, the group is gone (recette #847, KO 6.6).
+        changes: [{ field: 'quantity', from: target.quantity ?? 1, to }, moved, ...(moving ? groupSlots : slotsPlaced(taken))],
+      }],
     );
   }
 
@@ -275,10 +302,18 @@ export async function splitLockedGroup(
   const line = target
     ? await tx.inventoryItem.update({ where: { id: target.id }, data: { ...completion(target, group, (target.quantity ?? 1) + count), ...stamp } })
     : await tx.inventoryItem.create({ data: splitLineOf(group, userId, count, change) });
+  // Repriced copies placed in cells keep them, on their new line.
+  if (!moving) await moveSlots(tx, taken.map((slot) => slot.id), line.id);
   const lineFrom = target ? target.quantity ?? 1 : null;
-  return done({ data: toUnitView(line), changed: [toUnitView(rest)], removedIds: [] }, [
-    { itemId: group.id, toItemId: line.id, changes: [{ field: 'quantity', from, to: from - count }] },
-    { itemId: line.id, fromItemId: group.id, changes: [{ field: 'quantity', from: lineFrom, to: lineFrom === null ? count : lineFrom + count }, moved] },
+  return done({ data: await unitViewOf(tx, line), changed: [await unitViewOf(tx, rest)], removedIds: [] }, [
+    {
+      itemId: group.id, toItemId: line.id,
+      changes: [{ field: 'quantity', from, to: from - count }, ...(moving ? groupSlots : slotsFreed(taken))],
+    },
+    {
+      itemId: line.id, fromItemId: group.id,
+      changes: [{ field: 'quantity', from: lineFrom, to: lineFrom === null ? count : lineFrom + count }, moved, ...(moving ? [] : slotsPlaced(taken))],
+    },
   ]);
 }
 
@@ -289,7 +324,7 @@ export const stockSplitService = {
    * do not change; each cellar's count follows.
    */
   moveUnits(userId: string, groupId: string, input: MoveUnitsInput): Promise<SplitOutcome | null> {
-    return splitUnits(userId, groupId, input.count, input.expectedUpdatedAt, { field: 'cellarId', to: input.cellarId });
+    return splitUnits(userId, groupId, input.count, input.expectedUpdatedAt, { field: 'cellarId', to: input.cellarId }, input.slotIds);
   },
 
   /**
@@ -299,6 +334,6 @@ export const stockSplitService = {
    * an estimated value.
    */
   repriceUnits(userId: string, groupId: string, input: RepriceUnitsInput): Promise<SplitOutcome | null> {
-    return splitUnits(userId, groupId, input.count, input.expectedUpdatedAt, { field: 'purchasePrice', to: input.purchasePrice });
+    return splitUnits(userId, groupId, input.count, input.expectedUpdatedAt, { field: 'purchasePrice', to: input.purchasePrice }, input.slotIds);
   },
 };

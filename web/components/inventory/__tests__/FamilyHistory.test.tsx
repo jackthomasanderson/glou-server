@@ -188,3 +188,136 @@ describe('FamilyHistory — review after the update (#471, FEAT-102)', () => {
     expect(restoreButtons()).toHaveLength(0);
   });
 });
+
+// FEAT-93 (#847, lot S4): the cells of the plan in a wine's history — said
+// in words, never restored from here; older coordinates still read.
+describe('FamilyHistory — cells of the plan (FEAT-93)', () => {
+  it('says a cell freed, placed or moved, with no « Restaurer »', () => {
+    renderHistory([
+      entry({ id: 1, itemId: 'b1', changes: [{ field: 'slot', from: { column: 2, row: 3 }, to: null }] }),
+      entry({ id: 2, itemId: 'b1', changes: [{ field: 'slot', from: null, to: { column: 1, row: 1 } }] }),
+      entry({ id: 3, itemId: 'b1', changes: [{ field: 'slot', from: { column: 1, row: 1 }, to: { column: 2, row: 1 } }] }),
+    ]);
+    const history = screen.getByTestId('family-history');
+    expect(history).toHaveTextContent('Case C2·R3 libérée');
+    expect(history).toHaveTextContent('Case C1·R1 occupée');
+    expect(history).not.toHaveTextContent('aucune');
+    expect(history).toHaveTextContent('Case C1·R1 → C2·R1');
+    expect(history).not.toHaveTextContent('column');
+    expect(restoreButtons()).toEqual([]);
+  });
+
+  it('still reads the coordinates written before, without « Restaurer »', () => {
+    renderHistory([entry({ itemId: 'b1', changes: [{ field: 'slotColumn', from: null, to: 3 }, { field: 'slotRow', from: null, to: 2 }] })]);
+    expect(screen.getByTestId('family-history')).toHaveTextContent('Colonne : 3 · Rangée : 2');
+    expect(restoreButtons()).toEqual([]);
+  });
+});
+
+// Recette #847: a gesture is said in its own words — "1 bouteille ouverte",
+// "1 bouteille bue", "1 cigare fumé" — never as the columns it wrote; a cell
+// is said freed only when it was (an opened bottle keeps its cell).
+describe('FamilyHistory — gestures (recette #847)', () => {
+  const lines = () => within(screen.getByTestId('family-history')).getAllByRole('listitem');
+  const opened = [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 100 }, { field: 'openedAt', from: null, to: '2026-11-05T10:00:00.000Z' }];
+  const drunk = [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 0 }];
+
+  it('says "1 bouteille ouverte", without a cell freed nor the columns written', () => {
+    renderHistory([entry({ itemId: 's', gesture: 'opened', changes: opened })]);
+    const [line] = lines();
+    expect(line).toHaveTextContent('1 bouteille ouverte');
+    expect(line).not.toHaveTextContent('libérée');
+    expect(line).not.toHaveTextContent('Bouteille entamée');
+    expect(line).not.toHaveTextContent('Niveau');
+  });
+
+  it('says the level of a bottle opened short of full', () => {
+    renderHistory([entry({ itemId: 's', gesture: 'opened', changes: [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 50 }] })]);
+    expect(lines()[0]).toHaveTextContent('1 bouteille ouverte · Niveau ajusté à 50%');
+  });
+
+  it('says "1 bouteille bue" and the cell it freed', () => {
+    renderHistory([entry({ itemId: 's', gesture: 'finished', changes: [...drunk, { field: 'slot', from: { column: 2, row: 1 }, to: null }] })]);
+    const [line] = lines();
+    expect(line).toHaveTextContent('1 bouteille bue · Case C2·R1 libérée');
+    expect(line).not.toHaveTextContent('Vide');
+    expect(restoreButtons()).toEqual([]);
+  });
+
+  it('says "1 cigare fumé" for a cigar smoked, from a box or single', () => {
+    render(
+      <FamilyHistory
+        productId="p1"
+        productUpdatedAt="2026-10-30T10:00:00.000Z"
+        history={[
+          entry({ id: 1, itemId: 'box', gesture: 'smoked', changes: [{ field: 'isOpened', from: false, to: true }, { field: 'cigarsLeft', from: null, to: 24 }] }),
+          entry({ id: 2, itemId: 'single', gesture: 'finished', changes: drunk }),
+        ]}
+        itemIds={new Set()}
+        cellarName={() => undefined}
+        nounOf={(itemId) => (itemId === 'box' ? 'box' : 'cigar')}
+      />,
+    );
+    const [box, single] = lines();
+    expect(box).toHaveTextContent('1 cigare fumé');
+    expect(box).not.toHaveTextContent('Cigares restants');
+    expect(single).toHaveTextContent('1 cigare fumé');
+  });
+
+  // Review of #871: a field restored on a cigar refused (409) speaks of the cigar, not of a wine.
+  it('a restore refused because the cigar changed meanwhile says so of a cigar', async () => {
+    productRollback = mutation({ isError: true, error: new Error('CONFLICT') });
+    render(
+      <FamilyHistory
+        productId="p1"
+        productUpdatedAt="2026-10-30T10:00:00.000Z"
+        history={[entry({})]}
+        itemIds={new Set()}
+        cellarName={() => undefined}
+        category="cigar"
+      />,
+    );
+    fireEvent.click(restoreButtons()[0]);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Non restauré : ce cigare a été modifié entre-temps');
+    expect(dialog).not.toHaveTextContent(/vin|formulaire/);
+  });
+
+  // Recette n°5 ter: « Bouteille entamée / ouverte : Non · Cigars Left : 25 » for a box.
+  it('names the fields of a box in a box\'s words, never a raw key', () => {
+    render(
+      <FamilyHistory
+        productId="p1"
+        productUpdatedAt="2026-10-30T10:00:00.000Z"
+        history={[entry({ itemId: 'box', changes: [{ field: 'isOpened', from: true, to: false }, { field: 'cigarsLeft', from: 24, to: 25 }] })]}
+        itemIds={new Set()}
+        cellarName={() => undefined}
+        nounOf={() => 'box'}
+      />,
+    );
+    expect(lines()[0]).toHaveTextContent('Boîte entamée : Non · Cigares restants : 25');
+  });
+
+  it('still reads an entry without gesture as before (a level adjusted)', () => {
+    renderHistory([entry({ itemId: 'b1', changes: [{ field: 'fillLevel', from: 100, to: 40 }] })]);
+    expect(lines()[0]).toHaveTextContent('Niveau ajusté à 40%');
+  });
+
+  it('says the cell a bottle moved to another cellar left (KO 6.6)', () => {
+    render(
+      <FamilyHistory
+        productId="p1"
+        productUpdatedAt="2026-10-30T10:00:00.000Z"
+        history={[entry({
+          action: 'MOVE_UNITS', itemId: 'l', count: 1, changes: [
+            { field: 'quantity', from: null, to: 1 }, { field: 'cellarId', from: 'c1', to: 'c2' },
+            { field: 'slot', from: { column: 2, row: 2 }, to: null },
+          ],
+        })]}
+        itemIds={new Set(['l'])}
+        cellarName={(id) => (id === 'c2' ? 'ZZ C5 B' : undefined)}
+      />,
+    );
+    expect(lines()[0]).toHaveTextContent('1 bouteille déplacée vers ZZ C5 B · Case C2·R2 libérée');
+  });
+});

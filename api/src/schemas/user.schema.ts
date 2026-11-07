@@ -1,9 +1,18 @@
 import { z } from 'zod';
 import { PASSWORD_MIN_LENGTH } from '../../../shared/auth';
 
+/** #668: where uploaded avatars are served from, stored as is in `avatarUrl`. */
+export const AVATAR_PATH_PREFIX = '/uploads/avatars/';
+/**
+ * The only shape the upload route stores; group 1 is the file name. Files
+ * uploaded before 2026-08 kept the client's extension (`.JPG`, or none).
+ */
+export const UPLOADED_AVATAR_PATH = /^\/uploads\/avatars\/([A-Za-z0-9-]+(?:\.[A-Za-z0-9]+)?)$/;
+
 export const updateProfileSchema = z.object({
   username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/).optional(),
-  avatarUrl: z.string().url().max(500).optional().nullable().or(z.literal('')),
+  // #880: no `avatarUrl` here — only POST/DELETE /api/user/avatar set it, so
+  // it always names a file the member uploaded. An extra key is stripped.
   appName: z.string().max(40).optional().nullable().or(z.literal('')),
   appSlogan: z.string().max(100).optional().nullable().or(z.literal('')),
   displayName: z.string().max(60).optional().nullable().or(z.literal('')),

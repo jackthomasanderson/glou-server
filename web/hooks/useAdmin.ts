@@ -12,6 +12,8 @@ export interface AdminUser {
     displayName: string | null;
     isAdmin: boolean;
     isActive: boolean;
+    /** #638: resetting such a member's password asks for the admin's own password. */
+    isTwoFactorEnabled: boolean;
     createdAt: string;
 }
 
@@ -55,11 +57,13 @@ export function useUpdateUserRole() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: async ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) => {
-            const response = await api.post<AdminUser>(`/admin/users/${userId}/role`, { isAdmin });
+        meta: { handlesError: true },
+        // #638: a grant carries the admin's own password (and code), and its
+        // refusals are said by the confirmation dialog; a removal's by the page.
+        mutationFn: async ({ userId, ...body }: { userId: string; isAdmin: boolean; password?: string; code?: string }) => {
+            const response = await api.post<AdminUser>(`/admin/users/${userId}/role`, body);
             return response.data;
         },
-        onError: () => notifyError('toast.admin.roleError'),
         onSuccess: () => {
             notifySuccess('toast.admin.roleSuccess');
             queryClient.invalidateQueries({ queryKey: ['admin_users'] });
@@ -72,6 +76,7 @@ export function useUpdateUserStatus() {
     const queryClient = useQueryClient();
 
     return useMutation({
+        meta: { handlesError: true },
         mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
             const response = await api.patch<AdminUser>(`/admin/users/${userId}/status`, { isActive });
             return response.data;
@@ -88,14 +93,16 @@ export function useUpdateUserStatus() {
 }
 
 // #336: no-SMTP account recovery — generates a one-time temporary password,
-// shown to the admin exactly once by the caller.
+// shown to the admin exactly once by the caller. #638: `password`/`code` are
+// the admin's own, asked for every reset (the API refuses it without them).
 export function useResetUserPassword() {
-    return useMutation({
-        mutationFn: async (userId: string) => {
-            const response = await api.post<{ tempPassword: string }>(`/admin/users/${userId}/reset-password`);
+    return useMutation<{ tempPassword: string }, Error, { userId: string; password?: string; code?: string }>({
+        // Said by the reset dialog.
+        meta: { handlesError: true },
+        mutationFn: async ({ userId, ...reauth }) => {
+            const response = await api.post<{ tempPassword: string }>(`/admin/users/${userId}/reset-password`, reauth);
             return response.data;
         },
-        onError: () => notifyError('toast.admin.resetPasswordError'),
     });
 }
 
@@ -127,10 +134,12 @@ export function usePurgeData() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        // #489: the admin's password is re-checked server-side; `confirmation`
-        // is the protocol keyword, whatever the UI language.
-        mutationFn: async ({ password }: { password: string }) => {
-            const response = await api.post<PurgeResponse>('/admin/maintenance/purge', { confirmation: 'SUPPRIMER', password });
+        // Said by the purge dialog (its own error line).
+        meta: { handlesError: true },
+        // #489 / #890: the admin's password and code are checked server-side;
+        // `confirmation` is the protocol keyword, whatever the UI language.
+        mutationFn: async (reauth: { password: string; code?: string }) => {
+            const response = await api.post<PurgeResponse>('/admin/maintenance/purge', { confirmation: 'SUPPRIMER', ...reauth });
             return response.data;
         },
         onSuccess: () => {

@@ -1,7 +1,7 @@
 # Rotate the secrets (`JWT_SECRET`, `CONFIG_ENCRYPTION_KEY`, `DB_PASSWORD`)
 
 ## TL;DR
-All three secrets live in your `.env`. Changing **`JWT_SECRET`** logs everyone out. Changing **`CONFIG_ENCRYPTION_KEY`** makes the saved SMTP password, Gotify token and Vivino/Whiskybase keys unusable until you enter them again. Rotate it only with the procedure below, never by just editing `.env`. Changing **`DB_PASSWORD`** in `.env` alone does **nothing** on an existing instance: Postgres only reads that value the first time its data volume is initialized, so the role's actual password must be changed from inside Postgres too.
+All three secrets live in your `.env`. Changing **`JWT_SECRET`** logs everyone out. Changing **`CONFIG_ENCRYPTION_KEY`** makes the saved SMTP password, Gotify token and Vivino/Whiskybase keys unusable until you enter them again, and the authenticator-app codes of every member with two-factor authentication stop working (their backup codes still do). Rotate it only with the procedure below, never by just editing `.env`. Changing **`DB_PASSWORD`** in `.env` alone does **nothing** on an existing instance: Postgres only reads that value the first time its data volume is initialized, so the role's actual password must be changed from inside Postgres too.
 
 > [!WARNING]
 > If your instance has been running since before this page existed, `docker-compose.yml` may have started with a hardcoded fallback database password (`glou_secret`) instead of a value you chose. That value is public (it is in Glou's git history) and must be treated as compromised. Rotate `DB_PASSWORD` now with the procedure below, even if nothing looks wrong. See [`.env.example`](../../../.env.example) for how the fallback was removed.
@@ -15,7 +15,7 @@ All three secrets live in your `.env`. Changing **`JWT_SECRET`** logs everyone o
 | Secret | Used for | If you change it |
 |---|---|---|
 | `JWT_SECRET` | Signs session tokens and the "trusted device" cookie | Every session becomes invalid: all users must sign in again, and trusted devices are asked for their 2FA code again. No data is lost. |
-| `CONFIG_ENCRYPTION_KEY` (64 hex characters) | Encrypts, in the database, the **SMTP password, Gotify token, Vivino key and Whiskybase key** | The stored values can no longer be decrypted: sending emails and Gotify notifications fails (the API log shows `Unsupported state or unable to authenticate data`). Passwords and 2FA secrets are **not** affected. |
+| `CONFIG_ENCRYPTION_KEY` (64 hex characters) | Encrypts, in the database, the **SMTP password, Gotify token, Vivino key and Whiskybase key**, and **each member's two-factor secret** (the seed of the authenticator app's codes) | The stored values can no longer be decrypted: sending emails and Gotify notifications fails (the API log shows `Unsupported state or unable to authenticate data`), and authenticator codes are refused. Passwords and backup codes are **not** affected. |
 | `DB_PASSWORD` | Authenticates the API (and you, via `psql`) to the Postgres role | Nothing, until you also change the role's password inside Postgres (see below). The two must be changed together. |
 
 Generate new values with:
@@ -32,6 +32,7 @@ openssl rand -base64 32   # DB_PASSWORD
 
 ## Rotate `CONFIG_ENCRYPTION_KEY`
 1. Write down the SMTP password, Gotify token and API keys you currently use (Admin → System Configuration). They cannot be re-encrypted automatically.
+   Warn the members who use two-factor authentication: after the change, the codes of their authenticator app are refused. They sign in with one of their backup codes, then turn two-factor authentication off (which asks for another backup code) and on again in **Profile → Security & Authentication** (a new QR code to scan): that takes two backup codes. A member with fewer than two backup codes left asks an administrator for a password reset, which turns their two-factor authentication off; an administrator in that case follows [Lost phone](./32-Lost-Phone-2FA.md#only-administrator-locked-out-database-command).
 2. Edit `CONFIG_ENCRYPTION_KEY` in `.env`.
 3. Clear the values encrypted with the old key, then recreate the API:
    ```bash
@@ -59,7 +60,8 @@ openssl rand -base64 32   # DB_PASSWORD
 |---|---|
 | The API stops at startup with a `FATAL` line naming `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` | The value is missing, still the `.env.example` placeholder, or (for the key) not 64 hex characters. Fix `.env`, then `docker compose up -d api`. |
 | Emails stop after a restart and the API log shows `Unsupported state or unable to authenticate data` | `CONFIG_ENCRYPTION_KEY` is not the one the data was saved with (for instance after restoring a backup on a host with a different `.env`). Put the old key back, or follow "Rotate `CONFIG_ENCRYPTION_KEY`" step 3 and re-enter the values. |
+| Authenticator codes are refused for every member after a restart or a restore | Same cause: the two-factor secrets were encrypted with another `CONFIG_ENCRYPTION_KEY`. Put the old key back, or have each member sign in with a backup code and set two-factor authentication up again (two backup codes needed, see step 1 of "Rotate `CONFIG_ENCRYPTION_KEY`"). |
 | The API log shows `password authentication failed for user` after editing `DB_PASSWORD` | `.env` was changed but the role's password inside Postgres was not (or the other way around). The two must match. Redo "Rotate `DB_PASSWORD`" step 2, or set `DB_PASSWORD` back to the value Postgres still has. |
 
 > [!IMPORTANT]
-> Keep `.env` in a safe place **outside** the host (password manager, encrypted copy). A database backup without its `CONFIG_ENCRYPTION_KEY` cannot give you back the encrypted settings. See [Disaster recovery](./30-Disaster-Recovery.md).
+> Keep `.env` in a safe place **outside** the host (password manager, encrypted copy), and **never in the same place as the database backups**. A database backup without its `CONFIG_ENCRYPTION_KEY` cannot give you back the encrypted settings, nor anyone the two-factor secrets it holds: that is what keeps two-factor authentication standing when a backup leaks, and it only holds if the key is not stored next to it. See [Disaster recovery](./30-Disaster-Recovery.md).

@@ -13,7 +13,7 @@ const stamp = () => `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
 type Unit = {
   id: string; productId: string; cellarId: string | null; quantity: number | null; purchasePrice: number | null;
   purchasedAt: string | null; updatedAt: string; isOpened: boolean; fillLevel: number | null; writtenOffAt: string | null;
-  slotColumn: number | null; slotRow: number | null;
+  slots: Array<{ id: string; column: number; row: number }>;
 };
 type Written = { data: Unit; changed: Unit[]; removedIds: string[] };
 type Detail = {
