@@ -10,6 +10,10 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+## v2026.11.2 - 2026-11-07
+
+> **Before you update:** v2026.11.1 was never published as a stable release: coming from v2026.11.0, read its section below too, its database change applies. Two-factor secrets are now encrypted with `CONFIG_ENCRYPTION_KEY`: keep your `.env` (and that key) as it is, away from your backups, or your members' authenticator codes stop working. Backups taken before this version still contain those secrets in the clear: delete their copies kept elsewhere (restic, NAS…). Several administrator settings (mail, Gotify, notifications, public URL, backups) now ask for your password, plus a code from your app if your account has two-factor authentication (#890, #613).
+
 ### Added
 - Two-factor authentication: **Profile → Security & Authentication** now says how many backup codes are left and offers **Generate new codes** (password and a current code asked), which replaces them all: the previous ones stop working at once, and you get the same security notification as when 2FA is turned on or off. The window that shows the codes has a **Copy the codes** button and no longer closes, by Escape or a click outside, before **I've saved my codes** is ticked. A new wiki page, *Lost phone with 2FA on*, explains each way back in, including the database command for an instance whose only administrator is locked out (#638).
 
