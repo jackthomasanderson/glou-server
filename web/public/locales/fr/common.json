@@ -920,7 +920,7 @@
       "deactivate": "Désactiver",
       "deactivateSelf": "Impossible de désactiver votre propre compte",
       "grantAdminConfirm": "Donner les droits d'administrateur à {{username}} ?",
-      "deactivateConfirm": "Couper l'accès de {{username}} à cette instance ?",
+      "deactivateConfirm": "Couper l'accès de {{username}} à cette instance ? Ses sessions, appareils de confiance et liens invités seront révoqués définitivement : réactiver le compte plus tard ne les rétablira pas, il devra se reconnecter et créer de nouveaux liens invités.",
       "deactivateLastAdmin": "Impossible de désactiver le dernier administrateur",
       "me": "moi",
       "resetPassword": "Réinitialiser le mot de passe",

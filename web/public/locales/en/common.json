@@ -918,7 +918,7 @@
       "deactivate": "Deactivate",
       "deactivateSelf": "You cannot deactivate your own account",
       "grantAdminConfirm": "Grant administrator rights to {{username}}?",
-      "deactivateConfirm": "Cut off {{username}}'s access to this instance?",
+      "deactivateConfirm": "Cut off {{username}}'s access to this instance? Their sessions, trusted devices and guest links will be revoked for good: reactivating the account later will not bring them back, they will have to sign in again and create new guest links.",
       "deactivateLastAdmin": "You cannot deactivate the last administrator",
       "me": "me",
       "resetPassword": "Reset password",
