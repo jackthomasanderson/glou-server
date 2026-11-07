@@ -56,7 +56,10 @@ Dans **Profil → Données & Confidentialité**, **Exporter en CSV** télécharg
 ### Sauvegardez aussi `.env`, séparément
 Les dumps de base contiennent votre inventaire, vos dégustations, votre historique de configuration — mais `CONFIG_ENCRYPTION_KEY` (dans `.env`, jamais en base) est la seule clé qui déchiffre les secrets portés par un dump (mot de passe SMTP, URL Gotify/webhook, clés d'API, et le secret de double authentification de chaque membre). Restaurer un dump sur une instance dont le `.env` a une `CONFIG_ENCRYPTION_KEY` **différente** rend ces champs illisibles — Glou ne fait pas échouer la restauration, mais Administration → Configuration Système les affichera vides, et il faudra les ressaisir, et les codes des applications d'authentification sont refusés : chaque membre se connecte avec un de ses codes de secours, puis désactive et réactive la double authentification (voir [Téléphone perdu](./32-Telephone-Perdu-2FA.md)).
 
-Comme les secrets de double authentification sont chiffrés, un dump seul ne donne plus à personne les codes des applications d'authentification de vos membres — tant que `CONFIG_ENCRYPTION_KEY` n'est pas rangée avec lui.
+Comme les secrets de double authentification sont chiffrés, un dump seul ne donne plus à personne les codes des applications d'authentification de vos membres — tant que `CONFIG_ENCRYPTION_KEY` n'est pas rangée avec lui. Les secrets enregistrés avant cette version sont chiffrés au démarrage de l'API, avant chaque sauvegarde et après une restauration.
+
+> [!WARNING]
+> Les sauvegardes prises **avant** cette version contiennent encore les secrets de double authentification en clair. Supprimez les copies que votre outil de sauvegarde garde ailleurs (restic, NAS, autre machine…), ou faites remettre en place la double authentification à chaque membre qui l'utilise (la désactiver, puis la réactiver, dans **Profil → Sécurité & Authentification**) : les anciens secrets ne donnent alors plus aucun code valide.
 
 Sauvegardez `.env` là où vous gardez déjà vos secrets (gestionnaire de mots de passe, coffre chiffré) — ni dans le dossier `backups/` lui-même, ni sur le stockage où votre outil copie `backups/`, qui est fait pour des dumps que votre outil de sauvegarde collecte selon son propre calendrier, pas pour un fichier qui change rarement et mérite plus de soin qu'un lot de dumps qui tourne.
 

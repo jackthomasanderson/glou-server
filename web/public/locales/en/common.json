@@ -1786,7 +1786,7 @@
     "tabsAriaLabel": "Config sections",
     "stepUp": {
       "smtp": "The mail server sends password reset links and security alerts, so changing it is confirmed.",
-      "smtpTest": "The test sends a message with the saved mail server.",
+      "smtpTest": "The test connects to the saved mail server, and sends a message if you gave an address.",
       "notifications": "These channels carry the security alerts sent to members, so changing them is confirmed.",
       "gotify": "The Gotify server receives the security alerts, so changing it is confirmed.",
       "gotifyTest": "The test sends a notification to the saved Gotify server.",
@@ -1914,7 +1914,7 @@
     "backup": {
       "description": "Configure the automatic daily database backup (pg_dump), stored outside the application volume.",
       "download": {
-        "body": "The file contains the whole database, including every account's password hash. Two-factor secrets in it are encrypted.",
+        "body": "The file contains the whole database, including every account's password hash. Its two-factor secrets are encrypted, except in backups taken before the update that encrypts them.",
         "error": "Download failed."
       },
       "dirCheckFailed": "Glou could not check whether it can write to the backups folder. Reload the page; if this message stays, check the API logs (docker compose logs api).",

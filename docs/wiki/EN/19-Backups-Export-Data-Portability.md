@@ -56,7 +56,10 @@ In **Profile → Data & Privacy**, **Export as CSV** downloads a spreadsheet of 
 ### Back up `.env` too, separately
 Database dumps hold your inventory, your tastings, your configuration history — but `CONFIG_ENCRYPTION_KEY` (in `.env`, never in the database) is the only key that decrypts the secrets a dump carries at rest (SMTP password, Gotify/webhook URL, API keys, and each member's two-factor secret). Restoring a dump on an instance whose `.env` has a *different* `CONFIG_ENCRYPTION_KEY` makes those fields unreadable — Glou doesn't fail the restore, but Administration → System Configuration will show them empty and they'll need to be re-entered, and the codes of authenticator apps are refused: members sign in with one of their backup codes, then turn two-factor authentication off and on again (see [Lost phone](./32-Lost-Phone-2FA.md)).
 
-Since the two-factor secrets are encrypted, a dump on its own no longer gives anyone the codes of your members' authenticator apps — as long as `CONFIG_ENCRYPTION_KEY` is not stored with it.
+Since the two-factor secrets are encrypted, a dump on its own no longer gives anyone the codes of your members' authenticator apps — as long as `CONFIG_ENCRYPTION_KEY` is not stored with it. Secrets saved before this version are encrypted when the API starts, before each backup and after a restore.
+
+> [!WARNING]
+> Backups taken **before** this version still contain the two-factor secrets in the clear. Delete the copies your backup tool keeps elsewhere (restic, NAS, another machine…), or have every member with two-factor authentication set it up again (turn it off, then on, in **Profile → Security & Authentication**): the old secrets then no longer give any valid code.
 
 Back up `.env` wherever you already keep secrets (a password manager, an encrypted vault) — not inside the `backups/` directory itself, nor on the storage your backup tool copies `backups/` to, since that's meant for dumps your backup tool collects on its own schedule, not for a file that rarely changes and should be handled with more care than a rotating batch of dumps.
 

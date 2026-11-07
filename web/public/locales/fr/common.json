@@ -1788,7 +1788,7 @@
     "tabsAriaLabel": "Sections de configuration",
     "stepUp": {
       "smtp": "Le serveur de messagerie envoie les liens de réinitialisation du mot de passe et les alertes de sécurité : sa modification est confirmée.",
-      "smtpTest": "Le test envoie un message avec le serveur de messagerie enregistré.",
+      "smtpTest": "Le test se connecte au serveur de messagerie enregistré, et envoie un message si vous avez donné une adresse.",
       "notifications": "Ces canaux portent les alertes de sécurité envoyées aux membres : leur modification est confirmée.",
       "gotify": "Le serveur Gotify reçoit les alertes de sécurité : sa modification est confirmée.",
       "gotifyTest": "Le test envoie une notification au serveur Gotify enregistré.",
@@ -1916,7 +1916,7 @@
     "backup": {
       "description": "Configurez la sauvegarde automatique quotidienne de la base de données (pg_dump), stockée en dehors du volume applicatif.",
       "download": {
-        "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe de chaque compte. Les secrets de double authentification y sont chiffrés.",
+        "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe de chaque compte. Ses secrets de double authentification sont chiffrés, sauf dans les sauvegardes prises avant la mise à jour qui les chiffre.",
         "error": "Le téléchargement a échoué."
       },
       "dirCheckFailed": "Glou n'a pas pu vérifier s'il peut écrire dans le dossier des sauvegardes. Rechargez la page ; si ce message reste affiché, consultez les journaux de l'API (docker compose logs api).",

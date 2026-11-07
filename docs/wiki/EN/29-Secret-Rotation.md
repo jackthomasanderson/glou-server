@@ -32,7 +32,7 @@ openssl rand -base64 32   # DB_PASSWORD
 
 ## Rotate `CONFIG_ENCRYPTION_KEY`
 1. Write down the SMTP password, Gotify token and API keys you currently use (Admin → System Configuration). They cannot be re-encrypted automatically.
-   Warn the members who use two-factor authentication: after the change, the codes of their authenticator app are refused. They sign in with one of their backup codes, then turn two-factor authentication off and on again in **Profile → Security & Authentication** (a new QR code to scan). A member with no backup code left asks an administrator for a password reset, which turns their two-factor authentication off; an administrator in that case follows [Lost phone](./32-Lost-Phone-2FA.md#only-administrator-locked-out-database-command).
+   Warn the members who use two-factor authentication: after the change, the codes of their authenticator app are refused. They sign in with one of their backup codes, then turn two-factor authentication off (which asks for another backup code) and on again in **Profile → Security & Authentication** (a new QR code to scan): that takes two backup codes. A member with fewer than two backup codes left asks an administrator for a password reset, which turns their two-factor authentication off; an administrator in that case follows [Lost phone](./32-Lost-Phone-2FA.md#only-administrator-locked-out-database-command).
 2. Edit `CONFIG_ENCRYPTION_KEY` in `.env`.
 3. Clear the values encrypted with the old key, then recreate the API:
    ```bash
@@ -60,7 +60,7 @@ openssl rand -base64 32   # DB_PASSWORD
 |---|---|
 | The API stops at startup with a `FATAL` line naming `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` | The value is missing, still the `.env.example` placeholder, or (for the key) not 64 hex characters. Fix `.env`, then `docker compose up -d api`. |
 | Emails stop after a restart and the API log shows `Unsupported state or unable to authenticate data` | `CONFIG_ENCRYPTION_KEY` is not the one the data was saved with (for instance after restoring a backup on a host with a different `.env`). Put the old key back, or follow "Rotate `CONFIG_ENCRYPTION_KEY`" step 3 and re-enter the values. |
-| Authenticator codes are refused for every member after a restart or a restore | Same cause: the two-factor secrets were encrypted with another `CONFIG_ENCRYPTION_KEY`. Put the old key back, or have each member sign in with a backup code and set two-factor authentication up again (step 1 of "Rotate `CONFIG_ENCRYPTION_KEY`"). |
+| Authenticator codes are refused for every member after a restart or a restore | Same cause: the two-factor secrets were encrypted with another `CONFIG_ENCRYPTION_KEY`. Put the old key back, or have each member sign in with a backup code and set two-factor authentication up again (two backup codes needed, see step 1 of "Rotate `CONFIG_ENCRYPTION_KEY`"). |
 | The API log shows `password authentication failed for user` after editing `DB_PASSWORD` | `.env` was changed but the role's password inside Postgres was not (or the other way around). The two must match. Redo "Rotate `DB_PASSWORD`" step 2, or set `DB_PASSWORD` back to the value Postgres still has. |
 
 > [!IMPORTANT]
