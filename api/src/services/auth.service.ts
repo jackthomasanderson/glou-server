@@ -18,7 +18,8 @@ import { UNIT_SLOTS_INCLUDE } from '../lib/product-fields';
 import { isCookieSecure } from '../lib/cookie-secure';
 import { escapeHtml } from '../lib/html';
 import { isNotifEn } from '../lib/notif-lang';
-import { encrypt, decrypt } from '../lib/crypto';
+import { encrypt } from '../lib/crypto';
+import { openTwoFactorSecret } from '../lib/two-factor-secret';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
 
 // ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
@@ -145,21 +146,6 @@ const PUBLIC_USER_SELECT = {
   mustChangePassword: true,
   isTwoFactorEnabled: true,
 } satisfies Record<keyof RawUserForPublic, true>;
-
-/**
- * #613: the TOTP secret is stored encrypted with CONFIG_ENCRYPTION_KEY, like
- * the SMTP password, so a copy of the database (a backup, a downloaded dump)
- * no longer gives every member's codes. A value written before is the base32
- * secret in the clear: it does not decrypt, is used as is, and is encrypted
- * after its next successful check (TotpCheck.legacy).
- */
-function openTwoFactorSecret(stored: string): { secret: string; legacy: boolean } {
-  try {
-    return { secret: decrypt(stored), legacy: false };
-  } catch {
-    return { secret: stored, legacy: true };
-  }
-}
 
 function signToken(payload: AuthPayload, expiresIn: SignOptions['expiresIn'] = JWT_EXPIRES_IN): string {
   const secret = process.env.JWT_SECRET;

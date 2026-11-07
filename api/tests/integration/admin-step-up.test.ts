@@ -3,6 +3,9 @@ import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
 import { authenticator } from 'otplib';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 // #890: after #638, a stolen admin session (the cookie, no password, no phone)
 // could still take over accounts through the settings that decide where reset
@@ -35,6 +38,8 @@ const JWT_SECRET = 'integration-test-secret';
 const KEY = 'ab'.repeat(32);
 const ADMIN_PASSWORD = 'admin-pw';
 const TOTP_SECRET = authenticator.generateSecret();
+const DUMP = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'glou-890-')), 'glou-backup.sql.gz');
+fs.writeFileSync(DUMP, 'dump');
 let passwordHash = '';
 let adminHasTwoFactor = true;
 
@@ -79,7 +84,7 @@ beforeEach(() => {
   keep(vi.spyOn(systemConfigService, 'getPublic').mockResolvedValue(publicConfig));
   keep(vi.spyOn(emailService, 'testConnection').mockResolvedValue({ success: true }));
   keep(vi.spyOn(emailService, 'sendTestEmail').mockResolvedValue({ success: true }));
-  keep(vi.spyOn(backupService, 'getDownloadTarget').mockRejectedValue(new Error('BACKUP_FILE_MISSING')));
+  keep(vi.spyOn(backupService, 'getDownloadTarget').mockResolvedValue({ path: DUMP, filename: 'glou-backup.sql.gz' }));
   keep(vi.spyOn(backupService, 'restoreBackup').mockResolvedValue({ safetyBackupRunId: 'safety' }));
   keep(vi.spyOn(backupService, 'runBackup').mockResolvedValue({ id: 'pre-purge', success: true } as never));
   keep(vi.spyOn(MaintenanceService, 'purgeAllData').mockResolvedValue({ counts: { items: 0, cellars: 0, auditLogs: 0 } } as never));
@@ -108,7 +113,7 @@ const ROUTES: GatedRoute[] = [
   { label: 'Gotify test', method: 'post', path: '/api/admin/config/test/gotify', body: {}, effect: () => systemConfigService.getPublic, passed: 400 },
   { label: 'notification channels', method: 'put', path: '/api/admin/config/notifications', body: { smtpEnabled: false, gotifyEnabled: false, inAppEnabled: true }, effect: () => systemConfigService.updateNotificationPolicy, passed: 200 },
   { label: 'public URL', method: 'put', path: '/api/admin/config/network', body: { publicUrl: 'https://attacker.example', accessMode: 'direct' }, effect: () => systemConfigService.updateNetworkConfig, passed: 200 },
-  { label: 'backup download', method: 'post', path: '/api/admin/backups/b1/download', body: {}, effect: () => backupService.getDownloadTarget, passed: 404 },
+  { label: 'backup download', method: 'post', path: '/api/admin/backups/b1/download', body: {}, effect: () => auditSuccessFor('BACKUP_DOWNLOAD'), passed: 200 },
   { label: 'backup restore', method: 'post', path: '/api/admin/backups/b1/restore', body: { confirm: true }, effect: () => backupService.restoreBackup, passed: 200 },
   { label: 'full purge', method: 'post', path: '/api/admin/maintenance/purge', body: { confirmation: 'SUPPRIMER' }, effect: () => MaintenanceService.purgeAllData, passed: 200 },
 ];
@@ -118,6 +123,13 @@ const send = (route: GatedRoute, extra: Record<string, unknown> = {}) =>
     .set('Authorization', `Bearer ${token()}`)
     .set('Sec-Fetch-Site', 'same-origin')
     .send({ ...route.body, ...extra });
+
+/** A stand-in "effect" for the download: its success audit entry (the file is read after the step-up). */
+const auditSuccessFor = (action: string) => {
+  const fn = vi.fn();
+  for (const d of auditCalls()) if (d.action === action && d.status === 'success') fn();
+  return fn;
+};
 
 const auditCalls = () => vi.mocked(prisma.auditLog.create).mock.calls.map(([arg]) => (arg as { data: Record<string, unknown> }).data);
 
@@ -161,7 +173,15 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('INVALID_PASSWORD');
-    expect(backupService.getDownloadTarget).not.toHaveBeenCalled();
+    expect(auditCalls()).not.toContainEqual(expect.objectContaining({ action: 'BACKUP_DOWNLOAD', status: 'success' }));
+  });
+
+  it('answers a stale backup id before the step-up, so it spends no backup code', async () => {
+    vi.mocked(backupService.getDownloadTarget).mockRejectedValueOnce(new Error('BACKUP_NOT_FOUND'));
+    const res = await send(ROUTES[6], { password: ADMIN_PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+
+    expect(res.status).toBe(404);
+    expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
   });
 
   it('asks the password only when the admin has no 2FA', async () => {

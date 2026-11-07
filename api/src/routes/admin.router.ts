@@ -819,9 +819,10 @@ adminRouter.post('/backups/:id/restore', stepUpLimiter, async (req: Request, res
 adminRouter.post('/backups/:id/download', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   try {
+    // Found first, so a stale id spends no backup code (as for a restore).
+    const { path: filePath, filename } = await backupService.getDownloadTarget(id);
     const audit: StepUpAudit = { action: 'BACKUP_DOWNLOAD', details: { backupRunId: id } };
     if (!(await stepUp(req, res, audit))) return;
-    const { path: filePath, filename } = await backupService.getDownloadTarget(id);
     auditSuccess(req, audit);
     res.download(filePath, filename, (err) => {
       if (err) console.error('[Admin] Backup download stream error:', err);
