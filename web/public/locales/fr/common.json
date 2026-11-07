@@ -1016,12 +1016,11 @@
         "confirmDescription": "Attention ! Cette action est irréversible. Pour confirmer que vous souhaitez supprimer TOUTES les données métier, veuillez saisir le mot-clé ci-dessous :",
         "keywordLabel": "Saisissez \"SUPPRIMER\" pour confirmer",
         "keywordValue": "SUPPRIMER",
-        "passwordLabel": "Votre mot de passe",
+        "stepUp": "Supprimer TOUTES les bouteilles et TOUS les cigares, TOUTES les caves et TOUS les journaux d'activité ?",
         "backupFirst": "Une sauvegarde est faite avant ; la purge est annulée si elle échoue.",
         "success": "La base de données a été remise à zéro avec succès.",
         "error": "Une erreur est survenue lors de la purge des données.",
         "errors": {
-          "INVALID_PASSWORD": "Mot de passe incorrect.",
           "BACKUP_BEFORE_PURGE_FAILED": "La sauvegarde préalable à la purge a échoué : rien n'a été supprimé. Consultez l'onglet Sauvegardes."
         },
         "counts": {
@@ -1787,6 +1786,14 @@
     "title": "Configuration Système",
     "subtitle": "Paramétrez les intégrations et la politique de notifications de l'instance.",
     "tabsAriaLabel": "Sections de configuration",
+    "stepUp": {
+      "smtp": "Le serveur de messagerie envoie les liens de réinitialisation du mot de passe et les alertes de sécurité : sa modification est confirmée.",
+      "smtpTest": "Le test envoie un message avec le serveur de messagerie enregistré.",
+      "notifications": "Ces canaux portent les alertes de sécurité envoyées aux membres : leur modification est confirmée.",
+      "gotify": "Le serveur Gotify reçoit les alertes de sécurité : sa modification est confirmée.",
+      "gotifyTest": "Le test envoie une notification au serveur Gotify enregistré.",
+      "network": "Les liens de réinitialisation du mot de passe sont construits à partir de l'URL publique : sa modification est confirmée."
+    },
     "tabs": {
       "smtp": "SMTP / Email",
       "notifications": "Politique de notifs",
@@ -1908,11 +1915,8 @@
     },
     "backup": {
       "description": "Configurez la sauvegarde automatique quotidienne de la base de données (pg_dump), stockée en dehors du volume applicatif.",
-      "passwordLabel": "Votre mot de passe",
-      "invalidPassword": "Mot de passe incorrect.",
       "download": {
-        "title": "Télécharger cette sauvegarde",
-        "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe et le secret de double authentification de chaque compte. Confirmez avec votre mot de passe.",
+        "body": "Le fichier contient toute la base, y compris l'empreinte du mot de passe de chaque compte. Les secrets de double authentification y sont chiffrés.",
         "error": "Le téléchargement a échoué."
       },
       "dirCheckFailed": "Glou n'a pas pu vérifier s'il peut écrire dans le dossier des sauvegardes. Rechargez la page ; si ce message reste affiché, consultez les journaux de l'API (docker compose logs api).",
@@ -1948,6 +1952,7 @@
       },
       "restore": {
         "modalTitle": "Confirmer la restauration",
+        "stepUp": "Restaurer cette sauvegarde à la place de toutes les données actuelles ?",
         "modalBody": "Cette action écrase immédiatement toutes les données actuelles de l'instance par le contenu de cette sauvegarde.",
         "safetyCopy": "Une sauvegarde des données actuelles est prise d'abord et reste dans l'historique : restaurez-la pour annuler cette restauration. Si cette sauvegarde échoue, rien n'est restauré.",
         "modalHint": "Saisissez « {{keyword}} » pour confirmer :",

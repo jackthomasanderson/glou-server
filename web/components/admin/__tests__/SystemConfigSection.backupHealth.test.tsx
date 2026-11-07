@@ -12,6 +12,8 @@ vi.mock('react-i18next', () => ({
 }));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('@/hooks/useScan', () => ({ useScanStatus: () => ({ data: undefined }) }));
+// The admin's own 2FA state, read by the step-up dialog (#890): off here.
+vi.mock('@/hooks/useAuth', () => ({ useMe: () => ({ data: { id: 'a1', isTwoFactorEnabled: false }, refetch: () => {} }) }));
 // Closed modals render nothing, like HeroUI's.
 vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>

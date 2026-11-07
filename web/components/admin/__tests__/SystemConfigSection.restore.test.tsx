@@ -12,6 +12,8 @@ vi.mock('react-i18next', () => ({
 }));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('@/hooks/useScan', () => ({ useScanStatus: () => ({ data: undefined }) }));
+// The admin's own 2FA state, read by the step-up dialog (#890): off here.
+vi.mock('@/hooks/useAuth', () => ({ useMe: () => ({ data: { id: 'a1', isTwoFactorEnabled: false }, refetch: () => {} }) }));
 // Closed modals render nothing, like HeroUI's.
 vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
@@ -77,10 +79,12 @@ async function openRestoreDialog() {
   fireEvent.click(await screen.findByRole('button', { name: 'adminConfig.backup.history.restore' }));
 }
 
+/** The typed keyword, then the step-up dialog (#890): the admin's password. */
 function confirmRestore() {
   fireEvent.change(screen.getByLabelText('adminConfig.backup.restore.keyword'), { target: { value: 'adminConfig.backup.restore.keyword' } });
-  fireEvent.change(screen.getByLabelText('adminConfig.backup.passwordLabel'), { target: { value: 'pw' } });
   fireEvent.click(screen.getByRole('button', { name: 'adminConfig.backup.restore.confirm' }));
+  fireEvent.change(screen.getByLabelText('admin.users.stepUpPassword'), { target: { value: 'pw' } });
+  fireEvent.click(screen.getByRole('button', { name: 'actions.confirm' }));
 }
 
 afterEach(() => {

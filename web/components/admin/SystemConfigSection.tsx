@@ -7,7 +7,8 @@ import {
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Settings, Mail, Bell, Puzzle, History, Webhook, Clock, PlayCircle, Globe, CheckCircle2, AlertTriangle, Archive, Download, RotateCcw, Info, Copy, Check, Camera } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { configClient, SystemConfigPublic, MaintenanceRunEntry, NetworkCheckResult, BackupRunEntry } from '@/lib/config/client';
+import { configClient, SystemConfigPublic, MaintenanceRunEntry, NetworkCheckResult, BackupRunEntry, type AdminReauth } from '@/lib/config/client';
+import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useScanStatus } from '@/hooks/useScan';
 import { formatDateTime } from '@/lib/format';
@@ -72,11 +73,11 @@ export function SystemConfigSection() {
   const [runningBackup, setRunningBackup] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<BackupRunEntry | null>(null);
   const [restoreConfirmText, setRestoreConfirmText] = useState('');
-  const [restoring, setRestoring] = useState(false);
-  const [restorePassword, setRestorePassword] = useState('');
-  const [downloadTarget, setDownloadTarget] = useState<BackupRunEntry | null>(null);
-  const [downloadPassword, setDownloadPassword] = useState('');
-  const [downloading, setDownloading] = useState(false);
+
+  // #890: the settings that decide where mail, reset links and security
+  // alerts go, and the backup download and restore, are confirmed with the
+  // admin's password and code (the #638 step-up dialog).
+  const stepUp = useAdminStepUp();
 
   // History
   const [history, setHistory] = useState<{ id: number; fieldName: string; maskedNewVal: string | null; createdAt: string; user?: { username: string } }[]>([]);
@@ -139,7 +140,7 @@ export function SystemConfigSection() {
     setTimeout(() => setFeedback(null), 4000);
   };
 
-  const saveSmtp = async () => {
+  const saveSmtp = async (reauth: AdminReauth) => {
     setSaving(true);
     try {
       const updated = await configClient.updateSmtp({
@@ -150,67 +151,72 @@ export function SystemConfigSection() {
         smtpPass: smtp.smtpPass || undefined,
         smtpFrom: smtp.smtpFrom || null,
         smtpSecure: smtp.smtpSecure,
-      });
+      }, reauth);
       setConfig(updated);
       setPolicy(p => ({ ...p, smtpEnabled: updated.smtpEnabled }));
       showFeedback('success', t('adminConfig.smtp.saved'));
     } catch (err) {
+      if (isStepUpRefusal(err)) throw err;
       showFeedback('error', err instanceof Error ? err.message : 'Error');
     } finally {
       setSaving(false);
     }
   };
 
-  const testSmtp = async (withEmail = false) => {
+  const testSmtp = async (withEmail: boolean, reauth: AdminReauth) => {
     setTesting(true);
     try {
-      const result = await configClient.testSmtp(withEmail ? smtpTestEmail || undefined : undefined);
+      const result = await configClient.testSmtp(withEmail ? smtpTestEmail || undefined : undefined, reauth);
       if (result.success) showFeedback('success', withEmail ? t('adminConfig.smtp.testEmailSuccess') : t('adminConfig.smtp.testSuccess'));
       else showFeedback('error', t('adminConfig.smtp.testError', { error: result.error ?? 'Unknown' }));
-    } catch {
+    } catch (err) {
+      if (isStepUpRefusal(err)) throw err;
       showFeedback('error', t('adminConfig.smtp.testError', { error: 'Network error' }));
     } finally {
       setTesting(false);
     }
   };
 
-  const savePolicy = async () => {
+  const savePolicy = async (reauth: AdminReauth) => {
     setSaving(true);
     try {
-      const updated = await configClient.updateNotifPolicy(policy);
+      const updated = await configClient.updateNotifPolicy(policy, reauth);
       setConfig(updated);
       showFeedback('success', t('adminConfig.notifPolicy.saved'));
     } catch (err) {
+      if (isStepUpRefusal(err)) throw err;
       showFeedback('error', err instanceof Error ? err.message : 'Error');
     } finally {
       setSaving(false);
     }
   };
 
-  const saveGotify = async () => {
+  const saveGotify = async (reauth: AdminReauth) => {
     setSaving(true);
     try {
       const updated = await configClient.updateGotify({
         gotifyEnabled: policy.gotifyEnabled,
         gotifyUrl: gotify.gotifyUrl || null,
         gotifyToken: gotify.gotifyToken || undefined,
-      });
+      }, reauth);
       setConfig(updated);
       showFeedback('success', t('adminConfig.gotify.saved'));
     } catch (err) {
+      if (isStepUpRefusal(err)) throw err;
       showFeedback('error', err instanceof Error ? err.message : 'Error');
     } finally {
       setSaving(false);
     }
   };
 
-  const testGotify = async () => {
+  const testGotify = async (reauth: AdminReauth) => {
     setTesting(true);
     try {
-      const result = await configClient.testGotify();
+      const result = await configClient.testGotify(reauth);
       if (result.success) showFeedback('success', t('adminConfig.gotify.testSuccess'));
       else showFeedback('error', t('adminConfig.gotify.testError', { error: result.error ?? 'Unknown' }));
-    } catch {
+    } catch (err) {
+      if (isStepUpRefusal(err)) throw err;
       showFeedback('error', t('adminConfig.gotify.testError', { error: 'Network error' }));
     } finally {
       setTesting(false);
@@ -250,17 +256,18 @@ export function SystemConfigSection() {
     }
   };
 
-  const saveNetwork = async () => {
+  const saveNetwork = async (reauth: AdminReauth) => {
     setSaving(true);
     try {
       const updated = await configClient.updateNetwork({
         publicUrl: network.publicUrl.trim() ? network.publicUrl.trim() : null,
         accessMode: network.accessMode,
-      });
+      }, reauth);
       setConfig(updated);
       setCheckResult(null);
       showFeedback('success', t('adminConfig.network.saved'));
     } catch (err) {
+      if (isStepUpRefusal(err)) throw err;
       showFeedback('error', err instanceof Error ? err.message : 'Error');
     } finally {
       setSaving(false);
@@ -338,41 +345,37 @@ export function SystemConfigSection() {
     }
   };
 
-  const passwordErrorMessage = (err: unknown, fallbackKey: string): string =>
-    err instanceof Error && err.message === 'INVALID_PASSWORD'
-      ? t('adminConfig.backup.invalidPassword')
-      : err instanceof Error ? err.message : t(fallbackKey);
+  const closeRestore = () => { setRestoreTarget(null); setRestoreConfirmText(''); };
 
-  const closeRestore = () => { setRestoreTarget(null); setRestoreConfirmText(''); setRestorePassword(''); };
+  /** The keyword typed, the step-up confirms the restore (#489, #890). */
+  const handleConfirmRestore = () => {
+    if (!restoreTarget || restoreConfirmText !== t('adminConfig.backup.restore.keyword')) return;
+    const target = restoreTarget;
+    closeRestore();
+    stepUp.ask(t('adminConfig.backup.restore.stepUp'), (reauth) => restore(target, reauth));
+  };
 
-  const handleConfirmRestore = async () => {
-    if (!restoreTarget || restoreConfirmText !== t('adminConfig.backup.restore.keyword') || !restorePassword) return;
-    setRestoring(true);
+  const restore = async (target: BackupRunEntry, reauth: AdminReauth) => {
     try {
-      await configClient.restoreBackup(restoreTarget.id, restorePassword);
+      await configClient.restoreBackup(target.id, reauth);
       showFeedback('success', t('adminConfig.backup.restore.success'));
-      closeRestore();
     } catch (err) {
+      if (isStepUpRefusal(err)) throw err;
       const errName = (err as { name?: string } | null)?.name;
       showFeedback('error', errName === 'TimeoutError' || errName === 'AbortError'
         ? t('adminConfig.backup.restore.errors.TIMEOUT')
         : err instanceof Error && RESTORE_REFUSALS.has(err.message)
           ? t(`adminConfig.backup.restore.errors.${err.message}`)
-          : passwordErrorMessage(err, 'adminConfig.backup.restore.error'));
+          : err instanceof Error ? err.message : t('adminConfig.backup.restore.error'));
     } finally {
-      setRestoring(false);
       // The safety backup taken first (or its failure) is now in the history (#666).
       configClient.getBackupRuns().then(setBackupRuns).catch(() => {});
     }
   };
 
-  const closeDownload = () => { setDownloadTarget(null); setDownloadPassword(''); };
-
-  const handleConfirmDownload = async () => {
-    if (!downloadTarget || !downloadPassword) return;
-    setDownloading(true);
+  const download = async (target: BackupRunEntry, reauth: AdminReauth) => {
     try {
-      const { blob, filename } = await configClient.downloadBackup(downloadTarget.id, downloadPassword);
+      const { blob, filename } = await configClient.downloadBackup(target.id, reauth);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -381,11 +384,9 @@ export function SystemConfigSection() {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      closeDownload();
     } catch (err) {
-      showFeedback('error', passwordErrorMessage(err, 'adminConfig.backup.download.error'));
-    } finally {
-      setDownloading(false);
+      if (isStepUpRefusal(err)) throw err;
+      showFeedback('error', err instanceof Error ? err.message : t('adminConfig.backup.download.error'));
     }
   };
 
@@ -454,12 +455,12 @@ export function SystemConfigSection() {
               {t('adminConfig.smtp.secure')}
             </Switch>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveSmtp}>{t('adminConfig.smtp.save')}</Button>
-              <Button size="sm" variant="bordered" isLoading={testing} onPress={() => testSmtp(false)}>{t('adminConfig.smtp.test')}</Button>
+              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtp'), saveSmtp)}>{t('adminConfig.smtp.save')}</Button>
+              <Button size="sm" variant="bordered" isLoading={testing} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => testSmtp(false, reauth))}>{t('adminConfig.smtp.test')}</Button>
             </div>
             <div className="flex items-end gap-2 pt-1 border-t border-divider">
               <Input label={t('adminConfig.smtp.testWithEmail')} type="email" value={smtpTestEmail} onValueChange={setSmtpTestEmail} variant="bordered" size="sm" radius="md" labelPlacement="outside" className="flex-1" />
-              <Button size="sm" variant="flat" isLoading={testing} onPress={() => testSmtp(true)} isDisabled={!smtpTestEmail}>{t('adminConfig.smtp.testWithEmail')}</Button>
+              <Button size="sm" variant="flat" isLoading={testing} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => testSmtp(true, reauth))} isDisabled={!smtpTestEmail}>{t('adminConfig.smtp.testWithEmail')}</Button>
             </div>
           </div>
         </Tab>
@@ -483,7 +484,7 @@ export function SystemConfigSection() {
                 </div>
               ))}
             </div>
-            <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={savePolicy} className="self-start">{t('adminConfig.notifPolicy.save')}</Button>
+            <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={() => stepUp.ask(t('adminConfig.stepUp.notifications'), savePolicy)} className="self-start">{t('adminConfig.notifPolicy.save')}</Button>
           </div>
         </Tab>
 
@@ -493,8 +494,8 @@ export function SystemConfigSection() {
             <Input label={t('adminConfig.gotify.url')} placeholder={t('adminConfig.gotify.urlPlaceholder')} value={gotify.gotifyUrl} onValueChange={(v) => setGotify(g => ({ ...g, gotifyUrl: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" />
             <Input label={t('adminConfig.gotify.token')} type="password" placeholder={config?.gotifyTokenMasked ?? t('adminConfig.gotify.tokenPlaceholder')} value={gotify.gotifyToken} onValueChange={(v) => setGotify(g => ({ ...g, gotifyToken: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
             <div className="flex gap-2">
-              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveGotify}>{t('adminConfig.gotify.save')}</Button>
-              <Button size="sm" variant="bordered" isLoading={testing} onPress={testGotify}>{t('adminConfig.gotify.test')}</Button>
+              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={() => stepUp.ask(t('adminConfig.stepUp.gotify'), saveGotify)}>{t('adminConfig.gotify.save')}</Button>
+              <Button size="sm" variant="bordered" isLoading={testing} onPress={() => stepUp.ask(t('adminConfig.stepUp.gotifyTest'), testGotify)}>{t('adminConfig.gotify.test')}</Button>
             </div>
           </div>
         </Tab>
@@ -730,7 +731,7 @@ export function SystemConfigSection() {
                               variant="light"
                               isIconOnly
                               aria-label={t('adminConfig.backup.history.download')}
-                              onPress={() => setDownloadTarget(run)}
+                              onPress={() => stepUp.ask(t('adminConfig.backup.download.body'), (reauth) => download(run, reauth))}
                             >
                               <Download size={14} />
                             </Button>
@@ -785,7 +786,7 @@ export function SystemConfigSection() {
                   <SelectItem key="proxy">{t('adminConfig.network.accessModeOptions.proxy')}</SelectItem>
                 </SingleSelect>
               </div>
-              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveNetwork} className="self-start">
+              <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={() => stepUp.ask(t('adminConfig.stepUp.network'), saveNetwork)} className="self-start">
                 {t('adminConfig.network.save')}
               </Button>
             </div>
@@ -924,7 +925,7 @@ export function SystemConfigSection() {
       {/* Restore confirmation (destructive, overwrites all current data) */}
       <ResponsiveModal
         isOpen={!!restoreTarget}
-        onClose={() => { if (!restoring) closeRestore(); }}
+        onClose={closeRestore}
         size="sm" radius="lg" backdrop="opaque" placement="center"
       >
         <ModalContent>
@@ -945,26 +946,15 @@ export function SystemConfigSection() {
               value={restoreConfirmText}
               onValueChange={setRestoreConfirmText}
             />
-            <Input
-              type="password"
-              autoComplete="current-password"
-              variant="bordered"
-              size="sm"
-              radius="md"
-              label={t('adminConfig.backup.passwordLabel')}
-              value={restorePassword}
-              onValueChange={setRestorePassword}
-            />
           </ModalBody>
           <ModalFooter className="gap-2">
-            <Button variant="light" size="sm" isDisabled={restoring} onPress={closeRestore}>
+            <Button variant="light" size="sm" onPress={closeRestore}>
               {t('actions.cancel')}
             </Button>
             <Button
               color="danger"
               size="sm"
-              isLoading={restoring}
-              isDisabled={restoreConfirmText !== t('adminConfig.backup.restore.keyword') || !restorePassword}
+              isDisabled={restoreConfirmText !== t('adminConfig.backup.restore.keyword')}
               onPress={handleConfirmRestore}
             >
               {t('adminConfig.backup.restore.confirm')}
@@ -973,38 +963,7 @@ export function SystemConfigSection() {
         </ModalContent>
       </ResponsiveModal>
 
-      {/* #489: downloading a dump (password hashes, 2FA secrets) re-asks the password */}
-      <ResponsiveModal
-        isOpen={!!downloadTarget}
-        onClose={() => { if (!downloading) closeDownload(); }}
-        size="sm" radius="lg" backdrop="opaque" placement="center"
-      >
-        <ModalContent>
-          <ModalHeader>{t('adminConfig.backup.download.title')}</ModalHeader>
-          <ModalBody className="flex flex-col gap-4">
-            <p className="text-sm text-foreground-600">{t('adminConfig.backup.download.body')}</p>
-            <Input
-              type="password"
-              autoComplete="current-password"
-              variant="bordered"
-              size="sm"
-              radius="md"
-              label={t('adminConfig.backup.passwordLabel')}
-              value={downloadPassword}
-              onValueChange={setDownloadPassword}
-              autoFocus
-            />
-          </ModalBody>
-          <ModalFooter className="gap-2">
-            <Button variant="light" size="sm" isDisabled={downloading} onPress={closeDownload}>
-              {t('actions.cancel')}
-            </Button>
-            <Button color="primary" size="sm" isLoading={downloading} isDisabled={!downloadPassword} onPress={handleConfirmDownload}>
-              {t('adminConfig.backup.history.download')}
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </ResponsiveModal>
+      {stepUp.dialog}
     </div>
   );
 }

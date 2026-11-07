@@ -1,16 +1,13 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
 import { Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { TwoFactorCodeInput } from '@/components/auth/TwoFactorCodeInput';
 import { useMe } from '@/hooks/useAuth';
 import { authErrorMessage } from '@/lib/auth/error-message';
-
-export interface AdminReauth {
-  password: string;
-  code?: string;
-}
+import type { AdminReauth } from '@/lib/config/client';
 
 interface AdminStepUpDialogProps {
   isOpen: boolean;
@@ -23,13 +20,23 @@ interface AdminStepUpDialogProps {
   onClose: () => void;
 }
 
+/** The step-up's own refusals, said in the dialog (and the throttled form, #640). */
+const STEP_UP_REFUSALS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE', TOO_MANY_REQUESTS_ERROR]);
+
+/** Whether `err` is a refusal of the step-up itself, rather than of the action it confirmed. */
+export function isStepUpRefusal(err: unknown): err is Error {
+  return err instanceof Error && STEP_UP_REFUSALS.has(err.message);
+}
+
 /** Refusals that may come from a stale idea of the admin's own 2FA state. */
 const REFETCH_ON = new Set(['REAUTH_REQUIRED', 'INVALID_TOTP_CODE']);
 
 /**
  * #638: an admin password reset or an admin-role grant hands whoever holds
  * the session an admin-capable credential, so the admin confirms with their
- * own password, plus a code from their app when their account has 2FA. That
+ * own password, plus a code from their app when their account has 2FA.
+ * #890: so do the settings that decide where mail, reset links and security
+ * alerts go, and the backup download, restore and purge (useAdminStepUp). That
  * 2FA state is read afresh when the dialog opens and after a refusal that
  * may come from it (2FA turned on in another tab).
  */
@@ -107,4 +114,52 @@ export function AdminStepUpDialog({ isOpen, message, isPending, error, onConfirm
       </ModalContent>
     </ResponsiveModal>
   );
+}
+
+type StepUpAction = (reauth: AdminReauth) => Promise<void>;
+
+/**
+ * #890: `ask(message, action)` opens the step-up dialog; on confirm, `action`
+ * runs with the admin's password and code. It handles its own outcome, and
+ * rethrows a step-up refusal (isStepUpRefusal), which keeps the dialog open
+ * and says it inline. Render `dialog` once.
+ */
+export function useAdminStepUp() {
+  const [request, setRequest] = useState<{ id: number; message: string; action: StepUpAction } | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  const ask = useCallback((message: string, action: StepUpAction) => {
+    setError(null);
+    setRequest((previous) => ({ id: (previous?.id ?? 0) + 1, message, action }));
+  }, []);
+
+  const confirm = async (reauth: AdminReauth) => {
+    if (!request) return;
+    setIsPending(true);
+    setError(null);
+    try {
+      await request.action(reauth);
+      setRequest(null);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('UNEXPECTED_ERROR'));
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const dialog = (
+    <AdminStepUpDialog
+      // A fresh dialog (empty fields) for every request.
+      key={request?.id ?? 'closed'}
+      isOpen={!!request}
+      message={request?.message ?? ''}
+      isPending={isPending}
+      error={error}
+      onConfirm={(reauth) => { void confirm(reauth); }}
+      onClose={() => { setError(null); setRequest(null); }}
+    />
+  );
+
+  return { ask, dialog };
 }
