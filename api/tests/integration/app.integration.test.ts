@@ -743,6 +743,8 @@ describe('POST /api/admin/config/test/gotify', () => {
     const { systemConfigService } = await import('../../src/services/system-config.service');
     const publicSpy = vi.spyOn(systemConfigService, 'getPublic').mockResolvedValueOnce({ gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4' } as never);
     const gotifySpy = vi.spyOn(systemConfigService, 'getGotify').mockResolvedValueOnce({ gotifyUrl: 'https://1.2.3.4', gotifyToken: 'key' } as never);
+    // #890: the test asks for the admin's step-up, passed here.
+    const reauthSpy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
     // Like the real fetch: the redirect is followed unless `redirect: 'manual'`.
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) =>
       (init?.redirect === 'manual'
@@ -752,8 +754,10 @@ describe('POST /api/admin/config/test/gotify', () => {
       const res = await request(app)
         .post('/api/admin/config/test/gotify')
         .set('Authorization', `Bearer ${authToken()}`)
-        .set('Sec-Fetch-Site', 'same-origin');
+        .set('Sec-Fetch-Site', 'same-origin')
+        .send({ password: 'admin-pw' });
       expect(res.status).toBe(200);
+      expect(reauthSpy).toHaveBeenCalled();
       expect(res.body.data).toEqual({ success: false, error: 'DELIVERY_FAILED' });
       expect(fetchSpy).toHaveBeenCalledTimes(1);
       expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ redirect: 'manual' }));
@@ -761,6 +765,7 @@ describe('POST /api/admin/config/test/gotify', () => {
       fetchSpy.mockRestore();
       publicSpy.mockRestore();
       gotifySpy.mockRestore();
+      reauthSpy.mockRestore();
     }
   });
 });
