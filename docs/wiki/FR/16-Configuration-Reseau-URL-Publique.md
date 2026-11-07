@@ -15,7 +15,7 @@ Indiquez à Glou l'adresse utilisée pour joindre votre instance depuis l'extér
 3. Définissez le **Mode d'accès** :
    - **Direct** : l'instance est atteinte directement.
    - **Reverse proxy** : l'instance se trouve derrière un reverse proxy (Nginx, Traefik, Caddy, etc.).
-4. Cliquez sur **Enregistrer**. Le panneau affiche l'**URL effective** réellement utilisée (votre valeur configurée, ou le repli sur `APP_URL` si le champ est resté vide).
+4. Cliquez sur **Enregistrer**. Le panneau affiche l'**URL effective** réellement utilisée (votre valeur configurée, ou le repli sur `APP_URL` si le champ est resté vide). Les liens de réinitialisation du mot de passe sont construits à partir de cette URL : l'enregistrement demande donc votre mot de passe, et un code de votre application d'authentification si votre compte a la double authentification. Les réglages du serveur de messagerie, de Gotify et des canaux de notification demandent la même chose.
 
 ### Lancer la vérification de cohérence
 1. Cliquez sur **Vérifier la cohérence**.
