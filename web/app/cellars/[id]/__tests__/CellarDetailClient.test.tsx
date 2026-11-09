@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import type { SlotContext } from '@/components/inventory/FamilyDrawer';
 import type { GridCell } from '@/lib/cellars/types';
@@ -20,8 +20,36 @@ vi.mock('@/hooks/useCellars', () => ({
   useCellar: () => ({ data: { id: 'cave', name: 'Cave', type: 'SHELF', columns: 4, rows: 3 }, isLoading: false, isError: false }),
   useCellarGrid: () => ({ data: { cells: [] }, isLoading: false }),
 }));
-vi.mock('@/hooks/useInventory', () => ({ useInventory: () => ({ data: [] }) }));
-vi.mock('@/hooks/useProducts', () => ({ useProducts: () => ({ data: [] }) }));
+// #475: the household-wide list (capped), whether it was cut, and the cellar's own list.
+const wines = vi.hoisted(() => ({
+  all: [] as unknown[],
+  truncated: false,
+  scoped: undefined as { data: unknown[]; truncated: boolean } | undefined,
+  scopedEnabled: [] as boolean[],
+}));
+vi.mock('@/hooks/useProducts', () => ({
+  useProducts: () => ({ data: wines.all }),
+  useProductsTruncated: () => wines.truncated,
+  useCellarProducts: (_id: string, options?: { enabled?: boolean }) => {
+    wines.scopedEnabled.push(options?.enabled ?? true);
+    if (options?.enabled === false) return { data: undefined, isError: false };
+    return { data: wines.scoped, isError: wines.scoped === undefined };
+  },
+}));
+const created = vi.hoisted(() => ({ mutateAsync: vi.fn() }));
+vi.mock('@/hooks/useInventory', () => ({ useCreateInventoryItem: () => ({ ...created, isPending: false }) }));
+vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
+vi.mock('@/hooks/useCollections', () => ({ useAddItemsToCollection: () => ({ mutateAsync: vi.fn() }) }));
+vi.mock('@/components/inventory/InventoryForm', () => ({
+  InventoryForm: ({ open, defaultCellarId, defaultCategory, onSubmit }: {
+    open: boolean; defaultCellarId?: string; defaultCategory?: string; onSubmit: (values: unknown, collectionIds: string[]) => void;
+  }) => open ? (
+    <div role="dialog" aria-label="add form">
+      <p data-testid="form-cellar">{`${defaultCellarId} ${defaultCategory ?? ''}`}</p>
+      <button type="button" onClick={() => onSubmit({ name: 'Nouveau', cellarId: defaultCellarId }, [])}>submit</button>
+    </div>
+  ) : null,
+}));
 vi.mock('@/hooks/useExpertMode', () => ({ useExpertMode: () => false }));
 vi.mock('@/components/cellars/HumidorPanel', () => ({ HumidorPanel: () => null }));
 vi.mock('@/components/inventory/AddUnitsDialog', () => ({ AddUnitsAction: () => null, cellarPageStart: () => ({}) }));
@@ -58,6 +86,7 @@ vi.mock('@/components/inventory/EditWineDialog', () => ({
 }));
 
 import { CellarDetailClient } from '../CellarDetailClient';
+import { product, unit } from '@/lib/products/__tests__/factories';
 
 function openFromCell() {
   render(<CellarDetailClient />);
@@ -85,5 +114,50 @@ describe('CellarDetailClient — the drawer opened from a cell keeps it (recette
     openFromCell();
     fireEvent.click(screen.getByRole('button', { name: 'close drawer' }));
     expect(screen.queryByTestId('slot-context')).toBeNull();
+  });
+});
+
+describe('CellarDetailClient — adding a bottle here (#707)', () => {
+  it('opens the add form with this cellar preselected, and saves the bottle', async () => {
+    created.mutateAsync.mockResolvedValue({ id: 'new' });
+    render(<CellarDetailClient />);
+    fireEvent.click(screen.getByRole('button', { name: 'cellars.addHere' }));
+    expect(screen.getByTestId('form-cellar').textContent).toBe('cave ');
+    fireEvent.click(screen.getByRole('button', { name: 'submit' }));
+    expect(created.mutateAsync).toHaveBeenCalledWith({ name: 'Nouveau', cellarId: 'cave' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'add form' })).toBeNull());
+  });
+});
+
+describe('CellarDetailClient — beyond the household-wide cap (#475)', () => {
+  const here = product({ id: 'old', name: 'Bordeaux 2021', items: [unit({ cellarId: 'cave', quantity: 2 })] });
+
+  afterEach(() => {
+    wines.all = []; wines.truncated = false; wines.scoped = undefined; wines.scopedEnabled = [];
+  });
+
+  it('a complete list is read as before, without a second request', () => {
+    wines.all = [here];
+    render(<CellarDetailClient />);
+    fireEvent.click(screen.getByRole('button', { name: 'view.grid' }));
+    expect(screen.getByText('Bordeaux 2021')).toBeTruthy();
+    expect(wines.scopedEnabled.every((enabled) => !enabled)).toBe(true);
+  });
+
+  it('a cut list: the wines of the cellar come from its own list, in cards and in the list view', () => {
+    wines.truncated = true;
+    wines.scoped = { data: [here], truncated: false };
+    render(<CellarDetailClient />);
+    fireEvent.click(screen.getByRole('button', { name: 'view.grid' }));
+    expect(screen.getByText('Bordeaux 2021')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'view.list' }));
+    expect(screen.getByRole('row', { name: /Bordeaux 2021/ })).toBeTruthy();
+    expect(screen.queryByText('inventory.truncated')).toBeNull();
+  });
+
+  it('a cut list whose cellar list cannot be read says the page is incomplete', () => {
+    wines.truncated = true;
+    render(<CellarDetailClient />);
+    expect(screen.getByText('inventory.truncated')).toBeTruthy();
   });
 });

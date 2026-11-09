@@ -25,7 +25,8 @@ vi.mock('@/hooks/useInventoryCount', () => ({
   usePauseCountSession: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 let inventory: ({ id: string; name: string; producer: string } & Record<string, unknown>)[] = [];
-vi.mock('@/hooks/useInventory', () => ({ useInventory: () => ({ data: inventory }) }));
+let inventoryTruncated = false;
+vi.mock('@/hooks/useInventory', () => ({ useInventory: () => ({ data: inventory }), useInventoryTruncated: () => inventoryTruncated }));
 vi.mock('../RecordFoundItemModal', () => ({ RecordFoundItemModal: () => null }));
 
 import { ActiveSessionScreen } from '../ActiveSessionScreen';
@@ -49,6 +50,7 @@ function withLines(lines: CountLine[]) {
 beforeEach(() => {
   vi.clearAllMocks();
   inventory = [];
+  inventoryTruncated = false;
 });
 
 /** Types in the quick search and picks the first result. */
@@ -161,5 +163,21 @@ describe('ActiveSessionScreen — the quick search offers only units in stock', 
       expect.stringContaining('Wine kept'),
       expect.stringContaining('Wine opened'),
     ]);
+  });
+});
+
+// #475: the quick search reads the loaded list, capped at 2,000 items: it says so when cut.
+describe('ActiveSessionScreen — a cut inventory', () => {
+  it('says the search does not cover the oldest items', () => {
+    withLines([line('g1', {})]);
+    inventoryTruncated = true;
+    render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+    expect(screen.getByText('inventoryCount.session.searchTruncated|2000')).toBeInTheDocument();
+  });
+
+  it('says nothing when the list is whole', () => {
+    withLines([line('g1', {})]);
+    render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+    expect(screen.queryByText(/inventoryCount\.session\.searchTruncated/)).toBeNull();
   });
 });

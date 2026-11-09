@@ -8,7 +8,7 @@ import { Pause, Search, CheckCircle2, Circle, AlertTriangle, PackagePlus } from 
 import { useTranslation } from 'react-i18next';
 import { CountSession, CountLine } from '@/lib/inventory-count/types';
 import { useSessionReport, useScanItem, usePauseCountSession } from '@/hooks/useInventoryCount';
-import { useInventory } from '@/hooks/useInventory';
+import { useInventory, useInventoryTruncated } from '@/hooks/useInventory';
 import { inStockItems } from '@/lib/inventory/inStock';
 import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { RecordFoundItemModal } from './RecordFoundItemModal';
@@ -30,6 +30,8 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
 
   const { data: report, isLoading } = useSessionReport(session.id);
   const { data: allItems } = useInventory();
+  // #475: the search reads the loaded list, which holds the 2,000 most recent items at most.
+  const searchCut = useInventoryTruncated();
   const scanMutation = useScanItem(session.id);
   const pauseMutation = usePauseCountSession();
 
@@ -204,6 +206,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
             <Input
               label={t('inventoryCount.session.searchLabel')}
               placeholder={t('inventoryCount.session.searchPlaceholder')}
+              description={searchCut ? t('inventoryCount.session.searchTruncated', { limit: 2000 }) : undefined}
               variant="bordered"
               labelPlacement="outside"
               size="md"

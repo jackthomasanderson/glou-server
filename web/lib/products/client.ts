@@ -38,9 +38,13 @@ export type UnitWrite = Wire<UnitWriteResult<ProductItem, ProductItem>>;
 // ─── Families API client (#471, D9/D10) ─────────────────────────────────────
 
 export const productsClient = {
-  /** The families with their units in stock, and `truncated` (capped like the flat list). */
-  async list(): Promise<ProductListResponse> {
-    const res = await fetch('/api/products', {
+  /**
+   * The families with their units in stock, and `truncated` (capped like the
+   * flat list); #475: with `cellarId`, only those with a bottle in stock there.
+   */
+  async list(options: { cellarId?: string } = {}): Promise<ProductListResponse> {
+    const query = options.cellarId ? `?${new URLSearchParams({ cellarId: options.cellarId })}` : '';
+    const res = await fetch(`/api/products${query}`, {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       signal: timeoutSignal(15000),
