@@ -7,7 +7,7 @@ import { PASSWORD_MIN_LENGTH } from '../../../shared/auth';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
-import { authRateLimit, passwordCheckLimiter } from '../lib/rate-limit';
+import { authRateLimit, passwordCheckLimiter, unlockAccountLimiter } from '../lib/rate-limit';
 import { auditLog } from '../services/audit.service';
 import { AuthPayload } from '../services/auth.service';
 import { passwordResetService } from '../services/password-reset.service';
@@ -433,7 +433,7 @@ router.delete('/pin', authMiddleware, passwordCheckLimiter, async (req: Request,
 // Verifies password OR PIN to lift the client-side lock. Never touches the
 // Session/JWT — this is a pure secret check, not a re-authentication.
 
-router.post('/unlock', unlockLimiter, authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.post('/unlock', unlockLimiter, authMiddleware, unlockAccountLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const data = unlockSchema.parse(req.body);
     const ok = await authService.verifyUnlock(req.userId, data);

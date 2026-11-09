@@ -51,8 +51,8 @@ beforeAll(async () => {
 
 const app = createApp();
 const as = (userId: string) => `Bearer ${jwt.sign({ userId, email: `${userId}@example.com`, scope: 'full' }, JWT_SECRET, { algorithm: 'HS256' })}`;
-const call = (method: 'post' | 'patch' | 'delete', path: string, userId: string, body: Record<string, unknown> = {}) =>
-  request(app)[method](path).set('Authorization', as(userId)).set('Sec-Fetch-Site', 'same-origin').send(body);
+const call = (method: 'post' | 'patch' | 'put' | 'delete', path: string, userId: string, body: Record<string, unknown> = {}, ip = '198.51.100.1') =>
+  request(app)[method](path).set('Authorization', as(userId)).set('Sec-Fetch-Site', 'same-origin').set('X-Forwarded-For', ip).send(body);
 
 const auditCalls = () => vi.mocked(prisma.auditLog.create).mock.calls.map(([arg]) => (arg as { data: Record<string, unknown> }).data);
 
@@ -220,8 +220,8 @@ describe('member role and status changes need the admin\'s step-up (#603)', () =
 // ─── #606 ────────────────────────────────────────────────────────────────────
 
 describe('password checks of a signed-in account share one limit (#606)', () => {
-  // Each wrong password goes to a different route: the budget is the account's,
-  // whatever the route (10 refusals per 15 minutes).
+  // Each wrong password goes to a different route, from a different address:
+  // the budget is the account's, whatever the route (10 per 15 minutes).
   const wrong: Array<[string, 'post' | 'patch' | 'delete', string, Record<string, unknown>]> = [
     ['password change', 'patch', '/api/user/password', { currentPassword: 'guess', newPassword: 'a-new-password-1234' }],
     ['e-mail change', 'patch', '/api/user/email', { email: 'x@example.com', currentPassword: 'guess' }],
@@ -230,15 +230,15 @@ describe('password checks of a signed-in account share one limit (#606)', () => 
     ['trusted device', 'post', '/api/auth/trust-device', { password: 'guess' }],
     ['2FA turn-on', 'post', '/api/auth/2fa/turn-on', { password: 'guess', code: '123456' }],
     ['account deletion', 'post', '/api/user/delete-account', { password: 'guess' }],
-    ['unlock', 'post', '/api/auth/unlock', { password: 'guess' }],
+    ['PIN set', 'post', '/api/auth/pin', { password: 'guess', pin: '1234' }],
     ['password change', 'patch', '/api/user/password', { currentPassword: 'guess', newPassword: 'a-new-password-1234' }],
     ['e-mail change', 'patch', '/api/user/email', { email: 'x@example.com', currentPassword: 'guess' }],
   ];
 
   it('answers 429 once the account has spent 10 wrong passwords, on any of the routes', async () => {
     accounts.lim1 = account('lim1', { twoFactorSecret: encrypt(TOTP_SECRET) });
-    for (const [label, method, path, body] of wrong) {
-      const res = await call(method, path, 'lim1', body);
+    for (const [i, [label, method, path, body]] of wrong.entries()) {
+      const res = await call(method, path, 'lim1', body, `203.0.113.${i + 1}`);
       expect(res.status, label).toBeGreaterThanOrEqual(400);
       expect(res.status, label).not.toBe(429);
     }
@@ -261,12 +261,63 @@ describe('password checks of a signed-in account share one limit (#606)', () => 
     expect(res.status).toBe(401);
   });
 
+  it('only a wrong password or code counts: an e-mail already used, a missing field do not', async () => {
+    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'someone-else' } as never);
+    for (let i = 0; i < 12; i++) {
+      expect((await call('patch', '/api/user/email', 'lim4', { email: 'taken@example.com', currentPassword: PASSWORD })).status).toBe(409);
+      expect((await call('post', '/api/user/delete-account', 'lim4', {})).status).toBe(400);
+    }
+    expect((await call('patch', '/api/user/password', 'lim4', { currentPassword: 'guess', newPassword: 'a-new-password-1234' })).status).toBe(401);
+  });
+
+  it('unlocking the app has its own budget: a spent shared one does not lock the owner out', async () => {
+    for (let i = 0; i < 10; i++) await call('post', '/api/auth/pin', 'lim5', { password: 'guess', pin: '1234' });
+    expect((await call('post', '/api/auth/pin', 'lim5', { password: 'guess', pin: '1234' })).status).toBe(429);
+    expect((await call('post', '/api/auth/unlock', 'lim5', { password: PASSWORD })).status).toBe(200);
+  });
+
   it('successful checks do not count', async () => {
     // Unlock: the same check without hashing anything new, so the loop stays fast.
     for (let i = 0; i < 12; i++) {
       const res = await call('post', '/api/auth/unlock', 'lim3', { password: PASSWORD });
       expect(res.status, `unlock ${i + 1}`).toBe(200);
     }
+  });
+});
+
+describe('the admin step-up has a per-account budget too (#606, review)', () => {
+  beforeEach(() => {
+    accounts.admin2 = account('admin2', { isAdmin: true });
+    accounts.member = account('member');
+    vi.mocked(prisma.user.count).mockResolvedValue(2 as never);
+  });
+
+  it('20 wrong passwords from 20 addresses, over several step-up routes, then 429 even with the right one', async () => {
+    const routes: Array<['post' | 'patch' | 'put', string, Record<string, unknown>]> = [
+      ['patch', '/api/admin/users/member/status', { isActive: false }],
+      ['post', '/api/admin/users/member/role', { isAdmin: true }],
+      ['post', '/api/admin/users/member/reset-password', {}],
+      ['put', '/api/admin/config/network', { publicUrl: 'https://attacker.example', accessMode: 'direct' }],
+    ];
+    for (let i = 0; i < 20; i++) {
+      const [method, path, body] = routes[i % routes.length];
+      const res = await call(method, path, 'admin2', { ...body, password: `guess-${i}` }, `192.0.2.${i + 1}`);
+      expect(res.status, `guess ${i + 1} on ${path}`).toBe(403);
+      expect(res.body.error).toBe('INVALID_PASSWORD');
+    }
+    const blocked = await call('patch', '/api/admin/users/member/status', 'admin2', { isActive: false, password: PASSWORD }, '192.0.2.200');
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error).toBe('TOO_MANY_REQUESTS');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('a step-up asked without any password is not a guess', async () => {
+    accounts.admin3 = account('admin3', { isAdmin: true });
+    for (let i = 0; i < 25; i++) {
+      const res = await call('patch', '/api/admin/users/member/status', 'admin3', { isActive: false }, `192.0.2.${i + 1}`);
+      expect(res.body.error).toBe('REAUTH_REQUIRED');
+    }
+    expect((await call('patch', '/api/admin/users/member/status', 'admin3', { isActive: false, password: PASSWORD }, '192.0.2.99')).status).toBe(200);
   });
 });
 

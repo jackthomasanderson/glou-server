@@ -11,6 +11,7 @@ vi.mock('../../src/lib/prisma', () => ({
     passwordResetToken: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      delete: vi.fn().mockResolvedValue({}),
       deleteMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -164,5 +165,15 @@ describe('passwordResetService.requestReset (#606)', () => {
     expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
     expect(prisma.passwordResetToken.create).toHaveBeenCalledTimes(1);
     expect(emailService.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'u1@example.com' }));
+  });
+
+  it('drops the link just created when the e-mail could not be sent, so a retry is not held back', async () => {
+    vi.mocked(prisma.passwordResetToken.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.passwordResetToken.create).mockResolvedValue({ id: 'new-token' } as never);
+    vi.mocked(emailService.send).mockRejectedValueOnce(new Error('SMTP down'));
+
+    await expect(passwordResetService.requestReset('u1@example.com')).rejects.toThrow('SMTP down');
+
+    expect(prisma.passwordResetToken.delete).toHaveBeenCalledWith({ where: { id: 'new-token' } });
   });
 });

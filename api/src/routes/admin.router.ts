@@ -21,17 +21,12 @@ import { emailService } from '../services/email.service';
 import { backupService } from '../services/backup.service';
 import { auditLog, type AuditAction } from '../services/audit.service';
 import { adminReauthSchema } from '../schemas/auth.schema';
-import { authRateLimit } from '../lib/rate-limit';
+import { authRateLimit, accountRateLimit } from '../lib/rate-limit';
 import type { BackupHealth, PurgeResponse } from '../../../shared/maintenance';
 import { AUDIT_ACTIONS, AUDIT_STATUSES } from '../../../shared/audit';
 import { sharesService } from '../services/shares.service';
 
 const adminRouter = Router();
-
-// #638, #603: a reset and a role change ask for the admin's password and 2FA
-// code — throttled like the other password and 2FA checks.
-const resetPasswordLimiter = authRateLimit(20);
-const roleLimiter = authRateLimit(20);
 
 /** Refusals of the admin's own re-authentication (#638). */
 const REAUTH_ERRORS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE']);
@@ -39,7 +34,16 @@ const REAUTH_ERRORS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_T
 // #890: one limiter for every other step-up route, counting refusals only — a
 // password or code guess spends it whatever the route, an admin saving their
 // settings does not.
-const stepUpLimiter = authRateLimit(20, { skipSuccessfulRequests: true });
+// #606 (review): and one per admin account, counting wrong passwords and
+// codes only — the per-IP limits alone let a stolen session guess the
+// admin's password from rotating addresses. Shared by every step-up route.
+const STEP_UP_ACCOUNT_MAX = 20;
+const stepUpAccountLimiter = accountRateLimit(STEP_UP_ACCOUNT_MAX, 'admin-step-up');
+const stepUpLimiter = [authRateLimit(20, { skipSuccessfulRequests: true }), ...stepUpAccountLimiter];
+// #638, #603: a reset and a role change ask for the admin's password and 2FA
+// code — throttled like the other password and 2FA checks.
+const resetPasswordLimiter = [authRateLimit(20), ...stepUpAccountLimiter];
+const roleLimiter = [authRateLimit(20), ...stepUpAccountLimiter];
 
 type StepUpAudit = { action: AuditAction; details: Record<string, unknown> };
 
