@@ -306,10 +306,10 @@
       "doux": "Doux"
     },
     "fillLevels": {
-      "full": "Plein",
-      "threeQuarters": "3/4 restant",
+      "full": "Pleine",
+      "threeQuarters": "3/4",
       "half": "Moitié",
-      "quarter": "1/4 restant",
+      "quarter": "1/4",
       "empty": "Vide"
     },
     "filters": {
@@ -2710,10 +2710,7 @@
       "showMore_other": "Voir les {{count}} autres",
       "showLess": "Voir moins",
       "needsReview": "À vérifier après la mise à jour",
-      "level": "Niveau de cette bouteille",
-      "levelFull": "Pleine",
-      "levelHalf": "Moitié",
-      "levelEmpty": "Vide"
+      "level": "Niveau de cette bouteille"
     },
     "gone": {
       "title": "Déjà bues ou parties",

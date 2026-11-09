@@ -18,6 +18,7 @@ import { Collection } from '@/lib/collections/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
+import { FILL_LEVELS } from '@/lib/products/fillLevels';
 import { ImageResult } from './ImagePicker';
 import { ItemImageSection } from './ItemImageSection';
 import { MaturitySuggestionField } from './MaturitySuggestionField';
@@ -1221,14 +1222,14 @@ export function InventoryForm({
                             <div className="col-span-2 sm:col-span-4">
                               <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
                               <div role="group" aria-label={t('inventory.fields.fillLevel')} className="flex flex-wrap gap-1.5">
-                                {([100, 75, 50, 25, 0] as const).map((val) => (
+                                {FILL_LEVELS.map(({ value, key }) => (
                                   <FilterChip
-                                    key={val}
+                                    key={value}
                                     color="warning"
-                                    selected={values.fillLevel === val}
-                                    onPress={() => setField('fillLevel', val)}
+                                    selected={values.fillLevel === value}
+                                    onPress={() => setField('fillLevel', value)}
                                   >
-                                    {t(`inventory.fillLevels.${val === 100 ? 'full' : val === 75 ? 'threeQuarters' : val === 50 ? 'half' : val === 25 ? 'quarter' : 'empty'}`)}
+                                    {t(key)}
                                   </FilterChip>
                                 ))}
                               </div>

@@ -307,9 +307,9 @@
     },
     "fillLevels": {
       "full": "Full",
-      "threeQuarters": "3/4 left",
+      "threeQuarters": "3/4",
       "half": "Half",
-      "quarter": "1/4 left",
+      "quarter": "1/4",
       "empty": "Empty"
     },
     "filters": {
@@ -2708,10 +2708,7 @@
       "showMore_other": "See the {{count}} others",
       "showLess": "See less",
       "needsReview": "To check after the update",
-      "level": "Level of this bottle",
-      "levelFull": "Full",
-      "levelHalf": "Half",
-      "levelEmpty": "Empty"
+      "level": "Level of this bottle"
     },
     "gone": {
       "title": "Already drunk or gone",
