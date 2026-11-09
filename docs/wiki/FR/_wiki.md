@@ -25,7 +25,7 @@ Cette documentation couvre l'installation, la configuration et le dépannage.
 20. [Carte du Monde, Heatmap & Filtres](./20-Carte-Monde-Heatmap-Filtres.md)
 21. [Accords Mets/Bouteilles](./21-Accords-Mets-Bouteilles.md)
 22. [Plan de Consommation](./22-Plan-De-Consommation.md)
-23. [Inventaire Physique & Réconciliation](./23-Inventaire-Physique-Reconciliation.md)
+23. [Comptage & Réconciliation](./23-Inventaire-Physique-Reconciliation.md)
 24. [Liste de Souhaits & Budget](./24-Liste-De-Souhaits-Budget.md)
 25. [Mode Hors-Ligne](./25-Mode-Hors-Ligne.md)
 26. [Scan Étiquette](./26-Scan-Etiquette.md)

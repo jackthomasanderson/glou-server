@@ -27,7 +27,7 @@
     "collections": "Collections",
     "tastings": "Tastings",
     "analytics": "Analytics & Terroir",
-    "inventoryCount": "Physical Inventory",
+    "inventoryCount": "Stock count",
     "wishlist": "Wishlist & Budget",
     "more": "More",
     "roleAdmin": "Administrator",
@@ -1299,15 +1299,15 @@
     }
   },
   "inventoryCount": {
-    "title": "Physical Inventory",
-    "accessButton": "Physical Inventory",
+    "title": "Stock count",
+    "accessButton": "Stock count",
     "tabsAria": "Inventory count session sections",
     "tabs": {
-      "counting": "Counting",
+      "counting": "Entry",
       "summary": "Summary"
     },
     "start": {
-      "title": "Start an inventory count session",
+      "title": "Start a stock count session",
       "description": "Choose the scope to check: an existing cellar or a free-form scope (shelf, bin...).",
       "scopeModeAria": "Scope selection mode",
       "modeCellar": "Existing cellar",
@@ -1319,12 +1319,12 @@
       "customPlaceholder": "E.g.: Shelf A, Bin 3...",
       "customHint": "A free-form scope isn't linked to any cellar: no theoretical list can be computed automatically.",
       "submit": "Start session",
-      "errorConflict": "An inventory count session is already in progress. Resume or close it before starting a new one.",
+      "errorConflict": "A stock count session is already in progress. Resume or close it before starting a new one.",
       "errorCellarNotFound": "This cellar could not be found."
     },
     "resume": {
       "title": "Session paused",
-      "description": "An inventory count session on \"{{scope}}\" is paused. Resume it right where you left off.",
+      "description": "A stock count session on \"{{scope}}\" is paused. Resume it right where you left off.",
       "viewSummary": "View summary",
       "resume": "Resume"
     },

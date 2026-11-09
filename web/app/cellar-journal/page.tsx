@@ -1,10 +1,15 @@
-import type { Metadata } from 'next';
-import { TastingsClient } from './TastingsClient';
+'use client';
 
-export const metadata: Metadata = {
-  description: 'Tasting journal and serving recommendations. · Journal de dégustation et recommandations de service.',
-};
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
-export default function TastingsPage() {
-  return <TastingsClient />;
+// #502: the tastings page lives at /tastings again. Browsers cached the old
+// permanent redirect /tastings -> /cellar-journal, so an HTTP redirect back
+// would loop (ERR_TOO_MANY_REDIRECTS). This client-side hop is not cached.
+export default function CellarJournalRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace(`/tastings${window.location.search}${window.location.hash}`);
+  }, [router]);
+  return null;
 }

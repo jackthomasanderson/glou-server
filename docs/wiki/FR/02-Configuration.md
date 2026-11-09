@@ -28,7 +28,7 @@
 | `FORCE_HSTS` | vide | `true`/`false` force l'en-tête `Strict-Transport-Security` indépendamment de `APP_URL`. |
 | `NEXT_PUBLIC_API_URL` | `http://api:3001` | Adresse de l'API vue depuis le conteneur web, dans le réseau compose. À laisser telle quelle sous Docker. |
 | `OLLAMA_URL` | `http://ollama:11434` | Modèle de vision utilisé par le [scan d'étiquette](./26-Scan-Etiquette.md) (uniquement avec `--profile scan`). |
-| `OLLAMA_MODEL` | `moondream` | Nom du modèle utilisé pour le scan. |
+| `OLLAMA_MODEL` | `moondream` | Nom du modèle utilisé pour le scan. Seul `moondream` est testé. Un autre modèle implique un nouveau téléchargement de plusieurs Go, et rien ne garantit qu'il suive les consignes du scan ni qu'il renvoie une réponse exploitable : si le scan se dégrade ou cesse de fonctionner, revenez à `moondream`. |
 | `OLLAMA_TIMEOUT_MS` | `600000` | Durée maximale d'attente du modèle par scan, en millisecondes. |
 | `API_RATE_LIMIT_MAX` | `1000` | Avancé. Requêtes autorisées par adresse IP toutes les 15 minutes sur l'API et les images envoyées ; un entier positif, toute autre valeur est ignorée avec un avertissement dans les journaux de l'API. À relever seulement si beaucoup d'appareils partagent une même adresse et reçoivent `Too many requests`. Les limites de connexion et de réinitialisation du mot de passe ne changent pas. |
 

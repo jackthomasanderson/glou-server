@@ -10,8 +10,17 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Changed
+- The physical stock count is now called **Stock count** (**Comptage** in French) everywhere, so "Inventory" only names the list of your bottles (#502).
+- The tastings page is back at `/tastings`; the old `/cellar-journal` address still works and sends you there from the page itself (no browser redirect, so an old cached link cannot loop) (#502).
+
 ### Fixed
 - Portainer, Synology Container Manager and other UIs: when the backups folder is not writable, the API log and the warning in **Administration → System Configuration → Backups** now say what to do with a stack run from a UI (an absolute host path owned by uid 1001), not only next to `docker-compose.yml`. The installation and upgrade wiki pages gain a section on it: an update that brings database migrations used to stop there, with only "container api is unhealthy" in the UI (#900, #896).
+- The install and configuration guides now match the shipped `docker-compose.yml`: `.env.example` no longer lists settings that are never read, the installation page no longer mentions a published API port or a logs folder, and the configuration page says only the `moondream` scan model is tested (#674, #675).
+- The rollback guide now starts with pinning the version tag of the release you were running (for example `v2026.10.0`), which needs no copy of the repository (#675).
+
+### Added
+- CONTRIBUTING now states the data model rules every contributor must keep (one shared inventory, `userId` as an audit field, personal entities, families and groups, counting through `itemUnits`) (#464).
 
 ## v2026.11.2 - 2026-11-07
 

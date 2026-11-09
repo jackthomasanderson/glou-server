@@ -20,7 +20,7 @@ test('food pairing suggests the red and white wines in stock', async ({ page }) 
       ids.push((await res.json()).data.id as string);
     }
 
-    await page.goto('/cellar-journal');
+    await page.goto('/tastings');
     await page.getByRole('tab', { name: 'Accords mets & bouteilles' }).click();
 
     // The red wine's card; its reason chip names the pairing that matched,

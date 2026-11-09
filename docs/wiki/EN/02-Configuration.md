@@ -28,7 +28,7 @@
 | `FORCE_HSTS` | empty | `true`/`false` forces the `Strict-Transport-Security` header regardless of `APP_URL`. |
 | `NEXT_PUBLIC_API_URL` | `http://api:3001` | Where the web container reaches the API inside the compose network. Leave it alone in Docker. |
 | `OLLAMA_URL` | `http://ollama:11434` | Vision model used by the [label scan](./26-Label-Scan.md) (only with `--profile scan`). |
-| `OLLAMA_MODEL` | `moondream` | Model name used for the scan. |
+| `OLLAMA_MODEL` | `moondream` | Model name used for the scan. Only `moondream` is tested. Another model means a new multi-gigabyte download, and nothing guarantees it follows the instructions of the scan or returns a usable answer: if scanning gets worse or stops working, go back to `moondream`. |
 | `OLLAMA_TIMEOUT_MS` | `600000` | Maximum time to wait for the model per scan, in milliseconds. |
 | `API_RATE_LIMIT_MAX` | `1000` | Advanced. Requests allowed per IP address every 15 minutes on the API and uploaded images; a positive whole number, anything else is ignored with a warning in the API logs. Raise it only if many devices share one address and get `Too many requests`. The sign-in and password-reset limits do not change. |
 

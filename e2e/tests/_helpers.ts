@@ -25,7 +25,7 @@ export const APP_ROUTES = [
   '/cigars',
   '/collections',
   '/cellars',
-  '/cellar-journal',
+  '/tastings',
   '/analytics-terroirs',
   '/wishlist-budget',
   '/inventory-count',

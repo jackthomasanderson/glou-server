@@ -27,7 +27,7 @@
     "collections": "Collections",
     "tastings": "Dégustations",
     "analytics": "Analyses & Terroirs",
-    "inventoryCount": "Inventaire physique",
+    "inventoryCount": "Comptage",
     "wishlist": "Souhaits & Budget",
     "more": "Plus",
     "roleAdmin": "Administrateur",
@@ -1301,15 +1301,15 @@
     }
   },
   "inventoryCount": {
-    "title": "Inventaire physique",
-    "accessButton": "Inventaire physique",
-    "tabsAria": "Sections de la session d'inventaire",
+    "title": "Comptage",
+    "accessButton": "Comptage",
+    "tabsAria": "Sections de la session de comptage",
     "tabs": {
-      "counting": "Comptage",
+      "counting": "Saisie",
       "summary": "Bilan"
     },
     "start": {
-      "title": "Démarrer une session d'inventaire",
+      "title": "Démarrer une session de comptage",
       "description": "Choisissez le périmètre à vérifier : une cave existante ou un périmètre libre (meuble, bac...).",
       "scopeModeAria": "Mode de sélection du périmètre",
       "modeCellar": "Cave existante",
@@ -1321,12 +1321,12 @@
       "customPlaceholder": "Ex. : Meuble A, Bac 3...",
       "customHint": "Un périmètre libre n'est lié à aucune cave : aucune liste théorique ne peut être calculée automatiquement.",
       "submit": "Démarrer la session",
-      "errorConflict": "Une session d'inventaire est déjà en cours. Reprenez-la ou clôturez-la avant d'en démarrer une nouvelle.",
+      "errorConflict": "Une session de comptage est déjà en cours. Reprenez-la ou clôturez-la avant d'en démarrer une nouvelle.",
       "errorCellarNotFound": "Cette cave est introuvable."
     },
     "resume": {
       "title": "Session en pause",
-      "description": "Une session d'inventaire sur « {{scope}} » est en pause. Reprenez-la où vous vous étiez arrêté.",
+      "description": "Une session de comptage sur « {{scope}} » est en pause. Reprenez-la où vous vous étiez arrêté.",
       "viewSummary": "Voir le bilan",
       "resume": "Reprendre"
     },
@@ -1410,9 +1410,9 @@
       "missingOf_cigar_other": "{{count}} manquants sur {{expected}}"
     },
     "errors": {
-      "SESSION_NOT_FOUND": "Cette session d'inventaire est introuvable.",
-      "SESSION_NOT_ACTIVE": "Cette session d'inventaire n'est plus active.",
-      "SESSION_ALREADY_COMPLETED": "Cette session d'inventaire a déjà été clôturée.",
+      "SESSION_NOT_FOUND": "Cette session de comptage est introuvable.",
+      "SESSION_NOT_ACTIVE": "Cette session de comptage n'est plus active.",
+      "SESSION_ALREADY_COMPLETED": "Cette session de comptage a déjà été clôturée.",
       "VALIDATION_ERROR": "Veuillez vérifier les informations saisies.",
       "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
       "QUANTITY_TOO_LARGE": "Un groupe ne peut pas dépasser 1 000 exemplaires.",
@@ -1594,7 +1594,7 @@
       "wishlist": "Liste de souhaits",
       "budget": "Budgets",
       "goals": "Objectifs de consommation",
-      "counts": "Inventaires physiques",
+      "counts": "Comptages",
       "humidor": "Relevés d'humidor",
       "sessions": "Sessions",
       "devices": "Appareils de confiance",

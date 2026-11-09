@@ -107,7 +107,7 @@ test.describe('Layout fits its width (recette n°5 ter of #847)', () => {
       await okData(await api.post('/api/tastings', { data: { productId: bottle.productId, rating: 4, notes: 'E2E 5ter' } }));
       for (const width of [375, 1280]) {
         await page.setViewportSize({ width, height: 900 });
-        await page.goto('/cellar-journal');
+        await page.goto('/tastings');
         const title = page.getByTestId('tasting-card-title').filter({ hasText: name });
         await expect(title).toHaveText(`${name} — ${producer}`);
         const cut = await title.evaluate((el) => el.scrollWidth > el.clientWidth || getComputedStyle(el).textOverflow === 'ellipsis');
