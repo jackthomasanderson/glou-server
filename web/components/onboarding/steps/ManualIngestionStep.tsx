@@ -1,12 +1,10 @@
 'use client';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@heroui/react';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { InventoryForm, type InventoryEntry } from '@/components/inventory/InventoryForm';
-import { useCreateInventoryItem } from '@/hooks/useInventory';
-import { useAddItemsToCollection } from '@/hooks/useCollections';
-import { applyCollectionChanges } from '@/lib/collections/sync';
+import { useCreateFromForm } from '@/hooks/useCreateFromForm';
 
 interface ManualIngestionStepProps {
   cellarId: string | null;
@@ -27,26 +25,15 @@ interface ManualIngestionStepProps {
 export function ManualIngestionStep({ cellarId, itemsAdded, onItemAdded, onDone, onBack }: ManualIngestionStepProps) {
   const { t } = useTranslation();
   const [formOpen, setFormOpen] = useState(false);
-  const createItem = useCreateInventoryItem();
-  const addItemsToCollection = useAddItemsToCollection();
-
-  // A new item has no collection yet, so syncing is only ever adding.
-  const syncCollections = useCallback(
-    async (itemId: string, collectionIds: string[]) => {
-      await applyCollectionChanges(collectionIds.map((id) => addItemsToCollection.mutateAsync({ id, itemIds: [itemId] })));
-    },
-    [addItemsToCollection],
-  );
+  // #690: saved as on the inventory page — the wizard's cellar for an
+  // untouched cellar field, the collections picked in the form.
+  const { create, isPending } = useCreateFromForm({ defaultCellarId: cellarId });
 
   const handleSubmit = async (values: InventoryEntry, collectionIds: string[]) => {
-    try {
-      const created = await createItem.mutateAsync({ ...values, cellarId: values.cellarId ?? cellarId });
-      setFormOpen(false);
-      onItemAdded();
-      if (collectionIds.length > 0) await syncCollections(created.id, collectionIds);
-    } catch {
-      // Reported by the mutation's toast; the form stays open with the entry.
-    }
+    // A failure is reported by the mutation's toast; the form stays open with the entry.
+    if (!(await create(values, collectionIds))) return;
+    setFormOpen(false);
+    onItemAdded();
   };
 
   return (
@@ -78,7 +65,7 @@ export function ManualIngestionStep({ cellarId, itemsAdded, onItemAdded, onDone,
         onSubmit={(values, collectionIds) => void handleSubmit(values, collectionIds)}
         onClose={() => setFormOpen(false)}
         onJoined={onItemAdded}
-        isSubmitting={createItem.isPending}
+        isSubmitting={isPending}
         t={t}
       />
 
