@@ -60,14 +60,15 @@ test('deactivate then reactivate a member: their old session and guest link stay
 
     // Both changes are in the audit log (written in the background), with the admin as the author.
     await expect.poll(async () => {
-      const logs = await okData<{ items: Array<{ userId: string; action: string; details: { targetUserId?: string; isActive?: boolean } }> }>(
+      const logs = await okData<{ items: Array<{ userId: string; action: string; status: string; details: { targetUserId?: string; isActive?: boolean; error?: string } }> }>(
         await admin.get('/api/admin/audit-logs?q=ADMIN_STATUS_CHANGE'),
       );
       return logs.items
         .filter((l) => l.action === 'ADMIN_STATUS_CHANGE' && l.userId === me.id && l.details.targetUserId === memberId)
-        .map((l) => l.details.isActive)
+        .map((l) => `${l.status}:${l.details.isActive}${l.details.error ? `:${l.details.error}` : ''}`)
         .sort();
-    }).toEqual([false, true]);
+      // #603: the session-only attempt is there too, as a refusal.
+    }).toEqual(['error:false:REAUTH_REQUIRED', 'success:false', 'success:true']);
 
     // #601: the guest link's creation is in the log too, filed under the member, without its token.
     const shareLogs = await okData<{ items: Array<{ userId: string; action: string; details: Record<string, unknown> }> }>(
