@@ -103,7 +103,7 @@ test('a group is counted in one answer, its gaps corrected, a find of 6 makes a 
   await expect(addFind).toBeChecked();
   await page.getByRole('button', { name: 'Clôturer et appliquer (3)' }).click();
   // Closed: the screen offers to start the next count.
-  await expect(page.getByText("Démarrer une session d'inventaire").first()).toBeVisible();
+  await expect(page.getByText("Démarrer une session de comptage").first()).toBeVisible();
   sessionId = null;
 
   // ×4 with 2 written off (none drunk); ×8; a new card with a group ×6.
