@@ -4,6 +4,12 @@ import type { Product } from './types';
 export type InventorySortBy = 'default' | 'value' | 'urgency' | 'name';
 export type InventoryOpenedFilter = 'all' | 'full' | 'opened' | 'alerts';
 
+/**
+ * #707: the cellar filter's entry for the bottles without a cellar (a deleted
+ * cellar leaves its bottles there). A real cellar id is never empty.
+ */
+export const NO_CELLAR = '';
+
 /** Everything the filter panel and the search box can narrow the list of wines with. */
 export interface ProductFilterCriteria {
   lockedCategories?: readonly string[];
@@ -99,7 +105,7 @@ export function filterProducts(
   }
   // A wine is in a cellar when some of its bottles in stock are there.
   if (criteria.selectedCellars.length > 0) {
-    keep((p) => p.items.some((item) => criteria.selectedCellars.includes(item.cellarId ?? '')));
+    keep((p) => p.items.some((item) => criteria.selectedCellars.includes(item.cellarId ?? NO_CELLAR)));
   }
   if (criteria.selectedTags.length > 0) keep((p) => criteria.selectedTags.every((tag) => p.tags.includes(tag)));
 

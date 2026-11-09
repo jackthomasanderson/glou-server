@@ -5,7 +5,7 @@ import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Filter } from 'lucide-react';
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
-import type { InventorySortBy, InventoryOpenedFilter } from '@/lib/products/filters';
+import { NO_CELLAR, type InventorySortBy, type InventoryOpenedFilter } from '@/lib/products/filters';
 import { WINE_COLORS } from '@shared/inventory';
 import { Cellar } from '@/lib/cellars/types';
 
@@ -109,6 +109,12 @@ export function InventoryFilterBar({
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
   }, [products]);
 
+  // #707: bottles left without a cellar (their cellar deleted) can be filtered.
+  const hasBottleWithoutCellar = useMemo(
+    () => (products ?? []).some((product) => product.items.some((item) => item.cellarId == null)),
+    [products],
+  );
+
   const TAG_DISPLAY_LIMIT = 15;
 
   const filteredTagUsage = useMemo(() => {
@@ -139,6 +145,11 @@ export function InventoryFilterBar({
                 {cellar.name}
               </FilterChip>
             ))}
+            {hasBottleWithoutCellar && (
+              <FilterChip selected={selectedCellars.includes(NO_CELLAR)} onPress={() => toggleCellar(NO_CELLAR)}>
+                {t('inventory.noCellarFilter')}
+              </FilterChip>
+            )}
           </div>
         </div>
       )}
