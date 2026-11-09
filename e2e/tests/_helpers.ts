@@ -16,7 +16,9 @@ export function creds(): E2ECreds {
  * shortcut happens to render first.
  */
 export function bottlesNavLink(page: Page) {
-  return page.locator('a[href^="/bottles"]').first();
+  // #492: scoped to the visible navigation — the desktop sidebar, or the
+  // bottom bar on a phone (the hidden one is left out by the role query).
+  return page.getByRole('navigation').locator('a[href^="/bottles"]').first();
 }
 
 /** The authenticated app routes worth smoke-testing / fuzzing. */
