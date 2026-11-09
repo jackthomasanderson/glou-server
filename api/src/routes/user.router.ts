@@ -5,7 +5,8 @@ import type { ExportCategory } from '../../../shared/auth';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
-import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema } from '../schemas/user.schema';
+import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema, deleteAccountSchema } from '../schemas/user.schema';
+import { passwordCheckLimiter } from '../lib/rate-limit';
 import { prisma } from '../lib/prisma';
 import { assertUrlAllowed } from '../lib/ssrf';
 import { notificationService } from '../services/notification.service';
@@ -82,7 +83,7 @@ router.delete('/avatar', authMiddleware, async (req: Request, res: Response) => 
  * PATCH /api/user/email
  * Update user email
  */
-router.patch('/email', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/email', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, currentPassword } = updateEmailSchema.parse(req.body);
     const deviceInfo = { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
@@ -109,7 +110,7 @@ router.patch('/email', authMiddleware, async (req: Request, res: Response, next:
  * PATCH /api/user/password
  * Update user password
  */
-router.patch('/password', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/password', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { currentPassword, newPassword } = updatePasswordSchema.parse(req.body);
     const deviceInfo = { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
@@ -164,11 +165,29 @@ router.get('/export', authMiddleware, async (req: Request, res: Response) => {
 
 /**
  * POST /api/user/delete-account
- * RGPD: schedule account for deletion with 30-day grace period (FEAT-38)
+ * RGPD: schedule account for deletion with 30-day grace period (FEAT-38).
+ * #603: asks for the password; the last active admin cannot leave.
  */
-router.post('/delete-account', authMiddleware, async (req: Request, res: Response) => {
-  await authService.requestAccountDeletion(req.userId);
-  res.json({ data: { ok: true } });
+router.post('/delete-account', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { password } = deleteAccountSchema.parse(req.body ?? {});
+    await authService.requestAccountDeletion(req.userId, password, { userAgent: req.headers['user-agent'], ip: getClientIp(req) });
+    res.json({ data: { ok: true } });
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    if (err instanceof Error && err.message === 'INVALID_CREDENTIALS') {
+      res.status(401).json({ error: 'INVALID_CREDENTIALS' });
+      return;
+    }
+    if (err instanceof Error && err.message === 'CANNOT_DELETE_LAST_ADMIN') {
+      res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+      return;
+    }
+    next(err);
+  }
 });
 
 /**

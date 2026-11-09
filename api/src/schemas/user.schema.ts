@@ -65,6 +65,11 @@ export const removePinSchema = z.object({
 
 export type RemovePinInput = z.infer<typeof removePinSchema>;
 
+// #603: asking for the account's deletion confirms the password.
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1).max(1024),
+});
+
 export const unlockSchema = z
   .object({
     password: z.string().min(1).optional(),

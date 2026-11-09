@@ -176,7 +176,7 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
     expect(decrypt(store!.twoFactorSecret!)).toBe(secret);
 
     const firstCode = authenticator.generate(secret);
-    const { backupCodes } = await authService.turnOnTwoFactorAuthentication(store!.id, firstCode, deviceInfo);
+    const { backupCodes } = await authService.turnOnTwoFactorAuthentication(store!.id, 'correct-horse-battery-staple', firstCode, deviceInfo);
     expect(store!.isTwoFactorEnabled).toBe(true);
     expect(backupCodes).toHaveLength(10);
 

@@ -34,3 +34,25 @@ export function authRateLimit(max: number, { skipSuccessfulRequests = false }: {
     handler: sendTooManyRequests,
   });
 }
+
+/** #606: wrong passwords a signed-in account may submit per auth window. */
+export const PASSWORD_CHECK_MAX = 10;
+
+/**
+ * #606: one budget per account, shared by every route that checks the
+ * password of a signed-in account (password, e-mail, PIN, trusted device,
+ * 2FA, unlock, account deletion). Those routes used to sit under the global
+ * limiter only: a stolen session could try passwords by the thousand, from
+ * as many addresses as it liked. Keyed on the account, so it must come after
+ * authMiddleware; only refusals count. A single instance, so the routes
+ * share the count.
+ */
+export const passwordCheckLimiter: RateLimitRequestHandler = rateLimit({
+  windowMs: AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+  max: PASSWORD_CHECK_MAX,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  keyGenerator: (req) => `user:${req.userId}`,
+  handler: sendTooManyRequests,
+});

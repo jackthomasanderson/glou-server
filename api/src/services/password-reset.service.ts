@@ -9,6 +9,8 @@ import { isNotifEn } from '../lib/notif-lang';
 import { escapeHtml } from '../lib/html';
 
 const TOKEN_TTL_MINUTES = 15;
+/** #606: a link younger than this is kept, and no new e-mail is sent. */
+const RESEND_COOLDOWN_MS = 2 * 60 * 1000;
 
 export const passwordResetService = {
   async requestReset(email: string): Promise<void> {
@@ -16,6 +18,16 @@ export const passwordResetService = {
     // Always resolve without error to prevent user enumeration
     if (!user || !user.isActive) return;
     const isEn = isNotifEn(user);
+
+    // #606: each request used to void the previous link and send another
+    // e-mail, so anyone could flood a mailbox and make the legitimate link
+    // useless. A valid link less than 2 minutes old is kept, quietly.
+    const now = Date.now();
+    const recent = await prisma.passwordResetToken.findFirst({
+      where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date(now) }, createdAt: { gt: new Date(now - RESEND_COOLDOWN_MS) } },
+      select: { id: true },
+    });
+    if (recent) return;
 
     // Invalidate any existing tokens for this user
     await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
@@ -84,6 +96,14 @@ export const passwordResetService = {
       status: 'success',
       ip: deviceInfo.ip ?? 'unknown',
       details: { reason: 'password_reset', trustedDevicesRevoked: true },
+    });
+    // #601: the change itself, told apart from a change made in the profile.
+    void auditLog({
+      userId: record.userId,
+      action: 'PASSWORD_CHANGE',
+      status: 'success',
+      ip: deviceInfo.ip ?? 'unknown',
+      details: { via: 'reset_link' },
     });
 
     authService.notifyAccountSecurityEvent(record.userId, 'passwordChanged', deviceInfo);

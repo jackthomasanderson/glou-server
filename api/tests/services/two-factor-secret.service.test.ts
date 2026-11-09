@@ -93,7 +93,7 @@ describe('a newly generated 2FA secret (#613)', () => {
   it('turns 2FA on with a code from the app', async () => {
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ isTwoFactorEnabled: false }) as never);
 
-    const { backupCodes } = await authService.turnOnTwoFactorAuthentication('u1', authenticator.generate(SECRET), deviceInfo);
+    const { backupCodes } = await authService.turnOnTwoFactorAuthentication('u1', 'pw', authenticator.generate(SECRET), deviceInfo);
 
     expect(backupCodes).toHaveLength(10);
     expect(secretWrites()).toHaveLength(0);
@@ -136,7 +136,7 @@ describe('a secret stored in the clear before #613', () => {
   it('turns 2FA on (secret generated before the update), then is stored encrypted', async () => {
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ isTwoFactorEnabled: false, twoFactorSecret: SECRET }) as never);
 
-    await authService.turnOnTwoFactorAuthentication('u1', authenticator.generate(SECRET), deviceInfo);
+    await authService.turnOnTwoFactorAuthentication('u1', 'pw', authenticator.generate(SECRET), deviceInfo);
 
     expect(secretWrites()).toHaveLength(1);
   });

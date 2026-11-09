@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { auditLog } from '../services/audit.service';
 import { routeParam } from '../lib/http';
 import { sharesService } from '../services/shares.service';
 import { shareCreateSchema } from '../schemas/shares.schema';
@@ -19,6 +20,21 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   }
   try {
     const share = await sharesService.create(userId, validation.data);
+    // #601: a link opens part of the cellar to whoever holds it, so its
+    // creation is a security event. What it opens, never its token.
+    void auditLog({
+      userId,
+      action: 'SHARE_CREATE',
+      status: 'success',
+      ip: getClientIp(req),
+      details: {
+        shareId: share.id,
+        cellarIds: share.cellarIds,
+        writeCellarIds: share.writeCellarIds,
+        collectionIds: share.collectionIds,
+        expiresAt: share.expiresAt,
+      },
+    });
     res.status(201).json({ data: share });
   } catch (error) {
     if (error instanceof Error && error.message === 'INVALID_CELLAR_IDS') {
@@ -60,6 +76,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
       res.status(404).json({ error: 'SHARE_NOT_FOUND' });
       return;
     }
+    void auditLog({ userId, action: 'SHARE_REVOKE', status: 'success', ip: getClientIp(req), details: { shareId: share.id } });
     res.json({ data: share });
   } catch (error) {
     console.error('[shares] revoke error:', error);

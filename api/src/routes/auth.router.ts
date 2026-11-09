@@ -7,7 +7,7 @@ import { PASSWORD_MIN_LENGTH } from '../../../shared/auth';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
-import { authRateLimit } from '../lib/rate-limit';
+import { authRateLimit, passwordCheckLimiter } from '../lib/rate-limit';
 import { auditLog } from '../services/audit.service';
 import { AuthPayload } from '../services/auth.service';
 import { passwordResetService } from '../services/password-reset.service';
@@ -247,10 +247,10 @@ router.post('/2fa/generate', authMiddleware, async (req: Request, res: Response)
 
 // ─── POST /api/auth/2fa/turn-on ───────────────────────────────────────────────
 
-router.post('/2fa/turn-on', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.post('/2fa/turn-on', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { code } = turnOn2faSchema.parse(req.body);
-    const data = await authService.turnOnTwoFactorAuthentication(req.userId, code, readDeviceInfo(req));
+    const { password, code } = turnOn2faSchema.parse(req.body);
+    const data = await authService.turnOnTwoFactorAuthentication(req.userId, password, code, readDeviceInfo(req));
     res.json({ data });
   } catch (error) {
     console.error('[auth] POST /2fa/turn-on error:', error);
@@ -265,7 +265,7 @@ router.post('/2fa/turn-on', authMiddleware, async (req: Request, res: Response):
 
 // ─── POST /api/auth/2fa/turn-off ──────────────────────────────────────────────
 
-router.post('/2fa/turn-off', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.post('/2fa/turn-off', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { password, code } = turnOff2faSchema.parse(req.body);
     await authService.turnOffTwoFactorAuthentication(req.userId, password, readDeviceInfo(req), req.sessionId, code);
@@ -285,7 +285,7 @@ router.post('/2fa/turn-off', authMiddleware, async (req: Request, res: Response)
 // #638: new backup codes, the old ones invalidated. Rate-limited with the rest
 // of /api/auth/2fa (app.ts). The codes are returned once and never logged.
 
-router.post('/2fa/backup-codes', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.post('/2fa/backup-codes', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const { password, code } = regenerateBackupCodesSchema.parse(req.body);
     const data = await authService.regenerateBackupCodes(req.userId, password, code, readDeviceInfo(req));
@@ -346,7 +346,7 @@ router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Respons
 
 // ─── POST /api/auth/trust-device ───────────────────────────────────────────────
 
-router.post('/trust-device', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+router.post('/trust-device', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const { password, code } = trustDeviceSchema.parse(req.body);
@@ -385,7 +385,7 @@ router.delete('/trust-device', authMiddleware, async (req: Request, res: Respons
 
 // ─── POST /api/auth/pin ────────────────────────────────────────────────────────
 
-router.post('/pin', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.post('/pin', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const { password, pin } = setPinSchema.parse(req.body);
@@ -408,7 +408,7 @@ router.post('/pin', authMiddleware, async (req: Request, res: Response, next: Ne
 
 // ─── DELETE /api/auth/pin ───────────────────────────────────────────────────────
 
-router.delete('/pin', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.delete('/pin', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const { password } = removePinSchema.parse(req.body);
@@ -433,7 +433,7 @@ router.delete('/pin', authMiddleware, async (req: Request, res: Response, next: 
 // Verifies password OR PIN to lift the client-side lock. Never touches the
 // Session/JWT — this is a pure secret check, not a re-authentication.
 
-router.post('/unlock', unlockLimiter, authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.post('/unlock', unlockLimiter, authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const data = unlockSchema.parse(req.body);
     const ok = await authService.verifyUnlock(req.userId, data);

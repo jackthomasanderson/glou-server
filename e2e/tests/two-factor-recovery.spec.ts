@@ -65,7 +65,7 @@ test('a lost phone is recoverable: new backup codes, then an admin reset turns 2
     // Turn 2FA on, as the authenticator app would.
     const { secret } = await okData<{ secret: string }>(await member.post('/api/auth/2fa/generate'));
     const { backupCodes: firstCodes } = await okData<{ backupCodes: string[] }>(
-      await member.post('/api/auth/2fa/turn-on', { data: { code: totp(secret) } }),
+      await member.post('/api/auth/2fa/turn-on', { data: { password, code: totp(secret) } }),
     );
     expect(firstCodes).toHaveLength(10);
 

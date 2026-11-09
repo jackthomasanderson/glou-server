@@ -10,6 +10,7 @@ vi.mock('../../src/lib/prisma', () => ({
     user: { findUnique: vi.fn(), update: vi.fn() },
     passwordResetToken: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       deleteMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -46,6 +47,7 @@ import { prisma } from '../../src/lib/prisma';
 import { passwordResetService } from '../../src/services/password-reset.service';
 import { authService } from '../../src/services/auth.service';
 import { auditLog } from '../../src/services/audit.service';
+import { emailService } from '../../src/services/email.service';
 
 const deviceInfo = { userAgent: 'reset-agent', ip: '203.0.113.7' };
 
@@ -105,6 +107,11 @@ describe('passwordResetService.resetPassword (ISSUE_044)', () => {
         details: { reason: 'password_reset', trustedDevicesRevoked: true },
       }),
     );
+    // #601: and the change itself is in the log, without the new password.
+    expect(auditLog).toHaveBeenCalledWith({
+      userId: 'u1', action: 'PASSWORD_CHANGE', status: 'success', ip: deviceInfo.ip, details: { via: 'reset_link' },
+    });
+    expect(JSON.stringify(vi.mocked(auditLog).mock.calls)).not.toContain('brand-new-password');
   });
 
   it.each([
@@ -122,5 +129,40 @@ describe('passwordResetService.resetPassword (ISSUE_044)', () => {
     expect(prisma.session.updateMany).not.toHaveBeenCalled();
     expect(prisma.trustedDevice.updateMany).not.toHaveBeenCalled();
     expect(authService.notifyAccountSecurityEvent).not.toHaveBeenCalled();
+  });
+});
+
+// #606: each request used to void the previous link and send a new e-mail, so
+// a mailbox could be flooded and the legitimate link made useless.
+describe('passwordResetService.requestReset (#606)', () => {
+  const member = { id: 'u1', email: 'u1@example.com', username: 'u1', isActive: true, language: 'EN', notifLanguage: null };
+
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(member as never);
+  });
+
+  it('keeps a link sent less than 2 minutes ago, and sends nothing new', async () => {
+    vi.mocked(prisma.passwordResetToken.findFirst).mockResolvedValue({ id: 't1' } as never);
+
+    await passwordResetService.requestReset('u1@example.com');
+
+    const where = vi.mocked(prisma.passwordResetToken.findFirst).mock.calls[0][0]?.where as Record<string, unknown>;
+    expect(where).toMatchObject({ userId: 'u1', usedAt: null, expiresAt: { gt: expect.any(Date) }, createdAt: { gt: expect.any(Date) } });
+    const since = (where.createdAt as { gt: Date }).gt.getTime();
+    expect(Date.now() - since).toBeGreaterThanOrEqual(2 * 60 * 1000 - 1000);
+    expect(Date.now() - since).toBeLessThanOrEqual(2 * 60 * 1000 + 1000);
+    expect(prisma.passwordResetToken.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.passwordResetToken.create).not.toHaveBeenCalled();
+    expect(emailService.send).not.toHaveBeenCalled();
+  });
+
+  it('replaces an older link with a new one', async () => {
+    vi.mocked(prisma.passwordResetToken.findFirst).mockResolvedValue(null);
+
+    await passwordResetService.requestReset('u1@example.com');
+
+    expect(prisma.passwordResetToken.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
+    expect(prisma.passwordResetToken.create).toHaveBeenCalledTimes(1);
+    expect(emailService.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'u1@example.com' }));
   });
 });
