@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider, Input, SelectItem,
@@ -19,6 +20,7 @@ import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
 import { FILL_LEVELS } from '@/lib/products/fillLevels';
+import { parseTags } from '@/lib/products/tags';
 import { ImageResult } from './ImagePicker';
 import { ItemImageSection } from './ItemImageSection';
 import { MaturitySuggestionField } from './MaturitySuggestionField';
@@ -169,6 +171,8 @@ export function InventoryForm({
   const [peakWindowChecked, setPeakWindowChecked] = useState(false);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);
+  // #708: a save refused for the tags shows their field, folded in the optionals.
+  const tagsInput = useRef<HTMLInputElement>(null);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
   // #862: the photo suggested for "category producer name" — the results
@@ -316,6 +320,10 @@ export function InventoryForm({
       setPeakWindowChecked(true);
       notifyError(missingRequired ? 'inventory.validation.missingFields'
         : invalidTags ? 'inventory.validation.tags' : 'inventory.validation.peakWindowOrder', tagLimits);
+      if (!missingRequired && invalidTags) {
+        flushSync(() => setShowOptionals(true));
+        tagsInput.current?.focus();
+      }
       return;
     }
     // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
@@ -1063,7 +1071,8 @@ export function InventoryForm({
                             size="sm"
                             value={values.tags ?? []}
                             format={(list) => list.join(', ')}
-                            parse={(text) => [...new Set(text.split(',').map((s) => s.trim()).filter(Boolean))]}
+                            parse={(text) => parseTags(text, initialValues?.tags)}
+                            inputRef={tagsInput}
                             onValueChange={(list) => setField('tags', list)}
                             isInvalid={invalidTags}
                             errorMessage={t('inventory.validation.tags', tagLimits)}

@@ -90,7 +90,7 @@ describe('InventoryForm — a wine\'s description', () => {
 
 // #708: tags could only be edited in bulk; they belong to the wine (#471).
 describe('InventoryForm — a wine\'s tags', () => {
-  function drawTagged(tags: string[], onSubmit = vi.fn()) {
+  function drawTagged(tags: string[], onSubmit = vi.fn(), unfold = true) {
     render(
       <InventoryForm
         open
@@ -101,20 +101,44 @@ describe('InventoryForm — a wine\'s tags', () => {
         t={(key, options) => t(key, options)}
       />,
     );
+    if (!unfold) return { onSubmit, field: null };
     fireEvent.click(screen.getByRole('button', { name: 'Afficher les compléments' }));
     return { onSubmit, field: screen.getByLabelText('Étiquettes') };
   }
 
   it('shows the wine\'s tags and sends the list typed, without doubles', () => {
     const { onSubmit, field } = drawTagged(['Cadeau']);
+    if (!field) throw new Error('folded');
     expect(field).toHaveValue('Cadeau');
-    fireEvent.change(field, { target: { value: 'Cadeau, Garde,  , Garde' } });
+    fireEvent.change(field, { target: { value: 'Cadeau, Garde,  , garde' } });
     fireEvent.click(screen.getByTestId('inventory-form-submit'));
     expect(onSubmit).toHaveBeenCalledWith({ tags: ['Cadeau', 'Garde'] }, []);
   });
 
+  it('keeps whole a tag holding a comma (set in bulk) while it is left as is', () => {
+    const { onSubmit, field } = drawTagged(['Rouge, léger']);
+    if (!field) throw new Error('folded');
+    expect(field).toHaveValue('Rouge, léger');
+    fireEvent.change(field, { target: { value: 'Rouge, léger, Neuf' } });
+    fireEvent.click(screen.getByTestId('inventory-form-submit'));
+    expect(onSubmit).toHaveBeenCalledWith({ tags: ['Rouge, léger', 'Neuf'] }, []);
+  });
+
+  // A merge may leave more than 20 tags: the refusal must show the field, folded under "Afficher les compléments".
+  it('refused for its tags, unfolds the field and puts the focus on it', () => {
+    const onSubmit = vi.fn();
+    drawTagged(Array.from({ length: 21 }, (_, i) => `t${i}`), onSubmit, false);
+    expect(screen.queryByLabelText('Étiquettes')).toBeNull();
+    fireEvent.click(screen.getByTestId('inventory-form-submit'));
+    expect(onSubmit).not.toHaveBeenCalled();
+    const field = screen.getByLabelText('Étiquettes');
+    expect(field).toBeInvalid();
+    expect(field).toHaveFocus();
+  });
+
   it('refuses more than 20 tags, as the API does', () => {
     const { onSubmit, field } = drawTagged([]);
+    if (!field) throw new Error('folded');
     fireEvent.change(field, { target: { value: Array.from({ length: 21 }, (_, i) => `t${i}`).join(', ') } });
     fireEvent.click(screen.getByTestId('inventory-form-submit'));
     expect(onSubmit).not.toHaveBeenCalled();
