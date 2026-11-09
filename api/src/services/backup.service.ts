@@ -209,6 +209,19 @@ export const backupService = {
    * until someone opens the Backups tab. Checked at startup (logged) and
    * exposed to the admin UI.
    */
+  /**
+   * #756: whether automatic backups are on (the schema's default, true, until
+   * the settings row exists) and when a backup last succeeded, whatever its
+   * trigger — what the admin page warns about.
+   */
+  async getStatus(): Promise<{ backupEnabled: boolean; lastSuccessAt: Date | null }> {
+    const [config, lastOk] = await Promise.all([
+      prisma.systemConfig.findUnique({ where: { id: 'singleton' }, select: { backupEnabled: true } }),
+      prisma.backupRun.findFirst({ where: { success: true }, orderBy: { runAt: 'desc' }, select: { runAt: true } }),
+    ]);
+    return { backupEnabled: config?.backupEnabled ?? true, lastSuccessAt: lastOk?.runAt ?? null };
+  },
+
   isBackupsDirWritable(): boolean {
     try {
       ensureBackupsDir();

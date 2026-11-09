@@ -14,3 +14,13 @@ export interface PurgeResult {
 export interface PurgeResponse extends PurgeResult {
   backupRunId: string;
 }
+
+/** Body of GET /api/admin/backups/health. */
+export interface BackupHealth {
+  /** Whether the API can write to its backups folder (#537). */
+  directoryWritable: boolean;
+  /** Whether the daily automatic backup is switched on (#756). */
+  backupEnabled: boolean;
+  /** When the last successful backup ran, any trigger; null when none ever did (#756). An ISO string on the wire. */
+  lastSuccessAt: string | Date | null;
+}
