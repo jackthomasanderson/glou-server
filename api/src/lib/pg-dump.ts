@@ -23,6 +23,19 @@ import { pipeline } from 'stream/promises';
 // `gunzip | psql` of the disaster-recovery guide (wiki page 30).
 export const BACKUPS_DIR = path.resolve(process.cwd(), 'backups');
 
+/**
+ * How to give the backups folder to the API user (uid 1001), for the logs.
+ * #900: a stack run from a UI (Portainer, Synology Container Manager...) has
+ * no "folder next to docker-compose.yml" on the host: Docker creates the
+ * relative `./backups` somewhere the operator never sees, owned by root.
+ */
+export const BACKUPS_DIR_FIX_HINT = 'With docker compose, in your Glou folder on the host, run: '
+  + 'mkdir -p backups && sudo chown 1001:1001 backups. '
+  + 'With Portainer, Synology Container Manager or another UI, there is no such folder: in the stack, replace '
+  + '"./backups:/app/backups" with an absolute host path (e.g. "/opt/glou/backups:/app/backups"), '
+  + 'run on the host: sudo mkdir -p /opt/glou/backups && sudo chown 1001:1001 /opt/glou/backups, '
+  + 'then redeploy the stack.';
+
 const FILENAME_PREFIX = 'glou-backup-';
 const FILENAME_SUFFIX = '.sql.gz';
 /** The file timestamp: an ISO date with `:` and `.` turned into `-`. */

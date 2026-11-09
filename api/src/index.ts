@@ -7,6 +7,7 @@ import { MaintenanceService } from './services/maintenance.service';
 import { recomputeAlertStatuses } from './services/alert.service';
 import { checkHumidorDrift } from './services/humidor.service';
 import { backupService, BACKUPS_DIR } from './services/backup.service';
+import { BACKUPS_DIR_FIX_HINT } from './lib/pg-dump';
 import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
 import { encryptClearTwoFactorSecrets } from './lib/two-factor-secret';
 import { DAILY_ALERTS_CRON, DAILY_ALERTS_HOUR, isAlertsCatchUpWindow } from './lib/alerts-schedule';
@@ -143,8 +144,7 @@ async function bootstrap(): Promise<void> {
   if (!backupService.isBackupsDirWritable()) {
     console.error(
       `[backup] ${BACKUPS_DIR} is not writable by this process (uid ${process.getuid?.() ?? '?'}): `
-      + 'scheduled backups will fail. On the host, next to docker-compose.yml, run: '
-      + 'mkdir -p backups && sudo chown 1001:1001 backups',
+      + `scheduled backups will fail. ${BACKUPS_DIR_FIX_HINT}`,
     );
   }
 

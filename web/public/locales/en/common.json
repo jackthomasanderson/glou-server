@@ -1918,7 +1918,7 @@
         "error": "Download failed."
       },
       "dirCheckFailed": "Glou could not check whether it can write to the backups folder. Reload the page; if this message stays, check the API logs (docker compose logs api).",
-      "dirNotWritable": "The backups folder is not writable by Glou: every backup will fail. On the server, next to docker-compose.yml, run: mkdir -p backups && sudo chown 1001:1001 backups, then restart the stack.",
+      "dirNotWritable": "The backups folder is not writable by Glou: every backup will fail. With docker compose, in your Glou folder on the server, run: mkdir -p backups && sudo chown 1001:1001 backups, then restart the stack. With Portainer or a NAS UI, replace ./backups with an absolute host path (e.g. /opt/glou/backups), give that folder to uid 1001 (sudo chown 1001:1001 /opt/glou/backups) and redeploy the stack.",
       "enabled": "Enable automatic backups",
       "retentionDays": "Backup retention (days)",
       "retentionDaysHint": "Backup files older than this delay are automatically deleted (7 days minimum recommended).",

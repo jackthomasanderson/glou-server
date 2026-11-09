@@ -51,6 +51,16 @@
    > [!NOTE]
    > This panel is admin-only (`/admin`, access denied otherwise).
 
+**Portainer, Synology Container Manager or another UI**:
+
+The stack has no folder of its own on the host: the relative `./backups` in `docker-compose.yml` ends up in a folder Docker creates as root, where you cannot reach it. The API cannot write its backups there, and **an update that brings database migrations stops**: the API does not start, and the UI only says the `api` container is unhealthy. Before the first start:
+
+1. In the stack, replace `- ./backups:/app/backups` with an absolute host path, e.g. `- /opt/glou/backups:/app/backups`.
+2. On the host (SSH): `sudo mkdir -p /opt/glou/backups && sudo chown 1001:1001 /opt/glou/backups`.
+3. Set `JWT_SECRET`, `CONFIG_ENCRYPTION_KEY` and `DB_PASSWORD` in the stack's environment variables (step 2 above), then deploy.
+
+When the API does not start, its log gives the reason: in Portainer, **Containers → `<stack>-api-1` → Logs**; on the host, `docker logs <stack>-api-1`.
+
 **Updating to a new version**:
 
 Back up first (**Administration → System Configuration → Backups → Back up now**): database migrations cannot be undone. On Linux, check that `backups` belongs to uid 1001 (`sudo chown 1001:1001 backups`), otherwise the backup fails. Then:
@@ -70,6 +80,7 @@ To go back, see [Upgrade & Roll Back](./31-Upgrades-And-Rollback.md).
 | API logs `🛑 [startup] FATAL ... still has its .env.example placeholder value` or `... is not set (or empty)` or `... is malformed`, then exits | `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` is missing or empty, matches the placeholder in `.env.example`, or (`CONFIG_ENCRYPTION_KEY`) is not 64 hex characters. Generate real values (step 2 above) and restart. On a NAS UI (Synology Container Manager, Portainer...), make sure the variables are actually passed to the `api` container: an unset variable reaches it as an empty string. |
 | Sign-in succeeds but you are logged out immediately (plain `http://` on a local network or NAS) | Session cookies are only marked `Secure` when `APP_URL` starts with `https://`. Set `APP_URL` in `.env` to the address you actually use (e.g. `http://192.168.1.20:3000`) and restart. If TLS is terminated by a proxy while `APP_URL` says `http`, set `COOKIE_SECURE=true`. Over plain HTTP, offline mode, app installation and the clipboard are limited by the browser; use HTTPS to remove these limits. |
 | `permission denied` on `/app/backups`, `/app/uploads` or `/app/logs`, or the API restarts in a loop, after replacing a named volume with a host folder | The API container always runs as user `1001:1001` (`PUID`/`PGID` from the linuxserver.io convention are **not** supported). Give that user the folder: `sudo chown -R 1001:1001 <folder>`. On Synology, do it from SSH, or set the folder's permissions for a user with UID 1001. |
+| Portainer (or another UI) says `dependency failed to start: container …-api-1 is unhealthy` | The API did not start. Read its log (see **Portainer, Synology Container Manager or another UI** above). After an update, the most common cause is `[backup] Migrations are pending, but /app/backups is not writable`: use an absolute `backups` path owned by uid 1001, as described above, then redeploy. |
 | `image not found` / pull error | The GHCR packages may be private. Authenticate first: `docker login ghcr.io -u YOUR_GITHUB_USERNAME`. |
 | Prisma migration error on startup | The `db` container was not ready. Run `docker compose restart api` to retry the migration. |
 | Sign-up or sign-in fails with "unexpected error" (or "this address is not allowed") when you open Glou by IP, e.g. `http://192.168.1.20:3000`, and nothing shows in the logs of `api` or `web` | The API refuses state-changing requests from an unknown address. Set `APP_URL` in `.env` to the exact address you type in the browser (e.g. `http://192.168.1.20:3000`), then recreate the `api` container. Several addresses: list them in `CSRF_TRUSTED_ORIGINS`, comma-separated. The `api` log then shows a `[csrf] Rejected ...` line when this happens. |

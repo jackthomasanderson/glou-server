@@ -6,6 +6,7 @@ Glou applies its database migrations automatically when the API starts, and **mi
 ## Prerequisites
 * Shell access to the host.
 * On Linux, the `backups` folder next to `docker-compose.yml` must belong to uid 1001: `mkdir -p backups && sudo chown 1001:1001 backups`. Otherwise the automatic backup fails, and the API does not start (nothing is migrated).
+* With Portainer, Synology Container Manager or another UI, there is no such folder: map `/app/backups` to an absolute host path owned by uid 1001 (see [Installation](./01-Installation.md), **Portainer, Synology Container Manager or another UI**). The UI only reports the `api` container as unhealthy; the reason is in its log (**Containers → `<stack>-api-1` → Logs** in Portainer).
 * The database backup alone is enough to undo schema changes; photos are not touched by migrations.
 
 ## The backup taken before migrating
@@ -83,6 +84,6 @@ Each build is also published under an immutable tag named after the full commit 
 | The API restarts in a loop after an upgrade, the log shows a migration error | Do not retry blindly. Each restart reuses the backup already taken (`[backup] … No new backup: …`), so the loop does not fill the disk. Read the first error line, keep the log, and go back as above; then open an issue with the log. |
 | The API log shows a migration error starting with `families:` or `slots:` (a total or a slot does not match) | The update cancelled itself and your data is intact ("P3009" at the next restart: the migration is marked failed). Force nothing: keep the log, go back to the previous image (see above) and open an issue with that log. |
 | `Prisma migration error on startup` at first start | The database was not ready yet: `docker compose restart api`. |
-| The API does not start, the log shows `[backup] Migrations are pending, but /app/backups is not writable` | Docker created `./backups` as root. Nothing was migrated. Next to `docker-compose.yml`: `mkdir -p backups && sudo chown 1001:1001 backups`, then `docker compose up -d`. |
+| The API does not start, the log shows `[backup] Migrations are pending, but /app/backups is not writable` | Docker created `./backups` as root. Nothing was migrated. Next to `docker-compose.yml`: `mkdir -p backups && sudo chown 1001:1001 backups`, then `docker compose up -d`. With Portainer or another UI (which only says the `api` container is unhealthy): replace `./backups` with an absolute host path owned by uid 1001 (`sudo mkdir -p /opt/glou/backups && sudo chown 1001:1001 /opt/glou/backups`), then redeploy the stack. |
 | The API does not start, the log shows `[backup] Migrations are pending, but the backup taken before migrating failed: …` | Nothing was migrated. Read the reason at the end of the line: a permission or read-only error (`sudo chown 1001:1001 backups`), no space left (free disk space). Then `docker compose up -d`. |
 | `[backup] Could not check for pending migrations` | The database was not ready yet, or `DATABASE_URL` is wrong. Nothing was migrated: `docker compose restart api`. |
