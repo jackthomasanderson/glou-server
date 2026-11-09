@@ -99,6 +99,21 @@ describe('productService.list (D9)', () => {
     expect(args.take).toBe(2001);
   });
 
+  it('#475: scoped to a cellar, lists only the families with a bottle in stock there', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
+
+    await productService.list({ cellarId: 'c1' });
+
+    const args = vi.mocked(prisma.product.findMany).mock.calls[0][0]!;
+    expect(args.where).toEqual({
+      deletedAt: null,
+      items: { some: { ...IN_STOCK_ITEM_FILTER, cellarId: 'c1' } },
+    });
+    // Every bottle in stock still comes with the family ("2 ici · 9 en tout").
+    expect(args.include).toMatchObject({ items: { where: IN_STOCK_ITEM_FILTER } });
+    expect(args.take).toBe(2001);
+  });
+
   it('serves the description on the family and only the unit columns on its units', async () => {
     const year = new Date().getFullYear();
     vi.mocked(prisma.product.findMany).mockResolvedValue([
