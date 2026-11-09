@@ -16,7 +16,7 @@ vi.mock('../../src/lib/prisma', () => ({
     auditLog: { findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
     backupRun: { findUnique: vi.fn(), findFirst: vi.fn() },
     systemConfig: { findUnique: vi.fn() },
-    guestShare: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    guestShare: { findMany: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
     $queryRaw: vi.fn(),
   },
   connectWithRetry: vi.fn(),
@@ -643,6 +643,17 @@ describe('GET /api/admin/backups/health', () => {
     expect(vi.mocked(prisma.backupRun.findFirst).mock.calls[0][0]?.where).toEqual({ success: true });
   });
 
+  it('still answers the folder check when the backup status cannot be read', async () => {
+    writableSpy = vi.spyOn(backupService, 'isBackupsDirWritable').mockReturnValue(false);
+    vi.mocked(prisma.systemConfig.findUnique).mockRejectedValue(new Error('db down'));
+    vi.mocked(prisma.backupRun.findFirst).mockResolvedValue(null as never);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
+    error.mockRestore();
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { directoryWritable: false } });
+  });
+
   it('reports no successful backup, and backups on by default before the settings exist', async () => {
     writableSpy = vi.spyOn(backupService, 'isBackupsDirWritable').mockReturnValue(true);
     vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue(null as never);
@@ -667,7 +678,7 @@ describe('admin guest links (#486)', () => {
 
   it('lists only the links still in force, with their owner and no token', async () => {
     vi.mocked(prisma.guestShare.findMany).mockResolvedValue([share] as never);
-    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u2', username: 'bob', displayName: 'Bob' }] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u2', username: 'bob', displayName: 'Bob', isActive: false }] as never);
     const res = await request(app).get('/api/admin/shares').set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(200);
     const args = vi.mocked(prisma.guestShare.findMany).mock.calls[0][0] as Record<string, any>;
@@ -677,7 +688,7 @@ describe('admin guest links (#486)', () => {
     expect(res.body.data).toEqual([{
       id: 's1', label: 'For Paul', inviteeName: 'Paul', expiresAt: null,
       hidePrices: true, hideNotes: false, cellarCount: 2, writeCellarCount: 1, collectionCount: 0,
-      createdAt: '2026-10-01T10:00:00.000Z', owner: { id: 'u2', username: 'bob', displayName: 'Bob' },
+      createdAt: '2026-10-01T10:00:00.000Z', owner: { id: 'u2', username: 'bob', displayName: 'Bob', isActive: false },
     }]);
     expect(JSON.stringify(res.body)).not.toContain('secret-hash');
   });
@@ -691,13 +702,13 @@ describe('admin guest links (#486)', () => {
 
   it('revokes any member\'s link and audits it', async () => {
     vi.mocked(prisma.guestShare.findUnique).mockResolvedValue(share as never);
-    vi.mocked(prisma.guestShare.update).mockResolvedValue({ ...share, revokedAt: new Date() } as never);
+    vi.mocked(prisma.guestShare.updateMany).mockResolvedValue({ count: 1 } as never);
     const res = await request(app)
       .delete('/api/admin/shares/s1')
       .set('Authorization', `Bearer ${authToken()}`)
       .set('Sec-Fetch-Site', 'same-origin');
     expect(res.status).toBe(200);
-    expect(vi.mocked(prisma.guestShare.update).mock.calls[0][0]).toEqual({ where: { id: 's1' }, data: { revokedAt: expect.any(Date) } });
+    expect(vi.mocked(prisma.guestShare.updateMany).mock.calls[0][0]).toEqual({ where: { id: 's1', revokedAt: null }, data: { revokedAt: expect.any(Date) } });
     expect(res.body.data).toEqual({ id: 's1', revokedAt: expect.any(String) });
     await vi.waitFor(() => expect(prisma.auditLog.create).toHaveBeenCalled());
     const audit = vi.mocked(prisma.auditLog.create).mock.calls[0][0].data as Record<string, any>;
@@ -713,17 +724,23 @@ describe('admin guest links (#486)', () => {
       .set('Sec-Fetch-Site', 'same-origin');
     expect(res.status).toBe(404);
     expect(res.body.error).toBe('SHARE_NOT_FOUND');
-    expect(prisma.guestShare.update).not.toHaveBeenCalled();
+    expect(prisma.guestShare.updateMany).not.toHaveBeenCalled();
   });
 
-  it('leaves an already revoked link as it is', async () => {
-    vi.mocked(prisma.guestShare.findUnique).mockResolvedValue({ ...share, revokedAt: new Date('2026-10-02') } as never);
+  it('leaves an already revoked link as it is, and audits nothing — also when two revocations race', async () => {
+    // The link looked in force when read, but another revocation got there first.
+    vi.mocked(prisma.guestShare.findUnique)
+      .mockResolvedValueOnce(share as never)
+      .mockResolvedValueOnce({ revokedAt: new Date('2026-10-02') } as never);
+    vi.mocked(prisma.guestShare.updateMany).mockResolvedValue({ count: 0 } as never);
     const res = await request(app)
       .delete('/api/admin/shares/s1')
       .set('Authorization', `Bearer ${authToken()}`)
       .set('Sec-Fetch-Site', 'same-origin');
     expect(res.status).toBe(200);
-    expect(prisma.guestShare.update).not.toHaveBeenCalled();
+    expect(res.body.data.revokedAt).toBe('2026-10-02T00:00:00.000Z');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 });
 

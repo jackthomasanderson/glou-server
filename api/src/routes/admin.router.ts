@@ -802,18 +802,16 @@ adminRouter.get('/backups/runs', async (req: Request, res: Response): Promise<vo
  * @access  Admin
  */
 adminRouter.get('/backups/health', async (_req: Request, res: Response): Promise<void> => {
+  const data: BackupHealth = { directoryWritable: backupService.isBackupsDirWritable() };
   try {
     // #756: also whether automatic backups run and when one last succeeded,
     // so the admin page can warn when the instance has no recovery point.
-    const data: BackupHealth = {
-      directoryWritable: backupService.isBackupsDirWritable(),
-      ...(await backupService.getStatus()),
-    };
-    res.json({ data });
+    Object.assign(data, await backupService.getStatus());
   } catch (error) {
-    console.error('[Admin] Error reading backup health:', error);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    // The folder check (#537) still answers when the database read fails.
+    console.error('[Admin] Error reading backup status:', error);
   }
+  res.json({ data });
 });
 
 /**

@@ -62,6 +62,9 @@ export function AdminSharesSection() {
                   <p className="text-sm text-foreground-500 break-words">{t('shares.inviteeLabel', { name: share.inviteeName })}</p>
                 )}
                 <p className="text-sm text-foreground-500">{t('admin.shares.owner', { name: ownerName(share) })}</p>
+                {!share.owner.isActive && (
+                  <p className="text-sm text-warning-700 mt-1">{t('admin.shares.ownerDeactivated')}</p>
+                )}
               </div>
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground-500">
                 <span>{scope(share)}</span>

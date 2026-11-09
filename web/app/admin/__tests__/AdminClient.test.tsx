@@ -43,9 +43,16 @@ vi.mock('@/components/admin/ResetPasswordDialog', () => ({ ResetPasswordDialog: 
 vi.mock('@/components/admin/MaturityReferencesSection', () => ({ MaturityReferencesSection: () => <section>maturity-section</section> }));
 vi.mock('@/components/admin/AdminSharesSection', () => ({ AdminSharesSection: () => <section>shares-section</section> }));
 vi.mock('@/components/admin/AuditLogSection', () => ({ AuditLogSection: () => <section>audit-section</section> }));
-vi.mock('@/components/admin/SystemConfigSection', () => ({
-  SystemConfigSection: ({ selectedTab }: { selectedTab?: string }) => <section>config-section:{selectedTab}</section>,
-}));
+// A form with its own state, like the real settings forms.
+vi.mock('@/components/admin/SystemConfigSection', async () => {
+  const { useState } = await import('react');
+  return {
+    SystemConfigSection: ({ selectedTab }: { selectedTab?: string }) => {
+      const [host, setHost] = useState('');
+      return <section>config-section:{selectedTab}<input aria-label="SMTP host" value={host} onChange={(e) => setHost(e.target.value)} /></section>;
+    },
+  };
+});
 
 import { AdminClient } from '../AdminClient';
 
@@ -75,6 +82,16 @@ describe('AdminClient (#698, #756)', () => {
     }
     fireEvent.click(within(nav()).getByRole('button', { name: 'Maintenance' }));
     expect(screen.getByRole('button', { name: 'Purge all data' })).toBeInTheDocument();
+  });
+
+  it('keeps a half-edited settings form when the admin switches section and back', () => {
+    render(<AdminClient />);
+    fireEvent.click(within(nav()).getByRole('button', { name: 'System Configuration' }));
+    fireEvent.change(screen.getByLabelText('SMTP host'), { target: { value: 'smtp.example.com' } });
+    fireEvent.click(within(nav()).getByRole('button', { name: 'Audit Log' }));
+    expect(screen.getByLabelText('SMTP host')).not.toBeVisible();
+    fireEvent.click(within(nav()).getByRole('button', { name: 'System Configuration' }));
+    expect(screen.getByLabelText('SMTP host')).toHaveValue('smtp.example.com');
   });
 
   it('reads a member\'s status as text, apart from the action that changes it, without fading the row', () => {

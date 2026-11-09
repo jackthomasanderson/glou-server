@@ -40,6 +40,10 @@ describe('backupProblems (#756)', () => {
     expect(backupProblems(health({ backupEnabled: false }))).toEqual(['disabled']);
     expect(backupProblems(health({ lastSuccessAt: null }))).toEqual(['noBackup']);
     expect(backupProblems(health({ backupEnabled: false, lastSuccessAt: null }))).toEqual(['disabled', 'noBackup']);
+    expect(backupProblems({ ...health({}), directoryWritable: false })).toEqual(['notWritable']);
+  });
+  it('claims nothing the API could not read', () => {
+    expect(backupProblems({ directoryWritable: true })).toEqual([]);
   });
 });
 
@@ -58,6 +62,11 @@ describe('BackupWarning (#756)', () => {
     render(<BackupWarning problems={backupProblems(health({ lastSuccessAt: null }))} onOpenBackups={() => {}} />);
     expect(screen.getByRole('alert')).toHaveTextContent('No backup has ever succeeded');
     expect(screen.getByRole('alert')).not.toHaveTextContent('switched off');
+  });
+
+  it('warns that the backups folder cannot be written to', () => {
+    render(<BackupWarning problems={['notWritable']} onOpenBackups={() => {}} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Glou cannot write to the backups folder');
   });
 
   it('shows nothing when backups are fine', () => {

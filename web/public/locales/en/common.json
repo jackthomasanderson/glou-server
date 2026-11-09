@@ -1013,7 +1013,7 @@
     "maturityRefs": {
       "title": "Peak Maturity References",
       "subtitle": "Define reference drinking windows by category, region, color, or producer.",
-      "cascadeHint": "Rules are evaluated top to bottom — the first one that matches a wine wins. Put your most specific rules above the general ones.",
+      "cascadeHint": "Rules are evaluated top to bottom — the first one that matches a bottle wins. Put your most specific rules above the general ones.",
       "add": "Add reference",
       "addTitle": "New peak maturity reference",
       "editTitle": "Edit reference",
@@ -1096,6 +1096,7 @@
       "navLabel": "Administration sections"
     },
     "backupWarning": {
+      "notWritable": "Glou cannot write to the backups folder: every backup fails.",
       "disabled": "Automatic backups are switched off: no copy of the data is taken each night.",
       "noBackup": "No backup has ever succeeded: after a disk failure or a wrong move, nothing could be restored.",
       "open": "Open backups",
@@ -1108,6 +1109,7 @@
       "loadError": "Unable to load the guest links.",
       "owner": "Made by {{name}}",
       "createdAt": "Created on {{date}}",
+      "ownerDeactivated": "This member's account is deactivated: the link no longer works, but it would work again if the account were reactivated. Revoke it to cut it for good.",
       "unnamed": "Unnamed link",
       "revokeTitle": "Revoke this guest link?",
       "revokeBody": "The link “{{label}}” made by {{owner}} will stop working at once. To give access again, the member will have to make a new link.",

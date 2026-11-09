@@ -51,7 +51,7 @@ beforeEach(() => revoke.mockReset());
 const share: AdminGuestShare = {
   id: 's1', label: 'For Paul', inviteeName: 'Paul', expiresAt: null, hidePrices: true, hideNotes: false,
   cellarCount: 2, writeCellarCount: 1, collectionCount: 0, createdAt: '2026-10-01T10:00:00.000Z',
-  owner: { id: 'u2', username: 'bob', displayName: 'Bob' },
+  owner: { id: 'u2', username: 'bob', displayName: 'Bob', isActive: true },
 };
 
 describe('AdminSharesSection (#486)', () => {
@@ -77,6 +77,14 @@ describe('AdminSharesSection (#486)', () => {
     expect(dialog).toHaveTextContent('made by Bob will stop working at once');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Revoke' }));
     expect(revoke).toHaveBeenCalledWith('s1', expect.anything());
+  });
+
+  it('says when the owner is deactivated, so the admin can revoke a link that would revive', () => {
+    shares = [share, { ...share, id: 's2', owner: { ...share.owner, isActive: false } }];
+    render(<AdminSharesSection />);
+    const [active, deactivated] = screen.getAllByRole('listitem');
+    expect(active).not.toHaveTextContent('account is deactivated');
+    expect(deactivated).toHaveTextContent("This member's account is deactivated");
   });
 
   it('says so when there is no link in force', () => {

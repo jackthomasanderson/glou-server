@@ -1015,7 +1015,7 @@
     "maturityRefs": {
       "title": "Références d'apogée",
       "subtitle": "Définissez des fenêtres de dégustation de référence par catégorie, région, couleur ou producteur.",
-      "cascadeHint": "Les règles sont évaluées de haut en bas — la première qui correspond à un vin l'emporte. Placez vos règles les plus spécifiques au-dessus des règles générales.",
+      "cascadeHint": "Les règles sont évaluées de haut en bas — la première qui correspond à une bouteille l'emporte. Placez vos règles les plus spécifiques au-dessus des règles générales.",
       "add": "Ajouter une référence",
       "addTitle": "Nouvelle référence d'apogée",
       "editTitle": "Modifier la référence",
@@ -1098,6 +1098,7 @@
       "navLabel": "Sections de l'administration"
     },
     "backupWarning": {
+      "notWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échoue.",
       "disabled": "Les sauvegardes automatiques sont désactivées : aucune copie des données n'est faite chaque nuit.",
       "noBackup": "Aucune sauvegarde n'a jamais réussi : en cas de panne du disque ou de mauvaise manipulation, rien ne pourra être restauré.",
       "open": "Ouvrir les sauvegardes",
@@ -1110,6 +1111,7 @@
       "loadError": "Impossible de charger les liens invités.",
       "owner": "Créé par {{name}}",
       "createdAt": "Créé le {{date}}",
+      "ownerDeactivated": "Le compte de ce membre est désactivé : le lien ne fonctionne plus, mais il fonctionnerait de nouveau si le compte était réactivé. Révoquez-le pour le couper définitivement.",
       "unnamed": "Lien sans nom",
       "revokeTitle": "Révoquer ce lien invité ?",
       "revokeBody": "Le lien « {{label}} » créé par {{owner}} cessera de fonctionner immédiatement. Pour rendre l'accès, le membre devra créer un nouveau lien.",

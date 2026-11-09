@@ -60,7 +60,13 @@ export function AdminClient() {
   const purgeStepUp = useAdminStepUp();
   const isMobile = useIsMobile();
 
-  const [section, setSection] = React.useState<AdminSection>('members');
+  const [section, setSectionState] = React.useState<AdminSection>('members');
+  // The sections opened so far: each is mounted on first visit, then kept.
+  const [visited, setVisited] = React.useState<ReadonlySet<AdminSection>>(() => new Set(['members']));
+  const setSection = (next: AdminSection) => {
+    setSectionState(next);
+    setVisited((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
+  };
   const [configTab, setConfigTab] = React.useState('smtp');
   // #756: no automatic backup, or none that ever succeeded, is said at the top of the page.
   const { data: backupHealth, refetch: refetchBackupHealth } = useAdminBackupHealth();
@@ -199,7 +205,7 @@ export function AdminClient() {
         ))}
       </nav>
 
-      {section === 'members' && (
+      <div hidden={section !== 'members'}>
       <div className="bg-content1 border border-divider rounded-2xl p-4 sm:p-6 overflow-hidden">
         <h2 className="text-base font-semibold mb-1">{t('admin.users.title')}</h2>
         <p className="text-sm text-foreground-500 mb-4">{t('admin.users.subtitle')}</p>
@@ -308,24 +314,28 @@ export function AdminClient() {
         </Table>
         )}
       </div>
+      </div>
+
+      {/* Once opened, a section stays mounted while hidden, so switching
+          sections never drops a half-edited form (settings) or reloads it. */}
+      {visited.has('shares') && <div hidden={section !== 'shares'}><AdminSharesSection /></div>}
+
+      {visited.has('maturity') && <div hidden={section !== 'maturity'}><MaturityReferencesSection /></div>}
+
+      {visited.has('config') && (
+        <div hidden={section !== 'config'}>
+          <SystemConfigSection
+            hasBackupProblem={problems.length > 0}
+            selectedTab={configTab}
+            onTabChange={setConfigTab}
+            onBackupChange={() => void refetchBackupHealth()}
+          />
+        </div>
       )}
 
-      {section === 'shares' && <AdminSharesSection />}
+      {visited.has('audit') && <div hidden={section !== 'audit'}><AuditLogSection /></div>}
 
-      {section === 'maturity' && <MaturityReferencesSection />}
-
-      {section === 'config' && (
-        <SystemConfigSection
-          hasBackupProblem={problems.length > 0}
-          selectedTab={configTab}
-          onTabChange={setConfigTab}
-          onBackupChange={() => void refetchBackupHealth()}
-        />
-      )}
-
-      {section === 'audit' && <AuditLogSection />}
-
-      {section === 'maintenance' && (
+      <div hidden={section !== 'maintenance'}>
       <div className="bg-danger-50/50 border border-danger-200 rounded-2xl p-4 sm:p-6">
         <h2 className="text-base font-semibold text-danger mb-1 flex items-center gap-2">
           <Trash2 size={16} /> {t('admin.maintenance.title')}
@@ -349,7 +359,7 @@ export function AdminClient() {
           {t('admin.maintenance.purge.button')}
         </Button>
       </div>
-      )}
+      </div>
 
       {/* Purge dialog */}
       <ResponsiveModal

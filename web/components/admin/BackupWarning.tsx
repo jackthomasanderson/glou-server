@@ -6,16 +6,20 @@ import type { BackupHealth } from '@shared/maintenance';
 import { formatDateTime } from '@/lib/format';
 
 /**
- * #756: what leaves the instance without a recovery point — automatic backups
- * switched off, or no backup that ever succeeded. Nothing while unknown.
+ * #756: what leaves the instance without a recovery point — a backups folder
+ * the API cannot write to, automatic backups switched off, or no backup that
+ * ever succeeded. Nothing while unknown.
  */
-export type BackupProblem = 'disabled' | 'noBackup';
+export type BackupProblem = 'notWritable' | 'disabled' | 'noBackup';
 
 export function backupProblems(health: BackupHealth | null | undefined): BackupProblem[] {
   if (!health) return [];
   const problems: BackupProblem[] = [];
-  if (!health.backupEnabled) problems.push('disabled');
-  if (!health.lastSuccessAt) problems.push('noBackup');
+  // Every backup fails while the folder cannot be written to (#537), even after earlier successes.
+  if (!health.directoryWritable) problems.push('notWritable');
+  // Absent fields: the API could not read them — nothing is claimed.
+  if (health.backupEnabled === false) problems.push('disabled');
+  if (health.lastSuccessAt === null) problems.push('noBackup');
   return problems;
 }
 
@@ -49,13 +53,13 @@ export function BackupMarker() {
 /** #756: in the purge confirmation, when the last backup succeeded — or that none did — and whether backups are off. */
 export function LastBackupNote({ health }: { health: BackupHealth | null | undefined }) {
   const { t, i18n } = useTranslation();
-  if (!health) return null;
+  if (!health || health.lastSuccessAt === undefined) return null;
   return (
     <p className="text-sm text-foreground">
       {health.lastSuccessAt
         ? t('admin.maintenance.purge.lastBackup', { date: formatDateTime(health.lastSuccessAt, i18n.language) })
         : t('admin.maintenance.purge.noBackupYet')}
-      {!health.backupEnabled && <> {t('admin.maintenance.purge.autoBackupOff')}</>}
+      {health.backupEnabled === false && <> {t('admin.maintenance.purge.autoBackupOff')}</>}
     </p>
   );
 }

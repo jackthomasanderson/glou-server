@@ -221,7 +221,7 @@ export const sharesService = {
     });
     const owners = await prisma.user.findMany({
       where: { id: { in: [...new Set(shares.map((s) => s.userId))] } },
-      select: { id: true, username: true, displayName: true },
+      select: { id: true, username: true, displayName: true, isActive: true },
     });
     const ownerById = new Map(owners.map((o) => [o.id, o]));
     // Field by field, so nothing else of the row can ever reach the admin.
@@ -236,7 +236,7 @@ export const sharesService = {
       writeCellarCount: share.writeCellarIds.length,
       collectionCount: share.collectionIds.length,
       createdAt: share.createdAt,
-      owner: ownerById.get(share.userId) ?? { id: share.userId, username: null, displayName: null },
+      owner: ownerById.get(share.userId) ?? { id: share.userId, username: null, displayName: null, isActive: false },
     }));
   },
 
@@ -247,10 +247,13 @@ export const sharesService = {
   async revokeAsAdmin(id: string): Promise<{ ownerId: string; revokedAt: Date; revoked: boolean } | null> {
     const share = await prisma.guestShare.findUnique({ where: { id }, select: { userId: true, revokedAt: true } });
     if (!share) return null;
-    if (share.revokedAt) return { ownerId: share.userId, revokedAt: share.revokedAt, revoked: false };
+    // Only a link still in force is revoked, so two revocations at once
+    // record one: the second updates nothing.
     const revokedAt = new Date();
-    await prisma.guestShare.update({ where: { id }, data: { revokedAt } });
-    return { ownerId: share.userId, revokedAt, revoked: true };
+    const { count } = await prisma.guestShare.updateMany({ where: { id, revokedAt: null }, data: { revokedAt } });
+    if (count === 1) return { ownerId: share.userId, revokedAt, revoked: true };
+    const current = await prisma.guestShare.findUnique({ where: { id }, select: { revokedAt: true } });
+    return { ownerId: share.userId, revokedAt: current?.revokedAt ?? share.revokedAt ?? revokedAt, revoked: false };
   },
 
   /**

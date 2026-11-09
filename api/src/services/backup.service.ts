@@ -203,13 +203,6 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
 
 export const backupService = {
   /**
-   * #537: with the shipped compose file, Docker on Linux creates a missing
-   * `./backups` bind-mount source as root, and this process (uid 1001)
-   * cannot write to it — every scheduled backup would then fail silently
-   * until someone opens the Backups tab. Checked at startup (logged) and
-   * exposed to the admin UI.
-   */
-  /**
    * #756: whether automatic backups are on (the schema's default, true, until
    * the settings row exists) and when a backup last succeeded, whatever its
    * trigger — what the admin page warns about.
@@ -222,6 +215,13 @@ export const backupService = {
     return { backupEnabled: config?.backupEnabled ?? true, lastSuccessAt: lastOk?.runAt ?? null };
   },
 
+  /**
+   * #537: with the shipped compose file, Docker on Linux creates a missing
+   * `./backups` bind-mount source as root, and this process (uid 1001)
+   * cannot write to it — every scheduled backup would then fail silently
+   * until someone opens the Backups tab. Checked at startup (logged) and
+   * exposed to the admin UI.
+   */
   isBackupsDirWritable(): boolean {
     try {
       ensureBackupsDir();

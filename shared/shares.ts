@@ -18,6 +18,10 @@ export interface AdminGuestShare {
   writeCellarCount: number;
   collectionCount: number;
   createdAt: string | Date;
-  /** The member who made it; username null only if that account is gone. */
-  owner: { id: string; username: string | null; displayName: string | null };
+  /**
+   * The member who made it; username null only if that account is gone. A
+   * deactivated owner's links no longer open (#486), but come back if the
+   * account is reactivated, unless revoked.
+   */
+  owner: { id: string; username: string | null; displayName: string | null; isActive: boolean };
 }
