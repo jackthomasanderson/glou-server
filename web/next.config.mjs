@@ -189,14 +189,14 @@ const nextConfig = {
       { source: '/uploads/:path*', destination: `${apiBase}/uploads/:path*` },
     ];
   },
-  // ISSUE_425: these three slugs only named part of their page (one of the
-  // tastings page's 3 tabs, the wishlist page's budget half, the analytics
-  // page's terroir map half). Permanent redirects so a bookmark or deep
-  // link made under the old slug keeps working.
+  // ISSUE_425: the wishlist and analytics slugs only named part of their page
+  // (the budget half, the terroir map half). #502: the tastings page is served
+  // at /tastings again; /cellar-journal is the old slug. Permanent redirects so
+  // a bookmark or deep link made under an old slug keeps working.
   async redirects() {
     return [
-      { source: '/tastings', destination: '/cellar-journal', permanent: true },
-      { source: '/tastings/:path*', destination: '/cellar-journal/:path*', permanent: true },
+      { source: '/cellar-journal', destination: '/tastings', permanent: true },
+      { source: '/cellar-journal/:path*', destination: '/tastings/:path*', permanent: true },
       { source: '/wishlist', destination: '/wishlist-budget', permanent: true },
       { source: '/wishlist/:path*', destination: '/wishlist-budget/:path*', permanent: true },
       { source: '/analytics', destination: '/analytics-terroirs', permanent: true },

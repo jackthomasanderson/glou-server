@@ -27,7 +27,7 @@
     "collections": "Collections",
     "tastings": "Dégustations",
     "analytics": "Analyses & Terroirs",
-    "inventoryCount": "Inventaire physique",
+    "inventoryCount": "Comptage",
     "wishlist": "Souhaits & Budget",
     "more": "Plus",
     "roleAdmin": "Administrateur",
@@ -1301,8 +1301,8 @@
     }
   },
   "inventoryCount": {
-    "title": "Inventaire physique",
-    "accessButton": "Inventaire physique",
+    "title": "Comptage",
+    "accessButton": "Comptage",
     "tabsAria": "Sections de la session d'inventaire",
     "tabs": {
       "counting": "Comptage",

@@ -67,7 +67,7 @@ describe('BottomNav accessibility (#204)', () => {
   });
 
   it('flags the "More" tab when the current page lives behind it', () => {
-    pathname = '/cellar-journal';
+    pathname = '/tastings';
     searchParams = new URLSearchParams();
     render(<BottomNav />);
     const more = screen.getByRole('button', { name: 'nav.more' });

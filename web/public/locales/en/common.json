@@ -27,7 +27,7 @@
     "collections": "Collections",
     "tastings": "Tastings",
     "analytics": "Analytics & Terroir",
-    "inventoryCount": "Physical Inventory",
+    "inventoryCount": "Stock count",
     "wishlist": "Wishlist & Budget",
     "more": "More",
     "roleAdmin": "Administrator",
@@ -1299,8 +1299,8 @@
     }
   },
   "inventoryCount": {
-    "title": "Physical Inventory",
-    "accessButton": "Physical Inventory",
+    "title": "Stock count",
+    "accessButton": "Stock count",
     "tabsAria": "Inventory count session sections",
     "tabs": {
       "counting": "Counting",

@@ -1,7 +1,7 @@
 # Record and browse tasting notes
 
 ## TL;DR
-Go to `/cellar-journal`, create a note linked to a wine (and, if you want, to a bottle of your cellar), see service recommendations, and browse your history, newest first.
+Go to `/tastings`, create a note linked to a wine (and, if you want, to a bottle of your cellar), see service recommendations, and browse your history, newest first.
 
 ## Prerequisites
 - Be logged in to Glou.
@@ -11,7 +11,7 @@ Go to `/cellar-journal`, create a note linked to a wine (and, if you want, to a 
 
 ### 1. Open the tasting journal
 
-Click **Tastings** in the main navigation (on a phone, in the **More** menu), or go directly to `/cellar-journal`.
+Click **Tastings** in the main navigation (on a phone, in the **More** menu), or go directly to `/tastings`.
 
 The page lists all your tasting notes, sorted newest-first, **20 notes per page**.
 

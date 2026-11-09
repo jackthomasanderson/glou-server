@@ -1,14 +1,14 @@
-# Faire l'inventaire physique de sa cave
+# Faire le comptage de sa cave
 
 ## TL;DR
-Depuis **Inventaire physique**, démarrez une session sur une cave ou un périmètre libre, dites combien de bouteilles de chaque ligne vous avez trouvées, puis clôturez pour appliquer en un clic les corrections (manquantes, en plus, inattendues).
+Depuis **Comptage**, démarrez une session sur une cave ou un périmètre libre, dites combien de bouteilles de chaque ligne vous avez trouvées, puis clôturez pour appliquer en un clic les corrections (manquantes, en plus, inattendues).
 
 ## Prérequis
 * Au moins une cave configurée pour bénéficier de la liste théorique automatique. Un « périmètre libre » reste possible sans cave, mais sans liste théorique.
 
 ## Action
 
-1. Ouvrez **Inventaire physique** dans la barre latérale.
+1. Ouvrez **Comptage** dans la barre latérale.
 2. Choisissez le mode de périmètre : **Cave existante** (liste théorique calculée automatiquement) ou **Périmètre libre** (libellé libre, ex. « Meuble A, Bac 3 » ; aucune liste théorique, toute bouteille confirmée est enregistrée comme trouvée).
 3. Cliquez **Démarrer la session**. L'onglet **Comptage** s'ouvre.
 4. Chaque groupe de bouteilles identiques tient sur une ligne avec son nombre (« ×6 ») : répondez à **Combien en avez-vous trouvé ?** (prérempli au nombre attendu) puis **Valider**. Une bouteille seule ou entamée se confirme d'un tap (**Confirmer**). La recherche (nom/producteur) ou le QR code d'un groupe amène à sa question, sans le confirmer en entier. Les lignes non pointées restent « En attente ».

@@ -1,14 +1,14 @@
-# Run a physical inventory count
+# Run a stock count
 
 ## TL;DR
-From **Physical Inventory**, start a session scoped to a cellar or a free-form area, say how many bottles of each line you found, then close the session to apply corrections (missing, extra, unexpected) in one click.
+From **Stock count**, start a session scoped to a cellar or a free-form area, say how many bottles of each line you found, then close the session to apply corrections (missing, extra, unexpected) in one click.
 
 ## Prerequisites
 * At least one cellar configured to get the automatic expected-items list. A "free-form scope" also works without a cellar, but has no expected list.
 
 ## Action
 
-1. Open **Physical Inventory** in the sidebar.
+1. Open **Stock count** in the sidebar.
 2. Choose the scope mode: **Existing cellar** (expected list computed automatically) or **Free-form scope** (free label, e.g. "Shelf A, Bin 3"; no expected list, every confirmed bottle is recorded as found).
 3. Click **Start session**. The **Counting** tab opens.
 4. Each group of identical bottles fits on one line with its number ("×6"): answer **How many did you find?** (prefilled with the number expected), then **Save**. A single or opened bottle is confirmed with one tap (**Confirm**). Searching (name/producer) or scanning a group's QR code takes you to its question without confirming it whole. Lines not counted yet stay "Pending".

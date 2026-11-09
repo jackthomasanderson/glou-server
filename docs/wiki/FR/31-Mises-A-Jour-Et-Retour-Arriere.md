@@ -60,10 +60,12 @@ Ce qui change dans vos données :
 Pour revenir en arrière, restaurez `glou-backup-before-migration-….sql.gz` avec l'image précédente (voir ci-dessous) : tout ce que vous avez saisi après la mise à jour est perdu.
 
 ## Revenir en arrière
-Chaque build est aussi publié sous un tag immuable nommé d'après le hash de commit complet qui l'a généré (par ex. `ghcr.io/jackthomasanderson/glou-server-api:a1b2c3…`), en plus des tags `latest`/`beta` qui eux sont mutables. Contrairement à ceux-ci, ce tag n'est jamais réécrit : vous pouvez donc vous y fixer plutôt que de rechercher un digest. Retrouvez le commit que vous faisiez tourner (`git log`, ou le digest noté ci-dessous) et utilisez son tag SHA, ou revenez par **digest** si c'est tout ce que vous avez conservé.
+Chaque version stable est publiée sous un tag immuable du type `v2026.10.0` (`vAAAA.MM`, ou `vAAAA.MM.PATCH`), en plus des tags `latest`/`beta` qui eux sont mutables. Contrairement à ceux-ci, un tag de version n'est jamais réécrit : **fixez les deux images sur le tag de la version que vous faisiez tourner avant la mise à jour** (la liste des versions se trouve dans le CHANGELOG, ou sur la page des packages GHCR). Inutile d'avoir une copie du dépôt ni d'avoir noté un digest.
+
+En secours, si vous ne connaissez pas cette version : chaque build est aussi publié sous un tag nommé d'après le hash de commit complet qui l'a généré (par ex. `…glou-server-api:a1b2c3…`), et vous pouvez revenir par **digest** si vous l'avez noté avant la mise à jour. Pour lire le commit d'une image encore présente sur la machine : `docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' <image>`.
 
 1. Arrêtez la pile : `docker compose down` (cela conserve vos volumes).
-2. Dans `docker-compose.yml`, fixez les deux images sur le tag SHA de commit voulu, par exemple `image: ghcr.io/jackthomasanderson/glou-server-api:a1b2c3…`, ou sur les digests notés, par ex. `image: ghcr.io/jackthomasanderson/glou-server-api@sha256:…`.
+2. Dans `docker-compose.yml`, fixez les deux images sur le tag de version voulu, par exemple `image: ghcr.io/jackthomasanderson/glou-server-api:v2026.10.0` (idem pour `glou-server-web`), ou, en secours, sur un tag SHA de commit ou les digests notés, par ex. `image: ghcr.io/jackthomasanderson/glou-server-api@sha256:…`.
 3. Démarrez seulement la base : `docker compose up -d db`.
 4. Restaurez la sauvegarde faite avant la mise à jour (le fichier `glou-backup-before-migration-….sql.gz` du dossier `./backups`, à côté de `docker-compose.yml` ; si la mise à jour n'apportait aucune migration, votre dernier `glou-backup-….sql.gz`) avec les deux commandes de l'étape 3 de [Reprise après sinistre](./30-Reprise-Apres-Sinistre.md) : vérifiez le fichier, puis restaurez-le.
 5. Démarrez tout : `docker compose up -d`. L'ancienne API trouve une base conforme à sa version et démarre normalement.

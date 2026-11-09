@@ -8,7 +8,7 @@ The **Consumption Plan** tab under Tastings shows a prioritized list of bottles 
 
 ## Action
 
-1. Go to **Tastings** (`/cellar-journal`) → **Consumption Plan** tab.
+1. Go to **Tastings** (`/tastings`) → **Consumption Plan** tab.
 2. Review the "Drink now / soon" list. Each suggestion is a **wine** (not one entry per line) and shows a reason: peak window, opened bottle, or stock rotation. When a bottle of the wine is already opened, the plan suggests **finishing it first**, before opening a new one.
 3. Click **Consume** to open the pre-filled tasting form (on the opened bottle if there is one, otherwise on the line Glou preselects, as for **I'm drinking one**), or **Postpone** to temporarily drop the suggestion (it can come back later if stock conditions have not changed).
 4. Set a monthly goal: click **Set a goal**, choose the type (bottle count or volume) and target value, then save.

@@ -28,7 +28,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/cigars': 'nav.cigars',
   '/cellars': 'nav.caves',
   '/collections': 'nav.collections',
-  '/cellar-journal': 'nav.tastings',
+  '/tastings': 'nav.tastings',
   '/analytics-terroirs': 'nav.analytics',
   '/profile': 'nav.profile',
   '/admin': 'nav.admin',

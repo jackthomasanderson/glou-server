@@ -103,7 +103,7 @@ test('"Nouvelle dégustation" of a wine never had adds it without any bottle', a
   const name = `E2E FEAT-107 c4 ${stamp()}`;
   let productId = '';
   try {
-    await page.goto('/cellar-journal');
+    await page.goto('/tastings');
     await page.getByRole('button', { name: 'Nouvelle dégustation' }).first().click();
     const form = page.getByRole('dialog').filter({ hasText: 'Nouvelle dégustation' });
     await form.getByRole('button', { name: "Ce vin n'est pas dans la liste" }).click();
@@ -158,7 +158,7 @@ test('a vintage corrected from 202 to 2020 in "Nouvelle dégustation" saves', as
   const name = `E2E RE vintage ${stamp()}`;
   let productId = '';
   try {
-    await page.goto('/cellar-journal');
+    await page.goto('/tastings');
     await page.getByRole('button', { name: 'Nouvelle dégustation' }).first().click();
     const form = page.getByRole('dialog').filter({ hasText: 'Nouvelle dégustation' });
     await form.getByRole('button', { name: "Ce vin n'est pas dans la liste" }).click();

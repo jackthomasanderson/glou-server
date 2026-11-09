@@ -21,7 +21,7 @@ const GREMLINS_PATH = fileURLToPath(
  */
 const SEED = Number(process.env.E2E_MONKEY_SEED || 202608);
 const GREMLIN_COUNT = Number(process.env.E2E_MONKEY_NB ?? 250);
-const ROUTES = ['/bottles', '/cigars', '/collections', '/cellars', '/cellar-journal', '/analytics-terroirs', '/wishlist-budget', '/profile'];
+const ROUTES = ['/bottles', '/cigars', '/collections', '/cellars', '/tastings', '/analytics-terroirs', '/wishlist-budget', '/profile'];
 
 test.describe('gremlins UI fuzz', () => {
   // A retry would replay the same seed and could pass on timing alone,

@@ -72,7 +72,7 @@ test('editing a tasting keeps its perceived maturity and expert grid', async ({ 
       )
     ).id;
 
-    await page.goto('/cellar-journal');
+    await page.goto('/tastings');
     await page.getByPlaceholder('Rechercher par met ou par bouteille...').fill(name);
     // Once the search has applied, this tasting's card is the only one left.
     await expect(page.getByText(`${name} — E2E Domaine`)).toBeVisible();

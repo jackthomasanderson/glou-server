@@ -86,6 +86,18 @@ npm run typecheck      # the Playwright specs are type-checked too
 - Frontend state uses React Query with stale-while-revalidate; invalidate related caches after every successful mutation.
 - Match the style of the surrounding code (naming, comments, structure).
 
+### Data model invariants
+
+These rules hold across the whole codebase; a change that breaks one is a bug, not a style choice.
+
+- **One shared inventory per instance.** A Glou deployment has a single inventory shared by all its members; there is no per-user cellar. Every authenticated member can read and write all cellars, families and items.
+- **`userId` on inventory is an audit field, never an access filter.** On `Cellar`, `Product`, `InventoryItem`, `TastingNote`, `InventoryCountSession` and `BudgetEnvelope` it records who created the row. Never filter or restrict inventory reads or writes by `userId`, and never delete shared rows because their creator left.
+- **Personal entities are the exception.** `ConsumptionGoal`, `WishlistItem`, `BulkPreset`, `ScanJob` and `Collection` belong to one member and are filtered by `userId` on purpose. A collection groups shared families (`Product`) but is itself personal. Computing a personal aggregate from the shared inventory (for example "what did I drink this month") is fine as long as it never hides inventory from anyone.
+- **Family, group, sub-item.** A family (`Product`) holds the description of a wine, spirit or cigar (producer, name, vintage, peak, notes, photo, collections). Its physical bottles or cigars are `InventoryItem` rows: a group of N identical items (`quantity`), or a sub-item (`quantity = 1`, `parentItemId` pointing to the group it came from) once one has its own state (opened, finished, partly smoked). Never assume "one row = one bottle".
+- **Count through `itemUnits`.** Every count, value or spend goes through the pure helpers in `shared/units.ts` (`itemUnits` and friends), never `count(*)` or a sum of `quantity` over rows. "In stock" is `IN_STOCK_ITEM_FILTER` (`api/src/lib/finished-item.ts`); do not rebuild that scope by hand.
+- **Shared contracts live in `shared/`.** A type or constant read by both `api/` and `web/` is declared once in `shared/` (no dependencies, no Zod, no Prisma types) and never copied by hand.
+- **Migrations only go forward.** Change the schema with Prisma Migrate; there is no "down" migration. The API takes a backup before applying pending migrations, and going back means restoring it.
+
 ### Internationalisation
 
 Every user-facing string needs a structured i18n key with **both** a French and an English value. Keep the FR/EN JSON files in sync; the JSON must stay valid.

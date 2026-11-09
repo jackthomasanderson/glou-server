@@ -8,7 +8,7 @@ L'onglet **Plan de consommation** de Dégustations affiche une liste priorisée 
 
 ## Action
 
-1. Allez dans **Dégustations** (`/cellar-journal`) → onglet **Plan de consommation**.
+1. Allez dans **Dégustations** (`/tastings`) → onglet **Plan de consommation**.
 2. Consultez la liste « À boire maintenant / prochainement ». Chaque suggestion est un **vin** (pas une bouteille par ligne) et affiche une raison : fenêtre d'apogée, bouteille entamée, ou rotation de stock. Quand une bouteille du vin est déjà entamée, le plan propose de **la finir d'abord**, avant d'en ouvrir une nouvelle.
 3. Cliquez **Consommer** pour ouvrir le formulaire de dégustation pré-rempli (sur la bouteille entamée si elle existe, sinon sur la ligne que Glou présélectionne comme pour **J'en bois une**), ou **Reporter** pour retirer temporairement la suggestion de la liste (elle peut revenir plus tard si la situation du stock ne change pas).
 4. Définissez un objectif mensuel : cliquez **Définir un objectif**, choisissez le type (nombre de bouteilles ou volume) et la valeur cible, puis enregistrez.

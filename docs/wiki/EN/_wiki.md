@@ -25,7 +25,7 @@ This documentation covers setup, configuration, and troubleshooting.
 20. [World Map, Heatmap & Filters](./20-World-Map-Heatmap-Filters.md)
 21. [Food Pairing](./21-Food-Pairing.md)
 22. [Consumption Plan](./22-Consumption-Plan.md)
-23. [Physical Inventory & Reconciliation](./23-Physical-Inventory-Reconciliation.md)
+23. [Stock Count & Reconciliation](./23-Physical-Inventory-Reconciliation.md)
 24. [Wishlist & Budget](./24-Wishlist-Budget.md)
 25. [Offline Mode](./25-Offline-Mode.md)
 26. [Label Scan](./26-Label-Scan.md)

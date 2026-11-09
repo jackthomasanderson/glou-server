@@ -34,7 +34,7 @@ export function BottomNav() {
   const moreLinks = [
     { label: t('nav.caves'), href: '/cellars', icon: <Warehouse size={20} /> },
     { label: t('nav.collections'), href: '/collections', icon: <Library size={20} /> },
-    { label: t('nav.tastings'), href: '/cellar-journal', icon: <Martini size={20} /> },
+    { label: t('nav.tastings'), href: '/tastings', icon: <Martini size={20} /> },
     { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={20} /> },
     { label: t('nav.wishlist'), href: '/wishlist-budget', icon: <Wallet size={20} /> },
     { label: t('nav.analytics'), href: '/analytics-terroirs', icon: <BarChart3 size={20} /> },

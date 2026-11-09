@@ -60,10 +60,12 @@ What changes in your data:
 To go back, restore `glou-backup-before-migration-….sql.gz` with the previous image (see below): everything you entered after the update is lost.
 
 ## Go back
-Each build is also published under an immutable tag named after the full commit SHA it was built from (e.g. `ghcr.io/jackthomasanderson/glou-server-api:a1b2c3…`), alongside the mutable `latest`/`beta` tags. Unlike those, that tag is never overwritten, so you can pin to it instead of tracking down a digest. Find the commit you were running (`git log`, or the digest noted below) and use its SHA tag, or go back by **digest** if you only kept that.
+Every stable release is published under an immutable version tag such as `v2026.10.0` (`vYYYY.MM`, or `vYYYY.MM.PATCH`), alongside the mutable `latest`/`beta` tags. Unlike those, a version tag is never overwritten: **pin the two images to the tag of the release you were running before the update** (the list of releases is in the CHANGELOG, or on the GHCR packages page). You do not need a copy of the repository or a noted digest.
+
+Fallbacks if you do not know that release: every build is also published under a tag named after the full commit SHA it was built from (e.g. `…glou-server-api:a1b2c3…`), and you can go back by **digest** if you noted it before updating. To read the commit of an image still on the host: `docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' <image>`.
 
 1. Stop the stack: `docker compose down` (this keeps your volumes).
-2. In `docker-compose.yml`, pin the two images to the commit SHA tag you want, for example `image: ghcr.io/jackthomasanderson/glou-server-api:a1b2c3…`, or to the digests you noted, e.g. `image: ghcr.io/jackthomasanderson/glou-server-api@sha256:…`.
+2. In `docker-compose.yml`, pin the two images to the release tag you want, for example `image: ghcr.io/jackthomasanderson/glou-server-api:v2026.10.0` (same for `glou-server-web`), or, as a fallback, to a commit SHA tag or the digests you noted, e.g. `image: ghcr.io/jackthomasanderson/glou-server-api@sha256:…`.
 3. Start only the database: `docker compose up -d db`.
 4. Restore the backup taken before the upgrade (the `glou-backup-before-migration-….sql.gz` file in the `./backups` folder, next to `docker-compose.yml`; if the update brought no migration, your latest `glou-backup-….sql.gz`) with the two commands of [Disaster recovery](./30-Disaster-Recovery.md) step 3: check the file, then restore it.
 5. Start everything: `docker compose up -d`. The older API finds a database matching its own version and starts normally.
