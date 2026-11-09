@@ -1,6 +1,6 @@
 'use client';
 
-import { cellarContentsLabel } from '@/lib/cellars/contents';
+import { cellarContentsLabel, cellarDeleteConfirmText } from '@/lib/cellars/contents';
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Button,
@@ -121,8 +121,8 @@ export const CellarDashboard: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<CellarTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<CellarStatusFilter>('all');
   const [deletingCellar, setDeletingCellar] = useState<Cellar | null>(null);
-  // Its name stays in the dialog while it closes (« la cave «  » ? » during the animation).
-  const [deletingName, setDeletingName] = useState('');
+  // Its name and counts stay in the dialog while it closes (« la cave «  » ? » during the animation).
+  const [deletingShown, setDeletingShown] = useState<Pick<Cellar, 'name' | 'stats'>>({ name: '' });
 
   // Parsing filters out of the URL query string is adjusted during render
   // (React's documented pattern) rather than in an effect, guarded against
@@ -268,7 +268,7 @@ export const CellarDashboard: React.FC = () => {
 
   const handleDelete = (cellar: Cellar) => {
     setDeletingCellar(cellar);
-    setDeletingName(cellar.name);
+    setDeletingShown(cellar);
   };
 
   const confirmDelete = async () => {
@@ -758,7 +758,7 @@ export const CellarDashboard: React.FC = () => {
             <>
               <ModalHeader>{t('cellars.deleteTitle')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-foreground-600">{t('cellars.deleteConfirm', { name: deletingName })}</p>
+                <p className="text-sm text-foreground-600">{cellarDeleteConfirmText(deletingShown, t)}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="default" variant="light" onPress={() => setDeletingCellar(null)}>

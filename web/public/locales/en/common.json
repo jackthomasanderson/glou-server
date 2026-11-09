@@ -599,6 +599,8 @@
     },
     "deleteTitle": "Delete cellar",
     "deleteConfirm": "Are you sure you want to delete the cellar “{{name}}”? The bottles and cigars inside will be left without a cellar.",
+    "deleteConfirmContents": "Delete the cellar “{{name}}”? What it holds ({{contents}}) will stay in the inventory, without a cellar.",
+    "deleteConfirmEmpty": "Delete the cellar “{{name}}”? It is empty.",
     "stats": {
       "alerts": "alerts",
       "alertCount_one": "{{count}} alert",

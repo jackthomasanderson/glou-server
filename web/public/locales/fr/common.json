@@ -599,6 +599,8 @@
     },
     "deleteTitle": "Supprimer la cave",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer la cave « {{name}} » ? Les bouteilles et les cigares qu'elle contient resteront sans cave.",
+    "deleteConfirmContents": "Supprimer la cave « {{name}} » ? Ce qu'elle contient ({{contents}}) restera dans l'inventaire, sans cave.",
+    "deleteConfirmEmpty": "Supprimer la cave « {{name}} » ? Elle est vide.",
     "stats": {
       "alerts": "alertes",
       "alertCount_one": "{{count}} alerte",
