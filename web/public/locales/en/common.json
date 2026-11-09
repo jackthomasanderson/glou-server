@@ -1281,7 +1281,8 @@
       "longueurBouche": "Finish length"
     },
     "expertSection": {
-      "title": "Structured tasting grid"
+      "title": "Structured tasting grid",
+      "seconds": "{{count}} s"
     },
     "readiness": {
       "TOO_YOUNG": "Too young",

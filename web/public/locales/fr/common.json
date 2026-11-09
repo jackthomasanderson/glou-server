@@ -1283,7 +1283,8 @@
       "longueurBouche": "Longueur en bouche"
     },
     "expertSection": {
-      "title": "Grille de dégustation structurée"
+      "title": "Grille de dégustation structurée",
+      "seconds": "{{count}} s"
     },
     "readiness": {
       "TOO_YOUNG": "Trop jeune",
