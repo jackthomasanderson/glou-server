@@ -22,7 +22,9 @@ import { backupService } from '../services/backup.service';
 import { auditLog, type AuditAction } from '../services/audit.service';
 import { adminReauthSchema } from '../schemas/auth.schema';
 import { authRateLimit } from '../lib/rate-limit';
-import type { PurgeResponse } from '../../../shared/maintenance';
+import type { BackupHealth, PurgeResponse } from '../../../shared/maintenance';
+import { AUDIT_ACTIONS, AUDIT_STATUSES } from '../../../shared/audit';
+import { sharesService } from '../services/shares.service';
 
 const adminRouter = Router();
 
@@ -77,7 +79,11 @@ const auditSuccess = (req: Request, audit: StepUpAudit): void => {
 const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit: 100 }).extend({
     // Free text over member, IP and action; status is exact; from/to bound createdAt (inclusive days).
     q: z.string().trim().max(100).optional(),
-    status: z.enum(['success', 'error', 'validation_error', 'not_found']).optional(),
+    status: z.enum(AUDIT_STATUSES).optional(),
+    // #698: comma-separated action types, any of which matches.
+    actions: z.string().optional()
+        .transform((v) => (v ? v.split(',').filter(Boolean) : []))
+        .pipe(z.array(z.enum(AUDIT_ACTIONS)).max(AUDIT_ACTIONS.length)),
     from: z.coerce.date().optional(),
     to: z.coerce.date().optional(),
 });
@@ -303,6 +309,51 @@ adminRouter.post('/users/:userId/reset-password', resetPasswordLimiter, async (r
 });
 
 /**
+ * @route   GET /api/admin/shares
+ * @desc    #486: every member's guest links still in force — who made each,
+ *          for whom, what it opens and until when. Never the link itself.
+ * @access  Admin Private
+ */
+adminRouter.get('/shares', async (_req: Request, res: Response): Promise<void> => {
+    try {
+        res.json({ data: await sharesService.listActiveForAdmin() });
+    } catch (error) {
+        console.error('[Admin] Error listing guest links:', error);
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+/**
+ * @route   DELETE /api/admin/shares/:id
+ * @desc    #486: revoke any member's guest link (a leaked link, a guest who
+ *          should no longer see the cellar). Audited.
+ * @access  Admin Private
+ */
+adminRouter.delete('/shares/:id', async (req: Request, res: Response): Promise<void> => {
+    const id = routeParam(req.params.id);
+    try {
+        const result = await sharesService.revokeAsAdmin(id);
+        if (!result) {
+            res.status(404).json({ error: 'SHARE_NOT_FOUND' });
+            return;
+        }
+        if (result.revoked) {
+            void auditLog({
+                userId: req.userId,
+                action: 'ADMIN_SHARE_REVOKE',
+                status: 'success',
+                ip: getClientIp(req),
+                details: { shareId: id, ownerId: result.ownerId },
+            });
+        }
+        res.json({ data: { id, revokedAt: result.revokedAt } });
+    } catch (error) {
+        console.error('[Admin] Error revoking guest link:', error);
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+/**
  * @route   GET /api/admin/audit-logs
  * @desc    Get paginated audit log for the instance
  * @access  Admin Private
@@ -313,7 +364,7 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
         res.status(400).json({ error: 'VALIDATION_ERROR', details: query.error.format() });
         return;
     }
-    const { page, limit, q, status, from, to } = query.data;
+    const { page, limit, q, status, actions, from, to } = query.data;
     const skip = (page - 1) * limit;
 
     const where: Prisma.AuditLogWhereInput = {};
@@ -326,6 +377,7 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
         ];
     }
     if (status) where.status = status;
+    if (actions.length > 0) where.action = { in: actions };
     if (from || to) {
         where.createdAt = {};
         if (from) where.createdAt.gte = from;
@@ -749,8 +801,17 @@ adminRouter.get('/backups/runs', async (req: Request, res: Response): Promise<vo
  * @desc    Whether the API can write to its backups folder (#537)
  * @access  Admin
  */
-adminRouter.get('/backups/health', (_req: Request, res: Response): void => {
-  res.json({ data: { directoryWritable: backupService.isBackupsDirWritable() } });
+adminRouter.get('/backups/health', async (_req: Request, res: Response): Promise<void> => {
+  const data: BackupHealth = { directoryWritable: backupService.isBackupsDirWritable() };
+  try {
+    // #756: also whether automatic backups run and when one last succeeded,
+    // so the admin page can warn when the instance has no recovery point.
+    Object.assign(data, await backupService.getStatus());
+  } catch (error) {
+    // The folder check (#537) still answers when the database read fails.
+    console.error('[Admin] Error reading backup status:', error);
+  }
+  res.json({ data });
 });
 
 /**

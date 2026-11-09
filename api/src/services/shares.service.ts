@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma';
 import { ShareCreateInput } from '../schemas/shares.schema';
 import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import type { GuestUndoMarker } from '../lib/guest-write';
+import type { AdminGuestShare } from '../../../shared/shares';
 
 function isShareValid(share: { expiresAt: Date | null; revokedAt: Date | null }): boolean {
   if (share.revokedAt) return false;
@@ -26,6 +27,21 @@ function toPublicShare(share: GuestShare): Omit<GuestShare, 'tokenHash'> {
   const { tokenHash: _tokenHash, ...rest } = share;
   return rest;
 }
+
+/** #486: what the admin reads of a link — never its token hash. */
+const ADMIN_SHARE_SELECT = {
+  id: true,
+  label: true,
+  inviteeName: true,
+  expiresAt: true,
+  hidePrices: true,
+  hideNotes: true,
+  cellarIds: true,
+  writeCellarIds: true,
+  collectionIds: true,
+  userId: true,
+  createdAt: true,
+} as const satisfies Prisma.GuestShareSelect;
 
 /**
  * `userId` is the audit trail of who created the share, not an inventory
@@ -191,6 +207,53 @@ export const sharesService = {
       data: { revokedAt: new Date() },
     });
     return toPublicShare(updated);
+  },
+
+  /**
+   * #486: every member's links still in force, for the admin, with who made
+   * each. Only what describes a link: the select leaves its token hash out.
+   */
+  async listActiveForAdmin(): Promise<AdminGuestShare[]> {
+    const shares = await prisma.guestShare.findMany({
+      where: { revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      select: ADMIN_SHARE_SELECT,
+      orderBy: { createdAt: 'desc' },
+    });
+    const owners = await prisma.user.findMany({
+      where: { id: { in: [...new Set(shares.map((s) => s.userId))] } },
+      select: { id: true, username: true, displayName: true, isActive: true },
+    });
+    const ownerById = new Map(owners.map((o) => [o.id, o]));
+    // Field by field, so nothing else of the row can ever reach the admin.
+    return shares.map((share) => ({
+      id: share.id,
+      label: share.label,
+      inviteeName: share.inviteeName,
+      expiresAt: share.expiresAt,
+      hidePrices: share.hidePrices,
+      hideNotes: share.hideNotes,
+      cellarCount: share.cellarIds.length,
+      writeCellarCount: share.writeCellarIds.length,
+      collectionCount: share.collectionIds.length,
+      createdAt: share.createdAt,
+      owner: ownerById.get(share.userId) ?? { id: share.userId, username: null, displayName: null, isActive: false },
+    }));
+  },
+
+  /**
+   * #486: an admin revokes any member's link. Null when there is no such
+   * link; `revoked` false when it was already revoked (left as it is).
+   */
+  async revokeAsAdmin(id: string): Promise<{ ownerId: string; revokedAt: Date; revoked: boolean } | null> {
+    const share = await prisma.guestShare.findUnique({ where: { id }, select: { userId: true, revokedAt: true } });
+    if (!share) return null;
+    // Only a link still in force is revoked, so two revocations at once
+    // record one: the second updates nothing.
+    const revokedAt = new Date();
+    const { count } = await prisma.guestShare.updateMany({ where: { id, revokedAt: null }, data: { revokedAt } });
+    if (count === 1) return { ownerId: share.userId, revokedAt, revoked: true };
+    const current = await prisma.guestShare.findUnique({ where: { id }, select: { revokedAt: true } });
+    return { ownerId: share.userId, revokedAt: current?.revokedAt ?? share.revokedAt ?? revokedAt, revoked: false };
   },
 
   /**

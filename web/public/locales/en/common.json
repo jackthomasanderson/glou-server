@@ -939,7 +939,8 @@
         "search": "Search",
         "searchPlaceholder": "Member, IP address or action",
         "from": "From",
-        "to": "To"
+        "to": "To",
+        "actions": "Action types"
       },
       "title": "Audit Log",
       "subtitle": "All actions performed on this instance.",
@@ -953,12 +954,66 @@
       "noLogs": "No log entries",
       "prevPage": "Previous",
       "nextPage": "Next",
-      "pageInfo": "Page {{page}} / {{pages}} — {{total}} entries"
+      "pageInfo": "Page {{page}} / {{pages}} — {{total}} entries",
+      "actions": {
+        "LIST": "List viewed",
+        "CREATE": "Item added",
+        "READ": "Item viewed",
+        "UPDATE": "Item changed",
+        "DELETE": "Item deleted",
+        "RESTORE": "Item restored",
+        "RESTORE_FIELD": "Value restored",
+        "LOGIN": "Sign-in",
+        "LOGIN_2FA": "Sign-in with two-factor",
+        "LOGOUT": "Sign-out",
+        "REGISTER": "Registration",
+        "CELLAR_CREATE": "Cellar created",
+        "CELLAR_READ": "Cellar viewed",
+        "CELLAR_UPDATE": "Cellar changed",
+        "CELLAR_DELETE": "Cellar deleted",
+        "CELLAR_SWAP_SLOTS": "Slots swapped",
+        "COLLECTION_CREATE": "Collection created",
+        "COLLECTION_UPDATE": "Collection changed",
+        "COLLECTION_DELETE": "Collection deleted",
+        "SESSION_REVOKE": "Session revoked",
+        "TRUST_DEVICE": "Device trusted",
+        "UNTRUST_DEVICE": "Device no longer trusted",
+        "BACKUP_CODES_REGENERATE": "Backup codes regenerated",
+        "PIN_SET": "PIN set",
+        "PIN_REMOVE": "PIN removed",
+        "ADMIN_ROLE_CHANGE": "Admin role changed",
+        "ADMIN_STATUS_CHANGE": "Account enabled or disabled",
+        "ADMIN_SHARE_REVOKE": "Guest link revoked by an admin",
+        "GUEST_UPDATE": "Change by a guest",
+        "GUEST_TASTING": "Tasting noted by a guest",
+        "ONBOARDING_COMPLETE": "Onboarding completed",
+        "IMPORT_CSV": "CSV import",
+        "SCAN": "Label scan",
+        "HUMIDOR_READING_CREATE": "Humidor reading",
+        "ADD_UNITS": "Bottles added",
+        "CORRECT_QUANTITY": "Count corrected",
+        "MERGE_PRODUCTS": "Wines merged",
+        "DISTINGUISH_PRODUCTS": "Wines kept apart",
+        "REVIEW_OK": "Check confirmed",
+        "MOVE_UNITS": "Bottles moved",
+        "REPRICE_UNITS": "Price changed",
+        "BACKUP_RESTORE": "Backup restored",
+        "BACKUP_DOWNLOAD": "Backup downloaded",
+        "PURGE": "Data purge",
+        "CONFIG_UPDATE": "Settings changed",
+        "CONFIG_TEST": "Settings test"
+      },
+      "statuses": {
+        "success": "Succeeded",
+        "error": "Error",
+        "validation_error": "Rejected, invalid input",
+        "not_found": "Not found"
+      }
     },
     "maturityRefs": {
       "title": "Peak Maturity References",
       "subtitle": "Define reference drinking windows by category, region, color, or producer.",
-      "cascadeHint": "Rules are evaluated top to bottom — the first one that matches a wine wins. Put your most specific rules above the general ones.",
+      "cascadeHint": "Rules are evaluated top to bottom — the first one that matches a bottle wins. Put your most specific rules above the general ones.",
       "add": "Add reference",
       "addTitle": "New peak maturity reference",
       "editTitle": "Edit reference",
@@ -1004,6 +1059,8 @@
         "nameRequired": "Name is required.",
         "windowInvalid": "Window end must be ≥ window start."
       },
+      "bottleCount_one": "{{count}} bottle",
+      "bottleCount_other": "{{count}} bottles",
       "relativeWindow": "{{from}} → {{to}} years"
     },
     "maintenance": {
@@ -1029,8 +1086,35 @@
           "cellars_other": "{{count}} cellars deleted",
           "logs_one": "{{count}} log entry deleted",
           "logs_other": "{{count}} log entries deleted"
-        }
+        },
+        "lastBackup": "Last successful backup: {{date}}.",
+        "noBackupYet": "No backup has succeeded yet.",
+        "autoBackupOff": "Automatic backups are switched off."
       }
+    },
+    "sections": {
+      "navLabel": "Administration sections"
+    },
+    "backupWarning": {
+      "notWritable": "Glou cannot write to the backups folder: every backup fails.",
+      "disabled": "Automatic backups are switched off: no copy of the data is taken each night.",
+      "noBackup": "No backup has ever succeeded: after a disk failure or a wrong move, nothing could be restored.",
+      "open": "Open backups",
+      "marker": "Needs attention: no up-to-date backup"
+    },
+    "shares": {
+      "title": "Guest links",
+      "subtitle": "Every member's guest links still in force. The link itself is never shown; you can revoke it.",
+      "empty": "No guest link in force.",
+      "loadError": "Unable to load the guest links.",
+      "owner": "Made by {{name}}",
+      "createdAt": "Created on {{date}}",
+      "ownerDeactivated": "This member's account is deactivated: the link no longer works, but it would work again if the account were reactivated. Revoke it to cut it for good.",
+      "unnamed": "Unnamed link",
+      "revokeTitle": "Revoke this guest link?",
+      "revokeBody": "The link “{{label}}” made by {{owner}} will stop working at once. To give access again, the member will have to make a new link.",
+      "revoked": "Guest link revoked.",
+      "revokeError": "The link could not be revoked. Try again."
     }
   },
   "bulk": {

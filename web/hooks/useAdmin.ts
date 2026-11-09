@@ -4,6 +4,8 @@ import { notifyError, notifySuccess } from '../lib/toast';
 import { maturityReferenceClient } from '../lib/maturity-references/client';
 import { MaturityReference, MaturityReferenceInput } from '../lib/maturity-references/types';
 import type { PurgeResponse } from '@shared/maintenance';
+import type { AdminGuestShare } from '@shared/shares';
+import { configClient } from '../lib/config/client';
 
 export interface AdminUser {
     id: string;
@@ -110,6 +112,8 @@ export function useResetUserPassword() {
 export interface AuditLogFilters {
     q?: string;
     status?: string;
+    /** #698: action types, any of which matches; sent comma-separated. */
+    actions?: string[];
     from?: string;
     to?: string;
 }
@@ -120,7 +124,8 @@ export function useAdminAuditLogs(page = 1, limit = 50, filters: AuditLogFilters
         queryFn: async (): Promise<AuditLogResponse> => {
             const params = new URLSearchParams({ page: String(page), limit: String(limit) });
             for (const [key, value] of Object.entries(filters)) {
-                if (value) params.set(key, value);
+                const text = Array.isArray(value) ? value.join(',') : value;
+                if (text) params.set(key, text);
             }
             const response = await api.get<AuditLogResponse>(`/admin/audit-logs?${params.toString()}`);
             return response.data;
@@ -219,5 +224,41 @@ export function useReorderMaturityReferences() {
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: key });
         },
+    });
+}
+
+// ─── Backups state (#756) ─────────────────────────────────────────────────────
+
+export const ADMIN_BACKUP_HEALTH_KEY = ['admin_backup_health'];
+
+/** Whether backups run and when one last succeeded: the admin page warns when there is no recovery point. */
+export function useAdminBackupHealth() {
+    return useQuery({
+        queryKey: ADMIN_BACKUP_HEALTH_KEY,
+        queryFn: () => configClient.getBackupHealth(),
+        staleTime: 30_000,
+    });
+}
+
+// ─── Guest links (#486) ───────────────────────────────────────────────────────
+
+export type { AdminGuestShare };
+
+/** Every member's guest links still in force — never the links themselves. */
+export function useAdminShares() {
+    return useQuery({
+        queryKey: ['admin_shares'],
+        queryFn: async (): Promise<AdminGuestShare[]> => (await api.get<AdminGuestShare[]>('/admin/shares')).data,
+    });
+}
+
+export function useRevokeAdminShare() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        meta: { handlesError: true },
+        mutationFn: async (id: string) => (await api.delete<{ id: string; revokedAt: string }>(`/admin/shares/${id}`)).data,
+        onError: () => notifyError('admin.shares.revokeError'),
+        onSuccess: () => notifySuccess('admin.shares.revoked'),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ['admin_shares'] }),
     });
 }

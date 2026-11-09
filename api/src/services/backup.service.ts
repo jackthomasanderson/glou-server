@@ -203,6 +203,19 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
 
 export const backupService = {
   /**
+   * #756: whether automatic backups are on (the schema's default, true, until
+   * the settings row exists) and when a backup last succeeded, whatever its
+   * trigger — what the admin page warns about.
+   */
+  async getStatus(): Promise<{ backupEnabled: boolean; lastSuccessAt: Date | null }> {
+    const [config, lastOk] = await Promise.all([
+      prisma.systemConfig.findUnique({ where: { id: 'singleton' }, select: { backupEnabled: true } }),
+      prisma.backupRun.findFirst({ where: { success: true }, orderBy: { runAt: 'desc' }, select: { runAt: true } }),
+    ]);
+    return { backupEnabled: config?.backupEnabled ?? true, lastSuccessAt: lastOk?.runAt ?? null };
+  },
+
+  /**
    * #537: with the shipped compose file, Docker on Linux creates a missing
    * `./backups` bind-mount source as root, and this process (uid 1001)
    * cannot write to it — every scheduled backup would then fail silently
