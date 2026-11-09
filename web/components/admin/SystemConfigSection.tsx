@@ -14,6 +14,7 @@ import { useScanStatus } from '@/hooks/useScan';
 import { formatDateTime } from '@/lib/format';
 import { copyText } from '@/lib/clipboard';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { BackupMarker } from '@/components/admin/BackupWarning';
 
 const SCAN_PROFILE_COMMAND = 'docker compose --profile scan up -d';
 
@@ -23,7 +24,17 @@ const SCAN_PROFILE_COMMAND = 'docker compose --profile scan up -d';
  */
 const RESTORE_REFUSALS = new Set(['BACKUP_BEFORE_RESTORE_FAILED', 'BACKUP_FROM_OLDER_VERSION', 'BACKUP_FROM_NEWER_VERSION']);
 
-export function SystemConfigSection() {
+interface SystemConfigSectionProps {
+  /** #756: automatic backups off or none ever succeeded — the Backups tab is marked. */
+  hasBackupProblem?: boolean;
+  /** #756: the page opens a given tab (the Backups one, from its warning). */
+  selectedTab?: string;
+  onTabChange?: (tab: string) => void;
+  /** #756: a backup setting changed or a backup ran, so the page re-reads the backup state. */
+  onBackupChange?: () => void;
+}
+
+export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onTabChange, onBackupChange }: SystemConfigSectionProps = {}) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const [config, setConfig] = useState<SystemConfigPublic | null>(null);
@@ -323,6 +334,7 @@ export function SystemConfigSection() {
         backupHourUtc: parseInt(backup.backupHourUtc, 10),
       });
       setConfig(updated);
+      onBackupChange?.();
       showFeedback('success', t('adminConfig.backup.saved'));
     } catch (err) {
       showFeedback('error', err instanceof Error ? err.message : 'Error');
@@ -336,6 +348,7 @@ export function SystemConfigSection() {
     try {
       const run = await configClient.runBackupNow();
       setBackupRuns((r) => [run, ...r]);
+      onBackupChange?.();
       if (run.success) showFeedback('success', t('adminConfig.backup.runNow.success'));
       else showFeedback('error', t('adminConfig.backup.runNow.error', { error: run.error ?? 'Unknown' }));
     } catch (err) {
@@ -370,6 +383,7 @@ export function SystemConfigSection() {
     } finally {
       // The safety backup taken first (or its failure) is now in the history (#666).
       configClient.getBackupRuns().then(setBackupRuns).catch(() => {});
+      onBackupChange?.();
     }
   };
 
@@ -404,14 +418,14 @@ export function SystemConfigSection() {
 
   if (loading) {
     return (
-      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6 flex flex-col gap-3">
+      <div className="bg-content1 border border-divider rounded-2xl p-4 sm:p-6 flex flex-col gap-3">
         {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 rounded-lg" />)}
       </div>
     );
   }
 
   return (
-    <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+    <div className="bg-content1 border border-divider rounded-2xl p-4 sm:p-6">
       <div className="flex items-center gap-2 mb-4">
         <Settings size={18} className="text-primary" />
         <h2 className="text-base font-semibold">{t('adminConfig.title')}</h2>
@@ -424,19 +438,19 @@ export function SystemConfigSection() {
         </div>
       )}
 
-      {/* 8 onglets ne tiennent pas sur une largeur de carte standard : sans
-          contrainte, HeroUI les laisse déborder hors de la carte plutôt que
-          de les faire défiler. `overflow-x-auto` + `flex-nowrap` les
-          maintient sur une seule ligne, défilable horizontalement, bornée
-          par la carte. `base` doit aussi être contraint (`w-full min-w-0`) :
-          sinon le wrapper `inline-flex` de HeroUI grandit pour accueillir
-          tous les onglets et l'overflow remonte jusqu'à la page entière. */}
+      {/* #698: nine tabs are wider than the card at most widths. They wrap onto
+          as many lines as needed instead of scrolling: a scrolling tab list
+          hid the last tabs (About included) with nothing showing they were
+          there. `base` is bounded (`w-full min-w-0`) so HeroUI's inline-flex
+          wrapper does not grow to fit every tab on one line. */}
       <Tabs
         variant="underlined"
         color="primary"
         size="md"
         aria-label={t('adminConfig.tabsAriaLabel')}
-        classNames={{ base: 'w-full min-w-0', tabList: 'w-full overflow-x-auto flex-nowrap' }}
+        selectedKey={selectedTab}
+        onSelectionChange={onTabChange ? (key) => onTabChange(String(key)) : undefined}
+        classNames={{ base: 'w-full min-w-0', tabList: 'w-full flex-wrap gap-y-1 overflow-visible' }}
       >
         {/* ── SMTP ── */}
         <Tab key="smtp" title={<span className="flex items-center gap-1.5"><Mail size={14} />{t('adminConfig.tabs.smtp')}</span>}>
@@ -632,7 +646,7 @@ export function SystemConfigSection() {
         </Tab>
 
         {/* ── Scheduled Backups (FEAT-18) ── */}
-        <Tab key="backups" title={<span className="flex items-center gap-1.5"><Archive size={14} />{t('adminConfig.tabs.backups')}</span>}>
+        <Tab key="backups" title={<span className="flex items-center gap-1.5"><Archive size={14} />{t('adminConfig.tabs.backups')}{hasBackupProblem && <BackupMarker />}</span>}>
           <div className="flex flex-col gap-6 pt-4">
             <div className="flex flex-col gap-4">
               <p className="text-sm text-foreground-500">{t('adminConfig.backup.description')}</p>

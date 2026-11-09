@@ -99,3 +99,22 @@ describe('SystemConfigSection — backups folder health (#669)', () => {
     expect(await screen.findByText('adminConfig.backup.dirCheckFailed')).toBeInTheDocument();
   });
 });
+
+// #756: the Backups tab title carries a marker while backups are off or none succeeded.
+describe('SystemConfigSection — Backups tab marker (#756)', () => {
+  it('marks the Backups tab when the page reports a backup problem', async () => {
+    stubApi({ status: 200, body: { data: { directoryWritable: true } } });
+    render(<SystemConfigSection hasBackupProblem />);
+    await loaded();
+    const marker = screen.getByRole('img', { name: 'admin.backupWarning.marker' });
+    expect(marker.closest('section')).toHaveTextContent('adminConfig.tabs.backups');
+  });
+
+  it('shows no marker otherwise', async () => {
+    stubApi({ status: 200, body: { data: { directoryWritable: true } } });
+    render(<SystemConfigSection />);
+    await loaded();
+    expect(screen.queryByRole('img', { name: 'admin.backupWarning.marker' })).toBeNull();
+  });
+});
+

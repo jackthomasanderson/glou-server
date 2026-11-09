@@ -941,7 +941,8 @@
         "search": "Rechercher",
         "searchPlaceholder": "Membre, adresse IP ou action",
         "from": "Du",
-        "to": "Au"
+        "to": "Au",
+        "actions": "Types d'action"
       },
       "title": "Journal d'audit",
       "subtitle": "Toutes les actions effectuées sur cette instance.",
@@ -955,7 +956,61 @@
       "noLogs": "Aucune entrée de journal",
       "prevPage": "Précédent",
       "nextPage": "Suivant",
-      "pageInfo": "Page {{page}} / {{pages}} — {{total}} entrées"
+      "pageInfo": "Page {{page}} / {{pages}} — {{total}} entrées",
+      "actions": {
+        "LIST": "Consultation d'une liste",
+        "CREATE": "Ajout",
+        "READ": "Consultation d'une fiche",
+        "UPDATE": "Modification",
+        "DELETE": "Suppression",
+        "RESTORE": "Restauration",
+        "RESTORE_FIELD": "Valeur rétablie",
+        "LOGIN": "Connexion",
+        "LOGIN_2FA": "Connexion avec double authentification",
+        "LOGOUT": "Déconnexion",
+        "REGISTER": "Inscription",
+        "CELLAR_CREATE": "Cave créée",
+        "CELLAR_READ": "Cave consultée",
+        "CELLAR_UPDATE": "Cave modifiée",
+        "CELLAR_DELETE": "Cave supprimée",
+        "CELLAR_SWAP_SLOTS": "Emplacements échangés",
+        "COLLECTION_CREATE": "Collection créée",
+        "COLLECTION_UPDATE": "Collection modifiée",
+        "COLLECTION_DELETE": "Collection supprimée",
+        "SESSION_REVOKE": "Session fermée",
+        "TRUST_DEVICE": "Appareil de confiance ajouté",
+        "UNTRUST_DEVICE": "Appareil de confiance retiré",
+        "BACKUP_CODES_REGENERATE": "Codes de secours régénérés",
+        "PIN_SET": "Code PIN défini",
+        "PIN_REMOVE": "Code PIN retiré",
+        "ADMIN_ROLE_CHANGE": "Rôle d'administrateur changé",
+        "ADMIN_STATUS_CHANGE": "Compte activé ou désactivé",
+        "ADMIN_SHARE_REVOKE": "Lien invité révoqué par un administrateur",
+        "GUEST_UPDATE": "Modification par un invité",
+        "GUEST_TASTING": "Dégustation notée par un invité",
+        "ONBOARDING_COMPLETE": "Prise en main terminée",
+        "IMPORT_CSV": "Import CSV",
+        "SCAN": "Scan d'étiquette",
+        "HUMIDOR_READING_CREATE": "Relevé d'humidor",
+        "ADD_UNITS": "Bouteilles ajoutées",
+        "CORRECT_QUANTITY": "Nombre corrigé",
+        "MERGE_PRODUCTS": "Vins fusionnés",
+        "DISTINGUISH_PRODUCTS": "Vins distingués",
+        "REVIEW_OK": "Vérification confirmée",
+        "MOVE_UNITS": "Bouteilles déplacées",
+        "REPRICE_UNITS": "Prix changé",
+        "BACKUP_RESTORE": "Sauvegarde restaurée",
+        "BACKUP_DOWNLOAD": "Sauvegarde téléchargée",
+        "PURGE": "Purge des données",
+        "CONFIG_UPDATE": "Paramètres modifiés",
+        "CONFIG_TEST": "Test des paramètres"
+      },
+      "statuses": {
+        "success": "Réussi",
+        "error": "Erreur",
+        "validation_error": "Refusé, données invalides",
+        "not_found": "Introuvable"
+      }
     },
     "maturityRefs": {
       "title": "Références d'apogée",
@@ -1006,6 +1061,8 @@
         "nameRequired": "Le nom est obligatoire.",
         "windowInvalid": "La fenêtre de fin doit être ≥ à la fenêtre de début."
       },
+      "bottleCount_one": "{{count}} bouteille",
+      "bottleCount_other": "{{count}} bouteilles",
       "relativeWindow": "{{from}} → {{to}} ans"
     },
     "maintenance": {
@@ -1031,8 +1088,33 @@
           "cellars_other": "{{count}} caves supprimées",
           "logs_one": "{{count}} entrée de log supprimée",
           "logs_other": "{{count}} entrées de log supprimées"
-        }
+        },
+        "lastBackup": "Dernière sauvegarde réussie : {{date}}.",
+        "noBackupYet": "Aucune sauvegarde n'a encore réussi.",
+        "autoBackupOff": "Les sauvegardes automatiques sont désactivées."
       }
+    },
+    "sections": {
+      "navLabel": "Sections de l'administration"
+    },
+    "backupWarning": {
+      "disabled": "Les sauvegardes automatiques sont désactivées : aucune copie des données n'est faite chaque nuit.",
+      "noBackup": "Aucune sauvegarde n'a jamais réussi : en cas de panne du disque ou de mauvaise manipulation, rien ne pourra être restauré.",
+      "open": "Ouvrir les sauvegardes",
+      "marker": "À vérifier : pas de sauvegarde à jour"
+    },
+    "shares": {
+      "title": "Liens invités",
+      "subtitle": "Les liens invités encore valables de chaque membre. Le lien lui-même n'est jamais affiché ; vous pouvez le révoquer.",
+      "empty": "Aucun lien invité en cours.",
+      "loadError": "Impossible de charger les liens invités.",
+      "owner": "Créé par {{name}}",
+      "createdAt": "Créé le {{date}}",
+      "unnamed": "Lien sans nom",
+      "revokeTitle": "Révoquer ce lien invité ?",
+      "revokeBody": "Le lien « {{label}} » créé par {{owner}} cessera de fonctionner immédiatement. Pour rendre l'accès, le membre devra créer un nouveau lien.",
+      "revoked": "Lien invité révoqué.",
+      "revokeError": "Le lien n'a pas pu être révoqué. Réessayez."
     }
   },
   "bulk": {

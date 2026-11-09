@@ -1,4 +1,5 @@
 import { client, handleResponse } from '@/lib/api';
+import type { BackupHealth } from '@shared/maintenance';
 
 /**
  * A restore takes a safety backup, then replays a whole dump (#666): far more
@@ -217,8 +218,8 @@ export const configClient = {
     return data;
   },
 
-  async getBackupHealth(): Promise<{ directoryWritable: boolean }> {
-    const { data } = await client.get<{ directoryWritable: boolean }>('/admin/backups/health');
+  async getBackupHealth(): Promise<BackupHealth> {
+    const { data } = await client.get<BackupHealth>('/admin/backups/health');
     return data;
   },
 
