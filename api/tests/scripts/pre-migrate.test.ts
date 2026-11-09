@@ -191,6 +191,7 @@ describe('preMigrate', () => {
     expect(errors[0]).toContain('PG_DUMP_FAILED');
     expect(errors[0]).toContain('Nothing was migrated');
     expect(errors[0]).toContain('sudo chown 1001:1001 backups');
+    expect(errors[0]).toContain('Portainer');
   });
 
   it('backups folder not writable: exit 1 before any dump, and says how to fix the folder', async () => {
@@ -204,6 +205,9 @@ describe('preMigrate', () => {
     expect(errors[0]).toMatch(/^\[backup\] /);
     expect(errors[0]).toContain('not writable');
     expect(errors[0]).toContain('mkdir -p backups && sudo chown 1001:1001 backups');
+    // #900: a stack run from Portainer has no Glou folder on the host.
+    expect(errors[0]).toContain('Portainer');
+    expect(errors[0]).toContain('absolute host path');
     expect(errors[0]).toContain('Nothing was migrated');
   });
 

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Client } from 'pg';
 import {
-  BACKUPS_DIR, backupFileDate, backupFileName, execPgDump, isBeforeMigrationBackup, isCompleteGzip, parseDatabaseUrl,
+  BACKUPS_DIR, BACKUPS_DIR_FIX_HINT, backupFileDate, backupFileName, execPgDump, isBeforeMigrationBackup, isCompleteGzip, parseDatabaseUrl,
 } from '../lib/pg-dump';
 
 // design.md "Sauvegarde & Migration": before `prisma migrate deploy`, the
@@ -80,18 +80,17 @@ const uid = () => process.getuid?.() ?? '?';
 export function backupsDirNotWritableMessage(dir: string): string {
   return `[backup] Migrations are pending, but ${dir} is not writable by this process (uid ${uid()}), `
     + 'so the backup taken before migrating could not be written. Nothing was migrated and Glou did not start. '
-    + 'Most likely the backups folder next to docker-compose.yml belongs to root (Docker creates it so on Linux). '
-    + 'On the host, in your Glou folder, run: mkdir -p backups && sudo chown 1001:1001 backups, '
-    + 'then: docker compose up -d';
+    + 'Most likely the backups folder on the host belongs to root (Docker creates it so on Linux). '
+    + `${BACKUPS_DIR_FIX_HINT} With docker compose, then run: docker compose up -d`;
 }
 
 export function dumpFailedMessage(error: unknown): string {
   const reason = error instanceof Error ? error.message : String(error);
   return `[backup] Migrations are pending, but the backup taken before migrating failed: ${reason}. `
     + 'Nothing was migrated and Glou did not start. '
-    + 'If the reason mentions a permission or a read-only file system, run on the host, in your Glou folder: '
-    + 'sudo chown 1001:1001 backups. If it mentions no space left, free disk space. '
-    + 'Then: docker compose up -d';
+    + 'If the reason mentions a permission or a read-only file system, the backups folder on the host '
+    + `must belong to uid 1001. ${BACKUPS_DIR_FIX_HINT} `
+    + 'If it mentions no space left, free disk space. With docker compose, then run: docker compose up -d';
 }
 
 /**

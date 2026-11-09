@@ -51,6 +51,16 @@
    > [!NOTE]
    > Ce panneau est réservé aux comptes administrateur (`/admin`, accès refusé sinon).
 
+**Portainer, Synology Container Manager ou une autre interface** :
+
+La pile n'a pas de dossier à elle sur l'hôte : le `./backups` relatif de `docker-compose.yml` aboutit dans un dossier que Docker crée en root, hors de votre portée. L'API ne peut pas y écrire ses sauvegardes, et **une mise à jour qui apporte des migrations s'arrête** : l'API ne démarre pas, et l'interface indique seulement que le conteneur `api` est « unhealthy ». Avant le premier démarrage :
+
+1. Dans la pile, remplacez `- ./backups:/app/backups` par un chemin absolu de l'hôte, par ex. `- /opt/glou/backups:/app/backups`.
+2. Sur l'hôte (SSH) : `sudo mkdir -p /opt/glou/backups && sudo chown 1001:1001 /opt/glou/backups`.
+3. Renseignez `JWT_SECRET`, `CONFIG_ENCRYPTION_KEY` et `DB_PASSWORD` dans les variables d'environnement de la pile (étape 2 ci-dessus), puis déployez.
+
+Quand l'API ne démarre pas, son journal en donne la raison : dans Portainer, **Containers → `<pile>-api-1` → Logs** ; sur l'hôte, `docker logs <pile>-api-1`.
+
 **Mise à jour vers une nouvelle version** :
 
 Sauvegardez d'abord (**Administration → Configuration Système → Sauvegardes → Sauvegarder maintenant**) : les migrations de la base ne peuvent pas être annulées. Sous Linux, vérifiez que `backups` appartient à l'uid 1001 (`sudo chown 1001:1001 backups`), sinon la sauvegarde échoue. Puis :
@@ -71,6 +81,7 @@ Pour revenir en arrière, voir [Mettre à jour & revenir en arrière](./31-Mises
 | La connexion réussit mais vous êtes déconnecté aussitôt (`http://` simple sur réseau local ou NAS) | Les cookies de session ne sont marqués `Secure` que si `APP_URL` commence par `https://`. Renseignez `APP_URL` dans `.env` avec l'adresse réellement utilisée (ex. `http://192.168.1.20:3000`) puis redémarrez. Si un proxy termine le TLS alors que `APP_URL` indique `http`, définissez `COOKIE_SECURE=true`. En HTTP simple, le mode hors ligne, l'installation de l'application et le presse-papiers sont limités par le navigateur ; utilisez HTTPS pour lever ces limites. |
 | `permission denied` sur `/app/backups`, `/app/uploads` ou `/app/logs`, ou l'API redémarre en boucle, après avoir remplacé un volume nommé par un dossier de l'hôte | Le conteneur API tourne toujours sous l'utilisateur `1001:1001` (`PUID`/`PGID` de la convention linuxserver.io ne sont **pas** pris en charge). Donnez ce dossier à cet utilisateur : `sudo chown -R 1001:1001 <dossier>`. Sur Synology, faites-le en SSH, ou réglez les permissions du dossier pour un utilisateur d'UID 1001. |
 | `image not found` / erreur de pull | Les packages GHCR sont peut-être privés. Authentifiez-vous d'abord : `docker login ghcr.io -u VOTRE_USERNAME_GITHUB`. |
+| Portainer (ou une autre interface) affiche `dependency failed to start: container …-api-1 is unhealthy` | L'API n'a pas démarré. Lisez son journal (voir **Portainer, Synology Container Manager ou une autre interface** ci-dessus). Après une mise à jour, la cause la plus fréquente est `[backup] Migrations are pending, but /app/backups is not writable` : utilisez un chemin `backups` absolu appartenant à l'uid 1001, comme décrit ci-dessus, puis redéployez. |
 | Erreur de migration Prisma au démarrage | Le conteneur `db` n'était pas prêt. Exécutez `docker compose restart api` pour relancer la migration. |
 | Création de compte ou connexion qui échoue avec « erreur inattendue » (ou « adresse non autorisée ») quand vous ouvrez Glou par son IP, ex. `http://192.168.1.20:3000`, sans rien dans les logs de `api` ni de `web` | L'API refuse les requêtes qui modifient des données depuis une adresse inconnue. Renseignez `APP_URL` dans `.env` avec l'adresse exacte saisie dans le navigateur (ex. `http://192.168.1.20:3000`), puis recréez le conteneur `api`. Plusieurs adresses : listez-les dans `CSRF_TRUSTED_ORIGINS`, séparées par des virgules. Le log de `api` affiche alors une ligne `[csrf] Rejected ...` quand cela se produit. |
 | « L'inscription de nouveaux comptes est actuellement fermée sur cette instance », ou pas de lien **S'inscrire** sur la page de connexion | Attendu dès que le premier compte existe. Un admin ouvre l'inscription dans **Administration → Configuration Système → Réseau → Autoriser l'inscription de nouveaux comptes** et peut la refermer une fois la personne inscrite. |

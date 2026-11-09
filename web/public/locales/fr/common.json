@@ -1920,7 +1920,7 @@
         "error": "Le téléchargement a échoué."
       },
       "dirCheckFailed": "Glou n'a pas pu vérifier s'il peut écrire dans le dossier des sauvegardes. Rechargez la page ; si ce message reste affiché, consultez les journaux de l'API (docker compose logs api).",
-      "dirNotWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échouera. Sur le serveur, à côté de docker-compose.yml, lancez : mkdir -p backups && sudo chown 1001:1001 backups, puis redémarrez la pile.",
+      "dirNotWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échouera. Avec docker compose, dans le dossier de Glou sur le serveur, lancez : mkdir -p backups && sudo chown 1001:1001 backups, puis redémarrez la pile. Avec Portainer ou une interface de NAS, remplacez ./backups par un chemin absolu de l'hôte (ex. /opt/glou/backups), donnez ce dossier à l'uid 1001 (sudo chown 1001:1001 /opt/glou/backups) et redéployez la pile.",
       "enabled": "Activer les sauvegardes automatiques",
       "retentionDays": "Rétention des sauvegardes (jours)",
       "retentionDaysHint": "Les fichiers de sauvegarde plus anciens que ce délai sont supprimés automatiquement (7 jours minimum recommandé).",

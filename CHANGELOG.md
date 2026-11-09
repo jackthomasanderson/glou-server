@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Fixed
+- Portainer, Synology Container Manager and other UIs: when the backups folder is not writable, the API log and the warning in **Administration → System Configuration → Backups** now say what to do with a stack run from a UI (an absolute host path owned by uid 1001), not only next to `docker-compose.yml`. The installation and upgrade wiki pages gain a section on it: an update that brings database migrations used to stop there, with only "container api is unhealthy" in the UI (#900, #896).
+
 ## v2026.11.2 - 2026-11-07
 
 > **Before you update:** v2026.11.1 was never published as a stable release: coming from v2026.11.0, read its section below too, its database change applies. Two-factor secrets are now encrypted with `CONFIG_ENCRYPTION_KEY`: keep your `.env` (and that key) as it is, away from your backups, or your members' authenticator codes stop working. Backups taken before this version still contain those secrets in the clear: delete their copies kept elsewhere (restic, NAS…). Several administrator settings (mail, Gotify, notifications, public URL, backups) now ask for your password, plus a code from your app if your account has two-factor authentication (#890, #613).
