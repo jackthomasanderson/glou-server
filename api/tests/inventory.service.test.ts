@@ -367,6 +367,23 @@ describe('InventoryService', () => {
       expect(result.item).toEqual(expected);
     });
 
+    it('updateItem answers a conflict with the server item as listInventory lists it', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ ...row(), updatedAt: new Date('2026-08-01T10:00:00.000Z') } as never);
+
+      const result = await service.updateItem('u1', 'b1', { fillLevel: 50, expectedUpdatedAt: '2026-08-01T09:00:00.000Z' } as never);
+
+      if (!result || !('conflict' in result)) throw new Error('unreachable');
+      expect(result.serverItem).toEqual({ ...(await listed()), updatedAt: new Date('2026-08-01T10:00:00.000Z') });
+    });
+
+    it('createItem returns the item as listInventory lists it', async () => {
+      vi.mocked(prisma.inventoryItem.create).mockResolvedValue(row() as never);
+
+      const created = await service.createItem('u1', { category: 'wine', name: 'Talbot', producer: '' } as never);
+
+      expect(created).toEqual(await listed());
+    });
+
     it('restore returns the item as listInventory lists it', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ deletedAt: new Date() }) as never);
       vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation((async () => row()) as never);

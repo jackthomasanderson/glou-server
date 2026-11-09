@@ -202,6 +202,7 @@
       "region": "Region",
       "grapeVarieties": "Grape varieties",
       "alcoholDegree": "Alcohol degree (%)",
+      "alcoholDegreeOptional": "Leave empty if you do not know it",
       "bottleSize": "Bottle size",
       "peakMaturity": "Ideal tasting window",
       "curveShape": "Consumption curve",

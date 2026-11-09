@@ -19,8 +19,8 @@ Entries start with the pull request that introduced them where there is one.
 - The install and configuration guides now match the shipped `docker-compose.yml`: `.env.example` no longer lists settings that are never read, the installation page no longer mentions a published API port or a logs folder, and the configuration page says only the `moondream` scan model is tested (#674, #675).
 - The rollback guide now starts with pinning the version tag of the release you were running (for example `v2026.10.0`), which needs no copy of the repository (#675).
 - Budget: a line of bottles with no purchase date now counts in its envelope when it was recorded any time on the envelope's last day, in your instance's time zone (`TZ`); it used to stop at midnight at the start of that day. Existing envelopes are counted right too, with nothing to do (#578).
-- A spirit moved from the wishlist to the inventory, or added to stock from a stock count, no longer gets a made-up "0 % vol.": its ABV is left empty until you fill it in, and editing the spirit asks for it (#587).
-- Changing a bottle (its level, for instance) or bringing it back from the trash now keeps its maturity % on screen, without reloading the page (#592).
+- A spirit moved from the wishlist to the inventory, or added to stock from a stock count, no longer gets a made-up "0 % vol.": both windows now ask for its ABV, optional. Left empty, the ABV stays unknown until you fill it in, and editing the spirit asks for it (#587).
+- Adding a bottle, changing one (its level, for instance) or bringing it back from the trash now shows its maturity % at once, without reloading the page; so does the latest version of a bottle shown when a change made offline meets one made meanwhile on another device (#592).
 - A guest share link no longer sends the technical sheet of your wines and cigars (grapes, ABV, sugar, age, edition, leaf origin, maturity window…), their colour, tags or the place you bought them: only what the guest page shows (name, producer, vintage, region, photo, and notes and prices unless hidden) (#620).
 
 ### Added

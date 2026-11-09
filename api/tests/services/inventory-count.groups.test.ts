@@ -9,7 +9,7 @@ vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     inventoryCountSession: { findUnique: vi.fn() },
     inventoryItem: { findMany: vi.fn() },
-    inventoryCountEntry: { findMany: vi.fn(), upsert: vi.fn() },
+    inventoryCountEntry: { findMany: vi.fn(), upsert: vi.fn(), create: vi.fn() },
     product: { findMany: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -27,7 +27,7 @@ import { compareFamilyIds, lockFamilies } from '../../src/lib/product-fields';
 import { finishUnits } from '../../src/services/stock-state.service';
 import { addUnitsIn, correctQuantityIn } from '../../src/services/stock.service';
 import { inventoryService } from '../../src/services/inventory.service';
-import { applyCorrections, completeSession, countLine, getSessionReport, recordScan } from '../../src/services/inventory-count.service';
+import { applyCorrections, completeSession, countLine, getSessionReport, recordScan, recordUnlistedFind } from '../../src/services/inventory-count.service';
 
 const SESSION = { id: 's1', cellarId: 'c1', status: 'active', scopeLabel: 'Cave', userId: 'u1', startedAt: new Date(), pausedAt: null, completedAt: null };
 
@@ -376,6 +376,16 @@ describe('applyCorrections — surplus and finds (FEAT-100 c3, c4)', () => {
     expect(input).not.toHaveProperty('alcoholDegree');
   });
 
+  it('adds a spirit found with the ABV recorded with the find (#587)', async () => {
+    const { store } = fakeTx([]);
+    store.push({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Lagavulin 16', newItemCategory: 'spirit', newItemQuantity: 1, newItemAlcoholDegree: 43 });
+    vi.mocked(inventoryService.createItem).mockResolvedValue({ id: 'new1', productId: 'pnew' } as never);
+
+    await applyCorrections('s1', [{ action: 'add_to_stock', entryId: 'f1' }], 'u1');
+
+    expect(inventoryService.createItem).toHaveBeenCalledWith('u1', expect.objectContaining({ category: 'spirit', alcoholDegree: 43 }), expect.anything());
+  });
+
   it('attaches a find of a known wine to its family, never a second card', async () => {
     const { tx, calls, store } = fakeTx([]);
     store.push({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Château Talbot', newItemCategory: 'wine', newItemQuantity: 6 });
@@ -499,5 +509,26 @@ describe('countLine — cigar groups', () => {
     const singles = countLine(group('s', 3), { foundQuantity: 5 });
     expect(boxes).toMatchObject({ cigarsPerBox: 25, surplusQuantity: 2 });
     expect(singles.cigarsPerBox).toBeNull();
+  });
+});
+
+// #587: the "add to stock" dialog asks a spirit's ABV, optional (empty stays unknown).
+describe('recordUnlistedFind — the ABV of a spirit found', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.inventoryCountSession.findUnique).mockResolvedValue({ id: 's1', status: 'active' } as never);
+    vi.mocked(prisma.inventoryCountEntry.create).mockResolvedValue({ id: 'f1' } as never);
+  });
+  const stored = () => (vi.mocked(prisma.inventoryCountEntry.create).mock.calls[0][0] as { data: Record<string, unknown> }).data;
+
+  it('keeps the ABV typed for a spirit', async () => {
+    await recordUnlistedFind('s1', { name: 'Lagavulin 16', category: 'spirit', alcoholDegree: 43 });
+    expect(stored()).toMatchObject({ newItemCategory: 'spirit', newItemAlcoholDegree: 43 });
+  });
+
+  it('leaves it unknown when none is typed, and never keeps one for a wine', async () => {
+    await recordUnlistedFind('s1', { name: 'Lagavulin 16', category: 'spirit' });
+    await recordUnlistedFind('s1', { name: 'Talbot', category: 'wine', alcoholDegree: 13 });
+    const calls = vi.mocked(prisma.inventoryCountEntry.create).mock.calls.map((call) => (call[0] as { data: Record<string, unknown> }).data);
+    expect(calls.map((data) => data.newItemAlcoholDegree)).toEqual([null, null]);
   });
 });

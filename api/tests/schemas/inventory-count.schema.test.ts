@@ -87,4 +87,11 @@ describe('recordFoundItemSchema', () => {
     expect(recordFoundItemSchema.safeParse({ name: 'X', category: 'cigar', quantity: 0 }).success).toBe(false);
     expect(recordFoundItemSchema.safeParse({ name: 'X', category: 'cigar', quantity: 1001 }).success).toBe(false);
   });
+
+  // #587: a spirit's ABV, optional (empty stays unknown), as the add form bounds it.
+  it('takes an optional ABV from 0 to 100', () => {
+    expect(recordFoundItemSchema.safeParse({ name: 'X', category: 'spirit', alcoholDegree: 43 }).success).toBe(true);
+    expect(recordFoundItemSchema.safeParse({ name: 'X', category: 'spirit', alcoholDegree: null }).success).toBe(true);
+    expect(recordFoundItemSchema.safeParse({ name: 'X', category: 'spirit', alcoholDegree: 101 }).success).toBe(false);
+  });
 });

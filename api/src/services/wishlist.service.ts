@@ -131,8 +131,8 @@ async function notifyOpportunity(userId: string, item: NonNullable<WishlistItemD
  * identical line (same cellar, price, size, bought today) or form a new one.
  * `distinctFrom` ("C'est un autre vin") remembers the new wine apart.
  *
- * A wishlist entry never tracks a spirit's ABV: it is left unknown (#587),
- * and editing the spirit asks for it.
+ * A wishlist entry never tracks a spirit's ABV: the conversion dialog asks
+ * it, optional — left empty, it stays unknown (#587).
  */
 export async function convertToInventory(userId: string, id: string, additionalFields: ConvertToInventoryInput) {
   const wish = await prisma.wishlistItem.findFirst({ where: { id, userId } });
@@ -168,8 +168,11 @@ export async function convertToInventory(userId: string, id: string, additionalF
       inventoryInput = { ...base, category: 'sparkling', vintage: wish.vintage ?? undefined, bottleSize, quantity };
       break;
     case 'spirit':
-      // #587: a wish records no ABV — left unknown, never an invented 0 %.
-      inventoryInput = { ...base, category: 'spirit', bottleSize, quantity };
+      // #587: the ABV typed at the conversion, else unknown — never an invented 0 %.
+      inventoryInput = {
+        ...base, category: 'spirit', bottleSize, quantity,
+        ...(additionalFields.alcoholDegree != null ? { alcoholDegree: additionalFields.alcoholDegree } : {}),
+      };
       break;
     case 'cigar':
       inventoryInput = { ...base, category: 'cigar', quantity, cigarsPerBox };

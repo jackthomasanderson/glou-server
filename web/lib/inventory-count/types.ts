@@ -129,6 +129,8 @@ export interface RecordFoundItemInput {
   name: string;
   category: InventoryCategory;
   quantity?: number;
+  /** #587: a spirit's ABV; absent or null, unknown. */
+  alcoholDegree?: number | null;
 }
 
 export interface RecordFoundItemResult {

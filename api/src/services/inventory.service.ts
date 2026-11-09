@@ -101,7 +101,7 @@ export type UpdateItemResult =
       /** FEAT-93: other units of the family that gave up cells with its new category. */
       unitSlotChanges?: UnitSlotChanges[];
     }
-  | { conflict: true; serverItem: InventoryItemView };
+  | { conflict: true; serverItem: WithReadiness<InventoryItemView> };
 
 /** A line of a unit's history; `itemId` is the unit itself. */
 export type InventoryHistoryEntry = ProductHistoryEntry;
@@ -251,7 +251,7 @@ export class InventoryService {
     data: InventoryInput,
     distinctFrom: string[],
     fieldSources?: Partial<Record<string, FieldSource>>,
-  ): Promise<InventoryItemView> {
+  ): Promise<WithReadiness<InventoryItemView>> {
     return prisma.$transaction(async (tx) => {
       const created = await this.createItem(userId, data, tx, fieldSources);
       await rememberDistinct(tx, created.productId, distinctFrom);
@@ -276,7 +276,7 @@ export class InventoryService {
     data: InventoryDraft,
     client: PrismaClientOrTx = prisma,
     fieldSources?: Partial<Record<string, FieldSource>>,
-  ): Promise<InventoryItemView> {
+  ): Promise<WithReadiness<InventoryItemView>> {
     // InventoryInput (a per-category discriminated union with some required
     // fields) is a structural subset of InventoryPatch (the same fields, all
     // optional, flattened across categories) — a single assertion documents
@@ -323,7 +323,8 @@ export class InventoryService {
       } satisfies Prisma.InventoryItemCreateInput,
       include: INVENTORY_ITEM_INCLUDE,
     });
-    return toItemView(created);
+    // #592: the list's shape, readiness included.
+    return attachReadiness(toItemView(created));
   }
 
   /**
@@ -414,7 +415,7 @@ export class InventoryService {
     const isStale = (updatedAt: Date) =>
       expectedUpdatedAt !== undefined && new Date(expectedUpdatedAt).getTime() !== updatedAt.getTime();
     if (isStale(existing.updatedAt)) {
-      return { conflict: true, serverItem: existing };
+      return { conflict: true, serverItem: attachReadiness(existing) };
     }
 
     // `lockedFields` exists to stop a *later automated* update (OCR scan)
@@ -514,7 +515,7 @@ export class InventoryService {
     if (!written) return null;
     if ('conflict' in written) {
       const server = await this.getItem(userId, id);
-      return server ? { conflict: true, serverItem: server } : null;
+      return server ? { conflict: true, serverItem: attachReadiness(server) } : null;
     }
     const outcome: ApplyStateResult<InventoryItemRow> = written.result;
     const current: StateItem = written.fresh;

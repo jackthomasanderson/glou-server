@@ -940,6 +940,8 @@ model InventoryCountEntry {
   newItemName     String?
   newItemCategory BottleCategory?
   newItemQuantity Int?
+  // #587: a spirit's ABV typed with the find; null = unknown.
+  newItemAlcoholDegree Float?
   // #471: units found for a group; null = the whole item (single unit).
   foundQuantity   Int?
 
