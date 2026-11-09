@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
-import { Plus, Search, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
+import { Plus, Search, Wine, Leaf, ClipboardCheck, Camera, BookMarked } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
@@ -388,6 +388,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const emptyCtx = lockedCategories?.length === 1 && lockedCategories[0] === 'cigar' ? { context: 'cigar' } : undefined;
   const categoryLabel = (cat: string) => t(`categories.${cat}`);
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
+  // #708: no wine at all in the chosen collection is not "no result for these
+  // filters", whose "Reset filters" would drop the collection.
+  const isEmptyCollection = !!selectedCollectionId && !!products
+    && !products.some((p) => p.collections.some((c) => c.id === selectedCollectionId));
 
   // Shared prop bag for the desktop sidebar + mobile collapsible renderings
   // of the filter panel — both are the same InventoryFilterBar with a
@@ -506,8 +510,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 onToggle={toggleFilters}
               />
               {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
-              {!isMobile && <div className="w-px h-5 bg-divider" />}
-              <PageSizeToggle value={pageSize} onChange={setPageSize} />
+              {/* #708: an empty cellar has nothing to page through. */}
+              {products && products.length > 0 && (<>
+                {!isMobile && <div className="w-px h-5 bg-divider" />}
+                <PageSizeToggle value={pageSize} onChange={setPageSize} />
+              </>)}
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               {products && products.length > 0 && (
@@ -618,6 +625,17 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                   action={
                     <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
                       {t('inventory.add')}
+                    </Button>
+                  }
+                />
+              ) : isEmptyCollection ? (
+                <EmptyState
+                  icon={<BookMarked size={56} className="text-default-200" />}
+                  title={t('collections.emptyCollection')}
+                  description={t('collections.emptyCollectionHint')}
+                  action={
+                    <Button variant="light" color="primary" data-testid="back-to-collections" onPress={() => router.push('/collections')}>
+                      {t('collections.backToCollections')}
                     </Button>
                   }
                 />

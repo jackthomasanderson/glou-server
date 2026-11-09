@@ -75,9 +75,12 @@ export function CollectionsDashboard() {
       <div className="flex items-center gap-2 mb-6">
         <BookMarked size={22} className="text-primary" />
         <h1 className="text-xl font-bold">{t('collections.title')}</h1>
-        <div className="ml-auto">
-          <PageSizeToggle value={pageSize} onChange={(s) => { setPageSize(s); setCurrentPage(1); }} />
-        </div>
+        {/* #708: nothing to page through, no page size. */}
+        {!!collections?.length && (
+          <div className="ml-auto">
+            <PageSizeToggle value={pageSize} onChange={(s) => { setPageSize(s); setCurrentPage(1); }} />
+          </div>
+        )}
       </div>
 
       {/* Error banner */}

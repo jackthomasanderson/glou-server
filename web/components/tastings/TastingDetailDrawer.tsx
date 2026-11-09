@@ -138,7 +138,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
                   <React.Fragment key={field}>
                     <dt className="text-foreground-500">{t(`tastings.fields.${field}`)}</dt>
                     <dd className="text-foreground-700 whitespace-pre-wrap break-words">
-                      {field === 'longueurBouche' ? t('tastings.expertSection.seconds', { count: Number(value) }) : value}
+                      {field === 'longueurBouche' ? t('tastings.expertSection.seconds', { value }) : value}
                     </dd>
                   </React.Fragment>
                 ))}

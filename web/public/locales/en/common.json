@@ -1234,6 +1234,9 @@
       "icon": "Icon"
     },
     "filterActive": "Collection: {{name}}",
+    "emptyCollection": "This collection is empty",
+    "emptyCollectionHint": "Add a wine to it from its “Edit” form.",
+    "backToCollections": "Back to collections",
     "addToItem": "Add",
     "allAdded": "All added",
     "errors": {
@@ -1284,7 +1287,7 @@
     },
     "expertSection": {
       "title": "Structured tasting grid",
-      "seconds": "{{count}} s"
+      "seconds": "{{value}} s"
     },
     "readiness": {
       "TOO_YOUNG": "Too young",

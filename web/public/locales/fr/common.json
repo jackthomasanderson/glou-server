@@ -1236,6 +1236,9 @@
       "icon": "Icône"
     },
     "filterActive": "Collection : {{name}}",
+    "emptyCollection": "Cette collection est vide",
+    "emptyCollectionHint": "Ajoutez-y un vin depuis son formulaire « Modifier ».",
+    "backToCollections": "Retour aux collections",
     "addToItem": "Ajouter",
     "allAdded": "Toutes ajoutées",
     "errors": {
@@ -1286,7 +1289,7 @@
     },
     "expertSection": {
       "title": "Grille de dégustation structurée",
-      "seconds": "{{count}} s"
+      "seconds": "{{value}} s"
     },
     "readiness": {
       "TOO_YOUNG": "Trop jeune",

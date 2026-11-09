@@ -82,10 +82,21 @@ export function InventoryCard({
     // (invalid HTML, inner actions unreachable with VoiceOver). The name is
     // the "open" button, stretched over the whole card with an ::after
     // overlay; the checkbox, drinking window and Edit/Delete sit above it.
+    // #708: in selection mode the whole card toggles, not only its box (the
+    // keyboard goes to the box); its own buttons keep their action. On a
+    // layout-less wrapper: HeroUI's Card drops onClick when not pressable.
+    <div
+      className="contents"
+      onClick={onSelectToggle ? (event) => {
+        if ((event.target as HTMLElement).closest('button, a, input, label')) return;
+        onSelectToggle(item, event);
+      } : undefined}
+    >
     <Card
       data-testid="family-card"
       className={[
         'relative flex flex-col transition-all hover:shadow-md',
+        onSelectToggle && 'cursor-pointer select-none',
         isTemp && 'opacity-75',
         // §10.2: an opened bottle keeps the discreet warning accent.
         stock.hasOpened && 'border border-warning-300',
@@ -193,9 +204,10 @@ export function InventoryCard({
             <Checkbox
               isSelected={isSelected}
               onValueChange={() => onSelectToggle(item)}
-              size="sm"
+              size="md"
               aria-label={t('familyList.selectWine', { name: wineName(item) })}
-              classNames={{ wrapper: 'bg-black/30 border-2 border-white/60 before:border-0 after:bg-primary' }}
+              // #708: an opaque box with a dark rim and a shadow reads on any photo.
+              classNames={{ wrapper: 'bg-background border-2 border-foreground-500 shadow-md before:border-0 after:bg-primary' }}
             />
           </div>
         )}
@@ -340,6 +352,7 @@ export function InventoryCard({
         </Tooltip>
       </CardFooter>
     </Card>
+    </div>
   );
 }
 
