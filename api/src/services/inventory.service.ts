@@ -2,7 +2,7 @@ import { Prisma } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
-import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
+import { InventoryPatch, InventoryInput, InventoryDraft } from '../schemas/inventory.schema';
 import { computeAlertStatus, computeReadiness } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
@@ -63,7 +63,7 @@ export type { FieldSource };
 export type RollbackFieldResult =
   | { status: 'not_found' }
   | { status: 'invalid_value' }
-  | { status: 'success'; item: InventoryItemView; changes: FieldChange[]; joined?: { from: number; to: number } };
+  | { status: 'success'; item: WithReadiness<InventoryItemView>; changes: FieldChange[]; joined?: { from: number; to: number } };
 
 /**
  * Result of `InventoryService.updateItem` (FEAT-16/23 offline sync).
@@ -77,8 +77,11 @@ export type RollbackFieldResult =
  */
 export type UpdateItemResult =
   | {
-      /** D8: the unit that now carries the requested state (a detached sub-record, the unit itself, or the group that absorbed it). */
-      item: InventoryItemView;
+      /**
+       * D8: the unit that now carries the requested state (a detached sub-record, the unit itself, or the group that absorbed it).
+       * #592: with the list's shape (readiness included), as the web puts it in place of the listed item.
+       */
+      item: WithReadiness<InventoryItemView>;
       changes: FieldChange[];
       /** D8: the other units written (the group a copy was detached from). */
       changed: ItemView[];
@@ -98,7 +101,7 @@ export type UpdateItemResult =
       /** FEAT-93: other units of the family that gave up cells with its new category. */
       unitSlotChanges?: UnitSlotChanges[];
     }
-  | { conflict: true; serverItem: InventoryItemView };
+  | { conflict: true; serverItem: WithReadiness<InventoryItemView> };
 
 /** A line of a unit's history; `itemId` is the unit itself. */
 export type InventoryHistoryEntry = ProductHistoryEntry;
@@ -248,7 +251,7 @@ export class InventoryService {
     data: InventoryInput,
     distinctFrom: string[],
     fieldSources?: Partial<Record<string, FieldSource>>,
-  ): Promise<InventoryItemView> {
+  ): Promise<WithReadiness<InventoryItemView>> {
     return prisma.$transaction(async (tx) => {
       const created = await this.createItem(userId, data, tx, fieldSources);
       await rememberDistinct(tx, created.productId, distinctFrom);
@@ -270,10 +273,10 @@ export class InventoryService {
    */
   async createItem(
     userId: string,
-    data: InventoryInput,
+    data: InventoryDraft,
     client: PrismaClientOrTx = prisma,
     fieldSources?: Partial<Record<string, FieldSource>>,
-  ): Promise<InventoryItemView> {
+  ): Promise<WithReadiness<InventoryItemView>> {
     // InventoryInput (a per-category discriminated union with some required
     // fields) is a structural subset of InventoryPatch (the same fields, all
     // optional, flattened across categories) — a single assertion documents
@@ -320,7 +323,8 @@ export class InventoryService {
       } satisfies Prisma.InventoryItemCreateInput,
       include: INVENTORY_ITEM_INCLUDE,
     });
-    return toItemView(created);
+    // #592: the list's shape, readiness included.
+    return attachReadiness(toItemView(created));
   }
 
   /**
@@ -411,7 +415,7 @@ export class InventoryService {
     const isStale = (updatedAt: Date) =>
       expectedUpdatedAt !== undefined && new Date(expectedUpdatedAt).getTime() !== updatedAt.getTime();
     if (isStale(existing.updatedAt)) {
-      return { conflict: true, serverItem: existing };
+      return { conflict: true, serverItem: attachReadiness(existing) };
     }
 
     // `lockedFields` exists to stop a *later automated* update (OCR scan)
@@ -511,7 +515,7 @@ export class InventoryService {
     if (!written) return null;
     if ('conflict' in written) {
       const server = await this.getItem(userId, id);
-      return server ? { conflict: true, serverItem: server } : null;
+      return server ? { conflict: true, serverItem: attachReadiness(server) } : null;
     }
     const outcome: ApplyStateResult<InventoryItemRow> = written.result;
     const current: StateItem = written.fresh;
@@ -534,7 +538,7 @@ export class InventoryService {
       ...familySlots.filter((unit) => unit.itemId === id).flatMap((unit) => unit.changes),
     ];
     return {
-      item: toItemView(outcome.data),
+      item: attachReadiness(toItemView(outcome.data)),
       changes,
       changed: outcome.changed.map(toUnitView),
       removedIds: outcome.removedIds,
@@ -736,7 +740,7 @@ export class InventoryService {
     id: string,
     /** FEAT-93: filled with the cells it could not take back (see restoreOnce), for its history. */
     slotChanges: FieldChange[] = [],
-  ): Promise<InventoryItemView | null> {
+  ): Promise<WithReadiness<InventoryItemView> | null> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const existing = await prisma.inventoryItem.findFirst({
       where: {
@@ -753,7 +757,7 @@ export class InventoryService {
     // another bottle since: that copy comes back unplaced. #173: the partial
     // unique index is the real guarantee against a cell taken between the
     // check and the write — tried once more, the check then sees it.
-    let restored: { item: InventoryItemView; freed: FieldChange[] };
+    let restored: { item: WithReadiness<InventoryItemView>; freed: FieldChange[] };
     try {
       restored = await this.restoreOnce(existing);
     } catch (err) {
@@ -766,7 +770,7 @@ export class InventoryService {
 
   private restoreOnce(
     existing: { productId: string; id: string; product: { deletedAt: Date | null } },
-  ): Promise<{ item: InventoryItemView; freed: FieldChange[] }> {
+  ): Promise<{ item: WithReadiness<InventoryItemView>; freed: FieldChange[] }> {
     const { id } = existing;
     return prisma.$transaction(async (tx) => {
       // The locking rule: the family first, then its unit.
@@ -781,8 +785,11 @@ export class InventoryService {
       // automatic rule (review of #854).
       const unit = await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE });
       const freed = slotsFreed(await fitSlotsTo(tx, id, unit, unitKind(unit.product.category)));
-      if (freed.length === 0) return { item: toItemView(unit), freed };
-      return { item: toItemView(await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE })), freed };
+      // #592: the list's shape, readiness included.
+      const item = freed.length === 0
+        ? unit
+        : await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE });
+      return { item: attachReadiness(toItemView(item)), freed };
     });
   }
 

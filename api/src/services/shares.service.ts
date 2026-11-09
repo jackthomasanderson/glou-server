@@ -68,12 +68,14 @@ const SHOWCASE_SCOPE = IN_STOCK_ITEM_FILTER;
 const SHARED_ITEM_SCOPE = { deletedAt: null, writtenOffAt: null } as const;
 
 function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
+  // #620: data minimisation — only what the guest showcase displays
+  // (GuestFamilyCard, web/lib/shares/guestFamilies.ts); a purchase place,
+  // the technical sheet and the maturity window are never shown to a guest.
   return {
     id: true,
     location: true,
     // price fields conditionally included below
     purchasePrice: !hidePrices,
-    purchasePlace: !hidePrices,
     estimatedValue: !hidePrices,
     bottleSize: true,
     quantity: true,
@@ -97,27 +99,11 @@ function buildShareItemSelect(hidePrices: boolean, hideNotes: boolean) {
         category: true,
         name: true,
         producer: true,
-        collection: true,
-        tags: true,
         photoUrl: true,
         // notes conditionally included
         notes: !hideNotes,
         vintage: true,
-        color: true,
         region: true,
-        grapeVarieties: true,
-        alcoholDegree: true,
-        sparklingType: true,
-        sugarLevel: true,
-        spiritType: true,
-        edition: true,
-        declaredAge: true,
-        format: true,
-        manufactureYear: true,
-        leafOrigin: true,
-        peakMaturityFrom: true,
-        peakMaturityTo: true,
-        alertStatus: true,
       },
     },
   } as const satisfies Prisma.InventoryItemSelect;

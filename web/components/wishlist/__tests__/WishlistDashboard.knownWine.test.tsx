@@ -165,3 +165,54 @@ describe('WishlistDashboard — a wish for a wine already known (FEAT-97 c4)', (
     expect(sent().data).toMatchObject({ productId: 'p1', cellarId: null });
   });
 });
+
+// #587: a spirit wished for is asked its ABV at the conversion, optional —
+// left empty, it stays unknown (never an invented 0 %).
+describe('WishlistDashboard — the ABV of a spirit converted (#587)', () => {
+  const abv = (dialog: HTMLElement) => within(dialog).queryByTestId('wishlist-convert-abv');
+  const spiritWish = () => wish({ category: 'spirit', name: 'Lagavulin 16', producer: 'Lagavulin', vintage: null });
+
+  it('sends the ABV typed, with a comma', async () => {
+    wishes = [spiritWish()];
+    sameName = [];
+    const dialog = openConversion();
+    fireEvent.change(abv(dialog) as HTMLElement, { target: { value: '43,5' } });
+    fireEvent.click(within(dialog).getByTestId('wishlist-convert-submit'));
+    await vi.waitFor(() => expect(convert).toHaveBeenCalled());
+    expect(sent().data).toMatchObject({ alcoholDegree: 43.5, quantity: 2 });
+  });
+
+  it('sends it unknown when left empty', async () => {
+    wishes = [spiritWish()];
+    sameName = [];
+    const dialog = openConversion();
+    fireEvent.click(within(dialog).getByTestId('wishlist-convert-submit'));
+    await vi.waitFor(() => expect(convert).toHaveBeenCalled());
+    expect(sent().data).toMatchObject({ alcoholDegree: null });
+  });
+
+  it('refuses an ABV above 100', async () => {
+    wishes = [spiritWish()];
+    sameName = [];
+    const dialog = openConversion();
+    fireEvent.change(abv(dialog) as HTMLElement, { target: { value: '430' } });
+    fireEvent.click(within(dialog).getByTestId('wishlist-convert-submit'));
+    expect(await within(dialog).findByText(t('inventory.validation.range', { min: 0, max: 100 }))).toBeInTheDocument();
+    expect(convert).not.toHaveBeenCalled();
+  });
+
+  it('asks no ABV for a wine', () => {
+    wishes = [wish()];
+    sameName = [];
+    expect(abv(openConversion())).toBeNull();
+  });
+
+  it('asks no ABV when joining a known spirit', () => {
+    wishes = [spiritWish()];
+    sameName = [product({ id: 'p3', category: 'spirit', name: 'Lagavulin 16', producer: 'Lagavulin', vintage: null })];
+    const dialog = openConversion();
+    expect(abv(dialog)).not.toBeNull();
+    fireEvent.click(within(dialog).getByTestId('known-wine-add'));
+    expect(abv(dialog)).toBeNull();
+  });
+});

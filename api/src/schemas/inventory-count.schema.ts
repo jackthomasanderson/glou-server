@@ -71,6 +71,8 @@ export const recordFoundItemSchema = z.object({
   name: z.string().min(1, 'name is required').max(200),
   category: categorySchema,
   quantity: z.number().int().min(1).max(1000).optional(),
+  // #587: a spirit's ABV, bounded as in the add form; absent or null, unknown.
+  alcoholDegree: z.number().min(0).max(100).optional().nullable(),
 });
 
 export type RecordFoundItemInput = z.infer<typeof recordFoundItemSchema>;

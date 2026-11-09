@@ -202,6 +202,7 @@
       "region": "Région",
       "grapeVarieties": "Cépages",
       "alcoholDegree": "Degré d'alcool (%)",
+      "alcoholDegreeOptional": "Laissez vide si vous ne le connaissez pas",
       "bottleSize": "Taille de bouteille",
       "peakMaturity": "Période idéale de dégustation",
       "curveShape": "Courbe de consommation",

@@ -70,6 +70,8 @@ export function WishlistDashboard() {
   // #471: price of ONE bottle and number bought (one group), parsed like every price field (#725).
   const [convertForm, setConvertForm] = useState<{
     purchasePrice?: number; purchasePlace: string; cellarId: string; bottleSize: string; quantity?: number;
+    /** #587: a spirit's ABV, optional (empty stays unknown). */
+    alcoholDegree?: number;
   }>({ purchasePlace: '', cellarId: '', bottleSize: '' });
   const [convertTried, setConvertTried] = useState(false);
   // #471 (FEAT-97 c4): "Vous avez déjà ce vin" for the wine wished for — the
@@ -87,6 +89,10 @@ export function WishlistDashboard() {
     ? !isCigarGroupValid(cigars)
     : convertForm.quantity == null || !Number.isInteger(convertForm.quantity)
       || convertForm.quantity < 1 || convertForm.quantity > MAX_COPIES;
+  // #587: a new spirit's ABV, asked but optional; a known wine keeps its own.
+  const asksAbv = convertTarget?.category === 'spirit' && !joining;
+  const convertAbvInvalid = asksAbv && convertForm.alcoholDegree != null
+    && !(convertForm.alcoholDegree >= 0 && convertForm.alcoholDegree <= 100);
 
   /**
    * "Ajouter des bouteilles à ce vin": the reduced form starts from the wine's
@@ -188,7 +194,7 @@ export function WishlistDashboard() {
     if (!convertTarget) return;
     setConvertTried(true);
     // An emptied number is not the number wished for: it is asked again.
-    if (convertCountInvalid) return;
+    if (convertCountInvalid || convertAbvInvalid) return;
     try {
       await convertMutation.mutateAsync({
         id: convertTarget.id,
@@ -200,6 +206,7 @@ export function WishlistDashboard() {
           ...(joining
             ? { productId: joining.id }
             : { purchasePlace: convertForm.purchasePlace || null, ...(toldApart.length > 0 ? { distinctFrom: toldApart } : {}) }),
+          ...(asksAbv ? { alcoholDegree: convertForm.alcoholDegree ?? null } : {}),
         },
       });
       setConvertTarget(null);
@@ -511,6 +518,21 @@ export function WishlistDashboard() {
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
                 </div>
+                )}
+                {asksAbv && (
+                  <ParsedNumberInput
+                    decimal
+                    min={0} max={100}
+                    data-testid="wishlist-convert-abv"
+                    label={t('inventory.fields.alcoholDegree')}
+                    description={t('inventory.fields.alcoholDegreeOptional')}
+                    // Out of range: said on leaving the field, and again when the conversion is refused.
+                    isInvalid={convertTried && convertAbvInvalid ? true : undefined}
+                    errorMessage={t('inventory.validation.range', { min: 0, max: 100 })}
+                    value={convertForm.alcoholDegree}
+                    onValueChange={(v) => setConvertForm((f) => ({ ...f, alcoholDegree: v }))}
+                    variant="bordered" size="md" radius="md" labelPlacement="outside"
+                  />
                 )}
               </ModalBody>
               <ModalFooter>

@@ -49,6 +49,31 @@ describe('convertToInventory', () => {
     );
   });
 
+  // #587: a wish records no ABV — the spirit's stays unknown, never an invented 0 %.
+  it('converts a spirit without inventing its ABV', async () => {
+    vi.mocked(prisma.wishlistItem.findFirst).mockResolvedValue(wish({ category: 'spirit', vintage: null }) as never);
+
+    await convertToInventory('u1', 'w1', {});
+
+    const input = vi.mocked(inventoryService.createItem).mock.calls[0][1];
+    expect(input).toMatchObject({ category: 'spirit' });
+    expect(input).not.toHaveProperty('alcoholDegree');
+  });
+
+  it('stores the ABV typed at the conversion of a spirit (#587)', async () => {
+    vi.mocked(prisma.wishlistItem.findFirst).mockResolvedValue(wish({ category: 'spirit', vintage: null }) as never);
+
+    await convertToInventory('u1', 'w1', { alcoholDegree: 46.3 });
+
+    expect(inventoryService.createItem).toHaveBeenCalledWith('u1', expect.objectContaining({ category: 'spirit', alcoholDegree: 46.3 }), prisma);
+  });
+
+  it('never gives an ABV to a wine converted (#587)', async () => {
+    await convertToInventory('u1', 'w1', { alcoholDegree: 13 });
+
+    expect(vi.mocked(inventoryService.createItem).mock.calls[0][1]).not.toHaveProperty('alcoholDegree');
+  });
+
   it('takes the number given at the conversion over the one wished for', async () => {
     await convertToInventory('u1', 'w1', { quantity: 4 });
 
@@ -165,5 +190,15 @@ describe('convertToInventorySchema (review #803)', () => {
     expect(convertToInventorySchema.safeParse({ productId: 'p1', purchasePlace: 'Caviste' }).success).toBe(false);
     expect(convertToInventorySchema.safeParse({ productId: 'p1', distinctFrom: ['p2'] }).success).toBe(false);
     expect(convertToInventorySchema.safeParse({ distinctFrom: ['p2'], purchasePlace: 'Caviste' }).success).toBe(true);
+  });
+
+  // #587: a spirit's ABV, optional (empty stays unknown), as the add form bounds it.
+  it('takes an optional ABV from 0 to 100, never with a known wine to join', async () => {
+    const { convertToInventorySchema } = await import('../../src/schemas/wishlist.schema');
+    expect(convertToInventorySchema.safeParse({ alcoholDegree: 46.3 }).success).toBe(true);
+    expect(convertToInventorySchema.safeParse({ alcoholDegree: null }).success).toBe(true);
+    expect(convertToInventorySchema.safeParse({ alcoholDegree: -1 }).success).toBe(false);
+    expect(convertToInventorySchema.safeParse({ alcoholDegree: 101 }).success).toBe(false);
+    expect(convertToInventorySchema.safeParse({ productId: 'p1', alcoholDegree: 40 }).success).toBe(false);
   });
 });

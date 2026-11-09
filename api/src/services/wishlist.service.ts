@@ -7,7 +7,7 @@ import { rememberDistinct } from './review.service';
 import { notificationService } from './notification.service';
 import { escapeHtml } from '../lib/html';
 import { WishlistCreateInput, WishlistPatchInput, ConvertToInventoryInput } from '../schemas/wishlist.schema';
-import { InventoryInput } from '../schemas/inventory.schema';
+import { InventoryDraft } from '../schemas/inventory.schema';
 
 /**
  * FEAT-20: Liste de Souhaits & Pilotage Budgétaire.
@@ -131,11 +131,8 @@ async function notifyOpportunity(userId: string, item: NonNullable<WishlistItemD
  * identical line (same cellar, price, size, bought today) or form a new one.
  * `distinctFrom` ("C'est un autre vin") remembers the new wine apart.
  *
- * KNOWN LIMITATION (documented, not silently papered over): InventoryInput
- * requires `alcoholDegree` for 'spirit' — a field a wishlist entry never
- * tracks — so it defaults to 0 and the resulting item may need a manual
- * follow-up edit. TODO(FEAT-20): surface it as a required field in the
- * conversion form when category is 'spirit' instead of defaulting.
+ * A wishlist entry never tracks a spirit's ABV: the conversion dialog asks
+ * it, optional — left empty, it stays unknown (#587).
  */
 export async function convertToInventory(userId: string, id: string, additionalFields: ConvertToInventoryInput) {
   const wish = await prisma.wishlistItem.findFirst({ where: { id, userId } });
@@ -162,7 +159,7 @@ export async function convertToInventory(userId: string, id: string, additionalF
   const cigarsPerBox = additionalFields.cigarsPerBox ?? null;
   if (cigarsPerBox !== null && wish.category !== 'cigar') throw badRequest('CIGARS_PER_BOX_FOR_CIGARS_ONLY');
 
-  let inventoryInput: InventoryInput;
+  let inventoryInput: InventoryDraft;
   switch (wish.category) {
     case 'wine':
       inventoryInput = { ...base, category: 'wine', vintage: wish.vintage ?? undefined, grapeVarieties: [], bottleSize, quantity };
@@ -171,7 +168,11 @@ export async function convertToInventory(userId: string, id: string, additionalF
       inventoryInput = { ...base, category: 'sparkling', vintage: wish.vintage ?? undefined, bottleSize, quantity };
       break;
     case 'spirit':
-      inventoryInput = { ...base, category: 'spirit', alcoholDegree: 0, bottleSize, quantity };
+      // #587: the ABV typed at the conversion, else unknown — never an invented 0 %.
+      inventoryInput = {
+        ...base, category: 'spirit', bottleSize, quantity,
+        ...(additionalFields.alcoholDegree != null ? { alcoholDegree: additionalFields.alcoholDegree } : {}),
+      };
       break;
     case 'cigar':
       inventoryInput = { ...base, category: 'cigar', quantity, cigarsPerBox };
