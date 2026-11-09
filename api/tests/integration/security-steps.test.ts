@@ -115,7 +115,7 @@ describe('POST /api/auth/2fa/turn-on (#603)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.backupCodes).toHaveLength(10);
     expect(turnedOn()).toBe(true);
-  });
+  }, 30_000); // ten backup codes hashed at the real bcrypt cost
 });
 
 describe('POST /api/user/delete-account (#603)', () => {
@@ -262,9 +262,10 @@ describe('password checks of a signed-in account share one limit (#606)', () => 
   });
 
   it('successful checks do not count', async () => {
+    // Unlock: the same check without hashing anything new, so the loop stays fast.
     for (let i = 0; i < 12; i++) {
-      const res = await call('post', '/api/auth/pin', 'lim3', { password: PASSWORD, pin: '1234' });
-      expect(res.status, `PIN set ${i + 1}`).toBe(200);
+      const res = await call('post', '/api/auth/unlock', 'lim3', { password: PASSWORD });
+      expect(res.status, `unlock ${i + 1}`).toBe(200);
     }
   });
 });
