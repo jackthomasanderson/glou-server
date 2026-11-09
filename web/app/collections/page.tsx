@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { CollectionsClient } from './CollectionsClient';
 
 export const metadata: Metadata = {
-  description: 'Organise your items into themed collections. · Organisez vos articles en collections thématiques.',
+  description: 'Organisez vos articles en collections thématiques.',
 };
 
 export default function CollectionsPage() {

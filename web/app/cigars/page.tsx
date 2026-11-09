@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { CigarsClient } from './CigarsClient';
 
 export const metadata: Metadata = {
-  description: 'Manage your cigar collection. · Gérez votre collection de cigares.',
+  description: 'Gérez votre collection de cigares.',
 };
 
 export default function CigarsPage() {
