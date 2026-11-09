@@ -12,6 +12,7 @@ import { CsvImportStep } from '@/components/onboarding/steps/CsvImportStep';
 import type { CsvImportResult } from '@/lib/import/types';
 import { importedText } from '@/lib/import/summary';
 import { notifySuccess } from '@/lib/toast';
+import { authErrorMessage } from '@/lib/auth/error-message';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES } from '@shared/auth';
 
 interface GdprSectionProps {
@@ -22,6 +23,9 @@ export function GdprSection({ user }: GdprSectionProps) {
   const { t, i18n } = useTranslation('common');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  // #603: the deletion is confirmed with the password too.
+  const [password, setPassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   // #641: the file import, outside the first-run wizard.
   const [importOpen, setImportOpen] = useState(false);
@@ -54,9 +58,20 @@ export function GdprSection({ user }: GdprSectionProps) {
     notifySuccess(what ? 'onboarding.summary.imported' : 'onboarding.summary.nothingImported', what ? { what } : undefined);
   };
 
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setConfirmText('');
+    setPassword('');
+    setDeleteError(null);
+  };
+
   const handleConfirmDelete = () => {
-    if (confirmText !== t('gdpr.deleteKeyword')) return;
-    deleteMutation.mutate(undefined, { onSuccess: () => { setDeleteModalOpen(false); setConfirmText(''); } });
+    if (confirmText !== t('gdpr.deleteKeyword') || !password) return;
+    setDeleteError(null);
+    deleteMutation.mutate({ password }, {
+      onSuccess: closeDeleteModal,
+      onError: (err) => setDeleteError(authErrorMessage(t, err, 'gdpr.deleteErrors')),
+    });
   };
 
   return (
@@ -235,7 +250,7 @@ export function GdprSection({ user }: GdprSectionProps) {
       </ResponsiveModal>
 
       {/* Confirmation modal */}
-      <ResponsiveModal isOpen={deleteModalOpen} onClose={() => { setDeleteModalOpen(false); setConfirmText(''); }} size="sm" placement="center">
+      <ResponsiveModal isOpen={deleteModalOpen} onClose={closeDeleteModal} size="sm" placement="center">
         <ModalContent>
           <ModalHeader className="text-danger">{t('gdpr.deleteModalTitle')}</ModalHeader>
           <ModalBody className="flex flex-col gap-4">
@@ -250,16 +265,31 @@ export function GdprSection({ user }: GdprSectionProps) {
               value={confirmText}
               onValueChange={setConfirmText}
             />
+            <Input
+              label={t('profile.passwordLabel')}
+              type="password"
+              variant="bordered"
+              size="sm"
+              radius="md"
+              labelPlacement="outside"
+              autoComplete="current-password"
+              value={password}
+              onValueChange={setPassword}
+              isDisabled={deleteMutation.isPending}
+            />
+            {deleteError && (
+              <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{deleteError}</div>
+            )}
           </ModalBody>
           <ModalFooter className="gap-2">
-            <Button variant="light" size="sm" onPress={() => { setDeleteModalOpen(false); setConfirmText(''); }}>
+            <Button variant="light" size="sm" onPress={closeDeleteModal}>
               {t('actions.cancel')}
             </Button>
             <Button
               color="danger"
               size="sm"
               isLoading={deleteMutation.isPending}
-              isDisabled={confirmText !== t('gdpr.deleteKeyword')}
+              isDisabled={confirmText !== t('gdpr.deleteKeyword') || !password}
               onPress={handleConfirmDelete}
             >
               {t('gdpr.deleteConfirm')}

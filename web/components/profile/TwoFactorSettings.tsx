@@ -52,7 +52,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
 
   const handleConfirmEnable = () => {
     setErrorMsg(null);
-    turnOnMutation.mutate({ code }, {
+    turnOnMutation.mutate({ password, code }, {
       onSuccess: (res) => {
         handleCloseEnable();
         setBackupCodes({ codes: res.backupCodes, successMessage: t('profile.twoFactor.enableSuccess') });
@@ -66,6 +66,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
     setIsTurnOnModalOpen(false);
     setSetupData(null);
     setCode('');
+    setPassword('');
     setErrorMsg(null);
   };
 
@@ -188,6 +189,22 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                       {t('profile.twoFactor.step2')}
                     </p>
                     <TwoFactorCodeInput value={code} onValueChange={setCode} isDisabled={turnOnMutation.isPending} />
+                    {/* #603: an open session alone must not tie the account to someone else's app. */}
+                    <p className="text-sm text-center text-foreground-600">
+                      {t('profile.twoFactor.step3')}
+                    </p>
+                    <Input
+                      label={t('profile.passwordLabel')}
+                      type="password"
+                      value={password}
+                      onValueChange={setPassword}
+                      variant="bordered"
+                      size="md"
+                      radius="md"
+                      labelPlacement="outside"
+                      autoComplete="current-password"
+                      isDisabled={turnOnMutation.isPending}
+                    />
                   </div>
                 ) : null}
               </ModalBody>
@@ -199,7 +216,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                   color="primary"
                   variant="solid"
                   onPress={handleConfirmEnable}
-                  isDisabled={code.length < 6 || turnOnMutation.isPending}
+                  isDisabled={!password || code.length < 6 || turnOnMutation.isPending}
                   isLoading={turnOnMutation.isPending}
                 >
                   {t('actions.confirm')}

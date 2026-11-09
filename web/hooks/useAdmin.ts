@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client as api } from '../lib/api';
-import { notifyError, notifySuccess } from '../lib/toast';
+import { notifySuccess } from '../lib/toast';
 import { maturityReferenceClient } from '../lib/maturity-references/client';
 import { MaturityReference, MaturityReferenceInput } from '../lib/maturity-references/types';
 import type { PurgeResponse } from '@shared/maintenance';
@@ -60,8 +60,8 @@ export function useUpdateUserRole() {
 
     return useMutation({
         meta: { handlesError: true },
-        // #638: a grant carries the admin's own password (and code), and its
-        // refusals are said by the confirmation dialog; a removal's by the page.
+        // #638, #603: every change carries the admin's own password (and
+        // code); refusals are said by the confirmation dialog.
         mutationFn: async ({ userId, ...body }: { userId: string; isAdmin: boolean; password?: string; code?: string }) => {
             const response = await api.post<AdminUser>(`/admin/users/${userId}/role`, body);
             return response.data;
@@ -78,14 +78,12 @@ export function useUpdateUserStatus() {
     const queryClient = useQueryClient();
 
     return useMutation({
+        // #603: carries the admin's own password (and code); refusals are
+        // said by the caller (useMemberChanges).
         meta: { handlesError: true },
-        mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-            const response = await api.patch<AdminUser>(`/admin/users/${userId}/status`, { isActive });
+        mutationFn: async ({ userId, ...body }: { userId: string; isActive: boolean; password?: string; code?: string }) => {
+            const response = await api.patch<AdminUser>(`/admin/users/${userId}/status`, body);
             return response.data;
-        },
-        onError: (error) => {
-            const code = (error as { response?: { data?: { error?: string } } }).response?.data?.error;
-            notifyError(code === 'CANNOT_DEACTIVATE_LAST_ADMIN' ? 'admin.users.deactivateLastAdmin' : 'toast.admin.statusError');
         },
         onSuccess: () => {
             notifySuccess('toast.admin.statusSuccess');
