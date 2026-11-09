@@ -38,6 +38,7 @@ import {
 } from '@/lib/maturity-references/curve';
 import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '@shared/inventory';
 import { MAX_COPIES } from '@shared/product';
+import { DESCRIPTION_LIMITS } from '@shared/review';
 import { CigarGroupFields } from './CigarGroupFields';
 import { KnownWineBanner } from './KnownWineBanner';
 import { AddUnitsForm } from './AddUnitsDialog';
@@ -290,8 +291,12 @@ export function InventoryForm({
   const peakWindowReversed = ['wine', 'sparkling'].includes(values.category ?? '')
     && values.peakMaturityFrom != null && values.peakMaturityTo != null
     && values.peakMaturityTo < values.peakMaturityFrom;
+  // #708: as many tags, as long, as the API takes.
+  const invalidTags = (values.tags ?? []).length > DESCRIPTION_LIMITS.tags
+    || (values.tags ?? []).some((tag) => tag.length > DESCRIPTION_LIMITS.tagLength);
   const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity || invalidBottleCount;
-  const canSave = !missingRequired && !peakWindowReversed;
+  const tagLimits = { max: DESCRIPTION_LIMITS.tags, length: DESCRIPTION_LIMITS.tagLength };
+  const canSave = !missingRequired && !peakWindowReversed && !invalidTags;
 
   // ISSUE_119: closing a half-filled form must never discard the entry silently.
   const baselineCollectionIds = initialValues?.collections?.map(c => c.id) ?? [];
@@ -309,7 +314,8 @@ export function InventoryForm({
     if (!canSave) {
       setSubmitAttempted(true);
       setPeakWindowChecked(true);
-      notifyError(missingRequired ? 'inventory.validation.missingFields' : 'inventory.validation.peakWindowOrder');
+      notifyError(missingRequired ? 'inventory.validation.missingFields'
+        : invalidTags ? 'inventory.validation.tags' : 'inventory.validation.peakWindowOrder', tagLimits);
       return;
     }
     // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
@@ -1045,6 +1051,22 @@ export function InventoryForm({
                             size="sm"
                             value={values.notes ?? ''}
                             onValueChange={(v) => setField('notes', v)}
+                          />
+                        </div>
+
+                        {/* Tags (#708): the wine's, typed like its grape varieties. */}
+                        <div className="col-span-2 sm:col-span-4">
+                          <ParsedInput
+                            label={t('inventory.fields.tags')}
+                            placeholder={t('inventory.fields.tagsHint')}
+                            variant="bordered"
+                            size="sm"
+                            value={values.tags ?? []}
+                            format={(list) => list.join(', ')}
+                            parse={(text) => [...new Set(text.split(',').map((s) => s.trim()).filter(Boolean))]}
+                            onValueChange={(list) => setField('tags', list)}
+                            isInvalid={invalidTags}
+                            errorMessage={t('inventory.validation.tags', tagLimits)}
                           />
                         </div>
 

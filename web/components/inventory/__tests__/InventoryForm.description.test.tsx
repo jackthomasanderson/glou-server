@@ -87,3 +87,37 @@ describe('InventoryForm — a wine\'s description', () => {
     expect(onSubmit).toHaveBeenCalledWith({ region: 'Médoc' }, []);
   });
 });
+
+// #708: tags could only be edited in bulk; they belong to the wine (#471).
+describe('InventoryForm — a wine\'s tags', () => {
+  function drawTagged(tags: string[], onSubmit = vi.fn()) {
+    render(
+      <InventoryForm
+        open
+        initialValues={descriptionValues(product({ tags, items: [unit()] }))}
+        descriptionOf={{ units: 1, kind: 'bottle' }}
+        onSubmit={onSubmit}
+        onClose={() => {}}
+        t={(key, options) => t(key, options)}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Afficher les compléments' }));
+    return { onSubmit, field: screen.getByLabelText('Étiquettes') };
+  }
+
+  it('shows the wine\'s tags and sends the list typed, without doubles', () => {
+    const { onSubmit, field } = drawTagged(['Cadeau']);
+    expect(field).toHaveValue('Cadeau');
+    fireEvent.change(field, { target: { value: 'Cadeau, Garde,  , Garde' } });
+    fireEvent.click(screen.getByTestId('inventory-form-submit'));
+    expect(onSubmit).toHaveBeenCalledWith({ tags: ['Cadeau', 'Garde'] }, []);
+  });
+
+  it('refuses more than 20 tags, as the API does', () => {
+    const { onSubmit, field } = drawTagged([]);
+    fireEvent.change(field, { target: { value: Array.from({ length: 21 }, (_, i) => `t${i}`).join(', ') } });
+    fireEvent.click(screen.getByTestId('inventory-form-submit'));
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(field).toBeInvalid();
+  });
+});
