@@ -49,6 +49,17 @@ describe('convertToInventory', () => {
     );
   });
 
+  // #587: a wish records no ABV — the spirit's stays unknown, never an invented 0 %.
+  it('converts a spirit without inventing its ABV', async () => {
+    vi.mocked(prisma.wishlistItem.findFirst).mockResolvedValue(wish({ category: 'spirit', vintage: null }) as never);
+
+    await convertToInventory('u1', 'w1', {});
+
+    const input = vi.mocked(inventoryService.createItem).mock.calls[0][1];
+    expect(input).toMatchObject({ category: 'spirit' });
+    expect(input).not.toHaveProperty('alcoholDegree');
+  });
+
   it('takes the number given at the conversion over the one wished for', async () => {
     await convertToInventory('u1', 'w1', { quantity: 4 });
 

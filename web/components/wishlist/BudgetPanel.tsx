@@ -111,8 +111,9 @@ export function BudgetPanel() {
     const amount = Number(form.amount);
     if (!form.periodStart || !form.periodEnd || !Number.isFinite(amount) || amount < 0) return;
     const data = {
-      periodStart: new Date(form.periodStart).toISOString(),
-      periodEnd: new Date(form.periodEnd).toISOString(),
+      // Days, as the date fields give them: the API counts each one whole (#578).
+      periodStart: form.periodStart,
+      periodEnd: form.periodEnd,
       amount,
     };
     try {

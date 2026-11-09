@@ -363,6 +363,19 @@ describe('applyCorrections — surplus and finds (FEAT-100 c3, c4)', () => {
     expect(result).toMatchObject({ appliedCount: 1 });
   });
 
+  // #587: a count records no ABV — the spirit's stays unknown, never an invented 0 %.
+  it('adds a spirit found without inventing its ABV', async () => {
+    const { store } = fakeTx([]);
+    store.push({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Lagavulin 16', newItemCategory: 'spirit', newItemQuantity: 1 });
+    vi.mocked(inventoryService.createItem).mockResolvedValue({ id: 'new1', productId: 'pnew' } as never);
+
+    await applyCorrections('s1', [{ action: 'add_to_stock', entryId: 'f1' }], 'u1');
+
+    const input = vi.mocked(inventoryService.createItem).mock.calls[0][1];
+    expect(input).toMatchObject({ category: 'spirit', name: 'Lagavulin 16' });
+    expect(input).not.toHaveProperty('alcoholDegree');
+  });
+
   it('attaches a find of a known wine to its family, never a second card', async () => {
     const { tx, calls, store } = fakeTx([]);
     store.push({ id: 'f1', sessionId: 's1', itemId: null, newItemName: 'Château Talbot', newItemCategory: 'wine', newItemQuantity: 6 });

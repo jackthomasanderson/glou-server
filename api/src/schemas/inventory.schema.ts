@@ -201,6 +201,16 @@ export const inventoryInputSchema = z.discriminatedUnion('category', [
 export type InventoryInput = z.infer<typeof inventoryInputSchema>;
 export type InventoryCategory = InventoryInput['category'];
 
+type SpiritInput = Extract<InventoryInput, { category: 'spirit' }>;
+/**
+ * #587: what the API itself may create — an input, except that a spirit added
+ * from a wish or a stock count (which record no ABV) leaves its ABV unknown
+ * rather than an invented 0 %. The add form still requires it.
+ */
+export type InventoryDraft =
+  | Exclude<InventoryInput, { category: 'spirit' }>
+  | (Omit<SpiritInput, 'alcoholDegree'> & Partial<Pick<SpiritInput, 'alcoholDegree'>>);
+
 // ─── Patch schema ────────────────────────────────────────────────────────────
 // Uses a flat partial object instead of discriminatedUnion.partial() which is not
 // supported by Zod's type system for discriminated unions.

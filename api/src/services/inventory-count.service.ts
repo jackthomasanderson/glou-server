@@ -2,7 +2,7 @@ import { BottleCategory, Prisma } from '@prisma/client';
 import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
-import { InventoryInput } from '../schemas/inventory.schema';
+import { InventoryDraft } from '../schemas/inventory.schema';
 import { IN_STOCK_ITEM_FILTER, isFinishedState, isIntactItem } from '../lib/finished-item';
 import { freeSlots, type SlotChange } from '../lib/slots';
 import { lockFamilies } from '../lib/product-fields';
@@ -526,14 +526,14 @@ async function matchingProductsFor(
  * switch + safe placeholder defaults for fields the capture flow doesn't
  * collect) for consistency — only name/category/quantity come from the
  * count session (feature.md); everything else is left as an editable
- * placeholder, same spirit as the CSV import's `alcoholDegree: 0`.
+ * placeholder — a spirit's ABV is left unknown, as by the CSV import (#510, #587).
  * #471 (FEAT-100): the copies found form one group (a find of six bottles is
  * a group ×6), whatever the category.
  */
 function toInventoryInputForFound(
   entry: { newItemName: string; newItemCategory: BottleCategory; newItemQuantity: number | null },
   cellarId: string | null,
-): InventoryInput {
+): InventoryDraft {
   const common = {
     name: entry.newItemName,
     producer: '',
@@ -553,7 +553,7 @@ function toInventoryInputForFound(
     case 'sparkling':
       return { ...common, category: 'sparkling' as const };
     case 'spirit':
-      return { ...common, category: 'spirit' as const, alcoholDegree: 0 };
+      return { ...common, category: 'spirit' as const };
     case 'cigar':
       // Single cigars (no `cigarsPerBox`): a find is counted cigar by cigar.
       return { ...common, category: 'cigar' as const };

@@ -55,6 +55,14 @@ export async function deleteBudgetEnvelope(id: string): Promise<boolean> {
 const dayOf = (moment: Date): Date =>
   new Date(Date.UTC(moment.getUTCFullYear(), moment.getUTCMonth(), moment.getUTCDate()));
 
+/**
+ * #578: the instant a bound's day starts in the API's time zone (`TZ`), `days`
+ * later — how a recording moment (`createdAt`) is matched to an envelope day,
+ * like the default purchase day (`todayAsPurchaseDate`).
+ */
+const localStartOfDay = (bound: Date, days = 0): Date =>
+  new Date(bound.getUTCFullYear(), bound.getUTCMonth(), bound.getUTCDate() + days);
+
 export interface BudgetProgress {
   envelope: Awaited<ReturnType<typeof prisma.budgetEnvelope.findFirst>>;
   spent: number;
@@ -82,7 +90,11 @@ export async function getBudgetProgress(envelopeId: string): Promise<BudgetProgr
       purchasePrice: { not: null },
       OR: [
         { purchasedAt: { gte: dayOf(envelope.periodStart), lte: dayOf(envelope.periodEnd) } },
-        { purchasedAt: null, createdAt: { gte: envelope.periodStart, lte: envelope.periodEnd } },
+        // The whole last day: up to the start of the next one (#578).
+        {
+          purchasedAt: null,
+          createdAt: { gte: localStartOfDay(envelope.periodStart), lt: localStartOfDay(envelope.periodEnd, 1) },
+        },
       ],
     },
     select: { quantity: true, purchasePrice: true },

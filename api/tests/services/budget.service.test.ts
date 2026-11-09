@@ -120,9 +120,35 @@ describe('getBudgetProgress', () => {
     expect(spendQuery().where.OR).toEqual([
       // The envelope's days, as `@db.Date` stores them (midnight UTC).
       { purchasedAt: { gte: new Date(Date.UTC(2026, 0, 1)), lte: new Date(Date.UTC(2026, 2, 31)) } },
-      { purchasedAt: null, createdAt: { gte: envelope.periodStart, lte: envelope.periodEnd } },
+      { purchasedAt: null, createdAt: { gte: expect.any(Date), lt: expect.any(Date) } },
     ]);
     expect(spendQuery().where).not.toHaveProperty('createdAt');
+  });
+
+  // #578: a line without a purchase day falls back to the moment it was
+  // recorded; the envelope's last day counts whole, in the instance time zone.
+  const createdAtBounds = () =>
+    (spendQuery().where.OR as Array<{ createdAt?: { gte: Date; lt: Date } }>)[1].createdAt;
+
+  it.each([
+    ['UTC', '2026-01-01T00:00:00.000Z', '2026-04-01T00:00:00.000Z'],
+    // Paris is UTC+1 in winter, UTC+2 in summer (31 March is after the switch).
+    ['Europe/Paris', '2025-12-31T23:00:00.000Z', '2026-03-31T22:00:00.000Z'],
+    ['America/New_York', '2026-01-01T05:00:00.000Z', '2026-04-01T04:00:00.000Z'],
+  ])('counts a line recorded any time on the last day, in %s', async (tz, start, end) => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = tz;
+    try {
+      vi.mocked(prisma.budgetEnvelope.findFirst).mockResolvedValue(envelope as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+      await getBudgetProgress('e1');
+
+      expect(createdAtBounds()).toEqual({ gte: new Date(start), lt: new Date(end) });
+    } finally {
+      if (previousTz === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTz;
+    }
   });
 
   // West of UTC, midnight UTC on 1 October is still 30 September locally:
