@@ -2,11 +2,15 @@
 import React, { useState } from 'react';
 import { Button, Card, CardBody, Checkbox, Input, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter } from 'lucide-react';
+import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCsvExport } from '@/hooks/useCsvExport';
 import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser, ExportCategory } from '@/hooks/useAuth';
 import { formatDate } from '@/lib/format';
+import { CsvImportStep } from '@/components/onboarding/steps/CsvImportStep';
+import type { CsvImportResult } from '@/lib/import/types';
+import { importedText } from '@/lib/import/summary';
+import { notifySuccess } from '@/lib/toast';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES } from '@shared/auth';
 
 interface GdprSectionProps {
@@ -18,6 +22,8 @@ export function GdprSection({ user }: GdprSectionProps) {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [filterOpen, setFilterOpen] = useState(false);
+  // #641: the file import, outside the first-run wizard.
+  const [importOpen, setImportOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<ExportCategory[]>([...EXPORT_CATEGORIES]);
 
   const exportMutation = useExportData();
@@ -39,6 +45,12 @@ export function GdprSection({ user }: GdprSectionProps) {
         i18n.language,
       )
     : null;
+
+  const handleImported = (result: CsvImportResult) => {
+    setImportOpen(false);
+    const what = importedText(result, t);
+    notifySuccess(what ? 'onboarding.summary.imported' : 'onboarding.summary.nothingImported', what ? { what } : undefined);
+  };
 
   const handleConfirmDelete = () => {
     if (confirmText !== t('gdpr.deleteKeyword')) return;
@@ -157,6 +169,24 @@ export function GdprSection({ user }: GdprSectionProps) {
             </Button>
           </div>
 
+          {/* #641: a file import, outside the first-run wizard */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{t('gdpr.importTitle')}</p>
+              <p className="text-xs text-foreground-500 mt-0.5">{t('gdpr.importDescription')}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="flat"
+              color="default"
+              className="shrink-0"
+              startContent={<Upload size={14} />}
+              onPress={() => setImportOpen(true)}
+            >
+              {t('gdpr.importButton')}
+            </Button>
+          </div>
+
           {/* Delete account */}
           {!isDeletionPending && (
             <div className="flex items-start justify-between gap-4">
@@ -178,6 +208,19 @@ export function GdprSection({ user }: GdprSectionProps) {
           )}
         </CardBody>
       </Card>
+
+      <ResponsiveModal isOpen={importOpen} onClose={() => setImportOpen(false)} size="2xl" scrollBehavior="inside" aria-label={t('gdpr.importTitle')}>
+        <ModalContent>
+          <ModalBody className="p-0">
+            <CsvImportStep
+              cellarId={null}
+              onImported={handleImported}
+              onBack={() => setImportOpen(false)}
+              backLabel={t('actions.cancel')}
+            />
+          </ModalBody>
+        </ModalContent>
+      </ResponsiveModal>
 
       {/* Confirmation modal */}
       <ResponsiveModal isOpen={deleteModalOpen} onClose={() => { setDeleteModalOpen(false); setConfirmText(''); }} size="sm" placement="center">

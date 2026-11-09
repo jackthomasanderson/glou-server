@@ -4,6 +4,7 @@ import { CheckCircle2, Copy, Package, Settings, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
 import type { CsvImportResult } from '@/lib/import/types';
+import { importedText } from '@/lib/import/summary';
 
 interface SummaryStepProps {
   cellarName: string | null;
@@ -21,14 +22,7 @@ interface SummaryStepProps {
 /** Step 5/5 — recap of what the wizard set up, then hand off to the dashboard. */
 export function SummaryStep({ cellarName, itemsAdded, importResult = null, isAdmin, joining = false, isFinishing, onFinish }: SummaryStepProps) {
   const { t } = useTranslation();
-  const imported = importResult
-    ? [
-        importResult.bottles > 0 && t('onboarding.summary.bottles', { count: importResult.bottles }),
-        importResult.wines > 0 && t('onboarding.summary.wines', { count: importResult.wines }),
-        importResult.cigars > 0 && t('onboarding.summary.cigars', { count: importResult.cigars }),
-        importResult.cigarReferences > 0 && t('onboarding.summary.cigarReferences', { count: importResult.cigarReferences }),
-      ].filter(Boolean).join(' · ')
-    : '';
+  const imported = importResult ? importedText(importResult, t) : '';
   const router = useRouter();
 
   const goToSystemConfig = () => {
