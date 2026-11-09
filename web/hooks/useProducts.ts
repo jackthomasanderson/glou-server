@@ -114,6 +114,8 @@ export function useCellarProducts(cellarId: string, options?: { enabled?: boolea
     },
     staleTime: 1000 * 30,
     enabled: options?.enabled ?? true,
+    // Offline it fails at once (not paused): the page then says it is incomplete.
+    networkMode: 'always',
   });
 }
 

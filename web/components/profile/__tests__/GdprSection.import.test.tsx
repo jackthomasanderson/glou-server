@@ -18,10 +18,18 @@ vi.mock('@/hooks/useAuth', () => ({
   useCancelAccountDeletion: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 // Closed modals render nothing, like HeroUI's.
+// The dismiss props show as attributes, so a test can check the window cannot be closed.
 vi.mock('@/components/ui/ResponsiveModal', () => ({
-  ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
-    isOpen ? <div role="dialog">{children}</div> : null,
+  ResponsiveModal: ({ isOpen, children, isDismissable, isKeyboardDismissDisabled, hideCloseButton }: {
+    isOpen?: boolean; children?: ReactNode; isDismissable?: boolean; isKeyboardDismissDisabled?: boolean; hideCloseButton?: boolean;
+  }) =>
+    isOpen ? (
+      <div role="dialog" data-dismissable={String(isDismissable ?? true)} data-keyboard-locked={String(!!isKeyboardDismissDisabled)}
+        data-close-hidden={String(!!hideCloseButton)}>{children}</div>
+    ) : null,
 }));
+const importing = vi.hoisted(() => ({ busy: false }));
+vi.mock('@/hooks/useImport', () => ({ useCsvConfirmPending: () => importing.busy }));
 vi.mock('@heroui/react', async (importActual) => {
   const actual = await importActual<typeof import('@heroui/react')>();
   const Box = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
@@ -70,5 +78,26 @@ describe('GdprSection — "Importer un fichier" (#641)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'gdpr.importButton' }));
     fireEvent.click(screen.getByRole('button', { name: 'actions.cancel' }));
     expect(screen.queryByTestId('csv-import')).toBeNull();
+  });
+});
+
+describe('GdprSection — an import being confirmed (#641, review of #908)', () => {
+  it('cannot be closed while the import is confirmed', () => {
+    importing.busy = true;
+    render(<GdprSection user={user} />);
+    fireEvent.click(screen.getByRole('button', { name: 'gdpr.importButton' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('data-dismissable', 'false');
+    expect(dialog).toHaveAttribute('data-keyboard-locked', 'true');
+    expect(dialog).toHaveAttribute('data-close-hidden', 'true');
+    importing.busy = false;
+  });
+
+  it('can be closed otherwise', () => {
+    render(<GdprSection user={user} />);
+    fireEvent.click(screen.getByRole('button', { name: 'gdpr.importButton' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('data-dismissable', 'true');
+    expect(dialog).toHaveAttribute('data-keyboard-locked', 'false');
   });
 });

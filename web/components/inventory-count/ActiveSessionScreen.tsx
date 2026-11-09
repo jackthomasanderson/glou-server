@@ -13,6 +13,7 @@ import { inStockItems } from '@/lib/inventory/inStock';
 import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { RecordFoundItemModal } from './RecordFoundItemModal';
 import { MAX_COPIES } from '@shared/product';
+import { INVENTORY_LIST_LIMIT } from '@shared/inventory';
 
 const MIN_SEARCH_LENGTH = 2;
 const MAX_SEARCH_RESULTS = 8;
@@ -30,7 +31,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
 
   const { data: report, isLoading } = useSessionReport(session.id);
   const { data: allItems } = useInventory();
-  // #475: the search reads the loaded list, which holds the 2,000 most recent items at most.
+  // #475: the search reads the loaded list, which holds the most recent items only (INVENTORY_LIST_LIMIT).
   const searchCut = useInventoryTruncated();
   const scanMutation = useScanItem(session.id);
   const pauseMutation = usePauseCountSession();
@@ -206,7 +207,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
             <Input
               label={t('inventoryCount.session.searchLabel')}
               placeholder={t('inventoryCount.session.searchPlaceholder')}
-              description={searchCut ? t('inventoryCount.session.searchTruncated', { limit: 2000 }) : undefined}
+              description={searchCut ? t('inventoryCount.session.searchTruncated', { limit: INVENTORY_LIST_LIMIT }) : undefined}
               variant="bordered"
               labelPlacement="outside"
               size="md"

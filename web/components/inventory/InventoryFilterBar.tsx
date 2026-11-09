@@ -130,8 +130,8 @@ export function InventoryFilterBar({
 
   const filterContent = (
     <div className="flex flex-col gap-4">
-      {/* Cellar filter */}
-      {(cellars?.length ?? 0) > 0 && (
+      {/* Cellar filter (#707: "Sans cave" too, even once every cellar is deleted) */}
+      {((cellars?.length ?? 0) > 0 || hasBottleWithoutCellar) && (
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
             {t('inventory.filterByCellar')}

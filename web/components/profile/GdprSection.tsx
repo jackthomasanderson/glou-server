@@ -5,6 +5,7 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCsvExport } from '@/hooks/useCsvExport';
+import { useCsvConfirmPending } from '@/hooks/useImport';
 import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser, ExportCategory } from '@/hooks/useAuth';
 import { formatDate } from '@/lib/format';
 import { CsvImportStep } from '@/components/onboarding/steps/CsvImportStep';
@@ -24,6 +25,7 @@ export function GdprSection({ user }: GdprSectionProps) {
   const [filterOpen, setFilterOpen] = useState(false);
   // #641: the file import, outside the first-run wizard.
   const [importOpen, setImportOpen] = useState(false);
+  const importing = useCsvConfirmPending();
   const [selectedCategories, setSelectedCategories] = useState<ExportCategory[]>([...EXPORT_CATEGORIES]);
 
   const exportMutation = useExportData();
@@ -209,7 +211,17 @@ export function GdprSection({ user }: GdprSectionProps) {
         </CardBody>
       </Card>
 
-      <ResponsiveModal isOpen={importOpen} onClose={() => setImportOpen(false)} size="2xl" scrollBehavior="inside" aria-label={t('gdpr.importTitle')}>
+      <ResponsiveModal
+        isOpen={importOpen}
+        onClose={() => { if (!importing) setImportOpen(false); }}
+        // Review of #908: closed while the import is confirmed, its result would never show.
+        isDismissable={!importing}
+        isKeyboardDismissDisabled={importing}
+        hideCloseButton={importing}
+        size="2xl"
+        scrollBehavior="inside"
+        aria-label={t('gdpr.importTitle')}
+      >
         <ModalContent>
           <ModalBody className="p-0">
             <CsvImportStep

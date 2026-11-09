@@ -50,13 +50,13 @@ describe('InventoryFilterBar — "Sans cave"', () => {
   const cellars = [{ id: 'kitchen', name: 'Cuisine' }] as never;
   const withBottle = (cellarId: string | null) => [{ id: 'p', tags: [], items: [{ id: 'u', cellarId }] }] as never;
 
-  function CellarBar({ products }: { products: never }) {
+  function CellarBar({ products, cellarList = cellars }: { products: never; cellarList?: never }) {
     const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
     return (
       <>
         <InventoryFilterBar
           variant="desktop" t={(key: string) => key} isFiltersOpen hasActiveFilters={false} onClearFilters={noop}
-          cellars={cellars} products={products}
+          cellars={cellarList} products={products}
           selectedCategories={[]} setSelectedCategories={noop} selectedCellars={selectedCellars} setSelectedCellars={setSelectedCellars}
           selectedWineColors={[]} setSelectedWineColors={noop} selectedTags={[]} setSelectedTags={noop}
           minValue="" setMinValue={noop} maxValue="" setMaxValue={noop} sortBy="default" setSortBy={noop}
@@ -79,5 +79,10 @@ describe('InventoryFilterBar — "Sans cave"', () => {
   it('is not offered when every bottle is in a cellar', () => {
     render(<CellarBar products={withBottle('kitchen')} />);
     expect(screen.queryByRole('button', { name: 'inventory.noCellarFilter' })).toBeNull();
+  });
+
+  it('is offered even once every cellar is deleted', () => {
+    render(<CellarBar products={withBottle(null)} cellarList={[] as never} />);
+    expect(screen.getByRole('button', { name: 'inventory.noCellarFilter' })).toBeInTheDocument();
   });
 });

@@ -8,7 +8,7 @@ import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
 import { isGroupableItem, unitKind, type UnitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
-import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
+import { INVENTORY_LIST_LIMIT, TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
   compareFamilyIds, isProductField, lockFamilies, lockFamily, nextLocksAndSources, pickProductFields, purchaseDayFromInput,
   toItemView, toUnitView, UNIT_SLOTS_INCLUDE,
@@ -180,7 +180,7 @@ export class InventoryService {
    * mistaken for the full inventory.
    */
   async listInventory(_userId: string): Promise<{ items: WithReadiness<InventoryItemView>[]; truncated: boolean }> {
-    const limit = 2000;
+    const limit = INVENTORY_LIST_LIMIT;
     const items = await prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
