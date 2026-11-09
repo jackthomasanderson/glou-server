@@ -4,8 +4,7 @@ import dynamic from 'next/dynamic';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
-import { Plus, Search, Wine, Leaf, ClipboardCheck, Camera, BookMarked } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, Search, Camera, BookMarked } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
@@ -459,31 +458,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   return (
     <div className="p-4 pb-24 sm:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 mb-6">
-        <div className="flex items-center gap-2">
-          {lockedCategories?.includes('cigar') ? (
-            <Leaf size={22} className="text-primary" />
-          ) : (
-            <Wine size={22} className="text-primary" />
-          )}
-          <h1 className="text-xl font-bold">
-            {lockedCategories?.includes('cigar') ? t('nav.cigars') : t('nav.bottles')}
-          </h1>
-        </div>
-        <Button
-          as={Link}
-          href="/inventory-count"
-          variant="bordered"
-          color="primary"
-          size="sm"
-          startContent={<ClipboardCheck size={14} />}
-          className="hidden sm:flex"
-        >
-          {t('inventoryCount.accessButton')}
-        </Button>
-      </div>
-
       <InventoryBanners t={t} isTruncated={isTruncated} cellars={cellars} />
 
       {!isLoading && (statsProducts.length > 0 || goneCount > 0) && mode === 'idle' && (
@@ -498,11 +472,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
       {/* Main layout */}
       <div className="flex gap-5 items-start">
-        {/* Desktop filter panel */}
+        {/* Desktop filter panel. #701: the page's sections, named for screen readers. */}
+        <h2 className="sr-only">{t('inventory.headings.filters')}</h2>
         <InventoryFilterBar variant="desktop" {...filterBarProps} />
 
         {/* Content column */}
         <div className="flex-1 min-w-0">
+          <h2 className="sr-only">{t('inventory.headings.list')}</h2>
           {/* Toolbar */}
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <div className="flex flex-wrap gap-2 items-center">

@@ -141,6 +141,10 @@
     "trashDaysLeft_other": "{{count}} jours restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",
     "tabsAria": "Vue inventaire",
+    "headings": {
+      "filters": "Filtres",
+      "list": "Liste"
+    },
     "tabs": {
       "items": "Inventaire",
       "trash": "Corbeille"
@@ -169,6 +173,12 @@
       "category": "Catégorie",
       "name": "Nom",
       "producer": "Producteur",
+      "namePlaceholder": {
+        "wine": "Cuvée / Appellation",
+        "sparkling": "Cuvée / Assemblage",
+        "spirit": "Nom / Expression",
+        "cigar": "Vitole / Gamme"
+      },
       "producerPlaceholder": {
         "wine": "Château / Domaine / Négociant",
         "sparkling": "Maison / Domaine / Coopérative",
@@ -200,7 +210,7 @@
       "peakMaturityTo": "Fin",
       "peakMaturityToHint": "Dernière année de la période idéale",
       "vintage": "Millésime",
-      "noVintage": "Sans millésime",
+      "noVintage": "Laisser vide si sans millésime",
       "color": "Couleur",
       "region": "Région",
       "grapeVarieties": "Cépages",
@@ -620,9 +630,9 @@
       "configHint": "Définissez les dimensions physiques de votre cave pour afficher un plan visuel.",
       "columns": "Colonnes (largeur)",
       "rows": "Rangées (hauteur)",
-      "hotZoneRows": "Zone chaude (rangées depuis le haut)",
+      "hotZoneRows": "Zone chaude (rangées)",
       "hotZoneRowsHint": "Rangées à température plus élevée, comptées depuis le haut",
-      "coldZoneRows": "Zone froide (rangées depuis le bas)",
+      "coldZoneRows": "Zone froide (rangées)",
       "coldZoneRowsHint": "Rangées à température plus fraîche, comptées depuis le bas",
       "zonesExceedError": "Zone chaude + zone froide dépassent le nombre total de rangées",
       "configured": "Grille : {{cols}} × {{rows}}",
@@ -692,6 +702,10 @@
     },
     "filterByType": "Filtrer par type",
     "filterByStatus": "Filtrer par état",
+    "filters": {
+      "allTypes": "Tous les types",
+      "allStates": "Tous les états"
+    },
     "noResults": "Aucune cave trouvée avec ces critères",
     "errors": {
       "load": "Impossible de charger les caves."

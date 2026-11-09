@@ -49,6 +49,7 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface GridFormData {
   columns: string;
@@ -109,7 +110,7 @@ export const CellarDashboard: React.FC = () => {
   ], [t]);
 
   const typeFilterOptions = useMemo(
-    () => [{ key: 'all', label: t('filters.all') }, ...cellarTypeOptions],
+    () => [{ key: 'all', label: t('cellars.filters.allTypes') }, ...cellarTypeOptions],
     [cellarTypeOptions, t],
   );
 
@@ -300,33 +301,27 @@ export const CellarDashboard: React.FC = () => {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <Warehouse size={22} className="text-primary" />
-          <h1 className="text-xl font-bold">{t('cellars.title')}</h1>
-        </div>
-        <div className="flex gap-2 items-center">
-          <ViewToggle value={viewMode} onChange={setViewMode} />
-          <Button
-            as={Link}
-            href="/inventory-count"
-            variant="bordered"
-            color="primary"
-            startContent={<ClipboardCheck size={16} />}
-            className="hidden sm:flex"
-          >
-            {t('inventoryCount.accessButton')}
-          </Button>
-          <Button
-            color="primary"
-            startContent={<Plus size={16} />}
-            onPress={() => handleOpenForm()}
-          >
-            {t('cellars.addCellar')}
-          </Button>
-        </div>
-      </div>
+      {/* Header — #701: the create button is the empty state's own while there is no cellar. */}
+      <PageHeader
+        icon={Warehouse}
+        title={t('cellars.title')}
+        actions={
+          <>
+            <ViewToggle value={viewMode} onChange={setViewMode} />
+            <Button
+              as={Link}
+              href="/inventory-count"
+              variant="bordered"
+              color="primary"
+              startContent={<ClipboardCheck size={16} />}
+              className="hidden sm:flex"
+            >
+              {t('inventoryCount.accessButton')}
+            </Button>
+          </>
+        }
+        create={cellars?.length ? { label: t('cellars.addCellar'), onPress: () => handleOpenForm() } : undefined}
+      />
 
       {/* Filters (only shown when there are cellars) */}
       {(cellars?.length ?? 0) > 0 && (
@@ -353,7 +348,7 @@ export const CellarDashboard: React.FC = () => {
             className="w-full sm:w-44"
             aria-label={t('cellars.filterByStatus')}
           >
-            <SelectItem key="all">{t('filters.all')}</SelectItem>
+            <SelectItem key="all">{t('cellars.filters.allStates')}</SelectItem>
             <SelectItem key="alerts">{t('cellars.status.withAlerts')}</SelectItem>
             <SelectItem key="no-alerts">{t('cellars.status.noAlerts')}</SelectItem>
             <SelectItem key="empty">{t('cellars.status.empty')}</SelectItem>

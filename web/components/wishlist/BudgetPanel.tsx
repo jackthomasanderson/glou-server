@@ -7,6 +7,7 @@ import {
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CreateAction } from '@/components/ui/PageHeader';
 import {
   useBudgetEnvelopes, useCreateBudgetEnvelope, useUpdateBudgetEnvelope, useDeleteBudgetEnvelope, useBudgetProgress,
 } from '@/hooks/useBudget';
@@ -139,13 +140,14 @@ export function BudgetPanel() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-2 mb-6">
-        <Wallet size={22} className="text-primary" />
-        <h1 className="text-xl font-bold">{t('budget.title')}</h1>
-        <Button className="ml-auto" color="primary" variant="solid" startContent={<Plus size={16} />} onPress={openCreate}>
-          {t('budget.create')}
-        </Button>
-      </div>
+      {/* #701: the page title and tabs are in WishlistClient's header; the
+          create button is the empty state's own while there is no envelope. */}
+      <h2 className="sr-only">{t('budget.title')}</h2>
+      {!isLoading && (envelopes?.length ?? 0) > 0 && (
+        <div className="flex justify-end sm:mb-4">
+          <CreateAction label={t('budget.create')} onPress={openCreate} />
+        </div>
+      )}
 
       {isError && (
         <ErrorState

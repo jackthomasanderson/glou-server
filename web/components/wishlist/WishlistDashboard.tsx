@@ -6,6 +6,7 @@ import {
 } from '@heroui/react';
 import { Plus, Gift, Tag, ArrowRightCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CreateAction } from '@/components/ui/PageHeader';
 import {
   useWishlist, useCreateWishlistItem, useUpdateWishlistItem, useDeleteWishlistItem,
   useRecordPriceSeen, useConvertToInventory,
@@ -219,20 +220,14 @@ export function WishlistDashboard() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-2 mb-6">
-        <Gift size={22} className="text-primary" />
-        <h1 className="text-xl font-bold">{t('wishlist.title')}</h1>
-        <Button
-          data-testid="wishlist-create-button"
-          className="ml-auto"
-          color="primary"
-          variant="solid"
-          startContent={<Plus size={16} />}
-          onPress={openCreate}
-        >
-          {t('wishlist.create')}
-        </Button>
-      </div>
+      {/* #701: the page title and tabs are in WishlistClient's header; the
+          create button is the empty state's own while the list is empty. */}
+      <h2 className="sr-only">{t('wishlist.tabs.wishlist')}</h2>
+      {!isLoading && activeItems.length > 0 && (
+        <div className="flex justify-end sm:mb-4">
+          <CreateAction label={t('wishlist.create')} onPress={openCreate} testId="wishlist-create-button" />
+        </div>
+      )}
 
       {isError && (
         <ErrorState

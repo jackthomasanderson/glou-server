@@ -141,6 +141,10 @@
     "trashDaysLeft_other": "{{count}} days left before permanent deletion",
     "trashEmpty": "The trash is empty.",
     "tabsAria": "Inventory view",
+    "headings": {
+      "filters": "Filters",
+      "list": "List"
+    },
     "tabs": {
       "items": "Inventory",
       "trash": "Trash"
@@ -169,6 +173,12 @@
       "category": "Category",
       "name": "Name",
       "producer": "Producer",
+      "namePlaceholder": {
+        "wine": "Cuvée / Appellation",
+        "sparkling": "Cuvée / Blend",
+        "spirit": "Name / Expression",
+        "cigar": "Vitola / Line"
+      },
       "producerPlaceholder": {
         "wine": "Château / Estate / Négociant",
         "sparkling": "House / Domain / Cooperative",
@@ -200,7 +210,7 @@
       "peakMaturityTo": "To",
       "peakMaturityToHint": "Last year of the ideal tasting period",
       "vintage": "Vintage",
-      "noVintage": "No vintage",
+      "noVintage": "Leave empty if non-vintage",
       "color": "Color",
       "region": "Region",
       "grapeVarieties": "Grape varieties",
@@ -620,9 +630,9 @@
       "configHint": "Define the physical dimensions of your cellar to display a visual map.",
       "columns": "Columns (width)",
       "rows": "Rows (height)",
-      "hotZoneRows": "Hot zone (rows from top)",
+      "hotZoneRows": "Hot zone (rows)",
       "hotZoneRowsHint": "Rows with higher temperature, counted from the top",
-      "coldZoneRows": "Cold zone (rows from bottom)",
+      "coldZoneRows": "Cold zone (rows)",
       "coldZoneRowsHint": "Rows with lower temperature, counted from the bottom",
       "zonesExceedError": "Hot zone + cold zone exceed total rows",
       "configured": "Grid: {{cols}} × {{rows}}",
@@ -690,6 +700,10 @@
     },
     "filterByType": "Filter by type",
     "filterByStatus": "Filter by status",
+    "filters": {
+      "allTypes": "All types",
+      "allStates": "All states"
+    },
     "noResults": "No cellar found matching these criteria",
     "errors": {
       "load": "Could not load the cellars."

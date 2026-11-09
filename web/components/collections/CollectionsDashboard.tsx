@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { usePageSize } from '@/hooks/usePageSize';
 import { PaginationBar } from '@/components/ui/PaginationBar';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { ErrorState } from '@/components/ui/ErrorState';
 
 export function CollectionsDashboard() {
@@ -71,17 +72,18 @@ export function CollectionsDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 pt-6 pb-24 md:pb-6">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-6">
-        <BookMarked size={22} className="text-primary" />
-        <h1 className="text-xl font-bold">{t('collections.title')}</h1>
-        {/* #708: nothing to page through, no page size. */}
-        {!!collections?.length && (
-          <div className="ml-auto">
-            <PageSizeToggle value={pageSize} onChange={(s) => { setPageSize(s); setCurrentPage(1); }} />
-          </div>
-        )}
-      </div>
+      {/* Header — #701: the create button is the empty state's own while there is no collection. */}
+      <PageHeader
+        icon={BookMarked}
+        title={t('collections.title')}
+        // #708: nothing to page through, no page size.
+        actions={collections?.length ? <PageSizeToggle value={pageSize} onChange={(s) => { setPageSize(s); setCurrentPage(1); }} /> : undefined}
+        create={
+          (collections?.length ?? 0) > 0
+            ? { label: t('collections.create'), onPress: () => setFormOpen(true), testId: 'collection-create-button' }
+            : undefined
+        }
+      />
 
       {/* Error banner */}
       {isError && (
@@ -139,22 +141,6 @@ export function CollectionsDashboard() {
             labelItems={t('pagination.items')}
           />
         </>
-      )}
-
-      {/* FAB — only when there are collections */}
-      {(collections?.length ?? 0) > 0 && (
-        <Button
-          data-testid="collection-create-button"
-          color="primary"
-          radius="full"
-          size="lg"
-          isIconOnly
-          onPress={() => setFormOpen(true)}
-          aria-label={t('collections.create')}
-          className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 right-6 z-30 shadow-lg"
-        >
-          <Plus size={24} />
-        </Button>
       )}
 
       {/* Create form */}

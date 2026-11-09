@@ -120,7 +120,7 @@ export function PairingExplorer() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center gap-2 mb-4">
         <Utensils size={22} className="text-primary" />
-        <h1 className="text-xl font-bold">{t('tastings.pairing.title')}</h1>
+        <h2 className="text-lg font-bold">{t('tastings.pairing.title')}</h2>
       </div>
 
       {/* Search */}

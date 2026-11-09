@@ -5,6 +5,7 @@ import { Button, Input, SelectItem, Switch, CircularProgress } from '@heroui/rea
 import { User, Settings, ShieldCheck, Compass, FlaskConical, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
 import { useMe, useLogout, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
 import { notifySuccess } from '@/lib/toast';
@@ -98,7 +99,7 @@ export function ProfileClient() {
   return (
     <MainLayout>
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-4">{t('profile.title')}</h1>
+        <PageHeader icon={User} title={t('profile.title')} className="mb-4" />
 
         {/* #513: ten stacked sections on a phone — a row of anchors gets to
             the right one directly. (The former Wishlist & Budget shortcut is
