@@ -12,6 +12,7 @@ import { useCellars } from '@/hooks/useCellars';
 import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { useBulkPresets, useCreateBulkPreset, useDeleteBulkPreset } from '@/hooks/useBulkPresets';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { FILL_LEVELS } from '@/lib/products/fillLevels';
 
 interface BulkActionDialogProps {
   open: boolean;
@@ -309,13 +310,13 @@ export function BulkActionDialog({
                   </Checkbox>
                   {enabledFields.fillLevel && (
                     <div role="group" aria-label={t('inventory.fields.fillLevel')} className="flex flex-wrap gap-1 mt-2">
-                      {[100, 75, 50, 25, 0].map((v) => (
+                      {FILL_LEVELS.map(({ value, key }) => (
                         <FilterChip
-                          key={v}
-                          selected={values.fillLevel === v}
-                          onPress={() => setField('fillLevel', v)}
+                          key={value}
+                          selected={values.fillLevel === value}
+                          onPress={() => setField('fillLevel', value)}
                         >
-                          {v}%
+                          {t(key)}
                         </FilterChip>
                       ))}
                     </div>

@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { InventoryCard } from '../InventoryCard';
 import { describeStock } from '@/lib/products/stock';
 import type { Product } from '@/lib/products/types';
@@ -109,6 +109,19 @@ describe('InventoryCard — one card per wine', () => {
     card(product({ items: [] }), { onEdit: undefined, onView: undefined });
     expect(screen.queryByRole('button', { name: 'Modifier' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Mettre à la corbeille' })).toBeInTheDocument();
+  });
+
+  // #708: the small box on the photo was the only target, and hard to see.
+  it('in selection mode, a click anywhere on the card selects it, not on its buttons', () => {
+    const onSelectToggle = vi.fn();
+    const onEdit = vi.fn();
+    card(product({ items: [unit()] }), { onView: undefined, onSelectToggle, onEdit });
+    fireEvent.click(screen.getByText('Cuvée X'));
+    expect(onSelectToggle).toHaveBeenCalledTimes(1);
+    expect(onSelectToggle).toHaveBeenCalledWith(expect.objectContaining({ name: 'Cuvée X' }), expect.anything());
+    fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onSelectToggle).toHaveBeenCalledTimes(1);
   });
 
   it('in selection mode, the checkbox names the wine', () => {

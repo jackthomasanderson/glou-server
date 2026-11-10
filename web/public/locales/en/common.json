@@ -111,6 +111,7 @@
       "required": "This field is required",
       "missingFields": "Fill in the required fields before saving",
       "peakWindowOrder": "The end of the peak cannot come before its start",
+      "tags": "At most {{max}} tags, {{length}} characters each",
       "bottleCount": "Between 1 and {{max}} bottles",
       "range": "Between {{min}} and {{max}}",
       "atLeast": "At least {{min}}",
@@ -176,6 +177,7 @@
       "location": "Free note (shelf, crate…)",
       "collection": "Collection",
       "tags": "Tags",
+      "tagsHint": "E.g. Gift, Keep (comma-separated)",
       "photoUrl": "Photo URL",
       "notes": "Personal notes",
       "purchasePrice": "Purchase price (€)",
@@ -307,9 +309,9 @@
     },
     "fillLevels": {
       "full": "Full",
-      "threeQuarters": "3/4 left",
+      "threeQuarters": "3/4",
       "half": "Half",
-      "quarter": "1/4 left",
+      "quarter": "1/4",
       "empty": "Empty"
     },
     "filters": {
@@ -1232,6 +1234,12 @@
       "icon": "Icon"
     },
     "filterActive": "Collection: {{name}}",
+    "emptyCollection": "This collection is empty",
+    "emptyCollectionHint": "Add a wine to it from its “Edit” form.",
+    "allGoneCollection": "Nothing left in this collection",
+    "allGoneCollectionHint": "Its wines are all finished: the “No longer in the cellar” filter shows them.",
+    "showGone": "Show the finished wines",
+    "backToCollections": "Back to collections",
     "addToItem": "Add",
     "allAdded": "All added",
     "errors": {
@@ -1281,7 +1289,8 @@
       "longueurBouche": "Finish length"
     },
     "expertSection": {
-      "title": "Structured tasting grid"
+      "title": "Structured tasting grid",
+      "seconds": "{{value}} s"
     },
     "readiness": {
       "TOO_YOUNG": "Too young",
@@ -2707,10 +2716,7 @@
       "showMore_other": "See the {{count}} others",
       "showLess": "See less",
       "needsReview": "To check after the update",
-      "level": "Level of this bottle",
-      "levelFull": "Full",
-      "levelHalf": "Half",
-      "levelEmpty": "Empty"
+      "level": "Level of this bottle"
     },
     "gone": {
       "title": "Already drunk or gone",

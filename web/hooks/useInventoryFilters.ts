@@ -5,7 +5,7 @@ import { Cellar } from '@/lib/cellars/types';
 import type { Product } from '@/lib/products/types';
 import {
   baseProducts, filterProducts,
-  type InventoryOpenedFilter, type InventorySortBy, type ProductFilterCriteria,
+  type InventoryOpenedFilter, type InventorySortBy, type ProductFilterCriteria, collectionEmptiness,
 } from '@/lib/products/filters';
 import { todayLocalIso } from '@/lib/format';
 
@@ -59,6 +59,8 @@ export interface UseInventoryFiltersResult {
   baseItems: Product[];
   filteredItems: Product[];
   hasActiveFilters: boolean;
+  /** #708: the chosen collection holds no wine, or only finished ones (see `collectionEmptiness`). */
+  collectionState: 'empty' | 'allGone' | null;
 }
 
 /**
@@ -169,6 +171,8 @@ export function useInventoryFilters({
     });
   }, [products, criteria, cellars, t, hasMounted]);
 
+  const collectionState = useMemo(() => (products ? collectionEmptiness(products, criteria) : null), [products, criteria]);
+
   const hasActiveFilters =
     selectedCategories.length > 0 ||
     selectedWineColors.length > 0 ||
@@ -201,5 +205,6 @@ export function useInventoryFilters({
     baseItems,
     filteredItems,
     hasActiveFilters,
+    collectionState,
   };
 }

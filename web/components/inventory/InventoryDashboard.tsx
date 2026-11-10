@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
-import { Plus, Search, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
+import { Plus, Search, Wine, Leaf, ClipboardCheck, Camera, BookMarked } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
@@ -154,6 +154,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     baseItems,
     filteredItems,
     hasActiveFilters,
+    collectionState: collectionStateOfList,
   } = useInventoryFilters({ products, cellars, lockedCategories, t, hasMounted });
 
   // #504: the counters answer "how many do I hold here?": the chosen section
@@ -388,6 +389,10 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const emptyCtx = lockedCategories?.length === 1 && lockedCategories[0] === 'cigar' ? { context: 'cigar' } : undefined;
   const categoryLabel = (cat: string) => t(`categories.${cat}`);
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
+  // #708: a collection with no wine, or only finished ones, is not "no result
+  // for these filters", whose "Reset filters" would drop the collection. Not
+  // said when the list is cut: the collection's wines may be the ones missing.
+  const collectionState = productsTruncated ? null : collectionStateOfList;
 
   // Shared prop bag for the desktop sidebar + mobile collapsible renderings
   // of the filter panel — both are the same InventoryFilterBar with a
@@ -506,8 +511,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 onToggle={toggleFilters}
               />
               {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
-              {!isMobile && <div className="w-px h-5 bg-divider" />}
-              <PageSizeToggle value={pageSize} onChange={setPageSize} />
+              {/* #708: an empty cellar has nothing to page through. */}
+              {products && products.length > 0 && (<>
+                {!isMobile && <div className="w-px h-5 bg-divider" />}
+                <PageSizeToggle value={pageSize} onChange={setPageSize} />
+              </>)}
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               {products && products.length > 0 && (
@@ -619,6 +627,24 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                     <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
                       {t('inventory.add')}
                     </Button>
+                  }
+                />
+              ) : collectionState ? (
+                <EmptyState
+                  icon={<BookMarked size={56} className="text-default-200" />}
+                  title={t(collectionState === 'empty' ? 'collections.emptyCollection' : 'collections.allGoneCollection')}
+                  description={t(collectionState === 'empty' ? 'collections.emptyCollectionHint' : 'collections.allGoneCollectionHint')}
+                  action={
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {collectionState === 'allGone' && (
+                        <Button variant="flat" color="primary" onPress={() => setShowGone(true)}>
+                          {t('collections.showGone')}
+                        </Button>
+                      )}
+                      <Button variant="light" color="primary" data-testid="back-to-collections" onPress={() => router.push('/collections')}>
+                        {t('collections.backToCollections')}
+                      </Button>
+                    </div>
                   }
                 />
               ) : (

@@ -135,3 +135,23 @@ export function filterProducts(
   }
   return result;
 }
+
+/**
+ * #708: why a chosen collection shows nothing, when the collection itself is
+ * the reason: it holds no wine ('empty'), or only finished ones while neither
+ * "Plus en cave" nor a search shows them ('allGone'). Null otherwise — other
+ * filters may hide its wines, the generic "no result" state applies.
+ */
+export function collectionEmptiness(
+  products: readonly Product[],
+  criteria: ProductFilterCriteria,
+): 'empty' | 'allGone' | null {
+  const id = criteria.selectedCollectionId;
+  if (!id) return null;
+  const locked = criteria.lockedCategories ?? [];
+  const inCollection = products.filter((p) => p.collections.some((c) => c.id === id)
+    && (locked.length === 0 || locked.includes(p.category)));
+  if (inCollection.length === 0) return 'empty';
+  if (!criteria.showGone && criteria.searchQuery.trim() === '' && inCollection.every(isGone)) return 'allGone';
+  return null;
+}

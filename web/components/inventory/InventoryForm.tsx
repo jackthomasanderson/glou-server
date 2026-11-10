@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider, Input, SelectItem,
@@ -18,6 +19,8 @@ import { Collection } from '@/lib/collections/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
+import { FILL_LEVELS } from '@/lib/products/fillLevels';
+import { parseTags } from '@/lib/products/tags';
 import { ImageResult } from './ImagePicker';
 import { ItemImageSection } from './ItemImageSection';
 import { MaturitySuggestionField } from './MaturitySuggestionField';
@@ -37,6 +40,7 @@ import {
 } from '@/lib/maturity-references/curve';
 import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '@shared/inventory';
 import { MAX_COPIES } from '@shared/product';
+import { DESCRIPTION_LIMITS } from '@shared/review';
 import { CigarGroupFields } from './CigarGroupFields';
 import { KnownWineBanner } from './KnownWineBanner';
 import { AddUnitsForm } from './AddUnitsDialog';
@@ -167,6 +171,8 @@ export function InventoryForm({
   const [peakWindowChecked, setPeakWindowChecked] = useState(false);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);
+  // #708: a save refused for the tags shows their field, folded in the optionals.
+  const tagsInput = useRef<HTMLInputElement>(null);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
   // #862: the photo suggested for "category producer name" — the results
@@ -289,8 +295,12 @@ export function InventoryForm({
   const peakWindowReversed = ['wine', 'sparkling'].includes(values.category ?? '')
     && values.peakMaturityFrom != null && values.peakMaturityTo != null
     && values.peakMaturityTo < values.peakMaturityFrom;
+  // #708: as many tags, as long, as the API takes.
+  const invalidTags = (values.tags ?? []).length > DESCRIPTION_LIMITS.tags
+    || (values.tags ?? []).some((tag) => tag.length > DESCRIPTION_LIMITS.tagLength);
   const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity || invalidBottleCount;
-  const canSave = !missingRequired && !peakWindowReversed;
+  const tagLimits = { max: DESCRIPTION_LIMITS.tags, length: DESCRIPTION_LIMITS.tagLength };
+  const canSave = !missingRequired && !peakWindowReversed && !invalidTags;
 
   // ISSUE_119: closing a half-filled form must never discard the entry silently.
   const baselineCollectionIds = initialValues?.collections?.map(c => c.id) ?? [];
@@ -308,7 +318,12 @@ export function InventoryForm({
     if (!canSave) {
       setSubmitAttempted(true);
       setPeakWindowChecked(true);
-      notifyError(missingRequired ? 'inventory.validation.missingFields' : 'inventory.validation.peakWindowOrder');
+      notifyError(missingRequired ? 'inventory.validation.missingFields'
+        : invalidTags ? 'inventory.validation.tags' : 'inventory.validation.peakWindowOrder', tagLimits);
+      if (!missingRequired && invalidTags) {
+        flushSync(() => setShowOptionals(true));
+        tagsInput.current?.focus();
+      }
       return;
     }
     // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
@@ -1047,6 +1062,23 @@ export function InventoryForm({
                           />
                         </div>
 
+                        {/* Tags (#708): the wine's, typed like its grape varieties. */}
+                        <div className="col-span-2 sm:col-span-4">
+                          <ParsedInput
+                            label={t('inventory.fields.tags')}
+                            placeholder={t('inventory.fields.tagsHint')}
+                            variant="bordered"
+                            size="sm"
+                            value={values.tags ?? []}
+                            format={(list) => list.join(', ')}
+                            parse={(text) => parseTags(text, initialValues?.tags)}
+                            inputRef={tagsInput}
+                            onValueChange={(list) => setField('tags', list)}
+                            isInvalid={invalidTags}
+                            errorMessage={t('inventory.validation.tags', tagLimits)}
+                          />
+                        </div>
+
                         {/* Wine/Sparkling optionals */}
                         {isWineOrSparkling && (
                           <>
@@ -1221,14 +1253,14 @@ export function InventoryForm({
                             <div className="col-span-2 sm:col-span-4">
                               <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
                               <div role="group" aria-label={t('inventory.fields.fillLevel')} className="flex flex-wrap gap-1.5">
-                                {([100, 75, 50, 25, 0] as const).map((val) => (
+                                {FILL_LEVELS.map(({ value, key }) => (
                                   <FilterChip
-                                    key={val}
+                                    key={value}
                                     color="warning"
-                                    selected={values.fillLevel === val}
-                                    onPress={() => setField('fillLevel', val)}
+                                    selected={values.fillLevel === value}
+                                    onPress={() => setField('fillLevel', value)}
                                   >
-                                    {t(`inventory.fillLevels.${val === 100 ? 'full' : val === 75 ? 'threeQuarters' : val === 50 ? 'half' : val === 25 ? 'quarter' : 'empty'}`)}
+                                    {t(key)}
                                   </FilterChip>
                                 ))}
                               </div>

@@ -211,3 +211,17 @@ describe('InventoryForm — a unit said once', () => {
     expect(field.closest('[data-slot="inner-wrapper"]')).not.toHaveTextContent('%');
   });
 });
+
+// #708: the add form and the drawer offered two different level scales.
+describe('InventoryForm — an opened bottle', () => {
+  it('offers the same fill-level scale as the drawer: Pleine, 3/4, Moitié, 1/4, Vide', () => {
+    const { dialog, sent } = draw({ defaultCategory: 'wine' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Afficher les compléments' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Bouteille entamée/ }));
+    const scale = within(dialog).getByRole('group', { name: 'Niveau restant' });
+    expect(within(scale).getAllByRole('button').map((chip) => chip.textContent)).toEqual(['Pleine', '3/4', 'Moitié', '1/4', 'Vide']);
+    fireEvent.click(within(scale).getByRole('button', { name: '1/4' }));
+    fireEvent.click(within(dialog).getByTestId('inventory-form-submit'));
+    expect(sent()).toMatchObject({ isOpened: true, fillLevel: 25 });
+  });
+});

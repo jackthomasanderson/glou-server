@@ -111,6 +111,7 @@
       "required": "Ce champ est obligatoire",
       "missingFields": "Complétez les champs obligatoires avant d'enregistrer",
       "peakWindowOrder": "La fin de l'apogée ne peut pas précéder son début",
+      "tags": "{{max}} étiquettes au plus, de {{length}} caractères chacune",
       "bottleCount": "Entre 1 et {{max}} bouteilles",
       "range": "Entre {{min}} et {{max}}",
       "atLeast": "{{min}} au minimum",
@@ -176,6 +177,7 @@
       "location": "Repère libre (étagère, carton…)",
       "collection": "Collection",
       "tags": "Étiquettes",
+      "tagsHint": "Ex : Cadeau, À garder (séparées par une virgule)",
       "photoUrl": "URL de la photo",
       "notes": "Notes personnelles",
       "purchasePrice": "Prix d'achat (€)",
@@ -306,10 +308,10 @@
       "doux": "Doux"
     },
     "fillLevels": {
-      "full": "Plein",
-      "threeQuarters": "3/4 restant",
+      "full": "Pleine",
+      "threeQuarters": "3/4",
       "half": "Moitié",
-      "quarter": "1/4 restant",
+      "quarter": "1/4",
       "empty": "Vide"
     },
     "filters": {
@@ -1234,6 +1236,12 @@
       "icon": "Icône"
     },
     "filterActive": "Collection : {{name}}",
+    "emptyCollection": "Cette collection est vide",
+    "emptyCollectionHint": "Ajoutez-y un vin depuis son formulaire « Modifier ».",
+    "allGoneCollection": "Plus rien en cave dans cette collection",
+    "allGoneCollectionHint": "Ses vins sont tous finis : le filtre « Plus en cave » les montre.",
+    "showGone": "Voir les vins finis",
+    "backToCollections": "Retour aux collections",
     "addToItem": "Ajouter",
     "allAdded": "Toutes ajoutées",
     "errors": {
@@ -1283,7 +1291,8 @@
       "longueurBouche": "Longueur en bouche"
     },
     "expertSection": {
-      "title": "Grille de dégustation structurée"
+      "title": "Grille de dégustation structurée",
+      "seconds": "{{value}} s"
     },
     "readiness": {
       "TOO_YOUNG": "Trop jeune",
@@ -2709,10 +2718,7 @@
       "showMore_other": "Voir les {{count}} autres",
       "showLess": "Voir moins",
       "needsReview": "À vérifier après la mise à jour",
-      "level": "Niveau de cette bouteille",
-      "levelFull": "Pleine",
-      "levelHalf": "Moitié",
-      "levelEmpty": "Vide"
+      "level": "Niveau de cette bouteille"
     },
     "gone": {
       "title": "Déjà bues ou parties",

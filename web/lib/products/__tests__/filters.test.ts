@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterProducts, type ProductFilterContext, type ProductFilterCriteria } from '../filters';
+import { collectionEmptiness, filterProducts, type ProductFilterContext, type ProductFilterCriteria } from '../filters';
 import { openedBottle, product, unit } from './factories';
 
 // #471 — the list of wines: "Plus en cave" (FEAT-101 c1-c2), cellar filter (FEAT-96 c3).
@@ -74,5 +74,32 @@ describe('filterProducts — other filters on wines', () => {
   it('sorts by the value of the stock', () => {
     // Cuvée X: 9 × 20 € = 180 €; the opened bottle: 80 €.
     expect(ids({ sortBy: 'value' })).toEqual(['stock', 'opened']);
+  });
+});
+
+// #708: a collection with nothing to show gets its own empty state.
+describe('collectionEmptiness', () => {
+  const inColl = (p: typeof inStock) => ({ ...p, collections: [{ id: 'c1', name: 'Cadeaux' }] }) as typeof inStock;
+
+  it('says nothing without a collection chosen', () => {
+    expect(collectionEmptiness(all, criteria())).toBeNull();
+  });
+
+  it('a collection holding no wine is empty, whatever the other filters', () => {
+    expect(collectionEmptiness(all, criteria({ selectedCollectionId: 'c1' }))).toBe('empty');
+    expect(collectionEmptiness(all, criteria({ selectedCollectionId: 'c1', searchQuery: 'x' }))).toBe('empty');
+  });
+
+  it('a collection whose wines are all finished has nothing left', () => {
+    expect(collectionEmptiness([inStock, inColl(gone)], criteria({ selectedCollectionId: 'c1' }))).toBe('allGone');
+  });
+
+  it('…unless "Plus en cave" or a search, which show finished wines, is on', () => {
+    expect(collectionEmptiness([inColl(gone)], criteria({ selectedCollectionId: 'c1', showGone: true }))).toBeNull();
+    expect(collectionEmptiness([inColl(gone)], criteria({ selectedCollectionId: 'c1', searchQuery: 'zz' }))).toBeNull();
+  });
+
+  it('a collection with a wine in stock is not empty: other filters may hide it', () => {
+    expect(collectionEmptiness([inColl(inStock), inColl(gone)], criteria({ selectedCollectionId: 'c1' }))).toBeNull();
   });
 });

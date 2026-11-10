@@ -73,7 +73,10 @@ export function TastingsDashboard() {
               {t('tastings.total', { count: data.total })}
             </span>
           )}
-          <PageSizeToggle value={pageSize} onChange={(s) => { setPageSize(s); setPage(1); }} />
+          {/* #708: nothing to page through, no page size. */}
+          {!!data?.total && (
+            <PageSizeToggle value={pageSize} onChange={(s) => { setPageSize(s); setPage(1); }} />
+          )}
         </div>
       </div>
 

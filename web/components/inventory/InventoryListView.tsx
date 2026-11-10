@@ -12,6 +12,8 @@ interface ColDef {
   label: string;
   width?: number;
   className?: string;
+  /** A header read by screen readers only: the column shows an icon (#708). */
+  srOnly?: boolean;
 }
 
 export interface InventoryListViewProps extends Omit<InventoryGridViewProps, 'anchorId' | 'onSelectToggle'> {
@@ -42,7 +44,7 @@ export function InventoryListView({
   // so a page of cigars only leaves those two always-empty columns out.
   const cigarsOnly = items.length > 0 && items.every((item) => item.category === 'cigar');
   const tableColumns = useMemo<ColDef[]>(() => [
-    { key: 'icon', label: ' ', width: 40 },
+    { key: 'icon', label: t('inventory.fields.category'), width: 40, srOnly: true },
     { key: 'name', label: t('inventory.fields.name') },
     { key: 'producer', label: t('inventory.fields.producer'), className: 'hidden sm:table-cell' },
     ...(cigarsOnly ? [] : [{ key: 'vintage', label: t('inventory.fields.vintage'), className: 'text-center' }]),
@@ -84,7 +86,7 @@ export function InventoryListView({
         <TableHeader columns={tableColumns}>
           {(col) => (
             <TableColumn key={col.key} width={col.width} className={col.className}>
-              {col.label}
+              {col.srOnly ? <span className="sr-only">{col.label}</span> : col.label}
             </TableColumn>
           )}
         </TableHeader>
