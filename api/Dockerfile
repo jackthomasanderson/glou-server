@@ -76,4 +76,6 @@ EXPOSE 3001
 # (glou-backup-before-migration-*.sql.gz in /app/backups) when migrations are
 # pending on an instance in use, and exits non-zero if it cannot: then nothing
 # is migrated and the API does not start.
-CMD ["sh", "-c", "node dist/api/src/scripts/pre-migrate.js && npx prisma migrate deploy && node dist/api/src/index.js"]
+# #673: `exec` makes Node replace the shell as PID 1, so the stop signal
+# Docker sends reaches it and the graceful shutdown (ISSUE_091) runs.
+CMD ["sh", "-c", "node dist/api/src/scripts/pre-migrate.js && npx prisma migrate deploy && exec node dist/api/src/index.js"]

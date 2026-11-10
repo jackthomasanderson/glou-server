@@ -19,6 +19,7 @@ Entries start with the pull request that introduced them where there is one.
 - The tastings page is back at `/tastings`; the old `/cellar-journal` address still works and sends you there from the page itself (no browser redirect, so an old cached link cannot loop) (#502).
 
 ### Fixed
+- Stopping or updating the API container (`docker compose down`, an image update, a reboot) now lets the API finish the requests in progress and close its database connections, in under a second, instead of waiting 10 seconds and being killed mid-operation: the stop signal now reaches the API (#673).
 - The API and web images are now built on exact, recorded versions of their Node.js base image, and the database image in `docker-compose.yml` is pinned the same way, so two builds of the same version ship the same system; updates to these base images arrive as reviewed dependency updates (#610).
 - The API no longer stops when the database is unavailable during the nightly cleanup (for example while PostgreSQL restarts for an update at 3 AM): the failure is logged and the next cleanup runs as usual, even when it cannot be recorded in the cleanup history (#634).
 - A failed backup is no longer reported to no one on an instance without email or Gotify: while the last backup has failed, or none has succeeded for more than two days while backups are on, administrators see a red banner at the top of every page, with a link to Administration → System configuration → Data. It goes away once a backup succeeds; members never see it (#671).
