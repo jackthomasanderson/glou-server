@@ -215,14 +215,14 @@ export function CellarDetailClient() {
               <Button
                 isIconOnly color={view === 'grid' ? 'primary' : 'default'}
                 variant={view === 'grid' ? 'flat' : 'light'}
-                onPress={() => setView('grid')} aria-label={t('view.grid')}
+                onPress={() => setView('grid')} aria-label={t('view.grid')} aria-pressed={view === 'grid'}
               ><LayoutGrid size={16} /></Button>
             </Tooltip>
             <Tooltip content={t('view.list')} delay={500}>
               <Button
                 isIconOnly color={view === 'list' ? 'primary' : 'default'}
                 variant={view === 'list' ? 'flat' : 'light'}
-                onPress={() => setView('list')} aria-label={t('view.list')}
+                onPress={() => setView('list')} aria-label={t('view.list')} aria-pressed={view === 'list'}
               ><List size={16} /></Button>
             </Tooltip>
             {hasGrid && (
@@ -230,7 +230,7 @@ export function CellarDetailClient() {
                 <Button
                   isIconOnly color={view === 'map' ? 'primary' : 'default'}
                   variant={view === 'map' ? 'flat' : 'light'}
-                  onPress={() => setView('map')} aria-label={t('view.map')}
+                  onPress={() => setView('map')} aria-label={t('view.map')} aria-pressed={view === 'map'}
                 ><Map size={16} /></Button>
               </Tooltip>
             )}

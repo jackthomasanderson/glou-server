@@ -193,6 +193,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                       startContent={<Clock size={14} />}
                       className="flex-1"
                       onClick={() => setField('mode', 'RELATIVE')}
+                      aria-pressed={form.mode === 'RELATIVE'}
                     >
                       {t('admin.maturityRefs.modes.relative')}
                     </Button>
@@ -202,6 +203,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                       startContent={<CalendarDays size={14} />}
                       className="flex-1"
                       onClick={() => setField('mode', 'ABSOLUTE')}
+                      aria-pressed={form.mode === 'ABSOLUTE'}
                     >
                       {t('admin.maturityRefs.modes.absolute')}
                     </Button>

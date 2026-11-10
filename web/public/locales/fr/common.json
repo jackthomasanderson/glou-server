@@ -1319,6 +1319,10 @@
     "deleteTitle": "Supprimer la dégustation",
     "deleteConfirm": "Cette note de dégustation sera supprimée définitivement.",
     "noItem": "Produit non lié",
+    "ratingOption_one": "{{count}} étoile sur 5",
+    "ratingOption_other": "{{count}} étoiles sur 5",
+    "ratingValue": "{{value}}/5",
+    "ratingNone": "Non noté",
     "total_one": "{{count}} dégustation",
     "total_other": "{{count}} dégustations",
     "fields": {

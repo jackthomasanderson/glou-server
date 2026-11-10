@@ -18,6 +18,7 @@ export function PageSizeToggle({ value, onChange }: PageSizeToggleProps) {
           color={value === size ? 'primary' : 'default'}
           variant={value === size ? 'flat' : 'light'}
           onPress={() => onChange(size)}
+          aria-pressed={value === size}
           aria-label={t('inventory.perPage', { count: size })}
           className="min-w-[34px] px-2"
         >

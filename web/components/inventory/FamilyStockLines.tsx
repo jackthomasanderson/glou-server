@@ -141,6 +141,7 @@ export function OpenedLevel({ item, t, onCommit, canPutBack = true }: {
             // min-w-0: in a narrow card (the guest's) the shortcuts share the width instead of overflowing it.
             className="flex-1 min-w-0 h-7"
             onPress={() => commit(value)}
+            aria-pressed={shown === value}
           >
             {t(key)}
           </Button>

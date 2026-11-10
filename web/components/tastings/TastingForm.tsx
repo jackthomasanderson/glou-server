@@ -4,7 +4,8 @@ import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Textarea, Select, SelectItem, Autocomplete, AutocompleteItem, RadioGroup, Radio,
 } from '@heroui/react';
-import { Star, FlaskConical } from 'lucide-react';
+import { FlaskConical } from 'lucide-react';
+import { StarRating } from './StarRating';
 import { useForm, Controller } from 'react-hook-form';
 import { TastingFormValues, TastingReadiness } from '@/lib/tastings/types';
 import { useCreateTasting, useUpdateTasting } from '@/hooks/useTastings';
@@ -453,26 +454,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                     name="rating"
                     control={control}
                     render={({ field }) => (
-                      <div className="flex items-center gap-0.5">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <Button
-                            key={star}
-                            isIconOnly
-                            size="sm"
-                            variant="light"
-                            color={(field.value ?? 0) >= star ? 'warning' : 'default'}
-                            radius="full"
-                            type="button"
-                            onClick={() => field.onChange(field.value === star ? null : star)}
-                            aria-label={`${t('tastings.fields.rating')} ${star}`}
-                          >
-                            <Star
-                              size={18}
-                              fill={(field.value ?? 0) >= star ? 'currentColor' : 'none'}
-                            />
-                          </Button>
-                        ))}
-                      </div>
+                      <StarRating label={t('tastings.fields.rating')} value={field.value ?? null} onChange={field.onChange} />
                     )}
                   />
                 </div>
