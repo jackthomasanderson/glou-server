@@ -2,7 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import React, { useState } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { InventoryFilterBar, type InventoryOpenedFilter, type InventorySortBy } from '../InventoryFilterBar';
-import { product } from '@/lib/products/__tests__/factories';
+import { product, unit } from '@/lib/products/__tests__/factories';
+import { NO_CELLAR } from '@/lib/products/filters';
 import type { Cellar } from '@/lib/cellars/types';
 import type { Product } from '@/lib/products/types';
 
@@ -57,7 +58,9 @@ function draw(props: Omit<React.ComponentProps<typeof Bar>, 'report'> = {}) {
 
 describe('InventoryFilterBar — keyboard (#516)', () => {
   it('makes every filter option a native button reachable with Tab, so Enter and Space pick it', () => {
-    draw();
+    // A bottle without a cellar: "Sans cave" (#707) is among the options.
+    draw({ products: [product({ items: [unit({ cellarId: null })] })] });
+    expect(screen.getByRole('button', { name: 'inventory.noCellarFilter' })).toBeInTheDocument();
     const options = [
       ...screen.getAllByRole('radio'),
       ...screen.getAllByRole('button').filter((b) => b.hasAttribute('aria-pressed')),
@@ -107,6 +110,16 @@ describe('InventoryFilterBar — the choices reach the page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Garage' }));
     expect(seen().cellars).toEqual(['kitchen']);
+    fireEvent.click(screen.getByRole('button', { name: 'filters.all' }));
+    expect(seen().cellars).toEqual([]);
+  });
+
+  it('combines "Sans cave" (#707) with a cellar', () => {
+    const { seen } = draw({ products: [product({ items: [unit({ cellarId: null })] })] });
+    fireEvent.click(screen.getByRole('button', { name: 'Garage' }));
+    fireEvent.click(screen.getByRole('button', { name: 'inventory.noCellarFilter' }));
+    expect(seen().cellars).toEqual(['garage', NO_CELLAR]);
+    expect(screen.getByRole('button', { name: 'inventory.noCellarFilter' })).toHaveAttribute('aria-pressed', 'true');
     fireEvent.click(screen.getByRole('button', { name: 'filters.all' }));
     expect(seen().cellars).toEqual([]);
   });

@@ -10,9 +10,7 @@ import { formatCurrency } from '@/lib/format';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { useCellar, useCellarGrid } from '@/hooks/useCellars';
-import { useCreateInventoryItem } from '@/hooks/useInventory';
-import { useAddItemsToCollection } from '@/hooks/useCollections';
-import { applyCollectionChanges } from '@/lib/collections/sync';
+import { useCreateFromForm } from '@/hooks/useCreateFromForm';
 import { InventoryForm, type InventoryEntry } from '@/components/inventory/InventoryForm';
 import { PRODUCT_LIST_LIMIT } from '@shared/product';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
@@ -131,17 +129,12 @@ export function CellarDetailClient() {
 
   // #707: "Ajouter une bouteille ici" — the add form, this cellar preselected.
   const [adding, setAdding] = useState(false);
-  const createItem = useCreateInventoryItem();
-  const addItemsToCollection = useAddItemsToCollection();
+  // #690: saved as everywhere else — this cellar for an untouched cellar
+  // field, the collections picked in the form.
+  const { create, isPending: isCreating } = useCreateFromForm({ defaultCellarId: cellarId });
   const handleAdd = async (values: InventoryEntry, collectionIds: string[]) => {
-    try {
-      const created = await createItem.mutateAsync(values);
-      setAdding(false);
-      // A new item has no collection yet, so syncing is only ever adding.
-      await applyCollectionChanges(collectionIds.map((id) => addItemsToCollection.mutateAsync({ id, itemIds: [created.id] })));
-    } catch {
-      // Reported by the mutation's toast; the form stays open with the entry.
-    }
+    // A failure is reported by the mutation's toast; the form stays open with the entry.
+    if (await create(values, collectionIds)) setAdding(false);
   };
 
   const hasGrid = !!(cellar?.columns && cellar?.rows);
@@ -349,7 +342,7 @@ export function CellarDetailClient() {
         defaultCategory={cellar.type === 'HUMIDOR' ? 'cigar' : undefined}
         onSubmit={(values, collectionIds) => void handleAdd(values, collectionIds)}
         onClose={() => setAdding(false)}
-        isSubmitting={createItem.isPending}
+        isSubmitting={isCreating}
         t={t}
       />
       <EditWineDialog
