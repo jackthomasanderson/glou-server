@@ -2057,7 +2057,7 @@
       "off": "désactivé",
       "days_one": "{{count}} jour",
       "days_other": "{{count}} jours",
-      "hour": "{{hour}} h UTC",
+      "hour": "{{hour}} h",
       "sections": {
         "smtp": "E-mail",
         "gotify": "Gotify",
@@ -2085,7 +2085,8 @@
         "guestShareRetentionDays": "Rétention des liens invités expirés",
         "backupEnabled": "Sauvegardes automatiques",
         "backupRetentionDays": "Rétention des sauvegardes",
-        "backupHourUtc": "Heure de sauvegarde",
+        "backupHour": "Heure de sauvegarde",
+        "backupHourUtc": "Heure de sauvegarde (UTC)",
         "publicUrl": "URL publique",
         "accessMode": "Mode d'accès",
         "registrationOpen": "Inscription de nouveaux comptes",

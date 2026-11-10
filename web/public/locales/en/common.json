@@ -2055,7 +2055,7 @@
       "off": "off",
       "days_one": "{{count}} day",
       "days_other": "{{count}} days",
-      "hour": "{{hour}}:00 UTC",
+      "hour": "{{hour}}:00",
       "sections": {
         "smtp": "Email",
         "gotify": "Gotify",
@@ -2083,7 +2083,8 @@
         "guestShareRetentionDays": "Expired guest links retention",
         "backupEnabled": "Automatic backups",
         "backupRetentionDays": "Backup retention",
-        "backupHourUtc": "Backup time",
+        "backupHour": "Backup time",
+        "backupHourUtc": "Backup time (UTC)",
         "publicUrl": "Public URL",
         "accessMode": "Access mode",
         "registrationOpen": "New account sign-up",

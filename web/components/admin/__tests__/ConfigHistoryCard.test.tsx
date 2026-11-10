@@ -51,19 +51,27 @@ describe('ConfigHistoryCard (#760)', () => {
 
   it('says what changed, from what to what, with labels and readable values', () => {
     entries = [
-      entry('backup', { backupHourUtc: 3, backupRetentionDays: 7 }, { backupHourUtc: 4, backupRetentionDays: 14 }, 1),
+      entry('backup', { backupHour: 3, backupRetentionDays: 7 }, { backupHour: 4, backupRetentionDays: 14 }, 1),
       entry('registration', { registrationOpen: false }, { registrationOpen: true }, 2),
       entry('network', { accessMode: 'direct', publicUrl: 'https://a.example' }, { accessMode: 'proxy', publicUrl: null }, 3),
     ];
     render(<ConfigHistoryCard />);
     expect(screen.getByText('Backups')).toBeInTheDocument();
-    expect(screen.getByText('Backup time: 03:00 UTC → 04:00 UTC')).toBeInTheDocument();
+    // #761: an hour of the instance's time zone.
+    expect(screen.getByText('Backup time: 03:00 → 04:00')).toBeInTheDocument();
     expect(screen.getByText('Backup retention: 7 days → 14 days')).toBeInTheDocument();
     expect(screen.getByText('New account sign-up: off → on')).toBeInTheDocument();
     expect(screen.getByText('Access mode: direct → behind a reverse proxy')).toBeInTheDocument();
     expect(screen.getByText('Public URL: removed')).toBeInTheDocument();
     expect(screen.getAllByText('By alice')).toHaveLength(3);
-    expect(screen.queryByText(/registrationOpen|backupHourUtc|\{/)).toBeNull();
+    expect(screen.queryByText(/registrationOpen|backupHour|\{/)).toBeNull();
+  });
+
+  // #761: entries saved before the hour moved to the instance's time zone held a UTC hour.
+  it('says an older backup hour was a UTC hour', () => {
+    entries = [entry('backup', { backupHourUtc: 3 }, { backupHourUtc: 4 }, 1)];
+    render(<ConfigHistoryCard />);
+    expect(screen.getByText('Backup time (UTC): 03:00 → 04:00')).toBeInTheDocument();
   });
 
   it('never shows a secret: only set, changed or removed', () => {
