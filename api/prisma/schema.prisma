@@ -81,7 +81,6 @@ model User {
   notifQuietStart    Int?
   notifQuietEnd      Int?
   notifLanguage      Language?
-  webhookUrl         String?
 
   inventory    InventoryItem[]
   products     Product[]

@@ -1893,16 +1893,34 @@
       "inAppDesc": "Alertes visibles dans l'interface",
       "email": "Email",
       "emailDesc": "Notifications envoyées à votre adresse email",
-      "webhook": "Webhook / Gotify",
-      "webhookDesc": "Notifications envoyées à une URL externe",
-      "webhookUrl": "URL du webhook",
-      "webhookUrlPlaceholder": "https://gotify.example.com",
+      "webhook": "Gotify",
+      "webhookDesc": "Vos notifications partent vers le serveur Gotify de l'instance, géré par l'administrateur, qui peut les lire (alertes de sécurité comprises). Chaque message porte votre nom d'utilisateur.",
       "disabledByAdmin": "Désactivé par l'administrateur",
+      "offReason": {
+        "email": {
+          "notConfigured": "Serveur SMTP non configuré",
+          "off": "E-mail coupé dans l'administration"
+        },
+        "gotify": {
+          "notConfigured": "Serveur Gotify non configuré (URL et jeton d'application)",
+          "off": "Gotify coupé dans l'administration"
+        },
+        "inApp": {
+          "off": "Notifications dans l'application coupées dans l'administration"
+        }
+      },
+      "configure": "Configurer",
       "test": "Tester",
       "testSuccess": "Notification de test envoyée.",
-      "testError": "Échec du test : {{error}}",
-      "unknownError": "Erreur inconnue",
-      "networkError": "Erreur réseau"
+      "testErrors": {
+        "DELIVERY_FAILED": "Le serveur n'a pas accepté la notification de test. Prévenez votre administrateur.",
+        "GOTIFY_NOT_CONFIGURED": "Gotify n'est plus disponible sur cette instance. Rechargez la page.",
+        "INVALID_URL": "L'adresse du serveur Gotify de l'instance ne peut pas être utilisée. Prévenez votre administrateur.",
+        "SMTP_NOT_CONFIGURED": "L'envoi d'e-mails n'est plus disponible sur cette instance. Rechargez la page.",
+        "UNEXPECTED": "La notification de test n'a pas pu être envoyée. Réessayez plus tard ou prévenez votre administrateur.",
+        "TOO_MANY_REQUESTS_one": "Trop de tests d'affilée. Attendez {{count}} minute avant de réessayer.",
+        "TOO_MANY_REQUESTS_other": "Trop de tests d'affilée. Attendez {{count}} minutes avant de réessayer."
+      }
     },
     "categories": {
       "title": "Catégories d'alertes",
@@ -1927,7 +1945,9 @@
       "title": "Langue des notifications",
       "useUI": "Langue de l'interface"
     },
-    "saved": "Préférences enregistrées."
+    "saved": "Préférences enregistrées.",
+    "saveError": "Ce réglage n'a pas pu être enregistré. Réessayez.",
+    "loadError": "Vos préférences de notification n'ont pas pu être chargées."
   },
   "adminConfig": {
     "title": "Configuration Système",
@@ -1944,7 +1964,8 @@
       "INVALID_INPUT": "Une valeur n'est pas valide. Vérifiez les champs de cette carte.",
       "INVALID_URL": "Cette adresse ne peut pas être utilisée : elle doit être une URL valide que le serveur a le droit de joindre.",
       "SMTP_NOT_CONFIGURED": "L'e-mail est coupé ou n'a pas de serveur : activez-le, renseignez le serveur et enregistrez avant de tester.",
-      "GOTIFY_NOT_CONFIGURED": "Gotify est coupé ou n'a pas d'URL : activez-le, renseignez l'URL et enregistrez avant de tester.",
+      "GOTIFY_NOT_CONFIGURED": "Gotify est coupé ou n'a pas d'URL ou de jeton : renseignez l'URL et le jeton d'application, activez-le et enregistrez avant de tester.",
+      "GOTIFY_INCOMPLETE": "Gotify ne peut pas être activé sans son URL et son jeton d'application : renseignez les deux, ou coupez le canal.",
       "DELIVERY_FAILED": "Le serveur Gotify n'a pas accepté la notification. Vérifiez l'URL et le jeton."
     },
     "channelStatus": {
@@ -2018,17 +2039,18 @@
       "inApp": "Notifications dans l'application",
       "inAppHint": "Permet aux utilisateurs de recevoir des alertes directement dans l'interface.",
       "emailHint": "Envoie les liens de réinitialisation du mot de passe, et les notifications que les membres choisissent de recevoir par e-mail.",
-      "webhookHint": "Nécessite une URL Gotify configurée. Chaque utilisateur définit sa propre URL de destination dans ses préférences.",
+      "webhookHint": "Toutes les notifications Gotify partent vers ce serveur, dans la même application : chaque membre choisit seulement de les recevoir ou non dans son profil, et chaque message porte le nom du membre concerné. L'URL et le jeton d'application sont nécessaires pour activer le canal.",
       "saved": "Notifications dans l'application enregistrées."
     },
     "gotify": {
       "enabled": "Activer les notifications Gotify",
+      "needsUrlAndToken": "Renseignez l'URL et le jeton d'application pour pouvoir activer Gotify.",
       "url": "URL Gotify",
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Token Gotify",
       "tokenPlaceholder": "Laisser vide pour conserver l'actuel",
-      "test": "Tester le webhook",
-      "testSuccess": "Webhook Gotify validé.",
+      "test": "Envoyer une notification de test",
+      "testSuccess": "Notification de test acceptée par le serveur Gotify.",
       "testError": "Échec : {{error}}",
       "saved": "Configuration Gotify enregistrée."
     },

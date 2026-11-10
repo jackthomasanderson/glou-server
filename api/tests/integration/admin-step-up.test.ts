@@ -82,6 +82,7 @@ beforeEach(() => {
   keep(vi.spyOn(systemConfigService, 'updateNotificationPolicy').mockResolvedValue(publicConfig));
   keep(vi.spyOn(systemConfigService, 'updateNetworkConfig').mockResolvedValue(publicConfig));
   keep(vi.spyOn(systemConfigService, 'getPublic').mockResolvedValue(publicConfig));
+  keep(vi.spyOn(systemConfigService, 'getGotify').mockResolvedValue({ gotifyEnabled: false, gotifyUrl: null, gotifyToken: null }));
   keep(vi.spyOn(emailService, 'testConnection').mockResolvedValue({ success: true }));
   keep(vi.spyOn(emailService, 'sendTestEmail').mockResolvedValue({ success: true }));
   keep(vi.spyOn(backupService, 'getDownloadTarget').mockResolvedValue({ path: DUMP, filename: 'glou-backup.sql.gz' }));
@@ -110,7 +111,7 @@ const ROUTES: GatedRoute[] = [
   { label: 'SMTP settings', method: 'put', path: '/api/admin/config/smtp', body: { smtpHost: 'mail.attacker.example' }, effect: () => systemConfigService.updateSmtp, passed: 200 },
   { label: 'SMTP test', method: 'post', path: '/api/admin/config/test/smtp', body: { email: 'me@attacker.example' }, effect: () => emailService.sendTestEmail, passed: 200 },
   { label: 'Gotify settings', method: 'put', path: '/api/admin/config/gotify', body: { gotifyEnabled: false }, effect: () => systemConfigService.updateGotify, passed: 200 },
-  { label: 'Gotify test', method: 'post', path: '/api/admin/config/test/gotify', body: {}, effect: () => systemConfigService.getPublic, passed: 400 },
+  { label: 'Gotify test', method: 'post', path: '/api/admin/config/test/gotify', body: {}, effect: () => systemConfigService.getGotify, passed: 400 },
   { label: 'notification channels', method: 'put', path: '/api/admin/config/notifications', body: { smtpEnabled: false, gotifyEnabled: false, inAppEnabled: true }, effect: () => systemConfigService.updateNotificationPolicy, passed: 200 },
   { label: 'public URL', method: 'put', path: '/api/admin/config/network', body: { publicUrl: 'https://attacker.example' }, effect: () => systemConfigService.updateNetworkConfig, passed: 200 },
   { label: 'backup download', method: 'post', path: '/api/admin/backups/b1/download', body: {}, effect: () => auditSuccessFor('BACKUP_DOWNLOAD'), passed: 200 },

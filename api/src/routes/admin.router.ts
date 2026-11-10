@@ -3,7 +3,6 @@ import { z, ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { routeParam } from '../lib/http';
-import { normalizeGotifyUrl } from '../lib/gotify-url';
 import { assertUrlAllowed } from '../lib/ssrf';
 import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
@@ -12,12 +11,13 @@ import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenc
 import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
 import { networkConfigSchema } from '../schemas/network-config.schema';
 import { registrationConfigSchema } from '../schemas/registration-config.schema';
-import { smtpConfigSchema, gotifyConfigSchema } from '../schemas/system-config.schema';
+import { smtpConfigSchema, gotifyConfigSchema, notificationPolicySchema } from '../schemas/system-config.schema';
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema, purgeSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
 import { authService } from '../services/auth.service';
 import { emailService } from '../services/email.service';
+import { gotifyService } from '../services/gotify.service';
 import { backupService } from '../services/backup.service';
 import { auditLog, type AuditAction } from '../services/audit.service';
 import { adminReauthSchema } from '../schemas/auth.schema';
@@ -573,8 +573,15 @@ adminRouter.put('/config/smtp', stepUpLimiter, async (req: Request, res: Respons
 adminRouter.put('/config/gotify', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = gotifyConfigSchema.parse(req.body);
+    // #767: every member's Gotify notification goes to this server: it
+    // cannot be on without its URL and app token.
+    if (await gotifyService.wouldBeOnWithoutServer(parsed)) {
+      res.status(400).json({ error: 'GOTIFY_INCOMPLETE' });
+      return;
+    }
     // ISSUE_048: this address is fetched server-side on every test and every
-    // delivery — same guard as the per-member webhook, applied at save time.
+    // delivery: only a public HTTPS address, checked at save time and again
+    // before each call.
     if (parsed.gotifyUrl) {
       try {
         await assertUrlAllowed(parsed.gotifyUrl);
@@ -601,14 +608,23 @@ adminRouter.put('/config/gotify', stepUpLimiter, async (req: Request, res: Respo
 
 adminRouter.put('/config/notifications', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
-    const { smtpEnabled, gotifyEnabled, inAppEnabled } = req.body;
-    if (typeof smtpEnabled !== 'boolean' || typeof gotifyEnabled !== 'boolean' || typeof inAppEnabled !== 'boolean') {
+    const parsed = notificationPolicySchema.safeParse(req.body);
+    if (!parsed.success) {
       res.status(400).json({ error: 'INVALID_INPUT' });
+      return;
+    }
+    // Only the switches sent are written (a card sends its own): the parsed
+    // object holds those keys and nothing else.
+    const policy = parsed.data;
+    // Another switch is saved whatever the state of Gotify; switching Gotify
+    // on needs its URL and app token (#767).
+    if (policy.gotifyEnabled && await gotifyService.wouldBeOnWithoutServer({ gotifyEnabled: true })) {
+      res.status(400).json({ error: 'GOTIFY_INCOMPLETE' });
       return;
     }
     const audit = configAudit('CONFIG_UPDATE', 'notifications');
     if (!(await stepUp(req, res, audit))) return;
-    const config = await systemConfigService.updateNotificationPolicy({ smtpEnabled, gotifyEnabled, inAppEnabled }, req.userId);
+    const config = await systemConfigService.updateNotificationPolicy(policy, req.userId);
     auditSuccess(req, audit);
     res.json({ data: config });
   } catch (err) {
@@ -683,47 +699,17 @@ adminRouter.post('/config/test/gotify', stepUpLimiter, async (req: Request, res:
     const audit = configAudit('CONFIG_TEST', 'gotify');
     if (!(await stepUp(req, res, audit))) return;
     auditSuccess(req, audit);
-    const cfg = await systemConfigService.getPublic();
-    if (!cfg.gotifyEnabled || !cfg.gotifyUrl) {
-      res.status(400).json({ error: 'GOTIFY_NOT_CONFIGURED' });
+    // #767: the same delivery as members' notifications (instance URL, app
+    // token as X-Gotify-Key, SSRF check, no redirect followed).
+    const result = await gotifyService.post(
+      'Glou — Test',
+      'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
+    );
+    if (!result.success && result.error !== 'DELIVERY_FAILED') {
+      res.status(400).json({ error: result.error });
       return;
     }
-    const gotifyFull = await systemConfigService.getGotify();
-    const url = normalizeGotifyUrl(gotifyFull.gotifyUrl!);
-
-    // ISSUE_048: re-validated here too (the save-time check at PUT
-    // /config/gotify can't cover a URL set before this guard existed).
-    try {
-      await assertUrlAllowed(url);
-    } catch (err) {
-      console.error('[admin] POST /config/test/gotify error:', err);
-      res.status(400).json({ error: 'INVALID_URL' });
-      return;
-    }
-
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (gotifyFull.gotifyToken) headers['X-Gotify-Key'] = gotifyFull.gotifyToken;
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          title: 'Glou — Test',
-          message: 'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
-        }),
-        // #599: a redirect is never followed (only `url` was checked): a 3xx is not `ok`.
-        redirect: 'manual',
-        signal: AbortSignal.timeout(5000),
-      });
-      // The raw HTTP status / network error message is a reconnaissance
-      // instrument for mapping what the server container can reach
-      // internally — a stable, generic code is returned instead.
-      res.json({ data: response.ok ? { success: true } : { success: false, error: 'DELIVERY_FAILED' } });
-    } catch (err) {
-      console.error('[admin] POST /config/test/gotify error:', err);
-      res.json({ data: { success: false, error: 'DELIVERY_FAILED' } });
-    }
+    res.json({ data: result });
   } catch (err) {
     console.error('[admin] POST /config/test/gotify error:', err);
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });

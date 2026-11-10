@@ -918,8 +918,7 @@ describe('POST /api/admin/config/test/gotify', () => {
   it('does not follow a redirect and reports it as DELIVERY_FAILED', async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u1', isActive: true, isAdmin: true } as never);
     const { systemConfigService } = await import('../../src/services/system-config.service');
-    const publicSpy = vi.spyOn(systemConfigService, 'getPublic').mockResolvedValueOnce({ gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4' } as never);
-    const gotifySpy = vi.spyOn(systemConfigService, 'getGotify').mockResolvedValueOnce({ gotifyUrl: 'https://1.2.3.4', gotifyToken: 'key' } as never);
+    const gotifySpy = vi.spyOn(systemConfigService, 'getGotify').mockResolvedValueOnce({ gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4', gotifyToken: 'key' });
     // #890: the test asks for the admin's step-up, passed here.
     const reauthSpy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
     // Like the real fetch: the redirect is followed unless `redirect: 'manual'`.
@@ -940,7 +939,6 @@ describe('POST /api/admin/config/test/gotify', () => {
       expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ redirect: 'manual' }));
     } finally {
       fetchSpy.mockRestore();
-      publicSpy.mockRestore();
       gotifySpy.mockRestore();
       reauthSpy.mockRestore();
     }

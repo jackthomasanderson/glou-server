@@ -1,11 +1,12 @@
 import { prisma } from '../lib/prisma';
 import { emailService } from './email.service';
-import { systemConfigService } from './system-config.service';
+import { systemConfigService, type PublicSystemConfig } from './system-config.service';
 import { htmlToPlainText } from '../lib/html';
-import { normalizeGotifyUrl } from '../lib/gotify-url';
-import { assertUrlAllowed } from '../lib/ssrf';
+import { gotifyService, isGotifyUsable } from './gotify.service';
 import { isWithinQuietHours } from '../lib/quiet-hours';
-import { isNotificationCategoryEnabled, type NotificationCategory } from '../../../shared/notifications';
+import {
+  isNotificationCategoryEnabled, type ChannelOffReason, type NotificationCategory, type NotificationChannelPolicy,
+} from '../../../shared/notifications';
 
 // #469: only categories with a real emitter (consumption, shares,
 // permissions and new_users never had one and were removed from the UI in #338).
@@ -25,9 +26,46 @@ interface NotificationPayload {
    * Deliver the email channel to this address instead of the account's
    * current one. Reserved for security events whose whole point is to warn
    * the *previous* recipient (e.g. an email change, ISSUE_042). The in-app /
-   * webhook channels are unaffected.
+   * Gotify channels are unaffected.
    */
   emailOverride?: string;
+}
+
+/** #775: `notConfigured` wins over `off`: settings are what the admin has to fill in first. */
+function offReason(isConfigured: boolean, isOn: boolean): ChannelOffReason | null {
+  if (!isConfigured) return 'notConfigured';
+  return isOn ? null : 'off';
+}
+
+/**
+ * The channels a member can turn on: on for the instance and configured
+ * (#767: Gotify needs its URL and app token; #775: email its server). An
+ * administrator is also told why a channel is not available.
+ */
+export function channelPolicy(cfg: PublicSystemConfig, isAdmin: boolean): NotificationChannelPolicy {
+  const smtpConfigured = !!cfg.smtpHost && !!cfg.smtpPort;
+  const gotifyConfigured = isGotifyUsable({ gotifyEnabled: true, gotifyUrl: cfg.gotifyUrl }, !!cfg.gotifyTokenMasked);
+  const policy: NotificationChannelPolicy = {
+    smtpEnabled: cfg.smtpEnabled && smtpConfigured,
+    gotifyEnabled: cfg.gotifyEnabled && gotifyConfigured,
+    inAppEnabled: cfg.inAppEnabled,
+  };
+  if (isAdmin) {
+    policy.offReasons = {
+      email: offReason(smtpConfigured, cfg.smtpEnabled),
+      gotify: offReason(gotifyConfigured, cfg.gotifyEnabled),
+      inApp: offReason(true, cfg.inAppEnabled),
+    };
+  }
+  return policy;
+}
+
+/**
+ * #767: every member's Gotify messages land in the same app of the instance's
+ * server; the title says who each one is for.
+ */
+function forMember(user: { username: string }, title: string): string {
+  return `[${user.username}] ${title}`;
 }
 
 export const notificationService = {
@@ -65,28 +103,18 @@ export const notificationService = {
       }
     }
 
-    // Webhook (Gotify) channel. ISSUE_048: the URL is checked with
-    // `lib/ssrf.ts` (HTTPS, public addresses only) so an authenticated member
-    // can't use this server-side call as a springboard into the home network.
-    // #599: that check covers this one address only, so redirects are not
-    // followed (a 307 would replay the POST elsewhere): a 3xx is a failure.
-    // Unlike the image import (`resolveSafeUrl`), no hop is ever re-checked
-    // and followed: a real Gotify server does not redirect its /message route.
-    if (user.notifWebhook && user.webhookUrl) {
+    // Gotify channel (#767): the member only opts in; every message goes to
+    // the instance's server, so its title names the member it is for.
+    // Off or not configured for the instance: nothing is sent, nothing logged.
+    // Same contract as the email channel above: swallowed, never silent.
+    if (user.notifWebhook) {
       try {
-        const url = normalizeGotifyUrl(user.webhookUrl);
-        await assertUrlAllowed(url);
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: payload.subject, message: htmlToPlainText(payload.htmlBody) }),
-          redirect: 'manual',
-          signal: AbortSignal.timeout(5000),
-        });
-        if (!res.ok) throw new Error('DELIVERY_FAILED');
+        const result = await gotifyService.post(forMember(user, payload.subject), htmlToPlainText(payload.htmlBody));
+        if (!result.success && result.error !== 'GOTIFY_NOT_CONFIGURED') {
+          console.error('[notification] Gotify delivery failed:', result.error);
+        }
       } catch (error) {
-        // Same contract as the email channel above: swallowed, never silent.
-        console.error('[notification] webhook delivery failed:', error);
+        console.error('[notification] Gotify delivery failed:', error);
       }
     }
   },
@@ -100,29 +128,10 @@ export const notificationService = {
     }
 
     if (channel === 'webhook') {
-      if (!user.webhookUrl) return { success: false, error: 'NO_WEBHOOK_URL' };
-      const url = normalizeGotifyUrl(user.webhookUrl);
-      try {
-        await assertUrlAllowed(url);
-      } catch {
-        return { success: false, error: 'INVALID_URL' };
-      }
-      // ISSUE_048: the raw HTTP status / network error message is a
-      // reconnaissance instrument for mapping what the server container can
-      // reach internally — a stable, generic code is returned instead.
-      try {
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: 'Glou — Test', message: 'Notification de test Glou.' }),
-          // #599: never followed, a 3xx is not `ok` (see `send` above).
-          redirect: 'manual',
-          signal: AbortSignal.timeout(5000),
-        });
-        return res.ok ? { success: true } : { success: false, error: 'DELIVERY_FAILED' };
-      } catch {
-        return { success: false, error: 'DELIVERY_FAILED' };
-      }
+      return gotifyService.post(
+        forMember(user, 'Glou — Test'),
+        'Notification de test Glou. / Glou test notification.',
+      );
     }
 
     return { success: false, error: 'UNKNOWN_CHANNEL' };
