@@ -1052,6 +1052,7 @@
       "addTitle": "New peak maturity reference",
       "editTitle": "Edit reference",
       "empty": "No references configured.",
+      "anyColor": "Any color",
       "moveUp": "Move up (higher priority)",
       "moveDown": "Move down (lower priority)",
       "deleteConfirmTitle": "Delete reference?",
@@ -1086,8 +1087,7 @@
         "criteria": "Optional matching criteria",
         "windowRelative": "E.g. 5 → 15 for a bottle drinkable 5 to 15 years after vintage",
         "windowAbsolute": "E.g. 2010 → 2030 for a fixed calendar window",
-        "curveShape": "Shape of the readiness curve applied to matching wines",
-        "colorPlaceholder": "Red, White, Rosé…"
+        "curveShape": "Shape of the readiness curve applied to matching wines"
       },
       "errors": {
         "nameRequired": "Name is required.",
