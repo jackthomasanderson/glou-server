@@ -190,6 +190,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
             variant={mode === 'markers' ? 'flat' : 'light'}
             startContent={<LayoutGrid size={14} />}
             onPress={() => setMode('markers')}
+            aria-pressed={mode === 'markers'}
           >
             {t('analytics.map.mode.markers')}
           </Button>
@@ -198,6 +199,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
             variant={mode === 'heatmap' ? 'flat' : 'light'}
             startContent={<Flame size={14} />}
             onPress={() => setMode('heatmap')}
+            aria-pressed={mode === 'heatmap'}
           >
             {t('analytics.map.mode.heatmap')}
           </Button>

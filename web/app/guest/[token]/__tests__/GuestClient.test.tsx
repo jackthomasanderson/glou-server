@@ -89,7 +89,7 @@ describe('GuestPageContent', () => {
 
     (toast.notifyUndoable.mock.calls[0][3] as { onPress: () => void }).onPress();
     const dialog = await screen.findByRole('dialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: /Note 5/ }));
+    fireEvent.click(within(dialog).getByRole('radio', { name: /5 étoiles sur 5/ }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Enregistrer' }));
 
     await waitFor(() => expect(requests.some((request) => request.method === 'POST')).toBe(true));

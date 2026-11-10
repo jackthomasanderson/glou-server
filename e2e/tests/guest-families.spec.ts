@@ -120,7 +120,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
       // c3: a tasting on the opened bottle, signed with the guest's name.
       await card.getByTestId('guest-tasting').click();
       const dialog = guest.getByRole('dialog');
-      await dialog.getByRole('button', { name: /Note 4/ }).click();
+      await dialog.getByRole('radio', { name: /4 étoiles sur 5/ }).click();
       await dialog.getByLabel('Notes de dégustation').fill('Superbe à l’ouverture');
       const noted = guest.waitForResponse((r) => r.url().endsWith('/tastings') && r.request().method() === 'POST');
       await dialog.getByRole('button', { name: 'Enregistrer' }).click();
@@ -172,7 +172,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
       await expect(offer).toContainText(name);
       await offer.getByTestId('guest-just-drunk-tasting').click();
       const dialog = guest.getByRole('dialog');
-      await dialog.getByRole('button', { name: /Note 5/ }).click();
+      await dialog.getByRole('radio', { name: /5 étoiles sur 5/ }).click();
       const noted = guest.waitForResponse((r) => r.url().endsWith('/tastings') && r.request().method() === 'POST');
       await dialog.getByRole('button', { name: 'Enregistrer' }).click();
       expect((await noted).status()).toBe(201);

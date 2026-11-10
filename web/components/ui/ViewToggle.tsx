@@ -20,6 +20,7 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
           color={value === 'grid' ? 'primary' : 'default'}
           variant={value === 'grid' ? 'flat' : 'light'}
           aria-label={t('view.grid')}
+          aria-pressed={value === 'grid'}
           onClick={() => onChange('grid')}
         >
           <LayoutGrid size={16} />
@@ -31,6 +32,7 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
           color={value === 'list' ? 'primary' : 'default'}
           variant={value === 'list' ? 'flat' : 'light'}
           aria-label={t('view.list')}
+          aria-pressed={value === 'list'}
           onClick={() => onChange('list')}
         >
           <List size={16} />
