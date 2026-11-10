@@ -2,12 +2,13 @@
 
 import { cellarContentsLabel } from '@/lib/cellars/contents';
 import React, { useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Button, Chip, CircularProgress, Tooltip, ButtonGroup, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Card, CardBody } from '@heroui/react';
-import { ArrowLeft, LayoutGrid, List, Map, Plus, Warehouse } from 'lucide-react';
+import { LayoutGrid, List, Map, Plus, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/format';
 import { MainLayout } from '@/components/ui/MainLayout';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useCellar, useCellarGrid } from '@/hooks/useCellars';
 import { useCreateInventoryItem } from '@/hooks/useInventory';
 import { useAddItemsToCollection } from '@/hooks/useCollections';
@@ -85,7 +86,6 @@ function WineCard({ product, cellarId, onPress }: { product: Product; cellarId: 
 
 export function CellarDetailClient() {
   const { t, i18n } = useTranslation();
-  const router = useRouter();
   const params = useParams();
   const cellarId = params.id as string;
   const [view, setView] = useState<DetailView>('map');
@@ -182,24 +182,20 @@ export function CellarDetailClient() {
   return (
     <MainLayout crumb={cellar.name}>
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-1">
-          <Tooltip content={t('actions.back')} delay={500}>
-            <Button isIconOnly size="sm" variant="light" radius="full" onPress={() => router.push('/cellars')} aria-label={t('actions.back')}>
-              <ArrowLeft size={16} />
-            </Button>
-          </Tooltip>
-          <Warehouse size={20} className="text-primary" />
-          <h1 className="text-xl font-bold">{cellar.name}</h1>
-          <Chip size="sm" variant="bordered" radius="sm">{t(`cellars.types.${cellar.type}`)}</Chip>
-        </div>
-
-        {cellar.description && (
-          <p className="text-sm text-foreground-500 ml-10 mb-3">{cellar.description}</p>
-        )}
+        {/* Header — #701: shared page header; the breadcrumb leads back to the cellars. */}
+        <PageHeader
+          icon={Warehouse}
+          title={cellar.name}
+          subtitle={
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <Chip size="sm" variant="bordered" radius="sm">{t(`cellars.types.${cellar.type}`)}</Chip>
+              {cellar.description && <p>{cellar.description}</p>}
+            </div>
+          }
+        />
 
         {cellar.stats && (
-          <div className="flex gap-2 flex-wrap mb-4 ml-10">
+          <div className="flex gap-2 flex-wrap mb-4">
             <Chip size="sm" variant="flat">{cellarContentsLabel(cellar.stats, t)}</Chip>
             {cellar.stats.alertCount > 0 && (
               <Chip size="sm" color="warning" variant="flat">{t('cellars.stats.alertCount', { count: cellar.stats.alertCount })}</Chip>

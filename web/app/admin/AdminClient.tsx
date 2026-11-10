@@ -6,7 +6,7 @@ import {
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import {
-  Trash2, ArrowLeft, UserX, UserCheck, KeyRound, Copy, Check,
+  Trash2, ShieldCheck, UserX, UserCheck, KeyRound, Copy, Check,
   Users, Link2, Hourglass, Settings, ScrollText, type LucideIcon,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -45,6 +45,7 @@ const SECTIONS: { key: AdminSection; labelKey: string; icon: LucideIcon }[] = [
   { key: 'audit', labelKey: 'admin.auditLog.title', icon: ScrollText },
   { key: 'maintenance', labelKey: 'admin.maintenance.title', icon: Trash2 },
 ];
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export function AdminClient() {
   const { t, i18n } = useTranslation();
@@ -161,12 +162,8 @@ export function AdminClient() {
   return (
     <MainLayout>
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Button size="sm" variant="bordered" startContent={<ArrowLeft size={14} />} onPress={() => router.push('/')}>
-          {t('actions.back')}
-        </Button>
-        <h1 className="text-2xl font-bold">{t('admin.title')}</h1>
-      </div>
+      {/* #701: the shared page header; the breadcrumb and the menu lead back. */}
+      <PageHeader icon={ShieldCheck} title={t('admin.title')} />
 
       <BackupWarning problems={problems} onOpenBackups={openBackups} />
 

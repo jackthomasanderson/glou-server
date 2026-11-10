@@ -25,6 +25,19 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* #701: one keyboard focus ring for every interactive element. HeroUI
+ * components draw it from the `focus` token (outline-2 outline-focus
+ * outline-offset-2, colour chosen for contrast in tailwind.config.ts); a
+ * hand-written <button>, link or summary without a focus style showed the
+ * browser's default outline instead. Same outline here. In the base layer,
+ * so a component's own outline or ring utilities still take precedence. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid hsl(var(--heroui-focus));
+    outline-offset: 2px;
+  }
+}
+
 /* #526: real height of the mobile bottom bar (BottomNav.tsx: h-16 plus the
  * iPhone home-indicator inset since #401). Floating buttons, the bulk bar,
  * the undo toast and the page's bottom padding are positioned from it, so

@@ -393,8 +393,10 @@ export function InventoryForm({
           />
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
-            <ModalHeader className="flex items-center justify-between gap-3 pr-4 pb-2 shrink-0">
-              <div className="flex items-center gap-2">
+            {/* #701: the dialog is named by its title alone (an h2), not by
+                the whole header row with the category chip and the buttons. */}
+            <div className="flex items-center justify-between gap-3 pl-6 pr-4 pt-4 pb-2 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <Chip
                   startContent={CATEGORY_ICONS[category]}
                   color={CATEGORY_COLORS[category]}
@@ -403,11 +405,11 @@ export function InventoryForm({
                 >
                   {t(`categories.${category}`)}
                 </Chip>
-                <span className="text-base font-semibold">
+                <ModalHeader as="h2" className="p-0 text-base font-semibold">
                   {descriptionOf
                     ? t(category === 'cigar' ? 'familyDrawer.form.titleCigar' : category === 'spirit' ? 'familyDrawer.form.titleSpirit' : 'familyDrawer.form.title')
                     : isEditing ? t('inventory.edit', category === 'cigar' ? { context: 'cigar' } : undefined) : t('inventory.add')}
-                </span>
+                </ModalHeader>
               </div>
               <div className="flex items-center gap-2">
                 {!isEditing && onScanRequested && (
@@ -432,7 +434,7 @@ export function InventoryForm({
                   <X size={16} />
                 </button>
               </div>
-            </ModalHeader>
+            </div>
 
             <ModalBody className="p-0 flex flex-col sm:flex-row items-stretch gap-0 min-h-0 overflow-hidden flex-1">
               {/* Image panel — used to be `hidden sm:block`, i.e. entirely
@@ -474,7 +476,7 @@ export function InventoryForm({
 
                   {/* Section 1: Identity */}
                   <div>
-                    <p className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step1')}</p>
+                    <h3 className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step1')}</h3>
 
                     {/* Category chips */}
                     <div role="group" aria-label={t('inventory.fields.category')} className="flex flex-wrap gap-1.5 mb-4">
@@ -534,6 +536,8 @@ export function InventoryForm({
                         label={t('nav.caves')}
                         variant="bordered"
                         size="sm"
+                        // #701: alone on its row, it takes the row instead of leaving the right half empty.
+                        className="sm:col-span-2"
                         items={[{ id: 'none', name: t('inventory.noCellar') }, ...(cellars ?? [])]}
                         selectedKeys={[values.cellarId === null ? 'none' : (values.cellarId ?? 'none')]}
                         onSelectionChange={(keys) => setField('cellarId', Array.from(keys)[0] === 'none' ? null : Array.from(keys)[0])}
@@ -662,7 +666,7 @@ export function InventoryForm({
 
                   {/* Section 2: Category fields */}
                   <div>
-                    <p className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step2')}</p>
+                    <h3 className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step2')}</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
 
                       {/* Wine essential */}

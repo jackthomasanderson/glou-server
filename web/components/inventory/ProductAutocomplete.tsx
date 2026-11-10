@@ -116,6 +116,8 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, sugge
         errorMessage={isInvalid ? t('inventory.validation.required') : undefined}
         size="sm"
         label={t('inventory.fields.name')}
+        // #701: like the producer field, an example of what goes here.
+        placeholder={t(`inventory.fields.namePlaceholder.${category}`)}
         value={value}
         {...(suggestions ? {
           role: 'combobox',

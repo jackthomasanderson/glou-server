@@ -28,6 +28,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { subDays, subYears, format } from 'date-fns';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { useAnalytics } from '@/hooks/useAnalytics';
@@ -567,34 +568,32 @@ export function AnalyticsDashboard() {
         {isLoading ? t('status.loading') : ''}
       </span>
 
-      {/* Header */}
-      <Card className="border border-default-200 print:hidden" shadow="none">
-        <CardBody className="p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <BarChart3 size={20} className="text-primary" />
-              <div>
-                <h1 data-testid="analytics-page-title" className="text-lg font-bold">{t('analytics.pageTitle')}</h1>
-                <p className="text-xs text-foreground-500">{t('analytics.pageSubtitle')}</p>
-                {!isLoading && data && (
-                  <StockTotals bottles={totalItems - data.cigarCount} cigars={data.cigarCount} t={t} />
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="flat"
-                color="default"
-                startContent={<FileDown size={14} />}
-                onPress={handlePrint}
-              >
-                PDF
-              </Button>
-            </div>
-          </div>
-        </CardBody>
-      </Card>
+      {/* Header — #701: the shared page header (was a card of its own). */}
+      <PageHeader
+        icon={BarChart3}
+        title={t('analytics.pageTitle')}
+        titleTestId="analytics-page-title"
+        className="mb-0 print:hidden"
+        subtitle={
+          <>
+            <p>{t('analytics.pageSubtitle')}</p>
+            {!isLoading && data && (
+              <StockTotals bottles={totalItems - data.cigarCount} cigars={data.cigarCount} t={t} />
+            )}
+          </>
+        }
+        actions={
+          <Button
+            size="sm"
+            variant="flat"
+            color="default"
+            startContent={<FileDown size={14} />}
+            onPress={handlePrint}
+          >
+            PDF
+          </Button>
+        }
+      />
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

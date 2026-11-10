@@ -216,7 +216,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = 
             onOpenSlot(item);
           }
         }}
-        className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-focus"
         style={{
           ...cellBackground(item),
           cursor: isDragging ? 'grabbing' : 'grab',
@@ -303,7 +303,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording
               if (!offlineReasonId) onClickEmpty();
             }
           }}
-          className={`w-full h-full rounded outline-none focus-visible:ring-2 focus-visible:ring-primary ${offlineReasonId ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-default-100'}`}
+          className={`w-full h-full rounded outline-none focus-visible:ring-2 focus-visible:ring-focus ${offlineReasonId ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-default-100'}`}
         />
       )}
     </div>
