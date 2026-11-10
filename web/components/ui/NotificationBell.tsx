@@ -32,7 +32,7 @@ function itemHref(id: string, category: string): string {
 export function NotificationBell() {
   const { t } = useTranslation();
   // #380: the badge count comes from the lightweight /stats/counts endpoint
-  // (already mounted app-wide for the sidebar); the wines are only fetched
+  // (kept fresh app-wide by the sidebar's subscription); the wines are only fetched
   // once the panel is actually opened, to build the detailed reminder list.
   // #471 (W4): the reminder is on the wine, so one wine in stock is one
   // reminder here too, exactly as the badge counts it (never one per bottle).
