@@ -51,6 +51,13 @@ describe('MainLayout', () => {
     expect(link.className).toContain('focus:not-sr-only');
   });
 
+  // #776: HeroUI gives outside-placed field labels z-20; the sticky top bar must
+  // sit above that level or labels slide over it when the page scrolls.
+  it('stacks the sticky top bar above the z-20 of HeroUI field labels (#776)', () => {
+    render(<MainLayout protected={false}><p>page</p></MainLayout>);
+    expect(screen.getByRole('banner').className).toMatch(/\bz-30\b/);
+  });
+
   it('renders the connectivity indicator in the header, outside the sidebar (#195)', () => {
     render(<MainLayout protected={false}><p>page</p></MainLayout>);
     const indicator = screen.getByTestId('connectivity');

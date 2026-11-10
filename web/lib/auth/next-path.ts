@@ -10,7 +10,7 @@
  * "//evil.example", another host. The value is parsed the way the browser will
  * read it, and only its normalised path is kept, if it stays on this origin.
  */
-export const DEFAULT_LANDING = '/bottles';
+export const DEFAULT_LANDING = '/bottles?category=wine';
 
 // Stand-in origin for the parse: only "does it leave the origin" matters, and
 // a fixed one gives the same answer on the server and in every test.
@@ -53,7 +53,7 @@ export function safeNextPath(raw: string | null | undefined): string | null {
 /** `/login`, or `/login?next=…` when the current page is worth coming back to. */
 export function loginPathFor(current: string): string {
   const next = safeNextPath(current);
-  if (!next || next === '/' || next === DEFAULT_LANDING) return '/login';
+  if (!next || next === '/' || next === DEFAULT_LANDING || next === '/bottles') return '/login';
   return `/login?next=${encodeURIComponent(next)}`;
 }
 

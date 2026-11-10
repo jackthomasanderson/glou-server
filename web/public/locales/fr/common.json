@@ -153,6 +153,13 @@
     "noBottles_cigar": "Aucun cigare dans votre humidor",
     "noBottlesDesc": "Ajoutez votre première bouteille pour commencer.",
     "noBottlesDesc_cigar": "Ajoutez votre premier cigare pour commencer.",
+    "noCategory_wine": "Aucun vin dans votre cave",
+    "noCategory_wineDesc": "Ajoutez un vin pour le voir ici, ou consultez toutes vos bouteilles.",
+    "noCategory_sparkling": "Aucune bulle dans votre cave",
+    "noCategory_sparklingDesc": "Ajoutez une bulle pour la voir ici, ou consultez toutes vos bouteilles.",
+    "noCategory_spirit": "Aucun spiritueux dans votre cave",
+    "noCategory_spiritDesc": "Ajoutez un spiritueux pour le voir ici, ou consultez toutes vos bouteilles.",
+    "seeAllBottles": "Voir toutes les bouteilles",
     "noCellarFilter": "Sans cave",
     "noCellarBanner": "Aucune cave créée — vos bouteilles n'auront pas d'emplacement.",
     "noCellarBannerAction": "Créer une cave",
@@ -2411,7 +2418,7 @@
         "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer les notifications (e-mail, Gotify), qui peut rejoindre l'instance, les sauvegardes et la conservation des données, dans Administration → Configuration système.",
         "link": "Administration → Configuration Système"
       },
-      "finishButton": "Accéder au tableau de bord"
+      "finishButton": "Voir ma cave"
     }
   },
   "pagination": {

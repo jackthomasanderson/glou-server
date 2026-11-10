@@ -11,7 +11,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 vi.mock('@/lib/offline/db', () => ({ clearOfflineData: vi.fn() }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
 
-import { useLogin, useVerify2faLogin } from './useAuth';
+import { useLogin, useRegister, useVerify2faLogin } from './useAuth';
 
 let qc: QueryClient;
 function wrapper({ children }: { children: ReactNode }) {
@@ -53,12 +53,25 @@ describe('return to the requested page after sign-in (#602)', () => {
     onLoginPage('/\t/evil.example');
     const login = renderHook(() => useLogin(), { wrapper });
     login.result.current.mutate({ identifier: 'a', password: 'b' });
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/bottles'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/bottles?category=wine'));
 
     push.mockClear();
     onLoginPage('/..//evil.example');
     const twoFa = renderHook(() => useVerify2faLogin(), { wrapper });
     twoFa.result.current.mutate({ code: '123456' });
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/bottles'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/bottles?category=wine'));
+  });
+});
+
+// #503: sign-up lands on the default page too (the Wines tab).
+describe('landing after sign-up (#503)', () => {
+  it('pushes the default landing page', async () => {
+    qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    push.mockClear();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: { id: 'u1' } }) }));
+    const { result } = renderHook(() => useRegister(), { wrapper });
+    result.current.mutate({ username: 'a', email: 'a@b.c', password: 'secret-pass-1' } as never);
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/bottles?category=wine'));
+    vi.unstubAllGlobals();
   });
 });

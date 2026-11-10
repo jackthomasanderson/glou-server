@@ -153,6 +153,13 @@
     "noBottles_cigar": "No cigars in your humidor",
     "noBottlesDesc": "Add your first bottle to get started.",
     "noBottlesDesc_cigar": "Add your first cigar to get started.",
+    "noCategory_wine": "No wine in your cellar yet",
+    "noCategory_wineDesc": "Add a wine to see it here, or look at all your bottles.",
+    "noCategory_sparkling": "No sparkling wine in your cellar yet",
+    "noCategory_sparklingDesc": "Add a sparkling wine to see it here, or look at all your bottles.",
+    "noCategory_spirit": "No spirit in your cellar yet",
+    "noCategory_spiritDesc": "Add a spirit to see it here, or look at all your bottles.",
+    "seeAllBottles": "See all bottles",
     "noCellarFilter": "No cellar",
     "noCellarBanner": "No cellar created — your bottles will have no location.",
     "noCellarBannerAction": "Create a cellar",
@@ -2409,7 +2416,7 @@
         "description": "As an admin, you'll be able to set up notifications (email, Gotify), who can join, backups and data retention later, in Administration → System configuration.",
         "link": "Administration → System Configuration"
       },
-      "finishButton": "Go to dashboard"
+      "finishButton": "View my cellar"
     }
   },
   "pagination": {
