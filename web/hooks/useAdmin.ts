@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client as api } from '../lib/api';
-import { notifySuccess } from '../lib/toast';
+import { notifyError, notifySuccess } from '../lib/toast';
 import { maturityReferenceClient } from '../lib/maturity-references/client';
 import { MaturityReference, MaturityReferenceInput } from '../lib/maturity-references/types';
 import type { PurgeResponse } from '@shared/maintenance';
