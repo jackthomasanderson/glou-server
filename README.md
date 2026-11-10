@@ -102,6 +102,20 @@ Dozens of smaller features ship regularly; see the [closed pull requests](https:
 - Advanced IoT integration for live cellar temperature and humidity monitoring.
 - Native mobile companion application.
 
+## License
+
+Starting with the first release after v2026.11.2, Glou is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Each released version is licensed under the LICENSE file it ships with. The licence covers Glou's own code, documentation, wiki, logo and icons; third-party components keep their own licences (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+
+- **Free** for personal use and any other noncommercial purpose, including sharing an instance with your household, family or friends, and sharing its hosting costs without profit. A club or association managing its members' shared cellar, without selling to the public, is a noncommercial use. Occasionally selling bottles from your own collection does not make your use commercial; trading in wine as a business does.
+- **Also free** for charities, educational institutions, public research organisations, public safety or health organisations, environmental protection organisations and government institutions, whatever their funding.
+- **Other business use needs a commercial licence**: for example, using Glou to run a business (including the cellar of your own shop, bar or restaurant, or cellars you manage for clients), selling Glou hosting, or including Glou in a paid offer. Write to bl00md3v@gmail.com with your organisation's name, what you use Glou for and how many sites or users; terms and price are agreed case by case.
+- The name, logo and baseline are covered by the [trademark policy](TRADEMARKS.md).
+- Contributions require signing the [Contributor License Agreement](CLA.md).
+
+Glou's source code is available and may be changed and shared for noncommercial purposes, but Glou is not free software or open source in the OSI sense.
+
+This section is a summary for convenience. The [LICENSE](LICENSE) file is the binding text; if this summary differs from it, the LICENSE prevails.
+
 ## Credits / Third parties
 
 - This product includes GeoLite data created by MaxMind, available from [http://maxmind.com/](http://maxmind.com/).

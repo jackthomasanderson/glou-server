@@ -295,6 +295,8 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ${{ matrix.image == 'api' && env.IMAGE_API || env.IMAGE_WEB }}
+          labels: |
+            org.opencontainers.image.licenses=PolyForm-Noncommercial-1.0.0
 
       - name: Build and push by digest
         id: build

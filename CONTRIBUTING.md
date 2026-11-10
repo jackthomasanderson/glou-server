@@ -116,4 +116,4 @@ Public repo: never reference secrets, `.env` contents, or files that are gitigno
 
 ## License
 
-By contributing, you agree that your contributions are licensed under the [MIT License](LICENSE).
+Glou is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Before your first pull request can be merged, sign the [Contributor License Agreement](CLA.md): the CLA assistant bot comments on the pull request with a link, and one signature covers your later contributions under that CLA version. You keep the copyright in your work, but you grant the maintainer a broad, irrevocable licence to use it and to license it to others under any terms, including commercial and proprietary ones. Read the CLA before signing. If your employer or another organisation may have rights in your work, it must authorise your contribution in writing (CLA section 7). A new version of the CLA must be signed again for later contributions.

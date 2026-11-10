@@ -102,6 +102,20 @@ Des dizaines de fonctionnalités plus petites sortent régulièrement ; voir les
 - Intégration IoT avancée pour le suivi en direct de la température et de l'hygrométrie.
 - Application mobile native.
 
+## Licence
+
+À partir de la première version publiée après la v2026.11.2, Glou est sous [licence PolyForm Noncommercial 1.0.0](LICENSE) (texte en anglais). Chaque version publiée est soumise au fichier LICENSE qu'elle contient. La licence couvre le code, la documentation, le wiki, le logo et les icônes propres à Glou ; les composants de tiers gardent leur propre licence (voir [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+
+- **Gratuit** pour un usage personnel et pour tout autre but non commercial, y compris partager une instance avec votre foyer, votre famille ou vos amis, et partager ses frais d'hébergement sans bénéfice. Un club ou une association qui gère la cave commune de ses membres sans rien vendre au public fait un usage non commercial. Revendre à l'occasion des bouteilles de votre propre collection ne rend pas votre usage commercial ; en faire commerce à titre professionnel, si.
+- **Gratuit aussi** pour les organisations caritatives, établissements d'enseignement, organismes publics de recherche, organismes de sécurité publique ou de santé, organismes de protection de l'environnement et institutions publiques, quel que soit leur financement.
+- **Les autres usages professionnels demandent une licence commerciale** : par exemple utiliser Glou pour faire tourner une entreprise (y compris la cave de votre propre boutique, bar ou restaurant, ou des caves que vous gérez pour des clients), vendre l'hébergement de Glou, ou l'inclure dans une offre payante. Écrivez à bl00md3v@gmail.com en indiquant le nom de votre structure, l'usage que vous faites de Glou et le nombre de sites ou d'utilisateurs ; conditions et prix sont fixés au cas par cas.
+- Le nom, le logo et la baseline relèvent de la [politique de marque](TRADEMARKS_FR.md).
+- Toute contribution demande de signer le [contrat de licence de contributeur](CLA.md) (CLA, en anglais).
+
+Le code source de Glou est disponible et vous pouvez le modifier et le redistribuer pour un usage non commercial, mais Glou n'est ni un logiciel libre ni un logiciel open source au sens de l'OSI.
+
+Cette section est un résumé pour faciliter la lecture. Seul le texte de [LICENSE](LICENSE) (en anglais) fait foi ; en cas d'écart, il prévaut.
+
 ## Crédits / Tiers
 
 - Ce produit inclut des données GeoLite créées par MaxMind, disponibles sur [http://maxmind.com/](http://maxmind.com/).
