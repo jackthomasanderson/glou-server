@@ -43,6 +43,9 @@ export function collectPageProblems(page: Page, testInfo: TestInfo) {
   const problems: string[] = [];
 
   page.on('pageerror', (err) => {
+    // WebKit (mobile-safari) reports a link prefetch (`?_rsc=`) cancelled by
+    // the next page.goto as "… due to access control checks": not an app bug.
+    if (/_rsc=.*access control checks/.test(err.message)) return;
     problems.push(`[pageerror] ${err.message}`);
   });
   page.on('console', (msg) => {
