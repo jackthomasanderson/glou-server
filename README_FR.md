@@ -102,6 +102,18 @@ Des dizaines de fonctionnalités plus petites sortent régulièrement ; voir les
 - Intégration IoT avancée pour le suivi en direct de la température et de l'hygrométrie.
 - Application mobile native.
 
+## Licence
+
+Glou est sous [licence PolyForm Noncommercial 1.0.0](LICENSE), pour tout le dépôt (code, documentation, wiki, logo et icônes).
+
+- **Gratuit** pour un usage personnel, familial et non commercial, et pour les organisations non commerciales (associations, écoles, organismes publics).
+- **L'usage commercial demande une licence** : utiliser Glou dans ou pour une entreprise (y compris gérer une cave pour des clients, ou pour sa propre boutique ou son restaurant), vendre son hébergement, ou l'inclure dans une offre payante. Écrivez à bl00md3v@gmail.com ; les conditions sont fixées au cas par cas.
+- **Essai gratuit de 30 jours** : une entreprise peut essayer Glou pendant 30 jours avant de demander une licence.
+- Le nom et le logo relèvent de la [politique de marque](TRADEMARKS_FR.md).
+- Toute contribution demande de signer le [contrat de licence de contributeur](CLA.md) (CLA).
+
+Le code de Glou est consultable, mais ce n'est pas de l'open source au sens de l'OSI.
+
 ## Crédits / Tiers
 
 - Ce produit inclut des données GeoLite créées par MaxMind, disponibles sur [http://maxmind.com/](http://maxmind.com/).

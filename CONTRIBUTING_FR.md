@@ -114,4 +114,4 @@ Dépôt public : ne référencez jamais de secrets, de contenu `.env`, ou de fic
 
 ## Licence
 
-En contribuant, vous acceptez que vos contributions soient placées sous [licence MIT](LICENSE).
+Glou est sous [licence PolyForm Noncommercial 1.0.0](LICENSE). Avant que votre première pull request puisse être fusionnée, signez le [contrat de licence de contributeur](CLA.md) (CLA, en anglais) : le robot CLA assistant commente la pull request avec un lien, et une seule signature couvre toutes vos contributions suivantes. Vous gardez le droit d'auteur sur votre travail ; le contrat permet au mainteneur de proposer aussi Glou sous licence commerciale.

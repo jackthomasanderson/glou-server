@@ -102,6 +102,18 @@ Dozens of smaller features ship regularly; see the [closed pull requests](https:
 - Advanced IoT integration for live cellar temperature and humidity monitoring.
 - Native mobile companion application.
 
+## License
+
+Glou is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE), for the whole repository (code, documentation, wiki, logo and icons).
+
+- **Free** for personal, household and noncommercial use, and for noncommercial organisations (charities, schools, public bodies).
+- **Commercial use needs a licence**: running Glou in or for a business (including managing a cellar for clients or for your own shop or restaurant), selling hosting, or including it in a paid offer. Write to bl00md3v@gmail.com; terms are set case by case.
+- **Free 30-day evaluation**: a business may try Glou for 30 days before asking for a licence.
+- The name and logo are covered by the [trademark policy](TRADEMARKS.md).
+- Contributions require signing the [Contributor License Agreement](CLA.md).
+
+Glou is source-available, not open source in the OSI sense.
+
 ## Credits / Third parties
 
 - This product includes GeoLite data created by MaxMind, available from [http://maxmind.com/](http://maxmind.com/).
