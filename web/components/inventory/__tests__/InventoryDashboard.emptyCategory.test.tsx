@@ -18,9 +18,13 @@ vi.mock('next/navigation', () => ({
   useRouter: () => router,
   usePathname: () => '/bottles',
 }));
+// #637: a `dynamic` component downloads its code when it first renders; the stub counts renders.
+const lazyRenders = vi.hoisted(() => ({ count: 0 }));
 vi.mock('next/dynamic', () => ({
-  default: () => (props: { open?: boolean; defaultCategory?: string }) =>
-    props.open ? <div data-testid="form" data-category={props.defaultCategory ?? ''} /> : null,
+  default: () => (props: { open?: boolean; defaultCategory?: string }) => {
+    lazyRenders.count += 1;
+    return props.open ? <div data-testid="form" data-category={props.defaultCategory ?? ''} /> : null;
+  },
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ i18n: { language: 'fr' } }) }));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
@@ -89,5 +93,18 @@ describe('an empty category page (#503)', () => {
     wrap(<InventoryDashboard t={t as never} lockedCategories={['wine', 'sparkling', 'spirit']} />);
     fireEvent.click(screen.getByTestId('see-all-bottles'));
     expect(push).toHaveBeenCalledWith('/bottles');
+  });
+});
+
+// #637: the form, drawer, edit dialog and scan flow are only rendered once opened.
+describe('lazy dialogs (#637)', () => {
+  it('renders none of them while closed, the form once "Add" is pressed', () => {
+    params = new URLSearchParams('category=wine');
+    products = [];
+    lazyRenders.count = 0;
+    wrap(<InventoryDashboard t={t as never} lockedCategories={['wine', 'sparkling', 'spirit']} />);
+    expect(lazyRenders.count).toBe(0);
+    fireEvent.click(screen.getAllByRole('button', { name: t('inventory.add') }).at(-1)!);
+    expect(screen.getByTestId('form')).toBeInTheDocument();
   });
 });

@@ -19,9 +19,20 @@ function setup({ otherFocus = true } = {}) {
 
 const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 
+// jsdom does not tell keyboard focus from other focus: ':focus-visible' is stubbed.
+let focusVisible = true;
+const realMatches = Element.prototype.matches;
+
 describe('UndoToast (#651)', () => {
-  beforeEach(() => vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame'] }));
+  beforeEach(() => {
+    focusVisible = true;
+    Element.prototype.matches = function (sel: string) {
+      return sel === ':focus-visible' ? focusVisible : realMatches.call(this, sel);
+    };
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame', 'setInterval', 'clearInterval'] });
+  });
   afterEach(() => {
+    Element.prototype.matches = realMatches;
     vi.useRealTimers();
     document.body.innerHTML = '';
   });
@@ -37,10 +48,17 @@ describe('UndoToast (#651)', () => {
   it('does not expire while hovered, and resumes when left', () => {
     const { onExpire } = setup();
     const toast = screen.getByRole('status');
-    fireEvent.mouseEnter(toast);
+    fireEvent.pointerEnter(toast, { pointerType: 'mouse' });
     advance(UNDO_TIMEOUT_MS * 3);
     expect(onExpire).not.toHaveBeenCalled();
-    fireEvent.mouseLeave(toast);
+    fireEvent.pointerLeave(toast, { pointerType: 'mouse' });
+    advance(UNDO_TIMEOUT_MS + 500);
+    expect(onExpire).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not paused by a tap (touch pointer)', () => {
+    const { onExpire } = setup();
+    fireEvent.pointerEnter(screen.getByRole('status'), { pointerType: 'touch' });
     advance(UNDO_TIMEOUT_MS + 500);
     expect(onExpire).toHaveBeenCalledTimes(1);
   });
@@ -60,9 +78,9 @@ describe('UndoToast (#651)', () => {
     const { onExpire } = setup();
     const toast = screen.getByRole('status');
     advance(UNDO_TIMEOUT_MS - 1000);
-    fireEvent.mouseEnter(toast);
+    fireEvent.pointerEnter(toast, { pointerType: 'mouse' });
     advance(UNDO_TIMEOUT_MS);
-    fireEvent.mouseLeave(toast);
+    fireEvent.pointerLeave(toast, { pointerType: 'mouse' });
     advance(500);
     expect(onExpire).not.toHaveBeenCalled();
     advance(1000);
@@ -74,6 +92,42 @@ describe('UndoToast (#651)', () => {
     expect(document.activeElement).toBe(document.body);
     advance(1000);
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Undo' }));
+  });
+
+  it('expires normally after moving the focus to Undo itself (mouse or touch delete)', () => {
+    focusVisible = false;
+    const { onExpire } = setup({ otherFocus: false });
+    advance(500);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Undo' }));
+    advance(UNDO_TIMEOUT_MS + 500);
+    expect(onExpire).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes the focus late, as soon as it is lost (slow device)', () => {
+    const other = document.createElement('input');
+    document.body.appendChild(other);
+    other.focus();
+    setup({ otherFocus: false });
+    advance(900);
+    expect(document.activeElement).toBe(other);
+    other.remove();
+    advance(300);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Undo' }));
+  });
+
+  it('gives the focus to the page title when it closes holding it', () => {
+    const h1 = document.createElement('h1');
+    document.body.appendChild(h1);
+    const { onExpire } = setup({ otherFocus: false });
+    advance(500);
+    fireEvent.keyDown(screen.getByRole('status'), { key: 'Escape' });
+    expect(document.activeElement).toBe(h1);
+    expect(onExpire).toHaveBeenCalledTimes(1);
+  });
+
+  it('links the message to the Undo button', () => {
+    setup();
+    expect(screen.getByRole('button', { name: 'Undo' }).getAttribute('aria-describedby')).toBe(screen.getByText('Moved to trash').id);
   });
 
   it('does not steal the focus from another control', () => {
