@@ -8,8 +8,7 @@ import { avatarUpload } from '../middleware/upload.middleware';
 import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema, deleteAccountSchema } from '../schemas/user.schema';
 import { passwordCheckLimiter } from '../lib/rate-limit';
 import { prisma } from '../lib/prisma';
-import { assertUrlAllowed } from '../lib/ssrf';
-import { notificationService } from '../services/notification.service';
+import { channelPolicy, notificationService } from '../services/notification.service';
 import { systemConfigService } from '../services/system-config.service';
 import { auditLog } from '../services/audit.service';
 import { onboardingService } from '../services/onboarding.service';
@@ -265,10 +264,11 @@ router.post('/onboarding/postpone', authMiddleware, async (req: Request, res: Re
  * Return current user's notification preferences + active channels from system policy
  */
 router.get('/notifications', authMiddleware, async (req: Request, res: Response) => {
-  const [user, policy] = await Promise.all([
+  const [user, config] = await Promise.all([
     prisma.user.findUnique({
       where: { id: req.userId },
       select: {
+        isAdmin: true,
         notifInApp: true,
         notifEmail: true,
         notifWebhook: true,
@@ -276,23 +276,14 @@ router.get('/notifications', authMiddleware, async (req: Request, res: Response)
         notifQuietStart: true,
         notifQuietEnd: true,
         notifLanguage: true,
-        webhookUrl: true,
       },
     }),
     systemConfigService.getPublic(),
   ]);
   if (!user) { res.status(404).json({ error: 'USER_NOT_FOUND' }); return; }
 
-  res.json({
-    data: {
-      ...user,
-      policy: {
-        smtpEnabled: policy.smtpEnabled,
-        gotifyEnabled: policy.gotifyEnabled,
-        inAppEnabled: policy.inAppEnabled,
-      },
-    },
-  });
+  const { isAdmin, ...prefs } = user;
+  res.json({ data: { ...prefs, policy: channelPolicy(config, isAdmin) } });
 });
 
 /**
@@ -313,21 +304,8 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
   const {
     notifInApp, notifEmail, notifWebhook,
     notifCategories, notifQuietStart, notifQuietEnd,
-    notifLanguage, webhookUrl,
+    notifLanguage,
   } = parsed;
-
-  // ISSUE_048: a webhook URL is called server-side on every notification —
-  // reject anything that isn't a public HTTPS address at save time, the same
-  // guard already applied to it just before each actual delivery.
-  if (webhookUrl) {
-    try {
-      await assertUrlAllowed(webhookUrl);
-    } catch (err) {
-      console.error('[user] PATCH /notifications error:', err);
-      res.status(400).json({ error: 'INVALID_URL' });
-      return;
-    }
-  }
 
   const data: Record<string, unknown> = {};
   if (notifInApp !== undefined) data.notifInApp = notifInApp;
@@ -337,7 +315,6 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
   if (notifQuietStart !== undefined) data.notifQuietStart = notifQuietStart;
   if (notifQuietEnd !== undefined) data.notifQuietEnd = notifQuietEnd;
   if (notifLanguage !== undefined) data.notifLanguage = notifLanguage;
-  if (webhookUrl !== undefined) data.webhookUrl = webhookUrl || null;
 
   await prisma.user.update({ where: { id: req.userId }, data });
   res.json({ data: { ok: true } });

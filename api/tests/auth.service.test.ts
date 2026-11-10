@@ -110,7 +110,6 @@ describe('AuthService', () => {
         notifQuietStart: null,
         notifQuietEnd: null,
         notifLanguage: null,
-        webhookUrl: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -187,7 +186,6 @@ describe('AuthService', () => {
         notifQuietStart: null,
         notifQuietEnd: null,
         notifLanguage: null,
-        webhookUrl: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       } as any);
@@ -243,7 +241,6 @@ describe('AuthService', () => {
       notifQuietStart: null,
       notifQuietEnd: null,
       notifLanguage: null,
-      webhookUrl: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

@@ -65,7 +65,6 @@ function dbUser() {
     notifQuietStart: null,
     notifQuietEnd: null,
     notifLanguage: null,
-    webhookUrl: null,
   };
 }
 

@@ -102,7 +102,6 @@ export const updateNotificationPrefsSchema = z.object({
   notifQuietStart: z.number().int().min(0).max(23).optional().nullable(),
   notifQuietEnd: z.number().int().min(0).max(23).optional().nullable(),
   notifLanguage: z.enum(['FR', 'EN']).optional(),
-  webhookUrl: z.string().url().optional().nullable().or(z.literal('')),
 });
 
 export type UpdateNotificationPrefsInput = z.infer<typeof updateNotificationPrefsSchema>;

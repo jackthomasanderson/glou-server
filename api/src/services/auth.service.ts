@@ -1096,7 +1096,6 @@ export class AuthService {
         notifQuietStart: user.notifQuietStart,
         notifQuietEnd: user.notifQuietEnd,
         notifLanguage: user.notifLanguage,
-        webhookUrl: user.webhookUrl,
       };
     }
     if (includes('configHistory')) {
@@ -1169,7 +1168,7 @@ export class AuthService {
    * either fail outright or require reassigning those rows to some other
    * identity. Anonymizing in place keeps every such reference valid while
    * removing the PII GDPR Art. 17 actually targets (email, username,
-   * password hash, 2FA secret, avatar, webhook URL...) and deactivating the
+   * password hash, 2FA secret, avatar...) and deactivating the
    * account (`isActive: false`) so it can no longer sign in. Sessions,
    * trusted devices and guest shares created by the account are removed
    * outright — nothing legitimately needs them to survive.
@@ -1207,7 +1206,6 @@ export class AuthService {
           passwordHash: unusablePasswordHash,
           displayName: null,
           avatarUrl: null,
-          webhookUrl: null,
           notifWebhook: false,
           isTwoFactorEnabled: false,
           twoFactorSecret: null,
@@ -1514,7 +1512,11 @@ async function notifyAdminsOfAccountDeletion(event: AccountDeletionEvent): Promi
           ? `<p>${event.count} account${plural ? 's were' : ' was'} anonymised, ${ACCOUNT_DELETION_GRACE_DAYS} days after the member's deletion request. Their past edits now show as "deleted-…" in the history.</p>`
           : `<p>${event.count} compte${plural ? 's ont été anonymisés' : ' a été anonymisé'}, ${ACCOUNT_DELETION_GRACE_DAYS} jours après la demande de suppression du membre. Ses modifications passées apparaissent désormais comme « deleted-… » dans l'historique.</p>`;
       }
-      return notificationService.send({ userId: admin.id, category: 'security', subject, htmlBody });
+      // #742: the "N accounts deleted" notice is sent by the 3 a.m.
+      // maintenance run, inside most night-time quiet hours, which drop a
+      // message rather than delay it. Like the other security alerts, it
+      // goes through them.
+      return notificationService.send({ userId: admin.id, category: 'security', subject, htmlBody, bypassQuietHours: true });
     }));
   } catch (err) {
     console.error('[auth] Could not notify administrators of an account deletion:', err);

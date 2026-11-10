@@ -21,3 +21,26 @@ export function isNotificationCategoryEnabled(stored: readonly string[], categor
  * quiet-hours setting.
  */
 export const DAILY_ALERTS_HOUR = 10;
+
+/**
+ * #775: why a channel cannot be used — switched off in Administration, or
+ * missing its server settings (SMTP server, Gotify URL and app token).
+ */
+export type ChannelOffReason = 'off' | 'notConfigured';
+
+/**
+ * The channels a member can turn on (`GET /api/user/notifications`): each one
+ * is usable, i.e. on for the instance *and* configured (#767, #775).
+ * `offReasons` is given to administrators only, the people who can act on it;
+ * a member just reads "disabled by the administrator".
+ */
+export interface NotificationChannelPolicy {
+  smtpEnabled: boolean;
+  gotifyEnabled: boolean;
+  inAppEnabled: boolean;
+  offReasons?: {
+    email: ChannelOffReason | null;
+    gotify: ChannelOffReason | null;
+    inApp: ChannelOffReason | null;
+  };
+}

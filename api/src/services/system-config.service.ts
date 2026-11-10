@@ -249,7 +249,8 @@ export const systemConfigService = {
     return this.getPublic();
   },
 
-  async updateNotificationPolicy(data: NotificationPolicyConfig, userId: string): Promise<PublicSystemConfig> {
+  // Partial: only the switches a card sends are written and logged (#767).
+  async updateNotificationPolicy(data: Partial<NotificationPolicyConfig>, userId: string): Promise<PublicSystemConfig> {
     await saveAndLog(userId, 'notifications', data);
     return this.getPublic();
   },
