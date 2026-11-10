@@ -31,8 +31,6 @@ export const HISTORY_FIELDS: Record<string, HistoryFieldKind> = {
   gotifyEnabled: 'bool',
   gotifyUrl: 'text',
   gotifyTokenEnc: 'secret',
-  // Notification channels
-  inAppEnabled: 'bool',
   // Retention
   logRetentionDays: 'days',
   sessionRetentionDays: 'days',
@@ -46,6 +44,7 @@ export const HISTORY_FIELDS: Record<string, HistoryFieldKind> = {
   // Sign-up
   registrationOpen: 'bool',
   // Removed settings, kept for older entries
+  inAppEnabled: 'bool', // the in-app channel, before #671
   backupHourUtc: 'hour', // a UTC hour, before #761
   accessMode: 'enum',
   vivinoKeyEnc: 'secret',

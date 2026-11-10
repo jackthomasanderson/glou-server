@@ -95,7 +95,6 @@ export type CompleteOnboardingInput = z.infer<typeof completeOnboardingSchema>;
 // ─── FEAT-32: Notification Preferences ───────────────────────────────────────
 
 export const updateNotificationPrefsSchema = z.object({
-  notifInApp: z.boolean().optional(),
   notifEmail: z.boolean().optional(),
   notifWebhook: z.boolean().optional(),
   notifCategories: z.array(z.string()).optional(),

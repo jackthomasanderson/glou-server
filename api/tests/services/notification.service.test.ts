@@ -28,7 +28,6 @@ const baseUser = {
   email: 'a@b.com',
   isActive: true,
   notifEmail: false,
-  notifInApp: false,
   notifWebhook: true,
   notifCategories: [],
   notifQuietStart: null,

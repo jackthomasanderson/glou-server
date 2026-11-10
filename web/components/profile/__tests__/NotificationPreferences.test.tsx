@@ -43,14 +43,13 @@ const ALL = ['peak', 'temperature', 'security', 'wishlist', 'backup'];
 
 function prefs(patch: Partial<NotificationPrefs> = {}): NotificationPrefs {
   return {
-    notifInApp: false,
     notifEmail: true,
     notifWebhook: false,
     notifCategories: [],
     notifQuietStart: null,
     notifQuietEnd: null,
     notifLanguage: null,
-    policy: { smtpEnabled: true, gotifyEnabled: false, inAppEnabled: false },
+    policy: { smtpEnabled: true, gotifyEnabled: false },
     ...patch,
   };
 }
@@ -172,7 +171,7 @@ describe('NotificationPreferences when loading fails (#615)', () => {
 
 // #767: Gotify messages go to the instance's server; the member only opts in.
 describe('NotificationPreferences — Gotify (#767)', () => {
-  const gotifyOn = () => prefs({ notifWebhook: true, policy: { smtpEnabled: true, gotifyEnabled: true, inAppEnabled: false } });
+  const gotifyOn = () => prefs({ notifWebhook: true, policy: { smtpEnabled: true, gotifyEnabled: true } });
 
   it('has no address field, and says where the messages go', async () => {
     getNotifPrefs.mockResolvedValue(gotifyOn());
@@ -225,19 +224,18 @@ describe('NotificationPreferences — Gotify (#767)', () => {
 
 // #775: "Disabled by the administrator" told the administrator nothing.
 describe('NotificationPreferences — a channel that is not available (#775)', () => {
-  const allOff = { smtpEnabled: false, gotifyEnabled: false, inAppEnabled: false };
+  const allOff = { smtpEnabled: false, gotifyEnabled: false };
 
   it('tells an admin why, with a link to Administration', async () => {
     getNotifPrefs.mockResolvedValue(prefs({
-      policy: { ...allOff, offReasons: { email: 'notConfigured', gotify: 'off', inApp: 'off' } },
+      policy: { ...allOff, offReasons: { email: 'notConfigured', gotify: 'off' } },
     }));
     renderPrefs();
 
     expect(await screen.findByText('notifications.channels.offReason.email.notConfigured')).toBeInTheDocument();
     expect(screen.getByText('notifications.channels.offReason.gotify.off')).toBeInTheDocument();
-    expect(screen.getByText('notifications.channels.offReason.inApp.off')).toBeInTheDocument();
     const links = screen.getAllByRole('link', { name: 'notifications.channels.configure' });
-    expect(links).toHaveLength(3);
+    expect(links).toHaveLength(2);
     for (const link of links) expect(link).toHaveAttribute('href', '/admin');
     expect(screen.queryByText('notifications.channels.disabledByAdmin')).not.toBeInTheDocument();
   });
@@ -246,7 +244,18 @@ describe('NotificationPreferences — a channel that is not available (#775)', (
     getNotifPrefs.mockResolvedValue(prefs({ policy: allOff }));
     renderPrefs();
 
-    expect(await screen.findAllByText('notifications.channels.disabledByAdmin')).toHaveLength(3);
+    expect(await screen.findAllByText('notifications.channels.disabledByAdmin')).toHaveLength(2);
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+});
+
+// #671: the "in-app" channel was a switch that delivered nothing; it is gone.
+describe('NotificationPreferences — channels (#671)', () => {
+  it('offers email and Gotify only, no in-app channel', async () => {
+    getNotifPrefs.mockResolvedValue(prefs({ policy: { smtpEnabled: true, gotifyEnabled: true } }));
+    renderPrefs();
+    expect(await screen.findByText('notifications.channels.email')).toBeInTheDocument();
+    expect(screen.queryByText('notifications.channels.inApp')).toBeNull();
+    expect(screen.getAllByRole('switch')).toHaveLength(2);
   });
 });

@@ -1089,7 +1089,6 @@ export class AuthService {
     }
     if (includes('notifications')) {
       result.notificationPreferences = {
-        notifInApp: user.notifInApp,
         notifEmail: user.notifEmail,
         notifWebhook: user.notifWebhook,
         notifCategories: user.notifCategories,

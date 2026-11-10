@@ -1891,8 +1891,6 @@
     "subtitle": "Choisissez comment recevoir vos alertes. Certains canaux peuvent être restreints par votre administrateur.",
     "channels": {
       "title": "Canaux",
-      "inApp": "Notifications dans l'application",
-      "inAppDesc": "Alertes visibles dans l'interface",
       "email": "Email",
       "emailDesc": "Notifications envoyées à votre adresse email",
       "webhook": "Gotify",
@@ -1906,9 +1904,6 @@
         "gotify": {
           "notConfigured": "Serveur Gotify non configuré (URL et jeton d'application)",
           "off": "Gotify coupé dans l'administration"
-        },
-        "inApp": {
-          "off": "Notifications dans l'application coupées dans l'administration"
         }
       },
       "configure": "Configurer",
@@ -1973,14 +1968,12 @@
     "channelStatus": {
       "active": "Activé",
       "configuredOff": "Configuré mais coupé",
-      "notConfigured": "Non configuré",
-      "off": "Coupé"
+      "notConfigured": "Non configuré"
     },
     "testUsesSaved": "Les tests utilisent les réglages enregistrés : enregistrez d'abord vos modifications.",
     "stepUp": {
       "smtp": "Le serveur de messagerie envoie les liens de réinitialisation du mot de passe et les alertes de sécurité : sa modification est confirmée.",
       "smtpTest": "Le test se connecte au serveur de messagerie enregistré, et envoie un message si vous avez donné une adresse.",
-      "notifications": "Ces canaux portent les alertes de sécurité envoyées aux membres : leur modification est confirmée.",
       "gotify": "Le serveur Gotify reçoit les alertes de sécurité : sa modification est confirmée.",
       "gotifyTest": "Le test envoie une notification au serveur Gotify enregistré.",
       "network": "Les liens de réinitialisation du mot de passe sont construits à partir de l'URL publique : sa modification est confirmée.",
@@ -1995,7 +1988,6 @@
       "system": "Système"
     },
     "cards": {
-      "inApp": "Dans l'application",
       "email": "E-mail",
       "gotify": "Gotify",
       "publicUrl": "URL publique",
@@ -2038,11 +2030,8 @@
     },
     "notifPolicy": {
       "description": "Chaque canal ci-dessous est activé ou coupé pour toute l'instance. Un canal coupé ici ne peut pas être activé par les membres dans leurs préférences.",
-      "inApp": "Notifications dans l'application",
-      "inAppHint": "Permet aux utilisateurs de recevoir des alertes directement dans l'interface.",
       "emailHint": "Envoie les liens de réinitialisation du mot de passe, et les notifications que les membres choisissent de recevoir par e-mail.",
-      "webhookHint": "Toutes les notifications Gotify partent vers ce serveur, dans la même application : chaque membre choisit seulement de les recevoir ou non dans son profil, et chaque message porte le nom du membre concerné. L'URL et le jeton d'application sont nécessaires pour activer le canal.",
-      "saved": "Notifications dans l'application enregistrées."
+      "webhookHint": "Toutes les notifications Gotify partent vers ce serveur, dans la même application : chaque membre choisit seulement de les recevoir ou non dans son profil, et chaque message porte le nom du membre concerné. L'URL et le jeton d'application sont nécessaires pour activer le canal."
     },
     "gotify": {
       "enabled": "Activer les notifications Gotify",
@@ -2053,7 +2042,6 @@
       "tokenPlaceholder": "Laisser vide pour conserver l'actuel",
       "test": "Envoyer une notification de test",
       "testSuccess": "Notification de test acceptée par le serveur Gotify.",
-      "testError": "Échec : {{error}}",
       "saved": "Configuration Gotify enregistrée."
     },
     "scan": {

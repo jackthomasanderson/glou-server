@@ -74,7 +74,6 @@ model User {
   onboardingCompletedAt DateTime?
 
   // Notifications (FEAT-32)
-  notifInApp         Boolean    @default(true)
   notifEmail         Boolean    @default(false)
   notifWebhook       Boolean    @default(false)
   notifCategories    String[]   @default([])
@@ -712,9 +711,6 @@ model SystemConfig {
   gotifyEnabled  Boolean @default(false)
   gotifyUrl      String?
   gotifyTokenEnc String? // AES-256-GCM encrypted
-
-  // In-app notifications (FEAT-53)
-  inAppEnabled Boolean @default(true)
 
   // External API integrations (FEAT-34)
   // #468: no feature reads these two keys and no screen writes them any more;

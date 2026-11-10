@@ -37,10 +37,8 @@ export type ChannelOffReason = 'off' | 'notConfigured';
 export interface NotificationChannelPolicy {
   smtpEnabled: boolean;
   gotifyEnabled: boolean;
-  inAppEnabled: boolean;
   offReasons?: {
     email: ChannelOffReason | null;
     gotify: ChannelOffReason | null;
-    inApp: ChannelOffReason | null;
   };
 }

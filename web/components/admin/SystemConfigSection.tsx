@@ -9,7 +9,6 @@ import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { UnsavedChangesContext, UnsavedMarker } from '@/components/admin/config/shared';
 import { BackupMarker } from '@/components/admin/BackupWarning';
 import { EmailChannelCard } from '@/components/admin/config/notifications/EmailChannelCard';
-import { InAppChannelCard } from '@/components/admin/config/notifications/InAppChannelCard';
 import { GotifyChannelCard } from '@/components/admin/config/notifications/GotifyChannelCard';
 import { PublicUrlCard } from '@/components/admin/config/access/PublicUrlCard';
 import { RegistrationCard } from '@/components/admin/config/access/RegistrationCard';
@@ -107,7 +106,6 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
             {panel('notifications', <>
               {/* #758: one card per channel, each with its only switch. */}
               <p className="text-sm text-foreground-500">{t('adminConfig.notifPolicy.description')}</p>
-              <InAppChannelCard config={config} />
               <EmailChannelCard config={config} />
               <GotifyChannelCard config={config} />
             </>)}

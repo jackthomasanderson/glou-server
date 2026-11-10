@@ -5,7 +5,7 @@ Glou vous notifie dès qu'un événement sensible survient sur votre compte : co
 
 ## Prérequis
 * Être connecté à votre compte.
-* Au moins un canal de notification activé (in-app et/ou email) dans **Profil → Notifications**.
+* Au moins un canal de notification activé (e-mail et/ou Gotify) dans **Profil → Notifications**, proposé dès qu'un administrateur l'a configuré.
 
 ## Action
 
@@ -21,7 +21,7 @@ Chaque notification inclut l'horodatage, l'appareil ou l'IP concerné, et un lie
 ### Activer ou désactiver les notifications de sécurité
 1. Allez dans **Profil → Notifications**.
 2. Repérez la puce de catégorie **Sécurité** et cliquez dessus pour l'activer ou la désactiver.
-3. Choisissez votre/vos canal/canaux de diffusion (in-app, email) via les interrupteurs de canal du même panneau.
+3. Choisissez votre/vos canal/canaux de diffusion (e-mail, Gotify) via les interrupteurs de canal du même panneau.
 
 > [!CAUTION]
 > Les notifications de sécurité ignorent toujours vos heures silencieuses configurées. Vous ne pouvez pas mettre cette catégorie en sourdine pendant les heures silencieuses, seulement la désactiver entièrement.

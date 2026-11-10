@@ -90,7 +90,7 @@ export function sentTo(fetchMock: ReturnType<typeof stubFetch>, path: string) {
 
 export const CONFIG = {
   smtpEnabled: true, smtpHost: 'mail.home', smtpPort: 587, smtpUser: null, smtpPassMasked: null, smtpFrom: null, smtpSecure: true,
-  gotifyEnabled: false, gotifyUrl: null, gotifyTokenMasked: null, inAppEnabled: true,
+  gotifyEnabled: false, gotifyUrl: null, gotifyTokenMasked: null,
   logRetentionDays: 90, sessionRetentionDays: 30, guestShareRetentionDays: 30,
   publicUrl: null, effectivePublicUrl: 'http://localhost:3000',
   registrationOpen: false, backupEnabled: true, backupRetentionDays: 7, backupHour: 3, timeZone: 'UTC',

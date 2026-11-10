@@ -36,7 +36,6 @@ export interface SystemConfigPublic {
   gotifyEnabled: boolean;
   gotifyUrl: string | null;
   gotifyTokenMasked: string | null;
-  inAppEnabled: boolean;
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
@@ -112,7 +111,6 @@ export interface MaintenanceRunEntry {
 }
 
 export interface NotificationPrefs {
-  notifInApp: boolean;
   notifEmail: boolean;
   notifWebhook: boolean;
   notifCategories: string[];
@@ -162,12 +160,6 @@ export const configClient = {
 
   async updateGotify(payload: Record<string, unknown>, reauth: AdminReauth): Promise<SystemConfigPublic> {
     const { data } = await client.put<SystemConfigPublic>('/admin/config/gotify', { ...payload, ...reauth });
-    return data;
-  },
-
-  /** Only the switches given are saved: a card sends its own, never a copy of another's. */
-  async updateNotifPolicy(payload: Partial<Pick<SystemConfigPublic, 'smtpEnabled' | 'gotifyEnabled' | 'inAppEnabled'>>, reauth: AdminReauth): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/notifications', { ...payload, ...reauth });
     return data;
   },
 

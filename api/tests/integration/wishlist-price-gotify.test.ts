@@ -29,7 +29,7 @@ const token = (userId: string) => jwt.sign({ userId, email: `${userId}@example.c
 
 const member = (id: string) => ({
   id, username: id, email: `${id}@example.com`, isActive: true, isAdmin: false, language: 'EN', notifLanguage: null,
-  notifEmail: false, notifInApp: false, notifWebhook: true, notifCategories: [], notifQuietStart: null, notifQuietEnd: null,
+  notifEmail: false, notifWebhook: true, notifCategories: [], notifQuietStart: null, notifQuietEnd: null,
 });
 
 /** The one wish, as stored: its last price changes with each call. */

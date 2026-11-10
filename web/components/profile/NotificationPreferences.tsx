@@ -39,7 +39,7 @@ function toggledCategories(stored: string[], cat: NotificationCategory): string[
  * an administrator reads the reason and where to fix it; a member reads that
  * the administrator disabled it.
  */
-function ChannelUnavailable({ channel, reason }: { channel: 'email' | 'gotify' | 'inApp'; reason?: ChannelOffReason | null }) {
+function ChannelUnavailable({ channel, reason }: { channel: 'email' | 'gotify'; reason?: ChannelOffReason | null }) {
   const { t } = useTranslation();
   if (!reason) return <Chip size="sm" variant="flat" color="default">{t('notifications.channels.disabledByAdmin')}</Chip>;
   return (
@@ -135,18 +135,6 @@ export function NotificationPreferences() {
       {/* Channels */}
       <div className="flex flex-col gap-3 mb-5">
         <p className="text-xs font-semibold text-foreground-400 uppercase tracking-wide">{t('notifications.channels.title')}</p>
-
-        {/* In-app */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium">{t('notifications.channels.inApp')}</p>
-            <p className="text-xs text-foreground-400">{t('notifications.channels.inAppDesc')}</p>
-          </div>
-          {policy.inAppEnabled
-            ? <Switch isSelected={prefs.notifInApp} onValueChange={(v) => save({ notifInApp: v })} size="sm" aria-label={t('notifications.channels.inApp')} />
-            : <ChannelUnavailable channel="inApp" reason={policy.offReasons?.inApp} />
-          }
-        </div>
 
         {/* Email */}
         <div className="flex items-start justify-between gap-3">

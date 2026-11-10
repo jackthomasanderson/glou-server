@@ -39,7 +39,7 @@
 
    | Tab | Purpose |
    | :--- | :--- |
-   | **Notifications** | One card per channel, each with its on/off switch, its settings and its test: **In-app**, **Email** (SMTP server for password resets and email notifications) and **Gotify** (URL and application token of a [Gotify](https://gotify.net/) server: every member's Gotify notifications go there, each titled with the member's name; members only choose in their profile whether to receive them). A channel switched off here stays unavailable in every member's preferences. |
+   | **Notifications** | One card per channel, each with its on/off switch, its settings and its test: **Email** (SMTP server for password resets and email notifications) and **Gotify** (URL and application token of a [Gotify](https://gotify.net/) server: every member's Gotify notifications go there, each titled with the member's name; members only choose in their profile whether to receive them). A channel switched off here stays unavailable in every member's preferences. |
    | **Access** | **Who can join**: whether new accounts may register. **Public URL**: the instance's canonical address and access mode (direct or behind a reverse proxy), with a check of that setting. |
    | **Data** | **Backups**: daily database backup (`pg_dump`) with retention and run time, a manual backup, and the history with download and restore. **Retention and cleanup**: how long expired audit logs, sessions/trusted devices and guest shares are kept. **Delete all data**: the purge of every bottle, cellar and log. |
    | **System** | The running version (to copy into a bug report), whether label scanning (the built-in Ollama service, `--profile scan`) is active, and the change history of this configuration. |

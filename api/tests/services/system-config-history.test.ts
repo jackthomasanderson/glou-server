@@ -39,7 +39,6 @@ beforeEach(() => {
     gotifyEnabled: false,
     gotifyUrl: null,
     gotifyTokenEnc: null,
-    inAppEnabled: true,
     logRetentionDays: 90,
     sessionRetentionDays: 30,
     guestShareRetentionDays: 30,

@@ -36,7 +36,7 @@ const token = () => jwt.sign({ userId: 'u1', email: 'u1@example.com', scope: 'fu
 
 const saved: PublicSystemConfig = {
   smtpEnabled: true, smtpHost: 'mail.example.com', smtpPort: 587, smtpUser: null, smtpPassMasked: null, smtpFrom: null, smtpSecure: false,
-  gotifyEnabled: false, gotifyUrl: 'https://1.2.3.4', gotifyTokenMasked: null, inAppEnabled: true,
+  gotifyEnabled: false, gotifyUrl: 'https://1.2.3.4', gotifyTokenMasked: null,
   logRetentionDays: 90, sessionRetentionDays: 30, guestShareRetentionDays: 30,
   publicUrl: null, effectivePublicUrl: 'http://localhost:3000',
   registrationOpen: false, backupEnabled: true, backupRetentionDays: 7, backupHour: 3, timeZone: 'UTC',
@@ -45,7 +45,7 @@ const saved: PublicSystemConfig = {
 
 let isAdmin = true;
 const prefs = {
-  notifInApp: true, notifEmail: false, notifWebhook: true, notifCategories: [],
+  notifEmail: false, notifWebhook: true, notifCategories: [],
   notifQuietStart: null, notifQuietEnd: null, notifLanguage: null,
 };
 
@@ -146,15 +146,17 @@ describe('Gotify cannot be switched on without its URL and app token (#767)', ()
 });
 
 describe('PUT /admin/config/notifications saves only the switches it is sent', () => {
-  it('writes one switch without touching the other two', async () => {
-    const res = await asAdmin('put', '/api/admin/config/notifications', { inAppEnabled: false });
+  it('writes one switch without touching the other', async () => {
+    const res = await asAdmin('put', '/api/admin/config/notifications', { smtpEnabled: false });
 
     expect(res.status).toBe(200);
-    expect(systemConfigService.updateNotificationPolicy).toHaveBeenCalledWith({ inAppEnabled: false }, 'u1');
+    expect(systemConfigService.updateNotificationPolicy).toHaveBeenCalledWith({ smtpEnabled: false }, 'u1');
   });
 
   it.each([
     ['no switch at all', {}],
+    // #671: the in-app channel delivered nothing and was removed.
+    ['only the removed in-app switch', { inAppEnabled: false }],
     ['a switch that is not a boolean', { smtpEnabled: 'yes' }],
   ])('refuses %s', async (_label, body) => {
     const res = await asAdmin('put', '/api/admin/config/notifications', body);
@@ -208,12 +210,12 @@ describe('GET /user/notifications — the channels a member can use (#767, #775)
   });
 
   it('tells an admin why each channel is unavailable', async () => {
-    vi.mocked(systemConfigService.getPublic).mockResolvedValue({ ...saved, smtpHost: null, gotifyUrl: 'https://1.2.3.4', gotifyTokenMasked: '••••••••', gotifyEnabled: false, inAppEnabled: false });
+    vi.mocked(systemConfigService.getPublic).mockResolvedValue({ ...saved, smtpHost: null, gotifyUrl: 'https://1.2.3.4', gotifyTokenMasked: '••••••••', gotifyEnabled: false });
 
     const { policy } = (await get()).body.data;
 
     expect(policy.smtpEnabled).toBe(false);
-    expect(policy.offReasons).toEqual({ email: 'notConfigured', gotify: 'off', inApp: 'off' });
+    expect(policy.offReasons).toEqual({ email: 'notConfigured', gotify: 'off' });
   });
 
   it('does not tell a member', async () => {
@@ -240,10 +242,10 @@ describe('PATCH /user/notifications (#767)', () => {
 });
 
 describe('a channel switch is not blocked by an older Gotify state', () => {
-  it('saves the in-app switch while Gotify was left on without a token', async () => {
+  it('saves the email switch while Gotify was left on without a token', async () => {
     vi.mocked(systemConfigService.getPublic).mockResolvedValue({ ...saved, gotifyEnabled: true, gotifyTokenMasked: null });
 
-    const res = await asAdmin('put', '/api/admin/config/notifications', { inAppEnabled: false });
+    const res = await asAdmin('put', '/api/admin/config/notifications', { smtpEnabled: false });
 
     expect(res.status).toBe(200);
   });
