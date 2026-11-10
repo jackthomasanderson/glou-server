@@ -1,11 +1,15 @@
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 
-vi.mock('../../src/lib/prisma', () => ({
-  prisma: {
-    systemConfig: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+vi.mock('../../src/lib/prisma', () => {
+  const prisma = {
+    systemConfig: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn() },
     configChangeLog: { create: vi.fn(), findMany: vi.fn() },
-  },
-}));
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(),
+  };
+  prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
+  return { prisma };
+});
 
 import { prisma } from '../../src/lib/prisma';
 import { encrypt } from '../../src/lib/crypto';
@@ -22,6 +26,7 @@ beforeAll(() => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(prisma.$transaction).mockImplementation((async (fn: (tx: typeof prisma) => unknown) => fn(prisma)) as never);
   saved = {
     id: 'singleton',
     smtpEnabled: true,
@@ -45,6 +50,7 @@ beforeEach(() => {
     backupHourUtc: 3,
   };
   vi.mocked(prisma.systemConfig.findUnique).mockImplementation((async () => ({ ...saved })) as never);
+  vi.mocked(prisma.systemConfig.findUniqueOrThrow).mockImplementation((async () => ({ ...saved })) as never);
   vi.mocked(prisma.systemConfig.update).mockImplementation((async ({ data }: { data: Record<string, unknown> }) => {
     saved = { ...saved, ...data };
     return saved;
@@ -94,5 +100,17 @@ describe('configuration history (#760, #628)', () => {
   it('does not log the internal "updatedBy" bookkeeping field', async () => {
     await systemConfigService.updateRegistrationConfig({ registrationOpen: true }, 'admin');
     expect(written()).toEqual([{ fieldName: 'registration', old: { registrationOpen: false }, new: { registrationOpen: true } }]);
+  });
+
+  it('records only configuration columns, never a stray key such as a password', async () => {
+    await systemConfigService.updateRegistrationConfig({ registrationOpen: true, password: 'step-up secret' } as never, 'admin');
+    expect(written()).toEqual([{ fieldName: 'registration', old: { registrationOpen: false }, new: { registrationOpen: true } }]);
+  });
+
+  it('reads the previous value, saves and logs inside one locked transaction', async () => {
+    await systemConfigService.updateBackupConfig({ backupEnabled: true, backupRetentionDays: 7, backupHourUtc: 5 }, 'admin');
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(String((vi.mocked(prisma.$queryRaw).mock.calls[0][0] as unknown as string[]).join('?'))).toMatch(/FOR UPDATE/);
   });
 });

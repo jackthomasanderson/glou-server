@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma';
+import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { encrypt, decrypt, maskSecret } from '../lib/crypto';
 import { SystemConfig } from '@prisma/client';
 
@@ -100,7 +100,8 @@ function maskStored(value: unknown): string | null {
 
 /** Ciphertexts differ on every save: compare what they decrypt to. */
 function sameSecret(a: unknown, b: unknown): boolean {
-  if (!a || !b) return !a && !b;
+  if (a === b) return true;
+  if (!a || !b) return false;
   try {
     return decrypt(String(a)) === decrypt(String(b));
   } catch {
@@ -114,6 +115,51 @@ async function getOrCreate(): Promise<SystemConfig> {
     config = await prisma.systemConfig.create({ data: { id: 'singleton' } });
   }
   return config;
+}
+
+/**
+ * #760 / #628: records only the settings that actually changed, with their
+ * previous and new values as two JSON objects keyed by field name. Only
+ * columns of the configuration are considered, so a stray key (a step-up
+ * password, say) can never be written. Encrypted secrets (`…Enc`) are never
+ * written: SECRET_MASK when set, null when empty. Nothing is recorded when
+ * the save changed nothing.
+ */
+async function logChange(db: PrismaClientOrTx, userId: string, section: string, old: SystemConfig, next: Record<string, unknown>) {
+  const before: Record<string, unknown> = {};
+  const after: Record<string, unknown> = {};
+  const previous = old as unknown as Record<string, unknown>;
+  for (const [field, value] of Object.entries(next)) {
+    if (field === 'updatedBy' || value === undefined || !Object.hasOwn(previous, field)) continue;
+    const was = previous[field] ?? null;
+    const isSecret = field.endsWith('Enc');
+    if (isSecret ? sameSecret(was, value) : was === (value ?? null)) continue;
+    before[field] = isSecret ? maskStored(was) : was;
+    after[field] = isSecret ? maskStored(value) : value ?? null;
+  }
+  if (Object.keys(after).length === 0) return;
+  await db.configChangeLog.create({
+    data: {
+      userId,
+      fieldName: section,
+      maskedOldVal: JSON.stringify(before),
+      maskedNewVal: JSON.stringify(after),
+    },
+  });
+}
+
+/**
+ * Saves `data` and records the change in one transaction; the row is locked
+ * first, so two admins saving at once each log the value they replaced.
+ */
+async function saveAndLog(userId: string, section: string, data: Record<string, unknown>): Promise<void> {
+  await getOrCreate();
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 FROM "SystemConfig" WHERE "id" = 'singleton' FOR UPDATE`;
+    const old = await tx.systemConfig.findUniqueOrThrow({ where: { id: 'singleton' } });
+    await tx.systemConfig.update({ where: { id: 'singleton' }, data: { ...data, updatedBy: userId } });
+    await logChange(tx, userId, section, old, data);
+  });
 }
 
 export const systemConfigService = {
@@ -168,7 +214,6 @@ export const systemConfigService = {
   },
 
   async updateSmtp(data: Partial<SmtpConfig & { smtpPass?: string | null }>, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
     const update: Record<string, unknown> = { updatedBy: userId };
 
     if (data.smtpEnabled !== undefined) update.smtpEnabled = data.smtpEnabled;
@@ -181,13 +226,11 @@ export const systemConfigService = {
       update.smtpPassEnc = data.smtpPass ? encrypt(data.smtpPass) : null;
     }
 
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'smtp', old, update);
+    await saveAndLog(userId, 'smtp', update);
     return this.getPublic();
   },
 
   async updateGotify(data: Partial<GotifyConfig & { gotifyToken?: string | null }>, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
     const update: Record<string, unknown> = { updatedBy: userId };
 
     if (data.gotifyEnabled !== undefined) update.gotifyEnabled = data.gotifyEnabled;
@@ -196,32 +239,22 @@ export const systemConfigService = {
       update.gotifyTokenEnc = data.gotifyToken ? encrypt(data.gotifyToken) : null;
     }
 
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'gotify', old, update);
+    await saveAndLog(userId, 'gotify', update);
     return this.getPublic();
   },
 
   async updateNotificationPolicy(data: NotificationPolicyConfig, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    const update = { ...data, updatedBy: userId };
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'notifications', old, data);
+    await saveAndLog(userId, 'notifications', data);
     return this.getPublic();
   },
 
   async updateRetention(data: RetentionConfig, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    const update = { ...data, updatedBy: userId };
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'retention', old, data);
+    await saveAndLog(userId, 'retention', data);
     return this.getPublic();
   },
 
   async updateBackupConfig(data: BackupConfig, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    const update = { ...data, updatedBy: userId };
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'backup', old, data);
+    await saveAndLog(userId, 'backup', data);
     return this.getPublic();
   },
 
@@ -245,14 +278,12 @@ export const systemConfigService = {
       }
     }
 
-    const old = await getOrCreate();
-    const update: Record<string, unknown> = { updatedBy: userId };
+    const update: Record<string, unknown> = {};
     if (data.publicUrl !== undefined) {
       update.publicUrl = data.publicUrl && data.publicUrl.trim() !== '' ? data.publicUrl : null;
     }
 
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'network', old, update);
+    await saveAndLog(userId, 'network', update);
     return this.getPublic();
   },
 
@@ -291,35 +322,6 @@ export const systemConfigService = {
     });
   },
 
-  /**
-   * #760 / #628: records only the settings that actually changed, with their
-   * previous and new values as two JSON objects keyed by field name. Encrypted
-   * secrets (`…Enc`) are never written: SECRET_MASK when set, null when empty.
-   * Nothing is recorded when the save changed nothing.
-   */
-  async logChange(userId: string, section: string, old: SystemConfig, next: Record<string, unknown>) {
-    const before: Record<string, unknown> = {};
-    const after: Record<string, unknown> = {};
-    const previous = old as unknown as Record<string, unknown>;
-    for (const [field, value] of Object.entries(next)) {
-      if (field === 'updatedBy' || value === undefined) continue;
-      const was = previous[field] ?? null;
-      const isSecret = field.endsWith('Enc');
-      if (isSecret ? sameSecret(was, value) : was === (value ?? null)) continue;
-      before[field] = isSecret ? maskStored(was) : was;
-      after[field] = isSecret ? maskStored(value) : value ?? null;
-    }
-    if (Object.keys(after).length === 0) return;
-    await prisma.configChangeLog.create({
-      data: {
-        userId,
-        fieldName: section,
-        maskedOldVal: JSON.stringify(before),
-        maskedNewVal: JSON.stringify(after),
-      },
-    });
-  },
-
   async isSmtpEnabled(): Promise<boolean> {
     try {
       const cfg = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
@@ -330,9 +332,7 @@ export const systemConfigService = {
   },
 
   async updateRegistrationConfig(data: RegistrationConfig, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: { ...data, updatedBy: userId } });
-    await this.logChange(userId, 'registration', old, data);
+    await saveAndLog(userId, 'registration', data);
     return this.getPublic();
   },
 
