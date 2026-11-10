@@ -20,8 +20,10 @@ export const shareCreateSchema = z
     // a caller that doesn't think about expiry at all now gets 30 days
     // instead of forever.
     expiresAt: z.string().datetime().nullable().default(defaultExpiresAt),
-    hidePrices: z.boolean().default(false),
-    hideNotes: z.boolean().default(false),
+    // #611: hidden unless the caller explicitly shows them — the web form's
+    // switches start on, and any other client gets the same safe default.
+    hidePrices: z.boolean().default(true),
+    hideNotes: z.boolean().default(true),
     cellarIds: z.array(z.string()).default([]),
     collectionIds: z.array(z.string()).default([]),
     // Subset of cellarIds granted read/write access (FEAT-37).
