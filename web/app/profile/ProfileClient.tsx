@@ -305,7 +305,7 @@ export function ProfileClient() {
 
         {/* Security sections */}
         {user && (
-          <div id="security" className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 scroll-mt-24">
+          <div id="security" className="flex flex-col gap-6 mt-6 scroll-mt-24">
             <AccountSecurity user={user} />
             <TwoFactorSettings user={user} />
             <SessionsPanel />

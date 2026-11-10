@@ -81,6 +81,7 @@ vi.mock('@heroui/react', () => ({
   ),
   Divider: () => <hr />,
   CircularProgress: () => <div />,
+  Chip: ({ children, startContent }: { children?: ReactNode; startContent?: ReactNode }) => <span>{startContent}{children}</span>,
 }));
 
 beforeAll(async () => {
@@ -95,7 +96,7 @@ beforeAll(async () => {
 
 import { TwoFactorSettings } from '../TwoFactorSettings';
 
-function makeUser(isTwoFactorEnabled: boolean): PublicUser {
+function makeUser(isTwoFactorEnabled: boolean, isAdmin = false): PublicUser {
   return {
     id: 'u1',
     username: 'alice',
@@ -110,7 +111,7 @@ function makeUser(isTwoFactorEnabled: boolean): PublicUser {
     accentColor: '#6366f1',
     dateFormat: 'SYSTEM',
     expertMode: false,
-    isAdmin: false,
+    isAdmin,
     isTwoFactorEnabled,
     createdAt: '2026-01-01T00:00:00.000Z',
     deletionRequestedAt: null,
@@ -136,6 +137,24 @@ describe('TwoFactorSettings follows the account 2FA state (#576)', () => {
     expect(screen.queryByText('Disabled')).toBeNull();
     expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enable' })).toBeNull();
+  });
+});
+
+// #770 — the weakest state was the least visible one, and admins were not told.
+describe('TwoFactorSettings admin recommendation (#770)', () => {
+  it('recommends 2FA to an admin who has it off', () => {
+    render(<TwoFactorSettings user={makeUser(false, true)} />);
+    expect(screen.getByText('Recommended for administrator accounts.')).toBeInTheDocument();
+  });
+
+  it('says nothing to a member with 2FA off', () => {
+    render(<TwoFactorSettings user={makeUser(false, false)} />);
+    expect(screen.queryByText('Recommended for administrator accounts.')).toBeNull();
+  });
+
+  it('says nothing to an admin who already has 2FA on', () => {
+    render(<TwoFactorSettings user={makeUser(true, true)} />);
+    expect(screen.queryByText('Recommended for administrator accounts.')).toBeNull();
   });
 });
 

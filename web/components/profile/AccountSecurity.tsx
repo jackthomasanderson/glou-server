@@ -143,7 +143,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
   };
 
   return (
-    <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+    <div className="bg-content1 border border-divider rounded-2xl p-6">
       <div className="flex items-center gap-3 mb-5">
         <Lock size={20} className="text-primary" />
         <h2 className="text-base font-semibold">{t('profile.security')}</h2>
@@ -174,8 +174,8 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
         {/* FEAT-30: Auto-lock delay */}
         <div className="flex items-center justify-between gap-4 p-3 bg-default-50 rounded-xl">
           <div>
-            <p className="text-xs text-foreground-500">{t('profile.autoLockDelay')}</p>
-            <p className="text-sm font-medium">{t('profile.autoLockHint')}</p>
+            <p className="text-sm font-medium">{t('profile.autoLockDelay')}</p>
+            <p className="text-xs text-foreground-500">{t('profile.autoLockHint')}</p>
           </div>
           <SingleSelect
             aria-label={t('profile.autoLockDelay')}
@@ -199,6 +199,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
           <div>
             <p className="text-xs text-foreground-500">{t('profile.pinLabel')}</p>
             <p className="text-sm font-medium">{hasPin ? t('profile.pinSet') : t('profile.pinNotSet')}</p>
+            <p className="text-xs text-foreground-500">{t('profile.pinOptionalHint')}</p>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="bordered" color="primary" onPress={handleOpenPin}>

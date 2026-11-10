@@ -70,7 +70,7 @@ export function SessionsPanel() {
   const formatDevice = (device: SessionInfo['device']) => formatDeviceLabel(device, t);
 
   return (
-    <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+    <div className="bg-content1 border border-divider rounded-2xl p-6">
       <div className="flex items-center gap-3 mb-5">
         <Monitor size={20} className="text-primary" />
         <h2 className="text-base font-semibold">{t('profile.sessions.title')}</h2>
