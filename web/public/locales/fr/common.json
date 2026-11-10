@@ -1322,6 +1322,7 @@
     "ratingOption_one": "{{count}} étoile sur 5",
     "ratingOption_other": "{{count}} étoiles sur 5",
     "ratingValue": "{{value}}/5",
+    "ratingClear": "Effacer la note",
     "ratingNone": "Non noté",
     "total_one": "{{count}} dégustation",
     "total_other": "{{count}} dégustations",

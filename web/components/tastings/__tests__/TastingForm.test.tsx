@@ -200,6 +200,13 @@ describe('editing a tasting (#642)', () => {
   });
 
   // Review #818: its bottle (maybe in the trash by now) is not resent unchanged.
+  it('opens an edited tasting with its stored score checked (#646)', async () => {
+    render(<TastingForm open onClose={vi.fn()} editNote={editNoteOf(expertTasting)} />);
+    const checked = await screen.findAllByRole('radio', { checked: true });
+    expect(checked).toHaveLength(1);
+    expect(checked[0].getAttribute('aria-label')).toBe('tastings.ratingOption|4');
+  });
+
   it('saves an edit without resending its unchanged bottle', async () => {
     render(<TastingForm open onClose={vi.fn()} editNote={editNoteOf(expertTasting)} />);
     await waitFor(() => expect(field('tastings.fields.robe')).toHaveValue('Deep ruby'));

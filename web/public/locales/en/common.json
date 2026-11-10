@@ -1320,6 +1320,7 @@
     "ratingOption_one": "{{count}} star out of 5",
     "ratingOption_other": "{{count}} stars out of 5",
     "ratingValue": "{{value}}/5",
+    "ratingClear": "Clear rating",
     "ratingNone": "Not rated",
     "total_one": "{{count}} tasting",
     "total_other": "{{count}} tastings",

@@ -449,12 +449,12 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
 
                 {/* Star rating */}
                 <div>
-                  <p className="text-xs text-foreground-500 mb-1">{t('tastings.fields.rating')}</p>
+                  <p id="tasting-rating-label" className="text-xs text-foreground-500 mb-1">{t('tastings.fields.rating')}</p>
                   <Controller
                     name="rating"
                     control={control}
                     render={({ field }) => (
-                      <StarRating label={t('tastings.fields.rating')} value={field.value ?? null} onChange={field.onChange} />
+                      <StarRating labelId="tasting-rating-label" value={field.value ?? null} onChange={field.onChange} />
                     )}
                   />
                 </div>
