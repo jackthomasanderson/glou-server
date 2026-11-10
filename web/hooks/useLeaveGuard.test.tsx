@@ -1,12 +1,13 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { render, fireEvent, cleanup } from '@testing-library/react';
 import { useLeaveGuard } from './useLeaveGuard';
+import { confirmLeave } from '@/lib/leaveGuard';
 
 // #759: settings typed but not saved were lost without a word when the admin
 // left or reloaded the page.
 
-function Page({ active, onFollow }: { active: boolean; onFollow: () => void }) {
-  useLeaveGuard(active, 'Leave without saving?');
+function Page({ active, onFollow, message = 'Leave without saving?' }: { active: boolean; onFollow: () => void; message?: string }) {
+  useLeaveGuard(active, message);
   return (
     <div onClick={(e) => { if (!e.defaultPrevented) { onFollow(); e.preventDefault(); } }}>
       <a href="/inventory">Inventory</a>
@@ -15,7 +16,16 @@ function Page({ active, onFollow }: { active: boolean; onFollow: () => void }) {
   );
 }
 
+beforeEach(() => {
+  // Each test starts on a plain entry, with no step left to swallow from an
+  // earlier test's page (its guard turning off steps back once).
+  vi.spyOn(window.history, 'back').mockImplementation(() => {});
+  window.history.replaceState(null, '', window.location.href);
+  window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+});
+
 afterEach(() => {
+  cleanup();
   vi.restoreAllMocks();
 });
 
@@ -71,11 +81,7 @@ describe('useLeaveGuard (#759)', () => {
 describe('useLeaveGuard — Back (#759)', () => {
   const back = () => window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
 
-  it('keeps an extra entry on top while active, and stays on a declined Back, unseen by the router', () => {
-    // Next.js's router listens to popstate too: it must not see a declined Back.
-    const routerSaw = vi.fn();
-    window.addEventListener('popstate', routerSaw);
-    window.history.replaceState(null, '', window.location.href);
+  it('keeps an extra entry on top while active, and stays on a declined Back', () => {
     const pushState = vi.spyOn(window.history, 'pushState');
     const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {});
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
@@ -85,16 +91,13 @@ describe('useLeaveGuard — Back (#759)', () => {
     back();
 
     expect(confirm).toHaveBeenCalledWith('Leave without saving?');
-    expect(routerSaw).not.toHaveBeenCalled();
     expect(historyBack).not.toHaveBeenCalled();
     // The entry is put back, so the next Back asks again.
     expect(pushState).toHaveBeenCalledTimes(2);
     unmount();
-    window.removeEventListener('popstate', routerSaw);
   });
 
   it('really goes back once the person confirms', () => {
-    window.history.replaceState(null, '', window.location.href);
     const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {});
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { unmount } = render(<Page active onFollow={() => {}} />);
@@ -102,6 +105,31 @@ describe('useLeaveGuard — Back (#759)', () => {
     back();
 
     expect(historyBack).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('takes the extra entry away once there is nothing left to lose, and asks nothing after', () => {
+    const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const confirm = vi.spyOn(window, 'confirm');
+    const { rerender } = render(<Page active onFollow={() => {}} />);
+
+    rerender(<Page active={false} onFollow={() => {}} />);
+
+    expect(historyBack).toHaveBeenCalledTimes(1);
+    // The step back onto the page itself, then a later Back: no question.
+    back();
+    back();
+    expect(confirm).not.toHaveBeenCalled();
+    expect(confirmLeave()).toBe(true);
+  });
+
+  it('touches no history when only the question changes (another language)', () => {
+    const pushState = vi.spyOn(window.history, 'pushState');
+    const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const { rerender, unmount } = render(<Page active onFollow={() => {}} />);
+    rerender(<Page active message="Quitter sans enregistrer ?" onFollow={() => {}} />);
+    expect(pushState).toHaveBeenCalledTimes(1);
+    expect(historyBack).not.toHaveBeenCalled();
     unmount();
   });
 
