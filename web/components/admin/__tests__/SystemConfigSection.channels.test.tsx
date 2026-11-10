@@ -74,23 +74,59 @@ describe('SystemConfigSection — one card per notification channel (#758)', () 
     fireEvent.click(within(inApp).getByRole('button', { name: 'adminConfig.save' }));
     confirmStepUp();
 
+    // Only its own switch: a stale copy of another one can never overwrite it.
     await vi.waitFor(() => expect(sentTo(fetchMock, '/admin/config/notifications')).toEqual([
-      expect.objectContaining({ inAppEnabled: false, smtpEnabled: false, gotifyEnabled: false }),
+      { inAppEnabled: false, password: 'pw' },
     ]));
   });
 
-  it('saves Gotify with its own switch', async () => {
-    const fetchMock = stubFetch({ '/admin/config': ok(CONFIG), 'PUT /admin/config/gotify': ok({ ...CONFIG, gotifyEnabled: true, gotifyUrl: 'https://gotify.example.com' }) });
+  it('saves Gotify with its own switch, URL and token', async () => {
+    const fetchMock = stubFetch({ '/admin/config': ok(CONFIG), 'PUT /admin/config/gotify': ok({ ...CONFIG, gotifyEnabled: true, gotifyUrl: 'https://gotify.example.com', gotifyTokenMasked: '••••' }) });
     renderWithQuery(<SystemConfigSection />);
     const gotify = await card('adminConfig.cards.gotify');
-    fireEvent.click(within(gotify).getByRole('switch', { name: 'adminConfig.gotify.enabled' }));
     fireEvent.change(within(gotify).getByLabelText('adminConfig.gotify.url'), { target: { value: 'https://gotify.example.com' } });
+    fireEvent.change(within(gotify).getByLabelText('adminConfig.gotify.token'), { target: { value: 'APP-TOKEN' } });
+    fireEvent.click(within(gotify).getByRole('switch', { name: 'adminConfig.gotify.enabled' }));
     fireEvent.click(within(gotify).getByRole('button', { name: 'adminConfig.save' }));
     confirmStepUp();
 
     await vi.waitFor(() => expect(sentTo(fetchMock, '/admin/config/gotify')).toEqual([
-      expect.objectContaining({ gotifyEnabled: true, gotifyUrl: 'https://gotify.example.com' }),
+      expect.objectContaining({ gotifyEnabled: true, gotifyUrl: 'https://gotify.example.com', gotifyToken: 'APP-TOKEN' }),
     ]));
+  });
+
+  // #767: every member's Gotify notification goes to this server.
+  it('cannot switch Gotify on until its URL and token are filled in', async () => {
+    stubFetch({ '/admin/config': ok(CONFIG) });
+    renderWithQuery(<SystemConfigSection />);
+    const gotify = await card('adminConfig.cards.gotify');
+    const toggle = () => within(gotify).getByRole('switch', { name: 'adminConfig.gotify.enabled' });
+
+    expect(toggle()).toBeDisabled();
+    expect(within(gotify).getByText('adminConfig.gotify.needsUrlAndToken')).toBeInTheDocument();
+    fireEvent.change(within(gotify).getByLabelText('adminConfig.gotify.url'), { target: { value: 'https://gotify.example.com' } });
+    expect(toggle()).toBeDisabled();
+    fireEvent.change(within(gotify).getByLabelText('adminConfig.gotify.token'), { target: { value: 'APP-TOKEN' } });
+    expect(toggle()).toBeEnabled();
+  });
+
+  it('can always switch Gotify off', async () => {
+    stubFetch({ '/admin/config': ok({ ...CONFIG, gotifyEnabled: true, gotifyUrl: null, gotifyTokenMasked: null }) });
+    renderWithQuery(<SystemConfigSection />);
+    const gotify = await card('adminConfig.cards.gotify');
+
+    expect(within(gotify).getByRole('switch', { name: 'adminConfig.gotify.enabled' })).toBeEnabled();
+  });
+
+  it('says in words that Gotify was refused for lack of URL or token', async () => {
+    stubFetch({ '/admin/config': ok({ ...CONFIG, gotifyUrl: 'https://g.example.com', gotifyTokenMasked: '••••' }), 'PUT /admin/config/gotify': { status: 400, body: { error: 'GOTIFY_INCOMPLETE' } } });
+    renderWithQuery(<SystemConfigSection />);
+    const gotify = await card('adminConfig.cards.gotify');
+    fireEvent.click(within(gotify).getByRole('switch', { name: 'adminConfig.gotify.enabled' }));
+    fireEvent.click(within(gotify).getByRole('button', { name: 'adminConfig.save' }));
+    confirmStepUp();
+
+    await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith('adminConfig.errors.GOTIFY_INCOMPLETE'));
   });
 
   it('does not test settings that differ from the saved ones', async () => {
@@ -130,8 +166,9 @@ describe('SystemConfigSection — one card per notification channel (#758)', () 
     [{ smtpEnabled: true, smtpHost: 'mail.home' }, 'adminConfig.cards.email', 'adminConfig.channelStatus.active'],
     [{ smtpEnabled: false, smtpHost: 'mail.home' }, 'adminConfig.cards.email', 'adminConfig.channelStatus.configuredOff'],
     [{ smtpEnabled: true, smtpHost: null }, 'adminConfig.cards.email', 'adminConfig.channelStatus.notConfigured'],
-    [{ gotifyEnabled: true, gotifyUrl: 'https://g.example.com' }, 'adminConfig.cards.gotify', 'adminConfig.channelStatus.active'],
-    [{ gotifyEnabled: false, gotifyUrl: 'https://g.example.com' }, 'adminConfig.cards.gotify', 'adminConfig.channelStatus.configuredOff'],
+    [{ gotifyEnabled: true, gotifyUrl: 'https://g.example.com', gotifyTokenMasked: '••••' }, 'adminConfig.cards.gotify', 'adminConfig.channelStatus.active'],
+    [{ gotifyEnabled: false, gotifyUrl: 'https://g.example.com', gotifyTokenMasked: '••••' }, 'adminConfig.cards.gotify', 'adminConfig.channelStatus.configuredOff'],
+    [{ gotifyEnabled: true, gotifyUrl: 'https://g.example.com', gotifyTokenMasked: null }, 'adminConfig.cards.gotify', 'adminConfig.channelStatus.notConfigured'],
     [{ gotifyEnabled: false, gotifyUrl: null }, 'adminConfig.cards.gotify', 'adminConfig.channelStatus.notConfigured'],
     [{ inAppEnabled: false }, 'adminConfig.cards.inApp', 'adminConfig.channelStatus.off'],
   ])('with %o, the %s card says %s', async (saved, title, status) => {

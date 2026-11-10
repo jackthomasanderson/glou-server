@@ -18,8 +18,8 @@ export function heroUiMock() {
     Input: ({ label, placeholder, value, onValueChange }: { label?: string; placeholder?: string; value?: string; onValueChange?: (v: string) => void }) => (
       <input aria-label={label ?? placeholder} value={value ?? ''} onChange={(e) => onValueChange?.(e.target.value)} />
     ),
-    Switch: ({ children, isSelected, onValueChange, 'aria-label': ariaLabel }: { children?: ReactNode; isSelected?: boolean; onValueChange?: (v: boolean) => void; 'aria-label'?: string }) => (
-      <label><input type="checkbox" role="switch" aria-label={ariaLabel} checked={!!isSelected} onChange={(e) => onValueChange?.(e.target.checked)} />{children}</label>
+    Switch: ({ children, isSelected, isDisabled, onValueChange, 'aria-label': ariaLabel }: { children?: ReactNode; isSelected?: boolean; isDisabled?: boolean; onValueChange?: (v: boolean) => void; 'aria-label'?: string }) => (
+      <label><input type="checkbox" role="switch" aria-label={ariaLabel} checked={!!isSelected} disabled={isDisabled} onChange={(e) => onValueChange?.(e.target.checked)} />{children}</label>
     ),
     Chip: Box,
     Skeleton: Box,

@@ -13,7 +13,7 @@ import type { SystemConfigPublic } from '@/lib/config/client';
 /** The API's refusals the settings screen says in words (#615); anything else is "unexpected". */
 const CONFIG_ERRORS = new Set([
   'VALIDATION_ERROR', 'INVALID_INPUT', 'INVALID_URL',
-  'SMTP_NOT_CONFIGURED', 'GOTIFY_NOT_CONFIGURED', 'DELIVERY_FAILED',
+  'SMTP_NOT_CONFIGURED', 'GOTIFY_NOT_CONFIGURED', 'GOTIFY_INCOMPLETE', 'DELIVERY_FAILED',
 ]);
 
 /** The translation key for a failed settings request: never the raw code, nor "Error" (#615). */

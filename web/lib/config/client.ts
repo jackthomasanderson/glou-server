@@ -1,5 +1,6 @@
 import { client, handleResponse } from '@/lib/api';
 import type { BackupHealth } from '@shared/maintenance';
+import type { NotificationChannelPolicy } from '@shared/notifications';
 
 /**
  * A restore takes a safety backup, then replays a whole dump (#666): far more
@@ -118,13 +119,12 @@ export interface NotificationPrefs {
   notifQuietStart: number | null;
   notifQuietEnd: number | null;
   notifLanguage: string | null;
-  webhookUrl: string | null;
-  policy: {
-    smtpEnabled: boolean;
-    gotifyEnabled: boolean;
-    inAppEnabled: boolean;
-  };
+  /** #767: the member only opts in to Gotify; messages go to the instance's server. */
+  policy: NotificationChannelPolicy;
 }
+
+/** What the profile saves: its own settings, never the instance policy. */
+export type NotificationPrefsPatch = Partial<Omit<NotificationPrefs, 'policy'>>;
 
 export interface ConfigHistoryEntry {
   id: number;
@@ -165,7 +165,8 @@ export const configClient = {
     return data;
   },
 
-  async updateNotifPolicy(payload: { smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean }, reauth: AdminReauth): Promise<SystemConfigPublic> {
+  /** Only the switches given are saved: a card sends its own, never a copy of another's. */
+  async updateNotifPolicy(payload: Partial<Pick<SystemConfigPublic, 'smtpEnabled' | 'gotifyEnabled' | 'inAppEnabled'>>, reauth: AdminReauth): Promise<SystemConfigPublic> {
     const { data } = await client.put<SystemConfigPublic>('/admin/config/notifications', { ...payload, ...reauth });
     return data;
   },
@@ -261,7 +262,7 @@ export const configClient = {
     return data;
   },
 
-  async updateNotifPrefs(payload: Partial<NotificationPrefs>): Promise<void> {
+  async updateNotifPrefs(payload: NotificationPrefsPatch): Promise<void> {
     await client.patch('/user/notifications', payload);
   },
 

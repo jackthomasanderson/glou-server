@@ -1,15 +1,25 @@
 'use client';
-import React, { useState, useEffect, useId } from 'react';
-import { Button, Input, Switch, Chip, Skeleton, SelectItem } from '@heroui/react';
+import React, { useState, useId } from 'react';
+import Link from 'next/link';
+import { Button, Switch, Chip, Skeleton, SelectItem } from '@heroui/react';
 import { Bell, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { configClient, NotificationPrefs } from '@/lib/config/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { configClient, type NotificationPrefs, type NotificationPrefsPatch } from '@/lib/config/client';
 import {
-  DAILY_ALERTS_HOUR, NOTIFICATION_CATEGORIES, isNotificationCategoryEnabled, type NotificationCategory,
+  DAILY_ALERTS_HOUR, NOTIFICATION_CATEGORIES, isNotificationCategoryEnabled, type ChannelOffReason, type NotificationCategory,
 } from '@shared/notifications';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { ErrorState } from '@/components/ui/ErrorState';
+import { isNetworkFailure } from '@/lib/auth/error-message';
+import { notifyError, notifySuccess } from '@/lib/toast';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
+
+const NOTIF_PREFS_KEY = ['notification_prefs'];
+
+/** The refusals of a channel test said in words (#767); anything else is "unexpected". */
+const TEST_ERRORS = new Set(['DELIVERY_FAILED', 'GOTIFY_NOT_CONFIGURED', 'INVALID_URL', 'SMTP_NOT_CONFIGURED']);
 
 /**
  * #583: the stored list says which categories are received, empty meaning
@@ -23,35 +33,48 @@ function toggledCategories(stored: string[], cat: NotificationCategory): string[
   return next.length === NOTIFICATION_CATEGORIES.length ? [] : next;
 }
 
+/**
+ * In place of a channel's switch when the instance does not offer it. #775:
+ * an administrator reads the reason and where to fix it; a member reads that
+ * the administrator disabled it.
+ */
+function ChannelUnavailable({ channel, reason }: { channel: 'email' | 'gotify' | 'inApp'; reason?: ChannelOffReason | null }) {
+  const { t } = useTranslation();
+  if (!reason) return <Chip size="sm" variant="flat" color="default">{t('notifications.channels.disabledByAdmin')}</Chip>;
+  return (
+    <p className="text-xs text-foreground-500 text-right">
+      <span>{t(`notifications.channels.offReason.${channel}.${reason}`)}</span>
+      {' · '}
+      <Link href="/admin" className="text-primary underline underline-offset-2">{t('notifications.channels.configure')}</Link>
+    </p>
+  );
+}
+
 export function NotificationPreferences() {
   const { t } = useTranslation();
   const categoriesHintId = useId();
-  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  // #615: what is shown and saved comes from the server only; while it cannot
+  // be read, an error with Retry, never settings made up on the spot.
+  const query = useQuery({ queryKey: NOTIF_PREFS_KEY, queryFn: () => configClient.getNotifPrefs() });
   const [saving, setSaving] = useState(false);
   const [testingChannel, setTestingChannel] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
 
-  useEffect(() => {
-    configClient.getNotifPrefs().then(setPrefs).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  const showFeedback = (type: 'success' | 'error', msg: string) => {
-    setFeedback({ type, msg });
-    setTimeout(() => setFeedback(null), 3500);
-  };
-
-  const save = async (patch: Partial<NotificationPrefs>) => {
-    if (!prefs) return;
+  /** Sends only the changed setting; shown at once, put back if refused. */
+  const save = async (patch: NotificationPrefsPatch) => {
+    const before = queryClient.getQueryData<NotificationPrefs>(NOTIF_PREFS_KEY);
+    if (!before) return;
+    const update = (from: Partial<NotificationPrefs>) =>
+      queryClient.setQueryData<NotificationPrefs>(NOTIF_PREFS_KEY, (cur) => cur && { ...cur, ...from });
+    update(patch);
     setSaving(true);
-    const next = { ...prefs, ...patch };
-    setPrefs(next);
     try {
       await configClient.updateNotifPrefs(patch);
-      showFeedback('success', t('notifications.saved'));
+      notifySuccess('notifications.saved');
     } catch {
-      setPrefs(prefs);
-      showFeedback('error', t('status.error'));
+      // Only the settings of this save go back, not a later one's.
+      update(Object.fromEntries(Object.keys(patch).map((k) => [k, before[k as keyof NotificationPrefs]])));
+      notifyError('notifications.saveError');
     } finally {
       setSaving(false);
     }
@@ -61,29 +84,34 @@ export function NotificationPreferences() {
     setTestingChannel(channel);
     try {
       const result = await configClient.testNotifChannel(channel);
-      if (result.success) showFeedback('success', t('notifications.channels.testSuccess'));
-      else showFeedback('error', t('notifications.channels.testError', { error: result.error ?? t('notifications.channels.unknownError') }));
-    } catch {
-      showFeedback('error', t('notifications.channels.testError', { error: t('notifications.channels.networkError') }));
+      if (result.success) notifySuccess('notifications.channels.testSuccess');
+      else notifyError(`notifications.channels.testErrors.${result.error && TEST_ERRORS.has(result.error) ? result.error : 'UNEXPECTED'}`);
+    } catch (err) {
+      notifyError(isNetworkFailure(err) ? 'status.serverUnreachable' : 'notifications.channels.testErrors.UNEXPECTED');
     } finally {
       setTestingChannel(null);
     }
   };
 
-  const toggleCategory = (cat: NotificationCategory) => {
-    if (!prefs) return;
-    save({ notifCategories: toggledCategories(prefs.notifCategories, cat) });
-  };
-
-  if (loading) {
+  if (query.isPending) {
     return (
       <div className="bg-content1 border border-divider rounded-2xl p-6 flex flex-col gap-3">
         {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 rounded-lg" />)}
       </div>
     );
   }
-  if (!prefs) return null;
+  if (query.isError) {
+    return (
+      <ErrorState
+        message={t('notifications.loadError')}
+        onRetry={() => void query.refetch()}
+        isRetrying={query.isFetching}
+      />
+    );
+  }
 
+  const prefs = query.data;
+  const toggleCategory = (cat: NotificationCategory) => save({ notifCategories: toggledCategories(prefs.notifCategories, cat) });
   const { policy } = prefs;
   const enabledCount = NOTIFICATION_CATEGORIES.filter((c) => isNotificationCategoryEnabled(prefs.notifCategories, c)).length;
 
@@ -95,12 +123,6 @@ export function NotificationPreferences() {
         {saving && <Loader2 size={14} className="animate-spin text-foreground-400 ml-auto" />}
       </div>
       <p className="text-sm text-foreground-500 mb-5">{t('notifications.subtitle')}</p>
-
-      {feedback && (
-        <div role={feedback.type === 'success' ? 'status' : 'alert'} className={`mb-4 px-3 py-2 rounded-lg text-xs border ${feedback.type === 'success' ? 'bg-success-50 border-success-200 text-success-700' : 'bg-danger-50 border-danger-200 text-danger-700'}`}>
-          {feedback.msg}
-        </div>
-      )}
 
       {/* Channels */}
       <div className="flex flex-col gap-3 mb-5">
@@ -114,7 +136,7 @@ export function NotificationPreferences() {
           </div>
           {policy.inAppEnabled
             ? <Switch isSelected={prefs.notifInApp} onValueChange={(v) => save({ notifInApp: v })} size="sm" aria-label={t('notifications.channels.inApp')} />
-            : <Chip size="sm" variant="flat" color="default">{t('notifications.channels.disabledByAdmin')}</Chip>
+            : <ChannelUnavailable channel="inApp" reason={policy.offReasons?.inApp} />
           }
         </div>
 
@@ -130,38 +152,26 @@ export function NotificationPreferences() {
             )}
             {policy.smtpEnabled
               ? <Switch isSelected={prefs.notifEmail} onValueChange={(v) => save({ notifEmail: v })} size="sm" aria-label={t('notifications.channels.email')} />
-              : <Chip size="sm" variant="flat" color="default">{t('notifications.channels.disabledByAdmin')}</Chip>
+              : <ChannelUnavailable channel="email" reason={policy.offReasons?.email} />
             }
           </div>
         </div>
 
-        {/* Webhook */}
-        <div className="flex flex-col gap-2">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex-1">
-              <p className="text-sm font-medium">{t('notifications.channels.webhook')}</p>
-              <p className="text-xs text-foreground-400">{t('notifications.channels.webhookDesc')}</p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {prefs.notifWebhook && prefs.webhookUrl && policy.gotifyEnabled && (
-                <Button size="sm" variant="flat" isLoading={testingChannel === 'webhook'} onPress={() => testChannel('webhook')}>{t('notifications.channels.test')}</Button>
-              )}
-              {policy.gotifyEnabled
-                ? <Switch isSelected={prefs.notifWebhook} onValueChange={(v) => save({ notifWebhook: v })} size="sm" aria-label={t('notifications.channels.webhook')} />
-                : <Chip size="sm" variant="flat" color="default">{t('notifications.channels.disabledByAdmin')}</Chip>
-              }
-            </div>
+        {/* Gotify (#767): the instance's server; the member only opts in. */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1">
+            <p className="text-sm font-medium">{t('notifications.channels.webhook')}</p>
+            <p className="text-xs text-foreground-400">{t('notifications.channels.webhookDesc')}</p>
           </div>
-          {policy.gotifyEnabled && prefs.notifWebhook && (
-            <Input
-              label={t('notifications.channels.webhookUrl')}
-              placeholder={t('notifications.channels.webhookUrlPlaceholder')}
-              value={prefs.webhookUrl ?? ''}
-              onValueChange={(v) => setPrefs(p => p ? { ...p, webhookUrl: v } : p)}
-              onBlur={() => save({ webhookUrl: prefs.webhookUrl })}
-              variant="bordered" size="sm" radius="md" labelPlacement="outside"
-            />
-          )}
+          <div className="flex items-center gap-2 shrink-0">
+            {prefs.notifWebhook && policy.gotifyEnabled && (
+              <Button size="sm" variant="flat" isLoading={testingChannel === 'webhook'} onPress={() => testChannel('webhook')}>{t('notifications.channels.test')}</Button>
+            )}
+            {policy.gotifyEnabled
+              ? <Switch isSelected={prefs.notifWebhook} onValueChange={(v) => save({ notifWebhook: v })} size="sm" aria-label={t('notifications.channels.webhook')} />
+              : <ChannelUnavailable channel="gotify" reason={policy.offReasons?.gotify} />
+            }
+          </div>
         </div>
       </div>
 

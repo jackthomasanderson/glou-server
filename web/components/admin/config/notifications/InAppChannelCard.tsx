@@ -22,13 +22,9 @@ export function InAppChannelCard({ config }: { config: SystemConfigPublic }) {
   const save = async (reauth: AdminReauth) => {
     setSaving(true);
     try {
-      // The route takes the three switches: the other two are sent as saved,
-      // never as another card shows them (#758).
-      const updated = await configClient.updateNotifPolicy({
-        inAppEnabled: form.inAppEnabled,
-        smtpEnabled: config.smtpEnabled,
-        gotifyEnabled: config.gotifyEnabled,
-      }, reauth);
+      // Only this card's switch: a stale copy of another channel's switch
+      // can never overwrite that card's save (#758).
+      const updated = await configClient.updateNotifPolicy({ inAppEnabled: form.inAppEnabled }, reauth);
       onSaved(updated);
       reset(toForm(updated));
       notifySuccess('adminConfig.notifPolicy.saved');

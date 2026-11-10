@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import { Button, Input, Switch } from '@heroui/react';
 import { Webhook } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -10,14 +10,16 @@ import { ChannelStatus, ConfigCard, SaveBar, TestUsesSavedHint, configErrorKey, 
 
 const toForm = (cfg: SystemConfigPublic) => ({ gotifyEnabled: cfg.gotifyEnabled, gotifyUrl: cfg.gotifyUrl ?? '', gotifyToken: '' });
 
+/** #767: a Gotify server is usable with its URL *and* its app token. */
 function gotifyState(cfg: SystemConfigPublic): ChannelState {
-  if (!cfg.gotifyUrl) return 'notConfigured';
+  if (!cfg.gotifyUrl || !cfg.gotifyTokenMasked) return 'notConfigured';
   return cfg.gotifyEnabled ? 'active' : 'configuredOff';
 }
 
 /**
- * The Gotify channel: the instance's Gotify server. #758: its only on/off
- * switch, saved with its URL and token, and its test.
+ * The Gotify channel: the instance's Gotify server, where every member's
+ * Gotify notification goes (#767). #758: its only on/off switch, saved with
+ * its URL and token, and its test.
  */
 export function GotifyChannelCard({ config }: { config: SystemConfigPublic }) {
   const { t } = useTranslation();
@@ -27,6 +29,9 @@ export function GotifyChannelCard({ config }: { config: SystemConfigPublic }) {
   const onSaved = useConfigSaved();
   // #890: the Gotify server receives the security alerts.
   const stepUp = useAdminStepUp();
+  // #767: it cannot be switched on without a URL and an app token (typed now or saved).
+  const hasServer = !!form.gotifyUrl && (!!form.gotifyToken || !!config.gotifyTokenMasked);
+  const needsServerId = useId();
 
   const save = async (reauth: AdminReauth) => {
     setSaving(true);
@@ -63,9 +68,10 @@ export function GotifyChannelCard({ config }: { config: SystemConfigPublic }) {
 
   return (
     <ConfigCard id="config-gotify" icon={Webhook} title={t('adminConfig.cards.gotify')} description={t('adminConfig.notifPolicy.webhookHint')} status={<ChannelStatus state={gotifyState(config)} />} isDirty={isDirty}>
-      <Switch isSelected={form.gotifyEnabled} onValueChange={(v) => update({ gotifyEnabled: v })} size="sm">
+      <Switch isSelected={form.gotifyEnabled} isDisabled={!form.gotifyEnabled && !hasServer} aria-describedby={hasServer ? undefined : needsServerId} onValueChange={(v) => update({ gotifyEnabled: v })} size="sm">
         {t('adminConfig.gotify.enabled')}
       </Switch>
+      {!hasServer && <p id={needsServerId} className="text-xs text-foreground-500">{t('adminConfig.gotify.needsUrlAndToken')}</p>}
       <Input label={t('adminConfig.gotify.url')} placeholder={t('adminConfig.gotify.urlPlaceholder')} value={form.gotifyUrl} onValueChange={(v) => update({ gotifyUrl: v })} variant="bordered" size="sm" radius="md" labelPlacement="outside" />
       <Input label={t('adminConfig.gotify.token')} type="password" placeholder={config.gotifyTokenMasked ?? t('adminConfig.gotify.tokenPlaceholder')} value={form.gotifyToken} onValueChange={(v) => update({ gotifyToken: v })} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
       <SaveBar isDirty={isDirty} isSaving={saving} onSave={() => stepUp.ask(t('adminConfig.stepUp.gotify'), save)}>

@@ -1891,16 +1891,32 @@
       "inAppDesc": "Alerts visible in the interface",
       "email": "Email",
       "emailDesc": "Notifications sent to your email address",
-      "webhook": "Webhook / Gotify",
-      "webhookDesc": "Notifications sent to an external URL",
-      "webhookUrl": "Webhook URL",
-      "webhookUrlPlaceholder": "https://gotify.example.com",
+      "webhook": "Gotify",
+      "webhookDesc": "Sent to this instance's Gotify server, set up by the administrator. Each message carries your username.",
       "disabledByAdmin": "Disabled by administrator",
+      "offReason": {
+        "email": {
+          "notConfigured": "SMTP server not configured",
+          "off": "Email switched off in Administration"
+        },
+        "gotify": {
+          "notConfigured": "Gotify server not configured (URL and application token)",
+          "off": "Gotify switched off in Administration"
+        },
+        "inApp": {
+          "off": "In-app notifications switched off in Administration"
+        }
+      },
+      "configure": "Configure",
       "test": "Test",
       "testSuccess": "Test notification sent.",
-      "testError": "Test failed: {{error}}",
-      "unknownError": "Unknown error",
-      "networkError": "Network error"
+      "testErrors": {
+        "DELIVERY_FAILED": "The server did not accept the test notification. Let your administrator know.",
+        "GOTIFY_NOT_CONFIGURED": "Gotify is no longer available on this instance. Reload the page.",
+        "INVALID_URL": "The address of this instance's Gotify server cannot be used. Let your administrator know.",
+        "SMTP_NOT_CONFIGURED": "Sending email is no longer available on this instance. Reload the page.",
+        "UNEXPECTED": "The test notification could not be sent. Try again later or let your administrator know."
+      }
     },
     "categories": {
       "title": "Alert categories",
@@ -1925,7 +1941,9 @@
       "title": "Notification language",
       "useUI": "Interface language"
     },
-    "saved": "Preferences saved."
+    "saved": "Preferences saved.",
+    "saveError": "This setting could not be saved. Try again.",
+    "loadError": "Your notification preferences could not be loaded."
   },
   "adminConfig": {
     "title": "System Configuration",
@@ -1942,7 +1960,8 @@
       "INVALID_INPUT": "A value is not valid. Check the fields of this card.",
       "INVALID_URL": "This address cannot be used: it must be a valid URL that the server is allowed to reach.",
       "SMTP_NOT_CONFIGURED": "Email is switched off or has no server: turn it on, fill in the server and save before testing.",
-      "GOTIFY_NOT_CONFIGURED": "Gotify is switched off or has no URL: turn it on, fill in the URL and save before testing.",
+      "GOTIFY_NOT_CONFIGURED": "Gotify is switched off or has no URL or token: fill in the URL and the application token, turn it on and save before testing.",
+      "GOTIFY_INCOMPLETE": "Gotify cannot be switched on without its URL and application token: fill in both, or switch the channel off.",
       "DELIVERY_FAILED": "The Gotify server did not accept the notification. Check the URL and the token."
     },
     "channelStatus": {
@@ -2016,17 +2035,18 @@
       "inApp": "In-app notifications",
       "inAppHint": "Allows users to receive alerts directly in the interface.",
       "emailHint": "Sends password reset links, and the notifications members choose to get by email.",
-      "webhookHint": "Requires a configured Gotify URL. Each user sets their own destination URL in their preferences.",
+      "webhookHint": "Every Gotify notification goes to this server, in the same application: members only choose in their profile whether to receive them, and each message carries the name of the member it is for. The URL and the application token are needed to switch the channel on.",
       "saved": "In-app notifications saved."
     },
     "gotify": {
       "enabled": "Enable Gotify notifications",
+      "needsUrlAndToken": "Fill in the URL and the application token to be able to switch Gotify on.",
       "url": "Gotify URL",
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Gotify token",
       "tokenPlaceholder": "Leave blank to keep current",
-      "test": "Test webhook",
-      "testSuccess": "Gotify webhook validated.",
+      "test": "Send a test notification",
+      "testSuccess": "The Gotify server accepted the test notification.",
       "testError": "Failed: {{error}}",
       "saved": "Gotify configuration saved."
     },
