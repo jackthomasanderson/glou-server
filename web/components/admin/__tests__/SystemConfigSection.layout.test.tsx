@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { screen, fireEvent, within } from '@testing-library/react';
+import { screen, fireEvent, within, act } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { notifyError } from '@/lib/toast';
 import { renderWithQuery, stubFetch, CONFIG, type Answer } from './configTestKit';
@@ -84,6 +84,21 @@ describe('SystemConfigSection — a configuration that cannot be read (#615)', (
 
     expect(await screen.findByText('adminConfig.backup.enabled')).toBeInTheDocument();
     expect(screen.queryByText('adminConfig.loadError')).toBeNull();
+  });
+
+  it('keeps the forms, and what was typed, when a later reload of the configuration fails', async () => {
+    let configAnswer: Answer = OK_CONFIG;
+    stubFetch({ '/admin/config': () => configAnswer });
+    const { queryClient } = renderWithQuery(<SystemConfigSection />);
+    const retention = (await screen.findByRole('heading', { name: 'adminConfig.cards.retention' })).closest('section')!;
+    fireEvent.change(within(retention).getByLabelText('adminConfig.retention.fields.logRetentionDays'), { target: { value: '365' } });
+
+    configAnswer = { status: 500, body: { error: 'INTERNAL_SERVER_ERROR' } };
+    await act(() => queryClient.refetchQueries());
+    await vi.waitFor(() => expect(queryClient.getQueryState(['admin_system_config'])?.status).toBe('error'));
+
+    expect(screen.queryByText('adminConfig.loadError')).toBeNull();
+    expect(within(retention).getByLabelText('adminConfig.retention.fields.logRetentionDays')).toHaveValue('365');
   });
 
   it('starts the backup form from the saved values', async () => {
