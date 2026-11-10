@@ -966,7 +966,9 @@
       "stepUpHint": "Confirmez avec votre propre mot de passe, et un code de votre application d'authentification (ou un code de secours) si votre compte a la double authentification.",
       "stepUpPassword": "Votre mot de passe",
       "stepUpRequired": "Saisissez votre mot de passe pour confirmer.",
-      "stepUpErrors": { "UNEXPECTED_ERROR": "L'action n'a pas pu aboutir. Réessayez." },
+      "stepUpErrors": {
+        "UNEXPECTED_ERROR": "L'action n'a pas pu aboutir. Réessayez."
+      },
       "resetPasswordResultTitle": "Mot de passe temporaire pour {{username}}",
       "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion.",
       "statusEnabled": "Activé",
@@ -2034,7 +2036,65 @@
       "howToEnable": "Le service de reconnaissance n'est pas démarré, ou son modèle est encore en cours de téléchargement : le scan est donc masqué pour les membres. Pour l'activer (environ 9 Go de disque et 3 Go de mémoire), lancez sur le serveur la commande ci-dessous, puis attendez la fin du téléchargement du modèle :"
     },
     "history": {
-      "noHistory": "Aucune modification enregistrée."
+      "noHistory": "Aucune modification enregistrée.",
+      "changed": "{{field}} : {{from}} → {{to}}",
+      "removed": "{{field}} : valeur supprimée",
+      "secretChanged": "{{field}} : valeur modifiée",
+      "secretSet": "{{field}} : valeur définie",
+      "legacyIntro": "Valeurs enregistrées (les valeurs précédentes n'étaient pas conservées à l'époque) :",
+      "legacyValue": "{{field}} : {{value}}",
+      "legacySecret": "{{field}} : enregistré, non affiché",
+      "noDetails": "Enregistré, aucun détail conservé.",
+      "unknownField": "Autre réglage",
+      "unknownSection": "Réglages",
+      "by": "Par {{user}}",
+      "unknownUser": "un compte supprimé",
+      "empty": "vide",
+      "on": "activé",
+      "off": "désactivé",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours",
+      "hour": "{{hour}} h UTC",
+      "sections": {
+        "smtp": "E-mail",
+        "gotify": "Gotify",
+        "notifications": "Canaux de notification",
+        "retention": "Rétention et nettoyage",
+        "backup": "Sauvegardes",
+        "network": "URL publique et réseau",
+        "registration": "Inscription",
+        "integrations": "Intégrations"
+      },
+      "fields": {
+        "smtpEnabled": "Envoi d'e-mails",
+        "smtpHost": "Serveur SMTP",
+        "smtpPort": "Port SMTP",
+        "smtpUser": "Utilisateur SMTP",
+        "smtpPassEnc": "Mot de passe SMTP",
+        "smtpFrom": "Adresse d'expédition",
+        "smtpSecure": "Connexion sécurisée (TLS)",
+        "gotifyEnabled": "Notifications Gotify",
+        "gotifyUrl": "URL Gotify",
+        "gotifyTokenEnc": "Token Gotify",
+        "inAppEnabled": "Notifications dans l'application",
+        "logRetentionDays": "Rétention du journal d'audit",
+        "sessionRetentionDays": "Rétention des sessions expirées",
+        "guestShareRetentionDays": "Rétention des liens invités expirés",
+        "backupEnabled": "Sauvegardes automatiques",
+        "backupRetentionDays": "Rétention des sauvegardes",
+        "backupHourUtc": "Heure de sauvegarde",
+        "publicUrl": "URL publique",
+        "accessMode": "Mode d'accès",
+        "registrationOpen": "Inscription de nouveaux comptes",
+        "vivinoKeyEnc": "Clé API Vivino",
+        "whiskybaseKeyEnc": "Clé API Whiskybase"
+      },
+      "values": {
+        "accessMode": {
+          "direct": "direct",
+          "proxy": "derrière un proxy inverse"
+        }
+      }
     },
     "retention": {
       "description": "Configurez le délai de conservation avant suppression définitive des données obsolètes. Ce délai s'ajoute à la date d'expiration ou de révocation, il ne la remplace pas.",

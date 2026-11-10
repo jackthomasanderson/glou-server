@@ -964,7 +964,9 @@
       "stepUpHint": "Confirm with your own password, and a code from your authenticator app (or a backup code) if your account has two-factor authentication.",
       "stepUpPassword": "Your password",
       "stepUpRequired": "Enter your password to confirm.",
-      "stepUpErrors": { "UNEXPECTED_ERROR": "This could not be done. Try again." },
+      "stepUpErrors": {
+        "UNEXPECTED_ERROR": "This could not be done. Try again."
+      },
       "resetPasswordResultTitle": "Temporary password for {{username}}",
       "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login.",
       "statusEnabled": "Enabled",
@@ -2032,7 +2034,65 @@
       "howToEnable": "The recognition service is not running, or its model is still downloading, so scanning is hidden from members. To enable it (about 9 GB of disk and 3 GB of memory), run the command below on the server, then wait for the model download to finish:"
     },
     "history": {
-      "noHistory": "No changes recorded."
+      "noHistory": "No changes recorded.",
+      "changed": "{{field}}: {{from}} → {{to}}",
+      "removed": "{{field}}: removed",
+      "secretChanged": "{{field}}: changed",
+      "secretSet": "{{field}}: set",
+      "legacyIntro": "Values saved (the previous values were not recorded at the time):",
+      "legacyValue": "{{field}}: {{value}}",
+      "legacySecret": "{{field}}: saved, not shown",
+      "noDetails": "Saved, no details recorded.",
+      "unknownField": "Another setting",
+      "unknownSection": "Settings",
+      "by": "By {{user}}",
+      "unknownUser": "a deleted account",
+      "empty": "empty",
+      "on": "on",
+      "off": "off",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "hour": "{{hour}}:00 UTC",
+      "sections": {
+        "smtp": "Email",
+        "gotify": "Gotify",
+        "notifications": "Notification channels",
+        "retention": "Retention and cleanup",
+        "backup": "Backups",
+        "network": "Public URL and network",
+        "registration": "Sign-up",
+        "integrations": "Integrations"
+      },
+      "fields": {
+        "smtpEnabled": "Email sending",
+        "smtpHost": "SMTP server",
+        "smtpPort": "SMTP port",
+        "smtpUser": "SMTP username",
+        "smtpPassEnc": "SMTP password",
+        "smtpFrom": "Sender address",
+        "smtpSecure": "Secure connection (TLS)",
+        "gotifyEnabled": "Gotify notifications",
+        "gotifyUrl": "Gotify URL",
+        "gotifyTokenEnc": "Gotify token",
+        "inAppEnabled": "In-app notifications",
+        "logRetentionDays": "Audit log retention",
+        "sessionRetentionDays": "Expired sessions retention",
+        "guestShareRetentionDays": "Expired guest links retention",
+        "backupEnabled": "Automatic backups",
+        "backupRetentionDays": "Backup retention",
+        "backupHourUtc": "Backup time",
+        "publicUrl": "Public URL",
+        "accessMode": "Access mode",
+        "registrationOpen": "New account sign-up",
+        "vivinoKeyEnc": "Vivino API key",
+        "whiskybaseKeyEnc": "Whiskybase API key"
+      },
+      "values": {
+        "accessMode": {
+          "direct": "direct",
+          "proxy": "behind a reverse proxy"
+        }
+      }
     },
     "retention": {
       "description": "Configure the retention delay before obsolete data is permanently deleted. This delay is added to the expiration or revocation date, it does not replace it.",

@@ -1101,7 +1101,7 @@ export class AuthService {
     }
     if (includes('configHistory')) {
       // fieldName/maskedOldVal/maskedNewVal are already redacted at write
-      // time by systemConfigService.logChange — safe to export as-is.
+      // time by logChange (system-config.service) — safe to export as-is.
       result.configHistory = user.configChangeLogs.map(c => ({
         fieldName: c.fieldName,
         maskedOldVal: c.maskedOldVal,
