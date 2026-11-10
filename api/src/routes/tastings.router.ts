@@ -17,7 +17,6 @@ router.use(authMiddleware);
 const listQuerySchema = paginationQuerySchema({ defaultLimit: 20, maxLimit: 50 });
 
 router.get('/', async (req: Request, res: Response) => {
-  const userId = req.userId!;
   const query = listQuerySchema.safeParse(req.query);
   if (!query.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: query.error.format() });
@@ -25,7 +24,7 @@ router.get('/', async (req: Request, res: Response) => {
   const itemId = firstStr(req.query.itemId);
   const search = firstStr(req.query.search);
   const productId = firstStr(req.query.productId);
-  const result = await tastingsService.list(userId, query.data.page, query.data.limit, itemId, search, productId);
+  const result = await tastingsService.list(query.data.page, query.data.limit, itemId, search, productId);
   res.json({ data: result });
 });
 
@@ -41,35 +40,31 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 router.patch('/:id', async (req: Request, res: Response) => {
-  const userId = req.userId!;
   const id = routeParam(req.params.id);
   const validation = tastingPatchSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
   }
-  const note = await tastingsService.update(id, userId, validation.data);
+  const note = await tastingsService.update(id, validation.data);
   if (!note) return res.status(404).json({ error: 'TASTING_NOT_FOUND' });
   res.json({ data: note });
 });
 
 router.delete('/:id', async (req: Request, res: Response) => {
-  const userId = req.userId!;
   const id = routeParam(req.params.id);
-  const deleted = await tastingsService.delete(id, userId);
+  const deleted = await tastingsService.delete(id);
   if (!deleted) return res.status(404).json({ error: 'TASTING_NOT_FOUND' });
   res.status(204).send();
 });
 
 router.get('/stats/:itemId', async (req: Request, res: Response) => {
-  const userId = req.userId!;
   const itemId = routeParam(req.params.itemId);
-  const stats = await tastingsService.itemStats(userId, itemId);
+  const stats = await tastingsService.itemStats(itemId);
   res.json({ data: stats });
 });
 
-router.get('/analytics', async (req: Request, res: Response) => {
-  const userId = req.userId!;
-  const result = await tastingsService.analytics(userId);
+router.get('/analytics', async (_req: Request, res: Response) => {
+  const result = await tastingsService.analytics();
   res.json({ data: result });
 });
 

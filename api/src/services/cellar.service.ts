@@ -64,7 +64,7 @@ export class CellarService {
     });
   }
 
-  static async listCellars(_userId: string) {
+  static async listCellars() {
     const cellars = await prisma.cellar.findMany({ orderBy: { createdAt: 'desc' } });
     if (cellars.length === 0) return [];
 
@@ -84,7 +84,7 @@ export class CellarService {
     return cellars.map((cellar) => ({ ...cellar, stats: cellarStats(rowsByCellar.get(cellar.id) ?? [], today) }));
   }
 
-  static async getCellar(_userId: string, id: string) {
+  static async getCellar(id: string) {
     const cellar = await prisma.cellar.findFirst({ where: { id } });
     if (!cellar) return null;
 
@@ -95,7 +95,7 @@ export class CellarService {
     return { ...cellar, stats: cellarStats(rows, endOfToday()) };
   }
 
-  static async updateCellar(userId: string, id: string, data: UpdateCellarInput) {
+  static async updateCellar(id: string, data: UpdateCellarInput) {
     const cellar = await prisma.cellar.findFirst({ where: { id } });
     if (!cellar) return null;
 
@@ -105,14 +105,38 @@ export class CellarService {
     });
   }
 
-  static async deleteCellar(userId: string, id: string) {
+  static async deleteCellar(id: string) {
     const cellar = await prisma.cellar.findFirst({ where: { id } });
     if (!cellar) return null;
 
-    return prisma.cellar.delete({ where: { id } });
+    // #597: guest shares list their cellars by id, with no foreign key. The
+    // deleted cellar leaves them, so a share's list stays the truth. A share
+    // left with nothing in scope is revoked: an empty scope means "no filter"
+    // to the guest view, and it would show the whole inventory. A count on
+    // this cellar loses it through its foreign key (SET NULL) and goes on as
+    // a free-label count.
+    return prisma.$transaction(async (tx) => {
+      const shares = await tx.guestShare.findMany({
+        where: { OR: [{ cellarIds: { has: id } }, { writeCellarIds: { has: id } }] },
+        select: { id: true, cellarIds: true, writeCellarIds: true, collectionIds: true, revokedAt: true },
+      });
+      for (const share of shares) {
+        const cellarIds = share.cellarIds.filter((cellarId) => cellarId !== id);
+        const emptied = cellarIds.length === 0 && share.collectionIds.length === 0;
+        await tx.guestShare.update({
+          where: { id: share.id },
+          data: {
+            cellarIds,
+            writeCellarIds: share.writeCellarIds.filter((cellarId) => cellarId !== id),
+            ...(emptied && !share.revokedAt ? { revokedAt: new Date() } : {}),
+          },
+        });
+      }
+      return tx.cellar.delete({ where: { id } });
+    });
   }
 
-  static async getGridData(userId: string, cellarId: string): Promise<CellarGrid | null> {
+  static async getGridData(cellarId: string): Promise<CellarGrid | null> {
     const cellar = await prisma.cellar.findFirst({ where: { id: cellarId } });
     if (!cellar) return null;
 

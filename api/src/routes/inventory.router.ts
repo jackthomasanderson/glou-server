@@ -24,9 +24,9 @@ router.use(authMiddleware);
 // the browser refetches the list at most every 30s, so a tab left open
 // accumulated thousands of rows a week for an event with zero traceability
 // value. Only actions that actually change data are logged now.
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const { items, truncated } = await inventoryService.listInventory(req.userId);
+    const { items, truncated } = await inventoryService.listInventory();
     res.json({ data: items, truncated });
   } catch (error) {
     console.error('[inventory] GET / error:', error);
@@ -57,9 +57,9 @@ router.get('/export.csv', async (req: Request, res: Response): Promise<void> => 
 
 // ─── GET /api/inventory/trash ────────────────────────────────────────────────
 
-router.get('/trash', async (req: Request, res: Response): Promise<void> => {
+router.get('/trash', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const items = await inventoryService.listTrash(req.userId);
+    const items = await inventoryService.listTrash();
     res.json({ data: items });
   } catch (error) {
     console.error('[inventory] GET /trash error:', error);
@@ -72,7 +72,7 @@ router.get('/trash', async (req: Request, res: Response): Promise<void> => {
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   try {
-    const result = await inventoryService.getItemWithTraceability(req.userId, id);
+    const result = await inventoryService.getItemWithTraceability(id);
     if (!result) {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
       return;
@@ -89,7 +89,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 router.get('/:id/history', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   try {
-    const item = await inventoryService.getItem(req.userId, id);
+    const item = await inventoryService.getItem(id);
     if (!item) {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
       return;
@@ -245,7 +245,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
-    const item = await inventoryService.softDelete(req.userId, id);
+    const item = await inventoryService.softDelete(id);
     if (!item) {
       void auditLog({ userId: req.userId, action: 'DELETE', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
@@ -268,7 +268,7 @@ router.post('/:id/restore', async (req: Request, res: Response): Promise<void> =
   const ip = getClientIp(req);
   try {
     const slotChanges: FieldChange[] = [];
-    const item = await inventoryService.restore(req.userId, id, slotChanges);
+    const item = await inventoryService.restore(id, slotChanges);
     if (!item) {
       void auditLog({ userId: req.userId, action: 'RESTORE', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'ITEM_NOT_FOUND_OR_EXPIRED' });

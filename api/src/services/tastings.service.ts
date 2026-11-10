@@ -117,12 +117,12 @@ export const tastingsService = {
   // Tasting notes are part of the shared inventory's collective history
   // (design.md invariant: userId is an audit field, not an access filter —
   // see also FEAT-62 on visible collective contributions). Every member sees
-  // every tasting note, not just the ones they personally logged; `_userId`
-  // is kept for signature stability with the router but unused here.
+  // every tasting note, not just the ones they personally logged, so no user
+  // id is taken here.
   //
   // #471 (FEAT-107): the journal lists every tasting, with or without a
   // bottle — a wine tasted elsewhere is found by its wine's name too.
-  async list(_userId: string, page = 1, limit = DEFAULT_PAGE_SIZE, itemId?: string, search?: string, productId?: string) {
+  async list(page = 1, limit = DEFAULT_PAGE_SIZE, itemId?: string, search?: string, productId?: string) {
     const skip = (page - 1) * limit;
     const trimmedSearch = search?.trim();
     const contains = (value: string) => ({ contains: value, mode: 'insensitive' as const });
@@ -200,7 +200,7 @@ export const tastingsService = {
 
   // Any member can edit/delete any tasting note — full read/write access to
   // the shared inventory (design.md roles table), not just the note's author.
-  async update(id: string, _userId: string, data: TastingPatchInput) {
+  async update(id: string, data: TastingPatchInput) {
     const existing = await prisma.tastingNote.findFirst({ where: { id } });
     if (!existing) return null;
     // #471: a tasting moves to another bottle of its wine, never to another
@@ -225,14 +225,14 @@ export const tastingsService = {
     }));
   },
 
-  async delete(id: string, _userId: string) {
+  async delete(id: string) {
     const existing = await prisma.tastingNote.findFirst({ where: { id } });
     if (!existing) return null;
     return prisma.tastingNote.delete({ where: { id } });
   },
 
   /** FEAT-79 over the wine (#471): every tasting of the bottle's wine, whichever bottle it was. */
-  async itemStats(_userId: string, itemId: string) {
+  async itemStats(itemId: string) {
     const item = await prisma.inventoryItem.findFirst({ where: { id: itemId }, select: { productId: true } });
     const notes = await prisma.tastingNote.findMany({
       where: item ? { productId: item.productId } : { itemId },
@@ -254,7 +254,7 @@ export const tastingsService = {
     };
   },
 
-  async analytics(_userId: string) {
+  async analytics() {
     const notes = await prisma.tastingNote.findMany({
       // #471 (FEAT-107): by wine (family), a tasting elsewhere included.
       where: { productId: { not: null } },
