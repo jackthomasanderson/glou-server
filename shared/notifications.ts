@@ -7,6 +7,14 @@
 export const NOTIFICATION_CATEGORIES = ['peak', 'temperature', 'security', 'wishlist', 'backup'] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
+/** #780: categories whose only sender writes to administrators (backup failures). */
+const ADMIN_ONLY_CATEGORIES: readonly NotificationCategory[] = ['backup'];
+
+/** #780: the categories a member can receive, hence choose: an admin gets them all. */
+export function notificationCategoriesFor(isAdmin: boolean): NotificationCategory[] {
+  return NOTIFICATION_CATEGORIES.filter((c) => isAdmin || !ADMIN_ONLY_CATEGORIES.includes(c));
+}
+
 /**
  * An empty stored list means "every category" — the default of a new
  * account. The profile screen saves `[]` again once every category is ticked.
