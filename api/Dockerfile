@@ -1,4 +1,4 @@
-FROM node:26-alpine AS builder
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS builder
 
 # #466: /build/api + /build/shared reproduce the repository layout, so
 # tsconfig's rootDir ".." emits dist/api/src/index.js and dist/shared/.
@@ -24,7 +24,7 @@ COPY --from=shared . /build/shared
 RUN npm run build
 
 # ─── Production image ────────────────────────────────────────────────────────
-FROM node:26-alpine AS runner
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS runner
 
 # Non-root user
 # postgresql-client: provides pg_dump/pg_restore/psql for the scheduled backup
