@@ -8,22 +8,27 @@ import type { ReactNode } from 'react';
 // error screen offers to enter the item by hand.
 
 let uploadOutcome: { error: string } | { jobId: string } = { error: 'UNEXPECTED_ERROR' };
-let polledJob: { status: 'failed'; errorMessage: string | null } | { status: 'done'; extractedData: Record<string, unknown> } | undefined;
+let polledJob: { status: 'failed'; errorMessage: string | null } | { status: 'done'; extractedData: Record<string, unknown> } | { status: 'pending' | 'processing' } | undefined;
 const invalidateQueries = vi.fn();
 const createItem = vi.fn();
 const addToCollection = vi.fn();
 
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries }) }));
+const uploaded = vi.fn();
 vi.mock('@/hooks/useScan', () => ({
   SCAN_STATUS_QUERY_KEY: ['scan-status'],
   useUploadScan: () => ({
-    mutate: (_file: File, handlers: { onSuccess: (r: { jobId: string }) => void; onError: (e: Error) => void }) => {
-      if ('error' in uploadOutcome) handlers.onError(new Error(uploadOutcome.error));
-      else handlers.onSuccess({ jobId: uploadOutcome.jobId });
+    mutate: (file: File, handlers: { onSuccess: (r: { jobId: string }) => void; onError: (e: Error) => void }) => {
+      uploaded(file);
+      sendUpload(handlers);
     },
   }),
   useScanJob: (jobId: string | null) => ({ data: jobId ? polledJob : undefined }),
 }));
+function sendUpload(handlers: { onSuccess: (r: { jobId: string }) => void; onError: (e: Error) => void }) {
+  if ('error' in uploadOutcome) handlers.onError(new Error(uploadOutcome.error));
+  else handlers.onSuccess({ jobId: uploadOutcome.jobId });
+}
 vi.mock('@/hooks/useInventory', () => ({
   useInventory: () => ({ data: [] }),
   useCreateInventoryItem: () => ({ mutateAsync: createItem, isPending: false }),
@@ -155,6 +160,67 @@ describe('ScanFlow error message follows the cause (#639)', () => {
     polledJob = { status: 'failed', errorMessage: null };
     renderAndSendPhoto();
     expect(screen.getByRole('alert')).toHaveTextContent('scan.errors.failed');
+  });
+});
+
+describe('ScanFlow photo from the camera or the gallery (#808)', () => {
+  function inputs(container: HTMLElement) {
+    return Array.from(container.querySelectorAll('input[type="file"]')) as HTMLInputElement[];
+  }
+
+  it('keeps the camera input and adds a gallery input without `capture`', () => {
+    const view = render(<ScanFlow open onClose={() => {}} t={t} />);
+    const [camera, gallery] = inputs(view.container);
+    expect(camera).toHaveAttribute('capture', 'environment');
+    expect(gallery).toBeDefined();
+    expect(gallery).not.toHaveAttribute('capture');
+    // No HEIC in `accept`: iOS then hands over a JPEG copy of a gallery photo.
+    expect(gallery.getAttribute('accept')).toBe(camera.getAttribute('accept'));
+    expect(gallery.getAttribute('accept')).not.toMatch(/heic|heif/i);
+  });
+
+  it('opens each picker from its own button', () => {
+    const view = render(<ScanFlow open onClose={() => {}} t={t} />);
+    const [camera, gallery] = inputs(view.container);
+    const cameraClick = vi.spyOn(camera, 'click').mockImplementation(() => {});
+    const galleryClick = vi.spyOn(gallery, 'click').mockImplementation(() => {});
+    fireEvent.click(screen.getByRole('button', { name: 'scan.capture.start' }));
+    expect(cameraClick).toHaveBeenCalledTimes(1);
+    expect(galleryClick).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.capture.gallery' }));
+    expect(galleryClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('analyses a photo chosen from the gallery', () => {
+    uploadOutcome = { jobId: 'j1' };
+    polledJob = { status: 'processing' };
+    const view = render(<ScanFlow open onClose={() => {}} t={t} />);
+    const photo = new File(['x'], 'label.jpg', { type: 'image/jpeg' });
+    fireEvent.change(inputs(view.container)[1], { target: { files: [photo] } });
+    expect(uploaded).toHaveBeenCalledWith(photo);
+    expect(screen.getByText('scan.processing')).toBeInTheDocument();
+  });
+
+  it('explains that a HEIC photo is not supported', () => {
+    uploadOutcome = { error: 'HEIC_NOT_SUPPORTED' };
+    renderAndSendPhoto();
+    expect(screen.getByRole('alert')).toHaveTextContent('scan.errors.heic');
+  });
+});
+
+describe('ScanFlow when other scans are waiting (#609)', () => {
+  it('says the scan waits its turn while the job is pending', () => {
+    uploadOutcome = { jobId: 'j1' };
+    polledJob = { status: 'pending' };
+    renderAndSendPhoto();
+    expect(screen.getByText('scan.queued')).toBeInTheDocument();
+  });
+
+  it('says the server is busy when too many scans already wait', () => {
+    uploadOutcome = { error: 'SCAN_BUSY' };
+    renderAndSendPhoto();
+    expect(screen.getByRole('alert')).toHaveTextContent('scan.errors.busy');
+    expect(screen.getByRole('button', { name: 'scan.retry' })).toBeInTheDocument();
   });
 });
 

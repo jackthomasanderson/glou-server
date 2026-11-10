@@ -5,7 +5,7 @@ import {
   ModalContent, Button, Chip, Input, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf, PenLine } from 'lucide-react';
+import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf, PenLine, Images } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { useCreateFromForm } from '@/hooks/useCreateFromForm';
@@ -20,6 +20,9 @@ import { AddUnitsModal } from './AddUnitsDialog';
 import { useKnownWine } from '@/hooks/useKnownWine';
 import type { Product } from '@/lib/products/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+
+/** The formats the API accepts for a label photo (upload.middleware.ts). */
+const SCAN_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
 
 type Phase = 'capture' | 'uploading' | 'processing' | 'review' | 'error';
 
@@ -75,6 +78,9 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const queryClient = useQueryClient();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // #808: `capture` above opens the camera straight away on a phone, so a photo
+  // already in the gallery needs its own input.
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>('capture');
   const [errorCause, setErrorCause] = useState<ScanErrorCause>('failed');
   // Once the service is known to be gone, no photo can succeed in this session:
@@ -172,6 +178,12 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       },
       onError: (err) => showError(err.message),
     });
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) handleFileSelected(f);
+    e.target.value = '';
   };
 
   // From the error screen: the failed job extracted nothing, so no scanJobId
@@ -290,26 +302,41 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       <p className="text-lg font-semibold">{t('scan.capture.title')}</p>
                       <p className="text-sm text-foreground-500 mt-1">{t('scan.capture.subtitle')}</p>
                     </div>
-                    <Button
-                      color="primary"
-                      size="lg"
-                      radius="full"
-                      startContent={<Camera size={20} />}
-                      onPress={() => fileInputRef.current?.click()}
-                    >
-                      {cart.length > 0 ? t('scan.capture.next') : t('scan.capture.start')}
-                    </Button>
+                    <div className="flex flex-col items-center gap-3">
+                      <Button
+                        color="primary"
+                        size="lg"
+                        radius="full"
+                        startContent={<Camera size={20} />}
+                        onPress={() => fileInputRef.current?.click()}
+                      >
+                        {cart.length > 0 ? t('scan.capture.next') : t('scan.capture.start')}
+                      </Button>
+                      <Button
+                        color="primary"
+                        variant="bordered"
+                        radius="full"
+                        startContent={<Images size={18} />}
+                        onPress={() => galleryInputRef.current?.click()}
+                      >
+                        {t('scan.capture.gallery')}
+                      </Button>
+                    </div>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      accept={SCAN_ACCEPT}
                       capture="environment"
                       className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleFileSelected(f);
-                        e.target.value = '';
-                      }}
+                      onChange={handleInputChange}
+                    />
+                    {/* No HEIC in `accept`: iOS then hands over a JPEG copy of the photo. */}
+                    <input
+                      ref={galleryInputRef}
+                      type="file"
+                      accept={SCAN_ACCEPT}
+                      className="hidden"
+                      onChange={handleInputChange}
                     />
                   </div>
                 )}
@@ -318,7 +345,11 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                   <div className="flex flex-col items-center justify-center gap-4 flex-1 px-6 py-10 text-center">
                     <CircularProgress color="primary" size="lg" isIndeterminate aria-label={t('status.loading')} />
                     <p className="text-sm text-foreground-500">
-                      {phase === 'uploading' ? t('scan.uploading') : t('scan.processing')}
+                      {phase === 'uploading'
+                        ? t('scan.uploading')
+                        : jobQuery.data?.status === 'pending'
+                          ? t('scan.queued')
+                          : t('scan.processing')}
                     </p>
                   </div>
                 )}
