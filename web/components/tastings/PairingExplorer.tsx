@@ -7,17 +7,14 @@ import { useInventory } from '@/hooks/useInventory';
 import { inStockItems } from '@/lib/inventory/inStock';
 import { alertUrgency, InventoryItem } from '@/lib/inventory/types';
 import { matchDishToPairings, pickBestPairingLabel } from '@/lib/tastings/pairingEngine';
-import { getRecommendations } from '@/lib/tastings/recommendations';
+import { getRecommendations, type PairingKey } from '@/lib/tastings/recommendations';
 import { TastingForm } from './TastingForm';
 import { ErrorState } from '@/components/ui/ErrorState';
 
-// Quick-pick chips: derived from the vocabulary already present in the
-// RECOS food pairing catalog (recommendations.ts). The catalog itself is
-// French-only business data (same convention as ServiceRecommendations.tsx,
-// which never runs pairing labels through i18n), but the search *query* the
-// chip types into the box is picked per active locale (fr/en) so it reads
-// naturally either way — both resolve to the same French keywords via the
-// bilingual synonym dictionary in pairingEngine.ts.
+// Quick-pick chips: derived from the vocabulary of the RECOS food pairing
+// catalog (recommendations.ts). The search *query* the chip types into the
+// box is picked per active locale (fr/en) so it reads naturally either way;
+// the engine scores it against the pairing labels in that same language (#653).
 const QUICK_CHIPS: { i18nKey: string; fr: string; en: string }[] = [
   { i18nKey: 'tastings.pairing.quickChips.meat', fr: 'viande', en: 'meat' },
   { i18nKey: 'tastings.pairing.quickChips.fish', fr: 'poisson', en: 'fish' },
@@ -60,7 +57,9 @@ export function PairingExplorer() {
     // #849: only a bottle still in the cellar can be served with the dish.
     const inStock = inStockItems(inventory);
 
-    const dishMatches = matchDishToPairings(trimmed);
+    // #653: the pairings are scored, and given as the reason, in the member's language.
+    const label = (key: PairingKey) => t(`tastings.pairings.${key}`);
+    const dishMatches = matchDishToPairings(trimmed, label);
     if (dishMatches.length === 0) return [];
 
     // A bottle can, in theory, satisfy more than one matching combo (e.g. a
@@ -70,7 +69,7 @@ export function PairingExplorer() {
     const byItemId = new Map<string, PairingSuggestion>();
     for (const combo of dishMatches) {
       const reco = getRecommendations(combo.category, combo.subtype);
-      const reasonLabel = reco ? pickBestPairingLabel(trimmed, reco.foodPairings) : null;
+      const reasonLabel = reco ? pickBestPairingLabel(trimmed, reco.foodPairings.map(label)) : null;
 
       for (const item of inStock) {
         if (item.category !== combo.category) continue;
@@ -96,7 +95,7 @@ export function PairingExplorer() {
       if (a.item.isOpened !== b.item.isOpened) return a.item.isOpened ? -1 : 1;
       return a.item.name.localeCompare(b.item.name);
     });
-  }, [query, inventory]);
+  }, [query, inventory, t]);
 
   const hasSearched = query.trim().length > 0;
 

@@ -48,7 +48,7 @@ export function ServiceRecommendations({ item }: ServiceRecommendationsProps) {
             <div className="flex flex-wrap gap-1">
               {reco.foodPairings.map((fp) => (
                 <Chip key={fp} size="sm" variant="bordered">
-                  {fp}
+                  {t(`tastings.pairings.${fp}`)}
                 </Chip>
               ))}
             </div>
