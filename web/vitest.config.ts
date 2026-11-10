@@ -25,6 +25,11 @@ export default defineConfig({
     // — a strict superset of what the existing plain-function tests need, so
     // this is safe as the single global environment.
     environment: 'jsdom',
+    // Node >= 25 ships a native Web Storage global (`globalThis.localStorage`)
+    // that is undefined without --localstorage-file and shadows jsdom's own
+    // implementation, so `window.localStorage` breaks in tests. Turn it off
+    // in the worker processes; the flag is accepted (no-op) on Node 24 too.
+    execArgv: ['--no-experimental-webstorage'],
     setupFiles: ['./vitest.setup.ts'],
     include: [
       '**/__tests__/**/*.test.ts',
