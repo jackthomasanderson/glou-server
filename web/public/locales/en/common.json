@@ -2409,7 +2409,7 @@
         "description": "As an admin, you'll be able to set up notifications (email, Gotify), who can join, backups and data retention later, in Administration → System configuration.",
         "link": "Administration → System Configuration"
       },
-      "finishButton": "Go to dashboard"
+      "finishButton": "View my cellar"
     }
   },
   "pagination": {

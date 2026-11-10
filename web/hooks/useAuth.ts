@@ -7,7 +7,7 @@ import { fetchOrNetworkError } from '@/lib/network-error';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
 import { resetReviewBanner } from '@/lib/review/banner';
-import { postLoginPath } from '@/lib/auth/next-path';
+import { DEFAULT_LANDING, postLoginPath } from '@/lib/auth/next-path';
 import type { ExportCategory, PublicUser as PublicUserContract } from '@shared/auth';
 import type { Wire } from '@shared/wire';
 import type { OnboardingState } from '@shared/onboarding';
@@ -109,7 +109,7 @@ export function useRegister() {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
       resetReviewBanner();
-      router.push('/bottles');
+      router.push(DEFAULT_LANDING);
     },
   });
 }

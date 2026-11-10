@@ -15,6 +15,10 @@ vi.mock('@/components/ui/MainLayout', () => ({
     <div data-testid="layout" data-crumb={crumb ?? ''}>{children}</div>
   ),
 }));
+let mockCategory: string | null = null;
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(mockCategory ? `category=${mockCategory}` : ''),
+}));
 vi.mock('../InventoryDashboard', () => ({ InventoryDashboard: () => <div data-testid="dashboard" /> }));
 vi.mock('../InventoryTrash', () => ({ InventoryTrash: () => <div data-testid="trash" /> }));
 
@@ -42,4 +46,14 @@ describe('InventoryPage (#701)', () => {
     expect(screen.getByTestId('trash')).toBeInTheDocument();
     expect(screen.getByTestId('layout')).toHaveAttribute('data-crumb', t('inventory.tabs.trash'));
   });
+
+  it.each([['wine', 'nav.wines'], ['sparkling', 'nav.sparkling'], ['spirit', 'nav.spirits']])(
+    '#503: the title follows the %s category',
+    (category, key) => {
+      mockCategory = category;
+      render(<InventoryPage lockedCategories={['wine', 'sparkling', 'spirit']} />);
+      mockCategory = null;
+      expect(screen.getByRole('heading', { level: 1, name: t(key) })).toBeInTheDocument();
+    },
+  );
 });

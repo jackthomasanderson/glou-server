@@ -141,7 +141,9 @@ export function useInventoryFilters({
 
   const clearFilters = useCallback(() => {
     setSearchQuery('');
-    setSelectedCategories([]);
+    // #503: a category chosen from the navigation is the page, not a filter.
+    const navCategory = searchParams.get('category');
+    setSelectedCategories(navCategory ? [navCategory] : []);
     setSelectedCellars([]);
     setSelectedTags([]);
     setSelectedWineColors([]);
@@ -150,8 +152,8 @@ export function useInventoryFilters({
     setSortBy('default');
     setOpenedFilter('all');
     setShowGone(false);
-    router.push(pathname);
-  }, [router, pathname]);
+    router.push(navCategory ? `${pathname}?category=${encodeURIComponent(navCategory)}` : pathname);
+  }, [router, pathname, searchParams]);
 
   const criteria = useMemo<ProductFilterCriteria>(() => ({
     lockedCategories, selectedCollectionId, selectedCategories, selectedWineColors, selectedCellars,

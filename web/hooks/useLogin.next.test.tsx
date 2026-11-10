@@ -53,12 +53,12 @@ describe('return to the requested page after sign-in (#602)', () => {
     onLoginPage('/\t/evil.example');
     const login = renderHook(() => useLogin(), { wrapper });
     login.result.current.mutate({ identifier: 'a', password: 'b' });
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/bottles'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/bottles?category=wine'));
 
     push.mockClear();
     onLoginPage('/..//evil.example');
     const twoFa = renderHook(() => useVerify2faLogin(), { wrapper });
     twoFa.result.current.mutate({ code: '123456' });
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/bottles'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/bottles?category=wine'));
   });
 });

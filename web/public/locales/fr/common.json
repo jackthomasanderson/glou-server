@@ -2411,7 +2411,7 @@
         "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer les notifications (e-mail, Gotify), qui peut rejoindre l'instance, les sauvegardes et la conservation des données, dans Administration → Configuration système.",
         "link": "Administration → Configuration Système"
       },
-      "finishButton": "Accéder au tableau de bord"
+      "finishButton": "Voir ma cave"
     }
   },
   "pagination": {

@@ -6,10 +6,12 @@ import { act, renderHook } from '@testing-library/react';
 // URL was only read on the first render. The filters follow the URL on
 // arrival and on every later navigation.
 
+const push = vi.fn();
+const router = { push };
 let searchParams = new URLSearchParams();
 vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => router,
   usePathname: () => '/bottles',
 }));
 
@@ -28,6 +30,7 @@ function navigate(rerender: () => void, query: string) {
 }
 
 beforeEach(() => {
+  push.mockClear();
   searchParams = new URLSearchParams();
 });
 
@@ -62,5 +65,23 @@ describe('useInventoryFilters reads its filters from the URL (#470)', () => {
     rerender();
     expect(result.current.selectedCellars).toEqual(['garage']);
     expect(result.current.selectedCategories).toEqual(['spirit']);
+  });
+});
+
+// #503: the category chosen from the navigation survives "Reset filters".
+describe('clearFilters keeps the navigation category (#503)', () => {
+  it('stays on the category page', () => {
+    const { result } = renderFilters('category=wine&q=rioja');
+    act(() => result.current.clearFilters());
+    expect(push).toHaveBeenCalledWith('/bottles?category=wine');
+    expect(result.current.selectedCategories).toEqual(['wine']);
+    expect(result.current.searchQuery).toBe('');
+  });
+
+  it('still goes to the bare page when no category was chosen', () => {
+    const { result } = renderFilters('q=rioja');
+    act(() => result.current.clearFilters());
+    expect(push).toHaveBeenCalledWith('/bottles');
+    expect(result.current.selectedCategories).toEqual([]);
   });
 });

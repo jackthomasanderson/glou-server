@@ -135,7 +135,7 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     // 4. The wizard carries on to its summary, then hands over to the app.
     await wizard.getByRole('button', { name: 'Terminer l\'ajout' }).click();
     await expect(wizard.getByText('2 bouteilles ou cigares ajoutés à votre inventaire')).toBeVisible();
-    await wizard.getByRole('button', { name: 'Accéder au tableau de bord' }).click();
+    await wizard.getByRole('button', { name: 'Voir ma cave' }).click();
     await expect(wizard).toBeHidden();
   } finally {
     if (productId) await page.request.delete(`/api/products/${productId}`);
@@ -230,7 +230,7 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
 
     // #471 (FEAT-99): the import's summary speaks in bottles and wines.
     await expect(wizard.getByText('Importé : 6 bouteilles · 6 vins')).toBeVisible();
-    const finish = wizard.getByRole('button', { name: 'Accéder au tableau de bord' });
+    const finish = wizard.getByRole('button', { name: 'Voir ma cave' });
     await expectReachable(finish, 'Go to the dashboard');
     await finish.click();
     await expect(wizard).toBeHidden();
