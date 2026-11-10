@@ -231,6 +231,11 @@ jobs:
       - name: Check the backup taken before migrating
         run: bash e2e/check-pre-migration-backup.sh
 
+      # #673: the stop signal reaches Node, so the graceful shutdown runs.
+      # Last check against the stack: it stops the API.
+      - name: Check the API's graceful shutdown
+        run: bash e2e/check-graceful-shutdown.sh
+
       - name: Upload Playwright report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

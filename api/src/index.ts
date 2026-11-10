@@ -97,7 +97,7 @@ async function bootstrap(): Promise<void> {
   void inventoryService.purgeTrashed().then(({ count, photoPaths }) => {
     if (count > 0) console.info(`[startup] Purged ${count} permanently deleted items`);
     void inventoryService.deletePhotoFiles(photoPaths);
-  });
+  }).catch((err) => console.error('[startup] Trash purge failed:', err));
 
   // FEAT-39: data retention cleanup (audit logs, expired/revoked sessions,
   // trusted devices and guest shares). Run once immediately on startup so a
@@ -106,7 +106,7 @@ async function bootstrap(): Promise<void> {
   void MaintenanceService.runRetentionCleanup('scheduled').then((run) => {
     if (run.success) console.info('[startup] Retention cleanup completed:', run.counts);
     else console.error('[startup] Retention cleanup failed:', run.error);
-  });
+  }).catch((err) => console.error('[startup] Retention cleanup crashed:', err));
 
   // ISSUE_033: the denormalised `alertStatus` column depends on the current
   // year, so it goes stale on its own every 1st of January. Realign it on
@@ -124,7 +124,7 @@ async function bootstrap(): Promise<void> {
     void MaintenanceService.runRetentionCleanup('scheduled').then((run) => {
       if (run.success) console.info('[cron] Retention cleanup completed:', run.counts);
       else console.error('[cron] Retention cleanup failed:', run.error);
-    });
+    }).catch((err) => console.error('[cron] Retention cleanup crashed:', err));
   });
 
   // #575: the jobs that notify members run in the daytime — at 3 AM, any
