@@ -39,7 +39,7 @@ const saved: PublicSystemConfig = {
   gotifyEnabled: false, gotifyUrl: 'https://1.2.3.4', gotifyTokenMasked: null, inAppEnabled: true,
   logRetentionDays: 90, sessionRetentionDays: 30, guestShareRetentionDays: 30,
   publicUrl: null, effectivePublicUrl: 'http://localhost:3000',
-  registrationOpen: false, backupEnabled: true, backupRetentionDays: 7, backupHourUtc: 3,
+  registrationOpen: false, backupEnabled: true, backupRetentionDays: 7, backupHour: 3, timeZone: 'UTC',
   updatedAt: null, updatedBy: null,
 };
 
