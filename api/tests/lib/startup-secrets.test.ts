@@ -32,6 +32,20 @@ describe('findSecretProblems', () => {
     ]);
   });
 
+  // #608: a short secret can be brute-forced offline from any member's own
+  // token, then used to forge an admin token.
+  it('flags a JWT_SECRET shorter than 32 characters', () => {
+    expect(findSecretProblems({ JWT_SECRET: 'x'.repeat(31), CONFIG_ENCRYPTION_KEY: GOOD_KEY })).toEqual([
+      { name: 'JWT_SECRET', reason: 'too_short' },
+    ]);
+    // Surrounding blanks do not count towards the length.
+    expect(findSecretProblems({ JWT_SECRET: ` ${'x'.repeat(31)}  `, CONFIG_ENCRYPTION_KEY: GOOD_KEY })).toEqual([
+      { name: 'JWT_SECRET', reason: 'too_short' },
+    ]);
+    expect(findSecretProblems({ JWT_SECRET: 'x'.repeat(32), CONFIG_ENCRYPTION_KEY: GOOD_KEY })).toEqual([]);
+    expect(describeSecretProblem({ name: 'JWT_SECRET', reason: 'too_short' })).toContain('32');
+  });
+
   it('flags an encryption key that is not 64 hex characters', () => {
     expect(findSecretProblems({ JWT_SECRET: 'x'.repeat(48), CONFIG_ENCRYPTION_KEY: 'not-hex' })).toEqual([
       { name: 'CONFIG_ENCRYPTION_KEY', reason: 'invalid' },

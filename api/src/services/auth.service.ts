@@ -35,6 +35,11 @@ const JWT_EXPIRES_IN = '30d';
 // (FEAT-25: a Session must not outlive the JWT that references it).
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
+// #607: a refused sign-in costs one bcrypt comparison whether or not the
+// account exists, so the response time does not tell who has one. Unknown
+// identifiers are compared against this hash of a random value nobody knows,
+// made once at startup with the same cost as real password hashes.
+const UNKNOWN_ACCOUNT_HASH: Promise<string> = bcrypt.hash(crypto.randomBytes(32).toString('hex'), BCRYPT_ROUNDS);
 // Hex-encoded length of a generated backup code (crypto.randomBytes(10) -> 20 hex chars).
 // A TOTP code is always 6 digits, so checking this length is enough to tell the two apart.
 const BACKUP_CODE_LENGTH = 20;
@@ -461,13 +466,14 @@ export class AuthService {
     // #601: a refusal on an existing account is audited under that account;
     // an unknown identifier is not (no account to file it under, and what
     // was typed, maybe a password, is never kept).
+    // #607: compared in every case, before any refusal, so an unknown or
+    // deactivated account takes as long to refuse as a wrong password.
+    const valid = await bcrypt.compare(password, user ? user.passwordHash : await UNKNOWN_ACCOUNT_HASH);
     if (!user) throw new Error('INVALID_CREDENTIALS');
     if (!user.isActive) {
       this.auditLoginFailure(user.id, deviceInfo, 'account_deactivated');
       throw new Error('ACCOUNT_DEACTIVATED');
     }
-
-    const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       this.auditLoginFailure(user.id, deviceInfo, 'wrong_password');
       throw new Error('INVALID_CREDENTIALS');

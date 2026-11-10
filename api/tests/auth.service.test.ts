@@ -279,6 +279,26 @@ describe('AuthService', () => {
 
       await expect(authService.login(loginData, deviceInfo)).rejects.toThrow('INVALID_CREDENTIALS');
     });
+
+    // #607: an unknown identifier used to be refused at once, an existing
+    // one only after a ~0.2 s bcrypt comparison — the delay told who has an
+    // account. Every refusal now costs one comparison.
+    it('runs one bcrypt comparison for an unknown identifier too (#607)', async () => {
+      vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      await expect(authService.login(loginData, deviceInfo)).rejects.toThrow('INVALID_CREDENTIALS');
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(bcrypt.compare).mock.calls[0][0]).toBe(loginData.password);
+    });
+
+    it('runs one bcrypt comparison for a deactivated account, and still refuses the right password (#607)', async () => {
+      vi.mocked(prisma.user.findFirst).mockResolvedValue({ ...mockUser, isActive: false });
+      vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+
+      await expect(authService.login(loginData, deviceInfo)).rejects.toThrow('ACCOUNT_DEACTIVATED');
+      expect(bcrypt.compare).toHaveBeenCalledTimes(1);
+    });
   });
 
   // ISSUE_045: minting a trusted device (a lasting 2FA bypass) previously

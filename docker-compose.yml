@@ -62,7 +62,8 @@ services:
     # NEXT_PUBLIC_API_URL above), so this port doesn't need to be reachable
     # from the host or the LAN. `expose` keeps it reachable from the `web`
     # container over the compose network without publishing it externally;
-    # kept as `ports` in docker-compose.dev.yml, where direct access is useful.
+    # kept as `ports` (loopback only) in docker-compose.dev.yml, where direct
+    # access is useful.
     expose:
       - "3001"
     volumes:

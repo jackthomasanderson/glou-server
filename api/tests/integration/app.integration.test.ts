@@ -10,7 +10,7 @@ import path from 'node:path';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     user: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
-    session: { findUnique: vi.fn() },
+    session: { findUnique: vi.fn(), update: vi.fn() },
     inventoryItem: { findMany: vi.fn() },
     tastingNote: { findMany: vi.fn(), count: vi.fn() },
     auditLog: { findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
@@ -33,7 +33,7 @@ const app = createApp();
 
 function authToken(overrides: Record<string, unknown> = {}): string {
   return jwt.sign(
-    { userId: 'u1', email: 'u1@example.com', scope: 'full', ...overrides },
+    { userId: 'u1', email: 'u1@example.com', scope: 'full', sessionId: 's1', ...overrides },
     JWT_SECRET,
     { algorithm: 'HS256' },
   );
@@ -43,6 +43,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.JWT_SECRET = JWT_SECRET;
   vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true } as never);
+  vi.mocked(prisma.session.findUnique).mockResolvedValue({ revokedAt: null, expiresAt: new Date(Date.now() + 3_600_000) } as never);
+  vi.mocked(prisma.session.update).mockResolvedValue({} as never);
   vi.mocked(prisma.$queryRaw).mockResolvedValue([{ '?column?': 1 }] as never);
 });
 
@@ -228,6 +230,24 @@ describe('database outage during authentication (#581)', () => {
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  // #608: every token the API issues carries a session; one without it (only
+  // a forged one) would never be checked against the sessions table, so no
+  // "sign out everywhere" could cut it off.
+  it('answers 401 for a full token without a session id, before any database read', async () => {
+    for (const sessionId of [undefined, '']) {
+      const res = await request(app)
+        .get('/api/tastings')
+        .set('Authorization', `Bearer ${authToken({ sessionId })}`);
+      expect(res.status, String(sessionId)).toBe(401);
+      expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
+    }
+    const legacy = jwt.sign({ userId: 'u1', email: 'u1@example.com' }, JWT_SECRET, { algorithm: 'HS256' });
+    const res = await request(app).get('/api/tastings').set('Authorization', `Bearer ${legacy}`);
+    expect(res.status).toBe(401);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.session.findUnique).not.toHaveBeenCalled();
   });
 
   it('still answers 401 TOKEN_INVALID_OR_EXPIRED for a token signed with another secret', async () => {

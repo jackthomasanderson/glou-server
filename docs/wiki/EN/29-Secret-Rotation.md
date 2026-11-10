@@ -58,7 +58,7 @@ openssl rand -base64 32   # DB_PASSWORD
 
 | Symptom | Cause and fix |
 |---|---|
-| The API stops at startup with a `FATAL` line naming `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` | The value is missing, still the `.env.example` placeholder, or (for the key) not 64 hex characters. Fix `.env`, then `docker compose up -d api`. |
+| The API stops at startup with a `FATAL` line naming `JWT_SECRET` or `CONFIG_ENCRYPTION_KEY` | The value is missing, still the `.env.example` placeholder, shorter than 32 characters (`JWT_SECRET`), or (for the key) not 64 hex characters. Fix `.env`, then `docker compose up -d api`. |
 | Emails stop after a restart and the API log shows `Unsupported state or unable to authenticate data` | `CONFIG_ENCRYPTION_KEY` is not the one the data was saved with (for instance after restoring a backup on a host with a different `.env`). Put the old key back, or follow "Rotate `CONFIG_ENCRYPTION_KEY`" step 3 and re-enter the values. |
 | Authenticator codes are refused for every member after a restart or a restore | Same cause: the two-factor secrets were encrypted with another `CONFIG_ENCRYPTION_KEY`. Put the old key back, or have each member sign in with a backup code and set two-factor authentication up again (two backup codes needed, see step 1 of "Rotate `CONFIG_ENCRYPTION_KEY`"). |
 | The API log shows `password authentication failed for user` after editing `DB_PASSWORD` | `.env` was changed but the role's password inside Postgres was not (or the other way around). The two must match. Redo "Rotate `DB_PASSWORD`" step 2, or set `DB_PASSWORD` back to the value Postgres still has. |

@@ -11,7 +11,7 @@ import request from 'supertest';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     user: { findUnique: vi.fn() },
-    session: { findUnique: vi.fn() },
+    session: { findUnique: vi.fn(), update: vi.fn() },
     auditLog: { create: vi.fn() },
     wishlistItem: { findFirst: vi.fn(), update: vi.fn() },
     $queryRaw: vi.fn(),
@@ -25,7 +25,7 @@ import { systemConfigService } from '../../src/services/system-config.service';
 
 const JWT_SECRET = 'integration-test-secret';
 const app = createApp();
-const token = (userId: string) => jwt.sign({ userId, email: `${userId}@example.com`, scope: 'full' }, JWT_SECRET, { algorithm: 'HS256' });
+const token = (userId: string) => jwt.sign({ userId, email: `${userId}@example.com`, scope: 'full', sessionId: 's1' }, JWT_SECRET, { algorithm: 'HS256' });
 
 const member = (id: string) => ({
   id, username: id, email: `${id}@example.com`, isActive: true, isAdmin: false, language: 'EN', notifLanguage: null,
@@ -40,6 +40,9 @@ const spies: Array<{ mockRestore: () => void }> = [];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // #608: every token carries a live session.
+  vi.mocked(prisma.session.findUnique).mockResolvedValue({ revokedAt: null, expiresAt: new Date(Date.now() + 3_600_000) } as never);
+  vi.mocked(prisma.session.update).mockResolvedValue({} as never);
   process.env.JWT_SECRET = JWT_SECRET;
   vi.stubGlobal('fetch', fetchMock);
   fetchMock.mockResolvedValue({ ok: true, status: 200 });

@@ -17,7 +17,7 @@
 | :--- | :--- | :--- |
 | `DB_PASSWORD` | aucun, **obligatoire** | Mot de passe PostgreSQL. `docker compose up` refuse de démarrer sans lui. |
 | `DB_USER` / `DB_NAME` | `glou` / `glou_db` | Rôle et base PostgreSQL. Lus uniquement à la première création du volume `db`. |
-| `JWT_SECRET` | aucun, **obligatoire** | Signe les jetons de session. L'API quitte au démarrage s'il est vide ou égal au placeholder de `.env.example`. |
+| `JWT_SECRET` | aucun, **obligatoire** | Signe les jetons de session. L'API quitte au démarrage s'il est vide, fait moins de 32 caractères ou est égal au placeholder de `.env.example`. |
 | `CONFIG_ENCRYPTION_KEY` | aucun, **obligatoire** | 64 caractères hexadécimaux. Chiffre en base le mot de passe SMTP, le jeton Gotify et les clés d'intégration. Même vérification au démarrage que `JWT_SECRET`. |
 | `NODE_ENV` | `production` | En `development`, les vérifications de secrets se limitent à un avertissement. |
 | `APP_URL` | `http://localhost:3000` | Adresse publique de l'app web. `https://` marque les cookies de session `Secure` et active HSTS ; `http://` ne fait ni l'un ni l'autre. C'est aussi la valeur de repli des liens générés par l'app (voir [Réseau & URL publique](./16-Configuration-Reseau-URL-Publique.md)). |
@@ -42,6 +42,6 @@ Les réglages qui vivent dans l'application plutôt que dans `.env` (SMTP, notif
 | Erreur | Résolution |
 | :--- | :--- |
 | `DB_PASSWORD is not set` | Définissez `DB_PASSWORD` dans `.env`. Il n'y a aucun mot de passe de repli. |
-| L'API affiche `🛑 [startup] FATAL` et quitte | `JWT_SECRET` ou `CONFIG_ENCRYPTION_KEY` est absent, vide, égal au placeholder ou (`CONFIG_ENCRYPTION_KEY`) n'a pas 64 caractères hexadécimaux. |
+| L'API affiche `🛑 [startup] FATAL` et quitte | `JWT_SECRET` ou `CONFIG_ENCRYPTION_KEY` est absent, vide, égal au placeholder, trop court (`JWT_SECRET`, moins de 32 caractères) ou (`CONFIG_ENCRYPTION_KEY`) n'a pas 64 caractères hexadécimaux. |
 | `password authentication failed for user` | `DB_USER`, `DB_PASSWORD` et `DB_NAME` doivent correspondre à ceux de la première création du volume `db`. Changer `DB_PASSWORD` ensuite exige de le changer aussi dans Postgres, voir [Changer les secrets](./29-Rotation-Des-Secrets.md#changer-db_password) ; sinon supprimez le volume `db_data`, ce qui efface toutes les données. |
 | Déconnexion immédiate, ou connexion impossible, en ouvrant Glou par IP | Réglez `APP_URL` sur l'adresse exacte saisie dans le navigateur, puis recréez les conteneurs `api` et `web`. |
