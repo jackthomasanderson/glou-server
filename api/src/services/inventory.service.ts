@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { InventoryPatch, InventoryInput, InventoryDraft } from '../schemas/inventory.schema';
-import { computeAlertStatus, computeReadiness } from './alert.service';
+import { computeReadiness, familyAlertStatus } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
 import { isGroupableItem, unitKind, type UnitKind } from '../lib/finished-item';
@@ -283,10 +283,9 @@ export class InventoryService {
     // that relationship instead of the previous `as unknown as` escape hatch.
     const patch = data as InventoryPatch;
     const dbData = this.mapInputToDb(patch);
-    const alertStatus = computeAlertStatus(
-      patch.peakMaturityFrom ?? undefined,
-      patch.peakMaturityTo ?? undefined,
-    );
+    const alertStatus = familyAlertStatus({
+      category: data.category, peakMaturityFrom: patch.peakMaturityFrom, peakMaturityTo: patch.peakMaturityTo,
+    });
     const extra: Record<string, unknown> = {};
     const unitSources = Object.fromEntries(Object.entries(fieldSources ?? {}).filter(([key]) => !isProductField(key)));
     if (Object.keys(unitSources).length > 0) {

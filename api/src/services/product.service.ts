@@ -9,9 +9,9 @@ import {
 import { fitSlotsTo, reviveSlots, slotsFreed, trashSlots } from '../lib/slots';
 import { peakWindowSchema } from '../schemas/inventory.schema';
 import type { ProductMatchQuery, ProductPatch } from '../schemas/product.schema';
-import { computeAlertStatus, computeReadiness } from './alert.service';
+import { computeReadiness, familyAlertStatus } from './alert.service';
 import { readFieldHistory } from './audit.service';
-import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
+import { DRINKING_WINDOW_FIELDS, hasDrinkingWindow, TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
   PRODUCT_LIST_LIMIT,
   type FieldChange, type ItemView, type ProductCollection, type ProductDetail, type ProductList,
@@ -106,6 +106,9 @@ export interface FamilyWriteOptions {
   unitPatch?: { ids: readonly string[]; columns: Record<string, unknown> };
 }
 
+/** #593: a field of the drinking window, which a spirit or a cigar does not have. */
+const isWindowField = (field: string) => (DRINKING_WINDOW_FIELDS as readonly string[]).includes(field);
+
 /**
  * #471: writes description fields of a family inside the caller's
  * transaction, from the family as it is once locked (see {@link lockFamily}):
@@ -128,6 +131,19 @@ export async function writeFamilyDescription(
       && !(options.respectLocks && current.lockedFields.includes(field))),
   ) as Partial<Record<ProductField, unknown>>;
 
+  // #593: a spirit or a cigar has no drinking window (the form offers none):
+  // the one a wine had is cleared when it becomes one, and none is written
+  // on it, nor locked or tagged with a source. Its bottles, their number
+  // included, are left as they are.
+  const category = (fields.category ?? current.category) as Product['category'];
+  const windowless = !hasDrinkingWindow(category);
+  if (windowless) {
+    for (const field of DRINKING_WINDOW_FIELDS) {
+      if (current[field] == null) delete fields[field];
+      else fields[field] = null;
+    }
+  }
+
   const stored = current as unknown as Record<string, unknown>;
   const changes = Object.entries(fields)
     .filter(([field, value]) => JSON.stringify(stored[field]) !== JSON.stringify(value))
@@ -137,18 +153,28 @@ export async function writeFamilyDescription(
     ? Object.fromEntries(changes.map(({ field, to }) => [field, to]))
     : { ...fields }) as ProductWrite;
   Object.assign(data, nextLocksAndSources(current, isProductField, {
-    touched: options.touched ?? Object.keys(patch),
+    touched: (options.touched ?? Object.keys(patch)).filter((field) => !(windowless && isWindowField(field))),
     fieldSources: options.fieldSources,
     isManualEdit: options.isManualEdit,
     autoLock: options.autoLock,
   }));
+  if (windowless) {
+    // A stale lock would keep a lock-respecting writer off the window if the
+    // family became a wine again; a stale source would mislabel it.
+    const locks = data.lockedFields as string[] | undefined ?? current.lockedFields;
+    if (locks.some(isWindowField)) data.lockedFields = locks.filter((field) => !isWindowField(field));
+    const sources = (data.fieldSources as Record<string, string> | undefined) ?? fieldSourcesOf(current.fieldSources);
+    if (Object.keys(sources).some(isWindowField)) {
+      data.fieldSources = Object.fromEntries(Object.entries(sources).filter(([field]) => !isWindowField(field)));
+    }
+  }
 
   const from = ('peakMaturityFrom' in fields ? fields.peakMaturityFrom : current.peakMaturityFrom) as number | null | undefined;
   const to = ('peakMaturityTo' in fields ? fields.peakMaturityTo : current.peakMaturityTo) as number | null | undefined;
   if ('peakMaturityFrom' in fields || 'peakMaturityTo' in fields) {
     peakWindowSchema.parse({ peakMaturityFrom: from, peakMaturityTo: to });
   }
-  const alertStatus = computeAlertStatus(from, to);
+  const alertStatus = familyAlertStatus({ category, peakMaturityFrom: from, peakMaturityTo: to });
   if (alertStatus !== current.alertStatus) data.alertStatus = alertStatus;
 
   if (Object.keys(data).length === 0) return { product: current, changes, unitSlotChanges: [] };
@@ -158,8 +184,7 @@ export async function writeFamilyDescription(
   // freed, the most recently placed first (automatic rule, decision #471
   // point 75: a description edit does not show the plan).
   const unitSlotChanges: UnitSlotChanges[] = [];
-  const category = fields.category as Product['category'] | undefined;
-  if (category !== undefined && category !== current.category) {
+  if (category !== current.category) {
     const units = await tx.inventoryItem.findMany({ where: { productId, deletedAt: null } });
     for (const unit of units) {
       const written = options.unitPatch?.ids.includes(unit.id) ? { ...unit, ...options.unitPatch.columns } as typeof unit : unit;

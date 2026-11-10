@@ -1,7 +1,7 @@
 import type { ItemSlotView, SlotCell, SlotChoiceFields } from '@shared/product';
 import { z } from 'zod';
 import {
-  ALERT_STATUSES, CATEGORY_VALUES, CURVE_SHAPES,
+  ALERT_STATUSES, ALERT_URGENCY_ORDER, CATEGORY_VALUES, CURVE_SHAPES,
   type AlertStatus, type CurveShape, type FieldSource, type InventoryCategory,
 } from '@shared/inventory';
 
@@ -14,6 +14,11 @@ import {
 // 'enrichment' value (a lookup never built, #74) was removed.
 export { CATEGORY_VALUES };
 export type { AlertStatus, CurveShape, FieldSource, InventoryCategory };
+
+/** #644: rank of a status in the shared ALERT_URGENCY_ORDER; a missing or unknown status ranks with 'none'. */
+export function alertUrgency(status: string | null | undefined): number {
+  return ALERT_URGENCY_ORDER[status as AlertStatus] ?? ALERT_URGENCY_ORDER.none;
+}
 
 export interface CollectionSummary {
   id: string;

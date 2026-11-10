@@ -72,6 +72,29 @@ describe('filterProducts — other filters on wines', () => {
     expect(ids({ openedFilter: 'alerts' }, list, { ...ctx, today: null })).toEqual([]);
   });
 
+  it('#644: "alerts" keeps due reminders and wines at or past their peak, not the ones still approaching', () => {
+    const list = [
+      product({ id: 'approaching', alertStatus: 'approaching' }),
+      product({ id: 'peak', alertStatus: 'peak' }),
+      product({ id: 'past', alertStatus: 'past' }),
+      product({ id: 'none', alertStatus: 'none' }),
+      product({ id: 'approaching-due', alertStatus: 'approaching', reminderDate: '2026-10-31' }),
+      product({ id: 'reminder-later', reminderDate: '2026-11-01' }),
+    ];
+    expect(ids({ openedFilter: 'alerts' }, list)).toEqual(['peak', 'past', 'approaching-due']);
+  });
+
+  it('#644: the "urgency" sort lists past, then peak, then approaching, then the rest', () => {
+    const list = [
+      product({ id: 'none', alertStatus: 'none' }),
+      product({ id: 'approaching', alertStatus: 'approaching' }),
+      product({ id: 'unknown', alertStatus: null }),
+      product({ id: 'peak', alertStatus: 'peak' }),
+      product({ id: 'past', alertStatus: 'past' }),
+    ];
+    expect(ids({ sortBy: 'urgency' }, list)).toEqual(['past', 'peak', 'approaching', 'none', 'unknown']);
+  });
+
   it('the value range reads the value of one bottle', () => {
     expect(ids({ minValue: '50' })).toEqual(['opened']);
     expect(ids({ maxValue: '25' })).toEqual(['stock']);

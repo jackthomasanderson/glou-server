@@ -92,6 +92,7 @@ function scanned(overrides: Record<string, unknown> = {}) {
     id: 'p-b1',
     name: 'Chambertin',
     producer: 'Domaine X',
+    category: 'wine',
     vintage: 2020,
     alertStatus: 'approaching',
     alertsPaused: false,
@@ -125,6 +126,8 @@ describe('getAlerts', () => {
     expect(where).toEqual({
       deletedAt: null,
       alertsPaused: false,
+      // #593: only a wine or a sparkling wine has a drinking window.
+      category: { in: ['wine', 'sparkling'] },
       OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
       // #573 + FEAT-87 + #471: something left to drink — a unit in stock (not
       // finished, not written off, not a reference, not in the trash).
@@ -156,6 +159,19 @@ describe('getAlerts', () => {
     const alerts = await getAlerts();
 
     expect(alerts.map((a) => a.id)).toEqual(['past', 'peak', 'approaching']);
+  });
+
+  // #593: a whisky first saved as a wine keeps the window it was given then.
+  it('drops a spirit or a cigar still carrying a drinking window', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      family({ id: 'p-spirit', category: 'spirit', items: [{ id: 'spirit', cellarId: null }] }),
+      family({ id: 'p-cigar', category: 'cigar', items: [{ id: 'cigar', cellarId: null }] }),
+      family({ id: 'p-sparkling', category: 'sparkling', items: [{ id: 'sparkling', cellarId: null }] }),
+    ] as never);
+
+    const alerts = await getAlerts();
+
+    expect(alerts.map((a) => a.id)).toEqual(['sparkling']);
   });
 
   // #471 (FEAT-96 c4): a wine of 9 bottles in 3 groups is one alert.
@@ -200,7 +216,27 @@ describe('recomputeAlertStatuses', () => {
       deletedAt: null,
       OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
     });
-    expect(select).toMatchObject({ items: { where: IN_STOCK, select: { id: true }, take: 1 } });
+    expect(select).toMatchObject({ category: true, items: { where: IN_STOCK, select: { id: true }, take: 1 } });
+  });
+
+  // #593: the stored status of a spirit made from a wine is set back to
+  // 'none' (the card, the "alerts" filter and the SQL consumers read it),
+  // and nobody is told it reached its peak.
+  it('sets a spirit or a cigar carrying a drinking window back to no alert, without notifying', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([
+      scanned({ id: 'p-spirit', category: 'spirit', alertStatus: 'peak' }),
+      scanned({ id: 'p-cigar', category: 'cigar', alertStatus: 'approaching' }),
+      scanned({ id: 'p-done', category: 'spirit', alertStatus: 'none' }),
+    ] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', language: 'EN', notifLanguage: null }] as never);
+
+    const result = await recomputeAlertStatuses();
+    await flush();
+
+    expect(result).toEqual({ scanned: 3, updated: 2 });
+    expect(writeAlertStatus).toHaveBeenCalledWith(prisma, 'p-spirit', 'none');
+    expect(writeAlertStatus).toHaveBeenCalledWith(prisma, 'p-cigar', 'none');
+    expect(send).not.toHaveBeenCalled();
   });
 
   // #471 (FEAT-96 c4, plan report C): a wine of 9 bottles in 3 groups used to
@@ -216,6 +252,23 @@ describe('recomputeAlertStatuses', () => {
     expect(writeAlertStatus).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0]?.[0].subject).toBe('At peak maturity: Chambertin — Domaine X (2020)');
+  });
+
+  // #644: the message about one wine opens that wine.
+  it('links the single-wine message to the wine itself', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([scanned({ id: 'p 1' })] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([
+      { id: 'u1', language: 'EN', notifLanguage: null },
+      { id: 'u2', language: 'FR', notifLanguage: null },
+    ] as never);
+
+    await recomputeAlertStatuses();
+    await flush();
+
+    const en = send.mock.calls.find((c) => c[0].userId === 'u1')?.[0];
+    const fr = send.mock.calls.find((c) => c[0].userId === 'u2')?.[0];
+    expect(en.htmlBody).toContain('<a href="https://glou.test/bottles?scan=p%201">See it in Glou</a>');
+    expect(fr.htmlBody).toContain('<a href="https://glou.test/bottles?scan=p%201">La voir dans Glou</a>');
   });
 
   // #338: the 'peak' notification category previously had no emitter at all.
@@ -246,7 +299,9 @@ describe('recomputeAlertStatuses', () => {
       await flush();
 
       const body = send.mock.calls[0]?.[0].htmlBody as string;
-      expect(body).not.toContain('<a href');
+      // #644: the one link is the app's own, to the wine.
+      expect(body).not.toContain('<a href="https://evil');
+      expect(body.match(/<a href/g)).toHaveLength(1);
       expect(body).toContain('&lt;a href=&quot;https://evil.example&quot;&gt;');
     });
 

@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
-import { getAlerts, computeAlertStatus, computeReadiness } from './alert.service';
+import { getAlerts, computeReadiness, familyAlertStatus } from './alert.service';
 import { CurveShape } from '../lib/maturity-curve';
 import { SetGoalInput } from '../schemas/consumption-plan.schema';
 import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
@@ -75,8 +75,8 @@ const SUGGESTION_SELECT = {
 
 type SourceItem = Prisma.InventoryItemGetPayload<{ select: typeof SUGGESTION_SELECT }>;
 
-// Lower weight = surfaced first. 'past'/'peak'/'approaching' mirror
-// alert.service.ts's urgency order; 'opened' bottles are prioritized above
+// Lower weight = surfaced first. 'past'/'peak'/'approaching' follow the
+// shared ALERT_URGENCY_ORDER (shared/inventory.ts, #644); 'opened' bottles are prioritized above
 // 'approaching' (finish what's started) but below anything already at/past
 // its peak; 'rotation' fillers come last (see getSuggestions step 3).
 const REASON_WEIGHT: Record<string, number> = {
@@ -107,7 +107,7 @@ function toSuggestion(item: SourceItem, reason: SuggestionReason): ConsumptionSu
     // Computed on read, never read back from the denormalised column: that
     // column is only refreshed on edit and on the daily maintenance pass, so
     // it can lag behind the current year (ISSUE_033).
-    alertStatus: computeAlertStatus(product.peakMaturityFrom, product.peakMaturityTo),
+    alertStatus: familyAlertStatus(product),
     isOpened: item.isOpened,
     fillLevel: item.fillLevel,
     cigarsLeft: item.cigarsLeft,

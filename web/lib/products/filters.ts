@@ -1,4 +1,5 @@
 import { summarizeStock, unitKind, type StockSummary } from '@shared/units';
+import { alertUrgency } from '@/lib/inventory/types';
 import type { Product } from './types';
 
 export type InventorySortBy = 'default' | 'value' | 'urgency' | 'name';
@@ -123,9 +124,11 @@ export function filterProducts(
     const today = ctx.today;
     if (today === null) return [];
     // #573: a wine with nothing left is nothing to drink: no alert, no reminder.
+    // #644: as in the bell (#506), only what calls for action now: a wine
+    // "approaching" its window may be years away, it is not an alert yet.
     keep((p) => !isGone(p) && (
       (!!p.reminderDate && p.reminderDate.split('T')[0] <= today) ||
-      (!!p.alertStatus && p.alertStatus !== 'none' && !p.alertsPaused)));
+      ((p.alertStatus === 'peak' || p.alertStatus === 'past') && !p.alertsPaused)));
   }
 
   if (criteria.searchQuery.trim()) keep((p) => matchesSearch(p, criteria.searchQuery, ctx));
@@ -133,9 +136,7 @@ export function filterProducts(
   if (criteria.sortBy === 'value') {
     result = [...result].sort((a, b) => stockSummaryOf(b).value - stockSummaryOf(a).value);
   } else if (criteria.sortBy === 'urgency') {
-    const urgencyOrder: Record<string, number> = { past: 0, approaching: 1, peak: 2, none: 3 };
-    result = [...result].sort((a, b) =>
-      (urgencyOrder[a.alertStatus ?? 'none'] ?? 3) - (urgencyOrder[b.alertStatus ?? 'none'] ?? 3));
+    result = [...result].sort((a, b) => alertUrgency(a.alertStatus) - alertUrgency(b.alertStatus));
   } else if (criteria.sortBy === 'name') {
     result = [...result].sort((a, b) => a.name.localeCompare(b.name));
   }
