@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { NotificationPrefs, NotificationPrefsPatch } from '@/lib/config/client';
 import { notifyError, notifySuccess } from '@/lib/toast';
@@ -29,14 +29,17 @@ vi.mock('@heroui/react', () => {
       <input type="checkbox" role="switch" aria-label={label} checked={!!isSelected} onChange={(e) => onValueChange?.(e.target.checked)} />
     ),
     Chip: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
-    Checkbox: ({ children, isSelected, isDisabled, onValueChange, 'aria-describedby': describedBy }: {
-      children?: ReactNode; isSelected?: boolean; isDisabled?: boolean; onValueChange?: (v: boolean) => void; 'aria-describedby'?: string;
-    }) => (
-      <label>
-        <input type="checkbox" checked={!!isSelected} disabled={isDisabled} aria-describedby={describedBy} onChange={(e) => onValueChange?.(e.target.checked)} />
-        {children}
-      </label>
-    ),
+    // Like HeroUI: the ref is the <input>; aria-describedby is not forwarded to it.
+    Checkbox: forwardRef<HTMLInputElement, {
+      children?: ReactNode; isSelected?: boolean; isDisabled?: boolean; onValueChange?: (v: boolean) => void;
+    }>(function Checkbox({ children, isSelected, isDisabled, onValueChange }, ref) {
+      return (
+        <label>
+          <input ref={ref} type="checkbox" checked={!!isSelected} disabled={isDisabled} onChange={(e) => onValueChange?.(e.target.checked)} />
+          {children}
+        </label>
+      );
+    }),
     Skeleton: () => <div />,
     Card: Box,
     CardBody: Box,
@@ -45,7 +48,7 @@ vi.mock('@heroui/react', () => {
   };
 });
 
-import { NotificationPreferences } from '../NotificationPreferences';
+import { NotificationPreferences, sameClock } from '../NotificationPreferences';
 
 const ALL = ['peak', 'temperature', 'security', 'wishlist', 'backup'];
 
@@ -173,7 +176,13 @@ describe('NotificationPreferences quiet hours (#575, #772)', () => {
     await renderWith([]);
     expect(screen.getByText('notifications.quietHours.droppedLead')).toBeInTheDocument();
     expect(screen.getByText('notifications.quietHours.dropped')).toBeInTheDocument();
+    expect(screen.getByText('notifications.quietHours.detailsAdmin')).toBeInTheDocument();
+  });
+
+  it('does not tell a member about backup failures', async () => {
+    await renderWith([], { categories: ['peak', 'temperature', 'security', 'wishlist'] });
     expect(screen.getByText('notifications.quietHours.details')).toBeInTheDocument();
+    expect(screen.queryByText('notifications.quietHours.detailsAdmin')).not.toBeInTheDocument();
   });
 
   it('names the instance time zone, without a warning when the device is in it', async () => {
@@ -312,5 +321,20 @@ describe('NotificationPreferences — channels (#671)', () => {
     expect(await screen.findByText('notifications.channels.email')).toBeInTheDocument();
     expect(screen.queryByText('notifications.channels.inApp')).toBeNull();
     expect(screen.getAllByRole('switch')).toHaveLength(2);
+  });
+});
+
+// #772 review: zones compared at one instant hid a difference that only
+// shows in summer (or winter) for half the year.
+describe('sameClock (#772)', () => {
+  const winter = new Date(Date.UTC(2026, 0, 20));
+  it('tells apart zones that share their offset only part of the year', () => {
+    expect(sameClock('UTC', 'Europe/London', winter)).toBe(false);
+  });
+  it('treats zones with the same clock all year as the same', () => {
+    expect(sameClock('Europe/Paris', 'Europe/Brussels', winter)).toBe(true);
+  });
+  it('does not warn on an unknown zone name', () => {
+    expect(sameClock('Not/AZone', 'Europe/Paris', winter)).toBe(true);
   });
 });

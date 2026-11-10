@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useId } from 'react';
+import React, { useCallback, useState, useId, type ComponentProps } from 'react';
 import Link from 'next/link';
 import { Button, Checkbox, Switch, Chip, Skeleton, SelectItem } from '@heroui/react';
 import { Bell, Globe, Loader2 } from 'lucide-react';
@@ -35,14 +35,33 @@ function toggledCategories(stored: string[], offered: NotificationCategory[], ca
   return next.length === offered.length ? [] : next;
 }
 
-/** #772: whether two time zones show the same date and time right now. */
-function sameClock(a: string, b: string, now = new Date()): boolean {
+/**
+ * #772: whether two time zones read the same clock all year: compared in
+ * mid-January and mid-July, so a zone that differs only in summer (or only in
+ * winter) is still told apart, while Paris and Brussels are not.
+ */
+export function sameClock(a: string, b: string, now = new Date()): boolean {
   try {
-    const at = (timeZone: string) => new Intl.DateTimeFormat('en-GB', { timeZone, dateStyle: 'short', timeStyle: 'short' }).format(now);
-    return at(a) === at(b);
+    const year = now.getUTCFullYear();
+    const at = (timeZone: string, date: Date) => new Intl.DateTimeFormat('en-GB', { timeZone, dateStyle: 'short', timeStyle: 'short' }).format(date);
+    return [Date.UTC(year, 0, 15, 12), Date.UTC(year, 6, 15, 12)].every((ms) => at(a, new Date(ms)) === at(b, new Date(ms)));
   } catch {
     return true; // an unknown zone name: nothing reliable to warn about
   }
+}
+
+/**
+ * HeroUI's Checkbox puts `aria-describedby` on its wrapping <label>, where
+ * screen readers ignore it (#780 review); its ref is the <input>, so the
+ * description is set there.
+ */
+function DescribedCheckbox({ describedBy, ...props }: ComponentProps<typeof Checkbox> & { describedBy?: string }) {
+  const describe = useCallback((input: HTMLInputElement | null) => {
+    if (!input) return;
+    if (describedBy) input.setAttribute('aria-describedby', describedBy);
+    else input.removeAttribute('aria-describedby');
+  }, [describedBy]);
+  return <Checkbox {...props} ref={describe} />;
 }
 
 /**
@@ -198,15 +217,15 @@ export function NotificationPreferences() {
             const describedBy = [isLastOn && categoriesHintId, backupOff && backupOffId].filter(Boolean).join(' ') || undefined;
             return (
               <div key={cat} className="flex flex-col gap-0.5">
-                <Checkbox
+                <DescribedCheckbox
                   size="sm"
                   isSelected={enabled}
                   isDisabled={isLastOn}
-                  aria-describedby={describedBy}
+                  describedBy={describedBy}
                   onValueChange={() => { if (!isLastOn) void toggleCategory(cat); }}
                 >
                   <span className="text-sm">{t(`notifications.categories.${cat}`)}</span>
-                </Checkbox>
+                </DescribedCheckbox>
                 {backupOff && (
                   <p id={backupOffId} className="text-xs text-foreground-500 ps-7">{t('notifications.categories.backupAutomaticOff')}</p>
                 )}
@@ -228,7 +247,7 @@ export function NotificationPreferences() {
           <strong className="font-semibold">{t('notifications.quietHours.droppedLead')}</strong>{' '}
           <span>{t('notifications.quietHours.dropped')}</span>
         </p>
-        <p className="text-xs text-foreground-500">{t('notifications.quietHours.details', { hour: DAILY_ALERTS_HOUR })}</p>
+        <p className="text-xs text-foreground-500">{t(categories.includes('backup') ? 'notifications.quietHours.detailsAdmin' : 'notifications.quietHours.details', { hour: DAILY_ALERTS_HOUR })}</p>
         <p className="flex items-start gap-1.5 text-xs text-foreground-500">
           <Globe size={14} className="shrink-0 mt-px" aria-hidden />
           <span>
