@@ -9,9 +9,9 @@ import {
 import { fitSlotsTo, reviveSlots, slotsFreed, trashSlots } from '../lib/slots';
 import { peakWindowSchema } from '../schemas/inventory.schema';
 import type { ProductMatchQuery, ProductPatch } from '../schemas/product.schema';
-import { computeReadiness, familyAlertStatus, hasDrinkingWindow } from './alert.service';
+import { computeReadiness, familyAlertStatus } from './alert.service';
 import { readFieldHistory } from './audit.service';
-import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
+import { DRINKING_WINDOW_FIELDS, hasDrinkingWindow, TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
   PRODUCT_LIST_LIMIT,
   type FieldChange, type ItemView, type ProductCollection, type ProductDetail, type ProductList,
@@ -106,8 +106,8 @@ export interface FamilyWriteOptions {
   unitPatch?: { ids: readonly string[]; columns: Record<string, unknown> };
 }
 
-/** #593: the family fields of a drinking window, cleared on a category without one. */
-const DRINKING_WINDOW_FIELDS = ['peakMaturityFrom', 'peakMaturityTo', 'curveShape'] as const satisfies readonly ProductField[];
+/** #593: a field of the drinking window, which a spirit or a cigar does not have. */
+const isWindowField = (field: string) => (DRINKING_WINDOW_FIELDS as readonly string[]).includes(field);
 
 /**
  * #471: writes description fields of a family inside the caller's
@@ -133,9 +133,11 @@ export async function writeFamilyDescription(
 
   // #593: a spirit or a cigar has no drinking window (the form offers none):
   // the one a wine had is cleared when it becomes one, and none is written
-  // on it. Its bottles, their number included, are left as they are.
+  // on it, nor locked or tagged with a source. Its bottles, their number
+  // included, are left as they are.
   const category = (fields.category ?? current.category) as Product['category'];
-  if (!hasDrinkingWindow(category)) {
+  const windowless = !hasDrinkingWindow(category);
+  if (windowless) {
     for (const field of DRINKING_WINDOW_FIELDS) {
       if (current[field] == null) delete fields[field];
       else fields[field] = null;
@@ -151,11 +153,21 @@ export async function writeFamilyDescription(
     ? Object.fromEntries(changes.map(({ field, to }) => [field, to]))
     : { ...fields }) as ProductWrite;
   Object.assign(data, nextLocksAndSources(current, isProductField, {
-    touched: options.touched ?? Object.keys(patch),
+    touched: (options.touched ?? Object.keys(patch)).filter((field) => !(windowless && isWindowField(field))),
     fieldSources: options.fieldSources,
     isManualEdit: options.isManualEdit,
     autoLock: options.autoLock,
   }));
+  if (windowless) {
+    // A stale lock would keep a lock-respecting writer off the window if the
+    // family became a wine again; a stale source would mislabel it.
+    const locks = data.lockedFields as string[] | undefined ?? current.lockedFields;
+    if (locks.some(isWindowField)) data.lockedFields = locks.filter((field) => !isWindowField(field));
+    const sources = (data.fieldSources as Record<string, string> | undefined) ?? fieldSourcesOf(current.fieldSources);
+    if (Object.keys(sources).some(isWindowField)) {
+      data.fieldSources = Object.fromEntries(Object.entries(sources).filter(([field]) => !isWindowField(field)));
+    }
+  }
 
   const from = ('peakMaturityFrom' in fields ? fields.peakMaturityFrom : current.peakMaturityFrom) as number | null | undefined;
   const to = ('peakMaturityTo' in fields ? fields.peakMaturityTo : current.peakMaturityTo) as number | null | undefined;

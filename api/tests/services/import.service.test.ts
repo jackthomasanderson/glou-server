@@ -563,6 +563,22 @@ describe('FEAT-99 export: nothing lost on the way back', () => {
     });
   });
 
+  // #593: a spirit or a cigar has no drinking window, even from a "drink from" column.
+  it('creates a spirit or a cigar without the drinking window of its row, and without an alert', async () => {
+    const year = new Date().getFullYear();
+    await importService.confirmImport('u1', [
+      row({ name: 'Lagavulin 16', category: 'spirit', vintage: undefined, alcoholDegree: 43, peakMaturityFrom: year - 1, peakMaturityTo: year + 3 }),
+      row({ name: 'Robusto', category: 'cigar', vintage: undefined, peakMaturityFrom: year - 1, peakMaturityTo: year + 3 }),
+    ], null);
+    expect(db.products).toHaveLength(2);
+    for (const family of db.products) {
+      expect(family).not.toHaveProperty('peakMaturityFrom');
+      expect(family).not.toHaveProperty('peakMaturityTo');
+      expect(family).toMatchObject({ alertStatus: 'none' });
+      expect(family.fieldSources).not.toHaveProperty('peakMaturityFrom');
+    }
+  });
+
   it('reads the new columns with their English and French headers, lists split on |', () => {
     const { valid, errors } = importService.previewCsv(csv([
       "Nom;Producteur;Catégorie;Lieu d'achat;Emplacement;Valeur estimée;Date d'ouverture;Entamée;À vérifier;Couleur;Cépages;Étiquettes;Notes",

@@ -6,6 +6,7 @@ import { IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
 import { escapeHtml } from '../lib/html';
 import { systemConfigService } from './system-config.service';
 import { lockFamily, writeAlertStatus, writeProductFields } from '../lib/product-fields';
+import { ALERT_URGENCY_ORDER, DRINKING_WINDOW_CATEGORIES, hasDrinkingWindow } from '../../../shared/inventory';
 
 export type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
 
@@ -30,17 +31,10 @@ export function computeAlertStatus(
 }
 
 /**
- * #593: the categories that have a drinking window — the form only offers
- * one for them. A spirit or a cigar first saved as a wine may still carry the
- * window it was given then: it never makes an alert, an e-mail nor a
- * consumption-plan suggestion.
+ * {@link computeAlertStatus} of a family: 'none' for a category without a
+ * drinking window (#593) — a spirit or a cigar first saved as a wine may
+ * still carry the window it was given then.
  */
-export const DRINKING_WINDOW_CATEGORIES = ['wine', 'sparkling'] as const;
-
-export const hasDrinkingWindow = (category: string): boolean =>
-  (DRINKING_WINDOW_CATEGORIES as readonly string[]).includes(category);
-
-/** {@link computeAlertStatus} of a family: 'none' for a category without a drinking window (#593). */
 export function familyAlertStatus(family: {
   category: string;
   peakMaturityFrom: number | null | undefined;
@@ -138,7 +132,6 @@ export async function getAlerts() {
     },
   });
 
-  const urgencyOrder: Record<AlertStatus, number> = { past: 0, peak: 1, approaching: 2, none: 3 };
   return families
     .filter((family) => family.items.length > 0)
     .map(({ items: [unit], id: productId, ...family }) => ({
@@ -150,7 +143,7 @@ export async function getAlerts() {
       readiness: computeReadiness(family.curveShape, family.peakMaturityFrom, family.peakMaturityTo),
     }))
     .filter((alert) => alert.alertStatus !== 'none')
-    .sort((a, b) => urgencyOrder[a.alertStatus] - urgencyOrder[b.alertStatus]);
+    .sort((a, b) => ALERT_URGENCY_ORDER[a.alertStatus] - ALERT_URGENCY_ORDER[b.alertStatus]);
 }
 
 export interface AlertStatusRecomputeResult {

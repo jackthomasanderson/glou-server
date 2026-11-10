@@ -350,6 +350,20 @@ describe('productService.updateDescription (FEAT-92 c4)', () => {
     }
   });
 
+  it('#593: drops the locks and sources of the cleared window, the others kept', async () => {
+    vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({
+      peakMaturityFrom: 2026, peakMaturityTo: 2030,
+      lockedFields: ['region', 'peakMaturityFrom'], fieldSources: { region: 'ocr', peakMaturityTo: 'import_csv' },
+    }) as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await productService.updateDescription('u2', 'p1', { category: 'spirit', peakMaturityTo: 2031 });
+
+    const { data } = vi.mocked(prisma.product.update).mock.calls[0][0];
+    expect(data.lockedFields).toEqual(['region', 'category']);
+    expect(data.fieldSources).toEqual({ region: 'ocr' });
+  });
+
   it('#593: writes no drinking window on a spirit, and keeps it on a wine made a sparkling wine', async () => {
     vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({ category: 'spirit' }) as never);
     await productService.updateDescription('u2', 'p1', { region: 'Islay', peakMaturityFrom: 2026, peakMaturityTo: 2030 });

@@ -75,8 +75,8 @@ const SUGGESTION_SELECT = {
 
 type SourceItem = Prisma.InventoryItemGetPayload<{ select: typeof SUGGESTION_SELECT }>;
 
-// Lower weight = surfaced first. 'past'/'peak'/'approaching' mirror the
-// urgency order of `getAlerts` in alert.service.ts, the reference (#644); 'opened' bottles are prioritized above
+// Lower weight = surfaced first. 'past'/'peak'/'approaching' follow the
+// shared ALERT_URGENCY_ORDER (shared/inventory.ts, #644); 'opened' bottles are prioritized above
 // 'approaching' (finish what's started) but below anything already at/past
 // its peak; 'rotation' fillers come last (see getSuggestions step 3).
 const REASON_WEIGHT: Record<string, number> = {

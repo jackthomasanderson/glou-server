@@ -5,7 +5,8 @@ import { parseCsv } from '../lib/csv';
 import { lockFamilies, purchaseDayToDate, todayAsPurchaseDate } from '../lib/product-fields';
 import { csvRawRowSchema, normalizeCsvToken, toOpened } from '../schemas/import.schema';
 import { MAX_COPIES } from '../schemas/stock.schema';
-import { computeAlertStatus } from './alert.service';
+import { familyAlertStatus } from './alert.service';
+import { DRINKING_WINDOW_FIELDS, hasDrinkingWindow } from '../../../shared/inventory';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import { addCopies, type CopiesOptions, type OpenedState } from './stock.service';
 import {
@@ -399,7 +400,11 @@ export class ImportService {
    */
   private async createFamily(tx: PrismaClientOrTx, userId: string, row: CsvImportRow): Promise<Product> {
     const { vintage, format } = csvRowFamily(row);
-    const { batchDate, disgorgingDate, ...described } = pickFamilyFields(row);
+    const { batchDate, disgorgingDate, ...picked } = pickFamilyFields(row);
+    // #593: a spirit or a cigar has no drinking window, whatever its row says.
+    const described = hasDrinkingWindow(row.category)
+      ? picked
+      : Object.fromEntries(Object.entries(picked).filter(([key]) => !(DRINKING_WINDOW_FIELDS as readonly string[]).includes(key)));
     const description = {
       name: row.name,
       producer: row.producer,
@@ -416,7 +421,7 @@ export class ImportService {
         userId,
         category: row.category,
         ...description,
-        alertStatus: computeAlertStatus(row.peakMaturityFrom, row.peakMaturityTo),
+        alertStatus: familyAlertStatus({ category: row.category, peakMaturityFrom: row.peakMaturityFrom, peakMaturityTo: row.peakMaturityTo }),
         fieldSources: Object.fromEntries(Object.keys(description).map((field) => [field, 'import_csv'])),
       },
     });
