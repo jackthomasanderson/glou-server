@@ -2,10 +2,10 @@
 import React, { useState } from 'react';
 import {
   Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Divider, CircularProgress,
+  Divider, CircularProgress, Chip,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   useGenerate2fa, useTurnOn2fa, useTurnOff2fa, useBackupCodesCount, useRegenerateBackupCodes, PublicUser, useMe,
@@ -102,7 +102,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   };
 
   return (
-    <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+    <div className="bg-content1 border border-divider rounded-2xl p-6">
       <div className="flex items-center gap-3 mb-5">
         <ShieldCheck size={20} className="text-primary" />
         <h2 className="text-base font-semibold">{t('profile.twoFactor.title')}</h2>
@@ -113,15 +113,27 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
           {t('profile.twoFactor.description')}
         </p>
 
-        <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
-          <p className="text-sm font-medium">
-            {t('profile.twoFactor.status')} :{' '}
-            {user.isTwoFactorEnabled ? (
-              <span className="text-success-700 font-bold">{t('profile.twoFactor.enabled')}</span>
-            ) : (
-              <span className="text-foreground-400">{t('profile.twoFactor.disabled')}</span>
+        <div className="flex items-center justify-between gap-3 p-3 bg-default-50 rounded-xl">
+          <div className="flex flex-col gap-1">
+            <div className="text-sm font-medium flex flex-wrap items-center gap-2">
+              {t('profile.twoFactor.status')}
+              {/* #770: colour + icon + text; the -800 shades keep the light-theme text above 4.5:1 on the flat chip. */}
+              {user.isTwoFactorEnabled ? (
+                <Chip size="sm" variant="flat" color="success" startContent={<ShieldCheck size={14} />}
+                  classNames={{ base: 'text-success-800 dark:text-success', content: 'font-semibold' }}>
+                  {t('profile.twoFactor.enabled')}
+                </Chip>
+              ) : (
+                <Chip size="sm" variant="flat" color="warning" startContent={<ShieldAlert size={14} />}
+                  classNames={{ base: 'text-warning-800 dark:text-warning', content: 'font-semibold' }}>
+                  {t('profile.twoFactor.disabled')}
+                </Chip>
+              )}
+            </div>
+            {user.isAdmin && !user.isTwoFactorEnabled && (
+              <p className="text-xs text-foreground-500">{t('profile.twoFactor.adminRecommended')}</p>
             )}
-          </p>
+          </div>
           {!user.isTwoFactorEnabled ? (
             <Button color="primary" variant="solid" size="sm" onPress={handleStartEnable}>
               {t('profile.twoFactor.enable')}
