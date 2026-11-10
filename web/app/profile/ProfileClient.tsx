@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Input, SelectItem, Switch, CircularProgress } from '@heroui/react';
 import { User, Settings, ShieldCheck, Compass, FlaskConical, LogOut } from 'lucide-react';
 import Link from 'next/link';
@@ -22,6 +22,10 @@ import { ACCENT_PRESETS, DEFAULT_ACCENT, resolveAccentPreset } from '@/lib/theme
 
 // #648: the presets and their contrast checks live in lib/theme-colors.ts.
 const ACCENT_COLORS = ACCENT_PRESETS.map((p) => ({ name: p.name, val: p.light.DEFAULT }));
+
+const SECTION_IDS = ['account', 'preferences', 'security', 'shares', 'notifications', 'data'] as const;
+
+const currentHashId = () => (typeof window === 'undefined' ? '' : decodeURIComponent(window.location.hash.slice(1)));
 
 export function ProfileClient() {
   const { t } = useTranslation();
@@ -83,6 +87,47 @@ export function ProfileClient() {
     });
   };
 
+  const [activeSection, setActiveSection] = useState<string>(() => {
+    const id = currentHashId();
+    return (SECTION_IDS as readonly string[]).includes(id) ? id : SECTION_IDS[0];
+  });
+
+  // #839: the sections only exist once the member is loaded, so the browser
+  // cannot scroll to `#shares` by itself on a direct load (or from the
+  // security e-mail). Scroll once they are rendered, and follow later changes.
+  // #779: the section in view is marked in the shortcuts row.
+  useEffect(() => {
+    if (isLoadingUser) return;
+    const goToHash = () => {
+      const id = currentHashId();
+      if (!id) return;
+      document.getElementById(id)?.scrollIntoView();
+      if ((SECTION_IDS as readonly string[]).includes(id)) setActiveSection(id);
+    };
+    goToHash();
+    window.addEventListener('hashchange', goToHash);
+
+    let observer: IntersectionObserver | undefined;
+    if (typeof IntersectionObserver !== 'undefined') {
+      // A band near the top of the viewport: the section crossing it is "in view".
+      observer = new IntersectionObserver(
+        (entries) => {
+          const hit = entries.find((entry) => entry.isIntersecting);
+          if (hit) setActiveSection(hit.target.id);
+        },
+        { rootMargin: '-15% 0px -75% 0px' },
+      );
+      SECTION_IDS.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) observer?.observe(el);
+      });
+    }
+    return () => {
+      window.removeEventListener('hashchange', goToHash);
+      observer?.disconnect();
+    };
+  }, [isLoadingUser, user?.id]);
+
   if (isLoadingUser) {
     return (
       <MainLayout>
@@ -102,20 +147,19 @@ export function ProfileClient() {
             the right one directly. (The former Wishlist & Budget shortcut is
             gone: that page is in the navigation now.) */}
         <nav aria-label={t('profile.sectionsNav')} className="flex flex-wrap gap-2 mb-6">
-          {[
-            { id: 'account', label: t('profile.personalInfo') },
-            { id: 'preferences', label: t('profile.preferences') },
-            { id: 'security', label: t('profile.security') },
-            { id: 'shares', label: t('shares.title') },
-            { id: 'notifications', label: t('notifications.title') },
-            { id: 'data', label: t('gdpr.title') },
-          ].map((section) => (
+          {SECTION_IDS.map((id) => (
             <a
-              key={section.id}
-              href={`#${section.id}`}
-              className="text-xs font-semibold px-3 py-1.5 rounded-full border border-divider text-foreground-600 hover:bg-default-100 focus-visible:outline-2 focus-visible:outline-primary"
+              key={id}
+              href={`#${id}`}
+              aria-current={activeSection === id ? 'true' : undefined}
+              onClick={() => setActiveSection(id)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full border focus-visible:outline-2 focus-visible:outline-primary ${
+                activeSection === id
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-divider text-foreground-600 hover:bg-default-100'
+              }`}
             >
-              {section.label}
+              {t(`profile.sectionLabels.${id}`)}
             </a>
           ))}
         </nav>
@@ -283,8 +327,9 @@ export function ProfileClient() {
         </div>
 
         {/* Admin panel shortcut */}
+        {/* md:hidden (#774): the sidebar has this link from 768 px up; the bottom bar does not. */}
         {user?.isAdmin && (
-          <div className="mt-6">
+          <div className="mt-6 md:hidden">
             <Button
               as={Link}
               href="/admin"
@@ -328,10 +373,11 @@ export function ProfileClient() {
         {/* Running version (#696) */}
         <AppVersion />
 
-        <div className="mt-6">
+        {/* md:hidden (#774): the sidebar has the sign-out button from 768 px up; the bottom bar does not. */}
+        <div className="mt-6 md:hidden">
           <Button
-            color="danger"
-            variant="flat"
+            color="default"
+            variant="bordered"
             startContent={<LogOut size={16} />}
             radius="md"
             fullWidth

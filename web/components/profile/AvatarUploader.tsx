@@ -65,7 +65,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
 
   return (
     <div
-      className={`flex flex-col items-center mb-8 p-4 rounded-xl transition-all duration-200 border-2 ${isDragging ? 'border-primary border-dashed' : 'border-transparent'}`}
+      className={`flex flex-col items-center p-2 rounded-xl transition-all duration-200 border-2 ${isDragging ? 'border-primary border-dashed' : 'border-transparent'}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -99,6 +99,13 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
             <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
               <Camera size={20} className="text-white" />
             </div>
+          )}
+
+          {/* Always-visible cue (touch screens have no hover) */}
+          {!uploadAvatar.isPending && (
+            <span aria-hidden="true" className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary text-white shadow flex items-center justify-center">
+              <Camera size={12} />
+            </span>
           )}
         </button>
 
