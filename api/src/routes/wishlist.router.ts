@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
+import { accountRequestLimit } from '../lib/rate-limit';
 import { auditLog } from '../services/audit.service';
 import {
   listWishlist,
@@ -99,7 +100,15 @@ router.delete('/items/:id', async (req: Request, res: Response) => {
 
 // ─── PATCH /items/:id/price-seen — manual price entry, see wishlist.service.ts
 
-router.patch('/items/:id/price-seen', async (req: Request, res: Response, next: NextFunction) => {
+/**
+ * Price entries per account and auth window (#767): an opportunity notice
+ * reaches the instance's shared Gotify app, so the action is capped like the
+ * notification test. Plenty for prices typed by hand.
+ */
+const PRICE_ENTRIES_PER_WINDOW = 30;
+const priceSeenLimiter = accountRequestLimit(PRICE_ENTRIES_PER_WINDOW, 'wishlist-price');
+
+router.patch('/items/:id/price-seen', priceSeenLimiter, async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {

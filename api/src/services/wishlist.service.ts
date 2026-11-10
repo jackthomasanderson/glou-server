@@ -83,7 +83,14 @@ export async function recordPriceSeen(userId: string, id: string, price: number)
     data: { lastSeenPrice: price, lastSeenAt: new Date() },
   });
 
-  if (existing.maxPrice != null && price <= existing.maxPrice) {
+  // Only a price that crosses the ceiling is news: the previous one was
+  // unknown or above it. A member entering prices in a row under the ceiling
+  // (or in a loop) must not push one message each into the instance's
+  // shared Gotify app (#767).
+  // Decimal columns: compared as numbers (two Decimals would compare as strings).
+  const wasUnder = existing.lastSeenPrice != null && existing.maxPrice != null
+    && Number(existing.lastSeenPrice) <= Number(existing.maxPrice);
+  if (existing.maxPrice != null && price <= existing.maxPrice && !wasUnder) {
     void notifyOpportunity(userId, item).catch((err) => {
       console.error('[wishlist] Failed to send opportunity notification:', err);
     });
