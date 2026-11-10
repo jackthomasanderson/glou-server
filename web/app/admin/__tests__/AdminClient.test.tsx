@@ -7,11 +7,14 @@ import type { AdminUser } from '@/hooks/useAdmin';
 
 // #698: the admin page shows one section at a time, each reachable from the
 // section list; a member's status reads as text, apart from its action.
-// #756: a backup problem is said at the top and opens the Backups tab.
+// #756: a backup problem is said at the top and opens the Data tab (backups).
+// #757: the purge lives in System configuration → Data; the Members block says
+// whether sign-up is open, with the way to the Access tab.
 
 let i18n: I18n;
 let isMobile = false;
 let health: { directoryWritable: boolean; backupEnabled: boolean; lastSuccessAt: string | null } | undefined;
+let systemConfig: { registrationOpen: boolean } | undefined;
 const users: AdminUser[] = [
   { id: 'a1', username: 'admin', email: 'admin@example.com', displayName: null, isAdmin: true, isActive: true, isTwoFactorEnabled: false, createdAt: '2026-01-01T00:00:00.000Z' },
   { id: 'u2', username: 'bob', email: 'bob@example.com', displayName: null, isAdmin: false, isActive: false, isTwoFactorEnabled: false, createdAt: '2026-02-01T00:00:00.000Z' },
@@ -32,12 +35,11 @@ vi.mock('@/hooks/useAdmin', () => ({
   useAdminUsers: () => ({ data: users, isLoading: false }),
   useUpdateUserRole: () => ({ mutate: vi.fn() }),
   useUpdateUserStatus: () => ({ mutate: vi.fn() }),
-  usePurgeData: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useAdminBackupHealth: () => ({ data: health, refetch: vi.fn() }),
+  useSystemConfig: () => ({ data: systemConfig }),
 }));
 vi.mock('@/components/ui/MainLayout', () => ({ MainLayout: ({ children }: { children?: ReactNode }) => <main>{children}</main> }));
 vi.mock('@/components/ui/ResponsiveModal', () => ({ ResponsiveModal: () => null }));
-vi.mock('@/components/admin/AdminStepUpDialog', () => ({ useAdminStepUp: () => ({ ask: vi.fn(), dialog: null }), isStepUpRefusal: () => false }));
 vi.mock('@/components/admin/GrantAdminDialog', () => ({ GrantAdminDialog: () => null }));
 vi.mock('@/components/admin/ResetPasswordDialog', () => ({ ResetPasswordDialog: () => null }));
 vi.mock('@/components/admin/MaturityReferencesSection', () => ({ MaturityReferencesSection: () => <section>maturity-section</section> }));
@@ -63,6 +65,7 @@ beforeAll(async () => {
 beforeEach(() => {
   isMobile = false;
   health = { directoryWritable: true, backupEnabled: true, lastSuccessAt: '2026-11-08T03:00:00.000Z' };
+  systemConfig = { registrationOpen: false };
 });
 
 const nav = () => screen.getByRole('navigation', { name: 'Administration sections' });
@@ -73,15 +76,29 @@ describe('AdminClient (#698, #756)', () => {
     expect(screen.getByRole('grid', { name: 'Member Management' })).toBeInTheDocument();
     for (const [label, marker] of [
       ['Guest links', 'shares-section'], ['Peak Maturity References', 'maturity-section'],
-      ['System Configuration', 'config-section:smtp'], ['Audit Log', 'audit-section'],
+      ['System Configuration', 'config-section:notifications'], ['Audit Log', 'audit-section'],
     ]) {
       fireEvent.click(within(nav()).getByRole('button', { name: label }));
       expect(screen.getByText(marker)).toBeInTheDocument();
       expect(screen.queryByRole('grid', { name: 'Member Management' })).toBeNull();
       expect(within(nav()).getByRole('button', { name: label })).toHaveAttribute('aria-current', 'true');
     }
-    fireEvent.click(within(nav()).getByRole('button', { name: 'Maintenance' }));
-    expect(screen.getByRole('button', { name: 'Purge all data' })).toBeInTheDocument();
+    // #757: the purge moved to System configuration → Data.
+    expect(within(nav()).getAllByRole('button')).toHaveLength(5);
+    expect(within(nav()).queryByRole('button', { name: 'Maintenance' })).toBeNull();
+  });
+
+  it('says in the Members block whether sign-up is open, and leads to the Access tab', () => {
+    render(<AdminClient />);
+    expect(screen.getByText('Sign-up is closed: nobody can create an account on their own.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Change' }));
+    expect(screen.getByText('config-section:access')).toBeInTheDocument();
+  });
+
+  it('says when sign-up is open', () => {
+    systemConfig = { registrationOpen: true };
+    render(<AdminClient />);
+    expect(screen.getByText('Sign-up is open: anyone who reaches this instance can create an account.')).toBeInTheDocument();
   });
 
   it('keeps a half-edited settings form when the admin switches section and back', () => {
@@ -112,13 +129,13 @@ describe('AdminClient (#698, #756)', () => {
     expect(within(bob).getByRole('button', { name: /Activate/ })).toBeInTheDocument();
   });
 
-  it('warns at the top when automatic backups are off, and opens the Backups tab', () => {
+  it('warns at the top when automatic backups are off, and opens the Data tab', () => {
     health = { directoryWritable: true, backupEnabled: false, lastSuccessAt: '2026-11-08T03:00:00.000Z' };
     render(<AdminClient />);
     expect(screen.getByRole('alert')).toHaveTextContent('Automatic backups are switched off');
     expect(within(nav()).getByRole('img', { name: 'Needs attention: no up-to-date backup' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Open backups' }));
-    expect(screen.getByText('config-section:backups')).toBeInTheDocument();
+    expect(screen.getByText('config-section:data')).toBeInTheDocument();
   });
 
   it('warns when no backup ever succeeded', () => {

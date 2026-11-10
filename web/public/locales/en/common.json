@@ -936,6 +936,11 @@
     "users": {
       "title": "Member Management",
       "subtitle": "Manage roles and access for each member of this instance.",
+      "signUp": {
+        "open": "Sign-up is open: anyone who reaches this instance can create an account.",
+        "closed": "Sign-up is closed: nobody can create an account on their own.",
+        "change": "Change"
+      },
       "columns": {
         "email": "Email",
         "username": "Username",
@@ -1103,8 +1108,8 @@
       "relativeWindow": "{{from}} → {{to}} years"
     },
     "maintenance": {
-      "title": "Maintenance",
       "purge": {
+        "title": "Delete all data",
         "description": "This action will delete ALL bottles and cigars, ALL cellars and ALL activity logs. User accounts will be preserved.",
         "button": "Purge all data",
         "confirmTitle": "Full Purge Confirmation",
@@ -1116,7 +1121,7 @@
         "success": "The database has been reset successfully.",
         "error": "An error occurred during data purge.",
         "errors": {
-          "BACKUP_BEFORE_PURGE_FAILED": "The backup taken before the purge failed, so nothing was deleted. Check the Backups tab."
+          "BACKUP_BEFORE_PURGE_FAILED": "The backup taken before the purge failed, so nothing was deleted. Check the backup history above."
         },
         "counts": {
           "bottles_one": "{{count}} bottle or cigar deleted",
@@ -1922,8 +1927,20 @@
   },
   "adminConfig": {
     "title": "System Configuration",
-    "subtitle": "Configure integrations and the notification policy for this instance.",
+    "subtitle": "How members are notified, who can join, backups and data, and the running version.",
     "tabsAriaLabel": "Config sections",
+    "loadError": "The configuration could not be loaded, so no setting is shown.",
+    "listLoadError": "This list could not be loaded.",
+    "save": "Save",
+    "errors": {
+      "UNEXPECTED_ERROR": "This could not be saved. Try again.",
+      "VALIDATION_ERROR": "A value is not valid. Check the fields of this card.",
+      "INVALID_INPUT": "A value is not valid. Check the fields of this card.",
+      "INVALID_URL": "This address cannot be used: it must be a valid URL that the server is allowed to reach.",
+      "SMTP_NOT_CONFIGURED": "Email is switched off or has no server: turn it on, fill in the server and save before testing.",
+      "GOTIFY_NOT_CONFIGURED": "Gotify is switched off or has no URL: turn it on, fill in the URL and save before testing.",
+      "DELIVERY_FAILED": "The Gotify server did not accept the notification. Check the URL and the token."
+    },
     "stepUp": {
       "smtp": "The mail server sends password reset links and security alerts, so changing it is confirmed.",
       "smtpTest": "The test connects to the saved mail server, and sends a message if you gave an address.",
@@ -1933,18 +1950,24 @@
       "network": "Password reset links are built from the public URL, so changing it is confirmed."
     },
     "tabs": {
-      "smtp": "SMTP / Email",
-      "notifications": "Notif policy",
-      "gotify": "Webhook / Gotify",
-      "integrations": "API Integrations",
-      "retention": "Retention",
-      "backups": "Backups",
-      "network": "Network",
-      "history": "History",
-      "about": "About"
+      "notifications": "Notifications",
+      "access": "Access",
+      "data": "Data",
+      "system": "System"
     },
-    "about": {
-      "description": "Running version. Include this when filing a bug report."
+    "cards": {
+      "email": "Email",
+      "policy": "Channels",
+      "gotify": "Gotify",
+      "publicUrl": "Public URL",
+      "backups": "Backups",
+      "retention": "Retention and cleanup",
+      "history": "Configuration history"
+    },
+    "version": {
+      "title": "Version",
+      "description": "Running version. Include this when filing a bug report.",
+      "unavailable": "Version unavailable"
     },
     "smtp": {
       "enabled": "Enable email sending",
@@ -1988,13 +2011,11 @@
       "testError": "Failed: {{error}}",
       "saved": "Gotify configuration saved."
     },
-    "integrations": {
-      "scan": {
-        "title": "Label scanning",
-        "active": "Enabled",
-        "inactive": "Not enabled",
-        "howToEnable": "The recognition service is not running, or its model is still downloading, so scanning is hidden from members. To enable it (about 9 GB of disk and 3 GB of memory), run the command below on the server, then wait for the model download to finish:"
-      }
+    "scan": {
+      "title": "Label scanning",
+      "active": "Enabled",
+      "inactive": "Not enabled",
+      "howToEnable": "The recognition service is not running, or its model is still downloading, so scanning is hidden from members. To enable it (about 9 GB of disk and 3 GB of memory), run the command below on the server, then wait for the model download to finish:"
     },
     "history": {
       "noHistory": "No changes recorded."
@@ -2132,7 +2153,7 @@
       }
     },
     "registration": {
-      "title": "New account registration",
+      "title": "Who can join",
       "description": "Once the first account (the instance's admin) exists, anonymous registration is closed by default. Turn it on to let new members sign up for themselves.",
       "enabled": "Allow new accounts to register",
       "saved": "Registration setting saved."

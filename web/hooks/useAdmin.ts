@@ -238,6 +238,45 @@ export function useAdminBackupHealth() {
     });
 }
 
+// ─── System configuration (#615) ──────────────────────────────────────────────
+
+export const SYSTEM_CONFIG_KEY = ['admin_system_config'];
+export const CONFIG_HISTORY_KEY = ['admin_config_history'];
+export const MAINTENANCE_RUNS_KEY = ['admin_maintenance_runs'];
+export const BACKUP_RUNS_KEY = ['admin_backup_runs'];
+
+/**
+ * The saved configuration. While it cannot be read, the settings screen shows
+ * an error with Retry, never forms filled with made-up defaults (#615).
+ */
+export function useSystemConfig() {
+    return useQuery({
+        queryKey: SYSTEM_CONFIG_KEY,
+        queryFn: () => configClient.getConfig(),
+    });
+}
+
+export function useConfigHistory() {
+    return useQuery({
+        queryKey: CONFIG_HISTORY_KEY,
+        queryFn: () => configClient.getHistory(),
+    });
+}
+
+export function useMaintenanceRuns() {
+    return useQuery({
+        queryKey: MAINTENANCE_RUNS_KEY,
+        queryFn: () => configClient.getMaintenanceRuns(),
+    });
+}
+
+export function useBackupRuns() {
+    return useQuery({
+        queryKey: BACKUP_RUNS_KEY,
+        queryFn: () => configClient.getBackupRuns(),
+    });
+}
+
 // ─── Guest links (#486) ───────────────────────────────────────────────────────
 
 export type { AdminGuestShare };
