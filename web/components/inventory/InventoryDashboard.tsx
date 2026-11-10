@@ -51,7 +51,9 @@ import { usePageSize } from '@/hooks/usePageSize';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
 
 // Screens that only appear after an action are split out of the page's first
-// load; they open behind a click, so a null placeholder is invisible.
+// load; they open behind a click, so a null placeholder is invisible. They are
+// mounted only while open (#637): a `dynamic` component downloads its code as
+// soon as it renders, open or not.
 const EditWineDialog = dynamic(() => import('./EditWineDialog').then((m) => m.EditWineDialog), { ssr: false, loading: () => null });
 const InventoryForm = dynamic(() => import('./InventoryForm').then((m) => m.InventoryForm), { ssr: false, loading: () => null });
 const FamilyDrawer = dynamic(() => import('./FamilyDrawer').then((m) => m.FamilyDrawer), { ssr: false, loading: () => null });
@@ -530,22 +532,26 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           )}
 
           {/* Form dialog */}
-          <InventoryForm
-            open={mode === 'creating'}
-            defaultCategory={
-              lockedCategories?.length === 1
-                ? (lockedCategories[0] as InventoryCategory)
-                : selectedCategories.length === 1
-                ? (selectedCategories[0] as InventoryCategory)
-                : undefined
-            }
-            onSubmit={handleCreate}
-            onClose={handleCancel}
-            isSubmitting={isCreating}
-            t={t}
-            onScanRequested={scanAvailable ? () => { setMode('idle'); setScanOpen(true); } : undefined}
-          />
-          <EditWineDialog product={mode === 'editing' ? editingProduct : null} onClose={handleCancel} onSaved={handleUpdated} />
+          {mode === 'creating' && (
+            <InventoryForm
+              open
+              defaultCategory={
+                lockedCategories?.length === 1
+                  ? (lockedCategories[0] as InventoryCategory)
+                  : selectedCategories.length === 1
+                  ? (selectedCategories[0] as InventoryCategory)
+                  : undefined
+              }
+              onSubmit={handleCreate}
+              onClose={handleCancel}
+              isSubmitting={isCreating}
+              t={t}
+              onScanRequested={scanAvailable ? () => { setMode('idle'); setScanOpen(true); } : undefined}
+            />
+          )}
+          {mode === 'editing' && editingProduct && (
+            <EditWineDialog product={editingProduct} onClose={handleCancel} onSaved={handleUpdated} />
+          )}
 
           {/* Loading skeletons */}
           {isLoading && effectiveViewMode === 'grid' && (
@@ -714,17 +720,19 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         t={t}
       />
 
-      <FamilyDrawer
-        productId={viewingProductId}
-        onClose={() => setViewingProductId(null)}
-        onEdit={handleEditFromDrawer}
-        // FEAT-104 c3: "Quelles bouteilles ?" preselects the line of the cellars filtered on.
-        viewedCellarIds={viewedCellarIds}
-        // #471 (FEAT-92 c2, FEAT-101 c3, FEAT-95): "Ajouter des bouteilles" / "Ajouter des cigares".
-        primaryAction={(product) => <AddUnitsAction product={product} />}
-      />
+      {viewingProductId && (
+        <FamilyDrawer
+          productId={viewingProductId}
+          onClose={() => setViewingProductId(null)}
+          onEdit={handleEditFromDrawer}
+          // FEAT-104 c3: "Quelles bouteilles ?" preselects the line of the cellars filtered on.
+          viewedCellarIds={viewedCellarIds}
+          // #471 (FEAT-92 c2, FEAT-101 c3, FEAT-95): "Ajouter des bouteilles" / "Ajouter des cigares".
+          primaryAction={(product) => <AddUnitsAction product={product} />}
+        />
+      )}
 
-      <ScanFlow open={scanOpen} onClose={() => setScanOpen(false)} t={t} />
+      {scanOpen && <ScanFlow open onClose={() => setScanOpen(false)} t={t} />}
     </div>
   );
 }

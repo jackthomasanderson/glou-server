@@ -129,16 +129,19 @@ export function InventoryBulkBar({
         </div>
       )}
 
-      <BulkActionDialog
-        open={isBulkDialogOpen}
-        onClose={onCloseDialog}
-        selectedItems={items?.filter(b => selectedIds.has(b.id)) || []}
-        onApply={onApply}
-        isSubmitting={isSubmitting}
-        t={t}
-        wineSelection={wineSelection}
-        subtitle={subtitle}
-      />
+      {/* Mounted only while open (#637): the chunk is downloaded on first use. */}
+      {isBulkDialogOpen && (
+        <BulkActionDialog
+          open
+          onClose={onCloseDialog}
+          selectedItems={items?.filter(b => selectedIds.has(b.id)) || []}
+          onApply={onApply}
+          isSubmitting={isSubmitting}
+          t={t}
+          wineSelection={wineSelection}
+          subtitle={subtitle}
+        />
+      )}
     </>
   );
 }
