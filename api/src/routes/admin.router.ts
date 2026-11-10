@@ -11,7 +11,8 @@ import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenc
 import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
 import { networkConfigSchema } from '../schemas/network-config.schema';
 import { registrationConfigSchema } from '../schemas/registration-config.schema';
-import { smtpConfigSchema, gotifyConfigSchema, notificationPolicySchema } from '../schemas/system-config.schema';
+import { smtpConfigSchema, smtpTestSchema, gotifyConfigSchema, notificationPolicySchema } from '../schemas/system-config.schema';
+import { memberRoleSchema, memberStatusSchema } from '../schemas/admin-user.schema';
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema, purgeSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
@@ -148,12 +149,12 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
  */
 adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: Response): Promise<void> => {
     const userId = routeParam(req.params.userId);
-    const { isAdmin } = req.body ?? {};
-
-    if (typeof isAdmin !== 'boolean') {
+    const parsed = memberRoleSchema.safeParse(req.body);
+    if (!parsed.success) {
         res.status(400).json({ error: 'INVALID_INPUT' });
         return;
     }
+    const { isAdmin } = parsed.data;
 
     // Prevent admin from removing their own admin privileges
     if (req.userId === userId && !isAdmin) {
@@ -208,12 +209,12 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
  */
 adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
     const userId = routeParam(req.params.userId);
-    const { isActive } = req.body;
-
-    if (typeof isActive !== 'boolean') {
+    const parsed = memberStatusSchema.safeParse(req.body);
+    if (!parsed.success) {
         res.status(400).json({ error: 'INVALID_INPUT' });
         return;
     }
+    const { isActive } = parsed.data;
 
     // Prevent self-deactivation
     if (req.userId === userId && !isActive) {
@@ -676,14 +677,20 @@ adminRouter.put('/config/backup', stepUpLimiter, async (req: Request, res: Respo
 });
 
 adminRouter.post('/config/test/smtp', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
+  // Checked before the step-up, so a typo in the address spends no backup code.
+  const parsed = smtpTestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'VALIDATION_ERROR' });
+    return;
+  }
+  const { email } = parsed.data;
   try {
-    const { email } = req.body;
     const audit = configAudit('CONFIG_TEST', 'smtp');
     if (!(await stepUp(req, res, audit))) return;
     auditSuccess(req, audit);
     let result: { success: boolean; error?: string };
     if (email) {
-      result = await emailService.sendTestEmail(email as string);
+      result = await emailService.sendTestEmail(email);
     } else {
       result = await emailService.testConnection();
     }

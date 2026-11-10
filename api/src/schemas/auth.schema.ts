@@ -85,3 +85,22 @@ export const adminReauthSchema = z.object({
 export type TurnOn2faInput = z.infer<typeof turnOn2faSchema>;
 export type TurnOff2faInput = z.infer<typeof turnOff2faSchema>;
 export type Verify2faInput = z.infer<typeof verify2faSchema>;
+
+// ─── Password reset (#636) ───────────────────────────────────────────────────
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().min(1).max(320),
+});
+
+/** A reset link's token: 64 hex characters, bounded loosely to stay a token. */
+const resetTokenField = z.string().min(1).max(256);
+
+export const validateResetTokenSchema = z.object({
+  token: resetTokenField,
+});
+
+export const resetPasswordSchema = z.object({
+  token: resetTokenField,
+  // Same bounds as registration.
+  newPassword: z.string().min(PASSWORD_MIN_LENGTH, 'PASSWORD_TOO_SHORT').max(128, 'PASSWORD_TOO_LONG'),
+});

@@ -34,7 +34,7 @@ function assertSecretsConfigured(): void {
     else console.error(`[startup] FATAL: ${msg}`);
   }
   if (!isDev) {
-    console.error('[startup] Refusing to start with missing or example secrets outside development. Set NODE_ENV=development to bypass locally.');
+    console.error('[startup] Refusing to start with missing, too short or example secrets outside development. Set NODE_ENV=development to bypass locally.');
     process.exit(1);
   }
 }

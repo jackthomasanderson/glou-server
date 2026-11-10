@@ -30,6 +30,8 @@ cp .env.example .env          # définir un JWT_SECRET robuste
 docker compose -f docker-compose.dev.yml up -d
 ```
 
+La pile de développement n'écoute que sur cette machine (http://localhost:3000, API sur le port 3001) : elle tourne en mode développement, où les secrets d'exemple sont acceptés.
+
 Pour travailler directement sur un package :
 
 ```bash

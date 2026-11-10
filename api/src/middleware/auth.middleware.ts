@@ -39,7 +39,9 @@ const LAST_ACTIVE_CACHE_MAX_ENTRIES = 2000;
 /**
  * `null` when the token is malformed, forged or expired, or is not a session
  * token: the trusted-device cookie is signed with the same secret but carries
- * no `userId`.
+ * no `userId`. #608: a full token must name its session, or no revocation
+ * ("sign out everywhere") could ever reach it; every token the API issues
+ * does. Only the 2FA-pending token has none, and it is refused below.
  */
 function verifyToken(token: string, secret: string): AuthPayload | null {
   let payload: unknown;
@@ -52,6 +54,9 @@ function verifyToken(token: string, secret: string): AuthPayload | null {
   const { userId, sessionId } = payload as { userId?: unknown; sessionId?: unknown };
   if (typeof userId !== 'string') return null;
   if (sessionId !== undefined && typeof sessionId !== 'string') return null;
+  const { scope } = payload as { scope?: unknown };
+  if (scope === '2fa_pending') return payload as AuthPayload;
+  if (typeof sessionId !== 'string' || sessionId === '') return null;
   return payload as AuthPayload;
 }
 
@@ -100,33 +105,33 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
     // Verify the session backing this token hasn't been revoked or expired
     // (FEAT-25: instant remote disconnect requires a server-side check).
-    if (payload.sessionId) {
-      const session = await prisma.session.findUnique({
-        where: { id: payload.sessionId },
-        select: { revokedAt: true, expiresAt: true },
-      });
-      if (!session || session.revokedAt || session.expiresAt < new Date()) {
-        res.status(401).json({ error: 'SESSION_REVOKED' });
-        return;
-      }
+    // verifyToken refused a full token without one (#608).
+    const sessionId = payload.sessionId as string;
+    const session = await prisma.session.findUnique({
+      where: { id: sessionId },
+      select: { revokedAt: true, expiresAt: true },
+    });
+    if (!session || session.revokedAt || session.expiresAt < new Date()) {
+      res.status(401).json({ error: 'SESSION_REVOKED' });
+      return;
+    }
 
-      const now = Date.now();
-      const lastWrite = lastActiveWriteCache.get(payload.sessionId) ?? 0;
-      if (now - lastWrite > LAST_ACTIVE_THROTTLE_MS) {
-        if (lastActiveWriteCache.size >= LAST_ACTIVE_CACHE_MAX_ENTRIES) {
-          lastActiveWriteCache.clear();
-        }
-        lastActiveWriteCache.set(payload.sessionId, now);
-        void prisma.session.update({
-          where: { id: payload.sessionId },
-          data: { lastActiveAt: new Date() },
-        }).catch(() => {});
+    const now = Date.now();
+    const lastWrite = lastActiveWriteCache.get(sessionId) ?? 0;
+    if (now - lastWrite > LAST_ACTIVE_THROTTLE_MS) {
+      if (lastActiveWriteCache.size >= LAST_ACTIVE_CACHE_MAX_ENTRIES) {
+        lastActiveWriteCache.clear();
       }
+      lastActiveWriteCache.set(sessionId, now);
+      void prisma.session.update({
+        where: { id: sessionId },
+        data: { lastActiveAt: new Date() },
+      }).catch(() => {});
     }
 
     req.userId = payload.userId;
     req.userEmail = payload.email;
-    req.sessionId = payload.sessionId ?? '';
+    req.sessionId = sessionId;
   } catch (err) {
     next(err);
     return;

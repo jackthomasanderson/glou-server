@@ -17,7 +17,7 @@ vi.mock('../../src/lib/prisma', () => ({
       findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(),
       update: vi.fn(), updateMany: vi.fn(), count: vi.fn(),
     },
-    session: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
+    session: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     trustedDevice: { create: vi.fn(), updateMany: vi.fn() },
     guestShare: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     cellar: { count: vi.fn() },
@@ -50,7 +50,7 @@ beforeAll(async () => {
 });
 
 const app = createApp();
-const as = (userId: string) => `Bearer ${jwt.sign({ userId, email: `${userId}@example.com`, scope: 'full' }, JWT_SECRET, { algorithm: 'HS256' })}`;
+const as = (userId: string) => `Bearer ${jwt.sign({ userId, email: `${userId}@example.com`, scope: 'full', sessionId: 's1' }, JWT_SECRET, { algorithm: 'HS256' })}`;
 const call = (method: 'post' | 'patch' | 'put' | 'delete', path: string, userId: string, body: Record<string, unknown> = {}, ip = '198.51.100.1') =>
   request(app)[method](path).set('Authorization', as(userId)).set('Sec-Fetch-Site', 'same-origin').set('X-Forwarded-For', ip).send(body);
 
@@ -58,6 +58,9 @@ const auditCalls = () => vi.mocked(prisma.auditLog.create).mock.calls.map(([arg]
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // #608: every token carries a live session.
+  vi.mocked(prisma.session.findUnique).mockResolvedValue({ revokedAt: null, expiresAt: new Date(Date.now() + 3_600_000) } as never);
+  vi.mocked(prisma.session.update).mockResolvedValue({} as never);
   process.env.JWT_SECRET = JWT_SECRET;
   process.env.CONFIG_ENCRYPTION_KEY = 'ab'.repeat(32);
   accounts = {};

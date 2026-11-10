@@ -12,7 +12,7 @@ import bcrypt from 'bcryptjs';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     user: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
-    session: { findUnique: vi.fn() },
+    session: { findUnique: vi.fn(), update: vi.fn() },
     auditLog: { create: vi.fn() },
     $queryRaw: vi.fn(),
   },
@@ -32,7 +32,7 @@ beforeAll(async () => {
 });
 
 const app = createApp();
-const token = () => jwt.sign({ userId: 'u1', email: 'u1@example.com', scope: 'full' }, JWT_SECRET, { algorithm: 'HS256' });
+const token = () => jwt.sign({ userId: 'u1', email: 'u1@example.com', scope: 'full', sessionId: 's1' }, JWT_SECRET, { algorithm: 'HS256' });
 
 const saved: PublicSystemConfig = {
   smtpEnabled: true, smtpHost: 'mail.example.com', smtpPort: 587, smtpUser: null, smtpPassMasked: null, smtpFrom: null, smtpSecure: false,
@@ -58,6 +58,9 @@ const fetchMock = vi.fn();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // #608: every token carries a live session.
+  vi.mocked(prisma.session.findUnique).mockResolvedValue({ revokedAt: null, expiresAt: new Date(Date.now() + 3_600_000) } as never);
+  vi.mocked(prisma.session.update).mockResolvedValue({} as never);
   process.env.JWT_SECRET = JWT_SECRET;
   process.env.CONFIG_ENCRYPTION_KEY = 'ab'.repeat(32);
   isAdmin = true;

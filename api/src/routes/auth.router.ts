@@ -1,9 +1,8 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
-import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema, regenerateBackupCodesSchema } from '../schemas/auth.schema';
+import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema, regenerateBackupCodesSchema, forgotPasswordSchema, validateResetTokenSchema, resetPasswordSchema } from '../schemas/auth.schema';
 import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
-import { PASSWORD_MIN_LENGTH } from '../../../shared/auth';
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
@@ -48,6 +47,7 @@ const PUBLIC_AUTH_ERROR_CODES = new Set([
   'INVALID_OR_EXPIRED_TOKEN',
   'INVALID_TOTP_CODE',
   'NOT_A_PENDING_TOKEN',
+  'PASSWORD_TOO_LONG',
   'PASSWORD_TOO_SHORT',
   'TOKEN_INVALID_OR_EXPIRED',
   'REGISTRATION_CONFLICT',
@@ -481,55 +481,49 @@ router.get('/registration-status', async (_req: Request, res: Response): Promise
 
 // ─── POST /api/auth/forgot-password ──────────────────────────────────────────
 
-router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { email } = req.body;
-    if (!email || typeof email !== 'string') {
-      res.status(400).json({ error: 'VALIDATION_ERROR' });
-      return;
-    }
-    // Always returns 200 to prevent user enumeration
-    await passwordResetService.requestReset(email.trim().toLowerCase());
-    res.json({ data: { ok: true } });
-  } catch (err) {
-    // The answer stays "ok" so the endpoint cannot be used to find out which
-    // addresses have an account, but a failed send must leave a trace (#184).
-    console.error('[auth] POST /forgot-password failed:', err);
-    res.json({ data: { ok: true } });
+router.post('/forgot-password', passwordResetLimiter, (req: Request, res: Response): void => {
+  const parsed = forgotPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'VALIDATION_ERROR' });
+    return;
   }
+  // Always "ok", account or not, to prevent user enumeration — and answered
+  // before the lookup and the e-mail (#607): waiting for the SMTP send told a
+  // registered address from an unknown one by the response time alone.
+  passwordResetService.requestReset(parsed.data.email).catch((err: unknown) => {
+    // A failed send must still leave a trace (#184).
+    console.error('[auth] POST /forgot-password failed:', err);
+  });
+  res.json({ data: { ok: true } });
 });
 
 // ─── POST /api/auth/validate-reset-token ─────────────────────────────────────
 
+// Only the service's `valid: false` means the link is dead. A failure of the
+// check itself (database down) goes to the error handler, so the reset page
+// offers a retry instead of calling a good link invalid (#744).
 router.post('/validate-reset-token', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { token } = req.body;
-    if (!token || typeof token !== 'string') {
-      res.status(400).json({ error: 'VALIDATION_ERROR' });
-      return;
-    }
-    const result = await passwordResetService.validateToken(token);
-    res.json({ data: result });
-  } catch (err) {
-    console.error('[auth] POST /validate-reset-token error:', err);
-    res.json({ data: { valid: false } });
+  const parsed = validateResetTokenSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'VALIDATION_ERROR' });
+    return;
   }
+  const result = await passwordResetService.validateToken(parsed.data.token);
+  res.json({ data: result });
 });
 
 // ─── POST /api/auth/reset-password ───────────────────────────────────────────
 
 router.post('/reset-password', passwordResetLimiter, async (req: Request, res: Response): Promise<void> => {
+  const parsed = resetPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const messages = parsed.error.issues.map((issue) => issue.message);
+    const code = ['PASSWORD_TOO_SHORT', 'PASSWORD_TOO_LONG'].find((c) => messages.includes(c)) ?? 'VALIDATION_ERROR';
+    res.status(400).json({ error: code });
+    return;
+  }
   try {
-    const { token, newPassword } = req.body;
-    if (!token || !newPassword || typeof token !== 'string' || typeof newPassword !== 'string') {
-      res.status(400).json({ error: 'VALIDATION_ERROR' });
-      return;
-    }
-    if (newPassword.length < PASSWORD_MIN_LENGTH) {
-      res.status(400).json({ error: 'PASSWORD_TOO_SHORT' });
-      return;
-    }
-    await passwordResetService.resetPassword(token, newPassword, readDeviceInfo(req));
+    await passwordResetService.resetPassword(parsed.data.token, parsed.data.newPassword, readDeviceInfo(req));
     res.json({ data: { ok: true } });
   } catch (err) {
     console.error('[auth] POST /reset-password error:', err);

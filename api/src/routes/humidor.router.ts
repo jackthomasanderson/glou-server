@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { recordHumidorReadingSchema } from '../schemas/humidor.schema';
+import { recordHumidorReadingSchema, humidorHistoryQuerySchema } from '../schemas/humidor.schema';
 import { humidorService } from '../services/humidor.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
@@ -55,11 +55,14 @@ router.post('/readings', async (req: Request, res: Response) => {
  */
 router.get('/cellars/:cellarId/readings', async (req: Request, res: Response) => {
   const cellarId = routeParam(req.params.cellarId);
-  const rawLimit = Number(req.query.limit);
-  const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 30;
+  const query = humidorHistoryQuerySchema.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: 'VALIDATION_ERROR', details: query.error.format() });
+    return;
+  }
 
   try {
-    const data = await humidorService.getHistory(cellarId, limit);
+    const data = await humidorService.getHistory(cellarId, query.data.limit);
     if (!data) {
       res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
       return;
