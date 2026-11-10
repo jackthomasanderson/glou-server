@@ -31,7 +31,7 @@ export function heroUiMock() {
     ),
     Tab: ({ title, children }: { title?: ReactNode; children?: ReactNode }) => <section>{title}{children}</section>,
     // A native <select> built from the SelectItem children, so a test can choose an option.
-    Select: ({ label, children, selectedKeys, onSelectionChange }: { label?: ReactNode; children?: ReactNode; selectedKeys?: Iterable<string>; onSelectionChange?: (keys: Set<string>) => void }) => {
+    Select: ({ label, description, children, selectedKeys, onSelectionChange }: { label?: ReactNode; description?: ReactNode; children?: ReactNode; selectedKeys?: Iterable<string>; onSelectionChange?: (keys: Set<string>) => void }) => {
       const items = React.Children.toArray(children) as ReactElement[];
       const key = (item: ReactElement) => String(item.key).replace(/^\.\$/, '');
       return (
@@ -41,6 +41,7 @@ export function heroUiMock() {
               {items.map((item) => <option key={key(item)} value={key(item)}>{(item.props as { children?: ReactNode }).children}</option>)}
             </select>
           )}
+          {description}
         </div>
       );
     },
@@ -92,6 +93,6 @@ export const CONFIG = {
   gotifyEnabled: false, gotifyUrl: null, gotifyTokenMasked: null, inAppEnabled: true,
   logRetentionDays: 90, sessionRetentionDays: 30, guestShareRetentionDays: 30,
   publicUrl: null, effectivePublicUrl: 'http://localhost:3000',
-  registrationOpen: false, backupEnabled: true, backupRetentionDays: 7, backupHourUtc: 3,
+  registrationOpen: false, backupEnabled: true, backupRetentionDays: 7, backupHour: 3, timeZone: 'UTC',
   updatedAt: null, updatedBy: null,
 };

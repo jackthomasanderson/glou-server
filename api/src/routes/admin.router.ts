@@ -24,6 +24,7 @@ import { adminReauthSchema } from '../schemas/auth.schema';
 import { authRateLimit, accountRateLimit } from '../lib/rate-limit';
 import type { BackupHealth, PurgeResponse } from '../../../shared/maintenance';
 import { AUDIT_ACTIONS, AUDIT_STATUSES } from '../../../shared/audit';
+import { lowersRetention, opensRegistration, weakensBackups } from '../../../shared/admin-config';
 import { sharesService } from '../services/shares.service';
 
 const adminRouter = Router();
@@ -78,6 +79,23 @@ const configAudit = (action: 'CONFIG_UPDATE' | 'CONFIG_TEST', section: string): 
 const auditSuccess = (req: Request, audit: StepUpAudit): void => {
     void auditLog({ userId: req.userId, action: audit.action, status: 'success', ip: getClientIp(req), details: audit.details });
 };
+
+/**
+ * #893: a settings change that erases data or weakens the instance (shared/
+ * admin-config.ts) asks for the step-up; the safe direction of the same
+ * setting does not. Compared with the stored values, read here. Returns
+ * whether the change may go on, and audits it once it went through.
+ */
+async function stepUpIfWeakening(
+    req: Request,
+    res: Response,
+    section: string,
+    weakens: (current: Awaited<ReturnType<typeof systemConfigService.getPublic>>) => boolean,
+): Promise<{ allowed: boolean; audit: StepUpAudit | null }> {
+    if (!weakens(await systemConfigService.getPublic())) return { allowed: true, audit: null };
+    const audit = configAudit('CONFIG_UPDATE', section);
+    return { allowed: await stepUp(req, res, audit), audit };
+}
 
 // Audit log pages are bigger than the member-facing lists.
 const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit: 100 }).extend({
@@ -599,10 +617,19 @@ adminRouter.put('/config/notifications', stepUpLimiter, async (req: Request, res
   }
 });
 
-adminRouter.put('/config/retention', async (req: Request, res: Response): Promise<void> => {
+// #893: shortening a retention window erases rows at the next cleanup (the
+// audit log, the refused step-ups included), turning the scheduled backups
+// off or shortening their retention leaves the instance without a recovery
+// point, and opening sign-up lets anyone in: those directions ask for the
+// step-up. "Run cleanup now" and "Run now" (backup) do not: the first only
+// applies a retention that is itself gated, the second only adds a file.
+adminRouter.put('/config/retention', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = retentionConfigSchema.parse(req.body);
+    const { allowed, audit } = await stepUpIfWeakening(req, res, 'retention', (current) => lowersRetention(current, parsed));
+    if (!allowed) return;
     const config = await systemConfigService.updateRetention(parsed, req.userId);
+    if (audit) auditSuccess(req, audit);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/retention error:', err);
@@ -614,10 +641,13 @@ adminRouter.put('/config/retention', async (req: Request, res: Response): Promis
   }
 });
 
-adminRouter.put('/config/backup', async (req: Request, res: Response): Promise<void> => {
+adminRouter.put('/config/backup', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = backupConfigSchema.parse(req.body);
+    const { allowed, audit } = await stepUpIfWeakening(req, res, 'backup', (current) => weakensBackups(current, parsed));
+    if (!allowed) return;
     const config = await systemConfigService.updateBackupConfig(parsed, req.userId);
+    if (audit) auditSuccess(req, audit);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/backup error:', err);
@@ -730,10 +760,14 @@ adminRouter.post('/config/network/check', async (_req: Request, res: Response): 
   }
 });
 
-adminRouter.put('/config/registration', async (req: Request, res: Response): Promise<void> => {
+// #893: opening sign-up asks for the step-up (see /config/retention), closing it does not.
+adminRouter.put('/config/registration', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
   try {
     const parsed = registrationConfigSchema.parse(req.body);
+    const { allowed, audit } = await stepUpIfWeakening(req, res, 'registration', (current) => opensRegistration(current, parsed));
+    if (!allowed) return;
     const config = await systemConfigService.updateRegistrationConfig(parsed, req.userId);
+    if (audit) auditSuccess(req, audit);
     res.json({ data: config });
   } catch (err) {
     console.error('[admin] PUT /config/registration error:', err);
@@ -837,14 +871,20 @@ adminRouter.post('/backups/:id/restore', stepUpLimiter, async (req: Request, res
       res.status(400).json({ error: 'CONFIRMATION_REQUIRED', details: error.issues });
       return;
     }
-    const msg = error instanceof Error ? error.message : 'RESTORE_FAILED';
+    const msg = error instanceof Error ? error.message : '';
     // #471 (lot Z): a backup of another version of Glou is refused, nothing restored.
     if (msg === 'BACKUP_FROM_OLDER_VERSION' || msg === 'BACKUP_FROM_NEWER_VERSION') {
       res.status(409).json({ error: msg });
       return;
     }
+    // #748: the file was deleted from the backups folder; same code as a download.
+    if (msg === 'BACKUP_FILE_NOT_FOUND') {
+      res.status(404).json({ error: 'BACKUP_FILE_MISSING' });
+      return;
+    }
+    // #748: stable codes only; the raw failure (psql's stderr) stays in the log.
     console.error('[Admin] Backup restore error:', error);
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: msg === 'BACKUP_BEFORE_RESTORE_FAILED' ? msg : 'RESTORE_FAILED' });
   }
 });
 

@@ -7,7 +7,8 @@ const retentionDays = z.coerce.number().int().min(1).max(3650);
 export const backupConfigSchema = z.object({
   backupEnabled: z.boolean(),
   backupRetentionDays: retentionDays,
-  backupHourUtc: z.coerce.number().int().min(0).max(23),
+  // #761: an hour of the instance's time zone (`TZ`), like the other scheduled jobs.
+  backupHour: z.coerce.number().int().min(0).max(23),
 });
 
 export type BackupConfigInput = z.infer<typeof backupConfigSchema>;

@@ -5,12 +5,15 @@ import { Clock, PlayCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { configClient, type MaintenanceRunEntry, type SystemConfigPublic } from '@/lib/config/client';
+import { lowersRetention } from '@shared/admin-config';
+import { configClient, type AdminReauth, type MaintenanceRunEntry, type SystemConfigPublic } from '@/lib/config/client';
+import { useAdminStepUp } from '@/components/admin/AdminStepUpDialog';
 import { MAINTENANCE_RUNS_KEY, useMaintenanceRuns } from '@/hooks/useAdmin';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDateTime } from '@/lib/format';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { ConfigCard, QueryList, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
+import { useGuardedSave } from '../useGuardedSave';
 
 const FIELDS = ['logRetentionDays', 'sessionRetentionDays', 'guestShareRetentionDays'] as const;
 
@@ -26,28 +29,28 @@ export function RetentionCard({ config }: { config: SystemConfigPublic }) {
   const hasMounted = useHasMounted();
   const queryClient = useQueryClient();
   const { form, update, reset, isDirty } = useConfigForm(toForm(config));
-  const [saving, setSaving] = useState(false);
+  // #893: a shorter delay erases data (the audit log included) at the next cleanup.
+  const stepUp = useAdminStepUp();
+  const { submit, saving } = useGuardedSave(stepUp);
   const [isRunConfirmOpen, setIsRunConfirmOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const runs = useMaintenanceRuns();
   const onSaved = useConfigSaved();
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      const updated = await configClient.updateRetention({
-        logRetentionDays: parseInt(form.logRetentionDays, 10),
-        sessionRetentionDays: parseInt(form.sessionRetentionDays, 10),
-        guestShareRetentionDays: parseInt(form.guestShareRetentionDays, 10),
-      });
+  const save = () => {
+    const values = {
+      logRetentionDays: parseInt(form.logRetentionDays, 10),
+      sessionRetentionDays: parseInt(form.sessionRetentionDays, 10),
+      guestShareRetentionDays: parseInt(form.guestShareRetentionDays, 10),
+    };
+    // A value the server refuses anyway (below one day) is not worth a password.
+    const valid = Object.values(values).every((days) => days >= 1);
+    submit(valid && lowersRetention(config, values), t('adminConfig.stepUp.retention'), async (reauth?: AdminReauth) => {
+      const updated = await configClient.updateRetention(values, reauth);
       onSaved(updated);
       reset(toForm(updated));
       notifySuccess('adminConfig.retention.saved');
-    } catch (err) {
-      notifyError(configErrorKey(err));
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
   const runNow = async () => {
@@ -148,6 +151,7 @@ export function RetentionCard({ config }: { config: SystemConfigPublic }) {
           )}
         </ModalContent>
       </ResponsiveModal>
+      {stepUp.dialog}
     </ConfigCard>
   );
 }

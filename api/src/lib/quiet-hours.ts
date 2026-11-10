@@ -8,6 +8,16 @@ export function hourInTimeZone(now: Date, timeZone?: string): number {
 }
 
 /**
+ * The process's time zone (#575, #761), `UTC` when `TZ` names no known zone
+ * (the resolved zone is then undefined, despite the lib typing) or is empty
+ * (Node then resolves `Etc/Unknown`, and computes in UTC).
+ */
+export function instanceTimeZone(): string {
+  const resolved: string | undefined = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return !resolved || resolved === 'Etc/Unknown' ? 'UTC' : resolved;
+}
+
+/**
  * Whether `now` falls in the member's quiet hours `[start, end)`, read in the
  * instance's time zone — the hours a member picks are wall-clock hours. A
  * range whose start is after its end spans midnight (22 → 7). `start === end`

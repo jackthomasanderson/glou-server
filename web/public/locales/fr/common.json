@@ -1960,7 +1960,10 @@
       "notifications": "Ces canaux portent les alertes de sécurité envoyées aux membres : leur modification est confirmée.",
       "gotify": "Le serveur Gotify reçoit les alertes de sécurité : sa modification est confirmée.",
       "gotifyTest": "Le test envoie une notification au serveur Gotify enregistré.",
-      "network": "Les liens de réinitialisation du mot de passe sont construits à partir de l'URL publique : sa modification est confirmée."
+      "network": "Les liens de réinitialisation du mot de passe sont construits à partir de l'URL publique : sa modification est confirmée.",
+      "retention": "Des délais plus courts suppriment définitivement les données plus anciennes au prochain nettoyage, entrées du journal d'audit comprises : cette modification est confirmée.",
+      "backup": "Couper les sauvegardes automatiques, ou garder leurs fichiers moins de jours, laisse moins de moyens de récupérer les données : cette modification est confirmée.",
+      "registration": "Ouvrir l'inscription permet à quiconque atteint cette instance de créer un compte : cette modification est confirmée."
     },
     "tabs": {
       "notifications": "Notifications",
@@ -2054,7 +2057,7 @@
       "off": "désactivé",
       "days_one": "{{count}} jour",
       "days_other": "{{count}} jours",
-      "hour": "{{hour}} h UTC",
+      "hour": "{{hour}} h",
       "sections": {
         "smtp": "E-mail",
         "gotify": "Gotify",
@@ -2082,7 +2085,8 @@
         "guestShareRetentionDays": "Rétention des liens invités expirés",
         "backupEnabled": "Sauvegardes automatiques",
         "backupRetentionDays": "Rétention des sauvegardes",
-        "backupHourUtc": "Heure de sauvegarde",
+        "backupHour": "Heure de sauvegarde",
+        "backupHourUtc": "Heure de sauvegarde (UTC)",
         "publicUrl": "URL publique",
         "accessMode": "Mode d'accès",
         "registrationOpen": "Inscription de nouveaux comptes",
@@ -2152,15 +2156,16 @@
       "enabled": "Activer les sauvegardes automatiques",
       "retentionDays": "Rétention des sauvegardes (jours)",
       "retentionDaysHint": "Les fichiers de sauvegarde plus anciens que ce délai sont supprimés automatiquement (7 jours minimum recommandé).",
-      "hourUtc": "Heure d'exécution (UTC)",
-      "hourUtcHint": "Heure de la journée (0-23, en UTC) à laquelle la sauvegarde planifiée est déclenchée.",
+      "hour": "Heure d'exécution",
+      "hourHint": "Dans le fuseau horaire du serveur : {{timeZone}}, comme les autres tâches planifiées.",
       "saved": "Configuration de sauvegarde enregistrée.",
       "runNow": {
         "title": "Exécution manuelle",
         "description": "Déclenche immédiatement une sauvegarde complète de la base de données.",
         "button": "Sauvegarder maintenant",
         "success": "Sauvegarde exécutée avec succès.",
-        "error": "La sauvegarde a échoué : {{error}}"
+        "error": "La sauvegarde a échoué : {{error}}",
+        "timeout": "La sauvegarde prend plus de temps que prévu et se poursuit sur le serveur. Patientez quelques minutes, puis rechargez la page et consultez l'historique des sauvegardes."
       },
       "history": {
         "title": "Historique des sauvegardes",
@@ -2191,6 +2196,7 @@
           "BACKUP_BEFORE_RESTORE_FAILED": "La sauvegarde des données actuelles prise avant la restauration a échoué : rien n'a été restauré. Consultez l'historique des sauvegardes.",
           "BACKUP_FROM_OLDER_VERSION": "Cette sauvegarde a été prise par une version antérieure de Glou, avant une mise à jour : rien n'a été restauré. Pour revenir à cette version, suivez « Revenir en arrière » dans la page du wiki « Mettre à jour Glou et revenir en arrière en cas de problème ». Pour garder la version actuelle avec ces données, restaurez-la avec la commande de la page « Reprise après sinistre », puis redémarrez l'API : Glou les met à jour.",
           "BACKUP_FROM_NEWER_VERSION": "Cette sauvegarde a été prise par une version plus récente de Glou : rien n'a été restauré. Mettez Glou à jour, puis restaurez-la.",
+          "BACKUP_FILE_MISSING": "Ce fichier de sauvegarde n'est plus dans le dossier des sauvegardes : rien n'a été restauré. Rechargez la page pour mettre l'historique à jour.",
           "TIMEOUT": "La restauration prend plus de temps que prévu et se poursuit sur le serveur. Patientez quelques minutes, puis rechargez la page et consultez l'historique des sauvegardes."
         }
       }

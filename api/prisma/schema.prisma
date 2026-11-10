@@ -740,15 +740,21 @@ model SystemConfig {
   // an admin opts back in here.
   registrationOpen Boolean @default(false)
 
-  // Scheduled database backups (FEAT-18). `backupHourUtc` is the UTC hour
-  // (0-23) at which the daily cron attempts a scheduled pg_dump — see
+  // Scheduled database backups (FEAT-18). `backupHour` is the hour (0-23),
+  // in the instance's time zone (`TZ`, like every other scheduled job, #761),
+  // at which the daily cron attempts a scheduled pg_dump — see
   // backupService.runScheduledIfDue, checked on every cron tick (not just
   // at startup) so toggling `backupEnabled` takes effect without a restart.
   // On by default (#233): the docs promise nightly backups, so a fresh install
   // must have them without anyone having to find the switch.
   backupEnabled       Boolean @default(true)
   backupRetentionDays Int     @default(7)
-  backupHourUtc       Int     @default(3)
+  backupHour          Int     @default(3)
+  // #761: true on a row saved before the hour moved to the instance's time
+  // zone, its `backupHour` still a UTC hour. The API converts it once at
+  // startup (backupService.convertLegacyUtcBackupHour): a SQL migration
+  // cannot know the container's `TZ`.
+  backupHourIsUtc     Boolean @default(false)
 
   updatedAt DateTime @updatedAt
   updatedBy String?

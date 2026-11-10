@@ -40,12 +40,13 @@ export const HISTORY_FIELDS: Record<string, HistoryFieldKind> = {
   // Backups
   backupEnabled: 'bool',
   backupRetentionDays: 'days',
-  backupHourUtc: 'hour',
+  backupHour: 'hour',
   // Network
   publicUrl: 'text',
   // Sign-up
   registrationOpen: 'bool',
   // Removed settings, kept for older entries
+  backupHourUtc: 'hour', // a UTC hour, before #761
   accessMode: 'enum',
   vivinoKeyEnc: 'secret',
   whiskybaseKeyEnc: 'secret',

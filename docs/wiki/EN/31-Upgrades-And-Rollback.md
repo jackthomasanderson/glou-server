@@ -67,7 +67,7 @@ Fallbacks if you do not know that release: every build is also published under a
 1. Stop the stack: `docker compose down` (this keeps your volumes).
 2. In `docker-compose.yml`, pin the two images to the release tag you want, for example `image: ghcr.io/jackthomasanderson/glou-server-api:v2026.10.0` (same for `glou-server-web`), or, as a fallback, to a `sha-…` commit tag or the digests you noted, e.g. `image: ghcr.io/jackthomasanderson/glou-server-api@sha256:…`.
 3. Start only the database: `docker compose up -d db`.
-4. Restore the backup taken before the upgrade (the `glou-backup-before-migration-….sql.gz` file in the `./backups` folder, next to `docker-compose.yml`; if the update brought no migration, your latest `glou-backup-….sql.gz`) with the two commands of [Disaster recovery](./30-Disaster-Recovery.md) step 3: check the file, then restore it.
+4. Restore the backup taken before the upgrade (the `glou-backup-before-migration-….sql.gz` file in the `./backups` folder, next to `docker-compose.yml`; if the update brought no migration, your latest `glou-backup-….sql.gz`) with the two commands of [Disaster recovery](./30-Disaster-Recovery.md) step 4: check the file, then restore it.
 5. Start everything: `docker compose up -d`. The older API finds a database matching its own version and starts normally.
 
 > [!CAUTION]

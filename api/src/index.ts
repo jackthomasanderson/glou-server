@@ -81,6 +81,11 @@ async function bootstrap(): Promise<void> {
     console.warn('[startup] CONFIG_ENCRYPTION_KEY is not set: two-factor secrets cannot be encrypted');
   }
 
+  // #761: a backup hour saved in UTC by an earlier version becomes an hour of
+  // the instance's time zone, once (the migration flagged it, SQL cannot know TZ).
+  await backupService.convertLegacyUtcBackupHour()
+    .catch((err) => console.error('[startup] Backup hour conversion failed:', err));
+
   // ISSUE_084: a ScanJob left in 'pending'/'processing' by a crash or deploy
   // mid-flight would otherwise poll forever from the client's point of view.
   // Must run before anything new can be enqueued.
@@ -157,10 +162,11 @@ async function bootstrap(): Promise<void> {
     .catch((err) => console.error('[startup] Backup history resync failed:', err));
 
   // FEAT-18: scheduled database backups (pg_dump). Ticks hourly and re-reads
-  // SystemConfig (backupEnabled/backupHourUtc) on every tick — see
+  // SystemConfig (backupEnabled/backupHour) on every tick — see
   // backupService.runScheduledIfDue — so an admin can enable/disable or
   // change the target hour without restarting the container. It produces a
-  // backup when the current UTC hour matches the configured one — a
+  // backup when the current hour of the instance's time zone (#761) matches
+  // the configured one — a
   // once-a-day job despite the hourly tick — or, as a catch-up, when the last
   // successful backup is more than 25 h old (a run missed while the container
   // was down, or failing runs being retried hourly).

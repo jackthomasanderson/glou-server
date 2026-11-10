@@ -1,11 +1,14 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 import { Switch } from '@heroui/react';
 import { UserPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { configClient, type SystemConfigPublic } from '@/lib/config/client';
-import { notifyError, notifySuccess } from '@/lib/toast';
-import { ConfigCard, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
+import { opensRegistration } from '@shared/admin-config';
+import { configClient, type AdminReauth, type SystemConfigPublic } from '@/lib/config/client';
+import { useAdminStepUp } from '@/components/admin/AdminStepUpDialog';
+import { notifySuccess } from '@/lib/toast';
+import { ConfigCard, SaveBar, useConfigForm, useConfigSaved } from '../shared';
+import { useGuardedSave } from '../useGuardedSave';
 
 const toForm = (cfg: SystemConfigPublic) => ({ registrationOpen: cfg.registrationOpen });
 
@@ -13,21 +16,19 @@ const toForm = (cfg: SystemConfigPublic) => ({ registrationOpen: cfg.registratio
 export function RegistrationCard({ config }: { config: SystemConfigPublic }) {
   const { t } = useTranslation();
   const { form, update, reset, isDirty } = useConfigForm(toForm(config));
-  const [saving, setSaving] = useState(false);
   const onSaved = useConfigSaved();
+  // #893: opening sign-up lets anyone in, so it is confirmed; closing it is not.
+  const stepUp = useAdminStepUp();
+  const { submit, saving } = useGuardedSave(stepUp);
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      const updated = await configClient.updateRegistration(form);
+  const save = () => {
+    const values = { registrationOpen: form.registrationOpen };
+    submit(opensRegistration(config, values), t('adminConfig.stepUp.registration'), async (reauth?: AdminReauth) => {
+      const updated = await configClient.updateRegistration(values, reauth);
       onSaved(updated);
       reset(toForm(updated));
       notifySuccess('adminConfig.registration.saved');
-    } catch (err) {
-      notifyError(configErrorKey(err));
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
   return (
@@ -36,6 +37,7 @@ export function RegistrationCard({ config }: { config: SystemConfigPublic }) {
         {t('adminConfig.registration.enabled')}
       </Switch>
       <SaveBar isDirty={isDirty} isSaving={saving} onSave={save} />
+      {stepUp.dialog}
     </ConfigCard>
   );
 }

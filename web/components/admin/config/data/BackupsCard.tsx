@@ -1,28 +1,41 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Input, Switch, Chip, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Button, Input, Switch, Chip, SelectItem, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { Archive, AlertTriangle, PlayCircle, Download, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { weakensBackups } from '@shared/admin-config';
 import { configClient, type AdminReauth, type BackupRunEntry, type SystemConfigPublic } from '@/lib/config/client';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
 import { ADMIN_BACKUP_HEALTH_KEY, BACKUP_RUNS_KEY, useAdminBackupHealth, useBackupRuns } from '@/hooks/useAdmin';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDateTime } from '@/lib/format';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { ConfigCard, QueryList, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
+import { useGuardedSave } from '../useGuardedSave';
 
 /**
  * Restore refusals the dialog explains (nothing was restored): the safety copy
- * failed (#666), or the backup belongs to another version of Glou (#471).
+ * failed (#666), the backup belongs to another version of Glou (#471), or its
+ * file is no longer in the backups folder (#748).
  */
-const RESTORE_REFUSALS = new Set(['BACKUP_BEFORE_RESTORE_FAILED', 'BACKUP_FROM_OLDER_VERSION', 'BACKUP_FROM_NEWER_VERSION']);
+const RESTORE_REFUSALS = new Set(['BACKUP_BEFORE_RESTORE_FAILED', 'BACKUP_FROM_OLDER_VERSION', 'BACKUP_FROM_NEWER_VERSION', 'BACKUP_FILE_MISSING']);
+
+/** #761: the hours of the day, 00:00 to 23:00, of the server's time zone. */
+const HOURS = Array.from({ length: 24 }, (_, h) => h);
+
+/** What fetch rejects with once the browser stops waiting (lib/api timeoutSignal). */
+const isTimeout = (err: unknown) => {
+  const name = (err as { name?: string } | null)?.name;
+  return name === 'TimeoutError' || name === 'AbortError';
+};
 
 const toForm = (cfg: SystemConfigPublic) => ({
   backupEnabled: cfg.backupEnabled,
   backupRetentionDays: String(cfg.backupRetentionDays),
-  backupHourUtc: String(cfg.backupHourUtc),
+  backupHour: String(cfg.backupHour),
 });
 
 function formatBytes(bytes: number | null): string {
@@ -43,7 +56,6 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
   const hasMounted = useHasMounted();
   const queryClient = useQueryClient();
   const { form, update, reset, isDirty } = useConfigForm(toForm(config));
-  const [saving, setSaving] = useState(false);
   const [runningBackup, setRunningBackup] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<BackupRunEntry | null>(null);
   const [restoreConfirmText, setRestoreConfirmText] = useState('');
@@ -51,8 +63,10 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
   // #669: the check itself can fail; that is said too.
   const health = useAdminBackupHealth();
   const onSaved = useConfigSaved();
-  // #890: the backup download and restore are confirmed with the admin's password and code.
+  // #890: the backup download and restore are confirmed with the admin's password and code;
+  // #893: so is turning backups off or keeping their files for fewer days.
   const stepUp = useAdminStepUp();
+  const { submit, saving } = useGuardedSave(stepUp);
 
   /** #756: the page's backup warning reads the same state. */
   const refreshBackupState = () => {
@@ -60,23 +74,21 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
     void queryClient.invalidateQueries({ queryKey: ADMIN_BACKUP_HEALTH_KEY });
   };
 
-  const save = async () => {
-    setSaving(true);
-    try {
-      const updated = await configClient.updateBackupConfig({
-        backupEnabled: form.backupEnabled,
-        backupRetentionDays: parseInt(form.backupRetentionDays, 10),
-        backupHourUtc: parseInt(form.backupHourUtc, 10),
-      });
+  const save = () => {
+    const values = {
+      backupEnabled: form.backupEnabled,
+      backupRetentionDays: parseInt(form.backupRetentionDays, 10),
+      backupHour: parseInt(form.backupHour, 10),
+    };
+    // A retention the server refuses anyway (below one day) is not worth a password.
+    const valid = values.backupRetentionDays >= 1;
+    submit(valid && weakensBackups(config, values), t('adminConfig.stepUp.backup'), async (reauth?: AdminReauth) => {
+      const updated = await configClient.updateBackupConfig(values, reauth);
       onSaved(updated);
       reset(toForm(updated));
       void queryClient.invalidateQueries({ queryKey: ADMIN_BACKUP_HEALTH_KEY });
       notifySuccess('adminConfig.backup.saved');
-    } catch (err) {
-      notifyError(configErrorKey(err));
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
   const runNow = async () => {
@@ -86,7 +98,8 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
       if (run.success) notifySuccess('adminConfig.backup.runNow.success');
       else notifyError('adminConfig.backup.runNow.error', { error: run.error ?? '' });
     } catch (err) {
-      notifyError(configErrorKey(err));
+      // #748: the server goes on with the backup; the history will show it.
+      notifyError(isTimeout(err) ? 'adminConfig.backup.runNow.timeout' : configErrorKey(err));
     } finally {
       setRunningBackup(false);
       refreshBackupState();
@@ -111,8 +124,7 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
       void queryClient.invalidateQueries();
     } catch (err) {
       if (isStepUpRefusal(err)) throw err;
-      const errName = (err as { name?: string } | null)?.name;
-      notifyError(errName === 'TimeoutError' || errName === 'AbortError'
+      notifyError(isTimeout(err)
         ? 'adminConfig.backup.restore.errors.TIMEOUT'
         : err instanceof Error && RESTORE_REFUSALS.has(err.message)
           ? `adminConfig.backup.restore.errors.${err.message}`
@@ -153,14 +165,19 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
           onValueChange={(v) => update({ backupRetentionDays: v })}
           variant="bordered" size="sm" radius="md" labelPlacement="outside"
         />
-        <Input
-          label={t('adminConfig.backup.hourUtc')}
-          description={t('adminConfig.backup.hourUtcHint')}
-          type="number" min={0} max={23}
-          value={form.backupHourUtc}
-          onValueChange={(v) => update({ backupHourUtc: v })}
+        {/* #761: an hour of the server's time zone, like the other scheduled jobs; a list, not a number to type. */}
+        <SingleSelect
+          label={t('adminConfig.backup.hour')}
+          description={t('adminConfig.backup.hourHint', { timeZone: config.timeZone })}
+          selectedKeys={[form.backupHour]}
+          onSelectionChange={(keys) => {
+            const hour = Array.from(keys)[0];
+            if (hour != null) update({ backupHour: String(hour) });
+          }}
           variant="bordered" size="sm" radius="md" labelPlacement="outside"
-        />
+        >
+          {HOURS.map((h) => <SelectItem key={String(h)}>{`${String(h).padStart(2, '0')}:00`}</SelectItem>)}
+        </SingleSelect>
       </div>
       <SaveBar isDirty={isDirty} isSaving={saving} onSave={save} />
 

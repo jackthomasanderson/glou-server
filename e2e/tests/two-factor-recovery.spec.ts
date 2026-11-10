@@ -53,7 +53,8 @@ test('a lost phone is recoverable: new backup codes, then an admin reset turns 2
   const password = 'lost-phone-pw-0000';
 
   try {
-    await okData(await admin.put('/api/admin/config/registration', { data: { registrationOpen: true } }));
+    // #893: opening sign-up asks for the admin's password.
+    await okData(await admin.put('/api/admin/config/registration', { data: { registrationOpen: true, password: creds().password } }));
     await okData(await member.post('/api/auth/register', {
       data: { username, email: `${username}@glou.test`, password },
     }));

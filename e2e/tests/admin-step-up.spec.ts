@@ -33,7 +33,11 @@ test('a stolen admin session cannot redirect mail, links or alerts, nor download
   const me = await okData<{ id: string; isAdmin: boolean; isTwoFactorEnabled: boolean }>(await admin.get('/api/auth/me'));
   test.skip(!me.isAdmin || me.isTwoFactorEnabled, 'needs the suite user to be the instance admin, without 2FA (fresh database)');
 
-  type Config = { smtpHost: string | null; publicUrl: string | null; smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean };
+  type Config = {
+    smtpHost: string | null; publicUrl: string | null; smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean;
+    logRetentionDays: number; sessionRetentionDays: number; guestShareRetentionDays: number;
+    backupEnabled: boolean; backupRetentionDays: number; backupHour: number; registrationOpen: boolean;
+  };
   const before = await okData<Config>(await admin.get('/api/admin/config'));
   const run = await okData<{ id: string; success: boolean }>(await admin.post('/api/admin/backups/run'));
   expect(run.success).toBe(true);
@@ -49,7 +53,18 @@ test('a stolen admin session cannot redirect mail, links or alerts, nor download
     ['backup download', admin.post(`/api/admin/backups/${run.id}/download`, { data: {} })],
     ['backup restore', admin.post(`/api/admin/backups/${run.id}/restore`, { data: { confirm: true } })],
     ['full purge', admin.post('/api/admin/maintenance/purge', { data: { confirmation: 'SUPPRIMER' } })],
+    // #893: erasing the audit trail, turning backups off, opening sign-up.
+    ['audit log retention lowered', admin.put('/api/admin/config/retention', {
+      data: { logRetentionDays: 1, sessionRetentionDays: before.sessionRetentionDays, guestShareRetentionDays: before.guestShareRetentionDays },
+    })],
+    ['scheduled backups turned off', admin.put('/api/admin/config/backup', {
+      data: { backupEnabled: false, backupRetentionDays: before.backupRetentionDays, backupHour: before.backupHour },
+    })],
   ];
+  // Sign-up is closed on a fresh database (and the specs that open it close it again).
+  if (!before.registrationOpen) {
+    sessionOnly.push(['sign-up opened', admin.put('/api/admin/config/registration', { data: { registrationOpen: true } })]);
+  }
   for (const [label, res] of sessionOnly) await expectRefused(await res, 'REAUTH_REQUIRED', label);
   await expectRefused(
     await admin.put('/api/admin/config/smtp', { data: { smtpHost: 'mail.attacker.example', password: 'not-the-admin-password' } }),

@@ -26,7 +26,7 @@ Indiquez à Glou l'adresse utilisée pour joindre votre instance depuis l'extér
 
 ### Autoriser ou fermer l'inscription de nouveaux comptes
 L'inscription est **fermée par défaut** : dès que le premier compte (l'admin de l'instance) existe, `POST /api/auth/register` répond `REGISTRATION_CLOSED` et la page de connexion masque le lien d'inscription.
-1. Dans ce même onglet **Accès**, sous **Qui peut rejoindre l'instance**, activez **Autoriser l'inscription de nouveaux comptes** pour laisser les gens créer leur compte, ou désactivez-le pour refermer, puis cliquez sur **Enregistrer**. Le bloc Membres de la page d'administration indique si les inscriptions sont ouvertes, avec un lien vers ce réglage.
+1. Dans ce même onglet **Accès**, sous **Qui peut rejoindre l'instance**, activez **Autoriser l'inscription de nouveaux comptes** pour laisser les gens créer leur compte, ou désactivez-le pour refermer, puis cliquez sur **Enregistrer**. L'ouverture se confirme avec votre mot de passe, plus votre code si votre compte a la double authentification : une session volée seule ne peut laisser entrer personne. La fermeture ne demande aucune confirmation. Le bloc Membres de la page d'administration indique si les inscriptions sont ouvertes, avec un lien vers ce réglage.
 2. Les comptes existants ne sont pas touchés. Le premier compte d'une instance vide peut toujours être créé.
 
 ## Le pare-feu (troubleshooting)

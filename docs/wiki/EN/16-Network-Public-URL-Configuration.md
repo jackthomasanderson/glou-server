@@ -26,7 +26,7 @@ Tell Glou the address people use to reach your instance from outside, so the lin
 
 ### Allow or close new registrations
 Registration is **closed by default**: once the first account (the instance admin) exists, `POST /api/auth/register` answers `REGISTRATION_CLOSED` and the login page hides the sign-up link.
-1. In the same **Access** tab, under **Who can join**, switch **Allow new accounts to register** on to let people create their own account, or off to close it again, then click **Save**. The Members block of the admin page says whether sign-up is open, with a link here.
+1. In the same **Access** tab, under **Who can join**, switch **Allow new accounts to register** on to let people create their own account, or off to close it again, then click **Save**. Opening it is confirmed with your password, plus your code if your account has two-factor authentication: a stolen session alone cannot let anyone in. Closing it needs no confirmation. The Members block of the admin page says whether sign-up is open, with a link here.
 2. Existing accounts are not affected. The first account of an empty instance can always be created.
 
 ## The firewall (troubleshooting)
