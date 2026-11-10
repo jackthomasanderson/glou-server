@@ -9,7 +9,7 @@ import {
 import { fitSlotsTo, reviveSlots, slotsFreed, trashSlots } from '../lib/slots';
 import { peakWindowSchema } from '../schemas/inventory.schema';
 import type { ProductMatchQuery, ProductPatch } from '../schemas/product.schema';
-import { computeAlertStatus, computeReadiness } from './alert.service';
+import { computeReadiness, familyAlertStatus, hasDrinkingWindow } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
@@ -106,6 +106,9 @@ export interface FamilyWriteOptions {
   unitPatch?: { ids: readonly string[]; columns: Record<string, unknown> };
 }
 
+/** #593: the family fields of a drinking window, cleared on a category without one. */
+const DRINKING_WINDOW_FIELDS = ['peakMaturityFrom', 'peakMaturityTo', 'curveShape'] as const satisfies readonly ProductField[];
+
 /**
  * #471: writes description fields of a family inside the caller's
  * transaction, from the family as it is once locked (see {@link lockFamily}):
@@ -128,6 +131,17 @@ export async function writeFamilyDescription(
       && !(options.respectLocks && current.lockedFields.includes(field))),
   ) as Partial<Record<ProductField, unknown>>;
 
+  // #593: a spirit or a cigar has no drinking window (the form offers none):
+  // the one a wine had is cleared when it becomes one, and none is written
+  // on it. Its bottles, their number included, are left as they are.
+  const category = (fields.category ?? current.category) as Product['category'];
+  if (!hasDrinkingWindow(category)) {
+    for (const field of DRINKING_WINDOW_FIELDS) {
+      if (current[field] == null) delete fields[field];
+      else fields[field] = null;
+    }
+  }
+
   const stored = current as unknown as Record<string, unknown>;
   const changes = Object.entries(fields)
     .filter(([field, value]) => JSON.stringify(stored[field]) !== JSON.stringify(value))
@@ -148,7 +162,7 @@ export async function writeFamilyDescription(
   if ('peakMaturityFrom' in fields || 'peakMaturityTo' in fields) {
     peakWindowSchema.parse({ peakMaturityFrom: from, peakMaturityTo: to });
   }
-  const alertStatus = computeAlertStatus(from, to);
+  const alertStatus = familyAlertStatus({ category, peakMaturityFrom: from, peakMaturityTo: to });
   if (alertStatus !== current.alertStatus) data.alertStatus = alertStatus;
 
   if (Object.keys(data).length === 0) return { product: current, changes, unitSlotChanges: [] };
@@ -158,8 +172,7 @@ export async function writeFamilyDescription(
   // freed, the most recently placed first (automatic rule, decision #471
   // point 75: a description edit does not show the plan).
   const unitSlotChanges: UnitSlotChanges[] = [];
-  const category = fields.category as Product['category'] | undefined;
-  if (category !== undefined && category !== current.category) {
+  if (category !== current.category) {
     const units = await tx.inventoryItem.findMany({ where: { productId, deletedAt: null } });
     for (const unit of units) {
       const written = options.unitPatch?.ids.includes(unit.id) ? { ...unit, ...options.unitPatch.columns } as typeof unit : unit;

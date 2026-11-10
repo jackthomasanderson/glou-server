@@ -15,6 +15,19 @@ import {
 export { CATEGORY_VALUES };
 export type { AlertStatus, CurveShape, FieldSource, InventoryCategory };
 
+/**
+ * #644: which wine should be drunk first — past its window, then at its peak,
+ * then approaching it (possibly years ahead, #506), then without a window.
+ * The one order of the list sort, the bell and the pairing suggestions; the
+ * API's reference is `getAlerts` in api/src/services/alert.service.ts.
+ */
+export const ALERT_URGENCY_ORDER: Readonly<Record<AlertStatus, number>> = { past: 0, peak: 1, approaching: 2, none: 3 };
+
+/** Rank of a status in {@link ALERT_URGENCY_ORDER}; a missing or unknown status ranks with 'none'. */
+export function alertUrgency(status: string | null | undefined): number {
+  return ALERT_URGENCY_ORDER[status as AlertStatus] ?? ALERT_URGENCY_ORDER.none;
+}
+
 export interface CollectionSummary {
   id: string;
   name: string;

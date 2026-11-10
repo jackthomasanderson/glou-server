@@ -55,6 +55,8 @@ let slots: ReturnType<typeof fakeSlots>;
 function family(fields: Record<string, unknown> = {}) {
   return {
     ...Object.fromEntries(PRODUCT_FIELDS.map((field) => [field, null])),
+    // A family always has a category (#593: a wine's drinking window counts).
+    category: 'wine',
     tags: [], grapeVarieties: [], alertsPaused: false, alertStatus: 'none',
     lockedFields: [], fieldSources: null, collections: [],
     ...fields,
@@ -1226,6 +1228,23 @@ describe('InventoryService', () => {
       await service.updateItem('u1', 'b1', { category: 'cigar', cigarsPerBox: 25 });
 
       expect(slots.cellsOf('b1')).toBe('1:1 2:1 3:1');
+    });
+
+    // #593: a "Lagavulin 16" saved as a wine with its suggested window, then corrected.
+    it('a wine corrected to a spirit loses its drinking window and its alert, its bottles kept', async () => {
+      const year = new Date().getFullYear();
+      const wine = unitRow({ quantity: 6 }, { peakMaturityFrom: year - 1, peakMaturityTo: year + 3, curveShape: 'PLATEAU', alertStatus: 'peak' });
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(wine as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ ...wine, product: undefined }] as never);
+      vi.mocked(prisma.product.update).mockImplementation((async (args: { data: Record<string, unknown> }) => ({ ...wine.product, ...args.data })) as never);
+
+      await service.updateItem('u1', 'b1', { category: 'spirit' });
+
+      expect(productUpdateData()).toMatchObject({
+        category: 'spirit', peakMaturityFrom: null, peakMaturityTo: null, curveShape: null, alertStatus: 'none',
+      });
+      const unitWrites = vi.mocked(prisma.inventoryItem.update).mock.calls.map((call) => (call[0] as { data: Record<string, unknown> }).data);
+      expect(unitWrites.every((data) => !('quantity' in data))).toBe(true);
     });
   });
 

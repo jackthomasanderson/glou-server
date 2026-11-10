@@ -30,6 +30,26 @@ export function computeAlertStatus(
 }
 
 /**
+ * #593: the categories that have a drinking window — the form only offers
+ * one for them. A spirit or a cigar first saved as a wine may still carry the
+ * window it was given then: it never makes an alert, an e-mail nor a
+ * consumption-plan suggestion.
+ */
+export const DRINKING_WINDOW_CATEGORIES = ['wine', 'sparkling'] as const;
+
+export const hasDrinkingWindow = (category: string): boolean =>
+  (DRINKING_WINDOW_CATEGORIES as readonly string[]).includes(category);
+
+/** {@link computeAlertStatus} of a family: 'none' for a category without a drinking window (#593). */
+export function familyAlertStatus(family: {
+  category: string;
+  peakMaturityFrom: number | null | undefined;
+  peakMaturityTo: number | null | undefined;
+}): AlertStatus {
+  return hasDrinkingWindow(family.category) ? computeAlertStatus(family.peakMaturityFrom, family.peakMaturityTo) : 'none';
+}
+
+/**
  * FEAT-86: the fine-grained companion to `computeAlertStatus`. Returns an
  * integer readiness percentage in [0, 100] for the given curve shape and
  * window, or `null` when there is no window at all (fall back to the coarse
@@ -51,18 +71,25 @@ export function computeReadiness(
  * per family — a wine of 9 bottles in 3 groups is one alert, one notification.
  *
  * Matches every family not in the trash with at least one end of a drinking
- * window defined — exactly the population for which `computeAlertStatus` can
- * return something other than 'none'. Shared by `getAlerts` (read path) and
- * `recomputeAlertStatuses` (maintenance path) so both always agree on the set
- * of families an alert can possibly apply to. `getAlerts` then keeps only the
- * families with a unit in stock (#573: a finished bottle has been drunk;
- * FEAT-87: a reference has no bottle to drink); the recompute keeps them all
- * so the status shown on their card stays current, and only skips them when
- * notifying.
+ * window defined — the population for which `computeAlertStatus` can return
+ * something other than 'none'. `recomputeAlertStatuses` (maintenance path)
+ * scans them all, so that the status stored on a spirit or a cigar still
+ * carrying a window goes back to 'none' (#593); `getAlerts` (read path) only
+ * reads the categories with a drinking window ({@link HAS_ALERT_WINDOW}), and
+ * then keeps only the families with a unit in stock (#573: a finished bottle
+ * has been drunk; FEAT-87: a reference has no bottle to drink); the recompute
+ * keeps them all so the status shown on their card stays current, and only
+ * skips them when notifying.
  */
 const HAS_MATURITY_WINDOW = {
   deletedAt: null,
   OR: [{ peakMaturityFrom: { not: null } }, { peakMaturityTo: { not: null } }],
+} satisfies Prisma.ProductWhereInput;
+
+/** #593: a family whose drinking window can make an alert. */
+const HAS_ALERT_WINDOW = {
+  ...HAS_MATURITY_WINDOW,
+  category: { in: [...DRINKING_WINDOW_CATEGORIES] },
 } satisfies Prisma.ProductWhereInput;
 
 /** A family has something to drink: at least one unit in stock. */
@@ -88,7 +115,7 @@ const HAS_STOCK = { items: { some: IN_STOCK_ITEM_FILTER } } satisfies Prisma.Pro
  */
 export async function getAlerts() {
   const families = await prisma.product.findMany({
-    where: { ...HAS_MATURITY_WINDOW, ...HAS_STOCK, alertsPaused: false },
+    where: { ...HAS_ALERT_WINDOW, ...HAS_STOCK, alertsPaused: false },
     orderBy: [{ updatedAt: 'desc' }],
     select: {
       id: true,
@@ -119,7 +146,7 @@ export async function getAlerts() {
       id: unit.id,
       productId,
       cellarId: unit.cellarId,
-      alertStatus: computeAlertStatus(family.peakMaturityFrom, family.peakMaturityTo),
+      alertStatus: familyAlertStatus(family),
       readiness: computeReadiness(family.curveShape, family.peakMaturityFrom, family.peakMaturityTo),
     }))
     .filter((alert) => alert.alertStatus !== 'none')
@@ -158,6 +185,7 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
       id: true,
       name: true,
       producer: true,
+      category: true,
       vintage: true,
       alertStatus: true,
       alertsPaused: true,
@@ -171,7 +199,7 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
   let updated = 0;
   const reachedPeak: PeakItem[] = [];
   for (const family of families) {
-    const nextStatus = computeAlertStatus(family.peakMaturityFrom, family.peakMaturityTo);
+    const nextStatus = familyAlertStatus(family);
     if (family.alertStatus === nextStatus) continue;
     await writeAlertStatus(prisma, family.id, nextStatus);
     updated += 1;
@@ -199,16 +227,18 @@ export async function recomputeAlertStatuses(): Promise<AlertStatusRecomputeResu
   return { scanned: families.length, updated };
 }
 
+/** A family reaching its peak; `id` is the family's. */
 type PeakItem = { id: string; name: string; producer: string; vintage: number | null };
 
 /** Bottles listed by name in a digest; the rest are summarised as "+ N more". */
 const DIGEST_LISTED = 10;
 
-async function alertsUrl(): Promise<string> {
+/** A page of the app, as a link a message can carry. */
+async function appUrl(path: string): Promise<string> {
   try {
-    return `${await systemConfigService.getEffectivePublicUrl()}/bottles?filter=alerts`;
+    return `${await systemConfigService.getEffectivePublicUrl()}${path}`;
   } catch {
-    return `${process.env.APP_URL ?? ''}/bottles?filter=alerts`;
+    return `${process.env.APP_URL ?? ''}${path}`;
   }
 }
 
@@ -220,6 +250,9 @@ async function notifyPeakReached(items: PeakItem[]): Promise<void> {
   if (items.length === 1) {
     const label = labelOf(items[0]);
     const safeLabel = escapeHtml(label);
+    // #644: opens the wine's drawer (the `?scan=` deep link takes a family id;
+    // only a wine or a sparkling wine reaches its peak, #593, so `/bottles`).
+    const link = escapeHtml(await appUrl(`/bottles?scan=${encodeURIComponent(items[0].id)}`));
     await Promise.all(users.map((user) => {
       const isEn = (user.notifLanguage ?? user.language) === 'EN';
       return notificationService.send({
@@ -228,7 +261,9 @@ async function notifyPeakReached(items: PeakItem[]): Promise<void> {
         subject: isEn ? `At peak maturity: ${label}` : `À son apogée : ${label}`,
         htmlBody: isEn
           ? `<p><strong>${safeLabel}</strong> has reached its optimal drinking window. This may be a good time to open it.</p>`
-          : `<p><strong>${safeLabel}</strong> est entrée dans sa fenêtre optimale de consommation. C'est peut-être le bon moment pour l'ouvrir.</p>`,
+            + `<p><a href="${link}">See it in Glou</a></p>`
+          : `<p><strong>${safeLabel}</strong> est entrée dans sa fenêtre optimale de consommation. C'est peut-être le bon moment pour l'ouvrir.</p>`
+            + `<p><a href="${link}">La voir dans Glou</a></p>`,
       });
     }));
     return;
@@ -236,7 +271,7 @@ async function notifyPeakReached(items: PeakItem[]): Promise<void> {
 
   const listed = items.slice(0, DIGEST_LISTED).map((item) => `<li>${escapeHtml(labelOf(item))}</li>`).join('');
   const others = items.length - DIGEST_LISTED;
-  const link = escapeHtml(await alertsUrl());
+  const link = escapeHtml(await appUrl('/bottles?filter=alerts'));
   await Promise.all(users.map((user) => {
     const isEn = (user.notifLanguage ?? user.language) === 'EN';
     const more = others > 0 ? `<p>${isEn ? `+ ${others} more.` : `+ ${others} autre${others > 1 ? 's' : ''}.`}</p>` : '';

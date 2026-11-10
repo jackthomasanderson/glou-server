@@ -5,7 +5,7 @@ import { Search, Utensils, Wine } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
 import { inStockItems } from '@/lib/inventory/inStock';
-import { InventoryItem } from '@/lib/inventory/types';
+import { alertUrgency, InventoryItem } from '@/lib/inventory/types';
 import { matchDishToPairings, pickBestPairingLabel } from '@/lib/tastings/pairingEngine';
 import { getRecommendations } from '@/lib/tastings/recommendations';
 import { TastingForm } from './TastingForm';
@@ -38,25 +38,6 @@ function getItemSubtype(item: InventoryItem): string | null {
       return null;
     default:
       return null;
-  }
-}
-
-/**
- * Consumption-rotation priority (FEAT-08/FEAT-06 spirit): among bottles that
- * pair equally well with the dish, surface the ones that most need drinking
- * first — past their peak, at their peak, approaching it, then already
- * opened bottles (finish what's started) before anything else.
- */
-function urgencyRank(item: InventoryItem): number {
-  switch (item.alertStatus) {
-    case 'past':
-      return 0;
-    case 'peak':
-      return 1;
-    case 'approaching':
-      return 2;
-    default:
-      return 3;
   }
 }
 
@@ -107,7 +88,10 @@ export function PairingExplorer() {
 
     return Array.from(byItemId.values()).sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      const urgencyDiff = urgencyRank(a.item) - urgencyRank(b.item);
+      // Consumption-rotation priority (FEAT-08): among bottles that pair
+      // equally well, the ones that most need drinking first (#644: the one
+      // urgency order), then opened bottles (finish what's started).
+      const urgencyDiff = alertUrgency(a.item.alertStatus) - alertUrgency(b.item.alertStatus);
       if (urgencyDiff !== 0) return urgencyDiff;
       if (a.item.isOpened !== b.item.isOpened) return a.item.isOpened ? -1 : 1;
       return a.item.name.localeCompare(b.item.name);
