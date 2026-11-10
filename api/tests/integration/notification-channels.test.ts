@@ -241,6 +241,68 @@ describe('PATCH /user/notifications (#767)', () => {
   });
 });
 
+// #780: backup failures only ever reach admins; #772: the quiet hours are
+// read in the instance's time zone, which the page has to name.
+describe('GET /user/notifications — categories and time zone (#772, #780)', () => {
+  const get = () => request(app).get('/api/user/notifications').set('Authorization', `Bearer ${token()}`);
+
+  it('names the instance time zone', async () => {
+    vi.mocked(systemConfigService.getPublic).mockResolvedValue({ ...saved, timeZone: 'Europe/Paris' });
+
+    expect((await get()).body.data.timeZone).toBe('Europe/Paris');
+  });
+
+  it('offers backup failures to an admin, with whether automatic backups run', async () => {
+    vi.mocked(systemConfigService.getPublic).mockResolvedValue({ ...saved, backupEnabled: false });
+
+    const { data } = (await get()).body;
+
+    expect(data.categories).toEqual(['peak', 'temperature', 'security', 'wishlist', 'backup']);
+    expect(data.automaticBackups).toBe(false);
+  });
+
+  it('does not offer backup failures to a member', async () => {
+    isAdmin = false;
+
+    const { data } = (await get()).body;
+
+    expect(data.categories).toEqual(['peak', 'temperature', 'security', 'wishlist']);
+    expect(data).not.toHaveProperty('automaticBackups');
+  });
+});
+
+describe('PATCH /user/notifications — categories (#780)', () => {
+  const patch = (notifCategories: string[]) => request(app).patch('/api/user/notifications')
+    .set('Authorization', `Bearer ${token()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send({ notifCategories });
+
+  it('does not store backup failures for a member', async () => {
+    isAdmin = false;
+
+    const res = await patch(['peak', 'backup']);
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak'] } });
+  });
+
+  it('refuses a member list holding only backup failures, which would read as "all"', async () => {
+    isAdmin = false;
+
+    const res = await patch(['backup']);
+
+    expect(res.status).toBe(400);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('stores backup failures for an admin', async () => {
+    const res = await patch(['backup', 'security']);
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['backup', 'security'] } });
+  });
+});
+
 describe('a channel switch is not blocked by an older Gotify state', () => {
   it('saves the email switch while Gotify was left on without a token', async () => {
     vi.mocked(systemConfigService.getPublic).mockResolvedValue({ ...saved, gotifyEnabled: true, gotifyTokenMasked: null });

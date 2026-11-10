@@ -1931,18 +1931,23 @@
     },
     "categories": {
       "title": "Alert categories",
-      "hint": "Tap a category to turn it on or off.",
       "lastOne": "At least one category stays on. To receive nothing at all, turn off the channels above.",
       "peak": "Peak maturity reached",
       "temperature": "Temperature/humidity variations",
       "security": "Account security",
       "wishlist": "Price opportunities (wishlist)",
-      "backup": "Backup failures (admin)"
+      "backup": "Backup failures",
+      "backupAutomaticOff": "Automatic backups are off: only a manual backup, or the copy taken before a restore, can still fail and alert you."
     },
     "quietHours": {
       "title": "Quiet hours",
       "description": "No notifications during this time range",
-      "dropped": "A message that falls in this range is dropped, not delayed. Hours are those of the server's time zone. Peak and humidor alerts are sent at {{hour}}:00; alerts about your account's security and backup failures always get through.",
+      "droppedLead": "Deleted, not delayed.",
+      "dropped": "A message that falls in this range is lost: it is not sent later.",
+      "details": "Peak and daily humidor alerts are sent at {{hour}}:00; alerts about your account's security always get through.",
+      "detailsAdmin": "Peak and daily humidor alerts are sent at {{hour}}:00; alerts about your account's security and backup failures always get through.",
+      "timeZone": "Hours of the instance's time zone: {{timeZone}}.",
+      "otherTimeZone": "Your device is set to {{deviceTimeZone}}: pick the hours as they read in {{timeZone}}.",
       "from": "From",
       "to": "To",
       "disabled": "Disabled",

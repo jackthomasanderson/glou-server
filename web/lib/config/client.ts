@@ -1,6 +1,6 @@
 import { client, handleResponse } from '@/lib/api';
 import type { BackupHealth } from '@shared/maintenance';
-import type { NotificationChannelPolicy } from '@shared/notifications';
+import type { NotificationCategory, NotificationChannelPolicy } from '@shared/notifications';
 
 /**
  * A restore takes a safety backup, then replays a whole dump (#666): far more
@@ -119,10 +119,16 @@ export interface NotificationPrefs {
   notifLanguage: string | null;
   /** #767: the member only opts in to Gotify; messages go to the instance's server. */
   policy: NotificationChannelPolicy;
+  /** #780: the categories this member can receive (backup failures: admins only). */
+  categories: NotificationCategory[];
+  /** #780: admins only — whether automatic backups run. */
+  automaticBackups?: boolean;
+  /** #772: the instance time zone, in which quiet hours are read. */
+  timeZone: string;
 }
 
 /** What the profile saves: its own settings, never the instance policy. */
-export type NotificationPrefsPatch = Partial<Omit<NotificationPrefs, 'policy'>>;
+export type NotificationPrefsPatch = Partial<Omit<NotificationPrefs, 'policy' | 'categories' | 'automaticBackups' | 'timeZone'>>;
 
 export interface ConfigHistoryEntry {
   id: number;

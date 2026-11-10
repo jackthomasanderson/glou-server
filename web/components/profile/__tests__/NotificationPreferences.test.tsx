@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { forwardRef, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { NotificationPrefs, NotificationPrefsPatch } from '@/lib/config/client';
 import { notifyError, notifySuccess } from '@/lib/toast';
@@ -29,6 +29,17 @@ vi.mock('@heroui/react', () => {
       <input type="checkbox" role="switch" aria-label={label} checked={!!isSelected} onChange={(e) => onValueChange?.(e.target.checked)} />
     ),
     Chip: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+    // Like HeroUI: the ref is the <input>; aria-describedby is not forwarded to it.
+    Checkbox: forwardRef<HTMLInputElement, {
+      children?: ReactNode; isSelected?: boolean; isDisabled?: boolean; onValueChange?: (v: boolean) => void;
+    }>(function Checkbox({ children, isSelected, isDisabled, onValueChange }, ref) {
+      return (
+        <label>
+          <input ref={ref} type="checkbox" checked={!!isSelected} disabled={isDisabled} onChange={(e) => onValueChange?.(e.target.checked)} />
+          {children}
+        </label>
+      );
+    }),
     Skeleton: () => <div />,
     Card: Box,
     CardBody: Box,
@@ -37,7 +48,7 @@ vi.mock('@heroui/react', () => {
   };
 });
 
-import { NotificationPreferences } from '../NotificationPreferences';
+import { NotificationPreferences, sameClock } from '../NotificationPreferences';
 
 const ALL = ['peak', 'temperature', 'security', 'wishlist', 'backup'];
 
@@ -50,6 +61,9 @@ function prefs(patch: Partial<NotificationPrefs> = {}): NotificationPrefs {
     notifQuietEnd: null,
     notifLanguage: null,
     policy: { smtpEnabled: true, gotifyEnabled: false },
+    categories: ['peak', 'temperature', 'security', 'wishlist', 'backup'],
+    automaticBackups: true,
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     ...patch,
   };
 }
@@ -59,12 +73,13 @@ function renderPrefs() {
   return render(<QueryClientProvider client={queryClient}><NotificationPreferences /></QueryClientProvider>);
 }
 
-const chip = (cat: string) => screen.getByRole('button', { name: `notifications.categories.${cat}` });
+// #780: each category is a checkbox, whose state reads on its own.
+const chip = (cat: string) => screen.getByRole('checkbox', { name: `notifications.categories.${cat}` });
 
-async function renderWith(notifCategories: string[]) {
-  getNotifPrefs.mockResolvedValue(prefs({ notifCategories }));
+async function renderWith(notifCategories: string[], patch: Partial<NotificationPrefs> = {}) {
+  getNotifPrefs.mockResolvedValue(prefs({ notifCategories, ...patch }));
   renderPrefs();
-  await screen.findByRole('button', { name: 'notifications.categories.peak' });
+  await screen.findByRole('checkbox', { name: 'notifications.categories.peak' });
 }
 
 beforeEach(() => {
@@ -80,7 +95,7 @@ beforeEach(() => {
 describe('NotificationPreferences categories (#583)', () => {
   it('shows every category on by default (empty saved list)', async () => {
     await renderWith([]);
-    for (const cat of ALL) expect(chip(cat)).toHaveAttribute('aria-pressed', 'true');
+    for (const cat of ALL) expect(chip(cat)).toBeChecked();
   });
 
   it('from the default state, unticking one category leaves all the others on', async () => {
@@ -90,21 +105,21 @@ describe('NotificationPreferences categories (#583)', () => {
 
     await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledTimes(1));
     expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security', 'wishlist'] });
-    expect(chip('backup')).toHaveAttribute('aria-pressed', 'false');
+    expect(chip('backup')).not.toBeChecked();
     for (const cat of ['peak', 'temperature', 'security', 'wishlist']) {
-      expect(chip(cat)).toHaveAttribute('aria-pressed', 'true');
+      expect(chip(cat)).toBeChecked();
     }
   });
 
   it('ticking every category again saves an empty list', async () => {
     await renderWith(['peak', 'temperature', 'security', 'wishlist']);
-    expect(chip('backup')).toHaveAttribute('aria-pressed', 'false');
+    expect(chip('backup')).not.toBeChecked();
 
     fireEvent.click(chip('backup'));
 
     await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledTimes(1));
     expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: [] });
-    for (const cat of ALL) expect(chip(cat)).toHaveAttribute('aria-pressed', 'true');
+    for (const cat of ALL) expect(chip(cat)).toBeChecked();
   });
 
   it('unticks a second category without re-enabling anything', async () => {
@@ -127,10 +142,59 @@ describe('NotificationPreferences categories (#583)', () => {
   });
 });
 
-describe('NotificationPreferences quiet hours (#575)', () => {
-  it('says what happens to a message that falls in the range', async () => {
+describe('NotificationPreferences — categories by role (#780)', () => {
+  it('does not show backup failures to a member', async () => {
+    await renderWith([], { categories: ['peak', 'temperature', 'security', 'wishlist'], automaticBackups: undefined });
+
+    expect(screen.queryByRole('checkbox', { name: 'notifications.categories.backup' })).not.toBeInTheDocument();
+    for (const cat of ['peak', 'temperature', 'security', 'wishlist']) expect(chip(cat)).toBeChecked();
+  });
+
+  it('a member ticking every category they can see saves an empty list', async () => {
+    await renderWith(['peak', 'temperature', 'security'], { categories: ['peak', 'temperature', 'security', 'wishlist'] });
+
+    fireEvent.click(chip('wishlist'));
+
+    await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: [] }));
+  });
+
+  it('tells an admin that only manual backups can fail while automatic ones are off', async () => {
+    await renderWith([], { automaticBackups: false });
+
+    expect(chip('backup')).toHaveAccessibleDescription('notifications.categories.backupAutomaticOff');
+  });
+
+  it('says nothing more about backups while automatic ones run', async () => {
     await renderWith([]);
+
+    expect(screen.queryByText('notifications.categories.backupAutomaticOff')).not.toBeInTheDocument();
+  });
+});
+
+describe('NotificationPreferences quiet hours (#575, #772)', () => {
+  it('says what happens to a message that falls in the range, apart from the details', async () => {
+    await renderWith([]);
+    expect(screen.getByText('notifications.quietHours.droppedLead')).toBeInTheDocument();
     expect(screen.getByText('notifications.quietHours.dropped')).toBeInTheDocument();
+    expect(screen.getByText('notifications.quietHours.detailsAdmin')).toBeInTheDocument();
+  });
+
+  it('does not tell a member about backup failures', async () => {
+    await renderWith([], { categories: ['peak', 'temperature', 'security', 'wishlist'] });
+    expect(screen.getByText('notifications.quietHours.details')).toBeInTheDocument();
+    expect(screen.queryByText('notifications.quietHours.detailsAdmin')).not.toBeInTheDocument();
+  });
+
+  it('names the instance time zone, without a warning when the device is in it', async () => {
+    await renderWith([]);
+    expect(screen.getByText('notifications.quietHours.timeZone')).toBeInTheDocument();
+    expect(screen.queryByText('notifications.quietHours.otherTimeZone')).not.toBeInTheDocument();
+  });
+
+  it('warns a member whose device is in another time zone', async () => {
+    const device = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    await renderWith([], { timeZone: device === 'Pacific/Kiritimati' ? 'Pacific/Pago_Pago' : 'Pacific/Kiritimati' });
+    expect(screen.getByText('notifications.quietHours.otherTimeZone')).toBeInTheDocument();
   });
 });
 
@@ -143,7 +207,7 @@ describe('NotificationPreferences when loading fails (#615)', () => {
 
     expect(await screen.findByText('notifications.loadError')).toBeInTheDocument();
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'notifications.categories.peak' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'notifications.categories.peak' })).not.toBeInTheDocument();
   });
 
   it('shows the real settings once Retry succeeds', async () => {
@@ -257,5 +321,20 @@ describe('NotificationPreferences — channels (#671)', () => {
     expect(await screen.findByText('notifications.channels.email')).toBeInTheDocument();
     expect(screen.queryByText('notifications.channels.inApp')).toBeNull();
     expect(screen.getAllByRole('switch')).toHaveLength(2);
+  });
+});
+
+// #772 review: zones compared at one instant hid a difference that only
+// shows in summer (or winter) for half the year.
+describe('sameClock (#772)', () => {
+  const winter = new Date(Date.UTC(2026, 0, 20));
+  it('tells apart zones that share their offset only part of the year', () => {
+    expect(sameClock('UTC', 'Europe/London', winter)).toBe(false);
+  });
+  it('treats zones with the same clock all year as the same', () => {
+    expect(sameClock('Europe/Paris', 'Europe/Brussels', winter)).toBe(true);
+  });
+  it('does not warn on an unknown zone name', () => {
+    expect(sameClock('Not/AZone', 'Europe/Paris', winter)).toBe(true);
   });
 });

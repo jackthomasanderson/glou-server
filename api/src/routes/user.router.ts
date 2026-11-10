@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { authService } from '../services/auth.service';
 import type { ExportCategory } from '../../../shared/auth';
+import { notificationCategoriesFor } from '../../../shared/notifications';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
@@ -282,7 +283,18 @@ router.get('/notifications', authMiddleware, async (req: Request, res: Response)
   if (!user) { res.status(404).json({ error: 'USER_NOT_FOUND' }); return; }
 
   const { isAdmin, ...prefs } = user;
-  res.json({ data: { ...prefs, policy: channelPolicy(config, isAdmin) } });
+  res.json({
+    data: {
+      ...prefs,
+      policy: channelPolicy(config, isAdmin),
+      // #780: what this member can receive; backup failures go to admins only.
+      categories: notificationCategoriesFor(isAdmin),
+      // #780: without automatic backups, only a manual or pre-restore backup can fail.
+      ...(isAdmin ? { automaticBackups: config.backupEnabled } : {}),
+      // #772: quiet hours are read in this zone; the page names it.
+      timeZone: config.timeZone,
+    },
+  });
 });
 
 /**
@@ -309,7 +321,18 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
   const data: Record<string, unknown> = {};
   if (notifEmail !== undefined) data.notifEmail = notifEmail;
   if (notifWebhook !== undefined) data.notifWebhook = notifWebhook;
-  if (notifCategories !== undefined) data.notifCategories = notifCategories;
+  if (notifCategories !== undefined) {
+    // #780: only categories this member can receive are kept (backup failures
+    // reach admins only). A list left empty would read as "every category".
+    const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { isAdmin: true } });
+    const allowed: readonly string[] = notificationCategoriesFor(!!user?.isAdmin);
+    const kept = notifCategories.filter((c) => allowed.includes(c));
+    if (notifCategories.length > 0 && kept.length === 0) {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    data.notifCategories = kept;
+  }
   if (notifQuietStart !== undefined) data.notifQuietStart = notifQuietStart;
   if (notifQuietEnd !== undefined) data.notifQuietEnd = notifQuietEnd;
   if (notifLanguage !== undefined) data.notifLanguage = notifLanguage;
