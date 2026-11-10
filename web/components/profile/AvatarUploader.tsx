@@ -103,7 +103,7 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
 
           {/* Always-visible cue (touch screens have no hover) */}
           {!uploadAvatar.isPending && (
-            <span aria-hidden="true" className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary text-white shadow flex items-center justify-center">
+            <span aria-hidden="true" className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary text-primary-foreground shadow flex items-center justify-center">
               <Camera size={12} />
             </span>
           )}

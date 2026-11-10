@@ -121,4 +121,53 @@ describe('ProfileClient', () => {
     expect(screen.queryByRole('button', { name: 'profile.adminPanelLink' })).toBeNull();
     expect(screen.getByRole('button', { name: 'auth.logout' })).toBeInTheDocument();
   });
+
+  it('does not crash on a malformed hash (#839)', () => {
+    window.location.hash = '#%E0';
+    expect(() => render(<ProfileClient />)).not.toThrow();
+  });
+
+  describe('with an IntersectionObserver (#779)', () => {
+    let callback: IntersectionObserverCallback;
+    const original = globalThis.IntersectionObserver;
+    beforeEach(() => {
+      class FakeObserver {
+        constructor(cb: IntersectionObserverCallback) { callback = cb; }
+        observe() {}
+        disconnect() {}
+        unobserve() {}
+      }
+      globalThis.IntersectionObserver = FakeObserver as unknown as typeof IntersectionObserver;
+    });
+    afterEach(() => { globalThis.IntersectionObserver = original; vi.useRealTimers(); });
+
+    const report = (ids: string[]) => act(() => {
+      callback(ids.map((id) => ({ isIntersecting: true, target: document.getElementById(id) })) as unknown as IntersectionObserverEntry[], {} as IntersectionObserver);
+    });
+    const link = (id: string) => within(screen.getByRole('navigation', { name: 'profile.sectionsNav' })).getByRole('link', { name: `profile.sectionLabels.${id}` });
+
+    it('keeps the clicked pill while the scroll settles, then follows the observer', () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      render(<ProfileClient />);
+      act(() => { link('data').click(); });
+      report(['notifications']);
+      expect(link('data')).toHaveAttribute('aria-current', 'true');
+      vi.setSystemTime(Date.now() + 700);
+      report(['notifications']);
+      expect(link('notifications')).toHaveAttribute('aria-current', 'true');
+    });
+
+    it('marks the last of the side-by-side sections in the band', () => {
+      render(<ProfileClient />);
+      report(['account', 'preferences']);
+      expect(link('preferences')).toHaveAttribute('aria-current', 'true');
+    });
+
+    it('keeps the section of a hash on load against the first observer report', () => {
+      window.location.hash = '#data';
+      render(<ProfileClient />);
+      report(['notifications']);
+      expect(link('data')).toHaveAttribute('aria-current', 'true');
+    });
+  });
 });

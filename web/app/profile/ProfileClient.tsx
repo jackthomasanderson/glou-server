@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, Input, SelectItem, Switch, CircularProgress } from '@heroui/react';
 import { User, Settings, ShieldCheck, Compass, FlaskConical, LogOut } from 'lucide-react';
 import Link from 'next/link';
@@ -25,7 +25,19 @@ const ACCENT_COLORS = ACCENT_PRESETS.map((p) => ({ name: p.name, val: p.light.DE
 
 const SECTION_IDS = ['account', 'preferences', 'security', 'shares', 'notifications', 'data'] as const;
 
-const currentHashId = () => (typeof window === 'undefined' ? '' : decodeURIComponent(window.location.hash.slice(1)));
+// A malformed hash (`#%E0`) makes decodeURIComponent throw: treat it as no hash.
+const currentHashId = () => {
+  if (typeof window === 'undefined') return '';
+  try {
+    return decodeURIComponent(window.location.hash.slice(1));
+  } catch {
+    return '';
+  }
+};
+
+// After a click or a hash jump the page scrolls on its own; the scroll
+// observer must not overwrite the section just chosen while it settles.
+const SCROLL_SETTLE_MS = 600;
 
 export function ProfileClient() {
   const { t } = useTranslation();
@@ -91,6 +103,11 @@ export function ProfileClient() {
     const id = currentHashId();
     return (SECTION_IDS as readonly string[]).includes(id) ? id : SECTION_IDS[0];
   });
+  const lockedUntil = useRef(0);
+  const chooseSection = (id: string) => {
+    lockedUntil.current = Date.now() + SCROLL_SETTLE_MS;
+    setActiveSection(id);
+  };
 
   // #839: the sections only exist once the member is loaded, so the browser
   // cannot scroll to `#shares` by itself on a direct load (or from the
@@ -100,20 +117,54 @@ export function ProfileClient() {
     if (isLoadingUser) return;
     const goToHash = () => {
       const id = currentHashId();
-      if (!id) return;
+      if (!id) return false;
       document.getElementById(id)?.scrollIntoView();
-      if ((SECTION_IDS as readonly string[]).includes(id)) setActiveSection(id);
+      if ((SECTION_IDS as readonly string[]).includes(id)) chooseSection(id);
+      return true;
     };
-    goToHash();
-    window.addEventListener('hashchange', goToHash);
+    // Cards above the target (sessions, shares) may load after the first
+    // scroll and push it down: scroll again for a couple of frames.
+    const frames: number[] = [];
+    if (goToHash()) {
+      const again = (left: number) => {
+        if (left === 0) return;
+        frames.push(requestAnimationFrame(() => {
+          const id = currentHashId();
+          if (id) document.getElementById(id)?.scrollIntoView();
+          again(left - 1);
+        }));
+      };
+      again(2);
+    }
+    const onHashChange = () => { goToHash(); };
+    window.addEventListener('hashchange', onHashChange);
+
+    // Sections currently crossing a band near the top of the viewport. The
+    // active one is the last of them in page order (side-by-side cards both
+    // cross it), or the last section once the page is scrolled to the bottom
+    // (a short last card never reaches the band).
+    const inBand = new Set<string>();
+    const refresh = () => {
+      if (Date.now() < lockedUntil.current) return;
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      if (atBottom && window.scrollY > 0) {
+        setActiveSection(SECTION_IDS[SECTION_IDS.length - 1]);
+        return;
+      }
+      const current = [...SECTION_IDS].reverse().find((id) => inBand.has(id));
+      if (current) setActiveSection(current);
+    };
+    window.addEventListener('scroll', refresh, { passive: true });
 
     let observer: IntersectionObserver | undefined;
     if (typeof IntersectionObserver !== 'undefined') {
-      // A band near the top of the viewport: the section crossing it is "in view".
       observer = new IntersectionObserver(
         (entries) => {
-          const hit = entries.find((entry) => entry.isIntersecting);
-          if (hit) setActiveSection(hit.target.id);
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) inBand.add(entry.target.id);
+            else inBand.delete(entry.target.id);
+          });
+          refresh();
         },
         { rootMargin: '-15% 0px -75% 0px' },
       );
@@ -123,7 +174,9 @@ export function ProfileClient() {
       });
     }
     return () => {
-      window.removeEventListener('hashchange', goToHash);
+      frames.forEach((f) => cancelAnimationFrame(f));
+      window.removeEventListener('hashchange', onHashChange);
+      window.removeEventListener('scroll', refresh);
       observer?.disconnect();
     };
   }, [isLoadingUser, user?.id]);
@@ -152,7 +205,7 @@ export function ProfileClient() {
               key={id}
               href={`#${id}`}
               aria-current={activeSection === id ? 'true' : undefined}
-              onClick={() => setActiveSection(id)}
+              onClick={() => chooseSection(id)}
               className={`text-xs font-semibold px-3 py-1.5 rounded-full border focus-visible:outline-2 focus-visible:outline-primary ${
                 activeSection === id
                   ? 'border-primary bg-primary/10 text-primary'
@@ -327,7 +380,7 @@ export function ProfileClient() {
         </div>
 
         {/* Admin panel shortcut */}
-        {/* md:hidden (#774): the sidebar has this link from 768 px up; the bottom bar does not. */}
+        {/* md:hidden (#774): the sidebar has this link from 768 px up; below that it is in the bottom bar's "More" sheet and kept here. */}
         {user?.isAdmin && (
           <div className="mt-6 md:hidden">
             <Button
@@ -373,7 +426,7 @@ export function ProfileClient() {
         {/* Running version (#696) */}
         <AppVersion />
 
-        {/* md:hidden (#774): the sidebar has the sign-out button from 768 px up; the bottom bar does not. */}
+        {/* md:hidden (#774): the sidebar has the sign-out button from 768 px up; on a phone this is the only place for it. */}
         <div className="mt-6 md:hidden">
           <Button
             color="default"
