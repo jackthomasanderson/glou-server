@@ -1798,6 +1798,8 @@
     "statusExpired": "Expired",
     "statusRevoked": "Revoked",
     "expiresAt": "Expires {{date}}",
+    "expiredOn": "Expired on {{date}}",
+    "revokedOn": "Revoked on {{date}}",
     "noExpiry": "No expiration",
     "allCellars": "All cellars",
     "cellarCount_one": "{{count}} cellar",

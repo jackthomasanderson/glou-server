@@ -1800,6 +1800,8 @@
     "statusExpired": "Expiré",
     "statusRevoked": "Révoqué",
     "expiresAt": "Expire le {{date}}",
+    "expiredOn": "Expiré le {{date}}",
+    "revokedOn": "Révoqué le {{date}}",
     "noExpiry": "Sans expiration",
     "allCellars": "Toutes les caves",
     "cellarCount_one": "{{count}} cave",
