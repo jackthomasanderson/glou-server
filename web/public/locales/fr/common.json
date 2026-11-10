@@ -292,6 +292,11 @@
       "peak": "À l'apogée",
       "past": "Passé l'apogée"
     },
+    "alertStatusShort": {
+      "approaching": "Bientôt prêt",
+      "peak": "À boire",
+      "past": "Apogée passée"
+    },
     "sealedStatus": {
       "sealed": "Scellé",
       "opened": "Ouvert"
