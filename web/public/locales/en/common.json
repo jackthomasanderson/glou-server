@@ -789,6 +789,11 @@
     "external": "Internet"
   },
   "profile": {
+    "version": {
+      "title": "Version",
+      "description": "The running version of Glou. Include it when you report a problem.",
+      "unavailable": "Version unavailable"
+    },
     "adminPanelLink": "Go to admin panel",
     "title": "My Profile",
     "sectionsNav": "Profile sections",

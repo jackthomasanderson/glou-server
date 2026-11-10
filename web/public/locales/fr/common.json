@@ -791,6 +791,11 @@
     "external": "Internet"
   },
   "profile": {
+    "version": {
+      "title": "Version",
+      "description": "La version de Glou en cours d'exécution. Indiquez-la quand vous signalez un problème.",
+      "unavailable": "Version indisponible"
+    },
     "adminPanelLink": "Accéder au panneau d'administration",
     "title": "Mon Profil",
     "sectionsNav": "Sections du profil",

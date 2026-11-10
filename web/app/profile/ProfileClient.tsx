@@ -16,6 +16,7 @@ import { AvatarUploader } from '@/components/profile/AvatarUploader';
 import { GdprSection } from '@/components/profile/GdprSection';
 import { SharesDashboard } from '@/components/shares/SharesDashboard';
 import { NotificationPreferences } from '@/components/profile/NotificationPreferences';
+import { AppVersion } from '@/components/profile/AppVersion';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 
 const ACCENT_COLORS = [
@@ -284,6 +285,9 @@ export function ProfileClient() {
             </div>
           </div>
         </div>
+
+        {/* Running version (#696) */}
+        <AppVersion />
 
         {/* Admin panel shortcut */}
         {user?.isAdmin && (
