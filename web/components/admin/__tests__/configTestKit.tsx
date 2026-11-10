@@ -30,7 +30,20 @@ export function heroUiMock() {
       <div data-testid="config-tabs" data-keeps-inactive-panels={String(destroyInactiveTabPanel === false)}>{children}</div>
     ),
     Tab: ({ title, children }: { title?: ReactNode; children?: ReactNode }) => <section>{title}{children}</section>,
-    Select: ({ label }: { label?: ReactNode }) => <div>{label}</div>,
+    // A native <select> built from the SelectItem children, so a test can choose an option.
+    Select: ({ label, children, selectedKeys, onSelectionChange }: { label?: ReactNode; children?: ReactNode; selectedKeys?: Iterable<string>; onSelectionChange?: (keys: Set<string>) => void }) => {
+      const items = React.Children.toArray(children) as ReactElement[];
+      const key = (item: ReactElement) => String(item.key).replace(/^\.\$/, '');
+      return (
+        <div>{label}
+          {items.length > 0 && (
+            <select aria-label={typeof label === 'string' ? label : undefined} value={Array.from(selectedKeys ?? [])[0]} onChange={(e) => onSelectionChange?.(new Set([e.target.value]))}>
+              {items.map((item) => <option key={key(item)} value={key(item)}>{(item.props as { children?: ReactNode }).children}</option>)}
+            </select>
+          )}
+        </div>
+      );
+    },
     SelectItem: () => null,
     ModalContent: ({ children }: { children?: ReactNode | ((onClose: () => void) => ReactNode) }) => (
       <>{typeof children === 'function' ? children(() => {}) : children}</>

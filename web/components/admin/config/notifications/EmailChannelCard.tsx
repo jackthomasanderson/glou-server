@@ -1,10 +1,11 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Input, Switch } from '@heroui/react';
+import { Button, Input, Switch, SelectItem } from '@heroui/react';
 import { Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, type AdminReauth, type SystemConfigPublic } from '@/lib/config/client';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
+import { SingleSelect } from '@/components/ui/SingleSelect';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { ChannelStatus, ConfigCard, SaveBar, TestUsesSavedHint, configErrorKey, isKnownConfigError, useConfigForm, useConfigSaved, type ChannelState } from '../shared';
 
@@ -17,6 +18,27 @@ const toForm = (cfg: SystemConfigPublic) => ({
   smtpFrom: cfg.smtpFrom ?? '',
   smtpSecure: cfg.smtpSecure,
 });
+
+const STARTTLS_PORT = '587';
+const TLS_PORT = '465';
+
+/**
+ * #763: nodemailer's `secure: true` is TLS from the first byte (port 465);
+ * `false` starts in clear and upgrades with STARTTLS (port 587). Picking a
+ * mode moves the port only while it is empty or still the other mode's
+ * default, so a custom port is never overwritten.
+ */
+export function portForSecurity(port: string, secure: boolean): string {
+  const otherDefault = secure ? STARTTLS_PORT : TLS_PORT;
+  return port === '' || port === otherDefault ? (secure ? TLS_PORT : STARTTLS_PORT) : port;
+}
+
+/** A port and mode that rarely work together, e.g. the old default (587 + TLS). */
+function portMismatch(port: string, secure: boolean): 'tlsOn587' | 'starttlsOn465' | null {
+  if (port === STARTTLS_PORT && secure) return 'tlsOn587';
+  if (port === TLS_PORT && !secure) return 'starttlsOn465';
+  return null;
+}
 
 function emailState(cfg: SystemConfigPublic): ChannelState {
   if (!cfg.smtpHost) return 'notConfigured';
@@ -35,6 +57,7 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
   // #759: each test says its own progress, and only one runs at a time.
   const [testing, setTesting] = useState<'connection' | 'email' | null>(null);
   const onSaved = useConfigSaved();
+  const mismatch = portMismatch(form.smtpPort, form.smtpSecure);
   // #890: the mail server sends reset links and security alerts.
   const stepUp = useAdminStepUp();
 
@@ -89,16 +112,29 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
         <Input label={t('adminConfig.smtp.pass')} type="password" placeholder={config.smtpPassMasked ?? t('adminConfig.smtp.passPlaceholder')} value={form.smtpPass} onValueChange={(v) => update({ smtpPass: v })} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
         <Input label={t('adminConfig.smtp.from')} placeholder={t('adminConfig.smtp.fromPlaceholder')} value={form.smtpFrom} onValueChange={(v) => update({ smtpFrom: v })} variant="bordered" size="sm" radius="md" labelPlacement="outside" className="sm:col-span-2" />
       </div>
-      <Switch isSelected={form.smtpSecure} onValueChange={(v) => update({ smtpSecure: v })} size="sm">
-        {t('adminConfig.smtp.secure')}
-      </Switch>
+      <SingleSelect
+        label={t('adminConfig.smtp.secure')}
+        description={t('adminConfig.smtp.secureHint')}
+        selectedKeys={[form.smtpSecure ? 'tls' : 'starttls']}
+        onSelectionChange={(keys) => {
+          const value = Array.from(keys)[0];
+          if (value !== 'tls' && value !== 'starttls') return;
+          const secure = value === 'tls';
+          update({ smtpSecure: secure, smtpPort: portForSecurity(form.smtpPort, secure) });
+        }}
+        variant="bordered" size="sm" radius="md" labelPlacement="outside"
+      >
+        <SelectItem key="starttls">{t('adminConfig.smtp.secureStarttls')}</SelectItem>
+        <SelectItem key="tls">{t('adminConfig.smtp.secureTls')}</SelectItem>
+      </SingleSelect>
+      {mismatch && <p role="note" className="text-xs text-warning">{t(`adminConfig.smtp.mismatch.${mismatch}`)}</p>}
       <SaveBar isDirty={isDirty} isSaving={saving} onSave={() => stepUp.ask(t('adminConfig.stepUp.smtp'), save)}>
         <Button size="sm" variant="bordered" isLoading={testing === 'connection'} isDisabled={isDirty || testing !== null} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(false, reauth))}>{t('adminConfig.smtp.test')}</Button>
       </SaveBar>
       <TestUsesSavedHint show={isDirty} />
       <div className="flex items-end gap-2 pt-1 border-t border-divider">
-        <Input label={t('adminConfig.smtp.testWithEmail')} type="email" value={testEmail} onValueChange={setTestEmail} variant="bordered" size="sm" radius="md" labelPlacement="outside" className="flex-1" />
-        <Button size="sm" variant="flat" isLoading={testing === 'email'} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(true, reauth))} isDisabled={!testEmail || isDirty || testing !== null}>{t('adminConfig.smtp.testWithEmail')}</Button>
+        <Input label={t('adminConfig.smtp.testRecipient')} placeholder={t('adminConfig.smtp.testRecipientPlaceholder')} type="email" value={testEmail} onValueChange={setTestEmail} variant="bordered" size="sm" radius="md" labelPlacement="outside" className="flex-1" />
+        <Button size="sm" variant="flat" isLoading={testing === 'email'} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(true, reauth))} isDisabled={!testEmail || isDirty || testing !== null}>{t('adminConfig.smtp.sendTest')}</Button>
       </div>
       {stepUp.dialog}
     </ConfigCard>

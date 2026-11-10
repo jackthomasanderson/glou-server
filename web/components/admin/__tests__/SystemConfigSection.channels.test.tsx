@@ -24,6 +24,7 @@ vi.mock('@/components/ui/ResponsiveModal', () => ({
 vi.mock('@heroui/react', async () => (await import('./configTestKit')).heroUiMock());
 
 import { SystemConfigSection } from '../SystemConfigSection';
+import { portForSecurity } from '../config/notifications/EmailChannelCard';
 
 const ok = (data: unknown): Answer => ({ status: 200, body: { data } });
 
@@ -156,16 +157,63 @@ describe('SystemConfigSection — each test button has its own progress (#759)',
     });
     renderWithQuery(<SystemConfigSection />);
     const email = await card('adminConfig.cards.email');
-    fireEvent.change(within(email).getByLabelText('adminConfig.smtp.testWithEmail'), { target: { value: 'me@example.com' } });
+    fireEvent.change(within(email).getByLabelText('adminConfig.smtp.testRecipient'), { target: { value: 'me@example.com' } });
     fireEvent.click(within(email).getByRole('button', { name: 'adminConfig.smtp.test' }));
     confirmStepUp();
 
     await vi.waitFor(() => expect(within(email).getByRole('button', { name: 'adminConfig.smtp.test' })).toHaveAttribute('aria-busy', 'true'));
-    const sendTest = within(email).getAllByRole('button', { name: 'adminConfig.smtp.testWithEmail' })[0];
+    const sendTest = within(email).getAllByRole('button', { name: 'adminConfig.smtp.sendTest' })[0];
     expect(sendTest).not.toHaveAttribute('aria-busy');
     expect(sendTest).toBeDisabled();
 
     answer(ok({ success: true }));
     await vi.waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('adminConfig.smtp.testSuccess'));
+  });
+});
+
+describe('SystemConfigSection — email card wording and security (#763, #764)', () => {
+  it('labels the test recipient field apart from its button', async () => {
+    stubFetch({ '/admin/config': ok(CONFIG) });
+    renderWithQuery(<SystemConfigSection />);
+    const email = await card('adminConfig.cards.email');
+    expect(within(email).getByLabelText('adminConfig.smtp.testRecipient')).toBeInTheDocument();
+    expect(within(email).getByRole('button', { name: 'adminConfig.smtp.sendTest' })).toBeInTheDocument();
+  });
+
+  it('moves the port with the security mode only while it is a default', () => {
+    expect(portForSecurity('587', true)).toBe('465');
+    expect(portForSecurity('', true)).toBe('465');
+    expect(portForSecurity('465', false)).toBe('587');
+    expect(portForSecurity('', false)).toBe('587');
+    expect(portForSecurity('2525', true)).toBe('2525');
+    expect(portForSecurity('2525', false)).toBe('2525');
+    expect(portForSecurity('587', false)).toBe('587');
+  });
+
+  it('warns when the saved port and security do not match, and not otherwise', async () => {
+    // The fixture is the old default: port 587 with TLS (implicit).
+    stubFetch({ '/admin/config': ok(CONFIG) });
+    renderWithQuery(<SystemConfigSection />);
+    const email = await card('adminConfig.cards.email');
+    expect(within(email).getByText('adminConfig.smtp.mismatch.tlsOn587')).toBeInTheDocument();
+    fireEvent.change(within(email).getByLabelText('adminConfig.smtp.secure'), { target: { value: 'starttls' } });
+    expect(within(email).queryByText(/adminConfig\.smtp\.mismatch/)).toBeNull();
+    fireEvent.change(within(email).getByLabelText('adminConfig.smtp.port'), { target: { value: '465' } });
+    expect(within(email).getByText('adminConfig.smtp.mismatch.starttlsOn465')).toBeInTheDocument();
+  });
+
+  it('choosing TLS moves the default port to 465 and saves smtpSecure true', async () => {
+    const saved = { ...CONFIG, smtpSecure: true, smtpPort: 465 };
+    const fetchMock = stubFetch({ '/admin/config': ok({ ...CONFIG, smtpSecure: false }), 'PUT /admin/config/smtp': ok(saved) });
+    renderWithQuery(<SystemConfigSection />);
+    const email = await card('adminConfig.cards.email');
+    const security = within(email).getByLabelText('adminConfig.smtp.secure') as HTMLSelectElement;
+    expect(security.value).toBe('starttls');
+    fireEvent.change(security, { target: { value: 'tls' } });
+    expect(within(email).getByLabelText('adminConfig.smtp.port')).toHaveValue('465');
+    fireEvent.click(within(email).getByRole('button', { name: 'adminConfig.save' }));
+    confirmStepUp();
+    await vi.waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('adminConfig.smtp.saved'));
+    expect(sentTo(fetchMock, '/admin/config/smtp')[0]).toEqual(expect.objectContaining({ smtpSecure: true, smtpPort: 465 }));
   });
 });
