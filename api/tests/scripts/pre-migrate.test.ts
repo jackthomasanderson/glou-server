@@ -348,7 +348,13 @@ describe('api/Dockerfile start command', () => {
     const dockerfile = fs.readFileSync(path.resolve(__dirname, '../../Dockerfile'), 'utf8');
     const cmd = dockerfile.split('\n').find((line) => line.startsWith('CMD '));
     expect(cmd).toBeDefined();
-    expect(cmd).toMatch(/node dist\/api\/src\/scripts\/pre-migrate\.js && npx prisma migrate deploy && node dist\/api\/src\/index\.js/);
+    expect(cmd).toMatch(/node dist\/api\/src\/scripts\/pre-migrate\.js && npx prisma migrate deploy && exec node dist\/api\/src\/index\.js/);
+  });
+
+  it('execs the API so Node is PID 1 and receives the stop signal (#673)', () => {
+    const dockerfile = fs.readFileSync(path.resolve(__dirname, '../../Dockerfile'), 'utf8');
+    const cmd = dockerfile.split('\n').find((line) => line.startsWith('CMD '));
+    expect(cmd).toMatch(/&& exec node dist\/api\/src\/index\.js"\]$/);
   });
 
   it('the compiled script path matches the build layout (rootDir "..")', () => {

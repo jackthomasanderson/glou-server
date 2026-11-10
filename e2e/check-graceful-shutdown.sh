@@ -18,7 +18,7 @@ docker compose stop -t 10 api
 elapsed=$(( $(date +%s) - start ))
 echo "docker compose stop api took ${elapsed}s"
 
-if ! docker compose logs api | grep -q 'SIGTERM received, shutting down gracefully'; then
+if [ "$(docker compose logs api | grep -c 'SIGTERM received, shutting down gracefully')" = 0 ]; then
   echo "The API did not log its graceful shutdown: SIGTERM did not reach Node."
   docker compose logs --tail=20 api
   exit 1
