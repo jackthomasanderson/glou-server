@@ -74,7 +74,7 @@ describe('SystemConfigSection — sensitive settings ask for the step-up (#890)'
     renderWithQuery(<SystemConfigSection />);
     const email = await card('adminConfig.cards.email');
     fireEvent.change(within(email).getByLabelText('adminConfig.smtp.host'), { target: { value: 'smtp.home' } });
-    fireEvent.click(within(email).getByRole('button', { name: 'adminConfig.smtp.save' }));
+    fireEvent.click(within(email).getByRole('button', { name: 'adminConfig.save' }));
 
     expect(stepUpDialog()).toHaveTextContent('adminConfig.stepUp.smtp');
     expect(sentTo(fetchMock, '/admin/config/smtp')).toHaveLength(0);
@@ -93,7 +93,7 @@ describe('SystemConfigSection — sensitive settings ask for the step-up (#890)'
     renderWithQuery(<SystemConfigSection />);
     const publicUrl = await card('adminConfig.cards.publicUrl');
     fireEvent.change(within(publicUrl).getByLabelText('adminConfig.network.publicUrl'), { target: { value: 'https://cave.example' } });
-    fireEvent.click(within(publicUrl).getByRole('button', { name: 'adminConfig.network.save' }));
+    fireEvent.click(within(publicUrl).getByRole('button', { name: 'adminConfig.save' }));
     expect(stepUpDialog()).toHaveTextContent('adminConfig.stepUp.network');
 
     confirmStepUp('wrong');
@@ -105,12 +105,26 @@ describe('SystemConfigSection — sensitive settings ask for the step-up (#890)'
   it.each([
     ['adminConfig.cards.email', 'adminConfig.smtp.test', 'adminConfig.stepUp.smtpTest', '/admin/config/test/smtp'],
     ['adminConfig.cards.gotify', 'adminConfig.gotify.test', 'adminConfig.stepUp.gotifyTest', '/admin/config/test/gotify'],
-    ['adminConfig.cards.inApp', 'adminConfig.notifPolicy.save', 'adminConfig.stepUp.notifications', '/admin/config/notifications'],
-    ['adminConfig.cards.gotify', 'adminConfig.gotify.save', 'adminConfig.stepUp.gotify', '/admin/config/gotify'],
   ])('%s: %s asks for the step-up and sends it', async (title, button, message, path) => {
-    const fetchMock = stubApi({ [path]: { status: 200, body: { data: path.includes('/test/') ? { success: true } : CONFIG } } });
+    const fetchMock = stubApi({ [path]: { status: 200, body: { data: { success: true } } } });
     renderWithQuery(<SystemConfigSection />);
     fireEvent.click(within(await card(title)).getByRole('button', { name: button }));
+    expect(stepUpDialog()).toHaveTextContent(message);
+
+    confirmStepUp();
+
+    await vi.waitFor(() => expect(sentTo(fetchMock, path)).toEqual([expect.objectContaining({ password: 'admin-pw', code: '123456' })]));
+  });
+
+  it.each([
+    ['adminConfig.cards.inApp', (c: HTMLElement) => fireEvent.click(within(c).getByRole('switch', { name: 'adminConfig.notifPolicy.inApp' })), 'adminConfig.stepUp.notifications', '/admin/config/notifications'],
+    ['adminConfig.cards.gotify', (c: HTMLElement) => fireEvent.change(within(c).getByLabelText('adminConfig.gotify.url'), { target: { value: 'https://gotify.example.com' } }), 'adminConfig.stepUp.gotify', '/admin/config/gotify'],
+  ])('saving the %s card asks for the step-up and sends it', async (title, edit, message, path) => {
+    const fetchMock = stubApi({ [path]: { status: 200, body: { data: CONFIG } } });
+    renderWithQuery(<SystemConfigSection />);
+    const section = await card(title);
+    edit(section);
+    fireEvent.click(within(section).getByRole('button', { name: 'adminConfig.save' }));
     expect(stepUpDialog()).toHaveTextContent(message);
 
     confirmStepUp();

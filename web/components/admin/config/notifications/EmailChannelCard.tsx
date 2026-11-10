@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { configClient, type AdminReauth, type SystemConfigPublic } from '@/lib/config/client';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { ChannelStatus, ConfigCard, TestUsesSavedHint, configErrorKey, isKnownConfigError, useConfigForm, useConfigSaved, type ChannelState } from '../shared';
+import { ChannelStatus, ConfigCard, SaveBar, TestUsesSavedHint, configErrorKey, isKnownConfigError, useConfigForm, useConfigSaved, type ChannelState } from '../shared';
 
 const toForm = (cfg: SystemConfigPublic) => ({
   smtpEnabled: cfg.smtpEnabled,
@@ -78,7 +78,7 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
   };
 
   return (
-    <ConfigCard id="config-email" icon={Mail} title={t('adminConfig.cards.email')} description={t('adminConfig.notifPolicy.emailHint')} status={<ChannelStatus state={emailState(config)} />}>
+    <ConfigCard id="config-email" icon={Mail} title={t('adminConfig.cards.email')} description={t('adminConfig.notifPolicy.emailHint')} status={<ChannelStatus state={emailState(config)} />} isDirty={isDirty}>
       <Switch isSelected={form.smtpEnabled} onValueChange={(v) => update({ smtpEnabled: v })} size="sm">
         {t('adminConfig.smtp.enabled')}
       </Switch>
@@ -92,10 +92,9 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
       <Switch isSelected={form.smtpSecure} onValueChange={(v) => update({ smtpSecure: v })} size="sm">
         {t('adminConfig.smtp.secure')}
       </Switch>
-      <div className="flex flex-wrap gap-2">
-        <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtp'), save)}>{t('adminConfig.smtp.save')}</Button>
+      <SaveBar isDirty={isDirty} isSaving={saving} onSave={() => stepUp.ask(t('adminConfig.stepUp.smtp'), save)}>
         <Button size="sm" variant="bordered" isLoading={testing === 'connection'} isDisabled={isDirty || testing !== null} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(false, reauth))}>{t('adminConfig.smtp.test')}</Button>
-      </div>
+      </SaveBar>
       <TestUsesSavedHint show={isDirty} />
       <div className="flex items-end gap-2 pt-1 border-t border-divider">
         <Input label={t('adminConfig.smtp.testWithEmail')} type="email" value={testEmail} onValueChange={setTestEmail} variant="bordered" size="sm" radius="md" labelPlacement="outside" className="flex-1" />

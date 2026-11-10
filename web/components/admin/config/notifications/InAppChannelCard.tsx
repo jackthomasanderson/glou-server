@@ -1,19 +1,19 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Switch } from '@heroui/react';
+import { Switch } from '@heroui/react';
 import { Bell } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, type AdminReauth, type SystemConfigPublic } from '@/lib/config/client';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { ChannelStatus, ConfigCard, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
+import { ChannelStatus, ConfigCard, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
 
 const toForm = (cfg: SystemConfigPublic) => ({ inAppEnabled: cfg.inAppEnabled });
 
 /** The in-app channel's switch (#758: each channel has its own card). */
 export function InAppChannelCard({ config }: { config: SystemConfigPublic }) {
   const { t } = useTranslation();
-  const { form, update, reset } = useConfigForm(toForm(config));
+  const { form, update, reset, isDirty } = useConfigForm(toForm(config));
   const [saving, setSaving] = useState(false);
   const onSaved = useConfigSaved();
   // #890: the channels carry the security alerts sent to members.
@@ -47,13 +47,12 @@ export function InAppChannelCard({ config }: { config: SystemConfigPublic }) {
       title={t('adminConfig.cards.inApp')}
       description={t('adminConfig.notifPolicy.inAppHint')}
       status={<ChannelStatus state={config.inAppEnabled ? 'active' : 'off'} />}
+      isDirty={isDirty}
     >
       <Switch isSelected={form.inAppEnabled} onValueChange={(v) => update({ inAppEnabled: v })} size="sm">
         {t('adminConfig.notifPolicy.inApp')}
       </Switch>
-      <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={() => stepUp.ask(t('adminConfig.stepUp.notifications'), save)} className="self-start">
-        {t('adminConfig.notifPolicy.save')}
-      </Button>
+      <SaveBar isDirty={isDirty} isSaving={saving} onSave={() => stepUp.ask(t('adminConfig.stepUp.notifications'), save)} />
       {stepUp.dialog}
     </ConfigCard>
   );

@@ -64,13 +64,13 @@ describe('SystemConfigSection — one card per notification channel (#758)', () 
     renderWithQuery(<SystemConfigSection />);
     const email = await card('adminConfig.cards.email');
     fireEvent.click(within(email).getByRole('switch', { name: 'adminConfig.smtp.enabled' }));
-    fireEvent.click(within(email).getByRole('button', { name: 'adminConfig.smtp.save' }));
+    fireEvent.click(within(email).getByRole('button', { name: 'adminConfig.save' }));
     confirmStepUp();
     await vi.waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('adminConfig.smtp.saved'));
 
     const inApp = await card('adminConfig.cards.inApp');
     fireEvent.click(within(inApp).getByRole('switch', { name: 'adminConfig.notifPolicy.inApp' }));
-    fireEvent.click(within(inApp).getByRole('button', { name: 'adminConfig.notifPolicy.save' }));
+    fireEvent.click(within(inApp).getByRole('button', { name: 'adminConfig.save' }));
     confirmStepUp();
 
     await vi.waitFor(() => expect(sentTo(fetchMock, '/admin/config/notifications')).toEqual([
@@ -84,7 +84,7 @@ describe('SystemConfigSection — one card per notification channel (#758)', () 
     const gotify = await card('adminConfig.cards.gotify');
     fireEvent.click(within(gotify).getByRole('switch', { name: 'adminConfig.gotify.enabled' }));
     fireEvent.change(within(gotify).getByLabelText('adminConfig.gotify.url'), { target: { value: 'https://gotify.example.com' } });
-    fireEvent.click(within(gotify).getByRole('button', { name: 'adminConfig.gotify.save' }));
+    fireEvent.click(within(gotify).getByRole('button', { name: 'adminConfig.save' }));
     confirmStepUp();
 
     await vi.waitFor(() => expect(sentTo(fetchMock, '/admin/config/gotify')).toEqual([

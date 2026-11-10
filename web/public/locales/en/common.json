@@ -1932,6 +1932,8 @@
     "loadError": "The configuration could not be loaded, so no setting is shown.",
     "listLoadError": "This list could not be loaded.",
     "save": "Save",
+    "unsaved": "Unsaved changes",
+    "leaveConfirm": "Some settings are not saved yet. Leave the page and lose them?",
     "errors": {
       "UNEXPECTED_ERROR": "This could not be saved. Try again.",
       "VALIDATION_ERROR": "A value is not valid. Check the fields of this card.",
@@ -1988,7 +1990,6 @@
       "from": "Sender address",
       "fromPlaceholder": "Glou <your@gmail.com>",
       "secure": "Secure connection (TLS)",
-      "save": "Save SMTP config",
       "test": "Test connection",
       "testWithEmail": "Send test email",
       "testSuccess": "SMTP connection validated.",
@@ -2002,7 +2003,6 @@
       "inAppHint": "Allows users to receive alerts directly in the interface.",
       "emailHint": "Sends password reset links, and the notifications members choose to get by email.",
       "webhookHint": "Requires a configured Gotify URL. Each user sets their own destination URL in their preferences.",
-      "save": "Save policy",
       "saved": "In-app notifications saved."
     },
     "gotify": {
@@ -2011,7 +2011,6 @@
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Gotify token",
       "tokenPlaceholder": "Leave blank to keep current",
-      "save": "Save Gotify config",
       "test": "Test webhook",
       "testSuccess": "Gotify webhook validated.",
       "testError": "Failed: {{error}}",
@@ -2038,7 +2037,6 @@
         "sessionRetentionDays": "Delay after expiration or revocation before sessions and trusted devices are permanently deleted.",
         "guestShareRetentionDays": "Delay after expiration or revocation before guest shares are permanently deleted."
       },
-      "save": "Save retention",
       "saved": "Retention configuration saved.",
       "runNow": {
         "title": "Manual run",
@@ -2085,7 +2083,6 @@
       "retentionDaysHint": "Backup files older than this delay are automatically deleted (7 days minimum recommended).",
       "hourUtc": "Run time (UTC)",
       "hourUtcHint": "Time of day (0-23, UTC) at which the scheduled backup is triggered.",
-      "save": "Save configuration",
       "saved": "Backup configuration saved.",
       "runNow": {
         "title": "Manual run",
@@ -2138,7 +2135,6 @@
         "direct": "Direct access",
         "proxy": "Via a reverse proxy"
       },
-      "save": "Save network configuration",
       "saved": "Network configuration saved.",
       "summary": {
         "title": "Active settings summary",

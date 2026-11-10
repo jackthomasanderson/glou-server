@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { configClient, type AdminReauth, type SystemConfigPublic } from '@/lib/config/client';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { ChannelStatus, ConfigCard, TestUsesSavedHint, configErrorKey, isKnownConfigError, useConfigForm, useConfigSaved, type ChannelState } from '../shared';
+import { ChannelStatus, ConfigCard, SaveBar, TestUsesSavedHint, configErrorKey, isKnownConfigError, useConfigForm, useConfigSaved, type ChannelState } from '../shared';
 
 const toForm = (cfg: SystemConfigPublic) => ({ gotifyEnabled: cfg.gotifyEnabled, gotifyUrl: cfg.gotifyUrl ?? '', gotifyToken: '' });
 
@@ -62,16 +62,15 @@ export function GotifyChannelCard({ config }: { config: SystemConfigPublic }) {
   };
 
   return (
-    <ConfigCard id="config-gotify" icon={Webhook} title={t('adminConfig.cards.gotify')} description={t('adminConfig.notifPolicy.webhookHint')} status={<ChannelStatus state={gotifyState(config)} />}>
+    <ConfigCard id="config-gotify" icon={Webhook} title={t('adminConfig.cards.gotify')} description={t('adminConfig.notifPolicy.webhookHint')} status={<ChannelStatus state={gotifyState(config)} />} isDirty={isDirty}>
       <Switch isSelected={form.gotifyEnabled} onValueChange={(v) => update({ gotifyEnabled: v })} size="sm">
         {t('adminConfig.gotify.enabled')}
       </Switch>
       <Input label={t('adminConfig.gotify.url')} placeholder={t('adminConfig.gotify.urlPlaceholder')} value={form.gotifyUrl} onValueChange={(v) => update({ gotifyUrl: v })} variant="bordered" size="sm" radius="md" labelPlacement="outside" />
       <Input label={t('adminConfig.gotify.token')} type="password" placeholder={config.gotifyTokenMasked ?? t('adminConfig.gotify.tokenPlaceholder')} value={form.gotifyToken} onValueChange={(v) => update({ gotifyToken: v })} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
-      <div className="flex gap-2">
-        <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={() => stepUp.ask(t('adminConfig.stepUp.gotify'), save)}>{t('adminConfig.gotify.save')}</Button>
+      <SaveBar isDirty={isDirty} isSaving={saving} onSave={() => stepUp.ask(t('adminConfig.stepUp.gotify'), save)}>
         <Button size="sm" variant="bordered" isLoading={testing} isDisabled={isDirty} onPress={() => stepUp.ask(t('adminConfig.stepUp.gotifyTest'), test)}>{t('adminConfig.gotify.test')}</Button>
-      </div>
+      </SaveBar>
       <TestUsesSavedHint show={isDirty} />
       {stepUp.dialog}
     </ConfigCard>

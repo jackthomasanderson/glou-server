@@ -7,7 +7,7 @@ import { configClient, type AdminReauth, type NetworkCheckResult, type SystemCon
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { ConfigCard, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
+import { ConfigCard, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
 
 type AccessMode = 'direct' | 'proxy';
 const toForm = (cfg: SystemConfigPublic) => ({
@@ -18,7 +18,7 @@ const toForm = (cfg: SystemConfigPublic) => ({
 /** FEAT-54: the address members reach the instance at, and the check of that setting. */
 export function PublicUrlCard({ config }: { config: SystemConfigPublic }) {
   const { t } = useTranslation();
-  const { form, update, reset } = useConfigForm(toForm(config));
+  const { form, update, reset, isDirty } = useConfigForm(toForm(config));
   const [saving, setSaving] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checkResult, setCheckResult] = useState<NetworkCheckResult | null>(null);
@@ -58,7 +58,7 @@ export function PublicUrlCard({ config }: { config: SystemConfigPublic }) {
   };
 
   return (
-    <ConfigCard id="config-public-url" icon={Globe} title={t('adminConfig.cards.publicUrl')} description={t('adminConfig.network.description')}>
+    <ConfigCard id="config-public-url" icon={Globe} title={t('adminConfig.cards.publicUrl')} description={t('adminConfig.network.description')} isDirty={isDirty}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input
           label={t('adminConfig.network.publicUrl')}
@@ -82,9 +82,7 @@ export function PublicUrlCard({ config }: { config: SystemConfigPublic }) {
           <SelectItem key="proxy">{t('adminConfig.network.accessModeOptions.proxy')}</SelectItem>
         </SingleSelect>
       </div>
-      <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={() => stepUp.ask(t('adminConfig.stepUp.network'), save)} className="self-start">
-        {t('adminConfig.network.save')}
-      </Button>
+      <SaveBar isDirty={isDirty} isSaving={saving} onSave={() => stepUp.ask(t('adminConfig.stepUp.network'), save)} />
 
       <div className="pt-4 border-t border-divider flex flex-col gap-2">
         <p className="text-sm font-semibold">{t('adminConfig.network.summary.title')}</p>

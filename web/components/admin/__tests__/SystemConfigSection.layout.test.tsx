@@ -76,7 +76,7 @@ describe('SystemConfigSection — a configuration that cannot be read (#615)', (
 
     expect(await screen.findByText('adminConfig.loadError')).toBeInTheDocument();
     expect(screen.queryByText('adminConfig.backup.enabled')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'adminConfig.backup.save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'adminConfig.save' })).toBeNull();
     expect(screen.queryByRole('switch')).toBeNull();
 
     configAnswer = OK_CONFIG;
@@ -110,7 +110,7 @@ describe('SystemConfigSection — a configuration that cannot be read (#615)', (
     renderWithQuery(<SystemConfigSection />);
     const retention = (await screen.findByRole('heading', { name: 'adminConfig.cards.retention' })).closest('section')!;
     fireEvent.change(within(retention).getByLabelText('adminConfig.retention.fields.logRetentionDays'), { target: { value: '0' } });
-    fireEvent.click(within(retention).getByRole('button', { name: 'adminConfig.retention.save' }));
+    fireEvent.click(within(retention).getByRole('button', { name: 'adminConfig.save' }));
 
     await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith('adminConfig.errors.VALIDATION_ERROR'));
   });

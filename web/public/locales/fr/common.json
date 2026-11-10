@@ -1934,6 +1934,8 @@
     "loadError": "La configuration n'a pas pu être chargée : aucun réglage n'est affiché.",
     "listLoadError": "Cette liste n'a pas pu être chargée.",
     "save": "Enregistrer",
+    "unsaved": "Modifications non enregistrées",
+    "leaveConfirm": "Certains réglages ne sont pas encore enregistrés. Quitter la page et les perdre ?",
     "errors": {
       "UNEXPECTED_ERROR": "L'enregistrement a échoué. Réessayez.",
       "VALIDATION_ERROR": "Une valeur n'est pas valide. Vérifiez les champs de cette carte.",
@@ -1944,7 +1946,7 @@
       "DELIVERY_FAILED": "Le serveur Gotify n'a pas accepté la notification. Vérifiez l'URL et le jeton."
     },
     "channelStatus": {
-      "active": "Actif",
+      "active": "Activé",
       "configuredOff": "Configuré mais coupé",
       "notConfigured": "Non configuré",
       "off": "Coupé"
@@ -1990,7 +1992,6 @@
       "from": "Adresse expéditeur",
       "fromPlaceholder": "Glou <votre@gmail.com>",
       "secure": "Connexion sécurisée (TLS)",
-      "save": "Enregistrer la config SMTP",
       "test": "Tester la connexion",
       "testWithEmail": "Envoyer un email de test",
       "testSuccess": "Connexion SMTP validée.",
@@ -2004,7 +2005,6 @@
       "inAppHint": "Permet aux utilisateurs de recevoir des alertes directement dans l'interface.",
       "emailHint": "Envoie les liens de réinitialisation du mot de passe, et les notifications que les membres choisissent de recevoir par e-mail.",
       "webhookHint": "Nécessite une URL Gotify configurée. Chaque utilisateur définit sa propre URL de destination dans ses préférences.",
-      "save": "Enregistrer la politique",
       "saved": "Notifications dans l'application enregistrées."
     },
     "gotify": {
@@ -2013,7 +2013,6 @@
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Token Gotify",
       "tokenPlaceholder": "Laisser vide pour conserver l'actuel",
-      "save": "Enregistrer la config Gotify",
       "test": "Tester le webhook",
       "testSuccess": "Webhook Gotify validé.",
       "testError": "Échec : {{error}}",
@@ -2040,7 +2039,6 @@
         "sessionRetentionDays": "Délai après expiration ou révocation avant suppression définitive des sessions et appareils de confiance.",
         "guestShareRetentionDays": "Délai après expiration ou révocation avant suppression définitive des partages invités."
       },
-      "save": "Enregistrer la rétention",
       "saved": "Configuration de rétention enregistrée.",
       "runNow": {
         "title": "Exécution manuelle",
@@ -2087,7 +2085,6 @@
       "retentionDaysHint": "Les fichiers de sauvegarde plus anciens que ce délai sont supprimés automatiquement (7 jours minimum recommandé).",
       "hourUtc": "Heure d'exécution (UTC)",
       "hourUtcHint": "Heure de la journée (0-23, en UTC) à laquelle la sauvegarde planifiée est déclenchée.",
-      "save": "Enregistrer la configuration",
       "saved": "Configuration de sauvegarde enregistrée.",
       "runNow": {
         "title": "Exécution manuelle",
@@ -2140,7 +2137,6 @@
         "direct": "Accès direct",
         "proxy": "Via un reverse proxy"
       },
-      "save": "Enregistrer la configuration réseau",
       "saved": "Configuration réseau enregistrée.",
       "summary": {
         "title": "Résumé des paramètres actifs",

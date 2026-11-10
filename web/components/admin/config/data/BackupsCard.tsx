@@ -11,7 +11,7 @@ import { ADMIN_BACKUP_HEALTH_KEY, BACKUP_RUNS_KEY, useAdminBackupHealth, useBack
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDateTime } from '@/lib/format';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { ConfigCard, QueryList, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
+import { ConfigCard, QueryList, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
 
 /**
  * Restore refusals the dialog explains (nothing was restored): the safety copy
@@ -42,7 +42,7 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const queryClient = useQueryClient();
-  const { form, update, reset } = useConfigForm(toForm(config));
+  const { form, update, reset, isDirty } = useConfigForm(toForm(config));
   const [saving, setSaving] = useState(false);
   const [runningBackup, setRunningBackup] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<BackupRunEntry | null>(null);
@@ -140,7 +140,7 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
   };
 
   return (
-    <ConfigCard id="config-backups" icon={Archive} title={t('adminConfig.cards.backups')} description={t('adminConfig.backup.description')}>
+    <ConfigCard id="config-backups" icon={Archive} title={t('adminConfig.cards.backups')} description={t('adminConfig.backup.description')} isDirty={isDirty}>
       <Switch isSelected={form.backupEnabled} onValueChange={(v) => update({ backupEnabled: v })} size="sm">
         {t('adminConfig.backup.enabled')}
       </Switch>
@@ -162,9 +162,7 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
           variant="bordered" size="sm" radius="md" labelPlacement="outside"
         />
       </div>
-      <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={save} className="self-start">
-        {t('adminConfig.backup.save')}
-      </Button>
+      <SaveBar isDirty={isDirty} isSaving={saving} onSave={save} />
 
       {health.data?.directoryWritable === false && (
         <div role="alert" className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm border bg-danger-50 border-danger-200 text-danger-700">

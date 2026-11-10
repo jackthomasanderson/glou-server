@@ -1,10 +1,12 @@
 'use client';
-import React, { type ReactNode } from 'react';
+import React, { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { Skeleton, Tabs, Tab } from '@heroui/react';
 import { Settings, Bell, DoorOpen, Database, Server, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSystemConfig } from '@/hooks/useAdmin';
 import { ErrorState } from '@/components/ui/ErrorState';
+import { useLeaveGuard } from '@/hooks/useLeaveGuard';
+import { UnsavedChangesContext, UnsavedMarker } from '@/components/admin/config/shared';
 import { BackupMarker } from '@/components/admin/BackupWarning';
 import { EmailChannelCard } from '@/components/admin/config/notifications/EmailChannelCard';
 import { InAppChannelCard } from '@/components/admin/config/notifications/InAppChannelCard';
@@ -20,6 +22,7 @@ import { ConfigHistoryCard } from '@/components/admin/config/system/ConfigHistor
 
 /** #757: the tabs, named after what the admin came to do. */
 export type ConfigTab = 'notifications' | 'access' | 'data' | 'system';
+const TABS: ConfigTab[] = ['notifications', 'access', 'data', 'system'];
 
 interface SystemConfigSectionProps {
   /** #756: automatic backups off or none ever succeeded — the Data tab is marked. */
@@ -39,8 +42,33 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
   const configQuery = useSystemConfig();
   const config = configQuery.data;
 
+  // #759: the cards holding unsaved changes, as "tab/card".
+  const [unsaved, setUnsaved] = useState<ReadonlySet<string>>(() => new Set());
+  const report = useCallback((key: string, isDirty: boolean) => {
+    setUnsaved((prev) => {
+      if (prev.has(key) === isDirty) return prev;
+      const next = new Set(prev);
+      if (isDirty) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  }, []);
+  const reporters = useMemo(
+    () => Object.fromEntries(TABS.map((tab) => [tab, (card: string, isDirty: boolean) => report(`${tab}/${card}`, isDirty)])) as Record<ConfigTab, (card: string, isDirty: boolean) => void>,
+    [report],
+  );
+  const tabIsDirty = (tab: ConfigTab) => [...unsaved].some((key) => key.startsWith(`${tab}/`));
+  useLeaveGuard(unsaved.size > 0, t('adminConfig.leaveConfirm'));
+
   const tabTitle = (key: ConfigTab, Icon: LucideIcon, marker?: ReactNode) => (
-    <span className="flex items-center gap-1.5"><Icon size={14} aria-hidden="true" />{t(`adminConfig.tabs.${key}`)}{marker}</span>
+    <span className="flex items-center gap-1.5">
+      <Icon size={14} aria-hidden="true" />{t(`adminConfig.tabs.${key}`)}{marker}{tabIsDirty(key) && <UnsavedMarker compact />}
+    </span>
+  );
+  const panel = (tab: ConfigTab, children: ReactNode) => (
+    <UnsavedChangesContext.Provider value={reporters[tab]}>
+      <div className="flex flex-col gap-4 pt-2">{children}</div>
+    </UnsavedChangesContext.Provider>
   );
 
   return (
@@ -69,37 +97,40 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
           aria-label={t('adminConfig.tabsAriaLabel')}
           selectedKey={selectedTab}
           onSelectionChange={onTabChange ? (key) => onTabChange(String(key) as ConfigTab) : undefined}
+          // #759: each card keeps its own form; a tab left stays mounted (hidden,
+          // inert), so what was typed there is still there on return.
+          destroyInactiveTabPanel={false}
           // #698: on a phone the tabs wrap instead of scrolling out of sight.
           classNames={{ base: 'w-full min-w-0', tabList: 'w-full flex-wrap gap-y-1 overflow-visible', panel: 'px-0' }}
         >
           <Tab key="notifications" title={tabTitle('notifications', Bell)}>
-            <div className="flex flex-col gap-4 pt-2">
+            {panel('notifications', <>
               {/* #758: one card per channel, each with its only switch. */}
               <p className="text-sm text-foreground-500">{t('adminConfig.notifPolicy.description')}</p>
               <InAppChannelCard config={config} />
               <EmailChannelCard config={config} />
               <GotifyChannelCard config={config} />
-            </div>
+            </>)}
           </Tab>
           <Tab key="access" title={tabTitle('access', DoorOpen)}>
-            <div className="flex flex-col gap-4 pt-2">
+            {panel('access', <>
               <RegistrationCard config={config} />
               <PublicUrlCard config={config} />
-            </div>
+            </>)}
           </Tab>
           <Tab key="data" title={tabTitle('data', Database, hasBackupProblem && <BackupMarker />)}>
-            <div className="flex flex-col gap-4 pt-2">
+            {panel('data', <>
               <BackupsCard config={config} />
               <RetentionCard config={config} />
               <PurgeCard />
-            </div>
+            </>)}
           </Tab>
           <Tab key="system" title={tabTitle('system', Server)}>
-            <div className="flex flex-col gap-4 pt-2">
+            {panel('system', <>
               <VersionCard />
               <ScanStatusCard />
               <ConfigHistoryCard />
-            </div>
+            </>)}
           </Tab>
         </Tabs>
       )}

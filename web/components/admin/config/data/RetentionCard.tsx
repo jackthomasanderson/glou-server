@@ -10,7 +10,7 @@ import { MAINTENANCE_RUNS_KEY, useMaintenanceRuns } from '@/hooks/useAdmin';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDateTime } from '@/lib/format';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { ConfigCard, QueryList, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
+import { ConfigCard, QueryList, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
 
 const FIELDS = ['logRetentionDays', 'sessionRetentionDays', 'guestShareRetentionDays'] as const;
 
@@ -25,7 +25,7 @@ export function RetentionCard({ config }: { config: SystemConfigPublic }) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const queryClient = useQueryClient();
-  const { form, update, reset } = useConfigForm(toForm(config));
+  const { form, update, reset, isDirty } = useConfigForm(toForm(config));
   const [saving, setSaving] = useState(false);
   const [isRunConfirmOpen, setIsRunConfirmOpen] = useState(false);
   const [running, setRunning] = useState(false);
@@ -66,7 +66,7 @@ export function RetentionCard({ config }: { config: SystemConfigPublic }) {
   };
 
   return (
-    <ConfigCard id="config-retention" icon={Clock} title={t('adminConfig.cards.retention')} description={t('adminConfig.retention.description')}>
+    <ConfigCard id="config-retention" icon={Clock} title={t('adminConfig.cards.retention')} description={t('adminConfig.retention.description')} isDirty={isDirty}>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {FIELDS.map((field) => (
           <Input
@@ -80,9 +80,7 @@ export function RetentionCard({ config }: { config: SystemConfigPublic }) {
           />
         ))}
       </div>
-      <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={save} className="self-start">
-        {t('adminConfig.retention.save')}
-      </Button>
+      <SaveBar isDirty={isDirty} isSaving={saving} onSave={save} />
 
       <div className="pt-4 border-t border-divider flex flex-col gap-3">
         <div>

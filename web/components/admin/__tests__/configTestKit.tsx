@@ -25,7 +25,10 @@ export function heroUiMock() {
     Skeleton: Box,
     Card: Box,
     CardBody: Box,
-    Tabs: Box,
+    // Says whether the real Tabs would keep the panels of the tabs not shown.
+    Tabs: ({ children, destroyInactiveTabPanel }: { children?: ReactNode; destroyInactiveTabPanel?: boolean }) => (
+      <div data-testid="config-tabs" data-keeps-inactive-panels={String(destroyInactiveTabPanel === false)}>{children}</div>
+    ),
     Tab: ({ title, children }: { title?: ReactNode; children?: ReactNode }) => <section>{title}{children}</section>,
     Select: ({ label }: { label?: ReactNode }) => <div>{label}</div>,
     SelectItem: () => null,

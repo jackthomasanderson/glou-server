@@ -1,6 +1,6 @@
 'use client';
-import React, { useCallback, useState, type ReactNode } from 'react';
-import { Chip, Skeleton } from '@heroui/react';
+import React, { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { Button, Chip, Skeleton } from '@heroui/react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient, type UseQueryResult } from '@tanstack/react-query';
@@ -58,6 +58,53 @@ export function useConfigForm<T>(saved: T) {
   return { form, update, isDirty: isFormDirty(saved, form), reset: setForm };
 }
 
+/**
+ * #759: where a card says whether it holds unsaved changes. Each tab of
+ * System configuration provides one, to mark its title and to warn before
+ * the page is left.
+ */
+export const UnsavedChangesContext = createContext<((cardId: string, isDirty: boolean) => void) | null>(null);
+
+function useReportUnsaved(cardId: string, isDirty: boolean) {
+  const report = useContext(UnsavedChangesContext);
+  useEffect(() => {
+    report?.(cardId, isDirty);
+  }, [report, cardId, isDirty]);
+  // A card that goes away no longer holds anything.
+  useEffect(() => () => report?.(cardId, false), [report, cardId]);
+}
+
+/** #759: the mark of unsaved changes, on a card and on its tab title (text, not colour alone). */
+export function UnsavedMarker({ compact = false }: { compact?: boolean }) {
+  const { t } = useTranslation();
+  if (compact) {
+    return <span role="img" aria-label={t('adminConfig.unsaved')} title={t('adminConfig.unsaved')} className="inline-block h-2 w-2 rounded-full bg-warning" />;
+  }
+  return <Chip size="sm" variant="dot" color="warning">{t('adminConfig.unsaved')}</Chip>;
+}
+
+/**
+ * #759: the same "Save" everywhere, same size, at the start of the line;
+ * usable only while the card has something to save. `children` go on the
+ * same line (a test button).
+ */
+export function SaveBar({ isDirty, isSaving, onSave, children }: {
+  isDirty: boolean;
+  isSaving: boolean;
+  onSave: () => void;
+  children?: ReactNode;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-wrap items-center gap-2 self-start">
+      <Button size="sm" color="primary" variant="solid" isLoading={isSaving} isDisabled={!isDirty || isSaving} onPress={onSave}>
+        {t('adminConfig.save')}
+      </Button>
+      {children}
+    </div>
+  );
+}
+
 interface ConfigCardProps {
   /** Unique on the page: names the card for screen readers. */
   id: string;
@@ -66,11 +113,14 @@ interface ConfigCardProps {
   description?: ReactNode;
   /** Next to the title: the card's state (a channel's, for instance). */
   status?: ReactNode;
+  /** #759: the card holds changes not saved yet. */
+  isDirty?: boolean;
   children: ReactNode;
 }
 
 /** One block of settings or actions in a System configuration tab (#757). */
-export function ConfigCard({ id, icon: Icon, title, description, status, children }: ConfigCardProps) {
+export function ConfigCard({ id, icon: Icon, title, description, status, isDirty = false, children }: ConfigCardProps) {
+  useReportUnsaved(id, isDirty);
   return (
     <section aria-labelledby={`${id}-title`} className="rounded-xl border border-divider p-4 flex flex-col gap-4">
       <div className="flex flex-col gap-1">
@@ -78,6 +128,7 @@ export function ConfigCard({ id, icon: Icon, title, description, status, childre
           <Icon size={16} className="text-foreground-500" aria-hidden="true" />
           <h3 id={`${id}-title`} className="text-sm font-semibold">{title}</h3>
           {status}
+          {isDirty && <UnsavedMarker />}
         </div>
         {description && <p className="text-sm text-foreground-500">{description}</p>}
       </div>
