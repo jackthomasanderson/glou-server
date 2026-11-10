@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import { productMatchQuerySchema, productPatchSchema, productRollbackSchema } from '../schemas/product.schema';
+import { productListQuerySchema, productMatchQuerySchema, productPatchSchema, productRollbackSchema } from '../schemas/product.schema';
 import { isRestorableDescriptionField } from '../../../shared/product';
 import { productService, type UnitSlotChanges } from '../services/product.service';
 import { inventoryService } from '../services/inventory.service';
@@ -17,9 +17,10 @@ import { badRequest, notFound } from '../lib/errors';
 const router = Router();
 router.use(authMiddleware);
 
-// GET /api/products — families with their units in stock, wines known without bottle included.
-router.get('/', async (_req: Request, res: Response): Promise<void> => {
-  res.json(await productService.list());
+// GET /api/products — families with their units in stock, wines known without bottle included;
+// ?cellarId= only those with a bottle in stock in that cellar (#475).
+router.get('/', async (req: Request, res: Response): Promise<void> => {
+  res.json(await productService.list(productListQuerySchema.parse(req.query)));
 });
 
 // GET /api/products/trash — families in the trash, with the units trashed together with them.

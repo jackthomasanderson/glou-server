@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectionEmptiness, filterProducts, type ProductFilterContext, type ProductFilterCriteria } from '../filters';
+import { collectionEmptiness, filterProducts, NO_CELLAR, type ProductFilterContext, type ProductFilterCriteria } from '../filters';
 import { openedBottle, product, unit } from './factories';
 
 // #471 — the list of wines: "Plus en cave" (FEAT-101 c1-c2), cellar filter (FEAT-96 c3).
@@ -42,6 +42,12 @@ describe('filterProducts — other filters on wines', () => {
   it('a cellar filter keeps a wine with some of its bottles there', () => {
     expect(ids({ selectedCellars: ['kitchen'] })).toEqual(['stock']);
     expect(ids({ selectedCellars: ['garage'] })).toEqual(['stock', 'opened']);
+  });
+
+  it('#707: "Sans cave" keeps a wine with some bottles left without a cellar', () => {
+    const homeless = product({ id: 'homeless', items: [unit({ cellarId: null })] });
+    expect(ids({ selectedCellars: [NO_CELLAR] }, [...all, homeless])).toEqual(['homeless']);
+    expect(ids({ selectedCellars: [NO_CELLAR, 'kitchen'] }, [...all, homeless])).toEqual(['stock', 'homeless']);
   });
 
   it('the search reads the cellars of its bottles', () => {

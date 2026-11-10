@@ -193,10 +193,16 @@ export type RollbackDescriptionResult =
   | { status: 'success'; product: ProductView; changes: FieldChange[]; unitSlotChanges: UnitSlotChanges[] };
 
 export const productService = {
-  /** D9: the families with their units in stock, wines known without bottle included. */
-  async list(): Promise<ProductList> {
+  /**
+   * D9: the families with their units in stock, wines known without bottle
+   * included. #475: scoped to a cellar, only the families with a bottle in
+   * stock there, so a cellar's page is not cut by the household-wide cap.
+   */
+  async list(options: { cellarId?: string } = {}): Promise<ProductList> {
     const rows = await prisma.product.findMany({
-      where: LISTED_PRODUCT_FILTER,
+      where: options.cellarId
+        ? { deletedAt: null, items: { some: { ...IN_STOCK_ITEM_FILTER, cellarId: options.cellarId } } }
+        : LISTED_PRODUCT_FILTER,
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       include: {
         collections: COLLECTIONS_INCLUDE,

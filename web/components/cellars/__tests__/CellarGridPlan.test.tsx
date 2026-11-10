@@ -248,3 +248,32 @@ describe('CellarGridPlan offline (FEAT-93, FEAT-108)', () => {
   });
 });
 
+
+// #707: a cell of an empty cellar said every bottle was already placed.
+describe('CellarGridPlan, an empty cellar (#707)', () => {
+  const empty = { ...data, items: [] } as unknown as CellarGridData;
+
+  it('says the cellar is empty and offers to add a bottle', () => {
+    const onAddHere = vi.fn();
+    const qc = new QueryClient();
+    render(
+      <QueryClientProvider client={qc}>
+        <CellarGridPlan data={empty} onOpenSlot={vi.fn()} onAddHere={onAddHere} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(screen.getByLabelText('cellars.grid.cellLabelEmpty|1,1'));
+    expect(screen.getByText(/^cellars\.grid\.emptyCellar/)).toBeTruthy();
+    expect(screen.queryByText(/cellars\.grid\.noUnassignedBottles/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^cellars\.addHere/ }));
+    expect(onAddHere).toHaveBeenCalled();
+    cleanup();
+  });
+
+  it('a cellar whose bottles are all placed still says so', () => {
+    renderGrid();
+    fireEvent.click(screen.getByLabelText('cellars.grid.cellLabelEmpty|2,1'));
+    expect(screen.getByText(/^cellars\.grid\.noUnassignedBottles/)).toBeTruthy();
+    expect(screen.queryByText(/^cellars\.grid\.emptyCellar/)).toBeNull();
+    cleanup();
+  });
+});

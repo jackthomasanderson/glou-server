@@ -4,7 +4,7 @@ import { productsClient, type AddUnitsInput, type UnitWrite } from '@/lib/produc
 import { detailWithUnitWrite, productsFromFlatItems, UNIT_FIELD_SET, withUnitChanges } from '@/lib/products/fromFlat';
 import { wineName } from '@/lib/products/stock';
 import { NetworkError } from '@/lib/network-error';
-import type { Product, ProductDetailView, ProductItem, TrashedProduct } from '@/lib/products/types';
+import type { Product, ProductDetailView, ProductItem, ProductListResponse, TrashedProduct } from '@/lib/products/types';
 import { BULK_WINES_ERRORS, type BulkStockResult, type BulkWinesAction, type ProductDescription } from '@shared/product';
 import { getAllQueuedMutations, getCachedInventory, type QueuedMutation } from '@/lib/offline/db';
 import { overlayChanges, unitInStock, type UnitLike } from '@/lib/offline/optimistic';
@@ -95,6 +95,26 @@ export function useProducts(options?: { enabled?: boolean }) {
     staleTime: 1000 * 30,
     enabled: options?.enabled ?? true,
     // FEAT-108: tried even offline, so the offline copy is reached (see useInventory).
+    networkMode: 'always',
+  });
+}
+
+/**
+ * #475: the wines with a bottle in stock in one cellar, read from the server
+ * so a cellar's page is not cut by the household-wide cap. Under `inventory`,
+ * so every bottle change refreshes it. Only needed once that list was cut
+ * (`useProductsTruncated`): the full list keeps the optimistic updates.
+ */
+export function useCellarProducts(cellarId: string, options?: { enabled?: boolean }) {
+  return useQuery<ProductListResponse>({
+    queryKey: ['inventory', 'cellar-products', cellarId],
+    queryFn: async () => {
+      const list = await productsClient.list({ cellarId });
+      return { ...list, data: await overlayQueuedUnitChanges(list.data) };
+    },
+    staleTime: 1000 * 30,
+    enabled: options?.enabled ?? true,
+    // Offline it fails at once (not paused): the page then says it is incomplete.
     networkMode: 'always',
   });
 }

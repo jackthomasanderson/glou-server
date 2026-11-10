@@ -31,3 +31,6 @@ export type FieldSource = 'manual' | 'ocr' | 'import_csv';
 
 /** Days an item stays in the trash before the nightly cleanup deletes it for good. */
 export const TRASH_RETENTION_DAYS = 7;
+
+/** Items listed at most by GET /api/inventory (ISSUE_083, #475): beyond, `truncated` is true. */
+export const INVENTORY_LIST_LIMIT = 2000;

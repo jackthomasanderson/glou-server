@@ -7,7 +7,7 @@ import { CSV_IMPORT_TRANSACTION_MAX_WAIT_MS, CSV_IMPORT_TRANSACTION_TIMEOUT_MS }
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn() }));
 
 import { notifyError } from '@/lib/toast';
-import { useCsvConfirm, useCsvPreview } from './useImport';
+import { useCsvConfirm, useCsvConfirmPending, useCsvPreview } from './useImport';
 
 // FEAT-91 (#641): a failed import showed nothing (the button just stopped
 // spinning), and the screen gave up after 15 s while the server allowed
@@ -15,9 +15,11 @@ import { useCsvConfirm, useCsvPreview } from './useImport';
 // screen and invite a second click.
 
 function wrapper({ children }: { children: ReactNode }) {
-  const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const qc = sharedClient ?? new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
+
+let sharedClient: QueryClient | null = null;
 
 const rows = [{ name: 'Talbot', producer: 'Château Talbot', category: 'wine' as const }];
 
@@ -92,5 +94,23 @@ describe('useCsvPreview', () => {
     result.current.mutate(file);
 
     await waitFor(() => expect(result.current.error?.message).toBe('FILE_TOO_LARGE'));
+  });
+});
+
+// Review of #908: a window holding the import must know a confirmation is running.
+describe('useCsvConfirmPending', () => {
+  it('is true while an import is being confirmed, anywhere on the page', async () => {
+    sharedClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    let answer: (value: unknown) => void = () => {};
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise((resolve) => { answer = resolve; })));
+    const { result } = renderHook(() => ({ confirm: useCsvConfirm(), pending: useCsvConfirmPending() }), { wrapper });
+    expect(result.current.pending).toBe(false);
+
+    result.current.confirm.mutate({ rows, cellarId: null });
+    await waitFor(() => expect(result.current.pending).toBe(true));
+
+    answer({ ok: true, status: 201, json: async () => ({ data: { bottles: 1, wines: 1, cigars: 0, cigarReferences: 0, skippedLines: 0, skippedUnits: 0, staleLines: 0, createdCellars: [] } }) });
+    await waitFor(() => expect(result.current.pending).toBe(false));
+    sharedClient = null;
   });
 });

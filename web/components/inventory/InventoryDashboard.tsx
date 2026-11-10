@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { InventoryItem } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { describeStock, wineName } from '@/lib/products/stock';
-import { isGone } from '@/lib/products/filters';
+import { isGone, NO_CELLAR } from '@/lib/products/filters';
 import { familyIdOf } from '@/lib/products/fromFlat';
 import { inventoryClient } from '@/lib/inventory/client';
 import { isFinishedState } from '@shared/units';
@@ -378,12 +378,14 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     const [only] = ids;
     return ids.size === 1 && only ? cellarNames.get(only) : undefined;
   }, [cellarNames]);
+  // #707: the cellars looked at ("2 ici", what the drawer preselects), "Sans cave" not being one.
+  const viewedCellarIds = useMemo(() => selectedCellars.filter((id) => id !== NO_CELLAR), [selectedCellars]);
   const stockOf = useCallback(
     (product: Product) => describeStock(product, t, {
-      cellarIds: selectedCellars,
+      cellarIds: viewedCellarIds,
       formatDate: (iso) => formatDate(iso, i18n.language, { day: 'numeric', month: 'short', year: 'numeric' }),
     }),
-    [t, selectedCellars, i18n.language],
+    [t, viewedCellarIds, i18n.language],
   );
   // A cigars-only page speaks of cigars and the humidor, not of bottles.
   const emptyCtx = lockedCategories?.length === 1 && lockedCategories[0] === 'cigar' ? { context: 'cigar' } : undefined;
@@ -726,7 +728,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         products={products ?? []}
         selectedIds={selectedIds}
         cigars={isCigarPage}
-        viewedCellarIds={selectedCellars}
+        viewedCellarIds={viewedCellarIds}
         onClose={() => setWinesAction(null)}
         onDone={() => {
           setWinesAction(null);
@@ -748,7 +750,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         onClose={() => setViewingProductId(null)}
         onEdit={handleEditFromDrawer}
         // FEAT-104 c3: "Quelles bouteilles ?" preselects the line of the cellars filtered on.
-        viewedCellarIds={selectedCellars}
+        viewedCellarIds={viewedCellarIds}
         // #471 (FEAT-92 c2, FEAT-101 c3, FEAT-95): "Ajouter des bouteilles" / "Ajouter des cigares".
         primaryAction={(product) => <AddUnitsAction product={product} />}
       />

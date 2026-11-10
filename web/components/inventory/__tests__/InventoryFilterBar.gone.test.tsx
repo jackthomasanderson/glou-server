@@ -44,3 +44,45 @@ describe('InventoryFilterBar — "Plus en cave"', () => {
     expect(all).toHaveAttribute('aria-checked', 'false');
   });
 });
+
+// #707: a deleted cellar leaves its bottles without a cellar; they can be filtered.
+describe('InventoryFilterBar — "Sans cave"', () => {
+  const cellars = [{ id: 'kitchen', name: 'Cuisine' }] as never;
+  const withBottle = (cellarId: string | null) => [{ id: 'p', tags: [], items: [{ id: 'u', cellarId }] }] as never;
+
+  function CellarBar({ products, cellarList = cellars }: { products: never; cellarList?: never }) {
+    const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
+    return (
+      <>
+        <InventoryFilterBar
+          variant="desktop" t={(key: string) => key} isFiltersOpen hasActiveFilters={false} onClearFilters={noop}
+          cellars={cellarList} products={products}
+          selectedCategories={[]} setSelectedCategories={noop} selectedCellars={selectedCellars} setSelectedCellars={setSelectedCellars}
+          selectedWineColors={[]} setSelectedWineColors={noop} selectedTags={[]} setSelectedTags={noop}
+          minValue="" setMinValue={noop} maxValue="" setMaxValue={noop} sortBy="default" setSortBy={noop}
+          openedFilter="all" setOpenedFilter={noop} showGone={false} setShowGone={noop}
+          tagSearchQuery="" setTagSearchQuery={noop} showAllTags={false} setShowAllTags={noop}
+        />
+        <output data-testid="selected">{JSON.stringify(selectedCellars)}</output>
+      </>
+    );
+  }
+
+  it('offers the bottles without a cellar when there are some', () => {
+    render(<CellarBar products={withBottle(null)} />);
+    const chip = screen.getByRole('button', { name: 'inventory.noCellarFilter' });
+    fireEvent.click(chip);
+    expect(chip).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('selected').textContent).toBe('[""]');
+  });
+
+  it('is not offered when every bottle is in a cellar', () => {
+    render(<CellarBar products={withBottle('kitchen')} />);
+    expect(screen.queryByRole('button', { name: 'inventory.noCellarFilter' })).toBeNull();
+  });
+
+  it('is offered even once every cellar is deleted', () => {
+    render(<CellarBar products={withBottle(null)} cellarList={[] as never} />);
+    expect(screen.getByRole('button', { name: 'inventory.noCellarFilter' })).toBeInTheDocument();
+  });
+});

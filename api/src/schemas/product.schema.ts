@@ -47,6 +47,11 @@ export const productRollbackSchema = z
 
 export type ProductRollbackInput = z.infer<typeof productRollbackSchema>;
 
+/** #475: GET /api/products — optionally scoped to one cellar (its page). */
+export const productListQuerySchema = z.object({
+  cellarId: z.string().min(1).max(100).optional(),
+});
+
 /**
  * #471 (FEAT-97): GET /api/products/match — the wine being typed in an add
  * form, as `productKey` reads it (shared/units.ts). An absent vintage is "no
