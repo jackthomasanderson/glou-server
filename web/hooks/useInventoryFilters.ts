@@ -59,6 +59,11 @@ export interface UseInventoryFiltersResult {
   baseItems: Product[];
   filteredItems: Product[];
   hasActiveFilters: boolean;
+  /**
+   * #503: the category chosen from the navigation (`?category=`). It is the
+   * page's scope, not a filter: it does not count in `hasActiveFilters`.
+   */
+  navCategory: string | null;
   /** #708: the chosen collection holds no wine, or only finished ones (see `collectionEmptiness`). */
   collectionState: 'empty' | 'allGone' | null;
 }
@@ -85,7 +90,9 @@ export function useInventoryFilters({
   hasMounted,
 }: UseInventoryFiltersOptions): UseInventoryFiltersResult {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategoriesState] = useState<string[]>([]);
+  // #503: categories picked on the page while the URL still carried a nav category.
+  const [pickedCategories, setPickedCategories] = useState<string[] | null>(null);
   const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -125,7 +132,8 @@ export function useInventoryFilters({
     // which cigars uses) — the user can still broaden or clear it from the
     // same /bottles page that search results, alerts, collections and QR
     // codes all deep-link into unfiltered.
-    setSelectedCategories(categoryParam ? [categoryParam] : []);
+    setSelectedCategoriesState(categoryParam ? [categoryParam] : (pickedCategories ?? []));
+    setPickedCategories(null);
     if (filterParam === 'opened') {
       setOpenedFilter('opened'); setIsFiltersOpen(true);
     } else if (filterParam === 'full') {
@@ -137,13 +145,30 @@ export function useInventoryFilters({
     }
   }
 
+  const navCategory = searchParams.get('category');
+
+  // #503: the title, breadcrumb and active tab follow `?category=`, so they must
+  // not keep saying "Wines" over a list the member has widened. Leaving the
+  // nav category among the chips drops it from the URL (the page becomes the
+  // plain bottles list); the picked chips survive that navigation.
+  const setSelectedCategories = useCallback<React.Dispatch<React.SetStateAction<string[]>>>((value) => {
+    const next = typeof value === 'function' ? value(selectedCategories) : value;
+    setSelectedCategoriesState(next);
+    if (navCategory && !(next.length === 1 && next[0] === navCategory)) {
+      setPickedCategories(next);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('category');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    }
+  }, [selectedCategories, navCategory, searchParams, router, pathname]);
+
   const toggleFilters = useCallback(() => setIsFiltersOpen((prev) => !prev), []);
 
   const clearFilters = useCallback(() => {
     setSearchQuery('');
     // #503: a category chosen from the navigation is the page, not a filter.
-    const navCategory = searchParams.get('category');
-    setSelectedCategories(navCategory ? [navCategory] : []);
+    setSelectedCategoriesState(navCategory ? [navCategory] : []);
     setSelectedCellars([]);
     setSelectedTags([]);
     setSelectedWineColors([]);
@@ -153,7 +178,7 @@ export function useInventoryFilters({
     setOpenedFilter('all');
     setShowGone(false);
     router.push(navCategory ? `${pathname}?category=${encodeURIComponent(navCategory)}` : pathname);
-  }, [router, pathname, searchParams]);
+  }, [router, pathname, navCategory]);
 
   const criteria = useMemo<ProductFilterCriteria>(() => ({
     lockedCategories, selectedCollectionId, selectedCategories, selectedWineColors, selectedCellars,
@@ -175,8 +200,10 @@ export function useInventoryFilters({
 
   const collectionState = useMemo(() => (products ? collectionEmptiness(products, criteria) : null), [products, criteria]);
 
+  // The navigation category alone is the page, not a filter (#503).
+  const onlyNavCategory = !!navCategory && selectedCategories.length === 1 && selectedCategories[0] === navCategory;
   const hasActiveFilters =
-    selectedCategories.length > 0 ||
+    (selectedCategories.length > 0 && !onlyNavCategory) ||
     selectedWineColors.length > 0 ||
     selectedCellars.length > 0 ||
     openedFilter !== 'all' ||
@@ -207,6 +234,7 @@ export function useInventoryFilters({
     baseItems,
     filteredItems,
     hasActiveFilters,
+    navCategory,
     collectionState,
   };
 }

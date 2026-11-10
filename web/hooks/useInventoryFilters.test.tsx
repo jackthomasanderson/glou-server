@@ -7,7 +7,8 @@ import { act, renderHook } from '@testing-library/react';
 // arrival and on every later navigation.
 
 const push = vi.fn();
-const router = { push };
+const replace = vi.fn();
+const router = { push, replace };
 let searchParams = new URLSearchParams();
 vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParams,
@@ -31,6 +32,7 @@ function navigate(rerender: () => void, query: string) {
 
 beforeEach(() => {
   push.mockClear();
+  replace.mockClear();
   searchParams = new URLSearchParams();
 });
 
@@ -83,5 +85,41 @@ describe('clearFilters keeps the navigation category (#503)', () => {
     act(() => result.current.clearFilters());
     expect(push).toHaveBeenCalledWith('/bottles');
     expect(result.current.selectedCategories).toEqual([]);
+  });
+});
+
+describe('the navigation category is the page, not a filter (#503)', () => {
+  it('?category=wine alone is no active filter', () => {
+    const { result } = renderFilters('category=wine');
+    expect(result.current.navCategory).toBe('wine');
+    expect(result.current.selectedCategories).toEqual(['wine']);
+    expect(result.current.hasActiveFilters).toBe(false);
+  });
+
+  it('another filter on top of it is one', () => {
+    const { result } = renderFilters('category=wine&q=rioja');
+    expect(result.current.hasActiveFilters).toBe(true);
+  });
+
+  it('a category chosen outside the navigation still counts', () => {
+    const { result } = renderFilters('');
+    act(() => result.current.setSelectedCategories(['wine']));
+    expect(result.current.hasActiveFilters).toBe(true);
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('unticking the nav category leaves the category URL, so the title does not lie', () => {
+    const { result } = renderFilters('category=wine&q=x');
+    act(() => result.current.setSelectedCategories([]));
+    expect(replace).toHaveBeenCalledWith('/bottles?q=x');
+    expect(result.current.selectedCategories).toEqual([]);
+  });
+
+  it('keeps the chips picked while leaving the category URL', () => {
+    const { result, rerender } = renderFilters('category=wine');
+    act(() => result.current.setSelectedCategories(['wine', 'spirit']));
+    expect(replace).toHaveBeenCalledWith('/bottles');
+    navigate(rerender, '');
+    expect(result.current.selectedCategories).toEqual(['wine', 'spirit']);
   });
 });

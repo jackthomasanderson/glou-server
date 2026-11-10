@@ -6,6 +6,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
 import { Plus, Search, Camera, BookMarked } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CATEGORY_TITLES } from '@/lib/inventory/category-titles';
 import { InventoryItem } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { describeStock, wineName } from '@/lib/products/stock';
@@ -145,6 +146,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     baseItems,
     filteredItems,
     hasActiveFilters,
+    navCategory,
     collectionState: collectionStateOfList,
   } = useInventoryFilters({ products, cellars, lockedCategories, t, hasMounted });
 
@@ -569,7 +571,25 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               {/* `baseItems` (not `items`) so a category-scoped page — /cigars
                   with a wine-only inventory — gets the empty state instead of
                   a blank zone. */}
-              {products && baseItems.length === 0 && !hasActiveFilters ? (
+              {/* #503: `?category=` is the page, not a filter: an empty category
+                  page gets its own empty state (Add, and a way to all bottles). */}
+              {products && navCategory && CATEGORY_TITLES[navCategory] && filteredItems.length === 0 && !hasActiveFilters && !collectionState ? (
+                <EmptyState
+                  bordered
+                  title={t(`inventory.noCategory_${navCategory}`)}
+                  description={t(`inventory.noCategory_${navCategory}Desc`)}
+                  action={
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
+                        {t('inventory.add')}
+                      </Button>
+                      <Button variant="light" color="primary" data-testid="see-all-bottles" onPress={() => router.push('/bottles')}>
+                        {t('inventory.seeAllBottles')}
+                      </Button>
+                    </div>
+                  }
+                />
+              ) : products && baseItems.length === 0 && !hasActiveFilters ? (
                 <EmptyState
                   bordered
                   title={t('inventory.noBottles', emptyCtx)}
