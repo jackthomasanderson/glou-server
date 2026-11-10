@@ -3,7 +3,8 @@ import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { IN_STOCK_ITEM_FILTER, itemUnits, productKey } from '../lib/finished-item';
 import { parseCsv } from '../lib/csv';
 import { lockFamilies, purchaseDayToDate, todayAsPurchaseDate } from '../lib/product-fields';
-import { csvRawRowSchema, normalizeCsvToken, toOpened } from '../schemas/import.schema';
+import { csvRawRowSchema, toOpened } from '../schemas/import.schema';
+import { normalizeToken } from '../lib/category';
 import { MAX_COPIES } from '../schemas/stock.schema';
 import { familyAlertStatus } from './alert.service';
 import { DRINKING_WINDOW_FIELDS, hasDrinkingWindow } from '../../../shared/inventory';
@@ -27,7 +28,7 @@ import {
 } from '../../../shared/import';
 
 // #510: header names accepted for each column, compared after
-// normalizeCsvToken (no case, accents, spaces or punctuation). English and
+// normalizeToken (no case, accents, spaces or punctuation). English and
 // French, so a French spreadsheet ("Nom; Producteur; Catégorie; Millésime")
 // imports as is.
 export const HEADER_ALIASES: Record<string, string> = {
@@ -107,7 +108,7 @@ const OPENED_ONLY_COLUMNS = ['fillLevel', 'cigarsLeft', 'openedAt'] as const;
 function canonicalRecord(record: Record<string, string>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(record)) {
-    const column = HEADER_ALIASES[normalizeCsvToken(key)];
+    const column = HEADER_ALIASES[normalizeToken(key)];
     if (column && !(column in out)) out[column] = unneutralize(value);
   }
   if (toOpened(out.opened) !== true) for (const column of OPENED_ONLY_COLUMNS) delete out[column];

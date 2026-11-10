@@ -1,12 +1,19 @@
 import { z } from 'zod';
 import { CURVE_SHAPES } from '../lib/maturity-curve';
 import { categorySchema } from '../lib/category';
+import { manufactureYearSchema, vintageSchema } from '../lib/years';
 import { ALERT_STATUSES, SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '../../../shared/inventory';
 import { MAX_COPIES } from '../../../shared/product';
 import { unitPrice } from './stock.schema';
 import { slotCellSchema } from './cellar.schema';
 
 // ─── Common fields (all categories) ─────────────────────────────────────────
+
+// #624: the patch schema below is written flat, field by field; a rule both
+// write is built once (here or in lib/years.ts), and a test
+// (tests/inventory.schema.test.ts) fails when a field's rule differs.
+const nameSchema = z.string().min(1, 'Name is required').max(200);
+const producerSchema = z.string().min(1, 'Producer is required').max(200);
 
 /**
  * #471 (lot Z): FEAT-87's `isOwned` is gone — a reference is a wine without
@@ -20,8 +27,8 @@ const legacyOwnedFlag = z.literal(true).optional();
 
 export const commonInventorySchema = z.object({
   category: categorySchema,
-  name: z.string().min(1, 'Name is required').max(200),
-  producer: z.string().min(1, 'Producer is required').max(200),
+  name: nameSchema,
+  producer: producerSchema,
   location: z.string().max(200).optional(),
   collection: z.string().max(200).optional(),
   tags: z.array(z.string().max(50)).max(20).default([]),
@@ -91,7 +98,7 @@ export const peakWindowSchema = z
 
 export const wineInventorySchema = commonInventorySchema.extend({
   category: z.literal('wine'),
-  vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
+  vintage: vintageSchema().optional(),
   color: z.enum(WINE_COLORS).optional(),
   region: z.string().max(200).optional(),
   grapeVarieties: z.array(z.string().max(100)).max(10).default([]),
@@ -109,12 +116,12 @@ export const wineInventorySchema = commonInventorySchema.extend({
 
 export const sparklingInventorySchema = commonInventorySchema.extend({
   category: z.literal('sparkling'),
-  vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
+  vintage: vintageSchema().optional(),
   sparklingType: z.enum(SPARKLING_TYPES).optional(),
   sugarLevel: z.enum(SUGAR_LEVELS).optional(),
   // Nullable, see batchDate (#726).
   disgorgingDate: z.coerce.date().optional().nullable(),
-  baseYear: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
+  baseYear: vintageSchema().optional(),
   peakMaturityFrom: z.number().int().min(1800).max(2200).optional().nullable(),
   peakMaturityTo: z.number().int().min(1800).max(2200).optional().nullable(),
   serviceTemp: z.string().max(50).optional(),
@@ -150,7 +157,7 @@ export const cigarInventorySchema = commonInventorySchema.extend({
   cigarsPerBox: z.number().int().min(1).max(MAX_COPIES).nullable().optional(),
   // One box already opened: the cigars left in it (from 1 to the box size).
   cigarsLeft: z.number().int().min(1).max(MAX_COPIES).nullable().optional(),
-  manufactureYear: z.number().int().min(1900).max(new Date().getFullYear()).optional(),
+  manufactureYear: manufactureYearSchema().optional(),
   leafOrigin: z.string().max(200).optional(),
   factoryCode: z.string().max(50).optional(),
   recommendedHumidity: z.number().min(50).max(100).optional(),
@@ -218,8 +225,8 @@ export type InventoryDraft =
 /** The patch fields, before the cross-field window check (#471: the family patch picks its own). */
 export const inventoryPatchObject = z.object({
   category: categorySchema.optional(),
-  name: z.string().min(1).max(200).optional(),
-  producer: z.string().min(1).max(200).optional(),
+  name: nameSchema.optional(),
+  producer: producerSchema.optional(),
   location: z.string().max(200).optional().nullable(),
   collection: z.string().max(200).optional().nullable(),
   tags: z.array(z.string().max(50)).max(20).optional(),
@@ -259,7 +266,7 @@ export const inventoryPatchObject = z.object({
   // unchanged on every save, which silently disabled the auto-lock that a
   // plain field edit is supposed to trigger (see InventoryForm.tsx).
   // Wine/Sparkling
-  vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional().nullable(),
+  vintage: vintageSchema().optional().nullable(),
   color: z.enum(WINE_COLORS).optional().nullable(),
   region: z.string().max(200).optional().nullable(),
   grapeVarieties: z.array(z.string().max(100)).max(10).optional(),
@@ -274,7 +281,7 @@ export const inventoryPatchObject = z.object({
   sparklingType: z.enum(SPARKLING_TYPES).optional().nullable(),
   sugarLevel: z.enum(SUGAR_LEVELS).optional().nullable(),
   disgorgingDate: z.coerce.date().optional().nullable(),
-  baseYear: z.number().int().optional().nullable(),
+  baseYear: vintageSchema().optional().nullable(),
   // Wine collector fields (Task 2, expert mode only)
   appellation: z.string().max(200).optional().nullable(),
   classification: z.string().max(200).optional().nullable(),
@@ -298,7 +305,7 @@ export const inventoryPatchObject = z.object({
   quantity: z.number().int().min(0).max(1000).optional().nullable(),
   // #471 (FEAT-95): cigars per box of a group of closed boxes (null = single cigars).
   cigarsPerBox: z.number().int().min(1).max(1000).optional().nullable(),
-  manufactureYear: z.number().int().optional().nullable(),
+  manufactureYear: manufactureYearSchema().optional().nullable(),
   leafOrigin: z.string().max(200).optional().nullable(),
   factoryCode: z.string().max(50).optional().nullable(),
   recommendedHumidity: z.number().min(50).max(100).optional().nullable(),

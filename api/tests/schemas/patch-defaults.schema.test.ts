@@ -28,6 +28,15 @@ describe('patch schemas never reintroduce create-time defaults', () => {
     expect(wishlistCreateSchema.parse({ name: 'Yquem', category: 'wine' }).targetQuantity).toBe(1);
   });
 
+  // #624: a wish is bought as a bottle — the bottle's vintage rule, not next year too.
+  it('wishlist: the vintage of a bottle', () => {
+    const year = new Date().getFullYear();
+    expect(wishlistCreateSchema.safeParse({ name: 'Yquem', category: 'wine', vintage: year }).success).toBe(true);
+    expect(wishlistCreateSchema.safeParse({ name: 'Yquem', category: 'wine', vintage: year + 1 }).success).toBe(false);
+    expect(wishlistPatchSchema.safeParse({ vintage: 1799 }).success).toBe(false);
+    expect(wishlistPatchSchema.safeParse({ vintage: null }).success).toBe(true);
+  });
+
   it('patch schemas still validate the fields they receive', () => {
     expect(updateCellarSchema.safeParse({ type: 'NOPE' }).success).toBe(false);
     expect(maturityReferencePatchSchema.safeParse({ priority: -1 }).success).toBe(false);
