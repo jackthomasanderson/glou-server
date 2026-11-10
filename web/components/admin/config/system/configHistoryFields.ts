@@ -43,10 +43,10 @@ export const HISTORY_FIELDS: Record<string, HistoryFieldKind> = {
   backupHourUtc: 'hour',
   // Network
   publicUrl: 'text',
-  accessMode: 'enum',
   // Sign-up
   registrationOpen: 'bool',
   // Removed settings, kept for older entries
+  accessMode: 'enum',
   vivinoKeyEnc: 'secret',
   whiskybaseKeyEnc: 'secret',
 };

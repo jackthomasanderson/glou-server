@@ -39,7 +39,6 @@ beforeEach(() => {
     sessionRetentionDays: 30,
     guestShareRetentionDays: 30,
     publicUrl: null,
-    accessMode: 'direct',
     registrationOpen: false,
     backupEnabled: true,
     backupRetentionDays: 7,
