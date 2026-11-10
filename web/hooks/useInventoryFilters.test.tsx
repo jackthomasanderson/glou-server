@@ -111,15 +111,33 @@ describe('the navigation category is the page, not a filter (#503)', () => {
   it('unticking the nav category leaves the category URL, so the title does not lie', () => {
     const { result } = renderFilters('category=wine&q=x');
     act(() => result.current.setSelectedCategories([]));
-    expect(replace).toHaveBeenCalledWith('/bottles?q=x');
+    expect(replace).toHaveBeenCalledWith('/bottles?q=x', { scroll: false });
     expect(result.current.selectedCategories).toEqual([]);
   });
 
   it('keeps the chips picked while leaving the category URL', () => {
     const { result, rerender } = renderFilters('category=wine');
     act(() => result.current.setSelectedCategories(['wine', 'spirit']));
-    expect(replace).toHaveBeenCalledWith('/bottles');
+    expect(replace).toHaveBeenCalledWith('/bottles', { scroll: false });
     navigate(rerender, '');
     expect(result.current.selectedCategories).toEqual(['wine', 'spirit']);
+  });
+
+  it('widening the chips keeps the opened-bottles filter and the collection', () => {
+    const { result, rerender } = renderFilters('category=wine&collection=col-1');
+    act(() => { result.current.setOpenedFilter('opened'); });
+    act(() => result.current.setSelectedCategories(['wine', 'spirit']));
+    navigate(rerender, 'collection=col-1');
+    expect(result.current.openedFilter).toBe('opened');
+    expect(result.current.selectedCollectionId).toBe('col-1');
+    expect(result.current.selectedCategories).toEqual(['wine', 'spirit']);
+  });
+
+  it('a hand-typed category stays a plain filter', () => {
+    const { result } = renderFilters('category=cigar');
+    expect(result.current.navCategory).toBeNull();
+    expect(result.current.hasActiveFilters).toBe(true);
+    act(() => result.current.setSelectedCategories([]));
+    expect(replace).not.toHaveBeenCalled();
   });
 });

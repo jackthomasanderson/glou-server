@@ -7,6 +7,7 @@ import {
   baseProducts, filterProducts,
   type InventoryOpenedFilter, type InventorySortBy, type ProductFilterCriteria, collectionEmptiness,
 } from '@/lib/products/filters';
+import { CATEGORY_TITLES } from '@/lib/inventory/category-titles';
 import { todayLocalIso } from '@/lib/format';
 
 export interface UseInventoryFiltersOptions {
@@ -121,31 +122,40 @@ export function useInventoryFilters({
   const [prevSearchParams, setPrevSearchParams] = useState<typeof searchParams | null>(null);
   if (searchParams !== prevSearchParams) {
     setPrevSearchParams(searchParams);
-    const filterParam = searchParams.get('filter');
-    const qParam = searchParams.get('q');
-    const collectionParam = searchParams.get('collection');
-    const categoryParam = searchParams.get('category');
-    if (qParam) setSearchQuery(qParam);
-    setSelectedCollectionId(collectionParam ?? null);
-    // ISSUE_434: a category nav shortcut (Wine/Sparkling/Spirit) pre-selects
-    // the category chip instead of hard-locking it (unlike `lockedCategories`,
-    // which cigars uses) — the user can still broaden or clear it from the
-    // same /bottles page that search results, alerts, collections and QR
-    // codes all deep-link into unfiltered.
-    setSelectedCategoriesState(categoryParam ? [categoryParam] : (pickedCategories ?? []));
-    setPickedCategories(null);
-    if (filterParam === 'opened') {
-      setOpenedFilter('opened'); setIsFiltersOpen(true);
-    } else if (filterParam === 'full') {
-      setOpenedFilter('full'); setIsFiltersOpen(true);
-    } else if (filterParam === 'alerts') {
-      setOpenedFilter('alerts'); setIsFiltersOpen(true);
+    if (pickedCategories !== null) {
+      // #503: the URL changed because we dropped `?category=` ourselves; only
+      // the picked chips apply, the other filters stay as the member left them.
+      setSelectedCategoriesState(pickedCategories);
+      setPickedCategories(null);
     } else {
-      setOpenedFilter('all');
+      const filterParam = searchParams.get('filter');
+      const qParam = searchParams.get('q');
+      const collectionParam = searchParams.get('collection');
+      const categoryParam = searchParams.get('category');
+      if (qParam) setSearchQuery(qParam);
+      setSelectedCollectionId(collectionParam ?? null);
+      // ISSUE_434: a category nav shortcut (Wine/Sparkling/Spirit) pre-selects
+      // the category chip instead of hard-locking it (unlike `lockedCategories`,
+      // which cigars uses) — the user can still broaden or clear it from the
+      // same /bottles page that search results, alerts, collections and QR
+      // codes all deep-link into unfiltered.
+      setSelectedCategoriesState(categoryParam ? [categoryParam] : []);
+      if (filterParam === 'opened') {
+        setOpenedFilter('opened'); setIsFiltersOpen(true);
+      } else if (filterParam === 'full') {
+        setOpenedFilter('full'); setIsFiltersOpen(true);
+      } else if (filterParam === 'alerts') {
+        setOpenedFilter('alerts'); setIsFiltersOpen(true);
+      } else {
+        setOpenedFilter('all');
+      }
     }
   }
 
-  const navCategory = searchParams.get('category');
+  // Only a category of the navigation is the page's scope; a hand-typed
+  // `?category=foo` stays an ordinary filter.
+  const rawCategory = searchParams.get('category');
+  const navCategory = rawCategory && CATEGORY_TITLES[rawCategory] ? rawCategory : null;
 
   // #503: the title, breadcrumb and active tab follow `?category=`, so they must
   // not keep saying "Wines" over a list the member has widened. Leaving the
@@ -159,7 +169,7 @@ export function useInventoryFilters({
       const params = new URLSearchParams(searchParams.toString());
       params.delete('category');
       const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname);
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     }
   }, [selectedCategories, navCategory, searchParams, router, pathname]);
 
