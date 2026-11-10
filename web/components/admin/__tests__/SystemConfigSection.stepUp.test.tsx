@@ -53,7 +53,6 @@ import { SystemConfigSection } from '../SystemConfigSection';
 const CONFIG = {
   smtpEnabled: true, smtpHost: 'mail.home', smtpPort: 587, smtpUser: null, smtpPassMasked: null, smtpFrom: null, smtpSecure: true,
   gotifyEnabled: false, gotifyUrl: null, gotifyTokenMasked: null, inAppEnabled: true,
-  vivinoKeyMasked: null, whiskybaseKeyMasked: null,
   logRetentionDays: 90, sessionRetentionDays: 30, guestShareRetentionDays: 30,
   publicUrl: null, accessMode: 'direct', effectivePublicUrl: 'http://localhost:3000',
   registrationOpen: false, backupEnabled: true, backupRetentionDays: 7, backupHourUtc: 3,

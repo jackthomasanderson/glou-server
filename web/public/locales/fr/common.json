@@ -1991,12 +1991,6 @@
       "saved": "Configuration Gotify enregistrée."
     },
     "integrations": {
-      "vivinoKey": "Clé API Vivino",
-      "whiskybaseKey": "Clé API Whiskybase",
-      "vivinoWhiskybaseNotUsedYet": "Bientôt disponible — stockée en sécurité, mais aucune fonctionnalité ne lit encore ces clés.",
-      "keyPlaceholder": "Laisser vide pour conserver l'actuel",
-      "save": "Enregistrer les intégrations",
-      "saved": "Intégrations enregistrées.",
       "scan": {
         "title": "Scan d'étiquette",
         "active": "Activé",

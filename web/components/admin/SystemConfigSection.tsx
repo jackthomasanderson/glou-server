@@ -56,8 +56,6 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
   // Notification policy
   const [policy, setPolicy] = useState({ smtpEnabled: false, gotifyEnabled: false, inAppEnabled: true });
 
-  // Integrations
-  const [integrations, setIntegrations] = useState({ vivinoKey: '', whiskybaseKey: '' });
   const scanStatus = useScanStatus();
 
   // Retention (FEAT-39)
@@ -113,7 +111,6 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
       });
       setGotify({ gotifyUrl: cfg.gotifyUrl ?? '', gotifyToken: '' });
       setPolicy({ smtpEnabled: cfg.smtpEnabled, gotifyEnabled: cfg.gotifyEnabled, inAppEnabled: cfg.inAppEnabled });
-      setIntegrations({ vivinoKey: '', whiskybaseKey: '' });
       setRetention({
         logRetentionDays: String(cfg.logRetentionDays),
         sessionRetentionDays: String(cfg.sessionRetentionDays),
@@ -231,22 +228,6 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
       showFeedback('error', t('adminConfig.gotify.testError', { error: 'Network error' }));
     } finally {
       setTesting(false);
-    }
-  };
-
-  const saveIntegrations = async () => {
-    setSaving(true);
-    try {
-      const updated = await configClient.updateIntegrations({
-        vivinoKey: integrations.vivinoKey || undefined,
-        whiskybaseKey: integrations.whiskybaseKey || undefined,
-      });
-      setConfig(updated);
-      showFeedback('success', t('adminConfig.integrations.saved'));
-    } catch (err) {
-      showFeedback('error', err instanceof Error ? err.message : 'Error');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -517,18 +498,6 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
         {/* ── Integrations ── */}
         <Tab key="integrations" title={<span className="flex items-center gap-1.5"><Puzzle size={14} />{t('adminConfig.tabs.integrations')}</span>}>
           <div className="flex flex-col gap-4 pt-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Input label={t('adminConfig.integrations.vivinoKey')} type="password" placeholder={config?.vivinoKeyMasked ?? t('adminConfig.integrations.keyPlaceholder')} value={integrations.vivinoKey} onValueChange={(v) => setIntegrations(i => ({ ...i, vivinoKey: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
-                {/* ISSUE_002: no code reads this key yet — the "Smart Data Engine" enrichment pipeline was never built. */}
-                <Chip size="sm" variant="flat" color="warning">{t('adminConfig.integrations.vivinoWhiskybaseNotUsedYet')}</Chip>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Input label={t('adminConfig.integrations.whiskybaseKey')} type="password" placeholder={config?.whiskybaseKeyMasked ?? t('adminConfig.integrations.keyPlaceholder')} value={integrations.whiskybaseKey} onValueChange={(v) => setIntegrations(i => ({ ...i, whiskybaseKey: v }))} variant="bordered" size="sm" radius="md" labelPlacement="outside" autoComplete="new-password" />
-                <Chip size="sm" variant="flat" color="warning">{t('adminConfig.integrations.vivinoWhiskybaseNotUsedYet')}</Chip>
-              </div>
-            </div>
-            <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={saveIntegrations}>{t('adminConfig.integrations.save')}</Button>
             {/* FEAT-88 (#639): label scanning has no setting here, the service runs with `--profile scan`. */}
             <div className="flex flex-col gap-1.5 rounded-lg border border-divider p-3">
               <div className="flex flex-wrap items-center gap-2">

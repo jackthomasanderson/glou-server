@@ -20,11 +20,5 @@ export const gotifyConfigSchema = z.object({
   gotifyToken: z.string().optional().nullable(),
 });
 
-export const integrationsConfigSchema = z.object({
-  vivinoKey: z.string().optional().nullable(),
-  whiskybaseKey: z.string().optional().nullable(),
-});
-
 export type SmtpConfigInput = z.infer<typeof smtpConfigSchema>;
 export type GotifyConfigInput = z.infer<typeof gotifyConfigSchema>;
-export type IntegrationsConfigInput = z.infer<typeof integrationsConfigSchema>;

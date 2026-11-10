@@ -30,8 +30,6 @@ export interface SystemConfigPublic {
   gotifyUrl: string | null;
   gotifyTokenMasked: string | null;
   inAppEnabled: boolean;
-  vivinoKeyMasked: string | null;
-  whiskybaseKeyMasked: string | null;
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
@@ -155,11 +153,6 @@ export const configClient = {
 
   async updateNotifPolicy(payload: { smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean }, reauth: AdminReauth): Promise<SystemConfigPublic> {
     const { data } = await client.put<SystemConfigPublic>('/admin/config/notifications', { ...payload, ...reauth });
-    return data;
-  },
-
-  async updateIntegrations(payload: Record<string, unknown>): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/integrations', payload);
     return data;
   },
 

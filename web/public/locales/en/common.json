@@ -1989,12 +1989,6 @@
       "saved": "Gotify configuration saved."
     },
     "integrations": {
-      "vivinoKey": "Vivino API key",
-      "whiskybaseKey": "Whiskybase API key",
-      "vivinoWhiskybaseNotUsedYet": "Coming soon — stored securely, but no feature reads these keys yet.",
-      "keyPlaceholder": "Leave blank to keep current",
-      "save": "Save integrations",
-      "saved": "Integrations saved.",
       "scan": {
         "title": "Label scanning",
         "active": "Enabled",

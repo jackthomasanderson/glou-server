@@ -870,6 +870,22 @@ describe('POST /api/user/avatar', () => {
   });
 });
 
+// #468: the Vivino/Whiskybase keys were stored and read by nothing; the route
+// that saved them is gone, so a session can no longer write secrets nobody uses.
+describe('PUT /api/admin/config/integrations', () => {
+  it('no longer exists', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u1', isActive: true, isAdmin: true } as never);
+    const { systemConfigService } = await import('../../src/services/system-config.service');
+    expect('updateIntegrations' in systemConfigService).toBe(false);
+    const res = await request(app)
+      .put('/api/admin/config/integrations')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .send({ vivinoKey: 'key' });
+    expect(res.status).toBe(404);
+  });
+});
+
 // #599: the admin Gotify test followed redirects, so a public server could
 // bounce the POST (and the Gotify key) into the home network.
 describe('POST /api/admin/config/test/gotify', () => {

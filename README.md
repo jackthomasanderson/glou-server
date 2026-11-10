@@ -97,7 +97,7 @@ Open [http://localhost:3000](http://localhost:3000), click **Sign up** (under th
 Dozens of smaller features ship regularly; see the [closed pull requests](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) for the full history.
 
 ### Next up
-- Smart Data Engine: auto-enrichment via Vivino and Whiskybase, backed by a local cache. Not built yet: the admin screen's integration keys aren't read by anything today.
+- Smart Data Engine: auto-enrichment via Vivino and Whiskybase, backed by a local cache. Not built yet.
 - Predictive analytics for collection valuation.
 - Advanced IoT integration for live cellar temperature and humidity monitoring.
 - Native mobile companion application.
