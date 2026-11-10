@@ -15,7 +15,7 @@ Entries start with the pull request that introduced them where there is one.
 - The "in-app notifications" channel is gone, from Administration → System configuration → Notifications and from My Profile → Notifications: it was a switch that delivered nothing. Notifications go by email or Gotify. The bell at the top of the page is not affected: it still lists peak-maturity alerts and reminders (#671).
 
 ### Changed
-- **Licence**: Glou moves from MIT to the [PolyForm Noncommercial License 1.0.0](LICENSE), for the whole repository. Personal, household and noncommercial use stays free; commercial use needs a licence (bl00md3v@gmail.com), with a free 30-day evaluation. Contributions now require signing the [CLA](CLA.md), and the name and logo are covered by a [trademark policy](TRADEMARKS.md) (#937).
+- **Licence**: Glou moves from MIT to the [PolyForm Noncommercial License 1.0.0](LICENSE), for the whole repository. Personal and other noncommercial use stays free, as does use by noncommercial organisations; other business use needs a commercial licence (bl00md3v@gmail.com). This release is the first one under the new licence. Contributions now require signing the [CLA](CLA.md), and the name and logo are covered by a [trademark policy](TRADEMARKS.md) (#937).
 - The physical stock count is now called **Stock count** (**Comptage** in French) everywhere, so "Inventory" only names the list of your bottles (#502).
 - The tastings page is back at `/tastings`; the old `/cellar-journal` address still works and sends you there from the page itself (no browser redirect, so an old cached link cannot loop) (#502).
 

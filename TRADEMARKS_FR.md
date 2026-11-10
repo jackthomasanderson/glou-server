@@ -2,24 +2,64 @@
 
 [English version](TRADEMARKS.md) (seule la version anglaise fait foi)
 
-Le nom **Glou**, la baseline « Glou - Simplement précieux » / « Glou - Simply
-precious », le logo et les icônes de Glou sont réservés au mainteneur du projet.
-La [licence](LICENSE) couvre le logiciel, pas le droit d'utiliser ces marques.
+La [licence](LICENSE) vous permet d'utiliser le code de Glou. Elle ne vous
+permet **pas** d'utiliser le nom et l'identité visuelle de Glou d'une manière
+qui ferait croire que votre logiciel, service ou site est Glou, ou qu'il est
+soutenu par le mainteneur. Cette politique précise ce que vous pouvez en faire.
 
-## Vous pouvez
+## Les marques
 
-- Dire que votre installation fait tourner Glou, et citer le projet par son nom
-  dans un article, une conférence, un tutoriel ou un avis.
-- Garder le nom et le logo dans une copie non modifiée que vous utilisez sans
-  but commercial.
+- le nom **Glou**, comme nom de logiciel ou de service ;
+- le **logo et les icônes** de Glou (également protégés par le droit d'auteur) ;
+- la baseline **« Glou - Simplement précieux » / « Glou - Simply precious »**.
 
-## Sans autorisation écrite, vous ne pouvez pas
+Elles appartiennent au mainteneur de Glou (GitHub : `jackthomasanderson`).
 
-- Publier ou distribuer une version modifiée (un fork) sous le nom Glou ou avec
-  le logo de Glou. Renommez-la et remplacez le logo et les icônes ; vous pouvez
-  indiquer qu'elle est « basée sur Glou ».
-- Utiliser le nom ou le logo pour un produit, un service hébergé ou une
-  activité commerciale, ou d'une manière qui laisse croire que le mainteneur
-  vous soutient.
+## Autorisé sans demander
 
-Demandes d'autorisation : bl00md3v@gmail.com.
+- **Parler de Glou** : articles, avis, tutoriels, conférences, vidéos,
+  publications sur les réseaux sociaux et billets de blog peuvent nommer Glou
+  et montrer des captures d'écran, tant qu'ils ne se présentent pas comme
+  officiels.
+- **Utiliser Glou** : une copie non modifiée, ou une copie modifiée pour
+  vous-même et les personnes avec qui vous la partagez en privé, peut garder le
+  nom et le logo.
+- **Empaqueter Glou non modifié** : les catalogues d'applications pour serveurs
+  maison (par exemple Unraid, YunoHost, CasaOS, TrueNAS) peuvent proposer Glou
+  sous son nom et son logo, à condition que le paquet installe Glou sans
+  changer ses fonctionnalités et renvoie vers le dépôt officiel :
+  <https://github.com/jackthomasanderson/glou-server>.
+- **Dire d'où vient votre travail** : un fork publié peut indiquer qu'il est
+  « basé sur Glou » ou « un fork de Glou », en texte simple, sans le logo.
+
+## Demande une autorisation écrite
+
+- **Publier une version modifiée sous le nom ou le logo de Glou.** Un fork
+  partagé avec le public doit prendre un autre nom, un autre logo et d'autres
+  icônes, et ne pas utiliser un nom qui pourrait être confondu avec Glou.
+- **Noms de domaine, comptes de réseaux sociaux et fiches de boutiques
+  d'applications** contenant « Glou », hors paquets non modifiés décrits
+  ci-dessus.
+- **Usage commercial des marques** : produits, services, offres d'hébergement,
+  formations ou objets utilisant le nom, le logo ou la baseline.
+
+## Titulaires d'une licence commerciale
+
+Une entreprise titulaire d'une licence commerciale de Glou peut indiquer que
+son offre est « propulsée par Glou » et afficher le logo à côté de cette
+mention, sans présenter son offre comme étant Glou. Son contrat de licence peut
+fixer d'autres règles.
+
+## Bien utiliser les marques
+
+Quand vous utilisez les marques dans le cadre de cette politique : ne modifiez
+pas le logo, n'associez pas « Glou » à d'autres mots pour créer un nouveau nom
+de produit, et ne laissez pas croire à un partenariat ou à un soutien qui
+n'existe pas.
+
+## Contact
+
+Demandes d'autorisation et signalements d'abus : bl00md3v@gmail.com.
+
+Cette politique peut évoluer. Les droits qu'elle accorde peuvent être retirés
+pour un usage qui ne la respecte pas.
