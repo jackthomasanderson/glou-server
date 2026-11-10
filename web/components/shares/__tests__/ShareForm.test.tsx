@@ -19,7 +19,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }], isLoading: false }) }));
 vi.mock('@/hooks/useCollections', () => ({ useCollections: () => ({ data: [], isLoading: false }) }));
 
-import { ShareForm } from '../ShareForm';
+import { ShareForm, computeExpiresAt } from '../ShareForm';
 
 describe('ShareForm — write access of a shared cellar', () => {
   it('labels the switch with the action it grants, whatever its state, and sends it', async () => {
@@ -48,5 +48,44 @@ describe('ShareForm — write access of a shared cellar', () => {
     expect(en.shares.subtitle).not.toMatch(/read-only/i);
     expect(en.shares.subtitle).toMatch(/open, drink or smoke/);
     expect(en.shares.fields.allowWrite).toBe('Allow opening, drinking or smoking');
+  });
+});
+
+// #598: a chosen date was read as midnight UTC (2 a.m. in Paris in summer), so
+// the link died at the very start of that day, and at once when today was chosen.
+describe('computeExpiresAt — custom date (#598)', () => {
+  const withTimeZone = (tz: string, run: () => void) => {
+    const previous = process.env.TZ;
+    process.env.TZ = tz;
+    try { run(); } finally { process.env.TZ = previous; }
+  };
+
+  it('lasts until the end of the chosen local day, outside UTC', () => {
+    withTimeZone('Europe/Paris', () => {
+      expect(computeExpiresAt('custom', '2026-07-14')).toBe('2026-07-14T21:59:59.999Z');
+      // The night summer time ends: the day lasts 25 hours, and the link all of them.
+      expect(computeExpiresAt('custom', '2026-10-25')).toBe('2026-10-25T22:59:59.999Z');
+    });
+    withTimeZone('America/New_York', () => {
+      expect(computeExpiresAt('custom', '2026-07-14')).toBe('2026-07-15T03:59:59.999Z');
+    });
+  });
+
+  it('a link created today for today still works for the rest of the day', () => {
+    withTimeZone('Europe/Paris', () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-10-21T18:30:00Z')); // 20:30 in Paris
+        const expiresAt = computeExpiresAt('custom', '2026-10-21');
+        expect(expiresAt).toBe('2026-10-21T21:59:59.999Z');
+        expect(new Date(expiresAt!).getTime()).toBeGreaterThan(Date.now());
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
+  it('an empty custom date gives no expiry date to send', () => {
+    expect(computeExpiresAt('custom', '')).toBeNull();
   });
 });
