@@ -10,6 +10,12 @@ import type { BackupHealth } from '@shared/maintenance';
 export const RESTORE_TIMEOUT_MS = 75_000;
 
 /**
+ * #748: a manual backup of a large cellar, or one queued behind a running
+ * restore (they share a lock), can outlast the usual 15 s as well.
+ */
+export const RUN_BACKUP_TIMEOUT_MS = RESTORE_TIMEOUT_MS;
+
+/**
  * #890: the admin's own password, plus their code when they have 2FA, sent
  * with the settings and backup actions a stolen session could misuse.
  */
@@ -38,7 +44,10 @@ export interface SystemConfigPublic {
   registrationOpen: boolean;
   backupEnabled: boolean;
   backupRetentionDays: number;
-  backupHourUtc: number;
+  /** #761: an hour of `timeZone`. */
+  backupHour: number;
+  /** #761: the server's time zone (`TZ`), in which every scheduled job runs. */
+  timeZone: string;
   updatedAt: string | null;
   updatedBy: string | null;
 }
@@ -68,7 +77,7 @@ export interface RegistrationConfig {
 export interface BackupConfig {
   backupEnabled: boolean;
   backupRetentionDays: number;
-  backupHourUtc: number;
+  backupHour: number;
 }
 
 export interface BackupRunEntry {
@@ -161,8 +170,10 @@ export const configClient = {
     return data;
   },
 
-  async updateRetention(payload: RetentionConfig): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/retention', payload);
+  // #893: lowering a retention, turning backups off or opening sign-up also
+  // asks for the step-up (shared/admin-config.ts); `reauth` is sent then.
+  async updateRetention(payload: RetentionConfig, reauth?: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/retention', { ...payload, ...reauth });
     return data;
   },
 
@@ -176,8 +187,8 @@ export const configClient = {
     return data;
   },
 
-  async updateRegistration(payload: RegistrationConfig): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/registration', payload);
+  async updateRegistration(payload: RegistrationConfig, reauth?: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/registration', { ...payload, ...reauth });
     return data;
   },
 
@@ -206,8 +217,8 @@ export const configClient = {
     return data;
   },
 
-  async updateBackupConfig(payload: BackupConfig): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/backup', payload);
+  async updateBackupConfig(payload: BackupConfig, reauth?: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/backup', { ...payload, ...reauth });
     return data;
   },
 
@@ -222,7 +233,7 @@ export const configClient = {
   },
 
   async runBackupNow(): Promise<BackupRunEntry> {
-    const { data } = await client.post<BackupRunEntry>('/admin/backups/run', {});
+    const { data } = await client.post<BackupRunEntry>('/admin/backups/run', {}, { timeoutMs: RUN_BACKUP_TIMEOUT_MS });
     return data;
   },
 
