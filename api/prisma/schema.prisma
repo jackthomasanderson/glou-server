@@ -31,7 +31,7 @@ model User {
   theme        Theme      @default(SYSTEM)
   language     Language   @default(FR)
   tempUnit     TempUnit   @default(CELSIUS)
-  accentColor  String     @default("#6366f1")
+  accentColor  String     @default("#4f46e5")
   dateFormat   DateFormat @default(SYSTEM)
 
   // "Mode expert / collectionneur" (data-model audit) — OFF by default so the

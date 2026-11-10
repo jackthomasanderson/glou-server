@@ -26,10 +26,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Matches the actual primary token used across the app (tailwind.config.ts
-  // / ThemeWrapper.tsx, '#6366f1' for both modes) so the PWA install/OS
-  // chrome tint doesn't contradict the interface it wraps.
-  themeColor: '#6366f1',
+  // The default accent's light-theme value (lib/theme-colors.ts) so the PWA
+  // install/OS chrome tint doesn't contradict the interface it wraps.
+  themeColor: '#4f46e5',
   // Without this, `env(safe-area-inset-*)` always resolves to 0 (ISSUE_401):
   // BottomNav.tsx's bottom inset was inert. Extends content under the system
   // bars, so MainLayout's header picks up the matching top inset below.

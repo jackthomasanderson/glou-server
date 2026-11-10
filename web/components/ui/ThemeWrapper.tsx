@@ -7,8 +7,10 @@ import { useTranslation } from 'react-i18next';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeModeProvider } from '@/hooks/useThemeMode';
 import { setFormatPreferences } from '@/lib/format';
+import { resolveAccentPreset, type ColorScale } from '@/lib/theme-colors';
 
-function hexToHsl(hex: string): { h: number; s: number; l: number } {
+/** `#rrggbb` → HeroUI's CSS variable format, `H S% L%`. */
+function hslTriplet(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
   const b = parseInt(hex.slice(5, 7), 16) / 255;
@@ -26,36 +28,24 @@ function hexToHsl(hex: string): { h: number; s: number; l: number } {
       case b: h = ((r - g) / d + 4) / 6; break;
     }
   }
-  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+  return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
 }
 
-function hslString(h: number, s: number, l: number): string {
-  return `${h} ${s}% ${l}%`;
+function primaryVars(scale: ColorScale): string {
+  return Object.entries(scale)
+    .map(([stop, hex]) => `--heroui-primary${stop === 'DEFAULT' ? '' : `-${stop}`}:${hslTriplet(hex)};`)
+    .join('');
 }
 
-// HeroUI's own "primary" color also exposes a full 50..900 tint/shade scale
-// (--heroui-primary-50 .. --heroui-primary-900), used by badges/highlight
-// boxes across the app (e.g. bg-primary-100, text-primary-700). Only ever
-// overriding the single --heroui-primary (DEFAULT) variable left that scale
-// pinned to HeroUI's default blue, so those badges stayed blue regardless of
-// the user's chosen accent color. This generates the same 9 stops from the
-// accent's own hue, on a fixed lightness ramp (a standard tint/shade
-// technique), so the whole scale — not just buttons/links — follows the
-// user's choice. Saturation is pulled down slightly at the very light/dark
-// ends to avoid washed-out or muddy extremes.
-const SHADE_LIGHTNESS: Record<string, number> = {
-  '50': 97, '100': 93, '200': 84, '300': 74, '400': 63,
-  '600': 46, '700': 38, '800': 30, '900': 22,
-};
-
-function accentShadeVars(hex: string): Record<string, string> {
-  const { h, s } = hexToHsl(hex);
-  const vars: Record<string, string> = {};
-  for (const [stop, l] of Object.entries(SHADE_LIGHTNESS)) {
-    const adjustedS = l > 90 || l < 25 ? Math.round(s * 0.7) : s;
-    vars[stop] = hslString(h, adjustedS, l);
-  }
-  return vars;
+/**
+ * The user's accent preset as a stylesheet (#648): HeroUI's whole primary
+ * scale, foreground included, with a light-theme and a dark-theme value, both
+ * checked by theme-contrast.test.ts. Selectors outrank HeroUI's `.dark` and
+ * `:root` ones, so the `dark` class on <html> picks the right set.
+ */
+function accentStylesheet(stored: string | null | undefined): string {
+  const preset = resolveAccentPreset(stored);
+  return `:root:not(.dark){${primaryVars(preset.light)}}:root.dark{${primaryVars(preset.dark)}}`;
 }
 
 export function ThemeWrapper({ children }: { children: React.ReactNode }) {
@@ -113,13 +103,13 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hasMounted) return;
-    const accent = user?.accentColor || '#6366f1';
-    const { h, s, l } = hexToHsl(accent);
-    const root = document.documentElement.style;
-    root.setProperty('--heroui-primary', hslString(h, s, l));
-    for (const [stop, value] of Object.entries(accentShadeVars(accent))) {
-      root.setProperty(`--heroui-primary-${stop}`, value);
+    let style = document.getElementById('accent-color');
+    if (!style) {
+      style = document.createElement('style');
+      style.id = 'accent-color';
+      document.head.appendChild(style);
     }
+    style.textContent = accentStylesheet(user?.accentColor);
   }, [user?.accentColor, hasMounted]);
 
   if (!hasMounted || !ready) {
