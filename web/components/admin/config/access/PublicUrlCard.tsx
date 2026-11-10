@@ -1,18 +1,15 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Input, Chip, SelectItem } from '@heroui/react';
+import { Button, Input } from '@heroui/react';
 import { Globe, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, type AdminReauth, type NetworkCheckResult, type SystemConfigPublic } from '@/lib/config/client';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
-import { SingleSelect } from '@/components/ui/SingleSelect';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { ConfigCard, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
 
-type AccessMode = 'direct' | 'proxy';
 const toForm = (cfg: SystemConfigPublic) => ({
   publicUrl: cfg.publicUrl ?? '',
-  accessMode: (cfg.accessMode === 'proxy' ? 'proxy' : 'direct') as AccessMode,
 });
 
 /** FEAT-54: the address members reach the instance at, and the check of that setting. */
@@ -31,7 +28,6 @@ export function PublicUrlCard({ config }: { config: SystemConfigPublic }) {
     try {
       const updated = await configClient.updateNetwork({
         publicUrl: form.publicUrl.trim() ? form.publicUrl.trim() : null,
-        accessMode: form.accessMode,
       }, reauth);
       onSaved(updated);
       reset(toForm(updated));
@@ -68,19 +64,6 @@ export function PublicUrlCard({ config }: { config: SystemConfigPublic }) {
           onValueChange={(v) => update({ publicUrl: v })}
           variant="bordered" size="sm" radius="md" labelPlacement="outside"
         />
-        <SingleSelect
-          label={t('adminConfig.network.accessMode')}
-          description={t('adminConfig.network.accessModeHint')}
-          selectedKeys={[form.accessMode]}
-          onSelectionChange={(keys) => {
-            const value = Array.from(keys)[0];
-            if (value === 'direct' || value === 'proxy') update({ accessMode: value });
-          }}
-          variant="bordered" size="sm" radius="md" labelPlacement="outside"
-        >
-          <SelectItem key="direct">{t('adminConfig.network.accessModeOptions.direct')}</SelectItem>
-          <SelectItem key="proxy">{t('adminConfig.network.accessModeOptions.proxy')}</SelectItem>
-        </SingleSelect>
       </div>
       <SaveBar isDirty={isDirty} isSaving={saving} onSave={() => stepUp.ask(t('adminConfig.stepUp.network'), save)} />
 
@@ -92,16 +75,10 @@ export function PublicUrlCard({ config }: { config: SystemConfigPublic }) {
             <span className="font-mono">{config.effectivePublicUrl}</span>
           </p>
           {!config.publicUrl && <p className="text-xs text-foreground-400">{t('adminConfig.network.summary.fromEnv')}</p>}
-          <p>
-            <span className="text-foreground-500">{t('adminConfig.network.summary.accessMode')}: </span>
-            <Chip size="sm" variant="flat" radius="sm" color="primary">
-              {t(`adminConfig.network.accessModeOptions.${config.accessMode === 'proxy' ? 'proxy' : 'direct'}`)}
-            </Chip>
-          </p>
         </div>
       </div>
 
-      {/* #757: checks the public URL and access mode above, nothing else. */}
+      {/* #757: checks the public URL above, nothing else. */}
       <div className="pt-4 border-t border-divider flex flex-col gap-3">
         <Button size="sm" variant="bordered" color="primary" isLoading={checking} onPress={check} className="self-start">
           {t('adminConfig.network.check.button')}

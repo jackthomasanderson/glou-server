@@ -2125,22 +2125,15 @@
       }
     },
     "network": {
-      "description": "Define the instance's reference public URL and how it is exposed (direct access or via a reverse proxy).",
+      "description": "Define the instance's reference public URL, used in the links the app sends out.",
       "publicUrl": "Public URL",
       "publicUrlPlaceholder": "https://cellar.mydomain.com",
       "publicUrlHint": "Leave blank to use the server's APP_URL environment variable.",
-      "accessMode": "Access mode",
-      "accessModeHint": "Indicates whether the application is reached directly or through an external reverse proxy.",
-      "accessModeOptions": {
-        "direct": "Direct access",
-        "proxy": "Via a reverse proxy"
-      },
       "saved": "Network configuration saved.",
       "summary": {
         "title": "Active settings summary",
         "effectiveUrl": "Effective public URL",
-        "fromEnv": "Value comes from the APP_URL environment variable (no public URL set in the database).",
-        "accessMode": "Active access mode"
+        "fromEnv": "Value comes from the APP_URL environment variable (no public URL set in the database)."
       },
       "check": {
         "button": "Check configuration",
@@ -2149,8 +2142,7 @@
         "networkError": "Could not reach the server to run the check.",
         "warnings": {
           "INVALID_URL": "The effective public URL is not syntactically valid.",
-          "NOT_HTTPS_IN_PRODUCTION": "The public URL does not use HTTPS while the instance is running in production.",
-          "PROXY_MODE_LOCALHOST_URL": "Access mode is set to \"via a reverse proxy\" but the public URL points to localhost, which is inconsistent for external access."
+          "NOT_HTTPS_IN_PRODUCTION": "The public URL does not use HTTPS while the instance is running in production."
         }
       }
     },

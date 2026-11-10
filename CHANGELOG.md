@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Removed
+- The admin "Access mode" setting (direct or behind a reverse proxy) is gone: it was saved and shown back but changed nothing, only feeding a warning in the network check. The "Check configuration" button still checks the public URL and HTTPS in production (#617).
+
 ### Changed
 - The physical stock count is now called **Stock count** (**Comptage** in French) everywhere, so "Inventory" only names the list of your bottles (#502).
 - The tastings page is back at `/tastings`; the old `/cellar-journal` address still works and sends you there from the page itself (no browser redirect, so an old cached link cannot loop) (#502).

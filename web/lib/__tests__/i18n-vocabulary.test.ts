@@ -10,7 +10,6 @@ import fr from '../../public/locales/fr/common.json';
 const ADJECTIVAL_FR: Readonly<Record<string, string>> = {
   'wishlist.status.active': 'status of a wish (« Actif / Acquis / Annulé »), not a bottle',
   'adminConfig.network.summary.title': '« Résumé des paramètres actifs »: the settings in force',
-  'adminConfig.network.summary.accessMode': '« Mode d\'accès actif »: the access mode in force',
 };
 
 function leaves(o: Record<string, unknown>, path = ''): [string, string][] {

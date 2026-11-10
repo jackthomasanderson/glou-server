@@ -33,7 +33,7 @@ test('a stolen admin session cannot redirect mail, links or alerts, nor download
   const me = await okData<{ id: string; isAdmin: boolean; isTwoFactorEnabled: boolean }>(await admin.get('/api/auth/me'));
   test.skip(!me.isAdmin || me.isTwoFactorEnabled, 'needs the suite user to be the instance admin, without 2FA (fresh database)');
 
-  type Config = { smtpHost: string | null; publicUrl: string | null; accessMode: string; smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean };
+  type Config = { smtpHost: string | null; publicUrl: string | null; smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean };
   const before = await okData<Config>(await admin.get('/api/admin/config'));
   const run = await okData<{ id: string; success: boolean }>(await admin.post('/api/admin/backups/run'));
   expect(run.success).toBe(true);
@@ -42,7 +42,7 @@ test('a stolen admin session cannot redirect mail, links or alerts, nor download
   const sessionOnly: Array<[string, Promise<APIResponse>]> = [
     ['SMTP settings', admin.put('/api/admin/config/smtp', { data: { smtpHost: 'mail.attacker.example' } })],
     ['SMTP test', admin.post('/api/admin/config/test/smtp', { data: { email: 'me@attacker.example' } })],
-    ['public URL', admin.put('/api/admin/config/network', { data: { publicUrl: 'https://attacker.example', accessMode: 'direct' } })],
+    ['public URL', admin.put('/api/admin/config/network', { data: { publicUrl: 'https://attacker.example' } })],
     ['Gotify settings', admin.put('/api/admin/config/gotify', { data: { gotifyEnabled: false } })],
     ['Gotify test', admin.post('/api/admin/config/test/gotify', { data: {} })],
     ['notification channels', admin.put('/api/admin/config/notifications', { data: { smtpEnabled: false, gotifyEnabled: false, inAppEnabled: true } })],
@@ -61,7 +61,7 @@ test('a stolen admin session cannot redirect mail, links or alerts, nor download
 
   // The admin's own password lets a change through (here, the same public URL again).
   await okData(await admin.put('/api/admin/config/network', {
-    data: { publicUrl: before.publicUrl, accessMode: before.accessMode, password: creds().password },
+    data: { publicUrl: before.publicUrl, password: creds().password },
   }));
 
   type Log = { action: string; status: string; details: { section?: string; error?: string } };

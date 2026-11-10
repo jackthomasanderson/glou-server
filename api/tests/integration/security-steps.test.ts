@@ -297,7 +297,7 @@ describe('the admin step-up has a per-account budget too (#606, review)', () => 
       ['patch', '/api/admin/users/member/status', { isActive: false }],
       ['post', '/api/admin/users/member/role', { isAdmin: true }],
       ['post', '/api/admin/users/member/reset-password', {}],
-      ['put', '/api/admin/config/network', { publicUrl: 'https://attacker.example', accessMode: 'direct' }],
+      ['put', '/api/admin/config/network', { publicUrl: 'https://attacker.example' }],
     ];
     for (let i = 0; i < 20; i++) {
       const [method, path, body] = routes[i % routes.length];

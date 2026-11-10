@@ -121,7 +121,7 @@ function resolveInsideBackupsDir(filePath: string): string {
 /**
  * The dump only holds `CREATE ...` statements (plain `pg_dump`, no `--clean`),
  * so replaying it on top of the live schema fails at the first object that
- * already exists (`type "AccessMode" already exists`, #232). The restore
+ * already exists (`a type already exists`, #232). The restore
  * therefore starts from an empty `public` schema; the dump recreates every
  * table, enum and the `_prisma_migrations` history from scratch.
  */
