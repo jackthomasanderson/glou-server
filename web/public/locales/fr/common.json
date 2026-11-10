@@ -1997,9 +1997,12 @@
       "secureTls": "TLS (implicite, port 465)",
       "testRecipient": "Adresse du destinataire du test",
       "testRecipientPlaceholder": "ex. vous@example.com",
-      "sendTest": "Envoyer",
+      "sendTest": "Envoyer le test",
+      "mismatch": {
+        "tlsOn587": "Le port 587 attend STARTTLS : avec TLS (implicite), la connexion échoue le plus souvent. Choisissez STARTTLS, ou le port 465 pour TLS.",
+        "starttlsOn465": "Le port 465 attend TLS (implicite) : avec STARTTLS, la connexion échoue le plus souvent. Choisissez TLS, ou le port 587 pour STARTTLS."
+      },
       "test": "Tester la connexion",
-      "testWithEmail": "Envoyer un email de test",
       "testSuccess": "Connexion SMTP validée.",
       "testEmailSuccess": "Email de test envoyé.",
       "testError": "Échec : {{error}}",

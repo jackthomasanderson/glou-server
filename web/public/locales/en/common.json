@@ -1996,8 +1996,11 @@
       "testRecipient": "Test recipient address",
       "testRecipientPlaceholder": "e.g. you@example.com",
       "sendTest": "Send test",
+      "mismatch": {
+        "tlsOn587": "Port 587 expects STARTTLS: with TLS (implicit) the connection usually fails. Choose STARTTLS, or use port 465 for TLS.",
+        "starttlsOn465": "Port 465 expects TLS (implicit): with STARTTLS the connection usually fails. Choose TLS, or use port 587 for STARTTLS."
+      },
       "test": "Test connection",
-      "testWithEmail": "Send test email",
       "testSuccess": "SMTP connection validated.",
       "testEmailSuccess": "Test email sent.",
       "testError": "Failed: {{error}}",

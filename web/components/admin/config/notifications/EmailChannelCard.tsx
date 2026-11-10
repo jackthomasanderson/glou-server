@@ -33,6 +33,13 @@ export function portForSecurity(port: string, secure: boolean): string {
   return port === '' || port === otherDefault ? (secure ? TLS_PORT : STARTTLS_PORT) : port;
 }
 
+/** A port and mode that rarely work together, e.g. the old default (587 + TLS). */
+function portMismatch(port: string, secure: boolean): 'tlsOn587' | 'starttlsOn465' | null {
+  if (port === STARTTLS_PORT && secure) return 'tlsOn587';
+  if (port === TLS_PORT && !secure) return 'starttlsOn465';
+  return null;
+}
+
 function emailState(cfg: SystemConfigPublic): ChannelState {
   if (!cfg.smtpHost) return 'notConfigured';
   return cfg.smtpEnabled ? 'active' : 'configuredOff';
@@ -50,6 +57,7 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
   // #759: each test says its own progress, and only one runs at a time.
   const [testing, setTesting] = useState<'connection' | 'email' | null>(null);
   const onSaved = useConfigSaved();
+  const mismatch = portMismatch(form.smtpPort, form.smtpSecure);
   // #890: the mail server sends reset links and security alerts.
   const stepUp = useAdminStepUp();
 
@@ -119,6 +127,7 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
         <SelectItem key="starttls">{t('adminConfig.smtp.secureStarttls')}</SelectItem>
         <SelectItem key="tls">{t('adminConfig.smtp.secureTls')}</SelectItem>
       </SingleSelect>
+      {mismatch && <p role="note" className="text-xs text-warning">{t(`adminConfig.smtp.mismatch.${mismatch}`)}</p>}
       <SaveBar isDirty={isDirty} isSaving={saving} onSave={() => stepUp.ask(t('adminConfig.stepUp.smtp'), save)}>
         <Button size="sm" variant="bordered" isLoading={testing === 'connection'} isDisabled={isDirty || testing !== null} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(false, reauth))}>{t('adminConfig.smtp.test')}</Button>
       </SaveBar>
