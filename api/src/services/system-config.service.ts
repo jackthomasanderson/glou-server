@@ -1,6 +1,7 @@
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { encrypt, decrypt, maskSecret } from '../lib/crypto';
 import { SystemConfig } from '@prisma/client';
+import { instanceTimeZone } from '../lib/quiet-hours';
 
 export interface SmtpConfig {
   smtpEnabled: boolean;
@@ -35,7 +36,7 @@ export type RetentionConfig = {
 export type BackupConfig = {
   backupEnabled: boolean;
   backupRetentionDays: number;
-  backupHourUtc: number;
+  backupHour: number;
 };
 
 // ─── FEAT-54: Network Configuration & External Access ────────────────────────
@@ -84,7 +85,10 @@ export type PublicSystemConfig = {
   registrationOpen: boolean;
   backupEnabled: boolean;
   backupRetentionDays: number;
-  backupHourUtc: number;
+  /** #761: an hour of `timeZone`. */
+  backupHour: number;
+  /** #761: the instance's time zone (`TZ`), in which every scheduled job runs. */
+  timeZone: string;
   updatedAt: Date | null;
   updatedBy: string | null;
 };
@@ -185,7 +189,8 @@ export const systemConfigService = {
       registrationOpen: cfg.registrationOpen,
       backupEnabled: cfg.backupEnabled,
       backupRetentionDays: cfg.backupRetentionDays,
-      backupHourUtc: cfg.backupHourUtc,
+      backupHour: cfg.backupHour,
+      timeZone: instanceTimeZone(),
       updatedAt: cfg.updatedAt,
       updatedBy: cfg.updatedBy,
     };

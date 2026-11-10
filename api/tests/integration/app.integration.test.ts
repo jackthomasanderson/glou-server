@@ -823,6 +823,32 @@ describe('POST /api/admin/backups/:id/restore', () => {
     expect(res.body).toEqual({ error: code });
   });
 
+  // #748: a backup file gone from the folder answered 500, and any other
+  // failure sent its raw text (psql's stderr) to the browser.
+  it('answers 404 BACKUP_FILE_MISSING when the file is no longer in the backups folder', async () => {
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error('BACKUP_FILE_NOT_FOUND')));
+
+    const res = await restore();
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'BACKUP_FILE_MISSING' });
+  });
+
+  it('answers a stable RESTORE_FAILED code, and keeps the raw failure in the server log', async () => {
+    const raw = 'PSQL_RESTORE_FAILED (exit 3): ERROR:  relation "User" does not exist at /var/lib/postgresql';
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error(raw)));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    spies.push(log);
+
+    const res = await restore();
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'RESTORE_FAILED' });
+    expect(log).toHaveBeenCalledWith('[Admin] Backup restore error:', expect.objectContaining({ message: raw }));
+  });
+
   it('takes no backup at all on a wrong password', async () => {
     spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockRejectedValue(new Error('INVALID_PASSWORD')));
     const runSpy = vi.spyOn(backupService, 'runBackup');

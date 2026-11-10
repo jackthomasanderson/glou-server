@@ -10,6 +10,7 @@ import { notificationService } from './notification.service';
 import { isNotifEn } from '../lib/notif-lang';
 import { escapeHtml } from '../lib/html';
 import { encryptClearTwoFactorSecrets } from '../lib/two-factor-secret';
+import { hourInTimeZone } from '../lib/quiet-hours';
 import { BACKUPS_DIR, CHILD_PROCESS_TIMEOUT_MS, DbConnParams, backupFileDate, backupFileName, ensureBackupsDir, execPgDump, filterUnsupportedSetStatements, isBackupFileName, isCompleteGzip, isBeforeMigrationBackup, parseDatabaseUrl } from '../lib/pg-dump';
 
 export { BACKUPS_DIR };
@@ -303,7 +304,8 @@ export const backupService = {
    * Called on every cron tick (see index.ts) — re-reads `SystemConfig` each
    * time so enabling/disabling or changing the hour takes effect without a
    * container restart. Only actually runs `pg_dump` when both `backupEnabled`
-   * is true AND the current UTC hour matches `backupHourUtc`.
+   * is true AND the current hour of the instance's time zone (`TZ`, #761)
+   * matches `backupHour`.
    */
   async runScheduledIfDue(): Promise<BackupRun | null> {
     // The row is otherwise only created when an admin first opens the settings:
@@ -314,8 +316,7 @@ export const backupService = {
       create: { id: 'singleton' },
     });
     if (!config.backupEnabled) return null;
-    const targetHour = config.backupHourUtc ?? 3;
-    const atScheduledHour = new Date().getUTCHours() === targetHour;
+    const atScheduledHour = hourInTimeZone(new Date()) === config.backupHour;
     if (!atScheduledHour) {
       // Catch-up (#234): the hourly tick used to compare the hour only, so a
       // container stopped or restarting at the configured hour skipped that
@@ -328,12 +329,40 @@ export const backupService = {
   },
 
   /**
+   * #761: the backup hour used to be a UTC hour. A row saved then (flagged by
+   * the migration) gets the hour of the instance's time zone at which that
+   * UTC hour falls today, so the backup keeps running at the same real time
+   * — for the current season: the UTC hour drifted by an hour with daylight
+   * saving, the local one no longer does. Called once at startup; the update
+   * is conditional on the flag, so it converts at most once. Returns the new
+   * hour, or null when there was nothing to convert.
+   */
+  async convertLegacyUtcBackupHour(): Promise<number | null> {
+    const config = await prisma.systemConfig.findUnique({
+      where: { id: 'singleton' },
+      select: { backupHour: true, backupHourIsUtc: true },
+    });
+    if (!config?.backupHourIsUtc) return null;
+    const today = new Date();
+    const utcHourToday = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), config.backupHour));
+    const localHour = hourInTimeZone(utcHourToday);
+    const { count } = await prisma.systemConfig.updateMany({
+      where: { id: 'singleton', backupHourIsUtc: true },
+      data: { backupHour: localHour, backupHourIsUtc: false },
+    });
+    if (count === 0) return null;
+    console.info(`[startup] Backup hour converted from ${config.backupHour}:00 UTC to ${localHour}:00 in the instance time zone`);
+    return localHour;
+  },
+
+  /**
    * Deletes dump files older than `backupRetentionDays` (design.md: "7 jours
    * glissants" minimum). Only ever touches files matching the exact naming
    * convention this service produces, inside BACKUPS_DIR. The backup taken
    * before a migration is never deleted (design.md "Sauvegarde & Migration"):
    * it is the only way back to the previous version, and the administrator
-   * removes it once the update is trusted.
+   * removes it once the update is trusted. The history rows of the deleted
+   * files go with them (#748): they could be neither downloaded nor restored.
    */
   async enforceRetention(): Promise<void> {
     const config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
@@ -347,6 +376,7 @@ export const backupService = {
       return;
     }
 
+    const deleted: string[] = [];
     for (const entry of entries) {
       if (!isBackupFileName(entry) || isBeforeMigrationBackup(entry)) continue;
       const fullPath = path.join(BACKUPS_DIR, entry);
@@ -354,10 +384,18 @@ export const backupService = {
         const stats = fs.statSync(fullPath);
         if (stats.mtimeMs < cutoff) {
           fs.unlinkSync(fullPath);
+          deleted.push(fullPath);
         }
       } catch (err) {
         console.error(`[backup] Failed to evaluate/delete ${entry} during retention:`, err);
       }
+    }
+    if (!deleted.length) return;
+    try {
+      await prisma.backupRun.deleteMany({ where: { filePath: { in: deleted } } });
+    } catch (err) {
+      // The backup that triggered the retention succeeded: never report it failed.
+      console.error('[backup] Could not remove the deleted backups from the history:', err);
     }
   },
 
