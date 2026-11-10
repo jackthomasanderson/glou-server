@@ -20,7 +20,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 
 ## API image (`api/`)
 
-306 packages.
+305 packages.
 
 | Package | Version | Licence | Source |
 |---|---|---|---|
@@ -69,10 +69,10 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | @types/d3-time | 3.0.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/d3-time-format | 2.1.0 | MIT | https://www.github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/geojson | 7946.0.16 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
-| @types/lodash | 4.17.25 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
+| @types/lodash | 4.17.27 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/node | 24.19.2 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/pg | 8.23.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
-| @types/react | 19.2.18 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
+| @types/react | 19.3.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @visx/curve | 4.0.1-alpha.0 | MIT | https://github.com/airbnb/visx |
 | @visx/event | 4.0.1-alpha.0 | MIT | https://github.com/airbnb/visx |
 | @visx/grid | 4.0.1-alpha.0 | MIT | https://github.com/airbnb/visx |
@@ -106,9 +106,8 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | color-convert | 2.0.1 | MIT | Qix-/color-convert |
 | color-name | 1.1.4 | MIT | git@github.com:colorjs/color-name |
 | confbox | 0.2.4 | MIT | unjs/confbox |
-| confbox | 0.3.1 | MIT | unjs/confbox |
-| content-disposition | 1.1.0 | MIT | jshttp/content-disposition |
-| content-type | 1.0.5 | MIT | jshttp/content-type |
+| confbox | 0.3.2 | MIT | unjs/confbox |
+| content-disposition | 2.0.1 | MIT | jshttp/content-disposition |
 | content-type | 2.1.0 | MIT | jshttp/content-type |
 | cookie | 0.7.2 | MIT | jshttp/cookie |
 | cookie-parser | 1.4.7 | MIT | expressjs/cookie-parser |
@@ -139,7 +138,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | destr | 2.0.5 | MIT | unjs/destr |
 | dijkstrajs | 1.0.3 | MIT | https://github.com/tcort/dijkstrajs |
 | dotenv | 17.4.2 | BSD-2-Clause | https://github.com/motdotla/dotenv |
-| dotenv | 18.0.8 | BSD-2-Clause | https://github.com/motdotla/dotenv |
+| dotenv | 18.0.9 | BSD-2-Clause | https://github.com/motdotla/dotenv |
 | dunder-proto | 1.0.1 | MIT | https://github.com/es-shims/dunder-proto |
 | ecdsa-sig-formatter | 1.0.11 | Apache-2.0 | ssh://git@github.com/Brightspace/node-ecdsa-sig-formatter |
 | ee-first | 1.1.1 | MIT | jonathanong/ee-first |
@@ -147,16 +146,16 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | elkjs | 0.11.1 | EPL-2.0 | https://github.com/kieler/elkjs |
 | emoji-regex | 8.0.0 | MIT | https://github.com/mathiasbynens/emoji-regex |
 | empathic | 2.0.0 | MIT | lukeed/empathic |
-| encodeurl | 2.0.0 | MIT | pillarjs/encodeurl |
+| encodeurl | 2.0.1 | MIT | pillarjs/encodeurl |
 | env-paths | 3.0.0 | MIT | sindresorhus/env-paths |
 | es-define-property | 1.0.1 | MIT | https://github.com/ljharb/es-define-property |
 | es-errors | 1.3.0 | MIT | https://github.com/ljharb/es-errors |
 | es-object-atoms | 1.1.2 | MIT | https://github.com/ljharb/es-object-atoms |
 | escape-html | 1.0.3 | MIT | component/escape-html |
 | etag | 1.8.1 | MIT | jshttp/etag |
-| express | 5.2.1 | MIT | expressjs/express |
-| express-rate-limit | 8.7.0 | MIT | https://github.com/express-rate-limit/express-rate-limit |
-| exsolve | 1.1.1 | MIT | unjs/exsolve |
+| express | 5.3.0 | MIT | expressjs/express |
+| express-rate-limit | 8.7.3 | MIT | https://github.com/express-rate-limit/express-rate-limit |
+| exsolve | 1.2.0 | MIT | unjs/exsolve |
 | fast-check | 3.23.2 | MIT | https://github.com/dubzzz/fast-check |
 | fast-decode-uri-component | 1.0.1 | MIT | https://github.com/delvedor/fast-decode-uri-component |
 | fast-deep-equal | 3.1.3 | MIT | https://github.com/epoberezkin/fast-deep-equal |
@@ -185,11 +184,11 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | hasown | 2.0.4 | MIT | https://github.com/inspect-js/hasOwn |
 | helmet | 8.3.0 | MIT | https://github.com/helmetjs/helmet |
 | http-errors | 2.0.1 | MIT | jshttp/http-errors |
-| iconv-lite | 0.4.24 | MIT | https://github.com/ashtuchkin/iconv-lite |
+| iconv-lite | 0.6.3 | MIT | https://github.com/ashtuchkin/iconv-lite |
 | iconv-lite | 0.7.3 | MIT | https://github.com/pillarjs/iconv-lite |
 | inherits | 2.0.4 | ISC | https://github.com/isaacs/inherits |
 | internmap | 2.0.3 | ISC | https://github.com/mbostock/internmap |
-| ip-address | 10.7.5 | MIT | https://github.com/beaugunderson/ip-address |
+| ip-address | 10.7.6 | MIT | https://github.com/beaugunderson/ip-address |
 | ipaddr.js | 1.9.1 | MIT | https://github.com/whitequark/ipaddr.js |
 | is-fullwidth-code-point | 3.0.0 | MIT | sindresorhus/is-fullwidth-code-point |
 | is-promise | 4.0.0 | MIT | https://github.com/then/is-promise |
@@ -224,7 +223,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | ms | 2.0.0 | MIT | zeit/ms |
 | ms | 2.1.3 | MIT | vercel/ms |
 | multer | 2.5.0 | MIT | https://github.com/expressjs/multer |
-| mysql2 | 3.24.4 | MIT | https://github.com/sidorares/node-mysql2 |
+| mysql2 | 3.24.6 | MIT | https://github.com/sidorares/node-mysql2 |
 | named-placeholders | 1.1.6 | MIT | https://github.com/mysqljs/named-placeholders |
 | negotiator | 1.1.0 | MIT | jshttp/negotiator |
 | node-cron | 3.0.3 | ISC | https://github.com/merencia/node-cron |
@@ -232,7 +231,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | object-assign | 4.1.1 | MIT | sindresorhus/object-assign |
 | object-inspect | 1.13.4 | MIT | https://github.com/inspect-js/object-inspect |
 | ohash | 2.0.12 | MIT | unjs/ohash |
-| on-finished | 2.4.1 | MIT | jshttp/on-finished |
+| on-finished | 2.4.2 | MIT | jshttp/on-finished |
 | on-headers | 1.1.0 | MIT | jshttp/on-headers |
 | once | 1.4.0 | ISC | https://github.com/isaacs/once |
 | otplib | 12.0.1 | MIT | https://github.com/yeojz/otplib |
@@ -246,15 +245,15 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | pathe | 2.0.3 | MIT | unjs/pathe |
 | pend | 1.2.0 | MIT | https://github.com/andrewrk/node-pend |
 | perfect-debounce | 2.1.0 | MIT | unjs/perfect-debounce |
-| pg | 8.23.0 | MIT | https://github.com/brianc/node-postgres |
-| pg-cloudflare | 1.4.0 | MIT | https://github.com/brianc/node-postgres |
-| pg-connection-string | 2.14.0 | MIT | https://github.com/brianc/node-postgres |
+| pg | 8.23.1 | MIT | https://github.com/brianc/node-postgres |
+| pg-cloudflare | 1.4.1 | MIT | https://github.com/brianc/node-postgres |
+| pg-connection-string | 2.14.1 | MIT | https://github.com/brianc/node-postgres |
 | pg-int8 | 1.0.1 | ISC | https://github.com/charmander/pg-int8 |
 | pg-pool | 3.14.0 | MIT | https://github.com/brianc/node-postgres |
-| pg-protocol | 1.16.0 | MIT | https://github.com/brianc/node-postgres |
+| pg-protocol | 1.16.1 | MIT | https://github.com/brianc/node-postgres |
 | pg-types | 2.2.0 | MIT | https://github.com/brianc/node-pg-types |
 | pgpass | 1.0.5 | MIT | https://github.com/hoegaarden/pgpass |
-| pkg-types | 2.3.3 | MIT | unjs/pkg-types |
+| pkg-types | 2.4.0 | MIT | unjs/pkg-types |
 | pngjs | 5.0.0 | MIT | https://github.com/lukeapage/pngjs |
 | postgres | 3.4.7 | Unlicense | porsager/postgres |
 | postgres-array | 2.0.0 | MIT | bendrucker/postgres-array |
@@ -271,23 +270,23 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | range-parser | 1.3.0 | MIT | jshttp/range-parser |
 | raw-body | 3.0.2 | MIT | stream-utils/raw-body |
 | rc9 | 3.1.0 | MIT | unjs/rc9 |
-| react | 19.2.8 | MIT | https://github.com/react/react |
-| react-dom | 19.2.8 | MIT | https://github.com/react/react |
+| react | 19.3.1 | MIT | https://github.com/react/react |
+| react-dom | 19.3.1 | MIT | https://github.com/react/react |
 | readdirp | 5.1.1 | MIT | https://github.com/paulmillr/readdirp |
 | remeda | 2.33.4 | MIT | https://github.com/remeda/remeda |
 | require-directory | 2.1.1 | MIT | https://github.com/troygoode/node-require-directory |
 | require-from-string | 2.0.2 | MIT | floatdrop/require-from-string |
 | require-main-filename | 2.0.0 | ISC | ssh://git@github.com/yargs/require-main-filename |
-| ret | 0.5.0 | MIT | https://github.com/fent/ret.js |
+| ret | 0.5.1 | MIT | https://github.com/fent/ret.js |
 | retry | 0.12.0 | MIT | https://github.com/tim-kos/node-retry |
 | robust-predicates | 3.0.3 | Unlicense | https://github.com/mourner/robust-predicates |
 | router | 2.2.0 | MIT | pillarjs/router |
 | safe-buffer | 5.1.2 | MIT | https://github.com/feross/safe-buffer |
 | safe-buffer | 5.2.1 | MIT | https://github.com/feross/safe-buffer |
-| safe-regex2 | 5.1.1 | MIT | https://github.com/fastify/safe-regex2 |
+| safe-regex2 | 5.1.2 | MIT | https://github.com/fastify/safe-regex2 |
 | safer-buffer | 2.1.2 | MIT | https://github.com/ChALkeR/safer-buffer |
-| scheduler | 0.27.0 | MIT | https://github.com/facebook/react |
-| semver | 7.7.4 | ISC | https://github.com/npm/node-semver |
+| scheduler | 0.28.0 | MIT | https://github.com/react/react |
+| semver | 7.8.6 | ISC | https://github.com/npm/node-semver |
 | send | 1.2.1 | MIT | pillarjs/send |
 | serve-static | 2.2.1 | MIT | expressjs/serve-static |
 | set-blocking | 2.0.0 | ISC | https://github.com/yargs/set-blocking |
