@@ -1,7 +1,7 @@
 # Rotate the secrets (`JWT_SECRET`, `CONFIG_ENCRYPTION_KEY`, `DB_PASSWORD`)
 
 ## TL;DR
-All three secrets live in your `.env`. Changing **`JWT_SECRET`** logs everyone out. Changing **`CONFIG_ENCRYPTION_KEY`** makes the saved SMTP password, Gotify token and Vivino/Whiskybase keys unusable until you enter them again, and the authenticator-app codes of every member with two-factor authentication stop working (their backup codes still do). Rotate it only with the procedure below, never by just editing `.env`. Changing **`DB_PASSWORD`** in `.env` alone does **nothing** on an existing instance: Postgres only reads that value the first time its data volume is initialized, so the role's actual password must be changed from inside Postgres too.
+All three secrets live in your `.env`. Changing **`JWT_SECRET`** logs everyone out. Changing **`CONFIG_ENCRYPTION_KEY`** makes the saved SMTP password and Gotify token unusable until you enter them again, and the authenticator-app codes of every member with two-factor authentication stop working (their backup codes still do). Rotate it only with the procedure below, never by just editing `.env`. Changing **`DB_PASSWORD`** in `.env` alone does **nothing** on an existing instance: Postgres only reads that value the first time its data volume is initialized, so the role's actual password must be changed from inside Postgres too.
 
 > [!WARNING]
 > If your instance has been running since before this page existed, `docker-compose.yml` may have started with a hardcoded fallback database password (`glou_secret`) instead of a value you chose. That value is public (it is in Glou's git history) and must be treated as compromised. Rotate `DB_PASSWORD` now with the procedure below, even if nothing looks wrong. See [`.env.example`](../../../.env.example) for how the fallback was removed.
@@ -15,7 +15,7 @@ All three secrets live in your `.env`. Changing **`JWT_SECRET`** logs everyone o
 | Secret | Used for | If you change it |
 |---|---|---|
 | `JWT_SECRET` | Signs session tokens and the "trusted device" cookie | Every session becomes invalid: all users must sign in again, and trusted devices are asked for their 2FA code again. No data is lost. |
-| `CONFIG_ENCRYPTION_KEY` (64 hex characters) | Encrypts, in the database, the **SMTP password, Gotify token, Vivino key and Whiskybase key**, and **each member's two-factor secret** (the seed of the authenticator app's codes) | The stored values can no longer be decrypted: sending emails and Gotify notifications fails (the API log shows `Unsupported state or unable to authenticate data`), and authenticator codes are refused. Passwords and backup codes are **not** affected. |
+| `CONFIG_ENCRYPTION_KEY` (64 hex characters) | Encrypts, in the database, the **SMTP password and Gotify token** (and the Vivino/Whiskybase keys of older versions, which nothing reads), and **each member's two-factor secret** (the seed of the authenticator app's codes) | The stored values can no longer be decrypted: sending emails and Gotify notifications fails (the API log shows `Unsupported state or unable to authenticate data`), and authenticator codes are refused. Passwords and backup codes are **not** affected. |
 | `DB_PASSWORD` | Authenticates the API (and you, via `psql`) to the Postgres role | Nothing, until you also change the role's password inside Postgres (see below). The two must be changed together. |
 
 Generate new values with:
@@ -31,7 +31,7 @@ openssl rand -base64 32   # DB_PASSWORD
 3. Tell your users they will have to sign in again.
 
 ## Rotate `CONFIG_ENCRYPTION_KEY`
-1. Write down the SMTP password, Gotify token and API keys you currently use (Admin → System Configuration). They cannot be re-encrypted automatically.
+1. Write down the SMTP password and Gotify token you currently use (Admin → System Configuration). They cannot be re-encrypted automatically.
    Warn the members who use two-factor authentication: after the change, the codes of their authenticator app are refused. They sign in with one of their backup codes, then turn two-factor authentication off (which asks for another backup code) and on again in **Profile → Security & Authentication** (a new QR code to scan): that takes two backup codes. A member with fewer than two backup codes left asks an administrator for a password reset, which turns their two-factor authentication off; an administrator in that case follows [Lost phone](./32-Lost-Phone-2FA.md#only-administrator-locked-out-database-command).
 2. Edit `CONFIG_ENCRYPTION_KEY` in `.env`.
 3. Clear the values encrypted with the old key, then recreate the API:
@@ -41,7 +41,7 @@ openssl rand -base64 32   # DB_PASSWORD
    docker compose up -d api
    ```
    (Use your own `DB_USER` / `DB_NAME` if you changed them.)
-4. Open Admin → System Configuration and enter the SMTP password, Gotify token and keys again, then use the **test** buttons.
+4. Open Admin → System Configuration and enter the SMTP password (Notifications → Email) and the Gotify token (Notifications → Gotify) again, then use the **test** buttons.
 
 ## Rotate `DB_PASSWORD`
 1. Generate a new password (see above) and take a fresh backup.

@@ -1937,7 +1937,7 @@
     "unsaved": "Modifications non enregistrées",
     "leaveConfirm": "Certains réglages ne sont pas encore enregistrés. Quitter la page et les perdre ?",
     "errors": {
-      "UNEXPECTED_ERROR": "L'enregistrement a échoué. Réessayez.",
+      "UNEXPECTED_ERROR": "L'opération n'a pas abouti. Réessayez.",
       "VALIDATION_ERROR": "Une valeur n'est pas valide. Vérifiez les champs de cette carte.",
       "INVALID_INPUT": "Une valeur n'est pas valide. Vérifiez les champs de cette carte.",
       "INVALID_URL": "Cette adresse ne peut pas être utilisée : elle doit être une URL valide que le serveur a le droit de joindre.",
@@ -2324,7 +2324,7 @@
       "staleLines_other": "{{count}} lignes non importées : le stock de ces vins a changé depuis l'aperçu (un autre import ou un autre membre les a peut-être déjà ajoutées). Vérifiez le stock avant de relancer l'import pour ces lignes",
       "adminConfig": {
         "title": "Configuration système (facultatif)",
-        "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer SMTP, politique de notifs, webhook/Gotify, intégrations API, rétention, sauvegardes et réseau.",
+        "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer les notifications (e-mail, Gotify), qui peut rejoindre l'instance, les sauvegardes et la conservation des données, dans Administration → Configuration système.",
         "link": "Administration → Configuration Système"
       },
       "finishButton": "Accéder au tableau de bord"

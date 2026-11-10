@@ -1935,7 +1935,7 @@
     "unsaved": "Unsaved changes",
     "leaveConfirm": "Some settings are not saved yet. Leave the page and lose them?",
     "errors": {
-      "UNEXPECTED_ERROR": "This could not be saved. Try again.",
+      "UNEXPECTED_ERROR": "This did not work. Try again.",
       "VALIDATION_ERROR": "A value is not valid. Check the fields of this card.",
       "INVALID_INPUT": "A value is not valid. Check the fields of this card.",
       "INVALID_URL": "This address cannot be used: it must be a valid URL that the server is allowed to reach.",
@@ -2322,7 +2322,7 @@
       "staleLines_other": "{{count}} rows not imported: the stock of these wines changed since the preview (another import or member may already have added them). Check the stock before importing these rows again",
       "adminConfig": {
         "title": "System configuration (optional)",
-        "description": "As an admin, you'll be able to set up SMTP, notif policy, webhook/Gotify, API integrations, retention, backups and network later.",
+        "description": "As an admin, you'll be able to set up notifications (email, Gotify), who can join, backups and data retention later, in Administration → System configuration.",
         "link": "Administration → System Configuration"
       },
       "finishButton": "Go to dashboard"

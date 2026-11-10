@@ -128,5 +128,9 @@ describe('SystemConfigSection — a configuration that cannot be read (#615)', (
     fireEvent.click(within(retention).getByRole('button', { name: 'adminConfig.save' }));
 
     await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith('adminConfig.errors.VALIDATION_ERROR'));
+    // The refused value stays on screen, still marked unsaved, to be corrected (#759).
+    expect(within(retention).getByLabelText('adminConfig.retention.fields.logRetentionDays')).toHaveValue('0');
+    expect(within(retention).getByText('adminConfig.unsaved')).toBeInTheDocument();
+    expect(within(retention).getByRole('button', { name: 'adminConfig.save' })).toBeEnabled();
   });
 });
