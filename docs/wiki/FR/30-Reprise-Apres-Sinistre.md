@@ -15,7 +15,7 @@ Pour tout reconstruire il faut trois choses : la **sauvegarde de la base** (`.sq
 Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf si vous les avez copiés ailleurs.
 
 ## Prérequis (à faire *avant* d'en avoir besoin)
-1. Sauvegardes activées : Admin → Configuration système → Sauvegardes → **Activé**.
+1. Sauvegardes activées : Admin → Configuration système → Données → **Activé**.
 2. Copiez régulièrement hors de la machine : le fichier le plus récent du dossier `./backups` (ou **Télécharger** depuis l'historique), votre `.env`, et le volume `api_uploads`.
    > [!NOTE]
    > S'il existe encore un ancien volume `api_backups`, il ne contient que des sauvegardes antérieures à la mise à jour 2026.10 ; vérifiez la date avant d'en restaurer une.
@@ -43,7 +43,7 @@ Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf 
    docker run --rm -v <projet>_api_uploads:/data -v "$PWD":/backup alpine \
      sh -c 'cd /data && tar xzf /backup/uploads.tar.gz && chown -R 1001:1001 /data'
    ```
-6. Vérifiez : connectez-vous, ouvrez une cave, envoyez un email de test (Admin → Configuration système → SMTP → test).
+6. Vérifiez : connectez-vous, ouvrez une cave, envoyez un email de test (Admin → Configuration système → Notifications → E-mail → Tester la connexion).
 
 ## Sauvegarder les photos
 ```bash

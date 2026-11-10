@@ -10,7 +10,7 @@ Set how long Glou keeps audit logs, expired sessions and unused guest shares/inv
 ## Action
 
 ### Configure retention periods
-1. Go to **Admin → System Configuration → Retention & Maintenance**.
+1. Go to **Admin → System Configuration → Data**.
 2. Set the three fields (in days, 1 to 3650):
    - **Audit log retention**: default `90`.
    - **Session retention**: default `30`. Applies to expired or revoked sessions and trusted devices.
@@ -32,7 +32,7 @@ Set how long Glou keeps audit logs, expired sessions and unused guest shares/inv
 > The automatic job runs every day at 03:00 in the instance's time zone (`TZ`, see [Configuration](./02-Configuration.md)) and also once whenever the server process starts, so a redeploy or container restart does not leave stale data for up to 24h.
 
 > [!CAUTION]
-> This tab only removes data that is **already expired or revoked** (old logs, dead sessions, dead invitations). It is unrelated to the "Purge all data" action in the danger zone, which wipes all business data (cellars, bottles, tastings) after typing a confirmation keyword.
+> This tab only removes data that is **already expired or revoked** (old logs, dead sessions, dead invitations). It is unrelated to the **Delete all data** card at the bottom of the same tab, which wipes all business data (cellars, bottles, tastings) after typing a confirmation keyword.
 
 ## The firewall (troubleshooting)
 

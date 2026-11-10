@@ -30,7 +30,7 @@ La réinitialisation déconnecte aussi toutes vos sessions et vos appareils de c
 ## Seul administrateur, bloqué : commande en base de données
 Personne ne peut réinitialiser votre compte depuis l'application : désactivez donc votre 2FA directement dans la base. Sur la machine qui fait tourner Glou, dans le dossier de votre `docker-compose.yml` :
 
-1. Faites d'abord une sauvegarde si possible (**Administration → Configuration système → Sauvegardes**, depuis une autre session admin ; sinon voir [Reprise après sinistre](./30-Reprise-Apres-Sinistre.md)).
+1. Faites d'abord une sauvegarde si possible (**Administration → Configuration système → Données**, depuis une autre session admin ; sinon voir [Reprise après sinistre](./30-Reprise-Apres-Sinistre.md)).
 2. Listez les comptes pour retrouver votre identifiant exact :
    ```bash
    docker compose exec db psql -U glou -d glou_db -c \

@@ -4,7 +4,7 @@
 Le bouton « Scanner une étiquette » ouvre l'appareil photo, envoie la photo à un modèle de vision léger auto-hébergé (Ollama + moondream) qui pré-remplit nom, producteur, catégorie et millésime, à valider en 3 actions maximum.
 
 ## Prérequis
-* Le scan d'étiquette est **optionnel et désactivé par défaut** (~9 Go de disque et ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d` : cela démarre le service `ollama` et le service ponctuel `ollama-pull`, qui télécharge le modèle `moondream` (~1,7 Go) au premier démarrage. Sans le profil `scan`, le reste de l'application fonctionne normalement et tous les boutons de scan sont masqués (assistant de premier lancement, inventaire, formulaire d'ajout). Ils apparaissent dès que le service répond et que le modèle est téléchargé. **Admin → Configuration système → Intégrations** indique si le scan est actif.
+* Le scan d'étiquette est **optionnel et désactivé par défaut** (~9 Go de disque et ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d` : cela démarre le service `ollama` et le service ponctuel `ollama-pull`, qui télécharge le modèle `moondream` (~1,7 Go) au premier démarrage. Sans le profil `scan`, le reste de l'application fonctionne normalement et tous les boutons de scan sont masqués (assistant de premier lancement, inventaire, formulaire d'ajout). Ils apparaissent dès que le service répond et que le modèle est téléchargé. **Admin → Configuration système → Système** indique si le scan est actif.
 * Aucune configuration côté client : le scan utilise la caméra ou la galerie de l'appareil.
 
 ## Action
@@ -33,7 +33,7 @@ Le bouton « Scanner une étiquette » ouvre l'appareil photo, envoie la photo �
 
 | Erreur / Comportement | Solution |
 | :--- | :--- |
-| **Pas de bouton « Scanner une étiquette »** | Le profil `scan` n'est pas démarré, ou le modèle est encore en téléchargement : lancez `docker compose --profile scan up -d` et attendez la fin de `ollama-pull`. **Admin → Configuration système → Intégrations** indique si le scan est actif. |
+| **Pas de bouton « Scanner une étiquette »** | Le profil `scan` n'est pas démarré, ou le modèle est encore en téléchargement : lancez `docker compose --profile scan up -d` et attendez la fin de `ollama-pull`. **Admin → Configuration système → Système** indique si le scan est actif. |
 | **« Le service de reconnaissance d'étiquettes n'est pas disponible »** | Le service s'est arrêté après le chargement de la page. Redémarrez le profil `scan`. En attendant, **Saisir manuellement** ouvre le formulaire d'ajout sans quitter la session de scan. |
 | **Le scan reste bloqué sur « Analyse en cours » très longtemps** | Au tout premier démarrage de l'instance, le modèle `moondream` (~1,7 Go) doit être téléchargé par le service `ollama-pull` avant que le scan ne fonctionne. Patientez quelques minutes puis réessayez. Sur du matériel modeste, un scan peut légitimement prendre plusieurs minutes. |
 | **« L'analyse a pris trop de temps »** | Le modèle n'a pas répondu à temps (`OLLAMA_TIMEOUT_AFTER_<n>MS` dans le journal de l'API). L'attente est de 10 minutes par défaut ; augmentez-la avec `OLLAMA_TIMEOUT_MS` (millisecondes) dans `.env`, puis `docker compose up -d`. |

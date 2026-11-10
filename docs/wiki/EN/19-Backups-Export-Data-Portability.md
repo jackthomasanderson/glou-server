@@ -13,7 +13,7 @@ Schedule database backups from Admin, restore one when needed, export your own d
 > [!IMPORTANT]
 > Backups are **on by default on new installations**. An instance installed before this default existed keeps its previous setting, which was **off**: open the panel below and check that **Enabled** is on.
 
-1. Go to **Admin → System Configuration → Backups**.
+1. Go to **Admin → System Configuration → Data**.
 2. Make sure the **Enabled** switch is on.
 3. Set **Retention** (days to keep old backup files, default `7`) and **Hour (UTC)** (hour of day the daily backup runs, default `3`).
 4. Click **Save**.

@@ -24,7 +24,7 @@
 
 | Error / Symptom | Probable cause | Solution |
 | :--- | :--- | :--- |
-| `403 REGISTRATION_CLOSED` on `/api/auth/register` | Registration is closed by default once the first account (the admin) exists. | An admin turns on **Allow new accounts to register** in Administration → System Configuration → Network, see [Network & Public URL](./16-Network-Public-URL-Configuration.md). |
+| `403 REGISTRATION_CLOSED` on `/api/auth/register` | Registration is closed by default once the first account (the admin) exists. | An admin turns on **Allow new accounts to register** in Administration → System Configuration → Access, see [Network & Public URL](./16-Network-Public-URL-Configuration.md). |
 | `500 Internal Server Error` (on `/api/auth/*`) | Lost connection to PostgreSQL database (`P1001` or `P1012`). | Verify the Docker `db` container is running: `docker-compose up -d db` and restart the backend if it cannot reconnect automatically. |
 | `401 Unauthorized` on `/api/inventory` | The JWT cookie was not sent, expired, or missing. | Ensure the frontend HTTP client has the `credentials: 'include'` configuration (already set on the native HttpClient) and that the user logged in successfully. |
 | `404 Not Found` rendering web forms | Translation files (`common.json`) are missing or failed to load. | Ensure `i18n.ts` is imported correctly and that the API service hasn't crashed, which would block dynamic translation requests. |
