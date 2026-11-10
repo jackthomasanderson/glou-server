@@ -67,3 +67,47 @@ describe('useLeaveGuard (#759)', () => {
     expect(onFollow).toHaveBeenCalled();
   });
 });
+
+describe('useLeaveGuard — Back (#759)', () => {
+  const back = () => window.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+
+  it('keeps an extra entry on top while active, and stays on a declined Back, unseen by the router', () => {
+    // Next.js's router listens to popstate too: it must not see a declined Back.
+    const routerSaw = vi.fn();
+    window.addEventListener('popstate', routerSaw);
+    window.history.replaceState(null, '', window.location.href);
+    const pushState = vi.spyOn(window.history, 'pushState');
+    const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { unmount } = render(<Page active onFollow={() => {}} />);
+    expect(pushState).toHaveBeenCalledTimes(1);
+
+    back();
+
+    expect(confirm).toHaveBeenCalledWith('Leave without saving?');
+    expect(routerSaw).not.toHaveBeenCalled();
+    expect(historyBack).not.toHaveBeenCalled();
+    // The entry is put back, so the next Back asks again.
+    expect(pushState).toHaveBeenCalledTimes(2);
+    unmount();
+    window.removeEventListener('popstate', routerSaw);
+  });
+
+  it('really goes back once the person confirms', () => {
+    window.history.replaceState(null, '', window.location.href);
+    const historyBack = vi.spyOn(window.history, 'back').mockImplementation(() => {});
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { unmount } = render(<Page active onFollow={() => {}} />);
+
+    back();
+
+    expect(historyBack).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it('adds no history entry while there is nothing to lose', () => {
+    const pushState = vi.spyOn(window.history, 'pushState');
+    render(<Page active={false} onFollow={() => {}} />);
+    expect(pushState).not.toHaveBeenCalled();
+  });
+});

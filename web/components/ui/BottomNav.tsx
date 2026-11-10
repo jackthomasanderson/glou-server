@@ -10,6 +10,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { confirmLeave } from '@/lib/leaveGuard';
 
 export function BottomNav() {
   const { t } = useTranslation();
@@ -47,6 +48,8 @@ export function BottomNav() {
   const isMoreActive = moreLinks.some((link) => pathname.startsWith(link.href));
 
   const goTo = (href: string) => {
+    // #759: unsaved changes (admin settings) are not dropped without a question.
+    if (!confirmLeave()) return;
     setMoreOpen(false);
     router.push(href);
   };

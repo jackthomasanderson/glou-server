@@ -11,6 +11,7 @@ import { useAlerts, useToggleAlertPause } from '@/hooks/useAlerts';
 import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { AlertBottle } from '@/lib/alerts/client';
 import { todayLocalIso } from '@/lib/format';
+import { confirmLeave } from '@/lib/leaveGuard';
 
 const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'> = {
   past: 'danger',
@@ -62,6 +63,8 @@ export function NotificationBell() {
   const count = isOpen ? reminderItems.length + actionableAlerts.length : badgeCount;
 
   const go = (href: string) => {
+    // #759: unsaved changes (admin settings) are not dropped without a question.
+    if (!confirmLeave()) return;
     setIsOpen(false);
     router.push(href);
   };
