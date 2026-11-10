@@ -4,8 +4,16 @@
  * Downscale in the browser before uploading: longest side `maxSide`, JPEG
  * stays JPEG, anything else becomes WebP (keeps transparency) when the
  * browser can encode it. No new dependency; the original file is returned
- * untouched whenever resizing is impossible or would not make it smaller.
- * GIFs are left alone (animation).
+ * untouched whenever resizing is impossible, or (PNG/WebP only) would not
+ * make it smaller. GIFs are left alone (animation).
+ *
+ * #662: redrawing in a canvas also strips the metadata (EXIF: camera details
+ * and GPS position), which matters because uploaded photos are visible to
+ * guests. This is intended behaviour: a JPEG is therefore ALWAYS returned
+ * redrawn, even when that is not lighter than the original. The original
+ * (metadata included) only goes through when the browser cannot decode or
+ * redraw it, or for formats left alone above; the server does not strip
+ * metadata.
  */
 const RESIZABLE = /^image\/(jpeg|png|webp)$/i;
 const EXTENSION: Record<string, string> = { 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/png': 'png' };
@@ -36,8 +44,11 @@ export async function downscaleImage(file: File, maxSide = 1200, quality = 0.82)
 
   const targetType = /jpe?g/i.test(file.type) ? 'image/jpeg' : 'image/webp';
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, targetType, quality));
-  // Unsupported encoder falls back to PNG; keep whichever file is smaller.
-  if (!blob || blob.size >= file.size || !EXTENSION[blob.type]) return file;
+  // Unsupported encoder falls back to PNG; for PNG/WebP keep whichever file is
+  // smaller. A JPEG is always kept redrawn: that is what removes its EXIF.
+  const isJpeg = targetType === 'image/jpeg';
+  if (!blob || !EXTENSION[blob.type] || (!isJpeg && blob.size >= file.size)) return file;
+  if (isJpeg && blob.type !== 'image/jpeg') return file;
   const name = `${file.name.replace(/\.[^.]+$/, '') || 'photo'}.${EXTENSION[blob.type]}`;
   return new File([blob], name, { type: blob.type, lastModified: Date.now() });
 }

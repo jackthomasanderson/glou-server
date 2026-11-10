@@ -20,6 +20,9 @@ Entries start with the pull request that introduced them where there is one.
 - The tastings page is back at `/tastings`; the old `/cellar-journal` address still works and sends you there from the page itself (no browser redirect, so an old cached link cannot loop) (#502).
 
 ### Fixed
+- The project wiki page no longer contacts Google Fonts or jsDelivr: it uses your system font and a copy of its Markdown renderer served from the same site, so visiting it sends nothing to a third party and it still renders with a content blocker (#664).
+- Photos you upload as JPEG now always lose their hidden metadata (camera details, GPS position) before they leave your browser, even small photos that used to be sent unchanged (#662).
+- Supported browsers are now stated in the README and the installation guide (Safari and iOS 16.4+, Chrome 111+, Firefox 128+; iOS 15 and earlier are not supported) and declared for the web build (#659).
 - My Profile → Notifications, quiet hours: "deleted, not delayed" now stands out in readable text, apart from the details; the instance's time zone is named (for example Europe/Paris), and you are told when your device is set to another one; the hour pickers are wide enough to show "Disabled" in full (#772).
 - My Profile → Notifications, alert categories: each one is a checkbox, so you can see at a glance which ones are on. "Backup failures" is only offered to administrators (and no longer saved for members from now on), and an administrator is told when automatic backups are off that only a manual backup or the copy taken before a restore can still alert them (#780).
 - Signing in with an address or user name that has no account now takes as long to be refused as a wrong password, and "Forgot password" answers at once instead of waiting for the email to leave: the response time no longer tells a stranger who has an account on the instance. A failed email is still written to the API log (#607).
