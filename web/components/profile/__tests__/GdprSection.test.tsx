@@ -22,6 +22,10 @@ vi.mock('@/hooks/useAuth', () => ({
   useCancelAccountDeletion: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('@/hooks/useCsvExport', () => ({ useCsvExport: () => ({ mutate: vi.fn(), isPending: false }) }));
+// #641 (PR #908): the profile also hosts the file import; it is covered by GdprSection.import.test.tsx.
+vi.mock('@/hooks/useImport', () => ({ useCsvConfirmPending: () => false }));
+vi.mock('@/components/onboarding/steps/CsvImportStep', () => ({ CsvImportStep: () => null }));
+vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
 vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
