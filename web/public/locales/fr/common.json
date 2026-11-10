@@ -1054,6 +1054,7 @@
       "addTitle": "Nouvelle référence d'apogée",
       "editTitle": "Modifier la référence",
       "empty": "Aucune référence configurée.",
+      "anyColor": "Toutes les couleurs",
       "moveUp": "Monter (priorité supérieure)",
       "moveDown": "Descendre (priorité inférieure)",
       "deleteConfirmTitle": "Supprimer la référence ?",
@@ -1088,8 +1089,7 @@
         "criteria": "Correspondance optionnelle",
         "windowRelative": "Ex : 5 → 15 pour une bouteille buvable de 5 à 15 ans après le millésime",
         "windowAbsolute": "Ex : 2010 → 2030 pour une fenêtre calendaire fixe",
-        "curveShape": "Forme de la courbe de maturité appliquée aux vins correspondants",
-        "colorPlaceholder": "Rouge, Blanc, Rosé…"
+        "curveShape": "Forme de la courbe de maturité appliquée aux vins correspondants"
       },
       "errors": {
         "nameRequired": "Le nom est obligatoire.",

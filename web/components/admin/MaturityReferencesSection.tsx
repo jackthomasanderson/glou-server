@@ -9,6 +9,7 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import { FilterChip } from '@/components/ui/FilterControls';
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
+import { WINE_COLORS } from '@shared/inventory';
 import { useTranslation } from 'react-i18next';
 import {
   useMaturityReferences,
@@ -58,11 +59,14 @@ function windowLabel(ref: MaturityReference, t: (key: string, options?: Record<s
   return t('admin.maturityRefs.relativeWindow', { from: sign(ref.windowFrom), to: sign(ref.windowTo) });
 }
 
-function criteriaLabel(ref: MaturityReference): string {
+// #733: key of the "any colour" choice; the stored colours are WINE_COLORS.
+const ANY_COLOR = 'any';
+
+function criteriaLabel(ref: MaturityReference, t: (key: string) => string): string {
   const parts: string[] = [];
   if (ref.producer) parts.push(ref.producer);
   if (ref.region) parts.push(ref.region);
-  if (ref.color) parts.push(ref.color);
+  if (ref.color) parts.push(t(`inventory.color.${ref.color}`));
   if (ref.vintageFrom != null && ref.vintageTo != null) parts.push(`${ref.vintageFrom}–${ref.vintageTo}`);
   return parts.join(' · ') || '—';
 }
@@ -290,13 +294,22 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
               </div>
 
               {cfg.hasColor && (
-                <Input
+                // #733: the colours a bottle stores, so the reference can match it.
+                <SingleSelect
                   label={t('inventory.fields.color')}
-                  value={form.color ?? ''}
-                  onValueChange={(v) => setField('color', v || null)}
                   variant="bordered" size="sm" radius="md" labelPlacement="outside"
-                  placeholder={t('admin.maturityRefs.hints.colorPlaceholder')}
-                />
+                  selectedKeys={[form.color ?? ANY_COLOR]}
+                  onSelectionChange={(keys) => {
+                    const next = String(Array.from(keys)[0] ?? ANY_COLOR);
+                    setField('color', next === ANY_COLOR ? null : next);
+                  }}
+                >
+                  {[ANY_COLOR, ...WINE_COLORS].map((c) => (
+                    <SelectItem key={c}>
+                      {c === ANY_COLOR ? t('admin.maturityRefs.anyColor') : t(`inventory.color.${c}`)}
+                    </SelectItem>
+                  ))}
+                </SingleSelect>
               )}
 
               {cfg.hasVintage && (
@@ -434,7 +447,7 @@ export function MaturityReferencesSection() {
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-medium text-sm break-words">{ref.name}</p>
-                <p className="text-xs text-foreground-500 break-words">{criteriaLabel(ref)}</p>
+                <p className="text-xs text-foreground-500 break-words">{criteriaLabel(ref, t)}</p>
               </div>
               <Chip size="sm" variant="bordered" radius="sm" className="shrink-0">{t(`categories.${ref.category}`)}</Chip>
             </div>
@@ -513,7 +526,7 @@ export function MaturityReferencesSection() {
                   <TableCell>
                     <Chip size="sm" variant="bordered" radius="sm">{t(`categories.${ref.category}`)}</Chip>
                   </TableCell>
-                  <TableCell className="text-xs text-foreground-500">{criteriaLabel(ref)}</TableCell>
+                  <TableCell className="text-xs text-foreground-500">{criteriaLabel(ref, t)}</TableCell>
                   <TableCell>{windowChip(ref)}</TableCell>
                   <TableCell>{curveButton(ref)}</TableCell>
                   <TableCell className="text-center text-sm text-foreground-500">{ref.bottleCount}</TableCell>
