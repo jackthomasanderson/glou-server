@@ -26,12 +26,12 @@ vi.mock('../../src/middleware/upload.middleware', () => ({
   },
 }));
 vi.mock('../../src/services/scan.service', () => ({
-  scanService: { createJob: vi.fn(), getJob: vi.fn() },
+  scanService: { createJob: vi.fn(), getJob: vi.fn(), countActiveJobs: vi.fn() },
 }));
 vi.mock('../../src/services/ocr.service', () => ({ isScanAvailable: vi.fn() }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
 
-import { scanRouter } from '../../src/routes/scan.router';
+import { scanRouter, MAX_ACTIVE_SCAN_JOBS } from '../../src/routes/scan.router';
 import { scanService } from '../../src/services/scan.service';
 import { isScanAvailable } from '../../src/services/ocr.service';
 
@@ -42,6 +42,7 @@ app.use('/api/scan', scanRouter);
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(scanService.createJob).mockResolvedValue({ id: 'j1' } as never);
+  vi.mocked(scanService.countActiveJobs).mockResolvedValue(0);
 });
 
 describe('GET /api/scan/status', () => {
@@ -89,5 +90,23 @@ describe('POST /api/scan', () => {
     const res = await asQuotaMember();
     expect(res.status).toBe(429);
     expect(res.body).toEqual({ error: 'SCAN_RATE_LIMITED' });
+  });
+
+  // #609: a global cap, besides the per-member quota, on the scans waiting for the model.
+  it('refuses a new photo, before storing it, when too many scans are already waiting', async () => {
+    vi.mocked(isScanAvailable).mockResolvedValue(true);
+    vi.mocked(scanService.countActiveJobs).mockResolvedValue(MAX_ACTIVE_SCAN_JOBS);
+    const res = await request(app).post('/api/scan').set('x-test-user', 'busy-member');
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: 'SCAN_BUSY' });
+    expect(uploadSingle).not.toHaveBeenCalled();
+    expect(scanService.createJob).not.toHaveBeenCalled();
+  });
+
+  it('accepts the photo while there is room in the queue', async () => {
+    vi.mocked(isScanAvailable).mockResolvedValue(true);
+    vi.mocked(scanService.countActiveJobs).mockResolvedValue(MAX_ACTIVE_SCAN_JOBS - 1);
+    const res = await request(app).post('/api/scan').set('x-test-user', 'room-member');
+    expect(res.status).toBe(202);
   });
 });

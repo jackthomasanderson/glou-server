@@ -17,18 +17,39 @@ import { FieldSource } from './inventory.service';
 
 type ScanJob = Awaited<ReturnType<typeof prisma.scanJob.findFirst>> extends infer T | null ? NonNullable<T> : never;
 
+/** Statuses of a job that still waits for, or holds, the recognition model. */
+const ACTIVE_STATUSES = ['pending', 'processing'];
+
+/**
+ * #609: jobs run one after the other, like the model itself (Ollama's
+ * `OLLAMA_NUM_PARALLEL: 1`). Starting each one at upload time made every
+ * waiting job hold its photo and base64 copy in memory for up to the 10-minute
+ * OCR timeout. A waiting job is now only its database row and file path; the
+ * photo is read when its turn comes. In-process on purpose: a single API
+ * process, and `recoverStuckJobs` fails what a restart leaves behind.
+ */
+let queueTail: Promise<void> = Promise.resolve();
+
 export const scanService = {
   async createJob(userId: string, imagePath: string): Promise<ScanJob> {
     const job = await prisma.scanJob.create({
       data: { userId, imagePath, status: 'pending' },
     });
     // Not awaited: POST /api/scan responds 202 immediately, processing
-    // continues in the background. Errors are persisted onto the job row
-    // itself (see processJob's catch) rather than thrown here.
-    void this.processJob(job.id).catch((err) => {
-      console.error('[scan] Unexpected processJob failure:', err);
-    });
+    // continues in the background, after the jobs queued before it (#609).
+    // Errors are persisted onto the job row itself (see processJob's catch)
+    // rather than thrown here; the catch keeps the queue going regardless.
+    queueTail = queueTail
+      .then(() => scanService.processJob(job.id))
+      .catch((err) => {
+        console.error('[scan] Unexpected processJob failure:', err);
+      });
     return job;
+  },
+
+  /** #609: jobs waiting for the model or being processed, every member included. */
+  async countActiveJobs(): Promise<number> {
+    return prisma.scanJob.count({ where: { status: { in: ACTIVE_STATUSES } } });
   },
 
   async processJob(jobId: string): Promise<void> {
@@ -157,7 +178,7 @@ export const scanService = {
    */
   async recoverStuckJobs(): Promise<number> {
     const result = await prisma.scanJob.updateMany({
-      where: { status: { in: ['pending', 'processing'] } },
+      where: { status: { in: ACTIVE_STATUSES } },
       data: { status: 'failed', errorMessage: 'SCAN_INTERRUPTED' satisfies ScanFailureCode },
     });
     return result.count;
