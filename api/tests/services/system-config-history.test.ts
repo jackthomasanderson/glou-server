@@ -47,7 +47,8 @@ beforeEach(() => {
     registrationOpen: false,
     backupEnabled: true,
     backupRetentionDays: 7,
-    backupHourUtc: 3,
+    backupHour: 3,
+    backupHourIsUtc: false,
   };
   vi.mocked(prisma.systemConfig.findUnique).mockImplementation((async () => ({ ...saved })) as never);
   vi.mocked(prisma.systemConfig.findUniqueOrThrow).mockImplementation((async () => ({ ...saved })) as never);
@@ -71,7 +72,7 @@ function written() {
 
 describe('configuration history (#760, #628)', () => {
   it('saving a form with nothing changed writes no history entry', async () => {
-    await systemConfigService.updateBackupConfig({ backupEnabled: true, backupRetentionDays: 7, backupHourUtc: 3 }, 'admin');
+    await systemConfigService.updateBackupConfig({ backupEnabled: true, backupRetentionDays: 7, backupHour: 3 }, 'admin');
     await systemConfigService.updateSmtp({
       smtpEnabled: true, smtpHost: 'smtp.example.com', smtpPort: 587, smtpUser: 'mailer',
       smtpFrom: 'glou@example.com', smtpSecure: false, smtpPass: 'hunter2',
@@ -80,8 +81,8 @@ describe('configuration history (#760, #628)', () => {
   });
 
   it('records only the changed fields, with their previous and new values', async () => {
-    await systemConfigService.updateBackupConfig({ backupEnabled: true, backupRetentionDays: 7, backupHourUtc: 4 }, 'admin');
-    expect(written()).toEqual([{ fieldName: 'backup', old: { backupHourUtc: 3 }, new: { backupHourUtc: 4 } }]);
+    await systemConfigService.updateBackupConfig({ backupEnabled: true, backupRetentionDays: 7, backupHour: 4 }, 'admin');
+    expect(written()).toEqual([{ fieldName: 'backup', old: { backupHour: 3 }, new: { backupHour: 4 } }]);
   });
 
   it('never records a secret, only that it changed or was removed', async () => {
@@ -108,9 +109,24 @@ describe('configuration history (#760, #628)', () => {
   });
 
   it('reads the previous value, saves and logs inside one locked transaction', async () => {
-    await systemConfigService.updateBackupConfig({ backupEnabled: true, backupRetentionDays: 7, backupHourUtc: 5 }, 'admin');
+    await systemConfigService.updateBackupConfig({ backupEnabled: true, backupRetentionDays: 7, backupHour: 5 }, 'admin');
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
     expect(String((vi.mocked(prisma.$queryRaw).mock.calls[0][0] as unknown as string[]).join('?'))).toMatch(/FOR UPDATE/);
+  });
+});
+
+// #761 (review of #926): an hour the admin saves is always an hour of the
+// instance's time zone. If the startup conversion failed and left the "still
+// UTC" flag on, saving must clear it, or the next startup would shift the
+// admin's local hour by the UTC offset. The flag never shows in the history.
+describe('saving the backup settings (#761)', () => {
+  it('clears the legacy UTC flag, without a history line for it', async () => {
+    saved = { ...saved, backupHourIsUtc: true };
+
+    await systemConfigService.updateBackupConfig({ backupEnabled: true, backupRetentionDays: 7, backupHour: 5 }, 'admin');
+
+    expect(saved).toMatchObject({ backupHour: 5, backupHourIsUtc: false });
+    expect(written()).toEqual([{ fieldName: 'backup', old: { backupHour: 3 }, new: { backupHour: 5 } }]);
   });
 });

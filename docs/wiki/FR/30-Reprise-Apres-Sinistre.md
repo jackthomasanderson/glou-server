@@ -27,7 +27,7 @@ Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf 
 3. **Dans l'application**, le plus simple, quand la nouvelle machine fait tourner la même version de Glou que celle qui a pris la sauvegarde :
    - Copiez le fichier de sauvegarde, sans le renommer (`glou-backup-….sql.gz`), dans le dossier `./backups` à côté de `docker-compose.yml`, puis redémarrez l'API : `docker compose restart api`. Au démarrage, l'API ajoute à l'historique des sauvegardes chaque fichier de sauvegarde de ce dossier (un fichier tronqué est écarté).
    - Créez le premier compte : il est l'admin de cette instance encore vide.
-   - Ouvrez Admin → Configuration système → Données, trouvez la sauvegarde dans l'historique des sauvegardes et choisissez **Restaurer**. Glou prend d'abord une sauvegarde de la base actuelle (vide), puis demande le mot de passe du compte que vous venez de créer.
+   - Ouvrez Admin → Configuration système → Données, trouvez la sauvegarde dans l'historique des sauvegardes et choisissez **Restaurer**. Glou demande le mot de passe du compte que vous venez de créer, puis prend une sauvegarde de la base actuelle (vide), puis restaure.
    - Une fois la restauration faite, connectez-vous avec un compte de la sauvegarde, puis reprenez à l'étape 6 (photos).
 
    Si Glou répond que la sauvegarde a été prise par une autre version, utilisez plutôt la ligne de commande des étapes 4 et 5.

@@ -9,11 +9,12 @@ export function hourInTimeZone(now: Date, timeZone?: string): number {
 
 /**
  * The process's time zone (#575, #761), `UTC` when `TZ` names no known zone
- * (the resolved zone is then undefined, despite the lib typing).
+ * (the resolved zone is then undefined, despite the lib typing) or is empty
+ * (Node then resolves `Etc/Unknown`, and computes in UTC).
  */
 export function instanceTimeZone(): string {
   const resolved: string | undefined = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return resolved ?? 'UTC';
+  return !resolved || resolved === 'Etc/Unknown' ? 'UTC' : resolved;
 }
 
 /**

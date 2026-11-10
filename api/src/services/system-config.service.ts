@@ -155,13 +155,14 @@ async function logChange(db: PrismaClientOrTx, userId: string, section: string, 
 /**
  * Saves `data` and records the change in one transaction; the row is locked
  * first, so two admins saving at once each log the value they replaced.
+ * `unlogged`: internal columns written with it, never shown in the history.
  */
-async function saveAndLog(userId: string, section: string, data: Record<string, unknown>): Promise<void> {
+async function saveAndLog(userId: string, section: string, data: Record<string, unknown>, unlogged: Record<string, unknown> = {}): Promise<void> {
   await getOrCreate();
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT 1 FROM "SystemConfig" WHERE "id" = 'singleton' FOR UPDATE`;
     const old = await tx.systemConfig.findUniqueOrThrow({ where: { id: 'singleton' } });
-    await tx.systemConfig.update({ where: { id: 'singleton' }, data: { ...data, updatedBy: userId } });
+    await tx.systemConfig.update({ where: { id: 'singleton' }, data: { ...data, ...unlogged, updatedBy: userId } });
     await logChange(tx, userId, section, old, data);
   });
 }
@@ -259,7 +260,9 @@ export const systemConfigService = {
   },
 
   async updateBackupConfig(data: BackupConfig, userId: string): Promise<PublicSystemConfig> {
-    await saveAndLog(userId, 'backup', data);
+    // #761: the hour sent is always local; a flag left on by a failed startup
+    // conversion would make the next startup shift it by the UTC offset.
+    await saveAndLog(userId, 'backup', data, { backupHourIsUtc: false });
     return this.getPublic();
   },
 

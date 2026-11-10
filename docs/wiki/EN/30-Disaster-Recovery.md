@@ -27,7 +27,7 @@ If the host disk dies, the backup files die with it unless you copied them elsew
 3. **In the app**, the simplest, when the new host runs the same Glou version as the one that took the backup:
    - Copy the backup file, keeping its name (`glou-backup-….sql.gz`), into the `./backups` folder next to `docker-compose.yml`, then restart the API: `docker compose restart api`. At startup, the API adds every backup file of that folder to the backup history (a truncated file is left out).
    - Create the first account: it is the admin of this still empty instance.
-   - Open Admin → System configuration → Data, find the backup in the backup history and choose **Restore**. Glou first takes a backup of the current (empty) database, then asks for the password of the account you just created.
+   - Open Admin → System configuration → Data, find the backup in the backup history and choose **Restore**. Glou asks for the password of the account you just created, then takes a backup of the current (empty) database, then restores.
    - Once restored, sign in with an account of the backup, then go on at step 6 (photos).
 
    If Glou answers that the backup was taken by another version, use the command line of steps 4 and 5 instead.
