@@ -78,3 +78,32 @@ describe('matchDishToPairings on English labels (#653)', () => {
     expect(pickBestPairingLabel('steak', red)).toBe('Grilled red meat');
   });
 });
+
+// Review of #944: the words of the French labels, typed in the English
+// interface, found nothing once the labels were English ("fruits de mer"),
+// and the English words did not find the French labels.
+describe('a dish typed in the other language finds the same bottles (#653)', () => {
+  const english = pairingLabels('en');
+  // The best-scoring combos: a single shared word ("fruits", "fumé") also
+  // brings weaker matches that depend on how each language words its labels.
+  const combos = (query: string, label: Parameters<typeof matchDishToPairings>[1]) => {
+    const matches = matchDishToPairings(query, label);
+    return matches.filter((m) => m.score === matches[0].score).map((m) => `${m.category}/${m.subtype}`).sort();
+  };
+
+  it.each(['fruits de mer', 'crustacés', 'salade', 'cigare', 'concombre', 'hareng fumé', 'café', 'rhum', 'fruits exotiques', 'fruits secs', 'champignons', 'volaille'])(
+    'French "%s" in the English interface',
+    (query) => {
+      expect(combos(query, french).length).toBeGreaterThan(0);
+      expect(combos(query, english)).toEqual(expect.arrayContaining(combos(query, french)));
+    },
+  );
+
+  it.each(['seafood', 'salad', 'cigar', 'cucumber', 'herring', 'coffee', 'rum', 'tropical fruit', 'nuts', 'mushrooms', 'poultry'])(
+    'English "%s" in the French interface',
+    (query) => {
+      expect(combos(query, english).length).toBeGreaterThan(0);
+      expect(combos(query, french)).toEqual(expect.arrayContaining(combos(query, english)));
+    },
+  );
+});

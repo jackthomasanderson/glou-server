@@ -63,6 +63,7 @@ const CHEESE = ['fromage', 'cheese'];
 const GOAT = ['chevre', 'goat'];
 const CHOCOLATE = ['chocolat', 'chocolate'];
 const EASTERN = ['cuisine orientale', 'eastern cuisine'];
+const ESPRESSO = ['expresso', 'espresso'];
 const SYNONYMS: Record<string, string[]> = {
   // French triggers
   viande: MEAT,
@@ -88,6 +89,18 @@ const SYNONYMS: Record<string, string[]> = {
   dessert: CHOCOLATE,
   gateau: CHOCOLATE,
   champignon: ['mushroom'],
+  // Words of the French labels, so they find the English ones (review of #944)
+  'fruits de mer': SEAFOOD,
+  crustace: SEAFOOD,
+  salade: ['salad'],
+  cigare: ['cigar'],
+  concombre: ['cucumber'],
+  hareng: ['herring'],
+  cafe: ESPRESSO,
+  expresso: ESPRESSO,
+  rhum: ['rum'],
+  'fruits exotiques': ['tropical fruit'],
+  'fruits secs': ['dried fruit', 'nuts'],
   curry: EASTERN,
   sushi: [...FISH, ...EASTERN],
   // English triggers
@@ -108,6 +121,16 @@ const SYNONYMS: Record<string, string[]> = {
   goat: [...CHEESE, ...GOAT],
   cake: CHOCOLATE,
   mushroom: ['champignon'],
+  // Words of the English labels, so they find the French ones
+  seafood: SEAFOOD,
+  cucumber: ['concombre'],
+  herring: ['hareng'],
+  coffee: ESPRESSO,
+  espresso: ESPRESSO,
+  rum: ['rhum'],
+  tropical: ['fruits exotiques'],
+  'dried fruit': ['fruits secs'],
+  nuts: ['fruits secs'],
 };
 
 function normalize(input: string): string {
