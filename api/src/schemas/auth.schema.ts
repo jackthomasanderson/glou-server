@@ -40,7 +40,10 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 // ─── 2FA ──────────────────────────────────────────────────────────────────────
 
+// #603: the password too, like turning 2FA off — an open session alone could
+// otherwise tie the account to someone else's authenticator app.
 export const turnOn2faSchema = z.object({
+  password: z.string().min(1, 'PASSWORD_REQUIRED'),
   code: z.string().min(6).max(6, 'INVALID_CODE_LENGTH')
 });
 

@@ -172,9 +172,33 @@ describe('TwoFactorSettings messages and code fields (#652)', () => {
     turnOn.mockImplementation((_v: unknown, o: MutateOptions<unknown>) => o.onError?.(new Error('INVALID_TOTP_CODE')));
     const dialog = openEnable();
     fireEvent.change(within(dialog).getByLabelText(translate('profile.twoFactor.codeLabel')), { target: { value: '123456' } });
+    fireEvent.change(within(dialog).getByLabelText(translate('profile.passwordLabel')), { target: { value: 'pw' } });
     fireEvent.click(within(dialog).getByRole('button', { name: translate('actions.confirm') }));
 
     expect(within(dialog).getByRole('alert').textContent).toBe(expected);
+  });
+
+  // #603: an open session alone could tie the account to someone else's app.
+  it('turning 2FA on asks for the password, and sends it with the code', () => {
+    const dialog = openEnable();
+    fireEvent.change(within(dialog).getByLabelText('6-digit code'), { target: { value: '123456' } });
+    const confirm = within(dialog).getByRole('button', { name: 'Confirm' });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(within(dialog).getByLabelText('Password'), { target: { value: 'my-password' } });
+    fireEvent.click(confirm);
+
+    expect(turnOn).toHaveBeenCalledWith({ password: 'my-password', code: '123456' }, expect.anything());
+  });
+
+  it('a wrong password when turning 2FA on says the password is wrong', () => {
+    turnOn.mockImplementation((_v: unknown, o: MutateOptions<unknown>) => o.onError?.(new Error('INVALID_CREDENTIALS')));
+    const dialog = openEnable();
+    fireEvent.change(within(dialog).getByLabelText('6-digit code'), { target: { value: '123456' } });
+    fireEvent.change(within(dialog).getByLabelText('Password'), { target: { value: 'not-it' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+
+    expect(within(dialog).getByRole('alert').textContent).toBe('Incorrect current password');
   });
 
   it('a wrong password when turning 2FA off says the password is wrong', () => {
@@ -232,6 +256,7 @@ describe('TwoFactorSettings backup codes (#638)', () => {
     render(<TwoFactorSettings user={makeUser(false)} />);
     fireEvent.click(screen.getByRole('button', { name: 'Enable' }));
     fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('6-digit code'), { target: { value: '123456' } });
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Password'), { target: { value: 'pw' } });
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }));
     return screen.getByRole('dialog');
   }

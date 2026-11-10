@@ -186,8 +186,9 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
 
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'admin',
+      action: 'ADMIN_PASSWORD_RESET',
       status: 'success',
-      details: { reason: 'admin_password_reset', targetUserId: 'member', twoFactorDisabled: true },
+      details: { targetUserId: 'member', twoFactorDisabled: true },
     }));
     const logged = JSON.stringify(vi.mocked(auditLog).mock.calls);
     expect(logged).not.toContain(tempPassword);
@@ -209,7 +210,7 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'admin',
       status: 'error',
-      details: { reason: 'admin_password_reset', targetUserId: 'member', error },
+      details: { targetUserId: 'member', error },
     }));
     expect(JSON.stringify(vi.mocked(auditLog).mock.calls)).not.toContain(ADMIN_PASSWORD);
   });
@@ -274,7 +275,7 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
 
     expect(memberUpdate()?.data).toMatchObject({ mustChangePassword: true });
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
-      details: { reason: 'admin_password_reset', targetUserId: 'member', twoFactorDisabled: false },
+      details: { targetUserId: 'member', twoFactorDisabled: false },
     }));
   });
 
@@ -287,7 +288,7 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
     expect(update?.data).not.toHaveProperty('twoFactorSecret');
     expect(update?.data).not.toHaveProperty('backupCodes');
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
-      details: { reason: 'admin_password_reset', targetUserId: 'admin', twoFactorDisabled: false },
+      details: { targetUserId: 'admin', twoFactorDisabled: false },
     }));
   });
 });

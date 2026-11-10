@@ -12,7 +12,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
 import {
-  useAdminUsers, useUpdateUserRole, useUpdateUserStatus,
+  useAdminUsers,
   usePurgeData, useAdminBackupHealth,
   AdminUser,
 } from '@/hooks/useAdmin';
@@ -24,7 +24,7 @@ import { SystemConfigSection } from '@/components/admin/SystemConfigSection';
 import { ResetPasswordDialog } from '@/components/admin/ResetPasswordDialog';
 import { GrantAdminDialog } from '@/components/admin/GrantAdminDialog';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
-import { notifyError } from '@/lib/toast';
+import { useMemberChanges } from '@/components/admin/MemberChanges';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { AuditLogSection } from '@/components/admin/AuditLogSection';
 import { AdminSharesSection } from '@/components/admin/AdminSharesSection';
@@ -53,8 +53,8 @@ export function AdminClient() {
   const hasMounted = useHasMounted();
 
   const { data: users, isLoading: isUsersLoading } = useAdminUsers();
-  const { mutate: updateRole } = useUpdateUserRole();
-  const { mutate: updateStatus } = useUpdateUserStatus();
+  // #603: role removals and status changes are confirmed with the admin's password and code.
+  const memberChanges = useMemberChanges();
   const { mutateAsync: purgeAll, isPending: isPurging } = usePurgeData();
   // #890: the purge is confirmed with the admin's password and code.
   const purgeStepUp = useAdminStepUp();
@@ -89,12 +89,6 @@ export function AdminClient() {
     if (!isAuthLoading && !user?.isAdmin) router.push('/');
   }, [user, isAuthLoading, router]);
 
-  // #499: sensitive member actions are confirmed in an app dialog, not
-  // window.confirm (off-brand, browser-language buttons, and silently
-  // disabled once a browser offers to "block dialogs from this site").
-  const [pendingAction, setPendingAction] = React.useState<
-    { kind: 'deactivate'; target: AdminUser } | null
-  >(null);
   // #638: their own dialogs, which ask for the admin's password and code.
   const [resetTarget, setResetTarget] = React.useState<AdminUser | null>(null);
   const [grantTarget, setGrantTarget] = React.useState<AdminUser | null>(null);
@@ -102,29 +96,17 @@ export function AdminClient() {
   const handleRoleToggle = (targetUser: AdminUser, checked: boolean) => {
     if (targetUser.id === user?.id) return;
     if (checked) setGrantTarget(targetUser);
-    else updateRole({ userId: targetUser.id, isAdmin: false }, { onError: () => notifyError('toast.admin.roleError') });
+    else memberChanges.removeAdmin(targetUser);
   };
 
   const handleStatusToggle = (targetUser: AdminUser) => {
     if (targetUser.id === user?.id) return;
-    if (targetUser.isActive) setPendingAction({ kind: 'deactivate', target: targetUser });
-    else updateStatus({ userId: targetUser.id, isActive: true });
+    memberChanges.toggleStatus(targetUser);
   };
 
   const handleResetPassword = (targetUser: AdminUser) => {
     setResetTarget(targetUser);
   };
-
-  const confirmPendingAction = () => {
-    if (!pendingAction) return;
-    const { kind, target } = pendingAction;
-    setPendingAction(null);
-    if (kind === 'deactivate') updateStatus({ userId: target.id, isActive: false });
-  };
-
-  const pendingActionMessage = pendingAction
-    ? t(`admin.users.${pendingAction.kind}Confirm`, { username: pendingAction.target.username })
-    : '';
 
   /** The keyword typed, the step-up confirms the purge (#489, #890). */
   const handleConfirmPurge = () => {
@@ -361,28 +343,9 @@ export function AdminClient() {
       </div>
       </div>
 
-      {/* Purge dialog */}
-      <ResponsiveModal
-        isOpen={!!pendingAction}
-        onClose={() => setPendingAction(null)}
-        size="sm" radius="lg" backdrop="opaque" placement="center"
-      >
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader>{t('actions.confirm')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-500">{pendingActionMessage}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
-                <Button color="danger" variant="solid" onPress={confirmPendingAction}>{t('actions.confirm')}</Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+      {memberChanges.dialog}
 
+      {/* Purge dialog */}
       <ResponsiveModal
         isOpen={isPurgeDialogOpen}
         onClose={() => !isPurging && setIsPurgeDialogOpen(false)}

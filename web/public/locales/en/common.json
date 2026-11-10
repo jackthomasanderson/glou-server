@@ -869,6 +869,7 @@
       "step1": "1. Scan this QR Code with your authenticator app (Google Authenticator, Authy, etc.).",
       "orSecret": "Or use the secret key:",
       "step2": "2. Enter the 6-digit code to confirm.",
+      "step3": "3. Confirm with your password.",
       "codeLabel": "6-digit code",
       "codesConfirmed": "I've saved my codes",
       "disableTitle": "Disable two-factor authentication",
@@ -929,6 +930,8 @@
       "deactivateSelf": "You cannot deactivate your own account",
       "grantAdminConfirm": "Grant administrator rights to {{username}}?",
       "deactivateConfirm": "Cut off {{username}}'s access to this instance? Their sessions, trusted devices and guest links will be revoked for good: reactivating the account later will not bring them back, they will have to sign in again and create new guest links.",
+      "removeAdminConfirm": "Remove {{username}}'s administrator rights?",
+      "activateConfirm": "Give {{username}} access again? They will have to sign in again; their former sessions, trusted devices and guest links stay revoked.",
       "deactivateLastAdmin": "You cannot deactivate the last administrator",
       "me": "me",
       "resetPassword": "Reset password",
@@ -1010,7 +1013,15 @@
         "BACKUP_DOWNLOAD": "Backup downloaded",
         "PURGE": "Data purge",
         "CONFIG_UPDATE": "Settings changed",
-        "CONFIG_TEST": "Settings test"
+        "CONFIG_TEST": "Settings test",
+        "LOGIN_FAILED": "Sign-in refused",
+        "PASSWORD_CHANGE": "Password changed",
+        "EMAIL_CHANGE": "E-mail address changed",
+        "TWO_FACTOR_ON": "Two-factor authentication enabled",
+        "TWO_FACTOR_OFF": "Two-factor authentication disabled",
+        "ADMIN_PASSWORD_RESET": "Password reset by an administrator",
+        "SHARE_CREATE": "Guest link created",
+        "SHARE_REVOKE": "Guest link revoked"
       },
       "statuses": {
         "success": "Succeeded",
@@ -1714,7 +1725,12 @@
     "deleteConfirm": "Confirm deletion",
     "deletionPending": "Deletion requested",
     "deletionRequestedOn": "Your account will be deleted on {{date}} unless you cancel before then.",
-    "cancelDeletion": "Cancel deletion"
+    "cancelDeletion": "Cancel deletion",
+    "deleteErrors": {
+      "INVALID_CREDENTIALS": "Incorrect current password",
+      "CANNOT_DELETE_LAST_ADMIN": "You are this instance's only administrator: make another member an administrator first, then ask for your account's deletion.",
+      "UNEXPECTED_ERROR": "The request could not go through. Please try again."
+    }
   },
   "shares": {
     "title": "Guest Shares",

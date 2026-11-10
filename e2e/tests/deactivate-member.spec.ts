@@ -1,4 +1,5 @@
 import { test, expect, request, type APIRequestContext, type APIResponse } from '@playwright/test';
+import { creds } from './_helpers';
 
 /**
  * #605: deactivating a member only put their sessions, trusted devices and
@@ -41,8 +42,14 @@ test('deactivate then reactivate a member: their old session and guest link stay
     expect((await member.get('/api/auth/me')).ok()).toBe(true);
     expect((await guest.get(`/api/guest/${share.token}`)).ok()).toBe(true);
 
-    await okData(await admin.patch(`/api/admin/users/${memberId}/status`, { data: { isActive: false } }));
-    await okData(await admin.patch(`/api/admin/users/${memberId}/status`, { data: { isActive: true } }));
+    // #603: a status change asks for the admin's password (the suite user has no 2FA).
+    const sessionOnly = await admin.patch(`/api/admin/users/${memberId}/status`, { data: { isActive: false } });
+    expect(sessionOnly.status()).toBe(403);
+    expect((await sessionOnly.json()).error).toBe('REAUTH_REQUIRED');
+    expect((await member.get('/api/auth/me')).ok()).toBe(true);
+    const adminPassword = creds().password;
+    await okData(await admin.patch(`/api/admin/users/${memberId}/status`, { data: { isActive: false, password: adminPassword } }));
+    await okData(await admin.patch(`/api/admin/users/${memberId}/status`, { data: { isActive: true, password: adminPassword } }));
 
     const session = await member.get('/api/auth/me');
     expect(session.status()).toBe(401);
@@ -53,14 +60,23 @@ test('deactivate then reactivate a member: their old session and guest link stay
 
     // Both changes are in the audit log (written in the background), with the admin as the author.
     await expect.poll(async () => {
-      const logs = await okData<{ items: Array<{ userId: string; action: string; details: { targetUserId?: string; isActive?: boolean } }> }>(
+      const logs = await okData<{ items: Array<{ userId: string; action: string; status: string; details: { targetUserId?: string; isActive?: boolean; error?: string } }> }>(
         await admin.get('/api/admin/audit-logs?q=ADMIN_STATUS_CHANGE'),
       );
       return logs.items
         .filter((l) => l.action === 'ADMIN_STATUS_CHANGE' && l.userId === me.id && l.details.targetUserId === memberId)
-        .map((l) => l.details.isActive)
+        .map((l) => `${l.status}:${l.details.isActive}${l.details.error ? `:${l.details.error}` : ''}`)
         .sort();
-    }).toEqual([false, true]);
+      // #603: the session-only attempt is there too, as a refusal.
+    }).toEqual(['error:false:REAUTH_REQUIRED', 'success:false', 'success:true']);
+
+    // #601: the guest link's creation is in the log too, filed under the member, without its token.
+    const shareLogs = await okData<{ items: Array<{ userId: string; action: string; details: Record<string, unknown> }> }>(
+      await admin.get('/api/admin/audit-logs?q=SHARE_CREATE'),
+    );
+    const created = shareLogs.items.find((l) => l.action === 'SHARE_CREATE' && l.userId === memberId);
+    expect(created?.details).toMatchObject({ collectionIds: [collection.id] });
+    expect(JSON.stringify(shareLogs.items)).not.toContain(share.token);
   } finally {
     await admin.put('/api/admin/config/registration', { data: { registrationOpen } });
     await member.dispose();

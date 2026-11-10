@@ -62,6 +62,23 @@ Les codes d'action enregistrés dans le système :
 | `COLLECTION_UPDATE` | Modification d'une collection |
 | `COLLECTION_DELETE` | Suppression d'une collection |
 
+#### Événements de sécurité
+
+Ce qui change qui peut entrer, et comment. Aucune entrée ne contient de mot de passe, de code ou de secret.
+
+| Code | Déclencheur | Auteur de l'entrée |
+| :--- | :--- | :--- |
+| `LOGIN_FAILED` | Connexion refusée : mauvais mot de passe, mauvais code de double authentification, ou compte désactivé (`details.reason`). Un identifiant inconnu n'est pas enregistré : ce qui a été tapé n'est jamais conservé. | Le compte visé |
+| `PASSWORD_CHANGE` | Mot de passe changé depuis le profil, ou par un lien « mot de passe oublié » (`details.via`) | Le membre |
+| `EMAIL_CHANGE` | Adresse e-mail changée (ancienne et nouvelle adresse dans `details`) | Le membre |
+| `TWO_FACTOR_ON` / `TWO_FACTOR_OFF` | Double authentification activée / désactivée par le membre | Le membre |
+| `ADMIN_PASSWORD_RESET` | Mot de passe d'un membre réinitialisé par un administrateur (`details.twoFactorDisabled` : sa double authentification a été coupée) | L'administrateur |
+| `ADMIN_ROLE_CHANGE` | Droits d'administrateur donnés ou retirés | L'administrateur |
+| `ADMIN_STATUS_CHANGE` | Membre désactivé ou réactivé | L'administrateur |
+| `SHARE_CREATE` / `SHARE_REVOKE` | Lien invité créé (caves, caves en écriture, collections, expiration) / révoqué | Le membre |
+
+Les trois actions d'administration ci-dessus demandent le mot de passe de l'administrateur (et son code s'il a la double authentification) : un refus est enregistré avec le statut `error` et la raison dans `details.error`.
+
 ### 5. Rétention et purge automatique
 
 Les entrées de journal âgées de plus de **90 jours** sont supprimées au démarrage de l'API (via `purgeOldAuditLogs`). Cette valeur n'est pas configurable depuis l'interface.

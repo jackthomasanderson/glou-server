@@ -553,11 +553,14 @@ describe('POST /api/admin/users/:id/role', () => {
     spy.mockRestore();
   });
 
-  it('removing the role needs the session only', async () => {
-    const spy = vi.spyOn(authService, 'reauthenticateAdmin');
+  it('removing the role asks for the step-up too (#603)', async () => {
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      ({ id: args.where.id, isActive: true, isAdmin: true })) as never);
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin').mockRejectedValueOnce(new Error('REAUTH_REQUIRED'));
     const res = await post({ isAdmin: false });
-    expect(res.status).toBe(200);
-    expect(spy).not.toHaveBeenCalled();
+    expect(res.status).toBe(403);
+    expect(spy).toHaveBeenCalledWith('u1', {}, expect.anything(), { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: 'm1', isAdmin: false } });
+    expect(prisma.user.update).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 });
@@ -916,12 +919,16 @@ describe('PATCH /api/admin/users/:id/status', () => {
     p.guestShare = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
     p.auditLog.create = vi.fn().mockResolvedValue({});
     p.$transaction = vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+    // #603: the admin's step-up passes (covered in security-steps.test.ts).
+    reauth = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue();
   });
+  let reauth: ReturnType<typeof vi.spyOn>;
+  afterEach(() => reauth.mockRestore());
   const patch = (isActive: boolean) => request(app)
     .patch('/api/admin/users/m1/status')
     .set('Authorization', `Bearer ${authToken()}`)
     .set('Sec-Fetch-Site', 'same-origin')
-    .send({ isActive });
+    .send({ isActive, password: 'admin-pw' });
 
   it('deactivating revokes the member\'s sessions, trusted devices and guest links in the same transaction', async () => {
     const res = await patch(false);

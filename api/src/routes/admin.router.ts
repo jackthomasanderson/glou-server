@@ -21,17 +21,12 @@ import { emailService } from '../services/email.service';
 import { backupService } from '../services/backup.service';
 import { auditLog, type AuditAction } from '../services/audit.service';
 import { adminReauthSchema } from '../schemas/auth.schema';
-import { authRateLimit } from '../lib/rate-limit';
+import { authRateLimit, accountRateLimit } from '../lib/rate-limit';
 import type { BackupHealth, PurgeResponse } from '../../../shared/maintenance';
 import { AUDIT_ACTIONS, AUDIT_STATUSES } from '../../../shared/audit';
 import { sharesService } from '../services/shares.service';
 
 const adminRouter = Router();
-
-// #638: a reset and an admin-role grant ask for the admin's password and 2FA
-// code — throttled like the other password and 2FA checks.
-const resetPasswordLimiter = authRateLimit(20);
-const roleLimiter = authRateLimit(20);
 
 /** Refusals of the admin's own re-authentication (#638). */
 const REAUTH_ERRORS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE']);
@@ -39,7 +34,16 @@ const REAUTH_ERRORS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_T
 // #890: one limiter for every other step-up route, counting refusals only — a
 // password or code guess spends it whatever the route, an admin saving their
 // settings does not.
-const stepUpLimiter = authRateLimit(20, { skipSuccessfulRequests: true });
+// #606 (review): and one per admin account, counting wrong passwords and
+// codes only — the per-IP limits alone let a stolen session guess the
+// admin's password from rotating addresses. Shared by every step-up route.
+const STEP_UP_ACCOUNT_MAX = 20;
+const stepUpAccountLimiter = accountRateLimit(STEP_UP_ACCOUNT_MAX, 'admin-step-up');
+const stepUpLimiter = [authRateLimit(20, { skipSuccessfulRequests: true }), ...stepUpAccountLimiter];
+// #638, #603: a reset and a role change ask for the admin's password and 2FA
+// code — throttled like the other password and 2FA checks.
+const resetPasswordLimiter = [authRateLimit(20), ...stepUpAccountLimiter];
+const roleLimiter = [authRateLimit(20), ...stepUpAccountLimiter];
 
 type StepUpAudit = { action: AuditAction; details: Record<string, unknown> };
 
@@ -132,13 +136,6 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
         res.status(400).json({ error: 'INVALID_INPUT' });
         return;
     }
-    const reauth = adminReauthSchema.safeParse({ password: req.body.password, code: req.body.code });
-    if (!reauth.success) {
-        res.status(400).json({ error: 'VALIDATION_ERROR' });
-        return;
-    }
-    const ip = getClientIp(req);
-    const audit = { action: 'ADMIN_ROLE_CHANGE' as const, details: { targetUserId: userId, isAdmin } };
 
     // Prevent admin from removing their own admin privileges
     if (req.userId === userId && !isAdmin) {
@@ -147,23 +144,22 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
     }
 
     try {
-        // #638: granting the admin role hands a session holder a second admin
-        // account — the same step-up as a password reset. Removing it lowers
-        // privileges and only needs the session.
-        if (isAdmin) {
-            // Checked first, so a request that would change nothing does not
-            // spend one of the admin's backup codes.
-            const target = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
-            if (!target) {
-                res.status(404).json({ error: 'USER_NOT_FOUND' });
-                return;
-            }
-            if (target.isAdmin) {
-                res.status(409).json({ error: 'ALREADY_ADMIN' });
-                return;
-            }
-            await authService.reauthenticateAdmin(req.userId, reauth.data, { ip, userAgent: req.headers['user-agent'] }, audit);
+        // Checked first, so a request that would change nothing does not
+        // spend one of the admin's backup codes.
+        const target = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true } });
+        if (!target) {
+            res.status(404).json({ error: 'USER_NOT_FOUND' });
+            return;
         }
+        if (target.isAdmin === isAdmin) {
+            res.status(409).json({ error: isAdmin ? 'ALREADY_ADMIN' : 'NOT_ADMIN' });
+            return;
+        }
+        // #638: granting the role hands the session holder a second admin
+        // account. #603: removing it is gated too — a stolen session could
+        // otherwise demote the other admins and stay the only one.
+        const audit: StepUpAudit = { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: userId, isAdmin } };
+        if (!(await stepUp(req, res, audit))) return;
         const user = await prisma.user.update({
             where: { id: userId },
             data: { isAdmin },
@@ -175,13 +171,9 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
                 isActive: true,
             },
         });
-        void auditLog({ userId: req.userId, action: audit.action, status: 'success', ip, details: audit.details });
+        auditSuccess(req, audit);
         res.json({ data: user });
     } catch (error: unknown) {
-        if (error instanceof Error && REAUTH_ERRORS.has(error.message)) {
-            res.status(403).json({ error: error.message });
-            return;
-        }
         console.error('[Admin] Error updating user role:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
@@ -196,7 +188,7 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
  * @desc    Activate or deactivate a user account
  * @access  Admin Private
  */
-adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): Promise<void> => {
+adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
     const userId = routeParam(req.params.userId);
     const { isActive } = req.body;
 
@@ -212,22 +204,30 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
     }
 
     try {
+        const target = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { isAdmin: true },
+        });
+        if (!target) {
+            res.status(404).json({ error: 'USER_NOT_FOUND' });
+            return;
+        }
         // Prevent deactivating the last active admin
-        if (!isActive) {
-            const target = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { isAdmin: true },
+        if (!isActive && target.isAdmin) {
+            const activeAdminCount = await prisma.user.count({
+                where: { isAdmin: true, isActive: true },
             });
-            if (target?.isAdmin) {
-                const activeAdminCount = await prisma.user.count({
-                    where: { isAdmin: true, isActive: true },
-                });
-                if (activeAdminCount <= 1) {
-                    res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
-                    return;
-                }
+            if (activeAdminCount <= 1) {
+                res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
+                return;
             }
         }
+
+        // #603: checked after the refusals above, so they spend no backup
+        // code. A stolen admin session could otherwise lock the other admins
+        // out, or wake up an account it knows the password of.
+        const audit: StepUpAudit = { action: 'ADMIN_STATUS_CHANGE', details: { targetUserId: userId, isActive } };
+        if (!(await stepUp(req, res, audit))) return;
 
         // #605: deactivating cuts the member's accesses for good, so that
         // reactivating the account never wakes up a stolen session, a trusted
@@ -252,13 +252,7 @@ adminRouter.patch('/users/:userId/status', async (req: Request, res: Response): 
             }
             return updated;
         });
-        void auditLog({
-            userId: req.userId,
-            action: 'ADMIN_STATUS_CHANGE',
-            status: 'success',
-            ip: getClientIp(req),
-            details: { targetUserId: userId, isActive },
-        });
+        auditSuccess(req, audit);
         res.json({ data: user });
     } catch (error) {
         console.error('[Admin] Error updating user status:', error);

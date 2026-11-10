@@ -5,8 +5,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    user: { findMany: vi.fn(), update: vi.fn() },
+    user: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
   },
+}));
+
+// #603: the password is checked first.
+vi.mock('bcryptjs', () => ({ default: { compare: vi.fn().mockResolvedValue(true), hash: vi.fn() } }));
+vi.mock('../../src/services/system-config.service', () => ({
+  systemConfigService: { getEffectivePublicUrl: vi.fn().mockResolvedValue('https://glou.example') },
 }));
 
 const { send } = vi.hoisted(() => ({ send: vi.fn().mockResolvedValue(undefined) }));
@@ -28,14 +34,16 @@ beforeEach(() => {
 
 describe('admins are told about account deletions (#509)', () => {
   it('notifies the other admins when a member requests deletion', async () => {
-    vi.mocked(prisma.user.update).mockResolvedValue({ username: '<b>marie</b>' } as never);
-    await authService.requestAccountDeletion('u1');
+    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue({ username: '<b>marie</b>', passwordHash: 'h', isAdmin: false } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ language: 'EN', notifLanguage: null } as never);
+    await authService.requestAccountDeletion('u1', 'pw', {});
     await flush();
 
     const where = vi.mocked(prisma.user.findMany).mock.calls[0]?.[0]?.where;
     expect(where).toMatchObject({ isAdmin: true, id: { not: 'u1' } });
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ userId: 'admin1', category: 'security' }));
-    expect(send.mock.calls[0][0].htmlBody).toContain('&lt;b&gt;marie&lt;/b&gt;');
+    const toAdmin = send.mock.calls.find(([arg]) => arg.userId === 'admin1')?.[0];
+    expect(toAdmin.htmlBody).toContain('&lt;b&gt;marie&lt;/b&gt;');
   });
 
   it('notifies admins when deletions were carried out, and stays quiet otherwise', async () => {

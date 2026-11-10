@@ -871,6 +871,7 @@
       "step1": "1. Scannez ce QR Code avec votre application d'authentification (Google Authenticator, Authy, etc.).",
       "orSecret": "Ou utilisez la clé secrète :",
       "step2": "2. Saisissez le code à 6 chiffres pour confirmer.",
+      "step3": "3. Confirmez avec votre mot de passe.",
       "codeLabel": "Code à 6 chiffres",
       "codesConfirmed": "J'ai sauvegardé mes codes",
       "disableTitle": "Désactiver la double authentification",
@@ -931,6 +932,8 @@
       "deactivateSelf": "Impossible de désactiver votre propre compte",
       "grantAdminConfirm": "Donner les droits d'administrateur à {{username}} ?",
       "deactivateConfirm": "Couper l'accès de {{username}} à cette instance ? Ses sessions, appareils de confiance et liens invités seront révoqués définitivement : réactiver le compte plus tard ne les rétablira pas, il devra se reconnecter et créer de nouveaux liens invités.",
+      "removeAdminConfirm": "Retirer les droits d'administrateur de {{username}} ?",
+      "activateConfirm": "Rendre l'accès à {{username}} ? Il devra se reconnecter ; ses anciennes sessions, appareils de confiance et liens invités restent révoqués.",
       "deactivateLastAdmin": "Impossible de désactiver le dernier administrateur",
       "me": "moi",
       "resetPassword": "Réinitialiser le mot de passe",
@@ -1012,7 +1015,15 @@
         "BACKUP_DOWNLOAD": "Sauvegarde téléchargée",
         "PURGE": "Purge des données",
         "CONFIG_UPDATE": "Paramètres modifiés",
-        "CONFIG_TEST": "Test des paramètres"
+        "CONFIG_TEST": "Test des paramètres",
+        "LOGIN_FAILED": "Connexion refusée",
+        "PASSWORD_CHANGE": "Mot de passe modifié",
+        "EMAIL_CHANGE": "Adresse e-mail modifiée",
+        "TWO_FACTOR_ON": "Double authentification activée",
+        "TWO_FACTOR_OFF": "Double authentification désactivée",
+        "ADMIN_PASSWORD_RESET": "Mot de passe réinitialisé par un administrateur",
+        "SHARE_CREATE": "Lien invité créé",
+        "SHARE_REVOKE": "Lien invité révoqué"
       },
       "statuses": {
         "success": "Réussi",
@@ -1716,7 +1727,12 @@
     "deleteConfirm": "Confirmer la suppression",
     "deletionPending": "Suppression demandée",
     "deletionRequestedOn": "Votre compte sera supprimé le {{date}}, sauf annulation de votre part avant cette date.",
-    "cancelDeletion": "Annuler la suppression"
+    "cancelDeletion": "Annuler la suppression",
+    "deleteErrors": {
+      "INVALID_CREDENTIALS": "Mot de passe actuel incorrect",
+      "CANNOT_DELETE_LAST_ADMIN": "Vous êtes le seul administrateur de cette instance : donnez d'abord les droits d'administrateur à un autre membre, puis demandez la suppression de votre compte.",
+      "UNEXPECTED_ERROR": "La demande n'a pas pu aboutir. Réessayez."
+    }
   },
   "shares": {
     "title": "Partages invités",
