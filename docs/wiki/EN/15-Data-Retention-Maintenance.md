@@ -15,7 +15,7 @@ Set how long Glou keeps audit logs, expired sessions and unused guest shares/inv
    - **Audit log retention**: default `90`.
    - **Session retention**: default `30`. Applies to expired or revoked sessions and trusted devices.
    - **Guest share / invitation retention**: default `30`. Applies to expired or revoked guest shares.
-3. Click **Save**.
+3. Click **Save**. A shorter delay than the saved one is confirmed with your password, plus your code if your account has two-factor authentication: it deletes data at the next cleanup, audit log entries included, so a stolen session alone cannot erase the trail. A longer delay needs no confirmation.
 
 ### Force an immediate run
 1. In the same tab, click **Run now**.

@@ -24,7 +24,14 @@ Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf 
 ## Reconstruire sur une nouvelle machine
 1. Installez Docker et placez votre `docker-compose.yml` et **le même `.env`** sur la nouvelle machine (en particulier la même `CONFIG_ENCRYPTION_KEY`).
 2. Démarrez la pile : `docker compose up -d`. L'API crée une base vide.
-3. Vérifiez que le fichier de sauvegarde est complet. Cette commande n'affiche rien si le fichier est bon :
+3. **Dans l'application**, le plus simple, quand la nouvelle machine fait tourner la même version de Glou que celle qui a pris la sauvegarde :
+   - Copiez le fichier de sauvegarde, sans le renommer (`glou-backup-….sql.gz`), dans le dossier `./backups` à côté de `docker-compose.yml`, puis redémarrez l'API : `docker compose restart api`. Au démarrage, l'API ajoute à l'historique des sauvegardes chaque fichier de sauvegarde de ce dossier (un fichier tronqué est écarté).
+   - Créez le premier compte : il est l'admin de cette instance encore vide.
+   - Ouvrez Admin → Configuration système → Données, trouvez la sauvegarde dans l'historique des sauvegardes et choisissez **Restaurer**. Glou prend d'abord une sauvegarde de la base actuelle (vide), puis demande le mot de passe du compte que vous venez de créer.
+   - Une fois la restauration faite, connectez-vous avec un compte de la sauvegarde, puis reprenez à l'étape 6 (photos).
+
+   Si Glou répond que la sauvegarde a été prise par une autre version, utilisez plutôt la ligne de commande des étapes 4 et 5.
+4. **Ou en ligne de commande.** Vérifiez que le fichier de sauvegarde est complet. Cette commande n'affiche rien si le fichier est bon :
    ```bash
    gunzip -t glou-backup-XXXX.sql.gz
    ```
@@ -37,13 +44,13 @@ Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf 
      | docker compose exec -T db psql -U glou -d glou_db -v ON_ERROR_STOP=1 --single-transaction
    ```
    Une erreur SQL dans le fichier annule toute la restauration ; un fichier tronqué, c'est le rôle de la vérification `gunzip -t` ci-dessus. La partie `sed` retire un réglage que contiennent les anciennes sauvegardes et que PostgreSQL 15 refuse ; elle ne change rien aux sauvegardes plus récentes. Si vous avez changé `DB_USER` ou `DB_NAME` dans votre `.env`, utilisez ces valeurs à la place de `glou` et `glou_db`.
-4. Redémarrez l'API pour qu'elle applique les mises à jour de base postérieures à la sauvegarde : `docker compose restart api`.
-5. Restaurez les photos dans le volume `api_uploads`, par exemple :
+5. Redémarrez l'API pour qu'elle applique les mises à jour de base postérieures à la sauvegarde : `docker compose restart api`.
+6. Restaurez les photos dans le volume `api_uploads`, par exemple :
    ```bash
    docker run --rm -v <projet>_api_uploads:/data -v "$PWD":/backup alpine \
      sh -c 'cd /data && tar xzf /backup/uploads.tar.gz && chown -R 1001:1001 /data'
    ```
-6. Vérifiez : connectez-vous, ouvrez une cave, envoyez un email de test (Admin → Configuration système → Notifications → E-mail → Tester la connexion).
+7. Vérifiez : connectez-vous, ouvrez une cave, envoyez un email de test (Admin → Configuration système → Notifications → E-mail → Tester la connexion).
 
 ## Sauvegarder les photos
 ```bash
@@ -56,6 +63,7 @@ Remplacez `<projet>` par le préfixe affiché par `docker volume ls` (en génér
 
 | Symptôme | Cause et solution |
 |---|---|
+| La sauvegarde copiée n'est pas dans l'historique des sauvegardes | Redémarrez l'API après la copie (`docker compose restart api`), gardez le nom en `glou-backup-` et l'extension `.sql.gz`, et vérifiez que l'API peut lire le fichier (`sudo chown 1001:1001 backups/*`). Un fichier tronqué n'est jamais listé : vérifiez-le avec `gunzip -t`. |
 | `gunzip -t` signale `unexpected end of file` ou `not in gzip format` | Le fichier est incomplet : recopiez-le, ou utilisez une sauvegarde plus ancienne. Ne le restaurez pas. |
 | La restauration s'arrête avec des erreurs `already exists` | Le schéma n'a pas été réinitialisé : gardez la première ligne `printf` de la commande. |
 | La restauration s'arrête avec `unrecognized configuration parameter "transaction_timeout"` | La partie `sed '/^SET transaction_timeout/d'` de la commande manque : recopiez la commande en entier. |

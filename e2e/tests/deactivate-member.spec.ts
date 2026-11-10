@@ -30,7 +30,8 @@ test('deactivate then reactivate a member: their old session and guest link stay
   const username = `e2e605_${`${Date.now()}`.slice(-8)}`;
 
   try {
-    await okData(await admin.put('/api/admin/config/registration', { data: { registrationOpen: true } }));
+    // #893: opening sign-up asks for the admin's password.
+    await okData(await admin.put('/api/admin/config/registration', { data: { registrationOpen: true, password: creds().password } }));
     const { id: memberId } = await okData<{ id: string }>(await member.post('/api/auth/register', {
       data: { username, email: `${username}@glou.test`, password: 'deactivated-pw-0000' },
     }));

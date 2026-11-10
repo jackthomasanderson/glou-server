@@ -15,11 +15,11 @@ Schedule database backups from Admin, restore one when needed, export your own d
 
 1. Go to **Admin → System Configuration → Data**.
 2. Make sure the **Enabled** switch is on.
-3. Set **Retention** (days to keep old backup files, default `7`) and **Hour (UTC)** (hour of day the daily backup runs, default `3`).
-4. Click **Save**.
+3. Set **Retention** (days to keep old backup files, default `7`) and **Run time** (hour of day the daily backup runs, default `03:00`, in the server's time zone `TZ`, shown under the field).
+4. Click **Save**. Turning backups off, or keeping their files for fewer days than before, is confirmed with your password, plus your code if your account has two-factor authentication.
 
 > [!TIP]
-> The scheduler ticks every hour and produces a dump when the switch is on and the current UTC hour matches your configured hour. It therefore runs once a day, and toggling **Enabled** takes effect on the next tick, with no restart.
+> The scheduler ticks every hour and produces a dump when the switch is on and the current hour, in the server's time zone, matches your configured hour. It therefore runs once a day, and toggling **Enabled** takes effect on the next tick, with no restart.
 >
 > Missed backups are caught up. If the container was stopped or restarting at your configured hour, the backup runs at the next hourly tick: any time the last successful backup is more than 25 hours old, a new one is taken.
 >
@@ -36,7 +36,7 @@ Schedule database backups from Admin, restore one when needed, export your own d
    > Restoring is destructive: it overwrites **all current data** with the content of that backup file. The dialog requires you to type a confirmation keyword; then you confirm with your password, plus a code from your authenticator app (or a backup code) if your account has two-factor authentication.
 
 2. Confirm. A backup of the current data is taken first and added to the history: to undo the restore, restore that backup. If this safety backup fails (full disk…), nothing is restored and your data is untouched. The restore is logged in the audit trail regardless of whether it succeeds or fails.
-3. The restore is all-or-nothing: if the backup file is damaged or incomplete, it fails and your current data is untouched. A backup made by **another version** of Glou is refused here, and nothing is restored: an older one (such as the `glou-backup-before-migration-…` file taken before an update) or a newer one. To go back to the older version with its data, follow [Go back](./31-Upgrades-And-Rollback.md#go-back). To stay on the current version with the data of that backup, restore it with the command of step 3 of [Disaster recovery](./30-Disaster-Recovery.md), then restart the API (`docker compose restart api`): Glou backs the data up, then updates it.
+3. The restore is all-or-nothing: if the backup file is damaged or incomplete, it fails and your current data is untouched. A backup made by **another version** of Glou is refused here, and nothing is restored: an older one (such as the `glou-backup-before-migration-…` file taken before an update) or a newer one. To go back to the older version with its data, follow [Go back](./31-Upgrades-And-Rollback.md#go-back). To stay on the current version with the data of that backup, restore it with the command of step 4 of [Disaster recovery](./30-Disaster-Recovery.md), then restart the API (`docker compose restart api`): Glou backs the data up, then updates it.
 4. You can also **Download** a backup file directly from the history list instead of restoring it in place. It is confirmed the same way: your password, plus your code if your account has two-factor authentication. An open admin session alone can neither download, restore nor purge.
 5. After a restore, the history still lists every backup file of `./backups`, including those newer than the restored one. A backup file copied by hand into `./backups` (for example to recover on a new machine) appears in the history after an API restart (`docker compose restart api`); it can then be restored or downloaded like any other. Keep its original name (`glou-backup-<date>.sql.gz`): the date shown comes from it, while a renamed file is dated by its last modification. A damaged or incomplete file is not listed (the API logs say why).
 
@@ -72,7 +72,7 @@ A restore actually working isn't just asserted here: `e2e/tests/backup-restore.s
 
 | Error / Behavior | Fix |
 | :--- | :--- |
-| **Backups are enabled but no file ever appears** | Check the **Hour (UTC)** value against the current UTC time: the job only fires during that hour once enabled. Or click **Back up now** to test immediately. |
+| **Backups are enabled but no file ever appears** | Check the **Run time** value against the current time of the server's time zone (shown under the field): the job only fires during that hour once enabled. Or click **Back up now** to test immediately. |
 | **I clicked Restore and now my data is different than before** | Expected: restore overwrites all current data with the backup's content. If this was a mistake, restore the backup taken automatically just before the restore: it is the most recent **Manual** entry of the history. |
 | **The restore was refused: the backup taken before the restore failed** | Nothing was restored. The failed backup is in the history with its error: fix the cause (usually disk space or the `./backups` permissions), then restore again. |
 | **My export file only has some of my data** | You used **Filter** and only selected certain categories. Use the plain **Export** button for a full export instead. |

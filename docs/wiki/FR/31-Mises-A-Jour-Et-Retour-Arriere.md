@@ -67,7 +67,7 @@ En secours, si vous ne connaissez pas cette version : chaque build est aussi pub
 1. Arrêtez la pile : `docker compose down` (cela conserve vos volumes).
 2. Dans `docker-compose.yml`, fixez les deux images sur le tag de version voulu, par exemple `image: ghcr.io/jackthomasanderson/glou-server-api:v2026.10.0` (idem pour `glou-server-web`), ou, en secours, sur un tag SHA de commit ou les digests notés, par ex. `image: ghcr.io/jackthomasanderson/glou-server-api@sha256:…`.
 3. Démarrez seulement la base : `docker compose up -d db`.
-4. Restaurez la sauvegarde faite avant la mise à jour (le fichier `glou-backup-before-migration-….sql.gz` du dossier `./backups`, à côté de `docker-compose.yml` ; si la mise à jour n'apportait aucune migration, votre dernier `glou-backup-….sql.gz`) avec les deux commandes de l'étape 3 de [Reprise après sinistre](./30-Reprise-Apres-Sinistre.md) : vérifiez le fichier, puis restaurez-le.
+4. Restaurez la sauvegarde faite avant la mise à jour (le fichier `glou-backup-before-migration-….sql.gz` du dossier `./backups`, à côté de `docker-compose.yml` ; si la mise à jour n'apportait aucune migration, votre dernier `glou-backup-….sql.gz`) avec les deux commandes de l'étape 4 de [Reprise après sinistre](./30-Reprise-Apres-Sinistre.md) : vérifiez le fichier, puis restaurez-le.
 5. Démarrez tout : `docker compose up -d`. L'ancienne API trouve une base conforme à sa version et démarre normalement.
 
 > [!CAUTION]

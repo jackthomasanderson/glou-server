@@ -15,7 +15,7 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
    - **Rétention des logs d'audit** : défaut `90`.
    - **Rétention des sessions** : défaut `30`. S'applique aux sessions expirées/révoquées et aux appareils de confiance.
    - **Rétention des invitations / partages invités** : défaut `30`. S'applique aux partages invités expirés ou révoqués.
-3. Cliquez sur **Enregistrer**.
+3. Cliquez sur **Enregistrer**. Un délai plus court que celui enregistré se confirme avec votre mot de passe, plus votre code si votre compte a la double authentification : il supprime des données au prochain nettoyage, entrées du journal d'audit comprises, donc une session volée seule ne peut pas effacer les traces. Un délai plus long ne demande aucune confirmation.
 
 ### Forcer une exécution immédiate
 1. Dans le même onglet, cliquez sur **Exécuter maintenant**.
