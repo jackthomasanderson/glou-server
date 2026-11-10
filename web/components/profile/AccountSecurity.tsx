@@ -195,7 +195,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
         </div>
 
         {/* FEAT-30: Unlock PIN */}
-        <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
+        <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-default-50 rounded-xl">
           <div>
             <p className="text-xs text-foreground-500">{t('profile.pinLabel')}</p>
             <p className="text-sm font-medium">{hasPin ? t('profile.pinSet') : t('profile.pinNotSet')}</p>

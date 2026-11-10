@@ -886,10 +886,10 @@
     "twoFactor": {
       "title": "Sécurité & Authentification",
       "description": "Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application lors de la connexion.",
-      "status": "Statut 2FA",
+      "status": "Statut 2FA :",
       "enabled": "Activé",
       "disabled": "Désactivé",
-      "adminRecommended": "Recommandée pour les comptes administrateurs.",
+      "adminRecommended": "La double authentification est recommandée pour les comptes administrateurs.",
       "enable": "Activer",
       "disable": "Désactiver",
       "enableTitle": "Activer la double authentification",

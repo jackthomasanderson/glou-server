@@ -115,21 +115,21 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
 
         <div className="flex items-center justify-between gap-3 p-3 bg-default-50 rounded-xl">
           <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium flex flex-wrap items-center gap-2">
-              {t('profile.twoFactor.status')} :
-              {/* #770: colour + icon + text, and text colours at 4.5:1 or more in both themes. */}
+            <div className="text-sm font-medium flex flex-wrap items-center gap-2">
+              {t('profile.twoFactor.status')}
+              {/* #770: colour + icon + text; the -800 shades keep the light-theme text above 4.5:1 on the flat chip. */}
               {user.isTwoFactorEnabled ? (
                 <Chip size="sm" variant="flat" color="success" startContent={<ShieldCheck size={14} />}
-                  classNames={{ content: 'font-semibold text-success-700 dark:text-success' }}>
+                  classNames={{ base: 'text-success-800 dark:text-success', content: 'font-semibold' }}>
                   {t('profile.twoFactor.enabled')}
                 </Chip>
               ) : (
                 <Chip size="sm" variant="flat" color="warning" startContent={<ShieldAlert size={14} />}
-                  classNames={{ content: 'font-semibold text-warning-700 dark:text-warning' }}>
+                  classNames={{ base: 'text-warning-800 dark:text-warning', content: 'font-semibold' }}>
                   {t('profile.twoFactor.disabled')}
                 </Chip>
               )}
-            </p>
+            </div>
             {user.isAdmin && !user.isTwoFactorEnabled && (
               <p className="text-xs text-foreground-500">{t('profile.twoFactor.adminRecommended')}</p>
             )}

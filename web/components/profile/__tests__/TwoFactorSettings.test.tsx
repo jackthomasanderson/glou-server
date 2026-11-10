@@ -144,17 +144,17 @@ describe('TwoFactorSettings follows the account 2FA state (#576)', () => {
 describe('TwoFactorSettings admin recommendation (#770)', () => {
   it('recommends 2FA to an admin who has it off', () => {
     render(<TwoFactorSettings user={makeUser(false, true)} />);
-    expect(screen.getByText('Recommended for administrator accounts.')).toBeInTheDocument();
+    expect(screen.getByText('Two-factor authentication is recommended for administrator accounts.')).toBeInTheDocument();
   });
 
   it('says nothing to a member with 2FA off', () => {
     render(<TwoFactorSettings user={makeUser(false, false)} />);
-    expect(screen.queryByText('Recommended for administrator accounts.')).toBeNull();
+    expect(screen.queryByText('Two-factor authentication is recommended for administrator accounts.')).toBeNull();
   });
 
   it('says nothing to an admin who already has 2FA on', () => {
     render(<TwoFactorSettings user={makeUser(true, true)} />);
-    expect(screen.queryByText('Recommended for administrator accounts.')).toBeNull();
+    expect(screen.queryByText('Two-factor authentication is recommended for administrator accounts.')).toBeNull();
   });
 });
 
