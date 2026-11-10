@@ -106,7 +106,7 @@ export function SessionsPanel() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-medium truncate">{formatDevice(session.device)}</p>
                   {session.isCurrent && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-white shrink-0">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
                       {t('profile.sessions.current')}
                     </span>
                   )}

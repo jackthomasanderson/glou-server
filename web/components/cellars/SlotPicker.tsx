@@ -84,7 +84,7 @@ export function SlotPicker({ cellarId, slots, needed, selected, onChange, title,
               }
               const isChosen = selected.includes(slot.id);
               const unavailable = !isChosen && full;
-              const chosenLook = tone === 'danger' ? 'bg-danger border-danger text-white' : 'bg-primary border-primary text-white';
+              const chosenLook = tone === 'danger' ? 'bg-danger border-danger text-danger-foreground' : 'bg-primary border-primary text-primary-foreground';
               return (
                 <button
                   key={key}

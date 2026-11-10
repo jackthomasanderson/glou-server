@@ -129,7 +129,7 @@ export function ProfileClient() {
                 <h2 className="text-base font-semibold">{t('profile.personalInfo')}</h2>
               </div>
               {user && (
-                <span className={`text-xs font-bold px-2 py-1 rounded-lg ${user.isAdmin ? 'bg-primary text-white' : 'bg-default-100 text-foreground-500 border border-divider'}`}>
+                <span className={`text-xs font-bold px-2 py-1 rounded-lg ${user.isAdmin ? 'bg-primary text-primary-foreground' : 'bg-default-100 text-foreground-500 border border-divider'}`}>
                   {user.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}
                 </span>
               )}

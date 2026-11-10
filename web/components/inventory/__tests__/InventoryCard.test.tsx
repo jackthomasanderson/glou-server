@@ -132,7 +132,7 @@ describe('InventoryCard — one card per wine', () => {
 
 // #647: the drinking-window status was only the colour of one warning triangle.
 describe('InventoryCard — drinking-window status without colour or hover', () => {
-  const windowButton = () => screen.getByRole('button', { name: /^Apogée : 2020 – 2030/ });
+  const windowButton = () => screen.getByRole('button', { name: /: 2020 – 2030/ });
   const icon = () => windowButton().querySelector('svg')?.getAttribute('class') ?? '';
   const shownText = () => windowButton().textContent;
 
@@ -143,6 +143,8 @@ describe('InventoryCard — drinking-window status without colour or hover', () 
   it('each status has its own icon and a short visible label', () => {
     const seen = (['approaching', 'peak', 'past'] as const).map((status) => {
       const { unmount } = withStatus(status);
+      // WCAG 2.5.3: the accessible name starts with the visible label.
+      expect(windowButton().getAttribute('aria-label')?.startsWith(shownText() ?? '-')).toBe(true);
       const result = { icon: icon().match(/lucide-[a-z-]+/g)?.join(' '), text: shownText() };
       unmount();
       return result;
@@ -164,7 +166,8 @@ describe('InventoryCard — drinking-window status without colour or hover', () 
     withStatus('peak', true);
     expect(shownText()).toBe('Apogée : 2020 – 2030');
     expect(icon()).toContain('opacity-60');
-    expect(windowButton()).toHaveAccessibleName(/Alerte suspendue/);
+    expect(icon()).toContain('lucide-bell-off');
+    expect(windowButton()).toHaveAccessibleName("Apogée : 2020 – 2030 — À l'apogée — Alerte suspendue");
   });
 });
 
