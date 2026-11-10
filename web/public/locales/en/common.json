@@ -1143,6 +1143,8 @@
     },
     "backupWarning": {
       "notWritable": "Glou cannot write to the backups folder: every backup fails.",
+      "failed": "The last backup failed: check the disk space and the API logs, then run one again.",
+      "overdue": "No backup has succeeded for more than two days: the data is no longer being copied.",
       "disabled": "Automatic backups are switched off: no copy of the data is taken each night.",
       "noBackup": "No backup has ever succeeded: after a disk failure or a wrong move, nothing could be restored.",
       "open": "Open backups",
@@ -1887,8 +1889,6 @@
     "subtitle": "Choose how you receive your alerts. Some channels may be restricted by your administrator.",
     "channels": {
       "title": "Channels",
-      "inApp": "In-app notifications",
-      "inAppDesc": "Alerts visible in the interface",
       "email": "Email",
       "emailDesc": "Notifications sent to your email address",
       "webhook": "Gotify",
@@ -1902,9 +1902,6 @@
         "gotify": {
           "notConfigured": "Gotify server not configured (URL and application token)",
           "off": "Gotify switched off in Administration"
-        },
-        "inApp": {
-          "off": "In-app notifications switched off in Administration"
         }
       },
       "configure": "Configure",
@@ -1969,14 +1966,12 @@
     "channelStatus": {
       "active": "Active",
       "configuredOff": "Configured but off",
-      "notConfigured": "Not configured",
-      "off": "Off"
+      "notConfigured": "Not configured"
     },
     "testUsesSaved": "Tests use the saved settings: save your changes first.",
     "stepUp": {
       "smtp": "The mail server sends password reset links and security alerts, so changing it is confirmed.",
       "smtpTest": "The test connects to the saved mail server, and sends a message if you gave an address.",
-      "notifications": "These channels carry the security alerts sent to members, so changing them is confirmed.",
       "gotify": "The Gotify server receives the security alerts, so changing it is confirmed.",
       "gotifyTest": "The test sends a notification to the saved Gotify server.",
       "network": "Password reset links are built from the public URL, so changing it is confirmed.",
@@ -1991,7 +1986,6 @@
       "system": "System"
     },
     "cards": {
-      "inApp": "In-app",
       "email": "Email",
       "gotify": "Gotify",
       "publicUrl": "Public URL",
@@ -2034,11 +2028,8 @@
     },
     "notifPolicy": {
       "description": "Each channel below is switched on or off for the whole instance. A channel switched off here cannot be turned on by members in their preferences.",
-      "inApp": "In-app notifications",
-      "inAppHint": "Allows users to receive alerts directly in the interface.",
       "emailHint": "Sends password reset links, and the notifications members choose to get by email.",
-      "webhookHint": "Every Gotify notification goes to this server, in the same application: members only choose in their profile whether to receive them, and each message carries the name of the member it is for. The URL and the application token are needed to switch the channel on.",
-      "saved": "In-app notifications saved."
+      "webhookHint": "Every Gotify notification goes to this server, in the same application: members only choose in their profile whether to receive them, and each message carries the name of the member it is for. The URL and the application token are needed to switch the channel on."
     },
     "gotify": {
       "enabled": "Enable Gotify notifications",
@@ -2049,7 +2040,6 @@
       "tokenPlaceholder": "Leave blank to keep current",
       "test": "Send a test notification",
       "testSuccess": "The Gotify server accepted the test notification.",
-      "testError": "Failed: {{error}}",
       "saved": "Gotify configuration saved."
     },
     "scan": {

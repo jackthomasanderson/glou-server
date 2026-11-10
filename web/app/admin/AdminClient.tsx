@@ -67,6 +67,16 @@ export function AdminClient() {
     setSection('config');
     setConfigTab(tab);
   };
+  // #671: the backup alert shown on every other page links to /admin?tab=data.
+  // Read once after mount, from the address itself: no Suspense boundary is
+  // needed (useSearchParams), and the server-rendered first pass is unchanged.
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') !== 'data') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSectionState('config');
+    setVisited((prev) => new Set(prev).add('config'));
+    setConfigTab('data');
+  }, []);
   // #756: no automatic backup, or none that ever succeeded, is said at the top of the page.
   const { data: backupHealth } = useAdminBackupHealth();
   const problems = backupProblems(backupHealth);

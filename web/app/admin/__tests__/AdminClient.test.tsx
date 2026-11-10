@@ -13,7 +13,7 @@ import type { AdminUser } from '@/hooks/useAdmin';
 
 let i18n: I18n;
 let isMobile = false;
-let health: { directoryWritable: boolean; backupEnabled: boolean; lastSuccessAt: string | null } | undefined;
+let health: { directoryWritable: boolean; backupEnabled: boolean; lastSuccessAt: string | null; lastRunFailed?: boolean; overdue?: boolean } | undefined;
 let systemConfig: { registrationOpen: boolean } | undefined;
 const users: AdminUser[] = [
   { id: 'a1', username: 'admin', email: 'admin@example.com', displayName: null, isAdmin: true, isActive: true, isTwoFactorEnabled: false, createdAt: '2026-01-01T00:00:00.000Z' },
@@ -127,6 +127,23 @@ describe('AdminClient (#698, #756)', () => {
     expect(bob).toHaveTextContent('bob@example.com');
     expect(bob).toHaveTextContent('Disabled');
     expect(within(bob).getByRole('button', { name: /Activate/ })).toBeInTheDocument();
+  });
+
+  // #671: the banner shown on every other page links here, to the Data tab.
+  it('opens System configuration → Data when reached from the backup alert link', () => {
+    window.history.replaceState(null, '', '/admin?tab=data');
+    try {
+      render(<AdminClient />);
+      expect(screen.getByText('config-section:data')).toBeInTheDocument();
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
+  it('says on the admin page that the last backup failed (#671)', () => {
+    health = { directoryWritable: true, backupEnabled: true, lastSuccessAt: '2026-11-08T03:00:00.000Z', lastRunFailed: true, overdue: false };
+    render(<AdminClient />);
+    expect(screen.getByRole('alert')).toHaveTextContent('The last backup failed');
   });
 
   it('warns at the top when automatic backups are off, and opens the Data tab', () => {

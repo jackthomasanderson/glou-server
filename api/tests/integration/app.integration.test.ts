@@ -639,10 +639,13 @@ describe('GET /api/admin/backups/health', () => {
   it('says whether automatic backups are on and when the last successful one ran', async () => {
     writableSpy = vi.spyOn(backupService, 'isBackupsDirWritable').mockReturnValue(true);
     vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ backupEnabled: false } as never);
-    vi.mocked(prisma.backupRun.findFirst).mockResolvedValue({ runAt: new Date('2026-11-01T03:00:00Z') } as never);
+    // The last success, then the last run of any outcome (#671).
+    vi.mocked(prisma.backupRun.findFirst)
+      .mockResolvedValueOnce({ runAt: new Date('2026-11-01T03:00:00Z') } as never)
+      .mockResolvedValueOnce({ success: true } as never);
     const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: false, lastSuccessAt: '2026-11-01T03:00:00.000Z' } });
+    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: false, lastSuccessAt: '2026-11-01T03:00:00.000Z', lastRunFailed: false, overdue: false } });
     expect(vi.mocked(prisma.backupRun.findFirst).mock.calls[0][0]?.where).toEqual({ success: true });
   });
 
@@ -662,7 +665,7 @@ describe('GET /api/admin/backups/health', () => {
     vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue(null as never);
     vi.mocked(prisma.backupRun.findFirst).mockResolvedValue(null as never);
     const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
-    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: true, lastSuccessAt: null } });
+    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: true, lastSuccessAt: null, lastRunFailed: false, overdue: false } });
   });
 });
 

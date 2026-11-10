@@ -117,7 +117,6 @@ describe('SystemConfigSection — sensitive settings ask for the step-up (#890)'
   });
 
   it.each([
-    ['adminConfig.cards.inApp', (c: HTMLElement) => fireEvent.click(within(c).getByRole('switch', { name: 'adminConfig.notifPolicy.inApp' })), 'adminConfig.stepUp.notifications', '/admin/config/notifications'],
     ['adminConfig.cards.gotify', (c: HTMLElement) => fireEvent.change(within(c).getByLabelText('adminConfig.gotify.url'), { target: { value: 'https://gotify.example.com' } }), 'adminConfig.stepUp.gotify', '/admin/config/gotify'],
   ])('saving the %s card asks for the step-up and sends it', async (title, edit, message, path) => {
     const fetchMock = stubApi({ [path]: { status: 200, body: { data: CONFIG } } });

@@ -25,8 +25,7 @@ export const gotifyConfigSchema = z.object({
 export const notificationPolicySchema = z.object({
   smtpEnabled: z.boolean().optional(),
   gotifyEnabled: z.boolean().optional(),
-  inAppEnabled: z.boolean().optional(),
-}).refine((v) => v.smtpEnabled !== undefined || v.gotifyEnabled !== undefined || v.inAppEnabled !== undefined);
+}).refine((v) => v.smtpEnabled !== undefined || v.gotifyEnabled !== undefined);
 
 export type SmtpConfigInput = z.infer<typeof smtpConfigSchema>;
 export type GotifyConfigInput = z.infer<typeof gotifyConfigSchema>;

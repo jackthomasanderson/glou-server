@@ -22,7 +22,6 @@ export interface GotifyConfig {
 export type NotificationPolicyConfig = {
   smtpEnabled: boolean;
   gotifyEnabled: boolean;
-  inAppEnabled: boolean;
 };
 
 export type RetentionConfig = {
@@ -75,7 +74,6 @@ export type PublicSystemConfig = {
   gotifyEnabled: boolean;
   gotifyUrl: string | null;
   gotifyTokenMasked: string | null;
-  inAppEnabled: boolean;
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
@@ -181,7 +179,6 @@ export const systemConfigService = {
       gotifyEnabled: cfg.gotifyEnabled,
       gotifyUrl: cfg.gotifyUrl,
       gotifyTokenMasked: maskSecret(cfg.gotifyTokenEnc),
-      inAppEnabled: cfg.inAppEnabled,
       logRetentionDays: cfg.logRetentionDays,
       sessionRetentionDays: cfg.sessionRetentionDays,
       guestShareRetentionDays: cfg.guestShareRetentionDays,

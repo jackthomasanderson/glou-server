@@ -269,7 +269,6 @@ router.get('/notifications', authMiddleware, async (req: Request, res: Response)
       where: { id: req.userId },
       select: {
         isAdmin: true,
-        notifInApp: true,
         notifEmail: true,
         notifWebhook: true,
         notifCategories: true,
@@ -302,13 +301,12 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
     throw err;
   }
   const {
-    notifInApp, notifEmail, notifWebhook,
+    notifEmail, notifWebhook,
     notifCategories, notifQuietStart, notifQuietEnd,
     notifLanguage,
   } = parsed;
 
   const data: Record<string, unknown> = {};
-  if (notifInApp !== undefined) data.notifInApp = notifInApp;
   if (notifEmail !== undefined) data.notifEmail = notifEmail;
   if (notifWebhook !== undefined) data.notifWebhook = notifWebhook;
   if (notifCategories !== undefined) data.notifCategories = notifCategories;

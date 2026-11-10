@@ -169,7 +169,7 @@ export function QueryList<T>({ query, emptyText, children }: {
 }
 
 /** #758: a notification channel's state, as saved. */
-export type ChannelState = 'active' | 'configuredOff' | 'notConfigured' | 'off';
+export type ChannelState = 'active' | 'configuredOff' | 'notConfigured';
 
 /** #758: the saved state of a channel, next to its card's title (text, not colour alone). */
 export function ChannelStatus({ state }: { state: ChannelState }) {

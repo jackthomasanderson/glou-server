@@ -34,7 +34,7 @@ test('a stolen admin session cannot redirect mail, links or alerts, nor download
   test.skip(!me.isAdmin || me.isTwoFactorEnabled, 'needs the suite user to be the instance admin, without 2FA (fresh database)');
 
   type Config = {
-    smtpHost: string | null; publicUrl: string | null; smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean;
+    smtpHost: string | null; publicUrl: string | null; smtpEnabled: boolean; gotifyEnabled: boolean;
     logRetentionDays: number; sessionRetentionDays: number; guestShareRetentionDays: number;
     backupEnabled: boolean; backupRetentionDays: number; backupHour: number; registrationOpen: boolean;
   };
@@ -49,7 +49,7 @@ test('a stolen admin session cannot redirect mail, links or alerts, nor download
     ['public URL', admin.put('/api/admin/config/network', { data: { publicUrl: 'https://attacker.example' } })],
     ['Gotify settings', admin.put('/api/admin/config/gotify', { data: { gotifyEnabled: false } })],
     ['Gotify test', admin.post('/api/admin/config/test/gotify', { data: {} })],
-    ['notification channels', admin.put('/api/admin/config/notifications', { data: { smtpEnabled: false, gotifyEnabled: false, inAppEnabled: true } })],
+    ['notification channels', admin.put('/api/admin/config/notifications', { data: { smtpEnabled: false, gotifyEnabled: false } })],
     ['backup download', admin.post(`/api/admin/backups/${run.id}/download`, { data: {} })],
     ['backup restore', admin.post(`/api/admin/backups/${run.id}/restore`, { data: { confirm: true } })],
     ['full purge', admin.post('/api/admin/maintenance/purge', { data: { confirmation: 'SUPPRIMER' } })],

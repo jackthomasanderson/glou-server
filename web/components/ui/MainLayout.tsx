@@ -13,6 +13,7 @@ import { NotificationBell } from './NotificationBell';
 import { ConnectivityIndicator } from './ConnectivityIndicator';
 import { AuthGuard } from '../auth/AuthGuard';
 import { ConflictResolutionModal } from '../offline/ConflictResolutionModal';
+import { BackupAlertBanner } from '../admin/BackupAlertBanner';
 import { useMe } from '@/hooks/useAuth';
 import { useAutoLock } from '@/hooks/useAutoLock';
 
@@ -186,6 +187,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
             className="md:hidden shrink-0 cursor-pointer"
           />
         </header>
+
+        {/* #671: a failing backup, told to administrators on every page. */}
+        <BackupAlertBanner />
 
         {/* Page content */}
         <main id="main-content" tabIndex={-1} className="flex-1 pb-[var(--bottom-nav-h)] md:pb-0 outline-none">

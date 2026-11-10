@@ -48,11 +48,20 @@ describe('SystemConfigSection — one card per notification channel (#758)', () 
     stubFetch({ '/admin/config': ok(CONFIG) });
     renderWithQuery(<SystemConfigSection />);
     await card('adminConfig.cards.email');
-    for (const name of ['adminConfig.notifPolicy.inApp', 'adminConfig.smtp.enabled', 'adminConfig.gotify.enabled']) {
+    for (const name of ['adminConfig.smtp.enabled', 'adminConfig.gotify.enabled']) {
       expect(screen.getAllByRole('switch', { name })).toHaveLength(1);
     }
     expect(within(await card('adminConfig.cards.gotify')).getByRole('switch', { name: 'adminConfig.gotify.enabled' })).toBeInTheDocument();
     expect(within(await card('adminConfig.cards.email')).getByRole('switch', { name: 'adminConfig.smtp.enabled' })).toBeInTheDocument();
+  });
+
+  // #671: the "in-app" channel delivered nothing and is gone: two channels only.
+  it('offers no in-app channel', async () => {
+    stubFetch({ '/admin/config': ok(CONFIG) });
+    renderWithQuery(<SystemConfigSection />);
+    await card('adminConfig.cards.email');
+    expect(screen.queryByRole('heading', { name: 'adminConfig.cards.inApp' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'adminConfig.notifPolicy.inApp' })).toBeNull();
   });
 
   it('never brings back a channel switched off in its card when another card is saved', async () => {
@@ -60,7 +69,7 @@ describe('SystemConfigSection — one card per notification channel (#758)', () 
     const fetchMock = stubFetch({
       '/admin/config': ok(CONFIG),
       'PUT /admin/config/smtp': ok(emailOff),
-      'PUT /admin/config/notifications': ok({ ...emailOff, inAppEnabled: false }),
+      'PUT /admin/config/gotify': ok({ ...emailOff, gotifyUrl: 'https://gotify.example.com' }),
     });
     renderWithQuery(<SystemConfigSection />);
     const email = await card('adminConfig.cards.email');
@@ -69,15 +78,14 @@ describe('SystemConfigSection — one card per notification channel (#758)', () 
     confirmStepUp();
     await vi.waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('adminConfig.smtp.saved'));
 
-    const inApp = await card('adminConfig.cards.inApp');
-    fireEvent.click(within(inApp).getByRole('switch', { name: 'adminConfig.notifPolicy.inApp' }));
-    fireEvent.click(within(inApp).getByRole('button', { name: 'adminConfig.save' }));
+    const gotify = await card('adminConfig.cards.gotify');
+    fireEvent.change(within(gotify).getByLabelText('adminConfig.gotify.url'), { target: { value: 'https://gotify.example.com' } });
+    fireEvent.click(within(gotify).getByRole('button', { name: 'adminConfig.save' }));
     confirmStepUp();
 
-    // Only its own switch: a stale copy of another one can never overwrite it.
-    await vi.waitFor(() => expect(sentTo(fetchMock, '/admin/config/notifications')).toEqual([
-      { inAppEnabled: false, password: 'pw' },
-    ]));
+    // Only its own settings: a stale copy of the email switch can never overwrite it.
+    await vi.waitFor(() => expect(sentTo(fetchMock, '/admin/config/gotify')).toHaveLength(1));
+    expect(sentTo(fetchMock, '/admin/config/gotify')[0]).not.toHaveProperty('smtpEnabled');
   });
 
   it('saves Gotify with its own switch, URL and token', async () => {
@@ -170,7 +178,6 @@ describe('SystemConfigSection — one card per notification channel (#758)', () 
     [{ gotifyEnabled: false, gotifyUrl: 'https://g.example.com', gotifyTokenMasked: '••••' }, 'adminConfig.cards.gotify', 'adminConfig.channelStatus.configuredOff'],
     [{ gotifyEnabled: true, gotifyUrl: 'https://g.example.com', gotifyTokenMasked: null }, 'adminConfig.cards.gotify', 'adminConfig.channelStatus.notConfigured'],
     [{ gotifyEnabled: false, gotifyUrl: null }, 'adminConfig.cards.gotify', 'adminConfig.channelStatus.notConfigured'],
-    [{ inAppEnabled: false }, 'adminConfig.cards.inApp', 'adminConfig.channelStatus.off'],
   ])('with %o, the %s card says %s', async (saved, title, status) => {
     stubFetch({ '/admin/config': ok({ ...CONFIG, ...saved }) });
     renderWithQuery(<SystemConfigSection />);

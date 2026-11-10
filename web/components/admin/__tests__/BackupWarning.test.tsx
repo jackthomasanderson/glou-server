@@ -20,14 +20,14 @@ vi.mock('@heroui/react', () => ({
   ),
 }));
 
-import { BackupWarning, BackupMarker, LastBackupNote, backupProblems } from '../BackupWarning';
+import { BackupWarning, BackupMarker, LastBackupNote, backupAlerts, backupProblems } from '../BackupWarning';
 
 beforeAll(async () => {
   i18n = i18next.createInstance();
   await i18n.init({ lng: 'en', resources: { en: { common: en } }, defaultNS: 'common', interpolation: { escapeValue: false } });
 });
 
-const health = (patch: Partial<{ backupEnabled: boolean; lastSuccessAt: string | null }>) => ({
+const health = (patch: Partial<{ backupEnabled: boolean; lastSuccessAt: string | null; lastRunFailed: boolean; overdue: boolean }>) => ({
   directoryWritable: true, backupEnabled: true, lastSuccessAt: '2026-11-08T03:00:00.000Z', ...patch,
 });
 
@@ -41,6 +41,17 @@ describe('backupProblems (#756)', () => {
     expect(backupProblems(health({ lastSuccessAt: null }))).toEqual(['noBackup']);
     expect(backupProblems(health({ backupEnabled: false, lastSuccessAt: null }))).toEqual(['disabled', 'noBackup']);
     expect(backupProblems({ ...health({}), directoryWritable: false })).toEqual(['notWritable']);
+  });
+  // #671: also said in the banner shown to administrators on every page.
+  it('names a failed last run and an overdue backup, and keeps them as the alerts', () => {
+    expect(backupProblems(health({ lastRunFailed: true }))).toEqual(['failed']);
+    expect(backupProblems(health({ overdue: true }))).toEqual(['overdue']);
+    expect(backupProblems({ ...health({ lastRunFailed: true, overdue: true, backupEnabled: false }), directoryWritable: false }))
+      .toEqual(['notWritable', 'failed', 'overdue', 'disabled']);
+    expect(backupAlerts({ ...health({ lastRunFailed: true, overdue: true, backupEnabled: false }), directoryWritable: false }))
+      .toEqual(['failed', 'overdue']);
+    expect(backupAlerts(health({ backupEnabled: false, lastSuccessAt: null }))).toEqual([]);
+    expect(backupAlerts(undefined)).toEqual([]);
   });
   it('claims nothing the API could not read', () => {
     expect(backupProblems({ directoryWritable: true })).toEqual([]);
@@ -67,6 +78,12 @@ describe('BackupWarning (#756)', () => {
   it('warns that the backups folder cannot be written to', () => {
     render(<BackupWarning problems={['notWritable']} onOpenBackups={() => {}} />);
     expect(screen.getByRole('alert')).toHaveTextContent('Glou cannot write to the backups folder');
+  });
+
+  it('warns that the last backup failed, and that none succeeded for two days (#671)', () => {
+    render(<BackupWarning problems={['failed', 'overdue']} onOpenBackups={() => {}} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('The last backup failed');
+    expect(screen.getByRole('alert')).toHaveTextContent('No backup has succeeded for more than two days');
   });
 
   it('shows nothing when backups are fine', () => {

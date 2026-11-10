@@ -25,8 +25,8 @@ interface NotificationPayload {
   /**
    * Deliver the email channel to this address instead of the account's
    * current one. Reserved for security events whose whole point is to warn
-   * the *previous* recipient (e.g. an email change, ISSUE_042). The in-app /
-   * Gotify channels are unaffected.
+   * the *previous* recipient (e.g. an email change, ISSUE_042). The Gotify
+   * channel is unaffected.
    */
   emailOverride?: string;
 }
@@ -48,13 +48,11 @@ export function channelPolicy(cfg: PublicSystemConfig, isAdmin: boolean): Notifi
   const policy: NotificationChannelPolicy = {
     smtpEnabled: cfg.smtpEnabled && smtpConfigured,
     gotifyEnabled: cfg.gotifyEnabled && gotifyConfigured,
-    inAppEnabled: cfg.inAppEnabled,
   };
   if (isAdmin) {
     policy.offReasons = {
       email: offReason(smtpConfigured, cfg.smtpEnabled),
       gotify: offReason(gotifyConfigured, cfg.gotifyEnabled),
-      inApp: offReason(true, cfg.inAppEnabled),
     };
   }
   return policy;

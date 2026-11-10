@@ -48,7 +48,7 @@ describe('SystemConfigSection — saving and unsaved changes (#759)', () => {
     renderWithQuery(<SystemConfigSection />);
     await card('adminConfig.cards.email');
     const saves = screen.getAllByRole('button').filter((b) => /\.save$/.test(b.textContent ?? ''));
-    expect(saves.map((b) => b.textContent)).toEqual(Array(7).fill('adminConfig.save'));
+    expect(saves.map((b) => b.textContent)).toEqual(Array(6).fill('adminConfig.save'));
   });
 
   it('marks an edited card and its tab, and only them, until the value is back', async () => {

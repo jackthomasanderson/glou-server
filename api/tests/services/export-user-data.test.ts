@@ -58,7 +58,6 @@ function dbUser() {
       expiresAt: new Date('2026-02-01T00:00:00Z'), revokedAt: null,
     }],
     configChangeLogs: [{ id: 1, fieldName: 'smtp', maskedOldVal: null, maskedNewVal: '{"host":"***"}', createdAt: new Date() }],
-    notifInApp: true,
     notifEmail: false,
     notifWebhook: false,
     notifCategories: ['security'],
@@ -88,7 +87,7 @@ describe('authService.exportUserData (#224)', () => {
       humidorReadings: [{ id: 'h1' }],
       sessions: [{ device: { browser: 'Chrome', os: 'Linux' }, rememberMe: true }],
       trustedDevices: [{ device: { browser: 'Chrome', os: 'Linux' }, country: 'FR' }],
-      notificationPreferences: { notifInApp: true, notifCategories: ['security'] },
+      notificationPreferences: { notifEmail: false, notifCategories: ['security'] },
       configHistory: [{ fieldName: 'smtp', maskedNewVal: '{"host":"***"}' }],
     });
     expect(out.activityLog).toHaveLength(1);
