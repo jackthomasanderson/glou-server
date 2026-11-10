@@ -712,7 +712,7 @@ model SystemConfig {
   smtpUser    String?
   smtpPassEnc String? // AES-256-GCM encrypted
   smtpFrom    String?
-  smtpSecure  Boolean @default(true)
+  smtpSecure  Boolean @default(false) // false = STARTTLS (port 587); true = implicit TLS (port 465)
 
   // Gotify/Webhook (FEAT-34/53)
   gotifyEnabled  Boolean @default(false)

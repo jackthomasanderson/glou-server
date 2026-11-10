@@ -15,6 +15,8 @@ Entries start with the pull request that introduced them where there is one.
 - The tastings page is back at `/tastings`; the old `/cellar-journal` address still works and sends you there from the page itself (no browser redirect, so an old cached link cannot loop) (#502).
 
 ### Fixed
+- Email settings: a new SMTP form now offers **STARTTLS (port 587)**, which works with Gmail and most providers, instead of a "Secure connection (TLS)" switch that failed on that port. The choice names STARTTLS and TLS (implicit, port 465) and moves the port along with it unless you typed your own; instances already configured keep their current setting. Example texts now start with "e.g." and use example.com (#763).
+- Email settings: the test recipient field has its own label, "Test recipient address", and the button reads "Send test" instead of repeating the field name (#764).
 - Peak maturity references: the colour is now chosen from the wine colours (red, white, rosé, orange, or any colour) instead of typed, so a reference with a colour matches the bottles of that colour, in the suggested drinking window and in its bottle count. Colours already typed in French or English are converted on upgrade; any other text becomes "any colour" (#733).
 - On a phone, an administrator now finds **Administration** in the bottom bar's **More** sheet; the breadcrumb's first part is a link (the Back button went away in #912) (#913).
 - Every signed-in member, not only admins, can now see and copy the running version of Glou on the **My Profile** page; if it cannot be read, the page says so instead of showing a placeholder forever. The bug report templates point there (#696).
