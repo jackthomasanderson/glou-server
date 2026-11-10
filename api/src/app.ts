@@ -128,7 +128,7 @@ export function createApp(): express.Express {
   // ─── Version (no auth) ─────────────────────────────────────────────────────
   // ISSUE_169: the bug report template and SECURITY.md ask reporters for a
   // version/tag, but nothing ever surfaced one — `latest`/`beta` are moving
-  // tags, not versions. This is what Admin → System Configuration → About
+  // tags, not versions. This is what Admin → System Configuration → System
   // reads to show a copyable value.
   app.get('/api/version', (_req, res) => {
     res.json({ data: { version: APP_VERSION } });

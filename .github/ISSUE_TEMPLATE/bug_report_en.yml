@@ -42,7 +42,7 @@ body:
       label: Version
       description: >
         My Profile → Version has a copyable version (e.g. 2026.11.2).
-        Admin → System Configuration → About shows the same one.
+        Admin → System Configuration → System shows the same one.
     validations:
       required: false
 

@@ -42,7 +42,7 @@ body:
       label: Version
       description: >
         Mon profil → Version affiche une version copiable (ex. 2026.11.2).
-        Admin → Configuration système → À propos affiche la même.
+        Admin → Configuration système → Système affiche la même.
     validations:
       required: false
 

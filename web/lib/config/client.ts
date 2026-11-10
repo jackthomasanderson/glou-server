@@ -133,7 +133,7 @@ export const configClient = {
     return data;
   },
 
-  // ISSUE_169: what Admin → System Configuration → About reads to show a
+  // ISSUE_169: what Admin → System Configuration → System reads to show a
   // version a bug reporter can copy, instead of the moving `latest`/`beta`
   // image tags the old bug report template used to ask for.
   async getVersion(): Promise<{ version: string }> {
