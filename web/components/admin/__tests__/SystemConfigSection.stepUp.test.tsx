@@ -105,7 +105,7 @@ describe('SystemConfigSection — sensitive settings ask for the step-up (#890)'
   it.each([
     ['adminConfig.cards.email', 'adminConfig.smtp.test', 'adminConfig.stepUp.smtpTest', '/admin/config/test/smtp'],
     ['adminConfig.cards.gotify', 'adminConfig.gotify.test', 'adminConfig.stepUp.gotifyTest', '/admin/config/test/gotify'],
-    ['adminConfig.cards.policy', 'adminConfig.notifPolicy.save', 'adminConfig.stepUp.notifications', '/admin/config/notifications'],
+    ['adminConfig.cards.inApp', 'adminConfig.notifPolicy.save', 'adminConfig.stepUp.notifications', '/admin/config/notifications'],
     ['adminConfig.cards.gotify', 'adminConfig.gotify.save', 'adminConfig.stepUp.gotify', '/admin/config/gotify'],
   ])('%s: %s asks for the step-up and sends it', async (title, button, message, path) => {
     const fetchMock = stubApi({ [path]: { status: 200, body: { data: path.includes('/test/') ? { success: true } : CONFIG } } });

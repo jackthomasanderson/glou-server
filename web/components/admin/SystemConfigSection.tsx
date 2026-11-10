@@ -7,7 +7,7 @@ import { useSystemConfig } from '@/hooks/useAdmin';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { BackupMarker } from '@/components/admin/BackupWarning';
 import { EmailChannelCard } from '@/components/admin/config/notifications/EmailChannelCard';
-import { NotificationPolicyCard } from '@/components/admin/config/notifications/NotificationPolicyCard';
+import { InAppChannelCard } from '@/components/admin/config/notifications/InAppChannelCard';
 import { GotifyChannelCard } from '@/components/admin/config/notifications/GotifyChannelCard';
 import { PublicUrlCard } from '@/components/admin/config/access/PublicUrlCard';
 import { RegistrationCard } from '@/components/admin/config/access/RegistrationCard';
@@ -74,8 +74,10 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
         >
           <Tab key="notifications" title={tabTitle('notifications', Bell)}>
             <div className="flex flex-col gap-4 pt-2">
+              {/* #758: one card per channel, each with its only switch. */}
+              <p className="text-sm text-foreground-500">{t('adminConfig.notifPolicy.description')}</p>
+              <InAppChannelCard config={config} />
               <EmailChannelCard config={config} />
-              <NotificationPolicyCard config={config} />
               <GotifyChannelCard config={config} />
             </div>
           </Tab>

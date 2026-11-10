@@ -1943,6 +1943,13 @@
       "GOTIFY_NOT_CONFIGURED": "Gotify est coupé ou n'a pas d'URL : activez-le, renseignez l'URL et enregistrez avant de tester.",
       "DELIVERY_FAILED": "Le serveur Gotify n'a pas accepté la notification. Vérifiez l'URL et le jeton."
     },
+    "channelStatus": {
+      "active": "Actif",
+      "configuredOff": "Configuré mais coupé",
+      "notConfigured": "Non configuré",
+      "off": "Coupé"
+    },
+    "testUsesSaved": "Les tests utilisent les réglages enregistrés : enregistrez d'abord vos modifications.",
     "stepUp": {
       "smtp": "Le serveur de messagerie envoie les liens de réinitialisation du mot de passe et les alertes de sécurité : sa modification est confirmée.",
       "smtpTest": "Le test se connecte au serveur de messagerie enregistré, et envoie un message si vous avez donné une adresse.",
@@ -1958,8 +1965,8 @@
       "system": "Système"
     },
     "cards": {
+      "inApp": "Dans l'application",
       "email": "E-mail",
-      "policy": "Canaux",
       "gotify": "Gotify",
       "publicUrl": "URL publique",
       "backups": "Sauvegardes",
@@ -1992,17 +1999,16 @@
       "saved": "Configuration SMTP enregistrée."
     },
     "notifPolicy": {
-      "description": "Ces réglages sont des interrupteurs globaux pour toute l'instance. Si un canal est désactivé ici, les utilisateurs ne pourront pas l'activer dans leurs préférences personnelles.",
+      "description": "Chaque canal ci-dessous est activé ou coupé pour toute l'instance. Un canal coupé ici ne peut pas être activé par les membres dans leurs préférences.",
       "inApp": "Notifications dans l'application",
       "inAppHint": "Permet aux utilisateurs de recevoir des alertes directement dans l'interface.",
-      "email": "Notifications par email",
-      "emailHint": "Nécessite une configuration SMTP valide (onglet SMTP). Les utilisateurs peuvent ensuite l'activer ou le désactiver individuellement.",
-      "webhook": "Notifications webhook / Gotify",
+      "emailHint": "Envoie les liens de réinitialisation du mot de passe, et les notifications que les membres choisissent de recevoir par e-mail.",
       "webhookHint": "Nécessite une URL Gotify configurée. Chaque utilisateur définit sa propre URL de destination dans ses préférences.",
       "save": "Enregistrer la politique",
-      "saved": "Politique enregistrée."
+      "saved": "Notifications dans l'application enregistrées."
     },
     "gotify": {
+      "enabled": "Activer les notifications Gotify",
       "url": "URL Gotify",
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Token Gotify",

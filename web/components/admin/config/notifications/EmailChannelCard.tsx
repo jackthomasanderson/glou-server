@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { configClient, type AdminReauth, type SystemConfigPublic } from '@/lib/config/client';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { ConfigCard, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
+import { ChannelStatus, ConfigCard, TestUsesSavedHint, configErrorKey, isKnownConfigError, useConfigForm, useConfigSaved, type ChannelState } from '../shared';
 
 const toForm = (cfg: SystemConfigPublic) => ({
   smtpEnabled: cfg.smtpEnabled,
@@ -18,13 +18,22 @@ const toForm = (cfg: SystemConfigPublic) => ({
   smtpSecure: cfg.smtpSecure,
 });
 
-/** The email channel: the SMTP server that sends notifications and password reset links. */
+function emailState(cfg: SystemConfigPublic): ChannelState {
+  if (!cfg.smtpHost) return 'notConfigured';
+  return cfg.smtpEnabled ? 'active' : 'configuredOff';
+}
+
+/**
+ * The email channel: the SMTP server that sends notifications and password
+ * reset links. #758: its only on/off switch, its settings and its tests.
+ */
 export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
   const { t } = useTranslation();
-  const { form, update, reset } = useConfigForm(toForm(config));
+  const { form, update, reset, isDirty } = useConfigForm(toForm(config));
   const [testEmail, setTestEmail] = useState('');
   const [saving, setSaving] = useState(false);
-  const [testing, setTesting] = useState(false);
+  // #759: each test says its own progress, and only one runs at a time.
+  const [testing, setTesting] = useState<'connection' | 'email' | null>(null);
   const onSaved = useConfigSaved();
   // #890: the mail server sends reset links and security alerts.
   const stepUp = useAdminStepUp();
@@ -53,21 +62,23 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
   };
 
   const test = async (withEmail: boolean, reauth: AdminReauth) => {
-    setTesting(true);
+    setTesting(withEmail ? 'email' : 'connection');
     try {
       const result = await configClient.testSmtp(withEmail ? testEmail || undefined : undefined, reauth);
       if (result.success) notifySuccess(withEmail ? 'adminConfig.smtp.testEmailSuccess' : 'adminConfig.smtp.testSuccess');
+      // SMTP_NOT_CONFIGURED is said in words; a mail server's own refusal is shown as it came.
+      else if (isKnownConfigError(result.error)) notifyError(`adminConfig.errors.${result.error}`);
       else notifyError('adminConfig.smtp.testError', { error: result.error ?? '' });
     } catch (err) {
       if (isStepUpRefusal(err)) throw err;
       notifyError(configErrorKey(err));
     } finally {
-      setTesting(false);
+      setTesting(null);
     }
   };
 
   return (
-    <ConfigCard id="config-email" icon={Mail} title={t('adminConfig.cards.email')}>
+    <ConfigCard id="config-email" icon={Mail} title={t('adminConfig.cards.email')} description={t('adminConfig.notifPolicy.emailHint')} status={<ChannelStatus state={emailState(config)} />}>
       <Switch isSelected={form.smtpEnabled} onValueChange={(v) => update({ smtpEnabled: v })} size="sm">
         {t('adminConfig.smtp.enabled')}
       </Switch>
@@ -83,11 +94,12 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
       </Switch>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" color="primary" variant="solid" isLoading={saving} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtp'), save)}>{t('adminConfig.smtp.save')}</Button>
-        <Button size="sm" variant="bordered" isLoading={testing} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(false, reauth))}>{t('adminConfig.smtp.test')}</Button>
+        <Button size="sm" variant="bordered" isLoading={testing === 'connection'} isDisabled={isDirty || testing !== null} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(false, reauth))}>{t('adminConfig.smtp.test')}</Button>
       </div>
+      <TestUsesSavedHint show={isDirty} />
       <div className="flex items-end gap-2 pt-1 border-t border-divider">
         <Input label={t('adminConfig.smtp.testWithEmail')} type="email" value={testEmail} onValueChange={setTestEmail} variant="bordered" size="sm" radius="md" labelPlacement="outside" className="flex-1" />
-        <Button size="sm" variant="flat" isLoading={testing} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(true, reauth))} isDisabled={!testEmail}>{t('adminConfig.smtp.testWithEmail')}</Button>
+        <Button size="sm" variant="flat" isLoading={testing === 'email'} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(true, reauth))} isDisabled={!testEmail || isDirty || testing !== null}>{t('adminConfig.smtp.testWithEmail')}</Button>
       </div>
       {stepUp.dialog}
     </ConfigCard>

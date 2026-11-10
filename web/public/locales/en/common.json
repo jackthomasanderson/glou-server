@@ -1941,6 +1941,13 @@
       "GOTIFY_NOT_CONFIGURED": "Gotify is switched off or has no URL: turn it on, fill in the URL and save before testing.",
       "DELIVERY_FAILED": "The Gotify server did not accept the notification. Check the URL and the token."
     },
+    "channelStatus": {
+      "active": "Active",
+      "configuredOff": "Configured but off",
+      "notConfigured": "Not configured",
+      "off": "Off"
+    },
+    "testUsesSaved": "Tests use the saved settings: save your changes first.",
     "stepUp": {
       "smtp": "The mail server sends password reset links and security alerts, so changing it is confirmed.",
       "smtpTest": "The test connects to the saved mail server, and sends a message if you gave an address.",
@@ -1956,8 +1963,8 @@
       "system": "System"
     },
     "cards": {
+      "inApp": "In-app",
       "email": "Email",
-      "policy": "Channels",
       "gotify": "Gotify",
       "publicUrl": "Public URL",
       "backups": "Backups",
@@ -1990,17 +1997,16 @@
       "saved": "SMTP configuration saved."
     },
     "notifPolicy": {
-      "description": "These are global switches for the entire instance. If a channel is disabled here, users will not be able to enable it in their personal preferences.",
+      "description": "Each channel below is switched on or off for the whole instance. A channel switched off here cannot be turned on by members in their preferences.",
       "inApp": "In-app notifications",
       "inAppHint": "Allows users to receive alerts directly in the interface.",
-      "email": "Email notifications",
-      "emailHint": "Requires a valid SMTP configuration (SMTP tab). Users can then enable or disable it individually.",
-      "webhook": "Webhook / Gotify notifications",
+      "emailHint": "Sends password reset links, and the notifications members choose to get by email.",
       "webhookHint": "Requires a configured Gotify URL. Each user sets their own destination URL in their preferences.",
       "save": "Save policy",
-      "saved": "Policy saved."
+      "saved": "In-app notifications saved."
     },
     "gotify": {
+      "enabled": "Enable Gotify notifications",
       "url": "Gotify URL",
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Gotify token",

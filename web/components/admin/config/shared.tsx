@@ -1,6 +1,6 @@
 'use client';
 import React, { useCallback, useState, type ReactNode } from 'react';
-import { Skeleton } from '@heroui/react';
+import { Chip, Skeleton } from '@heroui/react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient, type UseQueryResult } from '@tanstack/react-query';
@@ -115,4 +115,24 @@ export function QueryList<T>({ query, emptyText, children }: {
   }
   if (query.data.length === 0) return <p className="text-sm text-foreground-400 py-4 text-center">{emptyText}</p>;
   return <>{children(query.data)}</>;
+}
+
+/** #758: a notification channel's state, as saved. */
+export type ChannelState = 'active' | 'configuredOff' | 'notConfigured' | 'off';
+
+/** #758: the saved state of a channel, next to its card's title (text, not colour alone). */
+export function ChannelStatus({ state }: { state: ChannelState }) {
+  const { t } = useTranslation();
+  return (
+    <Chip size="sm" variant="flat" radius="sm" color={state === 'active' ? 'success' : state === 'notConfigured' ? 'warning' : 'default'}>
+      {t(`adminConfig.channelStatus.${state}`)}
+    </Chip>
+  );
+}
+
+/** #758: under a channel's test buttons while its card has unsaved changes. */
+export function TestUsesSavedHint({ show }: { show: boolean }) {
+  const { t } = useTranslation();
+  if (!show) return null;
+  return <p className="text-xs text-foreground-500">{t('adminConfig.testUsesSaved')}</p>;
 }
