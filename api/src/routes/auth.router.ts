@@ -47,6 +47,7 @@ const PUBLIC_AUTH_ERROR_CODES = new Set([
   'INVALID_OR_EXPIRED_TOKEN',
   'INVALID_TOTP_CODE',
   'NOT_A_PENDING_TOKEN',
+  'PASSWORD_TOO_LONG',
   'PASSWORD_TOO_SHORT',
   'TOKEN_INVALID_OR_EXPIRED',
   'REGISTRATION_CONFLICT',
@@ -516,8 +517,9 @@ router.post('/validate-reset-token', async (req: Request, res: Response): Promis
 router.post('/reset-password', passwordResetLimiter, async (req: Request, res: Response): Promise<void> => {
   const parsed = resetPasswordSchema.safeParse(req.body);
   if (!parsed.success) {
-    const tooShort = parsed.error.issues.some((issue) => issue.message === 'PASSWORD_TOO_SHORT');
-    res.status(400).json({ error: tooShort ? 'PASSWORD_TOO_SHORT' : 'VALIDATION_ERROR' });
+    const messages = parsed.error.issues.map((issue) => issue.message);
+    const code = ['PASSWORD_TOO_SHORT', 'PASSWORD_TOO_LONG'].find((c) => messages.includes(c)) ?? 'VALIDATION_ERROR';
+    res.status(400).json({ error: code });
     return;
   }
   try {

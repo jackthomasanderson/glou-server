@@ -59,19 +59,21 @@ afterEach(() => {
 });
 
 /** A request whose body is not JSON: express.json() leaves `req.body` undefined. */
-const formPost = (method: 'post' | 'patch', path: string, auth = false) => {
+const formPost = (method: 'post' | 'patch' | 'put', path: string, auth = false) => {
   const r = request(app)[method](path).set('Sec-Fetch-Site', 'same-origin').set('Content-Type', 'application/x-www-form-urlencoded');
   return (auth ? r.set('Authorization', bearer) : r).send('isActive=false&email=a%40b.c&token=t');
 };
 
 describe('routes without a JSON body answer 400, not 500 (#636)', () => {
-  const cases: Array<[string, 'post' | 'patch', string, boolean]> = [
+  const cases: Array<[string, 'post' | 'patch' | 'put', string, boolean]> = [
     ['forgot-password', 'post', '/api/auth/forgot-password', false],
     ['validate-reset-token', 'post', '/api/auth/validate-reset-token', false],
     ['reset-password', 'post', '/api/auth/reset-password', false],
     ['admin role', 'post', '/api/admin/users/u2/role', true],
     ['admin status', 'patch', '/api/admin/users/u2/status', true],
     ['admin SMTP test', 'post', '/api/admin/config/test/smtp', true],
+    // Already on a schema before #636; kept here so all seven places are covered.
+    ['admin notification policy', 'put', '/api/admin/config/notifications', true],
   ];
 
   it.each(cases)('%s', async (_name, method, path, auth) => {
@@ -98,6 +100,14 @@ describe('field rules now in the schemas (#636)', () => {
     const res = await post('/api/auth/reset-password', { token: 'abc', newPassword: 'short' });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('PASSWORD_TOO_SHORT');
+    expect(reset).not.toHaveBeenCalled();
+  });
+
+  it('reset-password refuses more than 128 characters with PASSWORD_TOO_LONG', async () => {
+    const reset = keep(vi.spyOn(passwordResetService, 'resetPassword').mockResolvedValue());
+    const res = await post('/api/auth/reset-password', { token: 'abc', newPassword: 'x'.repeat(129) });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('PASSWORD_TOO_LONG');
     expect(reset).not.toHaveBeenCalled();
   });
 

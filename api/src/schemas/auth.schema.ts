@@ -101,5 +101,6 @@ export const validateResetTokenSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   token: resetTokenField,
-  newPassword: z.string().min(PASSWORD_MIN_LENGTH, 'PASSWORD_TOO_SHORT'),
+  // Same bounds as registration.
+  newPassword: z.string().min(PASSWORD_MIN_LENGTH, 'PASSWORD_TOO_SHORT').max(128, 'PASSWORD_TOO_LONG'),
 });
