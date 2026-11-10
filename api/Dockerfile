@@ -1,4 +1,4 @@
-FROM node:26-alpine AS builder
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS builder
 
 # #466: /build/api + /build/shared reproduce the repository layout, so
 # tsconfig's rootDir ".." emits dist/api/src/index.js and dist/shared/.
@@ -24,7 +24,7 @@ COPY --from=shared . /build/shared
 RUN npm run build
 
 # ─── Production image ────────────────────────────────────────────────────────
-FROM node:26-alpine AS runner
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS runner
 
 # Non-root user
 # postgresql-client: provides pg_dump/pg_restore/psql for the scheduled backup
@@ -76,4 +76,6 @@ EXPOSE 3001
 # (glou-backup-before-migration-*.sql.gz in /app/backups) when migrations are
 # pending on an instance in use, and exits non-zero if it cannot: then nothing
 # is migrated and the API does not start.
-CMD ["sh", "-c", "node dist/api/src/scripts/pre-migrate.js && npx prisma migrate deploy && node dist/api/src/index.js"]
+# #673: `exec` makes Node replace the shell as PID 1, so the stop signal
+# Docker sends reaches it and the graceful shutdown (ISSUE_091) runs.
+CMD ["sh", "-c", "node dist/api/src/scripts/pre-migrate.js && npx prisma migrate deploy && exec node dist/api/src/index.js"]

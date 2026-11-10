@@ -10,6 +10,7 @@ import { backupService, BACKUPS_DIR } from './services/backup.service';
 import { BACKUPS_DIR_FIX_HINT } from './lib/pg-dump';
 import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
 import { encryptClearTwoFactorSecrets } from './lib/two-factor-secret';
+import { installEarlyExit, installGracefulShutdown } from './lib/graceful-shutdown';
 import { DAILY_ALERTS_CRON, DAILY_ALERTS_HOUR, isAlertsCatchUpWindow } from './lib/alerts-schedule';
 
 // ─── Startup secret guard ────────────────────────────────────────────────────
@@ -72,6 +73,9 @@ function logTimeZone(): void {
 }
 
 async function bootstrap(): Promise<void> {
+  // #673: a stop while the database is still unreachable must not wait for
+  // Docker's SIGKILL (Node is PID 1 and would otherwise ignore SIGTERM).
+  installEarlyExit();
   logTimeZone();
   await connectWithRetry();
 
@@ -97,7 +101,7 @@ async function bootstrap(): Promise<void> {
   void inventoryService.purgeTrashed().then(({ count, photoPaths }) => {
     if (count > 0) console.info(`[startup] Purged ${count} permanently deleted items`);
     void inventoryService.deletePhotoFiles(photoPaths);
-  });
+  }).catch((err) => console.error('[startup] Trash purge failed:', err));
 
   // FEAT-39: data retention cleanup (audit logs, expired/revoked sessions,
   // trusted devices and guest shares). Run once immediately on startup so a
@@ -106,7 +110,7 @@ async function bootstrap(): Promise<void> {
   void MaintenanceService.runRetentionCleanup('scheduled').then((run) => {
     if (run.success) console.info('[startup] Retention cleanup completed:', run.counts);
     else console.error('[startup] Retention cleanup failed:', run.error);
-  });
+  }).catch((err) => console.error('[startup] Retention cleanup crashed:', err));
 
   // ISSUE_033: the denormalised `alertStatus` column depends on the current
   // year, so it goes stale on its own every 1st of January. Realign it on
@@ -124,7 +128,7 @@ async function bootstrap(): Promise<void> {
     void MaintenanceService.runRetentionCleanup('scheduled').then((run) => {
       if (run.success) console.info('[cron] Retention cleanup completed:', run.counts);
       else console.error('[cron] Retention cleanup failed:', run.error);
-    });
+    }).catch((err) => console.error('[cron] Retention cleanup crashed:', err));
   });
 
   // #575: the jobs that notify members run in the daytime — at 3 AM, any
@@ -184,20 +188,9 @@ async function bootstrap(): Promise<void> {
     console.info(`[api] Server listening on port ${PORT} (${process.env.NODE_ENV})`);
   });
 
-  // ISSUE_091: a container stop (image update, `docker compose restart`, a
-  // reboot) sent SIGTERM straight into an unhandled default — the process
-  // was force-killed after Docker's grace period with whatever request was
-  // in flight simply cut off, no response ever sent. `server.close()` stops
-  // accepting new connections and waits for in-flight ones to finish on
-  // their own before this handler continues.
-  const shutdown = (signal: string) => {
-    console.info(`[api] ${signal} received, shutting down gracefully`);
-    server.close(() => {
-      void prisma.$disconnect().finally(() => process.exit(0));
-    });
-  };
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT', () => shutdown('SIGINT'));
+  // ISSUE_091 / #673: finish in-flight requests, then close the database
+  // connections, within Docker's grace period (see lib/graceful-shutdown).
+  installGracefulShutdown(server, () => prisma.$disconnect());
 }
 
 bootstrap().catch((err) => {

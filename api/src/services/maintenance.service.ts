@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { MaintenanceRun, Prisma } from '@prisma/client';
 import { purgeOldAuditLogs } from './audit.service';
@@ -183,15 +184,22 @@ export class MaintenanceService {
         } catch (error) {
             console.error('[maintenance] Retention cleanup failed:', error);
             const message = error instanceof Error ? error.message : 'UNKNOWN_ERROR';
-            return prisma.maintenanceRun.create({
-                data: {
-                    trigger,
-                    userId: userId ?? null,
-                    success: false,
-                    error: message,
-                    durationMs: Date.now() - startedAt,
-                },
-            });
+            const failed = {
+                trigger,
+                userId: userId ?? null,
+                success: false,
+                error: message,
+                durationMs: Date.now() - startedAt,
+            };
+            try {
+                return await prisma.maintenanceRun.create({ data: failed });
+            } catch (recordError) {
+                // #634: the database itself is down (e.g. PostgreSQL restarting),
+                // so the failure cannot be recorded either. Log it and hand back
+                // an unsaved run: a rejection here would crash the process.
+                console.error('[maintenance] Could not record the failed retention cleanup:', recordError);
+                return { ...failed, id: randomUUID(), runAt: new Date(), counts: null };
+            }
         }
     }
 }
