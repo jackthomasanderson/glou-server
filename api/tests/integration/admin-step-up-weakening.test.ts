@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
-import { authenticator } from 'otplib';
+import { generateSync } from 'otplib';
+import { newTotpSecret } from '../../src/lib/totp';
 
 // Own file: each refusal spends the step-up limiter of the admin router (20 per
 // IP), already well used by admin-step-up.test.ts. Same setup as that file:
@@ -27,7 +28,7 @@ import { systemConfigService } from '../../src/services/system-config.service';
 const JWT_SECRET = 'integration-test-secret';
 const KEY = 'ab'.repeat(32);
 const ADMIN_PASSWORD = 'admin-pw';
-const TOTP_SECRET = authenticator.generateSecret();
+const TOTP_SECRET = newTotpSecret();
 let passwordHash = '';
 
 beforeAll(async () => {
@@ -132,7 +133,7 @@ describe('settings that erase data or weaken the instance ask for the step-up (#
   });
 
   it.each(UNSAFE.map((r) => [r.label, r] as const))('%s: accepted with the password and a current code, and audited', async (_label, route) => {
-    const res = await send(route, { password: ADMIN_PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+    const res = await send(route, { password: ADMIN_PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(route.passed);
     expect(route.effect()).toHaveBeenCalledWith(route.body, 'u1');
@@ -140,7 +141,7 @@ describe('settings that erase data or weaken the instance ask for the step-up (#
   });
 
   it('refuses a wrong password', async () => {
-    const res = await send(UNSAFE[0], { password: 'not-it', code: authenticator.generate(TOTP_SECRET) });
+    const res = await send(UNSAFE[0], { password: 'not-it', code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('INVALID_PASSWORD');

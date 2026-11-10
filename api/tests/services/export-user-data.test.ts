@@ -9,7 +9,7 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 vi.mock('bcryptjs', () => ({ default: { hash: vi.fn(), compare: vi.fn() } }));
 vi.mock('jsonwebtoken', () => ({ default: { sign: vi.fn() } }));
-vi.mock('otplib', () => ({ authenticator: { options: {}, verify: vi.fn(), generateSecret: vi.fn(), keyuri: vi.fn() } }));
+vi.mock('../../src/lib/totp', () => ({ newTotpSecret: vi.fn(), totpUri: vi.fn(), isCurrentTotp: vi.fn() }));
 vi.mock('../../src/services/notification.service', () => ({ notificationService: { send: vi.fn() } }));
 vi.mock('../../src/services/system-config.service', () => ({ systemConfigService: {} }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));

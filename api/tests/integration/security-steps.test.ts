@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
-import { authenticator } from 'otplib';
+import { generateSync } from 'otplib';
+import { newTotpSecret } from '../../src/lib/totp';
 
 // The "attacker holding only the session cookie" pass, through the real app
 // (routes, middlewares, limiters, bcrypt, otplib); only the database is stubbed.
@@ -37,7 +38,7 @@ import { systemConfigService } from '../../src/services/system-config.service';
 
 const JWT_SECRET = 'integration-test-secret';
 const PASSWORD = 'the-right-password';
-const TOTP_SECRET = authenticator.generateSecret();
+const TOTP_SECRET = newTotpSecret();
 let passwordHash = '';
 
 type Row = { id: string; isAdmin: boolean; isActive: boolean; isTwoFactorEnabled: boolean; twoFactorSecret: string | null };
@@ -100,21 +101,21 @@ describe('POST /api/auth/2fa/turn-on (#603)', () => {
   const turnedOn = () => vi.mocked(prisma.user.update).mock.calls.some(([args]) => (args.data as { isTwoFactorEnabled?: boolean }).isTwoFactorEnabled === true);
 
   it('refuses a code without the password', async () => {
-    const res = await turnOn({ code: authenticator.generate(TOTP_SECRET) });
+    const res = await turnOn({ code: generateSync({ secret: TOTP_SECRET }) });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
     expect(turnedOn()).toBe(false);
   });
 
   it('refuses a wrong password', async () => {
-    const res = await turnOn({ password: 'not-it', code: authenticator.generate(TOTP_SECRET) });
+    const res = await turnOn({ password: 'not-it', code: generateSync({ secret: TOTP_SECRET }) });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('INVALID_CREDENTIALS');
     expect(turnedOn()).toBe(false);
   });
 
   it('turns 2FA on with the password and a current code', async () => {
-    const res = await turnOn({ password: PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+    const res = await turnOn({ password: PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
     expect(res.status).toBe(200);
     expect(res.body.data.backupCodes).toHaveLength(10);
     expect(turnedOn()).toBe(true);
@@ -202,7 +203,7 @@ describe('member role and status changes need the admin\'s step-up (#603)', () =
   it('asks for the code too when the admin has 2FA', async () => {
     accounts.admin1 = account('admin1', { isAdmin: true, isTwoFactorEnabled: true, twoFactorSecret: encrypt(TOTP_SECRET) });
     expect((await call('patch', '/api/admin/users/member/status', 'admin1', { isActive: false, password: PASSWORD })).body.error).toBe('INVALID_TOTP_CODE');
-    const res = await call('patch', '/api/admin/users/member/status', 'admin1', { isActive: false, password: PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+    const res = await call('patch', '/api/admin/users/member/status', 'admin1', { isActive: false, password: PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
     expect(res.status).toBe(200);
   });
 
