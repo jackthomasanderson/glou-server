@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
+let pathname = '/bottles';
 // #203 (skip link) and #195 (connectivity indicator reachable on every screen size).
 
-vi.mock('next/navigation', () => ({ usePathname: () => '/bottles', useSearchParams: () => new URLSearchParams() }));
+vi.mock('next/navigation', () => ({ usePathname: () => pathname, useSearchParams: () => new URLSearchParams() }));
 vi.mock('next/link', () => ({ default: ({ children, href }: { children?: ReactNode; href: string }) => <a href={href}>{children}</a> }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@heroui/react', () => ({
@@ -55,5 +56,13 @@ describe('MainLayout', () => {
     const banner = screen.getByRole('banner');
     expect(banner.textContent).toContain('nav.bottles>Cave du garage');
     await vi.waitFor(() => expect(document.title).toMatch(/^Cave du garage — /));
+  });
+
+  // #913: "Glou" is a link back to the home page (the admin page included).
+  it('makes the breadcrumb root a link (#913)', () => {
+    pathname = '/admin';
+    render(<MainLayout protected={false}><p>page</p></MainLayout>);
+    const root = within(screen.getByRole('banner')).getByRole('link', { name: 'Glou' });
+    expect(root.getAttribute('href')).toBe('/');
   });
 });

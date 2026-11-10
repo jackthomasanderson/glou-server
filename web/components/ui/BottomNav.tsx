@@ -5,9 +5,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Button, Modal, ModalContent, ModalBody } from '@heroui/react';
 import {
   Wine, Sparkles, GlassWater, Leaf, Warehouse, Library, BarChart3,
-  Martini, ClipboardCheck, Wallet, MoreHorizontal,
+  Martini, ClipboardCheck, Wallet, MoreHorizontal, ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useMe } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 
 export function BottomNav() {
@@ -18,6 +19,7 @@ export function BottomNav() {
   const router = useRouter();
   const hasMounted = useHasMounted();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { data: user } = useMe();
 
   // Bottom nav is capped at 5 touch targets (UX convention). ISSUE_434: the
   // 4 category tabs now take the primary row; caves/collections/tastings/
@@ -38,6 +40,8 @@ export function BottomNav() {
     { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={20} /> },
     { label: t('nav.wishlist'), href: '/wishlist-budget', icon: <Wallet size={20} /> },
     { label: t('nav.analytics'), href: '/analytics-terroirs', icon: <BarChart3 size={20} /> },
+    // #913: the sidebar has this entry, the phone had none (admins only).
+    ...(user?.isAdmin ? [{ label: t('nav.admin'), href: '/admin', icon: <ShieldCheck size={20} /> }] : []),
   ];
 
   const isMoreActive = moreLinks.some((link) => pathname.startsWith(link.href));
