@@ -25,15 +25,20 @@ export function AppVersion() {
   };
 
   return (
-    <section aria-labelledby="app-version-title" className="mt-6">
+    <section aria-labelledby="app-version-title" className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
       <h2 id="app-version-title" className="text-sm font-semibold mb-1">{t('profile.version.title')}</h2>
       <p className="text-xs text-foreground-500 mb-2">{t('profile.version.description')}</p>
       <div className="flex items-center gap-2 max-w-sm">
-        <code className="flex-1 px-3 py-2 rounded-lg bg-content2 border border-divider text-sm font-mono select-all">
-          {isPending && <Skeleton className="h-4 w-20 rounded" />}
-          {isError && <span className="font-sans text-foreground-500">{t('profile.version.unavailable')}</span>}
-          {version}
-        </code>
+        {version ? (
+          <code className="flex-1 px-3 py-2 rounded-lg bg-content2 border border-divider text-sm font-mono select-all">
+            {version}
+          </code>
+        ) : (
+          <div className="flex-1 px-3 py-2 text-sm text-foreground-500">
+            {isPending && <Skeleton className="h-4 w-20 rounded" />}
+            {isError && t('profile.version.unavailable')}
+          </div>
+        )}
         <Button
           isIconOnly
           size="sm"

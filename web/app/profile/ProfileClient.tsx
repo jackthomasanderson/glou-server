@@ -286,9 +286,6 @@ export function ProfileClient() {
           </div>
         </div>
 
-        {/* Running version (#696) */}
-        <AppVersion />
-
         {/* Admin panel shortcut */}
         {user?.isAdmin && (
           <div className="mt-6">
@@ -331,6 +328,9 @@ export function ProfileClient() {
             <GdprSection user={user} />
           </div>
         )}
+
+        {/* Running version (#696) */}
+        <AppVersion />
 
         <div className="mt-6">
           <Button
