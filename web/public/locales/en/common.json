@@ -1143,6 +1143,8 @@
     },
     "backupWarning": {
       "notWritable": "Glou cannot write to the backups folder: every backup fails.",
+      "failed": "The last backup failed: check the disk space and the API logs, then run one again.",
+      "overdue": "No backup has succeeded for more than two days: the data is no longer being copied.",
       "disabled": "Automatic backups are switched off: no copy of the data is taken each night.",
       "noBackup": "No backup has ever succeeded: after a disk failure or a wrong move, nothing could be restored.",
       "open": "Open backups",

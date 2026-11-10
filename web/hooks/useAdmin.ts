@@ -230,11 +230,12 @@ export function useReorderMaturityReferences() {
 export const ADMIN_BACKUP_HEALTH_KEY = ['admin_backup_health'];
 
 /** Whether backups run and when one last succeeded: the admin page warns when there is no recovery point. */
-export function useAdminBackupHealth() {
+export function useAdminBackupHealth({ enabled = true, staleTime = 30_000 }: { enabled?: boolean; staleTime?: number } = {}) {
     return useQuery({
         queryKey: ADMIN_BACKUP_HEALTH_KEY,
         queryFn: () => configClient.getBackupHealth(),
-        staleTime: 30_000,
+        staleTime,
+        enabled,
     });
 }
 

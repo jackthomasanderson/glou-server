@@ -8,9 +8,17 @@ import { formatDateTime } from '@/lib/format';
 /**
  * #756: what leaves the instance without a recovery point — a backups folder
  * the API cannot write to, automatic backups switched off, or no backup that
- * ever succeeded. Nothing while unknown.
+ * ever succeeded. #671: a last run that failed, or no success for more than
+ * 48 h while backups are on. Nothing while unknown.
  */
-export type BackupProblem = 'notWritable' | 'disabled' | 'noBackup';
+export type BackupProblem = 'notWritable' | 'failed' | 'overdue' | 'disabled' | 'noBackup';
+
+/**
+ * #671: the problems an administrator is told about on every page — backups
+ * that should run and do not. Switching them off is the admin's own choice,
+ * said on the admin page only.
+ */
+const ALERTS: ReadonlySet<BackupProblem> = new Set(['failed', 'overdue']);
 
 export function backupProblems(health: BackupHealth | null | undefined): BackupProblem[] {
   if (!health) return [];
@@ -18,9 +26,15 @@ export function backupProblems(health: BackupHealth | null | undefined): BackupP
   // Every backup fails while the folder cannot be written to (#537), even after earlier successes.
   if (!health.directoryWritable) problems.push('notWritable');
   // Absent fields: the API could not read them — nothing is claimed.
+  if (health.lastRunFailed === true) problems.push('failed');
+  if (health.overdue === true) problems.push('overdue');
   if (health.backupEnabled === false) problems.push('disabled');
   if (health.lastSuccessAt === null) problems.push('noBackup');
   return problems;
+}
+
+export function backupAlerts(health: BackupHealth | null | undefined): BackupProblem[] {
+  return backupProblems(health).filter((problem) => ALERTS.has(problem));
 }
 
 /** #756: the warning at the top of the admin page, with the way to the Backups tab. */

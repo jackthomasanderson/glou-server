@@ -27,6 +27,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * because the container was stopped at the configured hour must (#234).
  */
 const OVERDUE_AFTER_MS = 25 * 60 * 60 * 1000;
+/**
+ * #671: the administrators are told on every page once the last successful
+ * backup is older than this — two nights: one missed night is caught up by the
+ * hourly retry above, so a gap this long means the retries are failing too.
+ */
+const ALERT_AFTER_MS = 48 * 60 * 60 * 1000;
 
 /** Which backup failed: the alert must not call a manual one "scheduled" (#666). */
 type BackupFailureKind = 'scheduled' | 'manual' | 'beforeRestore';
@@ -207,13 +213,24 @@ export const backupService = {
    * #756: whether automatic backups are on (the schema's default, true, until
    * the settings row exists) and when a backup last succeeded, whatever its
    * trigger — what the admin page warns about.
+   * #671: also whether the last run of any trigger failed, and whether the last
+   * success is overdue (older than ALERT_AFTER_MS while backups are on): what
+   * the banner shown to administrators on every page reports.
    */
-  async getStatus(): Promise<{ backupEnabled: boolean; lastSuccessAt: Date | null }> {
-    const [config, lastOk] = await Promise.all([
+  async getStatus(): Promise<{ backupEnabled: boolean; lastSuccessAt: Date | null; lastRunFailed: boolean; overdue: boolean }> {
+    const [config, lastOk, lastRun] = await Promise.all([
       prisma.systemConfig.findUnique({ where: { id: 'singleton' }, select: { backupEnabled: true } }),
       prisma.backupRun.findFirst({ where: { success: true }, orderBy: { runAt: 'desc' }, select: { runAt: true } }),
+      prisma.backupRun.findFirst({ orderBy: { runAt: 'desc' }, select: { success: true } }),
     ]);
-    return { backupEnabled: config?.backupEnabled ?? true, lastSuccessAt: lastOk?.runAt ?? null };
+    const backupEnabled = config?.backupEnabled ?? true;
+    const lastSuccessAt = lastOk?.runAt ?? null;
+    return {
+      backupEnabled,
+      lastSuccessAt,
+      lastRunFailed: lastRun ? !lastRun.success : false,
+      overdue: backupEnabled && lastSuccessAt !== null && Date.now() - lastSuccessAt.getTime() > ALERT_AFTER_MS,
+    };
   },
 
   /**

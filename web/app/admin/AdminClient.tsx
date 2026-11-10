@@ -67,6 +67,12 @@ export function AdminClient() {
     setSection('config');
     setConfigTab(tab);
   };
+  // #671: the backup alert shown on every other page links to /admin?tab=data.
+  // Read once on arrival, from the address itself, so the page needs no Suspense boundary.
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') === 'data') openConfigTab('data');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- on arrival only
+  }, []);
   // #756: no automatic backup, or none that ever succeeded, is said at the top of the page.
   const { data: backupHealth } = useAdminBackupHealth();
   const problems = backupProblems(backupHealth);

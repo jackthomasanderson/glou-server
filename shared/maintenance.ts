@@ -23,4 +23,8 @@ export interface BackupHealth {
   backupEnabled?: boolean;
   /** When the last successful backup ran, any trigger; null when none ever did, absent when it could not be read (#756). An ISO string on the wire. */
   lastSuccessAt?: string | Date | null;
+  /** Whether the last backup run, any trigger, failed (#671). Absent when it could not be read. */
+  lastRunFailed?: boolean;
+  /** Whether backups are on and the last success is more than 48 h old (#671). Absent when it could not be read. */
+  overdue?: boolean;
 }

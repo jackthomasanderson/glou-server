@@ -1145,6 +1145,8 @@
     },
     "backupWarning": {
       "notWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échoue.",
+      "failed": "La dernière sauvegarde a échoué : vérifiez l'espace disque et les journaux de l'API, puis relancez-en une.",
+      "overdue": "Aucune sauvegarde n'a réussi depuis plus de deux jours : les données ne sont plus copiées.",
       "disabled": "Les sauvegardes automatiques sont désactivées : aucune copie des données n'est faite chaque nuit.",
       "noBackup": "Aucune sauvegarde n'a jamais réussi : en cas de panne du disque ou de mauvaise manipulation, rien ne pourra être restauré.",
       "open": "Ouvrir les sauvegardes",
