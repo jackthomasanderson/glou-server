@@ -73,7 +73,7 @@ export function formatHistoryValue(field: string, value: unknown, t: Translate, 
   if (Array.isArray(value)) return value.length > 0 ? value.map(formatListEntry).join(', ') : t('actions.none');
   if (field === 'cellarId' && typeof value === 'string') return ctx.cellarName?.(value) ?? '—';
   if (field === 'category' && typeof value === 'string') return t(`categories.${value}`, { defaultValue: value });
-  if (field === 'fillLevel' && typeof value === 'number') return `${value}%`;
+  if (field === 'fillLevel' && typeof value === 'number') return t('percent', { value });
   if (MONEY_FIELDS.has(field) && typeof value === 'number') return formatCurrency(value, ctx.lang);
   if (typeof value === 'string' && ISO_DATE.test(value)) {
     return formatDate(value, ctx.lang, DAY_FIELDS.has(field) ? { timeZone: 'UTC' } : undefined) || value;

@@ -17,10 +17,12 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
   const count = collection.items.length;
 
   return (
+    // #656: not one big button containing Edit and Delete (invalid HTML, they
+    // could not be reached with a screen reader). The name is the "open"
+    // button, stretched over the card by an ::after overlay; the actions sit
+    // above it.
     <Card
-      isPressable
-      onPress={() => onClick(collection)}
-      className="cursor-pointer transition-shadow hover:shadow-lg w-full"
+      className="relative cursor-pointer transition-shadow hover:shadow-lg w-full"
       style={{ borderTop: `4px solid ${collection.color}` }}
       radius="lg"
     >
@@ -29,7 +31,14 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
           {collection.icon && (
             <span className="text-2xl leading-none">{collection.icon}</span>
           )}
-          <span className="font-bold text-base truncate flex-1">{collection.name}</span>
+          <button
+            type="button"
+            onClick={() => onClick(collection)}
+            title={collection.name}
+            className="font-bold text-base truncate flex-1 min-w-0 text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-focus after:absolute after:inset-0 after:content-['']"
+          >
+            {collection.name}
+          </button>
         </div>
         <Chip
           size="sm"
@@ -42,7 +51,7 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
           {t('collections.itemCount', { count })}
         </Chip>
       </CardBody>
-      <CardFooter className="pt-0 justify-end gap-1">
+      <CardFooter className="relative z-10 pt-0 justify-end gap-1">
         <Tooltip delay={500} content={t('actions.edit')}>
           <Button
             isIconOnly
@@ -52,7 +61,6 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
             onPress={() => {
               onEdit(collection);
             }}
-            onClick={(e) => { e.stopPropagation(); }}
           >
             <Pencil size={16} />
           </Button>
@@ -65,7 +73,6 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
             color="danger"
             aria-label={t('actions.delete')}
             onPress={() => onDelete(collection)}
-            onClick={(e) => { e.stopPropagation(); }}
           >
             <Trash2 size={16} />
           </Button>

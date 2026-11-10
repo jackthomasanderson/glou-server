@@ -18,7 +18,7 @@ describe('ValuationBreakdown', () => {
     expect(digits(screen.getByTestId('valuation-in-stock-cost'))).toBe('80');
     const gain = screen.getByTestId('valuation-gain');
     expect(gain).toHaveTextContent('+');
-    expect(gain).toHaveTextContent('(+0%)');
+    expect(gain).toHaveTextContent('(+0 %)');
     // No loss: no minus sign before an amount ("Plus-value" has a hyphen).
     expect(gain).not.toHaveTextContent(/[-−]\s*(€|\d)/);
     const spend = screen.getByTestId('valuation-total-spend');
@@ -29,7 +29,7 @@ describe('ValuationBreakdown', () => {
   it('shows a real gain on the stock', () => {
     render(<ValuationBreakdown t={t} totalValuation={230} inStockPurchasePrice={184} totalPurchasePrice={200} />);
 
-    expect(screen.getByTestId('valuation-gain')).toHaveTextContent('(+25%)');
+    expect(screen.getByTestId('valuation-gain')).toHaveTextContent('(+25 %)');
   });
 
   it('shows no gain when nothing in stock has a purchase price', () => {

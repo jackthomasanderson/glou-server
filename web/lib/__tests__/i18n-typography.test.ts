@@ -26,14 +26,26 @@ describe('French typography', () => {
   });
 
   // Recette v3: « — 100 ⏎ % » in a guest's reminder — a level written next to
-  // its sign in the code, out of t(), misses the non-breaking space.
+  // its sign in the code, out of t(), misses the non-breaking space. #841: the
+  // same with no space at all ("60%"), which French reads as a typo.
+  // CSS values (`width: ${pct}%`, `hsl(${h} ${s}% ${l}%)`) are not text.
+  const isCssValue = (line: string) => /\b(width|height|left|top|right|bottom)\s*[:=]|hsl\(|\$\{h\} \$\{s\}%/.test(line);
+
   it('no level is written with its "%" outside the translations', () => {
     const root = path.join(import.meta.dirname, '..', '..');
     const composed = ['app', 'components', 'hooks', 'lib'].flatMap((dir) =>
       (readdirSync(path.join(root, dir), { recursive: true }) as string[])
-        .filter((file) => /\.tsx?$/.test(file) && !/__tests__/.test(file))
-        .filter((file) => /\} %/.test(readFileSync(path.join(root, dir, file), 'utf8')))
+        .filter((file) => /\.tsx?$/.test(file) && !/__tests__|\.test\./.test(file))
+        .filter((file) => readFileSync(path.join(root, dir, file), 'utf8')
+          .split('\n').some((line) => /\}\s?%/.test(line) && !isCssValue(line)))
         .map((file) => path.join(dir, file)));
     expect(composed).toEqual([]);
+  });
+
+  it('the guard catches a level glued to its sign', () => {
+    expect(/\}\s?%/.test('{readiness}%') && !isCssValue('{readiness}%')).toBe(true);
+    expect(/\}\s?%/.test('`${value}%`') && !isCssValue('`${value}%`')).toBe(true);
+    expect(/\}\s?%/.test('{v} %') && !isCssValue('{v} %')).toBe(true);
+    expect(isCssValue('style={{ width: `${pct}%`, color }}')).toBe(true);
   });
 });

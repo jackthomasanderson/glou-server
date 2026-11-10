@@ -158,7 +158,7 @@ export function TastingInsights() {
                         {t(`tastings.readiness.${key}`)}
                       </span>
                       <span className="text-xs font-semibold text-foreground-500">
-                        {count} ({pct}%)
+                        {count} ({t('percent', { value: pct })})
                       </span>
                     </div>
                     <div className="h-1.5 rounded-full bg-default-100 overflow-hidden">

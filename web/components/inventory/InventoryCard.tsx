@@ -148,9 +148,14 @@ export function InventoryCard({
           )}
           {hasPendingSync && (
             <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
-              <span className="relative z-10 shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-warning-100 text-warning-700">
-                <Clock size={11} aria-label={t('offline.pendingSyncTooltip')} />
-              </span>
+              {/* #656: a button, so the tooltip opens on keyboard focus and on tap. */}
+              <button
+                type="button"
+                aria-label={t('offline.pendingSyncTooltip')}
+                className="relative z-10 shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-warning-100 text-warning-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <Clock size={11} aria-hidden="true" />
+              </button>
             </Tooltip>
           )}
         </div>

@@ -3,6 +3,7 @@
     "name": "Glou",
     "tagline": "Simply precious"
   },
+  "percent": "{{value}}%",
   "filters": {
     "all": "All",
     "allCategories": "All categories"

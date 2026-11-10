@@ -39,7 +39,7 @@ import { formatCurrency } from '@/lib/format';
 import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
-import { Cellar, CellarType } from '@/lib/cellars/types';
+import { Cellar, CellarType, CELLAR_TYPES } from '@/lib/cellars/types';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useExpertMode } from '@/hooks/useExpertMode';
@@ -102,12 +102,10 @@ export const CellarDashboard: React.FC = () => {
   // #515: a humidor is a cigar lover's basic need, not an expert option —
   // the type is always offered; only the humidity target range and its
   // monitoring stay behind expert mode (see the form below).
-  const cellarTypeOptions = useMemo(() => [
-    { key: 'VINTAGE', label: t('cellars.types.VINTAGE') },
-    { key: 'COOLER', label: t('cellars.types.COOLER') },
-    { key: 'SHELF', label: t('cellars.types.SHELF') },
-    { key: 'HUMIDOR', label: t('cellars.types.HUMIDOR') },
-  ], [t]);
+  const cellarTypeOptions = useMemo(
+    () => CELLAR_TYPES.map((key) => ({ key, label: t(`cellars.types.${key}`) })),
+    [t],
+  );
 
   const typeFilterOptions = useMemo(
     () => [{ key: 'all', label: t('cellars.filters.allTypes') }, ...cellarTypeOptions],
@@ -395,28 +393,30 @@ export const CellarDashboard: React.FC = () => {
         /* Grid view */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {filteredCellars.map((cellar) => (
+            // #656: not one big button containing other buttons (invalid HTML,
+            // Edit and Delete unreachable with a screen reader). The name is the
+            // "open" button, stretched over the card by an ::after overlay; the
+            // actions sit above it.
             <Card
               key={cellar.id}
-              isPressable
-              onPress={() => router.push(`/cellars/${cellar.id}`)}
-              className="h-full"
+              className="h-full relative transition-shadow hover:shadow-lg"
             >
               <CardBody className="flex flex-col gap-2 p-4">
                 {/* Title row */}
                 <div className="flex items-center gap-2 mb-1">
                   <Warehouse size={18} className="text-primary shrink-0" />
-                  <span className="text-base font-semibold flex-1 min-w-0 truncate">{cellar.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/cellars/${cellar.id}`)}
+                    title={cellar.name}
+                    className="text-base font-semibold flex-1 min-w-0 truncate text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-focus after:absolute after:inset-0 after:content-['']"
+                  >
+                    {cellar.name}
+                  </button>
                   {cellar.columns && cellar.rows && (
-                    <Tooltip delay={500} content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                      <button
-                        type="button"
-                        aria-label={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}
-                        className="flex items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Grid2x2 size={14} className="text-foreground-500" />
-                      </button>
-                    </Tooltip>
+                    <Chip size="sm" variant="flat" className="shrink-0">
+                      {t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}
+                    </Chip>
                   )}
                 </div>
 
@@ -445,29 +445,30 @@ export const CellarDashboard: React.FC = () => {
                 )}
 
                 {/* Actions */}
-                <div
-                  className="flex gap-1 mt-2 pt-2 border-t border-default-100"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    variant="light"
-                    onPress={() => handleOpenForm(cellar)}
-                    aria-label={t('actions.edit')}
-                  >
-                    <Pencil size={14} />
-                  </Button>
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    variant="light"
-                    color="danger"
-                    onPress={() => handleDelete(cellar)}
-                    aria-label={t('actions.delete')}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
+                <div className="relative z-10 flex gap-1 mt-2 pt-2 border-t border-default-100">
+                  <Tooltip delay={500} content={t('actions.edit')}>
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="light"
+                      onPress={() => handleOpenForm(cellar)}
+                      aria-label={t('actions.edit')}
+                    >
+                      <Pencil size={14} />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip delay={500} content={t('actions.delete')}>
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="light"
+                      color="danger"
+                      onPress={() => handleDelete(cellar)}
+                      aria-label={t('actions.delete')}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </Tooltip>
                 </div>
               </CardBody>
             </Card>

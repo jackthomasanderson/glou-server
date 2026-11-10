@@ -87,9 +87,14 @@ export function InventoryListRow({
             <p className="text-sm font-semibold line-clamp-2 break-words" title={item.name}>{item.name}</p>
             {hasPendingSync && (
               <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
-                <span className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700">
-                  <Clock size={10} aria-label={t('offline.pendingSyncTooltip')} />
-                </span>
+                {/* #656: a button, so the tooltip opens on keyboard focus and on tap. */}
+                <button
+                  type="button"
+                  aria-label={t('offline.pendingSyncTooltip')}
+                  className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                >
+                  <Clock size={10} aria-hidden="true" />
+                </button>
               </Tooltip>
             )}
           </div>
