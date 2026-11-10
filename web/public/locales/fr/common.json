@@ -1848,6 +1848,7 @@
       "search": "Rechercher dans ce partage",
       "sortBy": "Trier par",
       "empty": "Aucun article dans ce partage.",
+      "noResults": "Aucun résultat pour « {{query}} »",
       "scopeAll": "Collection complète",
       "errors": {
         "finished": "Cette bouteille a été bue ou retirée entre-temps.",

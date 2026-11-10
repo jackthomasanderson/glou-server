@@ -1846,6 +1846,7 @@
       "search": "Search this share",
       "sortBy": "Sort by",
       "empty": "No items in this share.",
+      "noResults": "No results for \"{{query}}\"",
       "scopeAll": "Full collection",
       "errors": {
         "finished": "This bottle was drunk or removed in the meantime.",
