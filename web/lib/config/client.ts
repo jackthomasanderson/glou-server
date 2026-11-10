@@ -34,7 +34,6 @@ export interface SystemConfigPublic {
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
   publicUrl: string | null;
-  accessMode: string;
   effectivePublicUrl: string;
   registrationOpen: boolean;
   backupEnabled: boolean;
@@ -52,7 +51,6 @@ export interface RetentionConfig {
 
 export interface NetworkConfig {
   publicUrl: string | null;
-  accessMode: 'direct' | 'proxy';
 }
 
 export interface NetworkCheckResult {

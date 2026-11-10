@@ -2127,22 +2127,15 @@
       }
     },
     "network": {
-      "description": "Définissez l'URL publique de référence de l'instance et la manière dont elle est exposée (accès direct ou via un reverse proxy).",
+      "description": "Définissez l'URL publique de référence de l'instance, utilisée dans les liens que l'application envoie.",
       "publicUrl": "URL publique",
       "publicUrlPlaceholder": "https://cave.mondomaine.fr",
       "publicUrlHint": "Laissez vide pour utiliser la variable d'environnement APP_URL du serveur.",
-      "accessMode": "Mode d'accès",
-      "accessModeHint": "Indique si l'application est atteinte directement ou par l'intermédiaire d'un reverse proxy externe.",
-      "accessModeOptions": {
-        "direct": "Accès direct",
-        "proxy": "Via un reverse proxy"
-      },
       "saved": "Configuration réseau enregistrée.",
       "summary": {
         "title": "Résumé des paramètres actifs",
         "effectiveUrl": "URL publique effective",
-        "fromEnv": "Valeur issue de la variable d'environnement APP_URL (aucune URL publique définie en base).",
-        "accessMode": "Mode d'accès actif"
+        "fromEnv": "Valeur issue de la variable d'environnement APP_URL (aucune URL publique définie en base)."
       },
       "check": {
         "button": "Vérifier la configuration",
@@ -2151,8 +2144,7 @@
         "networkError": "Impossible de contacter le serveur pour effectuer la vérification.",
         "warnings": {
           "INVALID_URL": "L'URL publique effective n'est pas syntaxiquement valide.",
-          "NOT_HTTPS_IN_PRODUCTION": "L'URL publique n'utilise pas HTTPS alors que l'instance est en environnement de production.",
-          "PROXY_MODE_LOCALHOST_URL": "Le mode d'accès est défini sur « via un reverse proxy » mais l'URL publique pointe vers localhost, ce qui est incohérent pour un accès externe."
+          "NOT_HTTPS_IN_PRODUCTION": "L'URL publique n'utilise pas HTTPS alors que l'instance est en environnement de production."
         }
       }
     },

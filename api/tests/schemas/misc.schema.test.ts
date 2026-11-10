@@ -45,15 +45,18 @@ describe('recordHumidorReadingSchema', () => {
 });
 
 describe('networkConfigSchema', () => {
-  it('accepts direct/proxy with an optional publicUrl', () => {
-    expect(networkConfigSchema.safeParse({ accessMode: 'direct' }).success).toBe(true);
-    expect(networkConfigSchema.safeParse({ accessMode: 'proxy', publicUrl: null }).success).toBe(true);
-    expect(networkConfigSchema.safeParse({ accessMode: 'proxy', publicUrl: 'https://glou.example.com' }).success).toBe(true);
+  it('accepts an optional publicUrl', () => {
+    expect(networkConfigSchema.safeParse({}).success).toBe(true);
+    expect(networkConfigSchema.safeParse({ publicUrl: null }).success).toBe(true);
+    expect(networkConfigSchema.safeParse({ publicUrl: 'https://glou.example.com' }).success).toBe(true);
   });
 
-  it('rejects a bad accessMode or a malformed publicUrl', () => {
-    expect(networkConfigSchema.safeParse({ accessMode: 'tunnel' }).success).toBe(false);
-    expect(networkConfigSchema.safeParse({ accessMode: 'direct', publicUrl: 'glou' }).success).toBe(false);
+  it('rejects a malformed publicUrl', () => {
+    expect(networkConfigSchema.safeParse({ publicUrl: 'glou' }).success).toBe(false);
+  });
+
+  it('no longer carries an access mode (#617)', () => {
+    expect(Object.keys(networkConfigSchema.shape)).toEqual(['publicUrl']);
   });
 });
 

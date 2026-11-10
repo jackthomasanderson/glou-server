@@ -40,13 +40,8 @@ export type BackupConfig = {
 
 // ─── FEAT-54: Network Configuration & External Access ────────────────────────
 
-export type AccessMode = 'direct' | 'proxy';
-
-const ACCESS_MODES: readonly AccessMode[] = ['direct', 'proxy'];
-
 export type NetworkConfigInput = {
   publicUrl?: string | null;
-  accessMode: AccessMode;
 };
 
 export type NetworkCheckResult = {
@@ -84,7 +79,6 @@ export type PublicSystemConfig = {
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
   publicUrl: string | null;
-  accessMode: string;
   // Resolved URL actually used by the app (publicUrl, or APP_URL, or the localhost default).
   effectivePublicUrl: string;
   registrationOpen: boolean;
@@ -122,7 +116,6 @@ export const systemConfigService = {
       sessionRetentionDays: cfg.sessionRetentionDays,
       guestShareRetentionDays: cfg.guestShareRetentionDays,
       publicUrl: cfg.publicUrl,
-      accessMode: cfg.accessMode,
       effectivePublicUrl: resolveEffectivePublicUrl(cfg.publicUrl),
       registrationOpen: cfg.registrationOpen,
       backupEnabled: cfg.backupEnabled,
@@ -232,12 +225,9 @@ export const systemConfigService = {
         throw new Error('INVALID_PUBLIC_URL');
       }
     }
-    if (!ACCESS_MODES.includes(data.accessMode)) {
-      throw new Error('INVALID_ACCESS_MODE');
-    }
 
     const old = await getOrCreate();
-    const update: Record<string, unknown> = { updatedBy: userId, accessMode: data.accessMode };
+    const update: Record<string, unknown> = { updatedBy: userId };
     if (data.publicUrl !== undefined) {
       update.publicUrl = data.publicUrl && data.publicUrl.trim() !== '' ? data.publicUrl : null;
     }
@@ -269,11 +259,6 @@ export const systemConfigService = {
 
     if (process.env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
       warnings.push('NOT_HTTPS_IN_PRODUCTION');
-    }
-
-    const isLocalHost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
-    if (cfg.accessMode === 'proxy' && isLocalHost) {
-      warnings.push('PROXY_MODE_LOCALHOST_URL');
     }
 
     return { ok: true, warnings };
