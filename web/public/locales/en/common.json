@@ -1892,7 +1892,7 @@
       "email": "Email",
       "emailDesc": "Notifications sent to your email address",
       "webhook": "Gotify",
-      "webhookDesc": "Sent to this instance's Gotify server, set up by the administrator. Each message carries your username.",
+      "webhookDesc": "Your notifications go to this instance's Gotify server, run by the administrator, who can read them (security alerts included). Each message carries your username.",
       "disabledByAdmin": "Disabled by administrator",
       "offReason": {
         "email": {
@@ -1915,7 +1915,9 @@
         "GOTIFY_NOT_CONFIGURED": "Gotify is no longer available on this instance. Reload the page.",
         "INVALID_URL": "The address of this instance's Gotify server cannot be used. Let your administrator know.",
         "SMTP_NOT_CONFIGURED": "Sending email is no longer available on this instance. Reload the page.",
-        "UNEXPECTED": "The test notification could not be sent. Try again later or let your administrator know."
+        "UNEXPECTED": "The test notification could not be sent. Try again later or let your administrator know.",
+        "TOO_MANY_REQUESTS_one": "Too many tests in a row. Wait {{count}} minute before trying again.",
+        "TOO_MANY_REQUESTS_other": "Too many tests in a row. Wait {{count}} minutes before trying again."
       }
     },
     "categories": {

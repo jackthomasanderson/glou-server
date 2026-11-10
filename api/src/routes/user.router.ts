@@ -6,7 +6,7 @@ import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
 import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema, deleteAccountSchema } from '../schemas/user.schema';
-import { passwordCheckLimiter } from '../lib/rate-limit';
+import { accountRequestLimit, passwordCheckLimiter } from '../lib/rate-limit';
 import { prisma } from '../lib/prisma';
 import { channelPolicy, notificationService } from '../services/notification.service';
 import { systemConfigService } from '../services/system-config.service';
@@ -320,11 +320,15 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
   res.json({ data: { ok: true } });
 });
 
+/** Tests a member may send per auth window: each one reaches the instance's shared Gotify app or a mailbox (#767). */
+const NOTIFICATION_TESTS_PER_WINDOW = 5;
+const notificationTestLimiter = accountRequestLimit(NOTIFICATION_TESTS_PER_WINDOW, 'notification-test');
+
 /**
  * POST /api/user/notifications/test/:channel
  * Test a notification channel (email or webhook)
  */
-router.post('/notifications/test/:channel', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/notifications/test/:channel', authMiddleware, notificationTestLimiter, async (req: Request, res: Response, next: NextFunction) => {
   const channel = routeParam(req.params.channel);
   if (channel !== 'email' && channel !== 'webhook') {
     res.status(400).json({ error: 'UNKNOWN_CHANNEL' });

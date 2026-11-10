@@ -9,6 +9,7 @@ import { configClient, type NotificationPrefs, type NotificationPrefsPatch } fro
 import {
   DAILY_ALERTS_HOUR, NOTIFICATION_CATEGORIES, isNotificationCategoryEnabled, type ChannelOffReason, type NotificationCategory,
 } from '@shared/notifications';
+import { AUTH_RATE_LIMIT_WINDOW_MINUTES, TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { isNetworkFailure } from '@/lib/auth/error-message';
@@ -87,7 +88,14 @@ export function NotificationPreferences() {
       if (result.success) notifySuccess('notifications.channels.testSuccess');
       else notifyError(`notifications.channels.testErrors.${result.error && TEST_ERRORS.has(result.error) ? result.error : 'UNEXPECTED'}`);
     } catch (err) {
-      notifyError(isNetworkFailure(err) ? 'status.serverUnreachable' : 'notifications.channels.testErrors.UNEXPECTED');
+      if (err instanceof Error && err.message === TOO_MANY_REQUESTS_ERROR) {
+        // A few tests per account and window: each one reaches the instance's shared Gotify app.
+        const seconds = (err as { retryAfter?: unknown }).retryAfter;
+        const count = typeof seconds === 'number' && seconds > 0 ? Math.ceil(seconds / 60) : AUTH_RATE_LIMIT_WINDOW_MINUTES;
+        notifyError('notifications.channels.testErrors.TOO_MANY_REQUESTS', { count });
+      } else {
+        notifyError(isNetworkFailure(err) ? 'status.serverUnreachable' : 'notifications.channels.testErrors.UNEXPECTED');
+      }
     } finally {
       setTestingChannel(null);
     }

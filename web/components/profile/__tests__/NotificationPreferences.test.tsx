@@ -200,6 +200,17 @@ describe('NotificationPreferences — Gotify (#767)', () => {
     expect(testNotifChannel).toHaveBeenCalledWith('webhook');
   });
 
+  it('a throttled test says how long to wait', async () => {
+    getNotifPrefs.mockResolvedValue(gotifyOn());
+    testNotifChannel.mockRejectedValue(Object.assign(new Error('TOO_MANY_REQUESTS'), { retryAfter: 600 }));
+    renderPrefs();
+    await screen.findByRole('switch', { name: 'notifications.channels.webhook' });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'notifications.channels.test' })[1]);
+
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('notifications.channels.testErrors.TOO_MANY_REQUESTS', { count: 10 }));
+  });
+
   it('a successful test says so', async () => {
     getNotifPrefs.mockResolvedValue(gotifyOn());
     testNotifChannel.mockResolvedValue({ success: true });

@@ -1894,7 +1894,7 @@
       "email": "Email",
       "emailDesc": "Notifications envoyées à votre adresse email",
       "webhook": "Gotify",
-      "webhookDesc": "Envoyées au serveur Gotify de l'instance, configuré par l'administrateur. Chaque message porte votre nom d'utilisateur.",
+      "webhookDesc": "Vos notifications partent vers le serveur Gotify de l'instance, géré par l'administrateur, qui peut les lire (alertes de sécurité comprises). Chaque message porte votre nom d'utilisateur.",
       "disabledByAdmin": "Désactivé par l'administrateur",
       "offReason": {
         "email": {
@@ -1917,7 +1917,9 @@
         "GOTIFY_NOT_CONFIGURED": "Gotify n'est plus disponible sur cette instance. Rechargez la page.",
         "INVALID_URL": "L'adresse du serveur Gotify de l'instance ne peut pas être utilisée. Prévenez votre administrateur.",
         "SMTP_NOT_CONFIGURED": "L'envoi d'e-mails n'est plus disponible sur cette instance. Rechargez la page.",
-        "UNEXPECTED": "La notification de test n'a pas pu être envoyée. Réessayez plus tard ou prévenez votre administrateur."
+        "UNEXPECTED": "La notification de test n'a pas pu être envoyée. Réessayez plus tard ou prévenez votre administrateur.",
+        "TOO_MANY_REQUESTS_one": "Trop de tests d'affilée. Attendez {{count}} minute avant de réessayer.",
+        "TOO_MANY_REQUESTS_other": "Trop de tests d'affilée. Attendez {{count}} minutes avant de réessayer."
       }
     },
     "categories": {

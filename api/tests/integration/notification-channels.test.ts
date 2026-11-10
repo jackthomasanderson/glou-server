@@ -38,7 +38,7 @@ const saved: PublicSystemConfig = {
   smtpEnabled: true, smtpHost: 'mail.example.com', smtpPort: 587, smtpUser: null, smtpPassMasked: null, smtpFrom: null, smtpSecure: false,
   gotifyEnabled: false, gotifyUrl: 'https://1.2.3.4', gotifyTokenMasked: null, inAppEnabled: true,
   logRetentionDays: 90, sessionRetentionDays: 30, guestShareRetentionDays: 30,
-  publicUrl: null, accessMode: 'direct', effectivePublicUrl: 'http://localhost:3000',
+  publicUrl: null, effectivePublicUrl: 'http://localhost:3000',
   registrationOpen: false, backupEnabled: true, backupRetentionDays: 7, backupHourUtc: 3,
   updatedAt: null, updatedBy: null,
 };
@@ -246,5 +246,24 @@ describe('a channel switch is not blocked by an older Gotify state', () => {
     const res = await asAdmin('put', '/api/admin/config/notifications', { inAppEnabled: false });
 
     expect(res.status).toBe(200);
+  });
+});
+
+// Review of #767: every member's test now lands in the administrator's
+// shared Gotify app; the global per-IP limiter allowed ~1000 per 15 min.
+describe('POST /user/notifications/test/:channel is limited per account', () => {
+  it('refuses the test after a few tries, without calling Gotify', async () => {
+    keep(vi.spyOn(systemConfigService, 'getGotify').mockResolvedValue({ gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4', gotifyToken: 'APP-TOKEN' }));
+    const test = () => request(app).post('/api/user/notifications/test/webhook')
+      .set('Authorization', `Bearer ${token()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .send({});
+
+    for (let i = 0; i < 5; i++) expect((await test()).status).toBe(200);
+    const refused = await test();
+
+    expect(refused.status).toBe(429);
+    expect(refused.body.error).toBe('TOO_MANY_REQUESTS');
+    expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 });

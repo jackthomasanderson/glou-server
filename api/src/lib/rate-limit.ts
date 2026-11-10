@@ -93,3 +93,21 @@ export const passwordCheckLimiter = accountRateLimit(PASSWORD_CHECK_MAX, 'passwo
  * the shared one cannot keep the owner from unlocking their own device.
  */
 export const unlockAccountLimiter = accountRateLimit(PASSWORD_CHECK_MAX, 'unlock');
+
+/**
+ * `max` requests per signed-in account over the auth window, whatever their
+ * outcome: for an action that reaches someone else each time it succeeds
+ * (#767: a member's notification test lands in the administrator's shared
+ * Gotify app). Keyed on the account like {@link accountRateLimit}, so it goes
+ * after authMiddleware.
+ */
+export function accountRequestLimit(max: number, scope: string): RateLimitRequestHandler {
+  return rateLimit({
+    windowMs: AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => `${scope}:${req.userId}`,
+    handler: sendTooManyRequests,
+  });
+}
