@@ -119,7 +119,14 @@ export interface NotificationPrefs {
 
 export interface ConfigHistoryEntry {
   id: number;
+  /** The settings section that was saved (`smtp`, `backup`, …). */
   fieldName: string;
+  /**
+   * #760: JSON objects keyed by setting, holding only what changed; secrets
+   * are masked. Entries written before #760 have no old value and hold the
+   * whole submitted form as their new value.
+   */
+  maskedOldVal: string | null;
   maskedNewVal: string | null;
   createdAt: string;
   user?: { username: string };

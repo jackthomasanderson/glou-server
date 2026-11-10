@@ -89,6 +89,25 @@ export type PublicSystemConfig = {
   updatedBy: string | null;
 };
 
+// ─── #760: configuration history ────────────────────────────────────────────
+
+/** What the history shows in place of a secret that is set. */
+const SECRET_MASK = '••••••••';
+
+function maskStored(value: unknown): string | null {
+  return value ? SECRET_MASK : null;
+}
+
+/** Ciphertexts differ on every save: compare what they decrypt to. */
+function sameSecret(a: unknown, b: unknown): boolean {
+  if (!a || !b) return !a && !b;
+  try {
+    return decrypt(String(a)) === decrypt(String(b));
+  } catch {
+    return false;
+  }
+}
+
 async function getOrCreate(): Promise<SystemConfig> {
   let config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
   if (!config) {
@@ -272,19 +291,31 @@ export const systemConfigService = {
     });
   },
 
-  async logChange(userId: string, section: string, _old: SystemConfig, _new: Record<string, unknown>) {
+  /**
+   * #760 / #628: records only the settings that actually changed, with their
+   * previous and new values as two JSON objects keyed by field name. Encrypted
+   * secrets (`…Enc`) are never written: SECRET_MASK when set, null when empty.
+   * Nothing is recorded when the save changed nothing.
+   */
+  async logChange(userId: string, section: string, old: SystemConfig, next: Record<string, unknown>) {
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+    const previous = old as unknown as Record<string, unknown>;
+    for (const [field, value] of Object.entries(next)) {
+      if (field === 'updatedBy' || value === undefined) continue;
+      const was = previous[field] ?? null;
+      const isSecret = field.endsWith('Enc');
+      if (isSecret ? sameSecret(was, value) : was === (value ?? null)) continue;
+      before[field] = isSecret ? maskStored(was) : was;
+      after[field] = isSecret ? maskStored(value) : value ?? null;
+    }
+    if (Object.keys(after).length === 0) return;
     await prisma.configChangeLog.create({
       data: {
         userId,
         fieldName: section,
-        maskedOldVal: null,
-        maskedNewVal: JSON.stringify(
-          Object.fromEntries(
-            Object.entries(_new)
-              .filter(([k]) => k !== 'updatedBy')
-              .map(([k, v]) => [k, k.endsWith('Enc') ? '••••••••' : v])
-          )
-        ),
+        maskedOldVal: JSON.stringify(before),
+        maskedNewVal: JSON.stringify(after),
       },
     });
   },
