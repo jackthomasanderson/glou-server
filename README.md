@@ -70,10 +70,10 @@ Docker pulls the pre-built images and starts the stack. No compilation required.
 Open [http://localhost:3000](http://localhost:3000), click **Sign up** (under the sign-in form), then **Create account**. The first account you create is automatically granted admin privileges.
 
 > [!NOTE]
-> Once that first account exists, **registration is closed**. To let other people sign up, an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Network**, and can turn it off again afterwards.
+> Once that first account exists, **registration is closed**. To let other people sign up, an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Access**, and can turn it off again afterwards.
 
 > [!TIP]
-> To update to a new version: `docker compose pull && docker compose up -d`. Back up first (**Administration → System Configuration → Backups → Back up now**); to go back, see [Upgrade & Roll Back](./docs/wiki/EN/31-Upgrades-And-Rollback.md).
+> To update to a new version: `docker compose pull && docker compose up -d`. Back up first (**Administration → System Configuration → Data → Back up now**); to go back, see [Upgrade & Roll Back](./docs/wiki/EN/31-Upgrades-And-Rollback.md).
 
 *For advanced configuration, environment variables, and troubleshooting, see the [Wiki](./docs/wiki/EN/_wiki.md).*
 
@@ -97,7 +97,7 @@ Open [http://localhost:3000](http://localhost:3000), click **Sign up** (under th
 Dozens of smaller features ship regularly; see the [closed pull requests](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) for the full history.
 
 ### Next up
-- Smart Data Engine: auto-enrichment via Vivino and Whiskybase, backed by a local cache. Not built yet: the admin screen's integration keys aren't read by anything today.
+- Smart Data Engine: auto-enrichment via Vivino and Whiskybase, backed by a local cache. Not built yet.
 - Predictive analytics for collection valuation.
 - Advanced IoT integration for live cellar temperature and humidity monitoring.
 - Native mobile companion application.

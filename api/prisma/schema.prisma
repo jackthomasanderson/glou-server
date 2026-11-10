@@ -723,6 +723,8 @@ model SystemConfig {
   inAppEnabled Boolean @default(true)
 
   // External API integrations (FEAT-34)
+  // #468: no feature reads these two keys and no screen writes them any more;
+  // the columns stay so that a value saved earlier is not dropped silently.
   vivinoKeyEnc     String? // AES-256-GCM encrypted
   whiskybaseKeyEnc String? // AES-256-GCM encrypted
 

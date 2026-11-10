@@ -10,7 +10,7 @@ Indiquez à Glou l'adresse utilisée pour joindre votre instance depuis l'extér
 ## Action
 
 ### Définir l'URL publique et le mode d'accès
-1. Allez dans **Admin → Configuration Système → Réseau**.
+1. Allez dans **Admin → Configuration Système → Accès**.
 2. Renseignez **URL publique** avec l'adresse à laquelle votre instance est joignable depuis l'extérieur (ex : `https://cave.example.com`). Laissez vide pour se replier sur la variable d'environnement `APP_URL`, ou sur `http://localhost:3000` si cette variable n'est pas non plus définie.
 3. Définissez le **Mode d'accès** :
    - **Direct** : l'instance est atteinte directement.
@@ -30,7 +30,7 @@ Indiquez à Glou l'adresse utilisée pour joindre votre instance depuis l'extér
 
 ### Autoriser ou fermer l'inscription de nouveaux comptes
 L'inscription est **fermée par défaut** : dès que le premier compte (l'admin de l'instance) existe, `POST /api/auth/register` répond `REGISTRATION_CLOSED` et la page de connexion masque le lien d'inscription.
-1. Dans ce même onglet **Réseau**, activez **Autoriser l'inscription de nouveaux comptes** pour laisser les gens créer leur compte, ou désactivez-le pour refermer. Le changement est immédiat.
+1. Dans ce même onglet **Accès**, sous **Qui peut rejoindre l'instance**, activez **Autoriser l'inscription de nouveaux comptes** pour laisser les gens créer leur compte, ou désactivez-le pour refermer, puis cliquez sur **Enregistrer**. Le bloc Membres de la page d'administration indique si les inscriptions sont ouvertes, avec un lien vers ce réglage.
 2. Les comptes existants ne sont pas touchés. Le premier compte d'une instance vide peut toujours être créé.
 
 ## Le pare-feu (troubleshooting)

@@ -13,7 +13,7 @@ Planifiez des sauvegardes de la base depuis l'Admin, restaurez-en une si nécess
 > [!IMPORTANT]
 > Les sauvegardes sont **activées par défaut sur les nouvelles installations**. Une instance installée avant ce changement garde son réglage précédent, qui était **désactivé** : ouvrez le panneau ci-dessous et vérifiez que **Activé** est bien sur ON.
 
-1. Allez dans **Admin → Configuration Système → Sauvegardes**.
+1. Allez dans **Admin → Configuration Système → Données**.
 2. Vérifiez que l'interrupteur **Activé** est bien activé.
 3. Réglez la **Rétention** (jours de conservation des fichiers de sauvegarde, défaut `7`) et l'**Heure (UTC)** (heure de déclenchement quotidien, défaut `3`).
 4. Cliquez sur **Enregistrer**.

@@ -60,8 +60,8 @@ async function notifyAdminsOfBackupFailure(error: string, kind: BackupFailureKin
       const subject = en ? 'Glou — database backup failed' : 'Glou — échec de la sauvegarde de la base';
       const { what, follow } = BACKUP_FAILURE_TEXT[kind][en ? 'en' : 'fr'];
       const htmlBody = en
-        ? `<p>${what}</p><pre>${escapeHtml(error)}</pre><p>${follow}Check the disk space and the API logs, then use <b>Run now</b> in Admin → System Configuration → Backups.</p>`
-        : `<p>${what}</p><pre>${escapeHtml(error)}</pre><p>${follow}Vérifiez l'espace disque et les logs de l'API, puis utilisez <b>Exécuter maintenant</b> dans Admin → Configuration système → Sauvegardes.</p>`;
+        ? `<p>${what}</p><pre>${escapeHtml(error)}</pre><p>${follow}Check the disk space and the API logs, then use <b>Run now</b> in Admin → System Configuration → Data.</p>`
+        : `<p>${what}</p><pre>${escapeHtml(error)}</pre><p>${follow}Vérifiez l'espace disque et les logs de l'API, puis utilisez <b>Exécuter maintenant</b> dans Admin → Configuration système → Données.</p>`;
       return notificationService.send({ userId: admin.id, category: 'backup', subject, htmlBody, bypassQuietHours: true });
     }));
   } catch (err) {

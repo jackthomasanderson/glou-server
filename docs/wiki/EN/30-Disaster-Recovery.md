@@ -15,7 +15,7 @@ Three things are needed to rebuild everything: the **database backup** (`.sql.gz
 If the host disk dies, the backup files die with it unless you copied them elsewhere.
 
 ## Prerequisites (do this *before* you need it)
-1. Backups enabled: Admin → System Configuration → Backups → **Enabled**.
+1. Backups enabled: Admin → System Configuration → Data → **Enabled**.
 2. Regularly copy off the host: the newest file of the `./backups` folder (or **Download** it from the backup history), your `.env`, and the `api_uploads` volume.
    > [!NOTE]
    > If an old `api_backups` volume still exists, it only holds backups from before the 2026.10 upgrade; check the date before restoring one of them.
@@ -43,7 +43,7 @@ If the host disk dies, the backup files die with it unless you copied them elsew
    docker run --rm -v <project>_api_uploads:/data -v "$PWD":/backup alpine \
      sh -c 'cd /data && tar xzf /backup/uploads.tar.gz && chown -R 1001:1001 /data'
    ```
-6. Check: sign in, open a cellar, send a test email (Admin → System Configuration → SMTP → test).
+6. Check: sign in, open a cellar, send a test email (Admin → System Configuration → Notifications → Email → Test connection).
 
 ## Back up the photos
 ```bash

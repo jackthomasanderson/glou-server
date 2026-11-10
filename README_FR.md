@@ -70,10 +70,10 @@ Docker télécharge les images pré-construites et démarre la stack. Aucune com
 Rendez-vous sur [http://localhost:3000](http://localhost:3000), cliquez sur **S'inscrire** (sous le formulaire de connexion), puis sur **Créer mon compte**. Le premier compte créé reçoit automatiquement les droits administrateur.
 
 > [!NOTE]
-> Une fois ce premier compte créé, **l'inscription est fermée**. Pour laisser d'autres personnes s'inscrire, un admin active **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Réseau**, et peut la désactiver ensuite.
+> Une fois ce premier compte créé, **l'inscription est fermée**. Pour laisser d'autres personnes s'inscrire, un admin active **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Accès**, et peut la désactiver ensuite.
 
 > [!TIP]
-> Pour mettre à jour vers une nouvelle version : `docker compose pull && docker compose up -d`. Faites d'abord une sauvegarde (**Administration → Configuration Système → Sauvegardes → Sauvegarder maintenant**) ; pour revenir en arrière, voir [Mises à jour et retour arrière](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).
+> Pour mettre à jour vers une nouvelle version : `docker compose pull && docker compose up -d`. Faites d'abord une sauvegarde (**Administration → Configuration Système → Données → Sauvegarder maintenant**) ; pour revenir en arrière, voir [Mises à jour et retour arrière](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).
 
 *Pour la configuration avancée, les variables d'environnement et le dépannage, consultez le [Wiki](./docs/wiki/FR/_wiki.md).*
 
@@ -97,7 +97,7 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000), cliquez sur **S'
 Des dizaines de fonctionnalités plus petites sortent régulièrement ; voir les [pull requests fermées](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) pour l'historique complet.
 
 ### À venir
-- Smart Data Engine : enrichissement automatique via Vivino et Whiskybase, avec cache local. Pas encore construit : les clés d'intégration de l'écran admin ne sont lues par aucun code aujourd'hui.
+- Smart Data Engine : enrichissement automatique via Vivino et Whiskybase, avec cache local. Pas encore construit.
 - Analyses prédictives pour la valorisation de la collection.
 - Intégration IoT avancée pour le suivi en direct de la température et de l'hygrométrie.
 - Application mobile native.

@@ -28,25 +28,21 @@
    mkdir -p backups && sudo chown 1001:1001 backups
    docker compose up -d
    ```
-   The API runs as the unprivileged uid 1001 and writes its nightly backups to `./backups`. If the folder does not exist, Docker creates it owned by root and every backup fails with "Permission denied" (the API logs it at startup and **Administration → System Configuration → Backups** shows a warning). Docker Desktop on macOS/Windows does not need this step.
+   The API runs as the unprivileged uid 1001 and writes its nightly backups to `./backups`. If the folder does not exist, Docker creates it owned by root and every backup fails with "Permission denied" (the API logs it at startup and **Administration → System Configuration → Data** shows a warning). Docker Desktop on macOS/Windows does not need this step.
    Docker pulls `glou-server-api` and `glou-server-web` from GHCR automatically. This starts the database, API and web only (~1.5 GB of RAM). For the optional label scan (~9 GB of disk, ~3 GB of RAM more), use `docker compose --profile scan up -d` instead.
 
 4. Open [http://localhost:3000](http://localhost:3000), click **Sign up** (under the sign-in form), then **Create account**.
-   The first account you create is automatically granted admin privileges. **Registration is then closed**: other people can only sign up once an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Network**.
+   The first account you create is automatically granted admin privileges. **Registration is then closed**: other people can only sign up once an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Access**.
 
 5. *(Optional)* Configure the instance from **Administration → System Configuration**.
    None of this is required to use the app: each section stays inactive until configured. Set up later, as needed:
 
-   | Section | Purpose |
+   | Tab | Purpose |
    | :--- | :--- |
-   | **SMTP / Email** | SMTP server for outgoing emails (password reset, email notifications). |
-   | **Notif policy** | Instance-wide switches (in-app / email / webhook). A channel disabled here stays unavailable in every user's personal preferences. |
-   | **Webhook / Gotify** | URL and token for a [Gotify](https://gotify.net/) instance to receive notifications outside the app. |
-   | **API Integrations** | Optional third-party API keys (Vivino, Whiskybase). Stored, but **not used by any feature yet**. Also shows whether label scanning (the built-in Ollama service, `--profile scan`) is active. |
-   | **Retention** | How long to keep expired audit logs, sessions/trusted devices, and guest shares before permanent deletion. |
-   | **Backups** | Daily automated database backup (`pg_dump`), with configurable retention and run time. |
-   | **Network** | The instance's canonical public URL, access mode (direct or behind a reverse proxy), and whether new accounts may register. |
-   | **History** | Change log for this configuration (who, when, which section). |
+   | **Notifications** | One card per channel, each with its on/off switch, its settings and its test: **In-app**, **Email** (SMTP server for password resets and email notifications) and **Gotify** (URL and token of a [Gotify](https://gotify.net/) server). A channel switched off here stays unavailable in every member's preferences. |
+   | **Access** | **Who can join**: whether new accounts may register. **Public URL**: the instance's canonical address and access mode (direct or behind a reverse proxy), with a check of that setting. |
+   | **Data** | **Backups**: daily database backup (`pg_dump`) with retention and run time, a manual backup, and the history with download and restore. **Retention and cleanup**: how long expired audit logs, sessions/trusted devices and guest shares are kept. **Delete all data**: the purge of every bottle, cellar and log. |
+   | **System** | The running version (to copy into a bug report), whether label scanning (the built-in Ollama service, `--profile scan`) is active, and the change history of this configuration. |
 
    > [!NOTE]
    > This panel is admin-only (`/admin`, access denied otherwise).
@@ -63,7 +59,7 @@ When the API does not start, its log gives the reason: in Portainer, **Container
 
 **Updating to a new version**:
 
-Back up first (**Administration → System Configuration → Backups → Back up now**): database migrations cannot be undone. On Linux, check that `backups` belongs to uid 1001 (`sudo chown 1001:1001 backups`), otherwise the backup fails. Then:
+Back up first (**Administration → System Configuration → Data → Back up now**): database migrations cannot be undone. On Linux, check that `backups` belongs to uid 1001 (`sudo chown 1001:1001 backups`), otherwise the backup fails. Then:
 ```bash
 docker compose pull && docker compose up -d
 ```
@@ -84,5 +80,5 @@ To go back, see [Upgrade & Roll Back](./31-Upgrades-And-Rollback.md).
 | `image not found` / pull error | The GHCR packages may be private. Authenticate first: `docker login ghcr.io -u YOUR_GITHUB_USERNAME`. |
 | Prisma migration error on startup | The `db` container was not ready. Run `docker compose restart api` to retry the migration. |
 | Sign-up or sign-in fails with "unexpected error" (or "this address is not allowed") when you open Glou by IP, e.g. `http://192.168.1.20:3000`, and nothing shows in the logs of `api` or `web` | The API refuses state-changing requests from an unknown address. Set `APP_URL` in `.env` to the exact address you type in the browser (e.g. `http://192.168.1.20:3000`), then recreate the `api` container. Several addresses: list them in `CSRF_TRUSTED_ORIGINS`, comma-separated. The `api` log then shows a `[csrf] Rejected ...` line when this happens. |
-| "New account registration is currently closed on this instance", or no **Sign up** link on the login page | Expected after the first account exists. An admin opens registration in **Administration → System Configuration → Network → Allow new accounts to register** and can turn it off again once the person has signed up. |
+| "New account registration is currently closed on this instance", or no **Sign up** link on the login page | Expected after the first account exists. An admin opens registration in **Administration → System Configuration → Access → Allow new accounts to register** and can turn it off again once the person has signed up. |
 | Need a one-off `psql` shell on the database | Postgres is intentionally not exposed to the LAN/host (`expose`, not `ports`, in `docker-compose.yml`). Use `docker compose exec db psql -U glou -d glou_db` instead of opening the port. |

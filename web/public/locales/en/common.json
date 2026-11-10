@@ -936,6 +936,11 @@
     "users": {
       "title": "Member Management",
       "subtitle": "Manage roles and access for each member of this instance.",
+      "signUp": {
+        "open": "Sign-up is open: anyone who reaches this instance can create an account.",
+        "closed": "Sign-up is closed: nobody can create an account on their own.",
+        "change": "Change"
+      },
       "columns": {
         "email": "Email",
         "username": "Username",
@@ -1103,8 +1108,8 @@
       "relativeWindow": "{{from}} → {{to}} years"
     },
     "maintenance": {
-      "title": "Maintenance",
       "purge": {
+        "title": "Delete all data",
         "description": "This action will delete ALL bottles and cigars, ALL cellars and ALL activity logs. User accounts will be preserved.",
         "button": "Purge all data",
         "confirmTitle": "Full Purge Confirmation",
@@ -1116,7 +1121,7 @@
         "success": "The database has been reset successfully.",
         "error": "An error occurred during data purge.",
         "errors": {
-          "BACKUP_BEFORE_PURGE_FAILED": "The backup taken before the purge failed, so nothing was deleted. Check the Backups tab."
+          "BACKUP_BEFORE_PURGE_FAILED": "The backup taken before the purge failed, so nothing was deleted. Check the backup history above."
         },
         "counts": {
           "bottles_one": "{{count}} bottle or cigar deleted",
@@ -1922,8 +1927,29 @@
   },
   "adminConfig": {
     "title": "System Configuration",
-    "subtitle": "Configure integrations and the notification policy for this instance.",
+    "subtitle": "How members are notified, who can join, backups and data, and the running version.",
     "tabsAriaLabel": "Config sections",
+    "loadError": "The configuration could not be loaded, so no setting is shown.",
+    "listLoadError": "This list could not be loaded.",
+    "save": "Save",
+    "unsaved": "Unsaved changes",
+    "leaveConfirm": "Some settings are not saved yet. Leave the page and lose them?",
+    "errors": {
+      "UNEXPECTED_ERROR": "This did not work. Try again.",
+      "VALIDATION_ERROR": "A value is not valid. Check the fields of this card.",
+      "INVALID_INPUT": "A value is not valid. Check the fields of this card.",
+      "INVALID_URL": "This address cannot be used: it must be a valid URL that the server is allowed to reach.",
+      "SMTP_NOT_CONFIGURED": "Email is switched off or has no server: turn it on, fill in the server and save before testing.",
+      "GOTIFY_NOT_CONFIGURED": "Gotify is switched off or has no URL: turn it on, fill in the URL and save before testing.",
+      "DELIVERY_FAILED": "The Gotify server did not accept the notification. Check the URL and the token."
+    },
+    "channelStatus": {
+      "active": "Active",
+      "configuredOff": "Configured but off",
+      "notConfigured": "Not configured",
+      "off": "Off"
+    },
+    "testUsesSaved": "Tests use the saved settings: save your changes first.",
     "stepUp": {
       "smtp": "The mail server sends password reset links and security alerts, so changing it is confirmed.",
       "smtpTest": "The test connects to the saved mail server, and sends a message if you gave an address.",
@@ -1933,18 +1959,24 @@
       "network": "Password reset links are built from the public URL, so changing it is confirmed."
     },
     "tabs": {
-      "smtp": "SMTP / Email",
-      "notifications": "Notif policy",
-      "gotify": "Webhook / Gotify",
-      "integrations": "API Integrations",
-      "retention": "Retention",
-      "backups": "Backups",
-      "network": "Network",
-      "history": "History",
-      "about": "About"
+      "notifications": "Notifications",
+      "access": "Access",
+      "data": "Data",
+      "system": "System"
     },
-    "about": {
-      "description": "Running version. Include this when filing a bug report."
+    "cards": {
+      "inApp": "In-app",
+      "email": "Email",
+      "gotify": "Gotify",
+      "publicUrl": "Public URL",
+      "backups": "Backups",
+      "retention": "Retention and cleanup",
+      "history": "Configuration history"
+    },
+    "version": {
+      "title": "Version",
+      "description": "Running version. Include this when filing a bug report.",
+      "unavailable": "Version unavailable"
     },
     "smtp": {
       "enabled": "Enable email sending",
@@ -1958,7 +1990,6 @@
       "from": "Sender address",
       "fromPlaceholder": "Glou <your@gmail.com>",
       "secure": "Secure connection (TLS)",
-      "save": "Save SMTP config",
       "test": "Test connection",
       "testWithEmail": "Send test email",
       "testSuccess": "SMTP connection validated.",
@@ -1967,40 +1998,29 @@
       "saved": "SMTP configuration saved."
     },
     "notifPolicy": {
-      "description": "These are global switches for the entire instance. If a channel is disabled here, users will not be able to enable it in their personal preferences.",
+      "description": "Each channel below is switched on or off for the whole instance. A channel switched off here cannot be turned on by members in their preferences.",
       "inApp": "In-app notifications",
       "inAppHint": "Allows users to receive alerts directly in the interface.",
-      "email": "Email notifications",
-      "emailHint": "Requires a valid SMTP configuration (SMTP tab). Users can then enable or disable it individually.",
-      "webhook": "Webhook / Gotify notifications",
+      "emailHint": "Sends password reset links, and the notifications members choose to get by email.",
       "webhookHint": "Requires a configured Gotify URL. Each user sets their own destination URL in their preferences.",
-      "save": "Save policy",
-      "saved": "Policy saved."
+      "saved": "In-app notifications saved."
     },
     "gotify": {
+      "enabled": "Enable Gotify notifications",
       "url": "Gotify URL",
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Gotify token",
       "tokenPlaceholder": "Leave blank to keep current",
-      "save": "Save Gotify config",
       "test": "Test webhook",
       "testSuccess": "Gotify webhook validated.",
       "testError": "Failed: {{error}}",
       "saved": "Gotify configuration saved."
     },
-    "integrations": {
-      "vivinoKey": "Vivino API key",
-      "whiskybaseKey": "Whiskybase API key",
-      "vivinoWhiskybaseNotUsedYet": "Coming soon — stored securely, but no feature reads these keys yet.",
-      "keyPlaceholder": "Leave blank to keep current",
-      "save": "Save integrations",
-      "saved": "Integrations saved.",
-      "scan": {
-        "title": "Label scanning",
-        "active": "Enabled",
-        "inactive": "Not enabled",
-        "howToEnable": "The recognition service is not running, or its model is still downloading, so scanning is hidden from members. To enable it (about 9 GB of disk and 3 GB of memory), run the command below on the server, then wait for the model download to finish:"
-      }
+    "scan": {
+      "title": "Label scanning",
+      "active": "Enabled",
+      "inactive": "Not enabled",
+      "howToEnable": "The recognition service is not running, or its model is still downloading, so scanning is hidden from members. To enable it (about 9 GB of disk and 3 GB of memory), run the command below on the server, then wait for the model download to finish:"
     },
     "history": {
       "noHistory": "No changes recorded."
@@ -2017,7 +2037,6 @@
         "sessionRetentionDays": "Delay after expiration or revocation before sessions and trusted devices are permanently deleted.",
         "guestShareRetentionDays": "Delay after expiration or revocation before guest shares are permanently deleted."
       },
-      "save": "Save retention",
       "saved": "Retention configuration saved.",
       "runNow": {
         "title": "Manual run",
@@ -2064,7 +2083,6 @@
       "retentionDaysHint": "Backup files older than this delay are automatically deleted (7 days minimum recommended).",
       "hourUtc": "Run time (UTC)",
       "hourUtcHint": "Time of day (0-23, UTC) at which the scheduled backup is triggered.",
-      "save": "Save configuration",
       "saved": "Backup configuration saved.",
       "runNow": {
         "title": "Manual run",
@@ -2117,7 +2135,6 @@
         "direct": "Direct access",
         "proxy": "Via a reverse proxy"
       },
-      "save": "Save network configuration",
       "saved": "Network configuration saved.",
       "summary": {
         "title": "Active settings summary",
@@ -2138,7 +2155,7 @@
       }
     },
     "registration": {
-      "title": "New account registration",
+      "title": "Who can join",
       "description": "Once the first account (the instance's admin) exists, anonymous registration is closed by default. Turn it on to let new members sign up for themselves.",
       "enabled": "Allow new accounts to register",
       "saved": "Registration setting saved."
@@ -2305,7 +2322,7 @@
       "staleLines_other": "{{count}} rows not imported: the stock of these wines changed since the preview (another import or member may already have added them). Check the stock before importing these rows again",
       "adminConfig": {
         "title": "System configuration (optional)",
-        "description": "As an admin, you'll be able to set up SMTP, notif policy, webhook/Gotify, API integrations, retention, backups and network later.",
+        "description": "As an admin, you'll be able to set up notifications (email, Gotify), who can join, backups and data retention later, in Administration → System configuration.",
         "link": "Administration → System Configuration"
       },
       "finishButton": "Go to dashboard"

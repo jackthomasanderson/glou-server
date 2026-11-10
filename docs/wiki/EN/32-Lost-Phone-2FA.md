@@ -30,7 +30,7 @@ The reset also signs out all your sessions and trusted devices, and is recorded 
 ## Only administrator, locked out: database command
 Nobody can reset your account from the app, so turn your 2FA off directly in the database. On the machine that runs Glou, in the folder of your `docker-compose.yml`:
 
-1. Take a backup first if you can (**Administration → System Configuration → Backups**, from another admin session; otherwise see [Disaster Recovery](./30-Disaster-Recovery.md)).
+1. Take a backup first if you can (**Administration → System Configuration → Data**, from another admin session; otherwise see [Disaster Recovery](./30-Disaster-Recovery.md)).
 2. List the accounts, to find your exact username:
    ```bash
    docker compose exec db psql -U glou -d glou_db -c \

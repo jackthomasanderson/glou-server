@@ -938,6 +938,11 @@
     "users": {
       "title": "Gestion des membres",
       "subtitle": "Gérez les rôles et l'accès de chaque membre à cette instance.",
+      "signUp": {
+        "open": "Inscriptions ouvertes : toute personne qui accède à l'instance peut créer un compte.",
+        "closed": "Inscriptions fermées : personne ne peut créer de compte de lui-même.",
+        "change": "Modifier"
+      },
       "columns": {
         "email": "Email",
         "username": "Nom d'utilisateur",
@@ -1105,8 +1110,8 @@
       "relativeWindow": "{{from}} → {{to}} ans"
     },
     "maintenance": {
-      "title": "Maintenance",
       "purge": {
+        "title": "Supprimer toutes les données",
         "description": "Cette action supprimera TOUTES les bouteilles et TOUS les cigares, TOUTES les caves et TOUS les journaux d'activité. Les comptes utilisateurs seront préservés.",
         "button": "Purger toutes les données",
         "confirmTitle": "Confirmation de purge complète",
@@ -1118,7 +1123,7 @@
         "success": "La base de données a été remise à zéro avec succès.",
         "error": "Une erreur est survenue lors de la purge des données.",
         "errors": {
-          "BACKUP_BEFORE_PURGE_FAILED": "La sauvegarde préalable à la purge a échoué : rien n'a été supprimé. Consultez l'onglet Sauvegardes."
+          "BACKUP_BEFORE_PURGE_FAILED": "La sauvegarde préalable à la purge a échoué : rien n'a été supprimé. Consultez l'historique des sauvegardes ci-dessus."
         },
         "counts": {
           "bottles_one": "{{count}} bouteille ou cigare supprimé",
@@ -1924,8 +1929,29 @@
   },
   "adminConfig": {
     "title": "Configuration Système",
-    "subtitle": "Paramétrez les intégrations et la politique de notifications de l'instance.",
+    "subtitle": "Comment les membres sont prévenus, qui peut rejoindre l'instance, les sauvegardes et les données, et la version en service.",
     "tabsAriaLabel": "Sections de configuration",
+    "loadError": "La configuration n'a pas pu être chargée : aucun réglage n'est affiché.",
+    "listLoadError": "Cette liste n'a pas pu être chargée.",
+    "save": "Enregistrer",
+    "unsaved": "Modifications non enregistrées",
+    "leaveConfirm": "Certains réglages ne sont pas encore enregistrés. Quitter la page et les perdre ?",
+    "errors": {
+      "UNEXPECTED_ERROR": "L'opération n'a pas abouti. Réessayez.",
+      "VALIDATION_ERROR": "Une valeur n'est pas valide. Vérifiez les champs de cette carte.",
+      "INVALID_INPUT": "Une valeur n'est pas valide. Vérifiez les champs de cette carte.",
+      "INVALID_URL": "Cette adresse ne peut pas être utilisée : elle doit être une URL valide que le serveur a le droit de joindre.",
+      "SMTP_NOT_CONFIGURED": "L'e-mail est coupé ou n'a pas de serveur : activez-le, renseignez le serveur et enregistrez avant de tester.",
+      "GOTIFY_NOT_CONFIGURED": "Gotify est coupé ou n'a pas d'URL : activez-le, renseignez l'URL et enregistrez avant de tester.",
+      "DELIVERY_FAILED": "Le serveur Gotify n'a pas accepté la notification. Vérifiez l'URL et le jeton."
+    },
+    "channelStatus": {
+      "active": "Activé",
+      "configuredOff": "Configuré mais coupé",
+      "notConfigured": "Non configuré",
+      "off": "Coupé"
+    },
+    "testUsesSaved": "Les tests utilisent les réglages enregistrés : enregistrez d'abord vos modifications.",
     "stepUp": {
       "smtp": "Le serveur de messagerie envoie les liens de réinitialisation du mot de passe et les alertes de sécurité : sa modification est confirmée.",
       "smtpTest": "Le test se connecte au serveur de messagerie enregistré, et envoie un message si vous avez donné une adresse.",
@@ -1935,18 +1961,24 @@
       "network": "Les liens de réinitialisation du mot de passe sont construits à partir de l'URL publique : sa modification est confirmée."
     },
     "tabs": {
-      "smtp": "SMTP / Email",
-      "notifications": "Politique de notifs",
-      "gotify": "Webhook / Gotify",
-      "integrations": "Intégrations API",
-      "retention": "Rétention",
-      "backups": "Sauvegardes",
-      "network": "Réseau",
-      "history": "Historique",
-      "about": "À propos"
+      "notifications": "Notifications",
+      "access": "Accès",
+      "data": "Données",
+      "system": "Système"
     },
-    "about": {
-      "description": "Version en cours d'exécution. À inclure dans un rapport de bug."
+    "cards": {
+      "inApp": "Dans l'application",
+      "email": "E-mail",
+      "gotify": "Gotify",
+      "publicUrl": "URL publique",
+      "backups": "Sauvegardes",
+      "retention": "Rétention et nettoyage",
+      "history": "Historique de la configuration"
+    },
+    "version": {
+      "title": "Version",
+      "description": "Version en cours d'exécution. À inclure dans un rapport de bug.",
+      "unavailable": "Version indisponible"
     },
     "smtp": {
       "enabled": "Activer l'envoi d'emails",
@@ -1960,7 +1992,6 @@
       "from": "Adresse expéditeur",
       "fromPlaceholder": "Glou <votre@gmail.com>",
       "secure": "Connexion sécurisée (TLS)",
-      "save": "Enregistrer la config SMTP",
       "test": "Tester la connexion",
       "testWithEmail": "Envoyer un email de test",
       "testSuccess": "Connexion SMTP validée.",
@@ -1969,40 +2000,29 @@
       "saved": "Configuration SMTP enregistrée."
     },
     "notifPolicy": {
-      "description": "Ces réglages sont des interrupteurs globaux pour toute l'instance. Si un canal est désactivé ici, les utilisateurs ne pourront pas l'activer dans leurs préférences personnelles.",
+      "description": "Chaque canal ci-dessous est activé ou coupé pour toute l'instance. Un canal coupé ici ne peut pas être activé par les membres dans leurs préférences.",
       "inApp": "Notifications dans l'application",
       "inAppHint": "Permet aux utilisateurs de recevoir des alertes directement dans l'interface.",
-      "email": "Notifications par email",
-      "emailHint": "Nécessite une configuration SMTP valide (onglet SMTP). Les utilisateurs peuvent ensuite l'activer ou le désactiver individuellement.",
-      "webhook": "Notifications webhook / Gotify",
+      "emailHint": "Envoie les liens de réinitialisation du mot de passe, et les notifications que les membres choisissent de recevoir par e-mail.",
       "webhookHint": "Nécessite une URL Gotify configurée. Chaque utilisateur définit sa propre URL de destination dans ses préférences.",
-      "save": "Enregistrer la politique",
-      "saved": "Politique enregistrée."
+      "saved": "Notifications dans l'application enregistrées."
     },
     "gotify": {
+      "enabled": "Activer les notifications Gotify",
       "url": "URL Gotify",
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Token Gotify",
       "tokenPlaceholder": "Laisser vide pour conserver l'actuel",
-      "save": "Enregistrer la config Gotify",
       "test": "Tester le webhook",
       "testSuccess": "Webhook Gotify validé.",
       "testError": "Échec : {{error}}",
       "saved": "Configuration Gotify enregistrée."
     },
-    "integrations": {
-      "vivinoKey": "Clé API Vivino",
-      "whiskybaseKey": "Clé API Whiskybase",
-      "vivinoWhiskybaseNotUsedYet": "Bientôt disponible — stockée en sécurité, mais aucune fonctionnalité ne lit encore ces clés.",
-      "keyPlaceholder": "Laisser vide pour conserver l'actuel",
-      "save": "Enregistrer les intégrations",
-      "saved": "Intégrations enregistrées.",
-      "scan": {
-        "title": "Scan d'étiquette",
-        "active": "Activé",
-        "inactive": "Non activé",
-        "howToEnable": "Le service de reconnaissance n'est pas démarré, ou son modèle est encore en cours de téléchargement : le scan est donc masqué pour les membres. Pour l'activer (environ 9 Go de disque et 3 Go de mémoire), lancez sur le serveur la commande ci-dessous, puis attendez la fin du téléchargement du modèle :"
-      }
+    "scan": {
+      "title": "Scan d'étiquette",
+      "active": "Activé",
+      "inactive": "Non activé",
+      "howToEnable": "Le service de reconnaissance n'est pas démarré, ou son modèle est encore en cours de téléchargement : le scan est donc masqué pour les membres. Pour l'activer (environ 9 Go de disque et 3 Go de mémoire), lancez sur le serveur la commande ci-dessous, puis attendez la fin du téléchargement du modèle :"
     },
     "history": {
       "noHistory": "Aucune modification enregistrée."
@@ -2019,7 +2039,6 @@
         "sessionRetentionDays": "Délai après expiration ou révocation avant suppression définitive des sessions et appareils de confiance.",
         "guestShareRetentionDays": "Délai après expiration ou révocation avant suppression définitive des partages invités."
       },
-      "save": "Enregistrer la rétention",
       "saved": "Configuration de rétention enregistrée.",
       "runNow": {
         "title": "Exécution manuelle",
@@ -2066,7 +2085,6 @@
       "retentionDaysHint": "Les fichiers de sauvegarde plus anciens que ce délai sont supprimés automatiquement (7 jours minimum recommandé).",
       "hourUtc": "Heure d'exécution (UTC)",
       "hourUtcHint": "Heure de la journée (0-23, en UTC) à laquelle la sauvegarde planifiée est déclenchée.",
-      "save": "Enregistrer la configuration",
       "saved": "Configuration de sauvegarde enregistrée.",
       "runNow": {
         "title": "Exécution manuelle",
@@ -2119,7 +2137,6 @@
         "direct": "Accès direct",
         "proxy": "Via un reverse proxy"
       },
-      "save": "Enregistrer la configuration réseau",
       "saved": "Configuration réseau enregistrée.",
       "summary": {
         "title": "Résumé des paramètres actifs",
@@ -2140,7 +2157,7 @@
       }
     },
     "registration": {
-      "title": "Inscription de nouveaux comptes",
+      "title": "Qui peut rejoindre l'instance",
       "description": "Une fois le premier compte (l'admin de l'instance) créé, l'inscription anonyme est fermée par défaut. Activez-la pour permettre à de nouveaux membres de s'inscrire eux-mêmes.",
       "enabled": "Autoriser l'inscription de nouveaux comptes",
       "saved": "Paramètre d'inscription enregistré."
@@ -2307,7 +2324,7 @@
       "staleLines_other": "{{count}} lignes non importées : le stock de ces vins a changé depuis l'aperçu (un autre import ou un autre membre les a peut-être déjà ajoutées). Vérifiez le stock avant de relancer l'import pour ces lignes",
       "adminConfig": {
         "title": "Configuration système (facultatif)",
-        "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer SMTP, politique de notifs, webhook/Gotify, intégrations API, rétention, sauvegardes et réseau.",
+        "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer les notifications (e-mail, Gotify), qui peut rejoindre l'instance, les sauvegardes et la conservation des données, dans Administration → Configuration système.",
         "link": "Administration → Configuration Système"
       },
       "finishButton": "Accéder au tableau de bord"

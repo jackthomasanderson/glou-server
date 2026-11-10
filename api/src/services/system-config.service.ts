@@ -18,11 +18,6 @@ export interface GotifyConfig {
   gotifyToken: string | null; // plaintext (decrypted)
 }
 
-export interface IntegrationsConfig {
-  vivinoKey: string | null; // plaintext
-  whiskybaseKey: string | null; // plaintext
-}
-
 export type NotificationPolicyConfig = {
   smtpEnabled: boolean;
   gotifyEnabled: boolean;
@@ -85,8 +80,6 @@ export type PublicSystemConfig = {
   gotifyUrl: string | null;
   gotifyTokenMasked: string | null;
   inAppEnabled: boolean;
-  vivinoKeyMasked: string | null;
-  whiskybaseKeyMasked: string | null;
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
@@ -125,8 +118,6 @@ export const systemConfigService = {
       gotifyUrl: cfg.gotifyUrl,
       gotifyTokenMasked: maskSecret(cfg.gotifyTokenEnc),
       inAppEnabled: cfg.inAppEnabled,
-      vivinoKeyMasked: maskSecret(cfg.vivinoKeyEnc),
-      whiskybaseKeyMasked: maskSecret(cfg.whiskybaseKeyEnc),
       logRetentionDays: cfg.logRetentionDays,
       sessionRetentionDays: cfg.sessionRetentionDays,
       guestShareRetentionDays: cfg.guestShareRetentionDays,
@@ -203,18 +194,6 @@ export const systemConfigService = {
     const update = { ...data, updatedBy: userId };
     await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
     await this.logChange(userId, 'notifications', old, data);
-    return this.getPublic();
-  },
-
-  async updateIntegrations(data: Partial<IntegrationsConfig>, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    const update: Record<string, unknown> = { updatedBy: userId };
-
-    if (data.vivinoKey !== undefined) update.vivinoKeyEnc = data.vivinoKey ? encrypt(data.vivinoKey) : null;
-    if (data.whiskybaseKey !== undefined) update.whiskybaseKeyEnc = data.whiskybaseKey ? encrypt(data.whiskybaseKey) : null;
-
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'integrations', old, update);
     return this.getPublic();
   },
 

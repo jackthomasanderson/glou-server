@@ -11,10 +11,10 @@ Glou applique ses migrations de base automatiquement au démarrage de l'API, et 
 
 ## La sauvegarde prise avant de migrer
 * Quand l'API démarre et trouve des migrations qu'elle n'a pas encore appliquées, sur une instance qui a déjà au moins un compte, elle sauvegarde d'abord toute la base, avec le même `pg_dump` que la sauvegarde nocturne. Une nouvelle installation, ou une mise à jour sans migration, ne prend pas cette sauvegarde.
-* Le fichier est `./backups/glou-backup-before-migration-<date>.sql.gz` (`/app/backups` dans le conteneur). Une fois l'API démarrée, il apparaît aussi dans Admin → Configuration système → Sauvegardes, d'où vous pouvez le télécharger.
+* Le fichier est `./backups/glou-backup-before-migration-<date>.sql.gz` (`/app/backups` dans le conteneur). Une fois l'API démarrée, il apparaît aussi dans Admin → Configuration système → Données, d'où vous pouvez le télécharger.
 * Il est **conservé jusqu'à ce que vous le supprimiez** : la rétention (7 jours par défaut) ne l'efface jamais, car c'est le seul moyen de revenir à la version précédente. Supprimez-le de `./backups` quand vous faites confiance à la mise à jour.
 * S'il ne peut pas être écrit, rien n'est migré et l'API ne démarre pas : le journal de l'`api` dit pourquoi (voir Dépannage).
-* Une sauvegarde manuelle avant la mise à jour (Admin → Configuration système → Sauvegardes → **Sauvegarder maintenant**) reste possible, mais n'est plus nécessaire.
+* Une sauvegarde manuelle avant la mise à jour (Admin → Configuration système → Données → **Sauvegarder maintenant**) reste possible, mais n'est plus nécessaire.
 
 > [!WARNING]
 > Vous mettez à jour une instance déployée avant que `docker-compose.yml` n'exige `DB_PASSWORD` ? Elle tourne peut-être encore avec l'ancien mot de passe de repli, public dans l'historique git de ce dépôt. Changez-le : voir [Changer les secrets](./29-Rotation-Des-Secrets.md#changer-db_password).

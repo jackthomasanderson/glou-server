@@ -30,8 +30,6 @@ export interface SystemConfigPublic {
   gotifyUrl: string | null;
   gotifyTokenMasked: string | null;
   inAppEnabled: boolean;
-  vivinoKeyMasked: string | null;
-  whiskybaseKeyMasked: string | null;
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
@@ -135,7 +133,7 @@ export const configClient = {
     return data;
   },
 
-  // ISSUE_169: what Admin → System Configuration → About reads to show a
+  // ISSUE_169: what Admin → System Configuration → System reads to show a
   // version a bug reporter can copy, instead of the moving `latest`/`beta`
   // image tags the old bug report template used to ask for.
   async getVersion(): Promise<{ version: string }> {
@@ -155,11 +153,6 @@ export const configClient = {
 
   async updateNotifPolicy(payload: { smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean }, reauth: AdminReauth): Promise<SystemConfigPublic> {
     const { data } = await client.put<SystemConfigPublic>('/admin/config/notifications', { ...payload, ...reauth });
-    return data;
-  },
-
-  async updateIntegrations(payload: Record<string, unknown>): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/integrations', payload);
     return data;
   },
 

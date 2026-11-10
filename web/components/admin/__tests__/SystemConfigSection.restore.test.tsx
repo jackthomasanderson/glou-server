@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { screen, fireEvent } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { notifyError, notifySuccess } from '@/lib/toast';
+import { renderWithQuery, stubFetch, CONFIG, type Answer } from './configTestKit';
 
 // #666 — a restore now takes a backup of the current data first and is refused
 // if that backup fails. The dialog has to say so, the refusal has to be
@@ -12,6 +14,7 @@ vi.mock('react-i18next', () => ({
 }));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('@/hooks/useScan', () => ({ useScanStatus: () => ({ data: undefined }) }));
+vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
 // The admin's own 2FA state, read by the step-up dialog (#890): off here.
 vi.mock('@/hooks/useAuth', () => ({ useMe: () => ({ data: { id: 'a1', isTwoFactorEnabled: false }, refetch: () => {} }) }));
 // Closed modals render nothing, like HeroUI's.
@@ -19,31 +22,7 @@ vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
 }));
-// Every tab's content is rendered at once, so the Backups tab needs no click.
-vi.mock('@heroui/react', () => {
-  const Box = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
-  return {
-    Button: ({ children, onPress, 'aria-label': ariaLabel }: { children?: ReactNode; onPress?: () => void; 'aria-label'?: string }) => (
-      <button type="button" aria-label={ariaLabel} onClick={onPress}>{children}</button>
-    ),
-    Input: ({ label, placeholder, onValueChange }: { label?: string; placeholder?: string; onValueChange?: (v: string) => void }) => (
-      <input aria-label={label ?? placeholder} onChange={(e) => onValueChange?.(e.target.value)} />
-    ),
-    Switch: ({ children }: { children?: ReactNode }) => <label>{children}</label>,
-    Chip: Box,
-    Skeleton: Box,
-    Tabs: Box,
-    Tab: ({ title, children }: { title?: ReactNode; children?: ReactNode }) => <section>{title}{children}</section>,
-    Select: ({ label }: { label?: ReactNode }) => <div>{label}</div>,
-    SelectItem: () => null,
-    ModalContent: ({ children }: { children?: ReactNode | ((onClose: () => void) => ReactNode) }) => (
-      <>{typeof children === 'function' ? children(() => {}) : children}</>
-    ),
-    ModalHeader: Box,
-    ModalBody: Box,
-    ModalFooter: Box,
-  };
-});
+vi.mock('@heroui/react', async () => (await import('./configTestKit')).heroUiMock());
 
 import { SystemConfigSection } from '../SystemConfigSection';
 
@@ -54,28 +33,23 @@ const run = (id: string, runAt: string) => ({
 const OLD = run('old', '2026-10-27T03:00:00.000Z');
 const SAFETY = { ...run('safety', '2026-10-30T10:00:00.000Z'), trigger: 'manual' };
 
-/** Answers the history route, then the restore route with `restore`; every other admin call with a 500 (ignored by the page). */
-function stubApi(restore: { status: number; body: unknown } | 'timeout') {
+/** Answers the config and history routes, then the restore route with `restore`; every other call with a 500. */
+function stubApi(restore: Answer | 'timeout') {
   let restored = false;
-  const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = String(input);
-    let answer: { status: number; body: unknown } = { status: 500, body: { error: 'INTERNAL_SERVER_ERROR' } };
-    if (url.endsWith('/api/admin/backups/runs')) {
-      answer = { status: 200, body: { data: restored && restore !== 'timeout' && restore.status === 200 ? [SAFETY, OLD] : [OLD] } };
-    } else if (url.endsWith('/api/admin/backups/old/restore') && init?.method === 'POST') {
+  return stubFetch({
+    '/admin/config': { status: 200, body: { data: CONFIG } },
+    '/admin/backups/runs': () => ({ status: 200, body: { data: restored && restore !== 'timeout' && restore.status === 200 ? [SAFETY, OLD] : [OLD] } }),
+    'POST /admin/backups/old/restore': () => {
       // What fetch rejects with once the request's timeout signal fires.
       if (restore === 'timeout') throw new DOMException('The operation timed out.', 'TimeoutError');
       restored = true;
-      answer = restore;
-    }
-    return { ok: answer.status >= 200 && answer.status < 300, status: answer.status, json: async () => answer.body } as Response;
+      return restore;
+    },
   });
-  vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
 }
 
 async function openRestoreDialog() {
-  render(<SystemConfigSection />);
+  renderWithQuery(<SystemConfigSection />);
   fireEvent.click(await screen.findByRole('button', { name: 'adminConfig.backup.history.restore' }));
 }
 
@@ -89,6 +63,7 @@ function confirmRestore() {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 describe('SystemConfigSection — restore takes a safety backup first (#666)', () => {
@@ -104,8 +79,7 @@ describe('SystemConfigSection — restore takes a safety backup first (#666)', (
     await openRestoreDialog();
     confirmRestore();
 
-    const message = await screen.findByText('adminConfig.backup.restore.errors.BACKUP_BEFORE_RESTORE_FAILED');
-    expect(message.closest('[role="alert"]')).not.toBeNull();
+    await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith('adminConfig.backup.restore.errors.BACKUP_BEFORE_RESTORE_FAILED'));
   });
 
   // #471 (lot Z): a backup of another version of Glou is refused by the API, nothing restored.
@@ -114,8 +88,7 @@ describe('SystemConfigSection — restore takes a safety backup first (#666)', (
     await openRestoreDialog();
     confirmRestore();
 
-    const message = await screen.findByText(`adminConfig.backup.restore.errors.${code}`);
-    expect(message.closest('[role="alert"]')).not.toBeNull();
+    await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith(`adminConfig.backup.restore.errors.${code}`));
   });
 
   it('says the restore is still running on the server when the browser stops waiting', async () => {
@@ -123,9 +96,15 @@ describe('SystemConfigSection — restore takes a safety backup first (#666)', (
     await openRestoreDialog();
     confirmRestore();
 
-    const message = await screen.findByText('adminConfig.backup.restore.errors.TIMEOUT');
-    expect(message.closest('[role="alert"]')).not.toBeNull();
-    expect(screen.queryByText(/timed out/)).toBeNull();
+    await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith('adminConfig.backup.restore.errors.TIMEOUT'));
+  });
+
+  it('says an unknown refusal in words, never its raw code (#615)', async () => {
+    stubApi({ status: 500, body: { error: 'Command failed: psql exited with code 3' } });
+    await openRestoreDialog();
+    confirmRestore();
+
+    await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith('adminConfig.backup.restore.error'));
   });
 
   it('shows the safety backup in the history once the restore is done', async () => {
@@ -135,7 +114,7 @@ describe('SystemConfigSection — restore takes a safety backup first (#666)', (
 
     confirmRestore();
 
-    expect(await screen.findByText('adminConfig.backup.restore.success')).toBeInTheDocument();
+    await vi.waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('adminConfig.backup.restore.success'));
     await vi.waitFor(() => {
       expect(screen.getAllByRole('button', { name: 'adminConfig.backup.history.restore' })).toHaveLength(2);
     });
@@ -149,14 +128,11 @@ describe('SystemConfigSection — backup taken before a migration (FEAT-94)', ()
       ...run('bm', '2026-11-01T08:30:00.123Z'),
       filePath: '/app/backups/glou-backup-before-migration-2026-11-01T08-30-00-123Z.sql.gz',
     };
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      const ok = String(input).endsWith('/api/admin/backups/runs');
-      return {
-        ok, status: ok ? 200 : 500,
-        json: async () => (ok ? { data: [beforeMigration, OLD] } : { error: 'INTERNAL_SERVER_ERROR' }),
-      } as Response;
-    }));
-    render(<SystemConfigSection />);
+    stubFetch({
+      '/admin/config': { status: 200, body: { data: CONFIG } },
+      '/admin/backups/runs': { status: 200, body: { data: [beforeMigration, OLD] } },
+    });
+    renderWithQuery(<SystemConfigSection />);
     expect(await screen.findAllByText('adminConfig.backup.history.beforeMigration')).toHaveLength(1);
   });
 });
