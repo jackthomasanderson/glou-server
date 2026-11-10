@@ -2616,7 +2616,7 @@
       "rateLimited": "Too many scans in a short time. Try again in a few minutes.",
       "busy": "Too many labels are already being analyzed on this server. Try again in a few minutes.",
       "photoRejected": "This photo could not be sent: it is too large (10 MB max) or its format is not supported (JPEG, PNG, WebP or GIF).",
-      "heic": "HEIC photos are not supported. On an iPhone, pick the photo with “Choose a photo”: it is then sent as a JPEG.",
+      "heic": "HEIC photos are not supported. On an iPhone, choose the photo from the Photo Library (not from Files): it is then sent as a JPEG. You can also take the photo with the camera button.",
       "timeout": "The analysis took too long: this server probably lacks the power for label recognition.",
       "interrupted": "The analysis was interrupted by a server restart. Take the photo again.",
       "failed": "The label analysis failed for a technical reason. Try again or enter the item by hand."

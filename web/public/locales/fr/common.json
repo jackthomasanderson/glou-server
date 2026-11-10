@@ -2618,7 +2618,7 @@
       "rateLimited": "Trop de scans en peu de temps. Réessayez dans quelques minutes.",
       "busy": "Trop d'étiquettes sont déjà en cours d'analyse sur ce serveur. Réessayez dans quelques minutes.",
       "photoRejected": "Cette photo n'a pas pu être envoyée : elle est trop lourde (10 Mo maximum) ou son format n'est pas pris en charge (JPEG, PNG, WebP ou GIF).",
-      "heic": "Les photos HEIC ne sont pas prises en charge. Sur iPhone, choisissez la photo avec « Choisir une photo » : elle est alors envoyée en JPEG.",
+      "heic": "Les photos HEIC ne sont pas prises en charge. Sur iPhone, choisissez la photo dans la Photothèque (pas dans Fichiers) : elle est alors envoyée en JPEG. Vous pouvez aussi la prendre avec le bouton de l'appareil photo.",
       "timeout": "L'analyse a pris trop de temps : ce serveur manque probablement de puissance pour la reconnaissance d'étiquettes.",
       "interrupted": "L'analyse a été interrompue par un redémarrage du serveur. Reprenez la photo.",
       "failed": "L'analyse de l'étiquette a échoué pour une raison technique. Réessayez ou saisissez l'article à la main."

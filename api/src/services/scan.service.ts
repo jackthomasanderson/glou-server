@@ -53,12 +53,16 @@ export const scanService = {
   },
 
   async processJob(jobId: string): Promise<void> {
-    const job = await prisma.scanJob.findUnique({ where: { id: jobId } });
-    if (!job) return;
-
-    await prisma.scanJob.update({ where: { id: jobId }, data: { status: 'processing' } });
-
+    // #609: the database reads and writes are inside the try too. A row left
+    // 'pending'/'processing' by a database error would never end for the
+    // client polling it, and would hold one of the MAX_ACTIVE_SCAN_JOBS slots
+    // until the next restart.
     try {
+      const job = await prisma.scanJob.findUnique({ where: { id: jobId } });
+      if (!job) return;
+
+      await prisma.scanJob.update({ where: { id: jobId }, data: { status: 'processing' } });
+
       const buffer = await fs.readFile(job.imagePath);
       const base64 = buffer.toString('base64');
       const extracted = await analyzeLabelImage(base64);
@@ -73,6 +77,8 @@ export const scanService = {
       // code the client turns into a message (#639); the raw cause stays here.
       console.error(`[scan] Job ${jobId} failed:`, error);
       const code: ScanFailureCode = error instanceof OcrError ? error.code : 'SCAN_FAILED';
+      // Rethrown when even this write fails: the queue's catch logs it and
+      // moves on; `recoverStuckJobs` fails the row at the next start.
       await prisma.scanJob.update({
         where: { id: jobId },
         data: { status: 'failed', errorMessage: code },

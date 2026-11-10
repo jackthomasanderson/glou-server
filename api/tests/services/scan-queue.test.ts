@@ -38,6 +38,7 @@ vi.mock('../../src/services/ocr.service', async (importActual) => {
 });
 
 import { scanService } from '../../src/services/scan.service';
+import { prisma } from '../../src/lib/prisma';
 
 beforeEach(() => {
   rows.clear();
@@ -69,13 +70,25 @@ describe('scan jobs are processed one at a time (#609)', () => {
     await vi.waitFor(() => expect(rows.get(second.id)?.status).toBe('done'));
   });
 
-  it('keeps going after a job whose processing threw', async () => {
+  it('fails a job whose database read threw, and keeps going', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    readFile.mockRejectedValueOnce(new Error('ENOENT'));
+    vi.mocked(prisma.scanJob.findUnique).mockRejectedValueOnce(new Error('Connection terminated'));
     const broken = await scanService.createJob('u1', '/uploads/scans/gone.jpg');
     const next = await scanService.createJob('u1', '/uploads/scans/c.jpg');
 
     await vi.waitFor(() => expect(rows.get(broken.id)?.status).toBe('failed'));
+    await vi.waitFor(() => expect(analyzeLabelImage).toHaveBeenCalledTimes(1));
+    finishers[0]();
+    await vi.waitFor(() => expect(rows.get(next.id)?.status).toBe('done'));
+  });
+
+  it('keeps going when even marking the job failed throws', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(prisma.scanJob.findUnique).mockRejectedValueOnce(new Error('Connection terminated'));
+    vi.mocked(prisma.scanJob.update).mockRejectedValueOnce(new Error('Connection terminated'));
+    await scanService.createJob('u1', '/uploads/scans/gone.jpg');
+    const next = await scanService.createJob('u1', '/uploads/scans/c.jpg');
+
     await vi.waitFor(() => expect(analyzeLabelImage).toHaveBeenCalledTimes(1));
     finishers[0]();
     await vi.waitFor(() => expect(rows.get(next.id)?.status).toBe('done'));
