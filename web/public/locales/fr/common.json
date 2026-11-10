@@ -1926,18 +1926,22 @@
     },
     "categories": {
       "title": "Catégories d'alertes",
-      "hint": "Touchez une catégorie pour l'activer ou la désactiver.",
       "lastOne": "Au moins une catégorie reste active. Pour ne plus rien recevoir, désactivez les canaux ci-dessus.",
       "peak": "Apogée atteinte",
       "temperature": "Variations température/hygrométrie",
       "security": "Sécurité du compte",
       "wishlist": "Opportunités tarifaires (liste de souhaits)",
-      "backup": "Échec des sauvegardes (admin)"
+      "backup": "Échec des sauvegardes",
+      "backupAutomaticOff": "Les sauvegardes automatiques sont désactivées : seule une sauvegarde manuelle, ou la copie prise avant une restauration, peut encore échouer et vous alerter."
     },
     "quietHours": {
       "title": "Plage silencieuse",
       "description": "Aucune notification pendant cette plage horaire",
-      "dropped": "Un message qui tombe dans cette plage est supprimé, pas différé. Les heures sont celles du fuseau horaire du serveur. Les alertes d'apogée et d'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte et les échecs de sauvegarde passent toujours.",
+      "droppedLead": "Supprimés, pas différés.",
+      "dropped": "Un message qui tombe dans cette plage est perdu : il n'est pas envoyé plus tard.",
+      "details": "Les alertes d'apogée et d'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte et les échecs de sauvegarde passent toujours.",
+      "timeZone": "Heures du fuseau de l'instance : {{timeZone}}.",
+      "otherTimeZone": "Votre appareil est réglé sur {{deviceTimeZone}} : choisissez les heures telles qu'elles se lisent à {{timeZone}}.",
       "from": "De",
       "to": "À",
       "disabled": "Désactivée",

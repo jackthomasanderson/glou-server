@@ -1,13 +1,13 @@
 'use client';
 import React, { useState, useId } from 'react';
 import Link from 'next/link';
-import { Button, Switch, Chip, Skeleton, SelectItem } from '@heroui/react';
-import { Bell, Loader2 } from 'lucide-react';
+import { Button, Checkbox, Switch, Chip, Skeleton, SelectItem } from '@heroui/react';
+import { Bell, Globe, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { configClient, type NotificationPrefs, type NotificationPrefsPatch } from '@/lib/config/client';
 import {
-  DAILY_ALERTS_HOUR, NOTIFICATION_CATEGORIES, isNotificationCategoryEnabled, type ChannelOffReason, type NotificationCategory,
+  DAILY_ALERTS_HOUR, isNotificationCategoryEnabled, type ChannelOffReason, type NotificationCategory,
 } from '@shared/notifications';
 import { AUTH_RATE_LIMIT_WINDOW_MINUTES, TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
 import { SingleSelect } from '@/components/ui/SingleSelect';
@@ -26,12 +26,23 @@ const TEST_ERRORS = new Set(['DELIVERY_FAILED', 'GOTIFY_NOT_CONFIGURED', 'INVALI
  * #583: the stored list says which categories are received, empty meaning
  * all of them. Toggling starts from what is actually received — toggling
  * against the stored `[]` turned the unticked category into the only one on.
- * Every category ticked again is saved as `[]`.
+ * Every category ticked again is saved as `[]`. `offered` is what this member
+ * can receive (#780: backup failures reach admins only).
  */
-function toggledCategories(stored: string[], cat: NotificationCategory): string[] {
-  const enabled = NOTIFICATION_CATEGORIES.filter((c) => isNotificationCategoryEnabled(stored, c));
+function toggledCategories(stored: string[], offered: NotificationCategory[], cat: NotificationCategory): string[] {
+  const enabled = offered.filter((c) => isNotificationCategoryEnabled(stored, c));
   const next = enabled.includes(cat) ? enabled.filter((c) => c !== cat) : [...enabled, cat];
-  return next.length === NOTIFICATION_CATEGORIES.length ? [] : next;
+  return next.length === offered.length ? [] : next;
+}
+
+/** #772: whether two time zones show the same date and time right now. */
+function sameClock(a: string, b: string, now = new Date()): boolean {
+  try {
+    const at = (timeZone: string) => new Intl.DateTimeFormat('en-GB', { timeZone, dateStyle: 'short', timeStyle: 'short' }).format(now);
+    return at(a) === at(b);
+  } catch {
+    return true; // an unknown zone name: nothing reliable to warn about
+  }
 }
 
 /**
@@ -54,6 +65,7 @@ function ChannelUnavailable({ channel, reason }: { channel: 'email' | 'gotify'; 
 export function NotificationPreferences() {
   const { t } = useTranslation();
   const categoriesHintId = useId();
+  const backupOffId = useId();
   const queryClient = useQueryClient();
   // #615: what is shown and saved comes from the server only; while it cannot
   // be read, an error with Retry, never settings made up on the spot.
@@ -119,9 +131,10 @@ export function NotificationPreferences() {
   }
 
   const prefs = query.data;
-  const toggleCategory = (cat: NotificationCategory) => save({ notifCategories: toggledCategories(prefs.notifCategories, cat) });
-  const { policy } = prefs;
-  const enabledCount = NOTIFICATION_CATEGORIES.filter((c) => isNotificationCategoryEnabled(prefs.notifCategories, c)).length;
+  const { policy, categories } = prefs;
+  const toggleCategory = (cat: NotificationCategory) => save({ notifCategories: toggledCategories(prefs.notifCategories, categories, cat) });
+  const enabledCount = categories.filter((c) => isNotificationCategoryEnabled(prefs.notifCategories, c)).length;
+  const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-6">
@@ -174,46 +187,65 @@ export function NotificationPreferences() {
       {/* Categories */}
       <div className="flex flex-col gap-3 mb-5 pt-4 border-t border-divider">
         <p className="text-xs font-semibold text-foreground-400 uppercase tracking-wide">{t('notifications.categories.title')}</p>
-        <div className="flex flex-wrap gap-2">
-          {NOTIFICATION_CATEGORIES.map((cat) => {
+        {/* #780: checkboxes, whose state reads on its own (pills needed a comparison). */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+          {categories.map((cat) => {
             const enabled = isNotificationCategoryEnabled(prefs.notifCategories, cat);
             // An empty list means "all": the last category on cannot be turned
             // off here — the channel switches above stop everything.
             const isLastOn = enabled && enabledCount === 1;
+            const backupOff = cat === 'backup' && prefs.automaticBackups === false;
+            const describedBy = [isLastOn && categoriesHintId, backupOff && backupOffId].filter(Boolean).join(' ') || undefined;
             return (
-              <button
-                key={cat}
-                type="button"
-                aria-pressed={enabled}
-                disabled={isLastOn}
-                aria-describedby={isLastOn ? categoriesHintId : undefined}
-                onClick={() => toggleCategory(cat)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                  enabled
-                    ? 'bg-primary border-primary text-white'
-                    : 'bg-transparent border-divider text-foreground-500 hover:border-primary hover:text-primary'
-                }`}
-              >
-                {t(`notifications.categories.${cat}`)}
-              </button>
+              <div key={cat} className="flex flex-col gap-0.5">
+                <Checkbox
+                  size="sm"
+                  isSelected={enabled}
+                  isDisabled={isLastOn}
+                  aria-describedby={describedBy}
+                  onValueChange={() => { if (!isLastOn) void toggleCategory(cat); }}
+                >
+                  <span className="text-sm">{t(`notifications.categories.${cat}`)}</span>
+                </Checkbox>
+                {backupOff && (
+                  <p id={backupOffId} className="text-xs text-foreground-500 ps-7">{t('notifications.categories.backupAutomaticOff')}</p>
+                )}
+              </div>
             );
           })}
         </div>
-        <p id={categoriesHintId} className="text-xs text-foreground-400">
-          {t(enabledCount === 1 ? 'notifications.categories.lastOne' : 'notifications.categories.hint')}
-        </p>
+        {enabledCount === 1 && (
+          <p id={categoriesHintId} className="text-xs text-foreground-500">{t('notifications.categories.lastOne')}</p>
+        )}
       </div>
 
       {/* Quiet hours */}
       <div className="flex flex-col gap-3 mb-5 pt-4 border-t border-divider">
         <p className="text-xs font-semibold text-foreground-400 uppercase tracking-wide">{t('notifications.quietHours.title')}</p>
         <p className="text-xs text-foreground-500">{t('notifications.quietHours.description')}</p>
-        <p className="text-xs text-foreground-400">{t('notifications.quietHours.dropped', { hour: DAILY_ALERTS_HOUR })}</p>
+        {/* #772: the surprising part stands out; the details come after it. */}
+        <p className="text-sm text-foreground">
+          <strong className="font-semibold">{t('notifications.quietHours.droppedLead')}</strong>{' '}
+          <span>{t('notifications.quietHours.dropped')}</span>
+        </p>
+        <p className="text-xs text-foreground-500">{t('notifications.quietHours.details', { hour: DAILY_ALERTS_HOUR })}</p>
+        <p className="flex items-start gap-1.5 text-xs text-foreground-500">
+          <Globe size={14} className="shrink-0 mt-px" aria-hidden />
+          <span>
+            <span>{t('notifications.quietHours.timeZone', { timeZone: prefs.timeZone })}</span>
+            {!sameClock(prefs.timeZone, deviceTimeZone) && (
+              <>
+                {' '}
+                <strong className="font-semibold text-foreground">{t('notifications.quietHours.otherTimeZone', { timeZone: prefs.timeZone, deviceTimeZone })}</strong>
+              </>
+            )}
+          </span>
+        </p>
         <div className="flex items-center gap-3 flex-wrap">
           <SingleSelect
             variant="flat"
             size="sm"
-            className="w-28"
+            className="w-36"
             selectedKeys={[prefs.notifQuietStart != null ? String(prefs.notifQuietStart) : 'disabled']}
             onSelectionChange={(keys) => {
               const v = Array.from(keys)[0] as string;
@@ -230,7 +262,7 @@ export function NotificationPreferences() {
           <SingleSelect
             variant="flat"
             size="sm"
-            className="w-28"
+            className="w-36"
             selectedKeys={[prefs.notifQuietEnd != null ? String(prefs.notifQuietEnd) : 'disabled']}
             onSelectionChange={(keys) => {
               const v = Array.from(keys)[0] as string;
