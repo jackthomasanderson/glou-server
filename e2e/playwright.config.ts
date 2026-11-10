@@ -43,16 +43,17 @@ export default defineConfig({
     // check that the core flow still works on a phone-sized viewport in
     // both engines, not to triple the whole suite's CI time. The first-run
     // wizard (#574) joins it: a new member's very first minute, where
-    // windows become full-screen sheets on a phone.
+    // windows become full-screen sheets on a phone. The navigation smoke
+    // (#492) too: on a phone every page is reached through the bottom bar.
     {
       name: 'mobile-chrome',
       use: { ...devices['Pixel 7'] },
-      testMatch: /(add-bottle|onboarding-wizard)\.spec\.ts/,
+      testMatch: /(add-bottle|onboarding-wizard|navigation)\.spec\.ts/,
     },
     {
       name: 'mobile-safari',
       use: { ...devices['iPhone 14'] },
-      testMatch: /(add-bottle|onboarding-wizard)\.spec\.ts/,
+      testMatch: /(add-bottle|onboarding-wizard|navigation)\.spec\.ts/,
     },
   ],
 });

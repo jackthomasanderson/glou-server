@@ -8,7 +8,7 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf, PenLine } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
-import { useCreateInventoryItem } from '@/hooks/useInventory';
+import { useCreateFromForm } from '@/hooks/useCreateFromForm';
 import { useCellars } from '@/hooks/useCellars';
 import { useUploadScan, useScanJob, SCAN_STATUS_QUERY_KEY } from '@/hooks/useScan';
 import { scanErrorCause, type ScanErrorCause } from '@/lib/scan/errors';
@@ -31,15 +31,6 @@ interface CartEntry {
   /** FEAT-97: "Ajouté à votre vin / spiritueux / cigare". */
   category?: InventoryCategory;
 }
-
-/**
- * Escape hatch mirrored on the server (see inventory.router.ts's POST /):
- * `scanJobId` is read directly off the raw request body, not part of
- * `inventoryInputSchema` — it only exists to let the server re-read the
- * job's own extracted data and tag the fields it really populated as 'ocr'
- * (FEAT-05 provenance), never trusting a client-supplied source map.
- */
-type InventoryCreateWithScanHint = InventoryEntry & { scanJobId?: string };
 
 /** "Ajouté à votre vin / spiritueux / cigare" (ux-ui.md §10.1). */
 const addedKey = (category?: InventoryCategory) =>
@@ -77,7 +68,9 @@ interface ScanFlowProps {
  */
 export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitted, t }: ScanFlowProps) {
   const { data: cellars } = useCellars();
-  const createMutation = useCreateInventoryItem();
+  // #690: saved as on the inventory page — the fallback cellar for an
+  // untouched cellar field, the collections picked under "More details" (#660).
+  const { create, isPending: isSubmitting } = useCreateFromForm({ defaultCellarId });
   const uploadScan = useUploadScan();
   const queryClient = useQueryClient();
 
@@ -221,16 +214,13 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     afterCommit();
   };
 
-  const commitItem = async (values: InventoryEntry) => {
+  const commitItem = async (values: InventoryEntry, collectionIds: string[] = []) => {
     setReviewValues(values);
-    const payload: InventoryCreateWithScanHint = { ...values, scanJobId: jobId ?? undefined };
-    try {
-      const created = await createMutation.mutateAsync(payload);
-      pushCartEntry(created, 'created');
-      afterCommit();
-    } catch {
-      // Reported by the mutation's onError toast.
-    }
+    // `scanJobId` lets the server tag the fields the label really filled (FEAT-05).
+    const created = await create({ ...values, scanJobId: jobId ?? undefined }, collectionIds);
+    if (!created) return; // Reported by the mutation's onError toast.
+    pushCartEntry(created, 'created');
+    afterCommit();
   };
 
   const handleReviewConfirm = () => {
@@ -241,11 +231,9 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     void commitItem(toldApart.length > 0 ? { ...reviewValues, distinctFrom: toldApart } : reviewValues);
   };
 
-  const handleAdvancedSubmit = (values: InventoryEntry) => {
+  const handleAdvancedSubmit = (values: InventoryEntry, collectionIds: string[]) => {
     setFullFormOpen(false);
-    // An untouched cellar field (undefined, not the explicit "none") gets the
-    // wizard's cellar, as the scan review and ManualIngestionStep do.
-    void commitItem(values.cellarId === undefined ? { ...values, cellarId: defaultCellarId } : values);
+    void commitItem(values, collectionIds);
   };
 
   const canConfirm = Boolean(
@@ -260,8 +248,6 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     !reviewValues?.producer?.trim() && t('inventory.fields.producer'),
     reviewValues?.category === 'spirit' && reviewValues.alcoholDegree == null && t('inventory.fields.alcoholDegree'),
   ].filter((f): f is string => Boolean(f));
-
-  const isSubmitting = createMutation.isPending;
 
   return (
     <>

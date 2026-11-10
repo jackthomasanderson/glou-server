@@ -11,6 +11,7 @@ let uploadOutcome: { error: string } | { jobId: string } = { error: 'UNEXPECTED_
 let polledJob: { status: 'failed'; errorMessage: string | null } | { status: 'done'; extractedData: Record<string, unknown> } | undefined;
 const invalidateQueries = vi.fn();
 const createItem = vi.fn();
+const addToCollection = vi.fn();
 
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries }) }));
 vi.mock('@/hooks/useScan', () => ({
@@ -29,17 +30,25 @@ vi.mock('@/hooks/useInventory', () => ({
   useUpdateInventoryItem: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [] }) }));
+vi.mock('@/hooks/useCollections', () => ({ useAddItemsToCollection: () => ({ mutateAsync: addToCollection, isPending: false }) }));
 vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
 }));
-// The full add form: a stand-in that submits a fixed item.
+// The full add form: a stand-in that submits a fixed item, with or without
+// collections picked under "More details".
 vi.mock('../InventoryForm', () => ({
-  InventoryForm: ({ open, onSubmit }: { open: boolean; onSubmit: (v: object) => void }) =>
+  InventoryForm: ({ open, onSubmit }: { open: boolean; onSubmit: (v: object, c: string[]) => void }) =>
     open ? (
       <div data-testid="manual-form">
-        <button type="button" onClick={() => onSubmit({ category: 'wine', name: 'Talbot', producer: 'Château Talbot' })}>
+        <button type="button" onClick={() => onSubmit({ category: 'wine', name: 'Talbot', producer: 'Château Talbot' }, [])}>
           submit-manual
+        </button>
+        <button type="button" onClick={() => onSubmit({ category: 'wine', name: 'Talbot', producer: 'Château Talbot' }, ['col-gifts'])}>
+          submit-manual-in-collection
+        </button>
+        <button type="button" onClick={() => onSubmit({ category: 'wine', name: 'Talbot', producer: 'Château Talbot', cellarId: null }, [])}>
+          submit-manual-no-cellar
         </button>
       </div>
     ) : null,
@@ -91,6 +100,7 @@ beforeEach(() => {
   polledJob = undefined;
   sameName = [];
   createItem.mockResolvedValue({ id: 'i1', name: 'Talbot', producer: 'Château Talbot' });
+  addToCollection.mockResolvedValue({});
 });
 
 describe('ScanFlow error message follows the cause (#639)', () => {
@@ -233,5 +243,29 @@ describe('ScanFlow — a wine already known (FEAT-97)', () => {
 
     expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
     expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ name: 'Talbot', distinctFrom: ['p1'], scanJobId: 'j1' }));
+  });
+});
+
+// #660, #690: the collections picked under "More details" were dropped by the
+// scan, and its default-cellar rule was its own copy.
+describe('ScanFlow — the full form saves as everywhere else (#690)', () => {
+  it('files the item in the collections picked in the full form', async () => {
+    uploadOutcome = { error: 'SCAN_UNAVAILABLE' };
+    renderAndSendPhoto();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.enterManually' }));
+    fireEvent.click(screen.getByRole('button', { name: 'submit-manual-in-collection' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(addToCollection).toHaveBeenCalledWith({ id: 'col-gifts', itemIds: ['i1'] });
+  });
+
+  it('keeps an explicit "No cellar" from the full form, even in the wizard', async () => {
+    uploadOutcome = { error: 'SCAN_UNAVAILABLE' };
+    renderAndSendPhoto('cellar-1');
+    fireEvent.click(screen.getByRole('button', { name: 'scan.enterManually' }));
+    fireEvent.click(screen.getByRole('button', { name: 'submit-manual-no-cellar' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ cellarId: null }));
   });
 });

@@ -39,7 +39,8 @@ vi.mock('@/hooks/useProducts', () => ({
 const created = vi.hoisted(() => ({ mutateAsync: vi.fn() }));
 vi.mock('@/hooks/useInventory', () => ({ useCreateInventoryItem: () => ({ ...created, isPending: false }) }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
-vi.mock('@/hooks/useCollections', () => ({ useAddItemsToCollection: () => ({ mutateAsync: vi.fn() }) }));
+const addToCollection = vi.hoisted(() => vi.fn());
+vi.mock('@/hooks/useCollections', () => ({ useAddItemsToCollection: () => ({ mutateAsync: addToCollection, isPending: false }) }));
 vi.mock('@/components/inventory/InventoryForm', () => ({
   InventoryForm: ({ open, defaultCellarId, defaultCategory, onSubmit }: {
     open: boolean; defaultCellarId?: string; defaultCategory?: string; onSubmit: (values: unknown, collectionIds: string[]) => void;
@@ -47,6 +48,7 @@ vi.mock('@/components/inventory/InventoryForm', () => ({
     <div role="dialog" aria-label="add form">
       <p data-testid="form-cellar">{`${defaultCellarId} ${defaultCategory ?? ''}`}</p>
       <button type="button" onClick={() => onSubmit({ name: 'Nouveau', cellarId: defaultCellarId }, [])}>submit</button>
+      <button type="button" onClick={() => onSubmit({ name: 'Nouveau', cellarId: defaultCellarId }, ['col-gifts'])}>submit in a collection</button>
     </div>
   ) : null,
 }));
@@ -126,6 +128,16 @@ describe('CellarDetailClient — adding a bottle here (#707)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'submit' }));
     expect(created.mutateAsync).toHaveBeenCalledWith({ name: 'Nouveau', cellarId: 'cave' });
     await waitFor(() => expect(screen.queryByRole('dialog', { name: 'add form' })).toBeNull());
+  });
+
+  // #690: saved through the same path as the other add forms.
+  it('files the bottle in the collections picked in the form', async () => {
+    created.mutateAsync.mockResolvedValue({ id: 'new' });
+    addToCollection.mockResolvedValue({});
+    render(<CellarDetailClient />);
+    fireEvent.click(screen.getByRole('button', { name: 'cellars.addHere' }));
+    fireEvent.click(screen.getByRole('button', { name: 'submit in a collection' }));
+    await waitFor(() => expect(addToCollection).toHaveBeenCalledWith({ id: 'col-gifts', itemIds: ['new'] }));
   });
 });
 

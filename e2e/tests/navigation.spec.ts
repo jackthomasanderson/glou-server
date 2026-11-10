@@ -33,7 +33,8 @@ test.describe('navigation smoke', () => {
 
   // Recette #471 (lot RD point 6): the counter of the active entry (Cigares,
   // Caves) was white on the light highlight of that entry.
-  test('the counter of the active menu entry stays readable', async ({ page }) => {
+  test('the counter of the active menu entry stays readable', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'the sidebar counters; the bottom bar has none');
     await page.goto('/cellars');
     const count = page.getByRole('navigation').getByRole('button', { name: /^Caves/ }).getByTestId('nav-count');
     await expect(count).toBeVisible();
@@ -50,5 +51,23 @@ test.describe('navigation smoke', () => {
       return (a + 0.05) / (b + 0.05);
     });
     expect(contrast).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // #492: on a phone the sidebar gives way to the bottom bar (BottomNav):
+  // its category tabs and its "Plus" sheet must lead where they say.
+  test('the bottom bar reaches a category and the entries of its "Plus" sheet', async ({ page, isMobile }) => {
+    test.skip(!isMobile, 'phone layout');
+    await page.goto('/cellars');
+    const bar = page.getByRole('navigation', { name: 'Navigation principale' });
+
+    await bar.getByRole('link', { name: 'Spiritueux' }).click();
+    await expect(page).toHaveURL(/\/bottles\?category=spirit/);
+    await expect(bar.getByRole('link', { name: 'Spiritueux' })).toHaveAttribute('aria-current', 'page');
+
+    await bar.getByRole('button', { name: 'Plus' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Caves' }).click();
+    await expect(page).toHaveURL(/\/cellars$/);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(bar.getByRole('button', { name: 'Plus' })).toHaveAttribute('aria-expanded', 'false');
   });
 });

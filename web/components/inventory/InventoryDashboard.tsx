@@ -17,15 +17,12 @@ import { formatDate } from '@/lib/format';
 import {
   useInventory,
   useInventoryTruncated,
-  useCreateInventoryItem,
-  useUpdateInventoryItem,
   useBulkUpdateInventoryItem,
 } from '@/hooks/useInventory';
 import { useProducts, useProductsTruncated, useTrashProduct, useRestoreProduct } from '@/hooks/useProducts';
 import { useCellars } from '@/hooks/useCellars';
-import {
-  useCollections, useAddItemsToCollection, useRemoveItemFromCollection,
-} from '@/hooks/useCollections';
+import { useCollections } from '@/hooks/useCollections';
+import { useCreateFromForm } from '@/hooks/useCreateFromForm';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useInventoryFilters } from '@/hooks/useInventoryFilters';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
@@ -35,7 +32,6 @@ import type { InventoryCategory } from '@/lib/inventory/types';
 import type { InventoryEntry } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { notifySuccess } from '@/lib/toast';
-import { applyCollectionChanges } from '@/lib/collections/sync';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
 import { BulkWinesDialog, type BulkWinesActionName } from './BulkWinesDialog';
@@ -94,12 +90,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const isTruncated = productsTruncated || itemsTruncated;
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
-  const createMutation = useCreateInventoryItem();
-  const updateMutation = useUpdateInventoryItem();
   const trashMutation = useTrashProduct();
   const restoreMutation = useRestoreProduct();
-  const addItemsToCollectionMutation = useAddItemsToCollection();
-  const removeItemFromCollectionMutation = useRemoveItemFromCollection();
   const hasMounted = useHasMounted();
 
   // FEAT-16/23: wines with a bottle change still sitting in the local sync
@@ -251,34 +243,16 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setCurrentPage(1);
   }
 
-  const syncCollections = useCallback(
-    async (itemId: string, newCollectionIds: string[], oldCollectionIds: string[]) => {
-      const oldSet = new Set(oldCollectionIds);
-      const newSet = new Set(newCollectionIds);
-      const toAdd = newCollectionIds.filter(id => !oldSet.has(id));
-      const toRemove = oldCollectionIds.filter(id => !newSet.has(id));
-      await applyCollectionChanges([
-        ...toAdd.map(colId => addItemsToCollectionMutation.mutateAsync({ id: colId, itemIds: [itemId] })),
-        ...toRemove.map(colId => removeItemFromCollectionMutation.mutateAsync({ id: colId, itemId })),
-      ]);
-    },
-    [addItemsToCollectionMutation, removeItemFromCollectionMutation]
-  );
-
   // #471 (FEAT-97): a wine of the same name is proposed while typing ("Vous
-  // avez déjà ce vin"); a submitted entry is a new wine. A failure is told
-  // by the mutation's toast and leaves the form open with the entry.
+  // avez déjà ce vin"); a submitted entry is a new wine, saved as the scan,
+  // the first-run wizard and the cellar page save it (#690). A failure is
+  // told by the mutation's toast and leaves the form open with the entry.
+  const { create: createFromForm, isPending: isCreating } = useCreateFromForm();
   const handleCreate = useCallback(
     async (values: InventoryEntry, collectionIds: string[]) => {
-      try {
-        const created = await createMutation.mutateAsync(values);
-        setMode('idle');
-        if (collectionIds.length > 0) await syncCollections(created.id, collectionIds, []);
-      } catch {
-        // Reported by the mutation's onError toast.
-      }
+      if (await createFromForm(values, collectionIds)) setMode('idle');
     },
-    [createMutation, syncCollections],
+    [createFromForm],
   );
 
   // The bulk edit (tags, presets) writes the bottles in stock of the wines
@@ -565,8 +539,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
             }
             onSubmit={handleCreate}
             onClose={handleCancel}
-            isSubmitting={createMutation.isPending || updateMutation.isPending
-              || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
+            isSubmitting={isCreating}
             t={t}
             onScanRequested={scanAvailable ? () => { setMode('idle'); setScanOpen(true); } : undefined}
           />
