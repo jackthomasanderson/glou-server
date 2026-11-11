@@ -83,7 +83,6 @@ beforeEach(() => {
 
   keep(vi.spyOn(systemConfigService, 'updateSmtp').mockResolvedValue(publicConfig));
   keep(vi.spyOn(systemConfigService, 'updateGotify').mockResolvedValue(publicConfig));
-  keep(vi.spyOn(systemConfigService, 'updateNotificationPolicy').mockResolvedValue(publicConfig));
   keep(vi.spyOn(systemConfigService, 'updateNetworkConfig').mockResolvedValue(publicConfig));
   keep(vi.spyOn(systemConfigService, 'getPublic').mockResolvedValue(publicConfig));
   keep(vi.spyOn(systemConfigService, 'getGotify').mockResolvedValue({ gotifyEnabled: false, gotifyUrl: null, gotifyToken: null }));
@@ -116,7 +115,6 @@ const ROUTES: GatedRoute[] = [
   { label: 'SMTP test', method: 'post', path: '/api/admin/config/test/smtp', body: { email: 'me@attacker.example' }, effect: () => emailService.sendTestEmail, passed: 200 },
   { label: 'Gotify settings', method: 'put', path: '/api/admin/config/gotify', body: { gotifyEnabled: false }, effect: () => systemConfigService.updateGotify, passed: 200 },
   { label: 'Gotify test', method: 'post', path: '/api/admin/config/test/gotify', body: {}, effect: () => systemConfigService.getGotify, passed: 400 },
-  { label: 'notification channels', method: 'put', path: '/api/admin/config/notifications', body: { smtpEnabled: false, gotifyEnabled: false }, effect: () => systemConfigService.updateNotificationPolicy, passed: 200 },
   { label: 'public URL', method: 'put', path: '/api/admin/config/network', body: { publicUrl: 'https://attacker.example' }, effect: () => systemConfigService.updateNetworkConfig, passed: 200 },
   { label: 'backup download', method: 'post', path: '/api/admin/backups/b1/download', body: {}, effect: () => auditSuccessFor('BACKUP_DOWNLOAD'), passed: 200 },
   { label: 'backup restore', method: 'post', path: '/api/admin/backups/b1/restore', body: { confirm: true }, effect: () => backupService.restoreBackup, passed: 200 },
@@ -166,7 +164,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   it('refuses a wrong code', async () => {
     const current = generateSync({ secret: TOTP_SECRET });
     const wrong = current === '000000' ? '111111' : '000000';
-    const res = await send(ROUTES[5], { password: ADMIN_PASSWORD, code: wrong });
+    const res = await send(ROUTES[4], { password: ADMIN_PASSWORD, code: wrong });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('INVALID_TOTP_CODE');
@@ -174,7 +172,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it('refuses a wrong password, as before', async () => {
-    const res = await send(ROUTES[6], { password: 'not-it', code: generateSync({ secret: TOTP_SECRET }) });
+    const res = await send(ROUTES[5], { password: 'not-it', code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('INVALID_PASSWORD');
@@ -183,7 +181,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
 
   it('answers a stale backup id before the step-up, so it spends no backup code', async () => {
     vi.mocked(backupService.getDownloadTarget).mockRejectedValueOnce(new Error('BACKUP_NOT_FOUND'));
-    const res = await send(ROUTES[6], { password: ADMIN_PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
+    const res = await send(ROUTES[5], { password: ADMIN_PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(404);
     expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
@@ -206,7 +204,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it('checks the settings before the step-up, so a typo spends no backup code', async () => {
-    const res = await send(ROUTES[5], { publicUrl: 'not a url', password: ADMIN_PASSWORD });
+    const res = await send(ROUTES[4], { publicUrl: 'not a url', password: ADMIN_PASSWORD });
 
     expect(res.status).toBe(400);
     expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();

@@ -26,12 +26,5 @@ export const gotifyConfigSchema = z.object({
   gotifyToken: z.string().optional().nullable(),
 });
 
-// The channel switches of the notification policy. Partial: a card sends only
-// its own switch, so a stale copy of another one can never overwrite it.
-export const notificationPolicySchema = z.object({
-  smtpEnabled: z.boolean().optional(),
-  gotifyEnabled: z.boolean().optional(),
-}).refine((v) => v.smtpEnabled !== undefined || v.gotifyEnabled !== undefined);
-
 export type SmtpConfigInput = z.infer<typeof smtpConfigSchema>;
 export type GotifyConfigInput = z.infer<typeof gotifyConfigSchema>;

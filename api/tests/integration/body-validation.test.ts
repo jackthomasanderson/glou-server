@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 
-// #636: seven routes read `req.body` by hand. Since Express 5 it is
+// #636: six routes read `req.body` by hand. Since Express 5 it is
 // `undefined` when no JSON body was parsed, so destructuring it threw: a 500
 // (role, status, SMTP test), "link sent" for a forgotten password, a generic
 // answer elsewhere. Each now goes through a schema and answers 400.
@@ -72,8 +72,6 @@ describe('routes without a JSON body answer 400, not 500 (#636)', () => {
     ['admin role', 'post', '/api/admin/users/u2/role', true],
     ['admin status', 'patch', '/api/admin/users/u2/status', true],
     ['admin SMTP test', 'post', '/api/admin/config/test/smtp', true],
-    // Already on a schema before #636; kept here so all seven places are covered.
-    ['admin notification policy', 'put', '/api/admin/config/notifications', true],
   ];
 
   it.each(cases)('%s', async (_name, method, path, auth) => {

@@ -11,7 +11,7 @@ import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenc
 import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/retention.schema';
 import { networkConfigSchema } from '../schemas/network-config.schema';
 import { registrationConfigSchema } from '../schemas/registration-config.schema';
-import { smtpConfigSchema, smtpTestSchema, gotifyConfigSchema, notificationPolicySchema } from '../schemas/system-config.schema';
+import { smtpConfigSchema, smtpTestSchema, gotifyConfigSchema } from '../schemas/system-config.schema';
 import { memberRoleSchema, memberStatusSchema } from '../schemas/admin-user.schema';
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema, purgeSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
@@ -603,33 +603,6 @@ adminRouter.put('/config/gotify', stepUpLimiter, async (req: Request, res: Respo
       res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
       return;
     }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
-});
-
-adminRouter.put('/config/notifications', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = notificationPolicySchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({ error: 'INVALID_INPUT' });
-      return;
-    }
-    // Only the switches sent are written (a card sends its own): the parsed
-    // object holds those keys and nothing else.
-    const policy = parsed.data;
-    // Another switch is saved whatever the state of Gotify; switching Gotify
-    // on needs its URL and app token (#767).
-    if (policy.gotifyEnabled && await gotifyService.wouldBeOnWithoutServer({ gotifyEnabled: true })) {
-      res.status(400).json({ error: 'GOTIFY_INCOMPLETE' });
-      return;
-    }
-    const audit = configAudit('CONFIG_UPDATE', 'notifications');
-    if (!(await stepUp(req, res, audit))) return;
-    const config = await systemConfigService.updateNotificationPolicy(policy, req.userId);
-    auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/notifications error:', err);
     res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
   }
 });

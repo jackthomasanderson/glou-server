@@ -3,6 +3,7 @@ import React from 'react';
 import { Button, ButtonGroup, Tooltip } from '@heroui/react';
 import { LayoutGrid, List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { segmentClass } from '@/components/ui/segmentClass';
 import { ViewMode } from '@/hooks/useViewMode';
 
 interface ViewToggleProps {
@@ -21,6 +22,7 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
           variant={value === 'grid' ? 'flat' : 'light'}
           aria-label={t('view.grid')}
           aria-pressed={value === 'grid'}
+          className={segmentClass(value === 'grid')}
           onClick={() => onChange('grid')}
         >
           <LayoutGrid size={16} />
@@ -33,6 +35,7 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
           variant={value === 'list' ? 'flat' : 'light'}
           aria-label={t('view.list')}
           aria-pressed={value === 'list'}
+          className={segmentClass(value === 'list')}
           onClick={() => onChange('list')}
         >
           <List size={16} />

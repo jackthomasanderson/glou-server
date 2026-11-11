@@ -5,7 +5,7 @@ import {
   Divider, CircularProgress, Chip,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { ShieldCheck, ShieldAlert } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   useGenerate2fa, useTurnOn2fa, useTurnOff2fa, useBackupCodesCount, useRegenerateBackupCodes, PublicUser, useMe,
@@ -13,6 +13,8 @@ import {
 import { TwoFactorCodeInput } from '@/components/auth/TwoFactorCodeInput';
 import { BackupCodesDialog } from '@/components/profile/BackupCodesDialog';
 import { authErrorMessage } from '@/lib/auth/error-message';
+import { secretBlocks } from '@/lib/auth/group-secret';
+import { copyText } from '@/lib/clipboard';
 
 /** #638: at or below this many codes left, the count is shown as a warning. */
 const LOW_BACKUP_CODES = 2;
@@ -21,6 +23,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
   const [isTurnOnModalOpen, setIsTurnOnModalOpen] = useState(false);
   const [isTurnOffModalOpen, setIsTurnOffModalOpen] = useState(false);
+  const [secretCopy, setSecretCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
   const { refetch: refetchMe } = useMe();
   const [setupData, setSetupData] = useState<{ qrCodeUrl: string; secret: string } | null>(null);
   const [code, setCode] = useState('');
@@ -40,6 +43,11 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const turnOffMutation = useTurnOff2fa();
   const regenerateMutation = useRegenerateBackupCodes();
   const { data: backupCodesLeft } = useBackupCodesCount(user.isTwoFactorEnabled);
+
+  const handleCopySecret = async () => {
+    if (!setupData) return;
+    setSecretCopy((await copyText(setupData.secret)) ? 'copied' : 'failed');
+  };
 
   const handleStartEnable = () => {
     setErrorMsg(null);
@@ -65,6 +73,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const handleCloseEnable = () => {
     setIsTurnOnModalOpen(false);
     setSetupData(null);
+    setSecretCopy('idle');
     setCode('');
     setPassword('');
     setErrorMsg(null);
@@ -192,9 +201,23 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                       alt="QR Code 2FA"
                       className="w-48 h-48 rounded-xl border border-divider"
                     />
-                    <p className="text-xs text-foreground-400 text-center">
+                    <p className="text-xs text-foreground-400 text-center max-w-full">
                       {t('profile.twoFactor.orSecret')}{' '}
-                      <code className="font-mono font-bold text-foreground">{setupData.secret}</code>
+                      {/* #950: blocks of 4 with a CSS gap and <wbr/>, no real spaces: it wraps at 320 px and a manual selection still copies the raw secret. */}
+                      <code className="font-mono font-bold text-foreground">
+                        {secretBlocks(setupData.secret).map((block, i) => (
+                          <React.Fragment key={i}>
+                            {i > 0 && <wbr />}
+                            <span className="inline-block mr-1.5">{block}</span>
+                          </React.Fragment>
+                        ))}
+                      </code>
+                    </p>
+                    <Button size="sm" variant="flat" startContent={<Copy size={14} />} onPress={handleCopySecret}>
+                      {t('profile.twoFactor.copySecret')}
+                    </Button>
+                    <p role="status" className="text-xs text-center text-foreground-500">
+                      {secretCopy === 'idle' ? '' : t(secretCopy === 'copied' ? 'profile.twoFactor.secretCopied' : 'profile.twoFactor.copySecretFailed')}
                     </p>
                     <Divider className="w-full" />
                     <p className="text-sm text-center text-foreground-600">

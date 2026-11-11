@@ -368,3 +368,47 @@ describe('TwoFactorSettings backup codes (#638)', () => {
     expect(codes.dataset.keyboardDismissDisabled).toBe('true');
   });
 });
+
+// #950: a 32-character secret has no break point and overflows a 320 px card.
+describe('TwoFactorSettings setup secret (#950)', () => {
+  const SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await i18n.changeLanguage('en');
+    generate.mockImplementation((_v: unknown, o: { onSuccess?: (d: unknown) => void }) =>
+      o.onSuccess?.({ qrCodeUrl: 'data:image/png;base64,', secret: SECRET }));
+  });
+
+  function openSetup() {
+    render(<TwoFactorSettings user={makeUser(false)} />);
+    fireEvent.click(screen.getByRole('button', { name: translate('profile.twoFactor.enable') }));
+    return screen.getByRole('dialog');
+  }
+
+  it('shows the secret in blocks of 4 that wrap, with no real space to copy', () => {
+    const dialog = openSetup();
+    const code = dialog.querySelector('code') as HTMLElement;
+    expect(code.textContent?.replace(/\s/g, '')).toBe(SECRET);
+    expect(code.textContent).toBe(SECRET);
+    expect(code.querySelectorAll('span')).toHaveLength(8);
+    expect(code.querySelectorAll('wbr')).toHaveLength(7);
+  });
+
+  it('copies the raw secret, without the spaces', async () => {
+    copyText.mockResolvedValue(true);
+    const dialog = openSetup();
+    fireEvent.click(within(dialog).getByRole('button', { name: translate('profile.twoFactor.copySecret') }));
+
+    expect(copyText).toHaveBeenCalledWith(SECRET);
+    expect((await within(dialog).findByRole('status')).textContent).toBe('Secret key copied');
+  });
+
+  it('says so when copying is not possible', async () => {
+    copyText.mockResolvedValue(false);
+    const dialog = openSetup();
+    fireEvent.click(within(dialog).getByRole('button', { name: translate('profile.twoFactor.copySecret') }));
+
+    expect((await within(dialog).findByRole('status')).textContent).toBe(translate('profile.twoFactor.copySecretFailed'));
+  });
+});

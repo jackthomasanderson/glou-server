@@ -19,11 +19,6 @@ export interface GotifyConfig {
   gotifyToken: string | null; // plaintext (decrypted)
 }
 
-export type NotificationPolicyConfig = {
-  smtpEnabled: boolean;
-  gotifyEnabled: boolean;
-};
-
 export type RetentionConfig = {
   logRetentionDays: number;
   sessionRetentionDays: number;
@@ -244,12 +239,6 @@ export const systemConfigService = {
     }
 
     await saveAndLog(userId, 'gotify', update);
-    return this.getPublic();
-  },
-
-  // Partial: only the switches a card sends are written and logged (#767).
-  async updateNotificationPolicy(data: Partial<NotificationPolicyConfig>, userId: string): Promise<PublicSystemConfig> {
-    await saveAndLog(userId, 'notifications', data);
     return this.getPublic();
   },
 
