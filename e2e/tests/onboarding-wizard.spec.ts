@@ -90,7 +90,7 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
 
     // 2. Manual entry: the add form opens on top and can be saved.
     await wizard.getByRole('button', { name: 'Passer cette étape' }).click();
-    await wizard.getByText('Ajout Manuel', { exact: true }).click();
+    await wizard.getByText('Ajout manuel', { exact: true }).click();
     await wizard.getByRole('button', { name: 'Ajouter une bouteille' }).click();
 
     const nameInput = page.getByTestId('inventory-name-input');
@@ -193,7 +193,7 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await skip.click();
     await expect(methodTitle).toBeVisible();
     await expect.poll(scrollTop, { message: 'the method step opens scrolled down' }).toBe(0);
-    const importCard = wizard.getByText('Import Fichier', { exact: true });
+    const importCard = wizard.getByText('Import de fichier', { exact: true });
     await expectReachable(close, 'the close button (method step, landscape)');
     await expectReachable(importCard, 'the file import card (landscape)');
     await expectReachable(back, 'Back (method step, landscape)');
