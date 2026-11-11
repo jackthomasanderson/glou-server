@@ -58,19 +58,19 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
         <summary className="cursor-pointer text-foreground-500 hover:text-foreground-700">
           {t('analytics.garde.showData')}
         </summary>
-        <table className="sr-only md:not-sr-only md:mt-2 md:text-xs md:border md:border-divider md:rounded-lg md:overflow-hidden">
+        <table className="mt-2 text-xs border border-divider rounded-lg overflow-hidden">
           <caption className="sr-only">{chartSummary}</caption>
           <thead>
             <tr>
-              <th scope="col" className="md:px-2 md:py-1 md:text-left">{t('analytics.garde.yearColumn')}</th>
-              <th scope="col" className="md:px-2 md:py-1 md:text-left">{t('analytics.garde.countColumn')}</th>
+              <th scope="col" className="px-2 py-1 text-left">{t('analytics.garde.yearColumn')}</th>
+              <th scope="col" className="px-2 py-1 text-left">{t('analytics.garde.countColumn')}</th>
             </tr>
           </thead>
           <tbody>
             {data.map((pt) => (
               <tr key={pt.year}>
-                <td className="md:px-2 md:py-1">{pt.year}</td>
-                <td className="md:px-2 md:py-1">{pt.count}</td>
+                <td className="px-2 py-1">{pt.year}</td>
+                <td className="px-2 py-1">{pt.count}</td>
               </tr>
             ))}
           </tbody>
@@ -111,7 +111,9 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
                 y1={y}
                 x2={totalWidth}
                 y2={y}
-                stroke={isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}
+                stroke="currentColor"
+                strokeOpacity={0.06}
+                className="text-foreground"
                 strokeWidth={1}
                 strokeDasharray="3 4"
               />
@@ -171,13 +173,8 @@ export function GardeHistogram({ data, t }: GardeHistogramProps) {
                     textAnchor="middle"
                     fontSize={isNow ? 10 : 9}
                     fontWeight={isNow ? 700 : 400}
-                    fill={
-                      isNow
-                        ? todayColor
-                        : isDark
-                        ? 'rgba(255,255,255,0.5)'
-                        : 'rgba(0,0,0,0.45)'
-                    }
+                    fill="currentColor"
+                    className={isNow ? 'text-warning-700' : 'text-foreground-500'}
                   >
                     {pt.year}
                   </text>

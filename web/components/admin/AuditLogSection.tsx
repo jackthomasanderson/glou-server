@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import {
   Button, Chip, Input, Select, SelectItem, Skeleton,
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
@@ -72,7 +73,7 @@ export function AuditLogSection() {
   const empty = <p className="text-center py-4 text-sm text-foreground-500">{t('admin.auditLog.noLogs')}</p>;
 
   const cards = isLoading
-    ? <div className="flex flex-col gap-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</div>
+    ? <LoadingRegion className="flex flex-col gap-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-xl" />)}</LoadingRegion>
     : !data?.items.length
     ? empty
     : (
@@ -104,7 +105,7 @@ export function AuditLogSection() {
           ? Array.from({ length: 5 }).map((_, i) => (
               <TableRow key={i}>
                 {Array.from({ length: 5 }).map((__, c) => (
-                  <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
+                  <TableCell key={c}>{i === 0 && c === 0 && <LoadingRegion />}<Skeleton className="h-4 w-full rounded" /></TableCell>
                 ))}
               </TableRow>
             ))

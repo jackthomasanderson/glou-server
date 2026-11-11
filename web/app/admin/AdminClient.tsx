@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import {
   Button, CircularProgress, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
   Switch, Skeleton, Chip, Tooltip, ModalContent, ModalHeader, ModalBody, ModalFooter,
@@ -184,7 +185,7 @@ export function AdminClient() {
 
         {isMobile ? (
           isUsersLoading ? (
-            <div className="flex flex-col gap-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</div>
+            <LoadingRegion className="flex flex-col gap-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</LoadingRegion>
           ) : (
           <ul className="flex flex-col gap-2" aria-label={t('admin.users.title')}>
             {users?.map((u) => (
@@ -236,7 +237,7 @@ export function AdminClient() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 6 }).map((__, c) => (
-                      <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
+                      <TableCell key={c}>{i === 0 && c === 0 && <LoadingRegion />}<Skeleton className="h-4 w-full rounded" /></TableCell>
                     ))}
                   </TableRow>
                 ))

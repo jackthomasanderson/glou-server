@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Skeleton } from '@heroui/react';
 import { Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +36,7 @@ export function AppVersion() {
           </code>
         ) : (
           <div className="flex-1 px-3 py-2 text-sm text-foreground-500">
-            {isPending && <Skeleton className="h-4 w-20 rounded" />}
+            {isPending && <LoadingRegion><Skeleton className="h-4 w-20 rounded" /></LoadingRegion>}
             {isError && t('profile.version.unavailable')}
           </div>
         )}

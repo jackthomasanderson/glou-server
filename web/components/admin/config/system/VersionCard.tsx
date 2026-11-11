@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Skeleton } from '@heroui/react';
 import { Info, Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +29,7 @@ export function VersionCard() {
     <ConfigCard id="config-version" icon={Info} title={t('adminConfig.version.title')} description={t('adminConfig.version.description')}>
       <div className="flex items-center gap-2 max-w-sm">
         <code className="flex-1 px-3 py-2 rounded-lg bg-content2 border border-divider text-sm font-mono select-all">
-          {isPending && <Skeleton className="h-4 w-20 rounded" />}
+          {isPending && <LoadingRegion><Skeleton className="h-4 w-20 rounded" /></LoadingRegion>}
           {isError && <span className="font-sans text-foreground-500">{t('adminConfig.version.unavailable')}</span>}
           {version}
         </code>

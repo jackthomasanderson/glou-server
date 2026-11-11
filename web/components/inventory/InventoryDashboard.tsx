@@ -1,5 +1,6 @@
 'use client';
 import { useState, useCallback, useMemo, useEffect, useSyncExternalStore } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import dynamic from 'next/dynamic';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
@@ -555,20 +556,20 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
           {/* Loading skeletons */}
           {isLoading && effectiveViewMode === 'grid' && (
-            <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 sm:gap-4">
+            <LoadingRegion className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 sm:gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <InventoryCardSkeleton key={i} />
               ))}
-            </div>
+            </LoadingRegion>
           )}
           {isLoading && effectiveViewMode === 'list' && (
-            <div className="border border-divider rounded-xl overflow-hidden">
+            <LoadingRegion className="border border-divider rounded-xl overflow-hidden">
               <table className="w-full">
                 <tbody>
                   {Array.from({ length: 8 }).map((_, i) => <InventoryListRowSkeleton key={i} />)}
                 </tbody>
               </table>
-            </div>
+            </LoadingRegion>
           )}
 
           {/* Empty states */}

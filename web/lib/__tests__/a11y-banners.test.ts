@@ -52,3 +52,36 @@ describe('error banners are announced to screen readers (#201)', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+// #658 (WCAG 4.1.3) — a skeleton or a spinner is silent for a screen reader. Every
+// file drawing one must announce the loading: through <LoadingRegion> (or a
+// role="status" / aria-busy of its own). Third time this stopped at a list of
+// files (#201, #371), so the pattern itself is guarded here.
+describe('loading indicators are announced to screen readers (#658)', () => {
+  const files = DIRS.flatMap((d) => sources(path.join(ROOT, d)));
+  // Pieces of a skeleton: the region sits at the call site, around the whole set.
+  const PIECES = new Set([
+    'components/inventory/InventoryCard.tsx',
+    'components/inventory/InventoryListRow.tsx',
+  ]);
+  const ANNOUNCED = /<LoadingRegion\b|\brole=["{]\s*["']?status|\baria-busy=/;
+  const SKELETON = /<Skeleton\b/;
+  // (A spinner on the line of a <Button> is announced by the button's own label.)
+
+  it('finds the source files', () => {
+    expect(files.length).toBeGreaterThan(50);
+  });
+
+  it('announces every skeleton and every spinner', () => {
+    const offenders: string[] = [];
+    for (const file of files) {
+      const rel = path.relative(ROOT, file).split(path.sep).join('/');
+      if (PIECES.has(rel) || rel === 'components/ui/LoadingRegion.tsx') continue;
+      const src = fs.readFileSync(file, 'utf8');
+      const drawsSkeleton = SKELETON.test(src);
+      const drawsSpinner = src.split('\n').some((line) => /animate-spin/.test(line) && !/<Button\b/.test(line));
+      if ((drawsSkeleton || drawsSpinner) && !ANNOUNCED.test(src)) offenders.push(rel);
+    }
+    expect(offenders).toEqual([]);
+  });
+});

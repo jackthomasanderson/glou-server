@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Card, CardHeader, CardBody, Progress, Skeleton, Spinner,
@@ -46,7 +47,7 @@ function EnvelopeCard({ envelope, onEdit, onDelete }: {
       </CardHeader>
       <CardBody className="gap-2">
         {isLoading || !progress ? (
-          <Skeleton className="h-3 w-full rounded-full" />
+          <LoadingRegion><Skeleton className="h-3 w-full rounded-full" /></LoadingRegion>
         ) : (
           <>
             <p className="text-sm text-foreground-500">

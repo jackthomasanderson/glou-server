@@ -1,5 +1,6 @@
 'use client';
 import React, { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Skeleton, Tabs, Tab } from '@heroui/react';
 import { Settings, Bell, DoorOpen, Database, Server, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -79,9 +80,9 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
       <p className="text-sm text-foreground-500 mb-4">{t('adminConfig.subtitle')}</p>
 
       {configQuery.isPending ? (
-        <div className="flex flex-col gap-3">
+        <LoadingRegion className="flex flex-col gap-3">
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 rounded-lg" />)}
-        </div>
+        </LoadingRegion>
       ) : !config ? (
         <ErrorState
           message={t('adminConfig.loadError')}

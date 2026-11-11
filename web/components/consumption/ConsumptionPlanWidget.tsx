@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import {
   Card, CardHeader, CardBody, Button, Chip, Avatar, Skeleton, Progress, Input, SelectItem,
 } from '@heroui/react';
@@ -93,7 +94,7 @@ export function ConsumptionPlanWidget() {
         </CardHeader>
         <CardBody className="gap-3">
           {goalLoading ? (
-            <Skeleton className="h-10 w-full rounded-lg" />
+            <LoadingRegion><Skeleton className="h-10 w-full rounded-lg" /></LoadingRegion>
           ) : editingGoal ? (
             <div className="flex flex-col gap-3 max-w-sm">
               <SingleSelect
@@ -189,7 +190,7 @@ export function ConsumptionPlanWidget() {
         )}
 
         {isLoading ? (
-          <div className="flex flex-col gap-3">
+          <LoadingRegion className="flex flex-col gap-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <Card key={i} radius="lg" shadow="sm">
                 <CardBody className="gap-2">
@@ -198,7 +199,7 @@ export function ConsumptionPlanWidget() {
                 </CardBody>
               </Card>
             ))}
-          </div>
+          </LoadingRegion>
         ) : !suggestions || suggestions.length === 0 ? (
           <div className="flex flex-col items-center py-12 text-center">
             <Wine size={48} className="text-foreground-400 mb-3" />

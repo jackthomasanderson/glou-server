@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import {
   Button, Chip, Input, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
@@ -439,7 +440,7 @@ export function MaturityReferencesSection() {
   );
 
   const cards = isLoading
-    ? <div className="flex flex-col gap-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</div>
+    ? <LoadingRegion className="flex flex-col gap-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</LoadingRegion>
     : !refs?.length
     ? <p className="text-center py-6 text-sm text-foreground-500">{t('admin.maturityRefs.empty')}</p>
     : (
@@ -509,7 +510,7 @@ export function MaturityReferencesSection() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 8 }).map((__, c) => (
-                      <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
+                      <TableCell key={c}>{i === 0 && c === 0 && <LoadingRegion />}<Skeleton className="h-4 w-full rounded" /></TableCell>
                     ))}
                   </TableRow>
                 ))

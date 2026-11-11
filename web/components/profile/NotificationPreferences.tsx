@@ -1,5 +1,6 @@
 'use client';
 import React, { useCallback, useState, useId, type ComponentProps } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import Link from 'next/link';
 import { Button, Checkbox, Switch, Chip, Skeleton, SelectItem } from '@heroui/react';
 import { Bell, Globe, Loader2 } from 'lucide-react';
@@ -134,9 +135,9 @@ export function NotificationPreferences() {
 
   if (query.isPending) {
     return (
-      <div className="bg-content1 border border-divider rounded-2xl p-6 flex flex-col gap-3">
+      <LoadingRegion className="bg-content1 border border-divider rounded-2xl p-6 flex flex-col gap-3">
         {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 rounded-lg" />)}
-      </div>
+      </LoadingRegion>
     );
   }
   if (query.isError) {
@@ -160,7 +161,7 @@ export function NotificationPreferences() {
       <div className="flex items-center gap-2 mb-4">
         <Bell size={18} className="text-primary" />
         <h2 className="text-base font-semibold">{t('notifications.title')}</h2>
-        {saving && <Loader2 size={14} className="animate-spin text-foreground-400 ml-auto" />}
+        {saving && <LoadingRegion className="ml-auto" label={t('status.saving')}><Loader2 size={14} aria-hidden="true" className="animate-spin text-foreground-400" /></LoadingRegion>}
       </div>
       <p className="text-sm text-foreground-500 mb-5">{t('notifications.subtitle')}</p>
 

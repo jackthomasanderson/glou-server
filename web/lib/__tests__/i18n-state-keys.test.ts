@@ -27,6 +27,39 @@ function exists(tree: Tree, key: string): boolean {
   return typeof node[leaf] === 'string' || Object.keys(node).some((k) => k.startsWith(`${leaf}_`) && typeof node[k] === 'string');
 }
 
+/** The key has no plain text of its own: only plural forms (`_one`, `_other`…). */
+function isPluralOnly(tree: Tree, key: string): boolean {
+  const parts = key.split('.');
+  const leaf = parts.pop()!;
+  let node: string | Tree | undefined = tree;
+  for (const part of parts) node = typeof node === 'object' ? node[part] : undefined;
+  if (typeof node !== 'object' || typeof node[leaf] === 'string') return false;
+  return Object.keys(node).some((k) => /^(.+)_(zero|one|two|few|many|other)$/.test(k) && k.startsWith(`${leaf}_`) && typeof node[k] === 'string');
+}
+
+/** The text of a call's arguments after the key, up to its closing parenthesis. */
+function callRest(src: string, from: number): string {
+  let depth = 1;
+  for (let i = from; i < src.length; i++) {
+    const c = src[i];
+    if (c === '(') depth++;
+    else if (c === ')' && --depth === 0) return src.slice(from, i);
+  }
+  return src.slice(from);
+}
+
+/**
+ * #842: i18next picks a plural form only from `count`. A plural-only key called
+ * without it shows as a raw key. Options handed over as a variable or spread cannot be
+ * read here and are let through; so is a `context` (the contextual form decides).
+ */
+function lacksCount(rest: string): boolean {
+  const opts = rest.replace(/^\s*,\s*/, '');
+  if (opts.trim() === '') return true;
+  if (!opts.trim().startsWith('{')) return false;
+  return !/\bcount\b|\bcontext\b|\.\.\./.test(opts);
+}
+
 const built: Record<string, readonly string[]> = {
   'categories.%': CATEGORY_VALUES,
   'inventory.color.%': WINE_COLORS,
@@ -51,6 +84,7 @@ describe('keys built from a state', () => {
 
 /** t('a.b'), notifySuccess / notifyError / notifyWarning / notifyUndoable('a.b'), translate('a.b'), labelKey: 'a.b'. */
 const KEY_WRITTEN = /(?:\b(?:t|translate|notify(?:Success|Error|Warning|Undoable))\(\s*|\blabelKey:\s*)'([a-zA-Z]\w*(?:\.\w+)+)'/g;
+const T_CALL = /\b(?:t|translate)\(\s*'([a-zA-Z]\w*(?:\.\w+)+)'/g;
 
 describe('keys written whole', () => {
   const root = path.join(import.meta.dirname, '..', '..');
@@ -68,5 +102,42 @@ describe('keys written whole', () => {
       }
     }
     expect([...missing]).toEqual([]);
+  });
+});
+
+describe('plural-only keys are called with a count (#842)', () => {
+  it('flags a call with no count, passes count, context and variable options', () => {
+    expect(lacksCount(", { name })")).toBe(true);
+    expect(lacksCount("")).toBe(true);
+    expect(lacksCount(", { count: 2 }")).toBe(false);
+    expect(lacksCount(", { count }")).toBe(false);
+    expect(lacksCount(", { context: 'cigar', count: 2 }")).toBe(false);
+    expect(lacksCount(", opts")).toBe(false);
+    expect(lacksCount(", { ...options, cellar }")).toBe(false);
+    const src = "t('a.b') + t('a.b', { count: 1 })";
+    expect(lacksCount(callRest(src, src.indexOf("'a.b'") + 5))).toBe(true);
+    expect(lacksCount(callRest(src, src.lastIndexOf("'a.b'") + 5))).toBe(false);
+    expect(isPluralOnly({ a: { b_one: 'x', b_other: 'y' } }, 'a.b')).toBe(true);
+    expect(isPluralOnly({ a: { b: 'x', b_one: 'x' } }, 'a.b')).toBe(false);
+    expect(isPluralOnly({ a: { b_cigar: 'x' } }, 'a.b')).toBe(false);
+  });
+
+  const root = path.join(import.meta.dirname, '..', '..');
+  const sources = ['app', 'components', 'hooks', 'lib'].flatMap((dir) =>
+    (readdirSync(path.join(root, dir), { recursive: true }) as string[])
+      .filter((file) => /\.tsx?$/.test(file) && !/__tests__/.test(file))
+      .map((file) => path.join(root, dir, file)));
+
+  it.each(Object.keys(LOCALES) as (keyof typeof LOCALES)[])('no %s plural-only key is written without count', (lng) => {
+    const bare = new Set<string>();
+    for (const file of sources) {
+      const src = readFileSync(file, 'utf8');
+      for (const m of src.matchAll(T_CALL)) {
+        if (isPluralOnly(LOCALES[lng], m[1]) && lacksCount(callRest(src, m.index! + m[0].length))) {
+          bare.add(`${path.relative(root, file)}: ${m[1]}`);
+        }
+      }
+    }
+    expect([...bare]).toEqual([]);
   });
 });
