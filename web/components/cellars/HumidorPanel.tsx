@@ -120,7 +120,6 @@ export function HumidorPanel({ cellarId }: HumidorPanelProps) {
         <Button
           type="submit" size="sm" color="primary" isIconOnly
           isLoading={recordMutation.isPending}
-          isDisabled={!humidity.trim()}
           aria-label={t('cellars.humidor.addReading')}
         >
           <Plus size={16} />

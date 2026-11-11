@@ -105,6 +105,7 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
         data-testid="inventory-producer-input"
         fullWidth
         isRequired={required}
+        validationBehavior="aria"
         isInvalid={isInvalid}
         errorMessage={isInvalid ? t('inventory.validation.required') : undefined}
         size="sm"

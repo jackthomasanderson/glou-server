@@ -113,6 +113,8 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, sugge
         data-testid="inventory-name-input"
         fullWidth
         isRequired
+        // #657: the form says what is missing itself; the browser's bubble would vanish first.
+        validationBehavior="aria"
         isInvalid={isInvalid}
         errorMessage={isInvalid ? t('inventory.validation.required') : undefined}
         size="sm"

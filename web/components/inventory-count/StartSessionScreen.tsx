@@ -26,11 +26,14 @@ export function StartSessionScreen() {
   const [cellarId, setCellarId] = useState<string>('');
   const [customLabel, setCustomLabel] = useState('');
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  // #657: Start stays clickable; a click with the scope missing shows the field in red.
+  const [tried, setTried] = useState(false);
 
   const isValid = mode === 'cellar' ? !!cellarId : customLabel.trim().length > 0;
 
   const handleStart = async () => {
     setErrorKey(null);
+    if (!isValid) { setTried(true); return; }
     try {
       if (mode === 'cellar') {
         if (!cellarId) return;
@@ -78,6 +81,9 @@ export function StartSessionScreen() {
                 selectedKeys={cellarId ? [cellarId] : []}
                 onSelectionChange={(keys) => setCellarId((Array.from(keys)[0] as string) ?? '')}
                 isRequired
+                validationBehavior="aria"
+                isInvalid={tried && !cellarId}
+                errorMessage={t('inventory.validation.required')}
               >
                 {(cellars ?? []).map((c) => (
                   <SelectItem key={c.id} startContent={<Warehouse size={14} />}>
@@ -97,6 +103,9 @@ export function StartSessionScreen() {
               value={customLabel}
               onValueChange={setCustomLabel}
               isRequired
+              validationBehavior="aria"
+              isInvalid={tried && !customLabel.trim()}
+              errorMessage={t('inventory.validation.required')}
               description={t('inventoryCount.start.customHint')}
             />
           )}
@@ -111,7 +120,8 @@ export function StartSessionScreen() {
           <Button
             color="primary"
             variant="solid"
-            isDisabled={!isValid}
+            // With no cellar to count, the hint above says why Start cannot be used.
+            isDisabled={mode === 'cellar' && (cellars?.length ?? 0) === 0}
             isLoading={startMutation.isPending}
             onPress={handleStart}
           >

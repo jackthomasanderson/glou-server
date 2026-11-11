@@ -183,6 +183,8 @@ export const CellarDashboard: React.FC = () => {
   const [formData, setFormData] = useState<FormData>(EMPTY_CELLAR_FORM);
   // ISSUE_119: values the form opened with, to detect unsaved input on close.
   const [formBaseline, setFormBaseline] = useState<FormData>(EMPTY_CELLAR_FORM);
+  // #657: Save stays clickable; a click with the name empty shows the field in red.
+  const [formTried, setFormTried] = useState(false);
 
   const hotZone = parseOptionalInt(formData.grid.hotZoneRows) ?? 0;
   const coldZone = parseOptionalInt(formData.grid.coldZoneRows) ?? 0;
@@ -217,6 +219,7 @@ export const CellarDashboard: React.FC = () => {
       setFormData(EMPTY_CELLAR_FORM);
       setFormBaseline(EMPTY_CELLAR_FORM);
     }
+    setFormTried(false);
     setOpenForm(true);
   };
 
@@ -240,6 +243,7 @@ export const CellarDashboard: React.FC = () => {
   const isHumidorType = formData.type === 'HUMIDOR';
 
   const handleSubmit = async () => {
+    if (!formData.name.trim()) { setFormTried(true); return; }
     const payload = {
       name: formData.name,
       description: formData.description || null,
@@ -596,6 +600,9 @@ export const CellarDashboard: React.FC = () => {
                 value={formData.name}
                 onValueChange={(v) => setFormData({ ...formData, name: v })}
                 isRequired
+                validationBehavior="aria"
+                isInvalid={formTried && !formData.name.trim()}
+                errorMessage={t('inventory.validation.required')}
               />
 
               <SingleSelect
@@ -726,7 +733,8 @@ export const CellarDashboard: React.FC = () => {
             <Button
               color="primary"
               onPress={handleSubmit}
-              isDisabled={!formData.name || zonesExceedRows}
+              isDisabled={zonesExceedRows}
+              isLoading={createMutation.isPending || updateMutation.isPending}
             >
               {editingCellar ? t('actions.save') : t('actions.add')}
             </Button>
