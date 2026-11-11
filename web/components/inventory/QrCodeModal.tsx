@@ -19,7 +19,7 @@ export function QrCodeModal({ isOpen, onClose, itemId, itemName }: QrCodeModalPr
   // #625: the configured public address, so a code made while browsing on
   // localhost still opens on a phone; without one (or offline), the
   // browser's own address, with a warning when that is localhost.
-  const { data: publicUrl, isPending } = usePublicUrl();
+  const { data: publicUrl, isPending } = usePublicUrl(isOpen);
   const appUrl = publicUrl ? publicUrl.replace(/\/+$/, '') : typeof window !== 'undefined' ? window.location.origin : '';
   const isLocalhost = !publicUrl && typeof window !== 'undefined' && ['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname);
   const qrUrl = `${appUrl}/bottles?scan=${itemId}`;

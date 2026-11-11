@@ -25,10 +25,16 @@ export function useAppVersion() {
  * APP_URL), `null` when none is configured. Same request as the version; the
  * default stale time lets a change made by the admin show up on the next visit.
  */
-export function usePublicUrl() {
+export function usePublicUrl(enabled = true) {
   return useQuery({
     queryKey: APP_VERSION_KEY,
     queryFn: fetchVersion,
     select: (data) => data.publicUrl,
+    enabled,
+    // Offline, an 'online' query would stay paused and the QR code would never
+    // show: the request runs (the service worker may answer it) or fails fast,
+    // and the modal falls back to the browser's address.
+    networkMode: 'always',
+    retry: 1,
   });
 }
