@@ -10,10 +10,6 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
-### Fixed
-- Saving the bottle form, "Add a wish", a budget envelope, a new cellar, a found item during a count, the start of a count, the onboarding cellar and a humidor reading with a required field empty now shows that field in red with "This field is required", instead of a greyed-out button or a browser bubble that disappeared (#657).
-- Budget envelope dates show the stored day (1 Oct – 31 Oct) in a browser west of UTC instead of one day early (#907).
-
 ### Removed
 - The admin "Access mode" setting (direct or behind a reverse proxy) is gone: it was saved and shown back but changed nothing, only feeding a warning in the network check. The "Check configuration" button still checks the public URL and HTTPS in production (#617).
 - The "in-app notifications" channel is gone, from Administration → System configuration → Notifications and from My Profile → Notifications: it was a switch that delivered nothing. Notifications go by email or Gotify. The bell at the top of the page is not affected: it still lists peak-maturity alerts and reminders (#671).
@@ -45,6 +41,8 @@ Entries start with the pull request that introduced them where there is one.
 - The translation-keys test now also fails when a key that only exists in plural forms is used without a count, which would show as a raw key (#842)
 - Deleting a cellar while a stock count of that cellar is paused no longer makes the count impossible to close: the count goes on without a cellar (a bottle found there is no longer offered to be put "in this cellar") and closes normally. A count already stuck this way by an earlier deletion is repaired by the update (#597).
 - Deleting a cellar now removes it from the guest share links that showed it. A link that showed only that cellar is revoked, since it no longer shows anything (#597).
+- Saving the bottle form, "Add a wish", a budget envelope, a new cellar, a found item during a count, the start of a count, the onboarding cellar and a humidor reading with a required field empty now shows that field in red with "This field is required", instead of a greyed-out button or a browser bubble that disappeared (#657).
+- Budget envelope dates show the stored day (1 Oct – 31 Oct) in a browser west of UTC instead of one day early (#907).
 - My Profile → Notifications, quiet hours: "deleted, not delayed" now stands out in readable text, apart from the details; the instance's time zone is named (for example Europe/Paris), and you are told when your device is set to another one; the hour pickers are wide enough to show "Disabled" in full (#772).
 - My Profile → Notifications, alert categories: each one is a checkbox, so you can see at a glance which ones are on. "Backup failures" is only offered to administrators (and no longer saved for members from now on), and an administrator is told when automatic backups are off that only a manual backup or the copy taken before a restore can still alert them (#780).
 - Signing in with an address or user name that has no account now takes as long to be refused as a wrong password, and "Forgot password" answers at once instead of waiting for the email to leave: the response time no longer tells a stranger who has an account on the instance. A failed email is still written to the API log (#607).
