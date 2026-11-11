@@ -11,6 +11,7 @@ Entries start with the pull request that introduced them where there is one.
 ## Unreleased
 
 ### Removed
+- The unused admin API route `PUT /api/admin/config/notifications` is gone: the email and Gotify cards save their switch through `/config/smtp` and `/config/gotify`. Old "notifications" entries still show in the configuration history (#929).
 - The admin "Access mode" setting (direct or behind a reverse proxy) is gone: it was saved and shown back but changed nothing, only feeding a warning in the network check. The "Check configuration" button still checks the public URL and HTTPS in production (#617).
 - The "in-app notifications" channel is gone, from Administration → System configuration → Notifications and from My Profile → Notifications: it was a switch that delivered nothing. Notifications go by email or Gotify. The bell at the top of the page is not affected: it still lists peak-maturity alerts and reminders (#671).
 - Unused API routes are gone: `GET /api/auth/me` (use `GET /api/user/me`, which the app and the documentation now use), the single-item reads `GET /api/wishlist/items/:id` and `GET /api/wishlist/budget-envelopes/:id`, and `GET /api/inventory/:id/qr` (the app draws QR codes itself, see below) (#626, #625).

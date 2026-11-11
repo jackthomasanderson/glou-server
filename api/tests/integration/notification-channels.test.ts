@@ -76,7 +76,6 @@ beforeEach(() => {
   vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
   keep(vi.spyOn(systemConfigService, 'getPublic').mockResolvedValue({ ...saved }));
   keep(vi.spyOn(systemConfigService, 'updateGotify').mockResolvedValue({ ...saved }));
-  keep(vi.spyOn(systemConfigService, 'updateNotificationPolicy').mockResolvedValue({ ...saved }));
   keep(vi.spyOn(console, 'error').mockImplementation(() => {}));
 });
 
@@ -137,35 +136,6 @@ describe('Gotify cannot be switched on without its URL and app token (#767)', ()
     const res = await asAdmin('put', '/api/admin/config/gotify', { gotifyEnabled: false, gotifyUrl: null });
 
     expect(res.status).toBe(200);
-  });
-
-  it('refuses it from the channel switches route too', async () => {
-    const res = await asAdmin('put', '/api/admin/config/notifications', { gotifyEnabled: true });
-
-    expect(res.status).toBe(400);
-    expect(res.body.error).toBe('GOTIFY_INCOMPLETE');
-    expect(systemConfigService.updateNotificationPolicy).not.toHaveBeenCalled();
-  });
-});
-
-describe('PUT /admin/config/notifications saves only the switches it is sent', () => {
-  it('writes one switch without touching the other', async () => {
-    const res = await asAdmin('put', '/api/admin/config/notifications', { smtpEnabled: false });
-
-    expect(res.status).toBe(200);
-    expect(systemConfigService.updateNotificationPolicy).toHaveBeenCalledWith({ smtpEnabled: false }, 'u1');
-  });
-
-  it.each([
-    ['no switch at all', {}],
-    // #671: the in-app channel delivered nothing and was removed.
-    ['only the removed in-app switch', { inAppEnabled: false }],
-    ['a switch that is not a boolean', { smtpEnabled: 'yes' }],
-  ])('refuses %s', async (_label, body) => {
-    const res = await asAdmin('put', '/api/admin/config/notifications', body);
-
-    expect(res.status).toBe(400);
-    expect(systemConfigService.updateNotificationPolicy).not.toHaveBeenCalled();
   });
 });
 
@@ -303,16 +273,6 @@ describe('PATCH /user/notifications — categories (#780)', () => {
 
     expect(res.status).toBe(200);
     expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['backup', 'security'] } });
-  });
-});
-
-describe('a channel switch is not blocked by an older Gotify state', () => {
-  it('saves the email switch while Gotify was left on without a token', async () => {
-    vi.mocked(systemConfigService.getPublic).mockResolvedValue({ ...saved, gotifyEnabled: true, gotifyTokenMasked: null });
-
-    const res = await asAdmin('put', '/api/admin/config/notifications', { smtpEnabled: false });
-
-    expect(res.status).toBe(200);
   });
 });
 
