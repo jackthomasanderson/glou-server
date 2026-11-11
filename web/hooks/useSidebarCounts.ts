@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api';
 import type { SidebarCounts } from '@shared/stats';
 
@@ -33,13 +33,22 @@ export function useSidebarCountsSync() {
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // A mutation often invalidates the counts itself next to a watched root: that
+    // one request is enough, the deferred invalidation would restart it.
+    let countsInvalidated = false;
+    const countsHash = hashKey(SIDEBAR_COUNTS_KEY);
     const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
       if (event.type !== 'updated' || event.action.type !== 'invalidate') return;
       const root = event.query.queryKey[0];
-      if (typeof root !== 'string' || !WATCHED_ROOTS.has(root) || timer !== undefined) return;
+      const isCounts = event.query.queryHash === countsHash;
+      if (isCounts) countsInvalidated = true;
+      else if (typeof root !== 'string' || !WATCHED_ROOTS.has(root)) return;
+      if (timer !== undefined) return;
       timer = setTimeout(() => {
         timer = undefined;
-        void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
+        const done = countsInvalidated;
+        countsInvalidated = false;
+        if (!done) void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
       }, 0);
     });
     return () => {

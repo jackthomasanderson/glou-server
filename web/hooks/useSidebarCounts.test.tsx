@@ -62,6 +62,21 @@ describe('useSidebarCounts (#212)', () => {
     expect(get).toHaveBeenCalledTimes(2);
   });
 
+ it.each([['root first', false], ['counts first', true]])(
+    'watched root + counts invalidated in the same tick gives one fetch (%s)',
+    async (_name, countsFirst) => {
+      get.mockResolvedValue({ data: counts });
+      const { qc, result } = setup();
+      await waitFor(() => expect(result.current.data).toBeDefined());
+      qc.setQueryData(['cellars'], []);
+      const root = () => qc.invalidateQueries({ queryKey: ['cellars'] });
+      const direct = () => qc.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
+      await Promise.all(countsFirst ? [direct(), root()] : [root(), direct()]);
+      await new Promise((r) => setTimeout(r, 30));
+      expect(get).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it('is not subscribed by the plain query hook (two consumers, one subscription)', async () => {
     get.mockResolvedValue({ data: counts });
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
