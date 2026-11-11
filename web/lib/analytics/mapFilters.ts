@@ -1,4 +1,5 @@
 import { itemUnits } from '@shared/units';
+import { mapLocationOf, normalizeRegionName } from '@shared/map-location';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { Product, ProductItem } from '@/lib/products/types';
 
@@ -39,17 +40,14 @@ export const DEFAULT_MAP_FILTERS: MapFiltersState = {
 };
 
 /**
- * Region used to group a wine on the world map — mirrors the backend logic
- * in analytics.service.ts (`getAnalytics`): cigars are grouped by leaf
- * origin (falling back to region), everything else by region directly.
- * Keeping this in sync manually is a known duplication (see report) — the
- * alternative (deriving map region server-side per item) is out of the
- * strict FEAT-40/41/42 scope defined for this pass.
+ * The name a wine is placed under on the world map (#961: region, a cigar's
+ * leaf origin, else a placeable appellation) — the same rule as the API's
+ * grouping, both read from shared/map-location.ts.
  */
-export function getProductMapRegion(product: Pick<Product, 'category' | 'region' | 'leafOrigin'>): string | null {
-  const region = product.category === 'cigar' ? (product.leafOrigin ?? product.region) : product.region;
-  const trimmed = region?.trim();
-  return trimmed ? trimmed : null;
+export function getProductMapRegion(
+  product: Pick<Product, 'category' | 'region' | 'appellation' | 'leafOrigin'>,
+): string | null {
+  return mapLocationOf(product);
 }
 
 export function hasActiveMapFilters(filters: MapFiltersState): boolean {
@@ -83,7 +81,11 @@ export function productMatchesMapFilters(
   const units = product.items.filter(inStock);
   if (units.length === 0) return false;
 
-  if (regionFilter && getProductMapRegion(product) !== regionFilter) return false;
+  // #961: the map names a region once for all its spellings ("bordeaux ", "Bordeaux").
+  if (regionFilter) {
+    const location = getProductMapRegion(product);
+    if (location === null || normalizeRegionName(location) !== normalizeRegionName(regionFilter)) return false;
+  }
 
   if (filters.categories.length > 0 && !filters.categories.includes(product.category)) return false;
 

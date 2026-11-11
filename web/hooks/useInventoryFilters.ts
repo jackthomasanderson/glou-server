@@ -44,6 +44,9 @@ export interface UseInventoryFiltersResult {
   /** FEAT-101 "Plus en cave": only the wines with nothing left in stock (hidden otherwise). */
   showGone: boolean;
   setShowGone: React.Dispatch<React.SetStateAction<boolean>>;
+  /** #961 "Pas sur la carte": only the wines in stock the Analytics map cannot place. */
+  notLocated: boolean;
+  setNotLocated: React.Dispatch<React.SetStateAction<boolean>>;
   setOpenedFilter: React.Dispatch<React.SetStateAction<InventoryOpenedFilter>>;
 
   isFiltersOpen: boolean;
@@ -105,6 +108,7 @@ export function useInventoryFilters({
   // FEAT-101: the list shows what is in the cellar; wines with nothing left
   // stay known, hidden until "Plus en cave" asks for them (a search finds them).
   const [showGone, setShowGone] = useState(false);
+  const [notLocated, setNotLocated] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const [tagSearchQuery, setTagSearchQuery] = useState('');
@@ -140,6 +144,9 @@ export function useInventoryFilters({
       // same /bottles page that search results, alerts, collections and QR
       // codes all deep-link into unfiltered.
       setSelectedCategoriesState(categoryParam ? [categoryParam] : []);
+      // #961: the "not on the map" line of Analytics links here.
+      setNotLocated(filterParam === 'notLocated');
+      if (filterParam === 'notLocated') setIsFiltersOpen(true);
       if (filterParam === 'opened') {
         setOpenedFilter('opened'); setIsFiltersOpen(true);
       } else if (filterParam === 'full') {
@@ -187,14 +194,15 @@ export function useInventoryFilters({
     setSortBy('default');
     setOpenedFilter('all');
     setShowGone(false);
+    setNotLocated(false);
     router.push(navCategory ? `${pathname}?category=${encodeURIComponent(navCategory)}` : pathname);
   }, [router, pathname, navCategory]);
 
   const criteria = useMemo<ProductFilterCriteria>(() => ({
     lockedCategories, selectedCollectionId, selectedCategories, selectedWineColors, selectedCellars,
-    selectedTags, minValue, maxValue, openedFilter, showGone, searchQuery, sortBy,
+    selectedTags, minValue, maxValue, openedFilter, showGone, notLocated, searchQuery, sortBy,
   }), [lockedCategories, selectedCollectionId, selectedCategories, selectedWineColors, selectedCellars,
-    selectedTags, minValue, maxValue, openedFilter, showGone, searchQuery, sortBy]);
+    selectedTags, minValue, maxValue, openedFilter, showGone, notLocated, searchQuery, sortBy]);
 
   const baseItems = useMemo(() => (products ? baseProducts(products, criteria) : []), [products, criteria]);
 
@@ -218,6 +226,7 @@ export function useInventoryFilters({
     selectedCellars.length > 0 ||
     openedFilter !== 'all' ||
     showGone ||
+    notLocated ||
     !!searchQuery ||
     !!selectedCollectionId ||
     selectedTags.length > 0 ||
@@ -237,6 +246,7 @@ export function useInventoryFilters({
     sortBy, setSortBy,
     openedFilter, setOpenedFilter,
     showGone, setShowGone,
+    notLocated, setNotLocated,
     isFiltersOpen, toggleFilters,
     tagSearchQuery, setTagSearchQuery,
     showAllTags, setShowAllTags,

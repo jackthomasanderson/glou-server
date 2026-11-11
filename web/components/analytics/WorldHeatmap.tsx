@@ -6,8 +6,9 @@ import type { GeoJsonObject } from 'geojson';
 import geoUrl from 'world-atlas/countries-110m.json';
 import { ButtonGroup, Button, SelectItem } from '@heroui/react';
 import { LayoutGrid, Flame } from 'lucide-react';
-import { getRegionCoordinates } from '@/lib/analytics/regionCoordinates';
-import { RegionCategoryStat } from '@/lib/analytics/types';
+import Link from 'next/link';
+import { findKnownRegion } from '@shared/map-location';
+import type { NoLocationStat, RegionCategoryStat } from '@/lib/analytics/types';
 import { CATEGORY_HEX, CATEGORY_ORDER } from '@/lib/analytics/categoryColors';
 import { InventoryCategory } from '@/lib/inventory/types';
 import { useThemeMode } from '@/hooks/useThemeMode';
@@ -54,6 +55,45 @@ function dominantCategoryByRegion(stats: RegionCategoryStat[]): Record<string, I
   return out;
 }
 
+/** How many unknown regions the "not on the map" line names before "and N more". */
+const NAMED_UNKNOWN_REGIONS = 5;
+
+interface NotOnMap {
+  bottles: number;
+  cigars: number;
+  /** Units with neither a region nor a placeable appellation. */
+  noRegion: number;
+  /** Regions the map cannot place, most stocked first. */
+  unknownRegions: string[];
+}
+
+/**
+ * #961: the units in stock the map cannot show — in a region it does not
+ * know, or with nothing to place them by — counted in bottles (cigars apart),
+ * like every figure of the map.
+ */
+function notOnMap(stats: RegionCategoryStat[], noLocation: NoLocationStat[]): NotOnMap {
+  const result: NotOnMap = { bottles: 0, cigars: 0, noRegion: 0, unknownRegions: [] };
+  const add = (category: string, count: number) => {
+    if (category === 'cigar') result.cigars += count;
+    else result.bottles += count;
+  };
+  const unknown = new Map<string, number>();
+  for (const s of stats) {
+    if (findKnownRegion(s.region)) continue;
+    add(s.category, s.count);
+    unknown.set(s.region, (unknown.get(s.region) ?? 0) + s.count);
+  }
+  for (const s of noLocation) {
+    add(s.category, s.count);
+    result.noRegion += s.count;
+  }
+  result.unknownRegions = Array.from(unknown.entries())
+    .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
+    .map(([region]) => region);
+  return result;
+}
+
 interface MarkerData {
   region: string;
   count: number;
@@ -97,13 +137,15 @@ type HeatmapType = 'dominant' | InventoryCategory;
 interface WorldHeatmapProps {
   /** Full region × category split (FEAT-40/41), already filtered by the FEAT-42 sidebar (type multi-select). */
   regionCategoryBreakdown: RegionCategoryStat[];
+  /** #961: units in stock with nothing to place them by, filtered like the breakdown. */
+  noLocationBreakdown: NoLocationStat[];
   onRegionClick?: (region: string) => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: WorldHeatmapProps) {
+export function WorldHeatmap({ regionCategoryBreakdown, noLocationBreakdown, onRegionClick, t }: WorldHeatmapProps) {
   const [mode, setMode] = useState<MapDisplayMode>('markers');
   const [heatmapType, setHeatmapType] = useState<HeatmapType>('dominant');
   const [hovered, setHovered] = useState<{ marker: MarkerData; x: number; y: number } | null>(null);
@@ -122,10 +164,12 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
     [t],
   );
 
-  // `unmapped` counts, within the *current view's* candidate regions, how
-  // many lack known coordinates — not regions hidden by the type filter
-  // itself (that would misleadingly inflate the count).
-  const { markers, unmappedCount } = useMemo(() => {
+  const missing = useMemo(
+    () => notOnMap(regionCategoryBreakdown, noLocationBreakdown),
+    [regionCategoryBreakdown, noLocationBreakdown],
+  );
+
+  const markers = useMemo(() => {
     let candidates: { region: string; count: number; valuation: number; color: string; fillOpacity: number; categoryLabel?: string }[];
 
     if (mode === 'markers') {
@@ -169,16 +213,11 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
     }
 
     const resolved: MarkerData[] = [];
-    let unmapped = 0;
     for (const c of candidates) {
-      const coord = getRegionCoordinates(c.region);
-      if (!coord) {
-        unmapped += 1;
-        continue;
-      }
-      resolved.push({ ...c, lat: coord.lat, lng: coord.lng });
+      const place = findKnownRegion(c.region);
+      if (place) resolved.push({ ...c, lat: place.lat, lng: place.lng });
     }
-    return { markers: resolved, unmappedCount: unmapped };
+    return resolved;
   }, [mode, heatmapType, regionCategoryBreakdown, t]);
 
   return (
@@ -270,6 +309,15 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
           ))}
         </ComposableMap>
 
+        {/* #961: nothing placed — say what places a bottle. */}
+        {markers.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+            <p className="max-w-sm text-center text-sm text-foreground-500 bg-content1 border border-divider rounded-xl px-4 py-3">
+              {t('analytics.regionMap.empty')}
+            </p>
+          </div>
+        )}
+
         {hovered && (
           <div
             className="fixed z-40 pointer-events-none bg-content1 border border-divider rounded-xl shadow-lg px-3 py-2"
@@ -295,10 +343,49 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
         </div>
       )}
 
-      {/* Footer: unmapped notice */}
-      {unmappedCount > 0 && (
-        <p className="text-xs text-foreground-500 mt-1.5">
-          {t('analytics.regionMap.unmapped', { count: unmappedCount })}
+      {/* Footer (#961): the bottles in stock the map cannot show, never silently dropped. */}
+      {missing.bottles + missing.cigars > 0 && (
+        <p className="text-xs text-foreground-500 mt-1.5" data-testid="map-not-located">
+          {t('analytics.regionMap.notOnMap', {
+            count: missing.bottles + missing.cigars,
+            what: missing.bottles > 0 && missing.cigars > 0
+              ? t('analytics.regionMap.bottlesAndCigars', {
+                bottles: t('analytics.regionMap.bottles', { count: missing.bottles }),
+                cigars: t('analytics.regionMap.cigars', { count: missing.cigars }),
+              })
+              : missing.bottles > 0
+                ? t('analytics.regionMap.bottles', { count: missing.bottles })
+                : t('analytics.regionMap.cigars', { count: missing.cigars }),
+          })}
+          {missing.unknownRegions.length > 0 && (
+            <>
+              {' '}
+              {t('analytics.regionMap.unknownRegions', {
+                count: missing.unknownRegions.length,
+                regions: missing.unknownRegions.slice(0, NAMED_UNKNOWN_REGIONS).join(', ')
+                  + (missing.unknownRegions.length > NAMED_UNKNOWN_REGIONS
+                    ? ` ${t('analytics.regionMap.moreRegions', { count: missing.unknownRegions.length - NAMED_UNKNOWN_REGIONS })}`
+                    : ''),
+              })}
+            </>
+          )}
+          {missing.noRegion > 0 && <>{' '}{t('analytics.regionMap.noRegion', { count: missing.noRegion })}</>}
+          {missing.bottles > 0 && (
+            <>
+              {' '}
+              <Link href="/bottles?filter=notLocated" className="text-primary font-semibold hover:underline">
+                {t('analytics.regionMap.seeBottles')}
+              </Link>
+            </>
+          )}
+          {missing.cigars > 0 && (
+            <>
+              {' '}
+              <Link href="/cigars?filter=notLocated" className="text-primary font-semibold hover:underline">
+                {t('analytics.regionMap.seeCigars')}
+              </Link>
+            </>
+          )}
         </p>
       )}
     </div>

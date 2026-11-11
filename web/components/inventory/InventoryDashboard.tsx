@@ -142,6 +142,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     sortBy, setSortBy,
     openedFilter, setOpenedFilter,
     showGone, setShowGone,
+    notLocated, setNotLocated,
     isFiltersOpen, toggleFilters,
     tagSearchQuery, setTagSearchQuery,
     showAllTags, setShowAllTags,
@@ -233,7 +234,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   // values so each reset only fires on an actual change.
   const filterSortKey = [
     searchQuery, selectedCategories, selectedCellars, selectedTags,
-    selectedWineColors, minValue, maxValue, sortBy, openedFilter, showGone, selectedCollectionId,
+    selectedWineColors, minValue, maxValue, sortBy, openedFilter, showGone, notLocated, selectedCollectionId,
   ];
   const [prevFilterSortKey, setPrevFilterSortKey] = useState(filterSortKey);
   if (filterSortKey.some((v, i) => v !== prevFilterSortKey[i])) {
@@ -404,6 +405,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     openedFilter,
     showGone,
     setShowGone,
+    notLocated,
+    setNotLocated,
     setOpenedFilter,
     tagSearchQuery,
     setTagSearchQuery,

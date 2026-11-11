@@ -734,7 +734,11 @@ export function AnalyticsDashboard() {
           {isLoading ? (
             <div className="h-[320px] rounded-2xl bg-default-100 animate-pulse" />
           ) : (
-            <MapExplorer regionCategoryBreakdown={data?.regionCategoryBreakdown ?? []} t={t} />
+            <MapExplorer
+              regionCategoryBreakdown={data?.regionCategoryBreakdown ?? []}
+              noLocationBreakdown={data?.noLocationBreakdown ?? []}
+              t={t}
+            />
           )}
         </CardBody>
       </Card>

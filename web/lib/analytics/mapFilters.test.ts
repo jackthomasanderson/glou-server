@@ -18,6 +18,13 @@ describe('getProductMapRegion', () => {
     expect(getProductMapRegion(product({ category: 'cigar', leafOrigin: null, region: 'Caraïbes' }))).toBe('Caraïbes');
   });
 
+  // #961: the appellation places a wine only when its region is empty.
+  it('falls back to an appellation the map can place when the region is empty', () => {
+    expect(getProductMapRegion(product({ region: null, appellation: 'Pomerol' }))).toBe('Pomerol');
+    expect(getProductMapRegion(product({ region: 'Bordeaux', appellation: 'Pomerol' }))).toBe('Bordeaux');
+    expect(getProductMapRegion(product({ region: null, appellation: 'Cuvée Imaginaire' }))).toBeNull();
+  });
+
   it('returns null for blank/missing region (error case)', () => {
     expect(getProductMapRegion(product({ region: null }))).toBeNull();
     expect(getProductMapRegion(product({ region: '   ' }))).toBeNull();
@@ -60,6 +67,13 @@ describe('productMatchesMapFilters', () => {
     const p = product({ region: 'Bourgogne' });
     expect(matches(p, DEFAULT_MAP_FILTERS, noRatings, 'Bordeaux')).toBe(false);
     expect(matches(p, DEFAULT_MAP_FILTERS, noRatings, 'Bourgogne')).toBe(true);
+  });
+
+  // #961: "bordeaux " and "Bordeaux" are one point on the map; choosing it shows both.
+  it('a region chosen on the map covers every spelling of it', () => {
+    expect(matches(product({ region: 'bordeaux ' }), DEFAULT_MAP_FILTERS, noRatings, 'Bordeaux')).toBe(true);
+    expect(matches(product({ region: 'vallee du rhone' }), DEFAULT_MAP_FILTERS, noRatings, 'Vallée du Rhône')).toBe(true);
+    expect(matches(product({ region: null, appellation: 'Pomerol' }), DEFAULT_MAP_FILTERS, noRatings, 'Pomerol')).toBe(true);
   });
 
   it('filters by category multi-select', () => {

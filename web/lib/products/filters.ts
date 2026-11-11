@@ -1,4 +1,5 @@
 import { summarizeStock, unitKind, type StockSummary } from '@shared/units';
+import { isPlacedOnMap } from '@shared/map-location';
 import { alertUrgency } from '@/lib/inventory/types';
 import type { Product } from './types';
 
@@ -24,6 +25,8 @@ export interface ProductFilterCriteria {
   openedFilter: InventoryOpenedFilter;
   /** "Plus en cave" (FEAT-101): only the wines without anything left in stock. */
   showGone: boolean;
+  /** #961 "Pas sur la carte": only the wines in stock the Analytics map cannot place. */
+  notLocated?: boolean;
   searchQuery: string;
   sortBy: InventorySortBy;
 }
@@ -109,6 +112,8 @@ export function filterProducts(
     keep((p) => p.items.some((item) => criteria.selectedCellars.includes(item.cellarId ?? NO_CELLAR)));
   }
   if (criteria.selectedTags.length > 0) keep((p) => criteria.selectedTags.every((tag) => p.tags.includes(tag)));
+  // #961: the same rule as the map (shared/map-location.ts), on the wines in stock.
+  if (criteria.notLocated) keep((p) => !isGone(p) && !isPlacedOnMap(p));
 
   const min = criteria.minValue === '' ? NaN : parseFloat(criteria.minValue);
   const max = criteria.maxValue === '' ? NaN : parseFloat(criteria.maxValue);
