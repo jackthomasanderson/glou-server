@@ -28,7 +28,7 @@ function EnvelopeCard({ envelope, onEdit, onDelete }: {
   onDelete: (e: BudgetEnvelope) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { data: progress, isLoading } = useBudgetProgress(envelope.id);
+  const { data: progress, isLoading, isError } = useBudgetProgress(envelope.id);
 
   return (
     <Card radius="lg" shadow="sm">
@@ -46,7 +46,7 @@ function EnvelopeCard({ envelope, onEdit, onDelete }: {
         </div>
       </CardHeader>
       <CardBody className="gap-2">
-        {isLoading || !progress ? (
+        {isError && !progress ? null : isLoading || !progress ? (
           <LoadingRegion><Skeleton className="h-3 w-full rounded-full" /></LoadingRegion>
         ) : (
           <>

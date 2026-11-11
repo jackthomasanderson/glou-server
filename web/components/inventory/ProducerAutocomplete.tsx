@@ -123,7 +123,7 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
         onBlur={() => { setIsOpen(false); keys.resetActive(); }}
         onKeyDown={keys.onKeyDown}
         endContent={
-          loadingExternal ? <LoadingRegion><Loader2 size={14} aria-hidden="true" className="animate-spin text-foreground-500" /></LoadingRegion> : undefined
+          loadingExternal ? <LoadingRegion className="flex"><Loader2 size={14} aria-hidden="true" className="animate-spin text-foreground-500" /></LoadingRegion> : undefined
         }
       />
 

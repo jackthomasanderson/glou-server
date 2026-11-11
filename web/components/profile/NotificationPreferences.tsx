@@ -161,7 +161,7 @@ export function NotificationPreferences() {
       <div className="flex items-center gap-2 mb-4">
         <Bell size={18} className="text-primary" />
         <h2 className="text-base font-semibold">{t('notifications.title')}</h2>
-        {saving && <LoadingRegion className="ml-auto" label={t('status.saving')}><Loader2 size={14} aria-hidden="true" className="animate-spin text-foreground-400" /></LoadingRegion>}
+        {saving && <LoadingRegion className="ml-auto flex" label={t('status.saving')}><Loader2 size={14} aria-hidden="true" className="animate-spin text-foreground-400" /></LoadingRegion>}
       </div>
       <p className="text-sm text-foreground-500 mb-5">{t('notifications.subtitle')}</p>
 

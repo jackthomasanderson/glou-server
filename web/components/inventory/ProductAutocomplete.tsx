@@ -135,7 +135,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, sugge
         onValueChange={(v) => { handleInputChange(v); keys.resetActive(); }}
         autoFocus={autoFocus}
         endContent={
-          loadingExternal ? <LoadingRegion><Loader2 size={14} aria-hidden="true" className="animate-spin text-foreground-500" /></LoadingRegion> : undefined
+          loadingExternal ? <LoadingRegion className="flex"><Loader2 size={14} aria-hidden="true" className="animate-spin text-foreground-500" /></LoadingRegion> : undefined
         }
       />
 

@@ -65,7 +65,9 @@ describe('loading indicators are announced to screen readers (#658)', () => {
     'components/inventory/InventoryListRow.tsx',
   ]);
   const ANNOUNCED = /<LoadingRegion\b|\brole=["{]\s*["']?status|\baria-busy=/;
-  const SKELETON = /<Skeleton\b/;
+  // Also composite placeholders (<InventoryListRowSkeleton />, as in the trash).
+  // The check is per file: one region anywhere in a file passes all its skeletons.
+  const SKELETON = /<\w*Skeleton\b/;
   // (A spinner on the line of a <Button> is announced by the button's own label.)
 
   it('finds the source files', () => {
