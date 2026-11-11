@@ -8,6 +8,7 @@ import { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { keepNumbersWhole, type StockLine } from '@/lib/products/stock';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
+import { TapTooltip } from '@/components/ui/TapTooltip';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
 
 const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
@@ -86,16 +87,14 @@ export function InventoryListRow({
           <div className="flex items-center gap-1.5 min-w-0">
             <p className="text-sm font-semibold line-clamp-2 break-words" title={item.name}>{item.name}</p>
             {hasPendingSync && (
-              <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
-                {/* #656: a button, so the tooltip opens on keyboard focus and on tap. */}
-                <button
-                  type="button"
-                  aria-label={t('offline.pendingSyncTooltip')}
-                  className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-                >
-                  <Clock size={10} aria-hidden="true" />
-                </button>
-              </Tooltip>
+              // #656: a button whose tooltip opens on keyboard focus and on tap.
+              <TapTooltip
+                content={t('offline.pendingSyncTooltip')}
+                aria-label={t('offline.pendingSyncTooltip')}
+                className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <Clock size={10} aria-hidden="true" />
+              </TapTooltip>
             )}
           </div>
         </TableCell>,

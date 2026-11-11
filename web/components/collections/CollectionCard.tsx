@@ -22,11 +22,13 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
     // button, stretched over the card by an ::after overlay; the actions sit
     // above it.
     <Card
-      className="relative cursor-pointer transition-shadow hover:shadow-lg w-full"
+      className="relative transition-shadow hover:shadow-lg w-full"
       style={{ borderTop: `4px solid ${collection.color}` }}
       radius="lg"
     >
-      <CardBody className="pb-1">
+      {/* static: the name's ::after overlay must cover the whole card, not
+          just this body (HeroUI's CardBody is position: relative). */}
+      <CardBody className="static pb-1">
         <div className="flex items-center gap-2 mb-2">
           {collection.icon && (
             <span className="text-2xl leading-none">{collection.icon}</span>

@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
-import { Chip, Tooltip } from '@heroui/react';
+import { Chip } from '@heroui/react';
+import { TapTooltip } from '@/components/ui/TapTooltip';
 import { Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 
 type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
@@ -64,11 +65,10 @@ export function DrinkingWindowBadge({
   ].filter(Boolean).join(' — ');
 
   return (
-    <Tooltip content={tooltipContent} delay={500}>
-      <button
-        type="button"
-        className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus"
-      >
+    <TapTooltip
+      content={tooltipContent}
+      className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus"
+    >
         <Chip
           startContent={config.icon}
           size={size}
@@ -80,7 +80,6 @@ export function DrinkingWindowBadge({
           <span aria-hidden="true">{windowLabel || t(`inventory.alertStatus.${status}`)}</span>
           <span className="sr-only">{srDescription}</span>
         </Chip>
-      </button>
-    </Tooltip>
+    </TapTooltip>
   );
 }
