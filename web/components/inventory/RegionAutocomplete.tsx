@@ -62,7 +62,8 @@ export function RegionAutocomplete({ value, onChange, label }: Props) {
     const candidates = [...cellarRegions, ...KNOWN_REGION_NAMES.map((label) => ({ label, notOnMap: false }))];
     for (const option of candidates) {
       const key = normalizeRegionName(option.label);
-      if (seen.has(key) || !key.includes(query)) continue;
+      // The name already typed in full is nothing to suggest.
+      if (seen.has(key) || key === query || !key.includes(query)) continue;
       seen.add(key);
       result.push(option);
       if (result.length === MAX_SUGGESTIONS) break;
@@ -108,7 +109,7 @@ export function RegionAutocomplete({ value, onChange, label }: Props) {
 
       {expanded && (
         <div className="absolute z-[1500] left-0 top-full mt-1 w-full bg-background border border-default-200 rounded-xl shadow-xl overflow-hidden">
-          <ul id={listId} role="listbox" aria-label={label} className="py-1">
+          <ul id={listId} role="listbox" aria-label={t('autocomplete.regionSuggestions')} className="py-1">
             {options.map((opt, idx) => (
               <li
                 key={opt.label}

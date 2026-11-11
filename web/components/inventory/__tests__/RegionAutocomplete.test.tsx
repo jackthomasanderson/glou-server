@@ -51,6 +51,9 @@ describe('RegionAutocomplete', () => {
 
     fireEvent.change(input(), { target: { value: 'bord' } });
     expect(options()).toEqual(['Bordeaux']);
+    // Typed in full: nothing left to suggest, the list closes.
+    fireEvent.change(input(), { target: { value: 'bordeaux' } });
+    expect(options()).toEqual([]);
   });
 
   it('says what the field is for, and warns without blocking when the region cannot be placed', () => {

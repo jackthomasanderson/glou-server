@@ -812,7 +812,8 @@
   "autocomplete": {
     "internal": "Mon inventaire",
     "external": "Internet",
-    "notOnMap": "Pas sur la carte"
+    "notOnMap": "Pas sur la carte",
+    "regionSuggestions": "Régions proposées"
   },
   "profile": {
     "version": {

@@ -810,7 +810,8 @@
   "autocomplete": {
     "internal": "My inventory",
     "external": "Internet",
-    "notOnMap": "Not on the map"
+    "notOnMap": "Not on the map",
+    "regionSuggestions": "Suggested regions"
   },
   "profile": {
     "version": {
