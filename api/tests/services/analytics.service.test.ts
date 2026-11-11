@@ -27,6 +27,7 @@ type ItemRow = {
   product: {
     category: string;
     region: string | null;
+    appellation: string | null;
     leafOrigin: string | null;
     alertStatus: string | null;
     peakMaturityFrom: number | null;
@@ -53,6 +54,7 @@ function item(overrides: Partial<Flat> = {}): ItemRow {
     updatedAt: new Date(),
     category: 'wine',
     region: 'Bordeaux',
+    appellation: null,
     leafOrigin: null,
     alertStatus: 'none',
     peakMaturityFrom: null,
@@ -60,8 +62,8 @@ function item(overrides: Partial<Flat> = {}): ItemRow {
     curveShape: null,
     ...overrides,
   };
-  const { category, region, leafOrigin, alertStatus, peakMaturityFrom, peakMaturityTo, curveShape, ...unit } = flat;
-  return { ...unit, product: { category, region, leafOrigin, alertStatus, peakMaturityFrom, peakMaturityTo, curveShape } };
+  const { category, region, appellation, leafOrigin, alertStatus, peakMaturityFrom, peakMaturityTo, curveShape, ...unit } = flat;
+  return { ...unit, product: { category, region, appellation, leafOrigin, alertStatus, peakMaturityFrom, peakMaturityTo, curveShape } };
 }
 
 const thisYear = new Date().getFullYear();
@@ -370,7 +372,7 @@ describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)',
     const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
     expect(call.select).toMatchObject({
       quantity: true, cigarsPerBox: true, cigarsLeft: true, writtenOffAt: true,
-      product: { select: expect.objectContaining({ category: true, region: true, alertStatus: true }) },
+      product: { select: expect.objectContaining({ category: true, region: true, appellation: true, alertStatus: true }) },
     });
   });
 
@@ -544,5 +546,86 @@ describe('getAnalytics — consumed units and the capital gain (#838)', () => {
     expect(stats.inStockPurchasePrice).toBe(184);
     expect(stats.totalValuation).toBe(230);
     expect(stats.totalPurchasePrice).toBe(200);
+  });
+});
+
+describe('getAnalytics — where the world map places the bottles (#961)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+  });
+
+  it('counts a bottle with only an appellation under that appellation', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ region: null, appellation: 'Pomerol', quantity: 2, estimatedValue: 30 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.regionCategoryBreakdown).toEqual([{ region: 'Pomerol', category: 'wine', count: 2, valuation: 60 }]);
+    expect(stats.noLocationBreakdown).toEqual([]);
+  });
+
+  it('keeps the region as the reference: an unknown region is not replaced by a known appellation', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ region: 'Terroir Imaginaire', appellation: 'Pomerol' }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.regionCategoryBreakdown.map((r) => r.region)).toEqual(['Terroir Imaginaire']);
+  });
+
+  it('counts the bottles in stock with neither a region nor a placeable appellation as not located, per category', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ region: null, appellation: null, quantity: 3 }),
+      item({ region: '  ', appellation: 'Cuvée Imaginaire', quantity: 1 }),
+      item({ category: 'spirit', region: null, quantity: 1 }),
+      // Finished: not on the map, not counted as missing from it either.
+      item({ region: null, isOpened: true, fillLevel: 0 }),
+      item({ region: 'Bordeaux' }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.noLocationBreakdown).toEqual([
+      { category: 'wine', count: 4 },
+      { category: 'spirit', count: 1 },
+    ]);
+    expect(stats.regionCategoryBreakdown).toEqual([{ region: 'Bordeaux', category: 'wine', count: 1, valuation: 0 }]);
+  });
+
+  it('groups the spellings of a region regardless of case, spaces and accents, under the name the map knows', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ region: 'bordeaux ', quantity: 1 }),
+      item({ region: 'Bordeaux', quantity: 1 }),
+      item({ region: 'vallee du rhone', quantity: 1 }),
+      item({ region: 'nouvelle aquitaine', quantity: 6 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.regionCategoryBreakdown).toEqual([
+      { region: 'Nouvelle-Aquitaine', category: 'wine', count: 6, valuation: 0 },
+      { region: 'Bordeaux', category: 'wine', count: 2, valuation: 0 },
+      { region: 'Vallée du Rhône', category: 'wine', count: 1, valuation: 0 },
+    ]);
+    expect(stats.regionBreakdown.map((r) => [r.region, r.count])).toEqual([
+      ['Nouvelle-Aquitaine', 6], ['Bordeaux', 2], ['Vallée du Rhône', 1],
+    ]);
+  });
+
+  it('shows an unknown region under its most frequent spelling', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ region: 'Terroir Imaginaire', quantity: 1 }),
+      item({ region: 'terroir imaginaire ', quantity: 3 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.regionCategoryBreakdown).toEqual([
+      { region: 'terroir imaginaire', category: 'wine', count: 4, valuation: 0 },
+    ]);
   });
 });
