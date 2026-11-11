@@ -811,6 +811,14 @@
     "adminPanelLink": "Accéder au panneau d'administration",
     "title": "Mon Profil",
     "sectionsNav": "Sections du profil",
+    "sectionLabels": {
+      "account": "Profil",
+      "preferences": "Affichage",
+      "security": "Sécurité",
+      "shares": "Partages",
+      "notifications": "Notifications",
+      "data": "Données"
+    },
     "personalInfo": "Informations personnelles",
     "preferences": "Préférences d'affichage",
     "appName": "Nom perso pour l'app",
@@ -869,7 +877,7 @@
     "passwordError": "Mot de passe actuel incorrect",
     "emailLabel": "Adresse email",
     "passwordLabel": "Mot de passe",
-    "avatarHint": "Cliquez ou glissez une image\n(Recommandé : 400×400px, max 5 Mo)",
+    "avatarHint": "Touchez la photo pour la changer (ou glissez une image dessus)",
     "autoLockDelay": "Verrouillage automatique",
     "autoLockHint": "Verrouille l'application après une période d'inactivité",
     "autoLockNever": "Jamais",

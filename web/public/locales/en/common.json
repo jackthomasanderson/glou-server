@@ -809,6 +809,14 @@
     "adminPanelLink": "Go to admin panel",
     "title": "My Profile",
     "sectionsNav": "Profile sections",
+    "sectionLabels": {
+      "account": "Profile",
+      "preferences": "Display",
+      "security": "Security",
+      "shares": "Shares",
+      "notifications": "Notifications",
+      "data": "Data"
+    },
     "personalInfo": "Personal Information",
     "preferences": "Display Preferences",
     "appName": "Custom App Name",
@@ -867,7 +875,7 @@
     "passwordError": "Incorrect current password",
     "emailLabel": "Email address",
     "passwordLabel": "Password",
-    "avatarHint": "Click or drag an image\n(Recommended: 400×400px, max 5MB)",
+    "avatarHint": "Tap the photo to change it (or drop an image on it)",
     "autoLockDelay": "Auto-lock delay",
     "autoLockHint": "Locks the app after a period of inactivity",
     "autoLockNever": "Never",

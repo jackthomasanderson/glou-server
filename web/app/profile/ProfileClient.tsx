@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Button, Input, SelectItem, Switch, CircularProgress } from '@heroui/react';
 import { User, Settings, ShieldCheck, Compass, FlaskConical, LogOut } from 'lucide-react';
 import Link from 'next/link';
@@ -22,6 +22,22 @@ import { ACCENT_PRESETS, DEFAULT_ACCENT, resolveAccentPreset } from '@/lib/theme
 
 // #648: the presets and their contrast checks live in lib/theme-colors.ts.
 const ACCENT_COLORS = ACCENT_PRESETS.map((p) => ({ name: p.name, val: p.light.DEFAULT }));
+
+const SECTION_IDS = ['account', 'preferences', 'security', 'shares', 'notifications', 'data'] as const;
+
+// A malformed hash (`#%E0`) makes decodeURIComponent throw: treat it as no hash.
+const currentHashId = () => {
+  if (typeof window === 'undefined') return '';
+  try {
+    return decodeURIComponent(window.location.hash.slice(1));
+  } catch {
+    return '';
+  }
+};
+
+// After a click or a hash jump the page scrolls on its own; the scroll
+// observer must not overwrite the section just chosen while it settles.
+const SCROLL_SETTLE_MS = 600;
 
 export function ProfileClient() {
   const { t } = useTranslation();
@@ -83,6 +99,88 @@ export function ProfileClient() {
     });
   };
 
+  const [activeSection, setActiveSection] = useState<string>(() => {
+    const id = currentHashId();
+    return (SECTION_IDS as readonly string[]).includes(id) ? id : SECTION_IDS[0];
+  });
+  const lockedUntil = useRef(0);
+  const chooseSection = (id: string) => {
+    lockedUntil.current = Date.now() + SCROLL_SETTLE_MS;
+    setActiveSection(id);
+  };
+
+  // #839: the sections only exist once the member is loaded, so the browser
+  // cannot scroll to `#shares` by itself on a direct load (or from the
+  // security e-mail). Scroll once they are rendered, and follow later changes.
+  // #779: the section in view is marked in the shortcuts row.
+  useEffect(() => {
+    if (isLoadingUser) return;
+    const goToHash = () => {
+      const id = currentHashId();
+      if (!id) return false;
+      document.getElementById(id)?.scrollIntoView();
+      if ((SECTION_IDS as readonly string[]).includes(id)) chooseSection(id);
+      return true;
+    };
+    // Cards above the target (sessions, shares) may load after the first
+    // scroll and push it down: scroll again for a couple of frames.
+    const frames: number[] = [];
+    if (goToHash()) {
+      const again = (left: number) => {
+        if (left === 0) return;
+        frames.push(requestAnimationFrame(() => {
+          const id = currentHashId();
+          if (id) document.getElementById(id)?.scrollIntoView();
+          again(left - 1);
+        }));
+      };
+      again(2);
+    }
+    const onHashChange = () => { goToHash(); };
+    window.addEventListener('hashchange', onHashChange);
+
+    // Sections currently crossing a band near the top of the viewport. The
+    // active one is the last of them in page order (side-by-side cards both
+    // cross it), or the last section once the page is scrolled to the bottom
+    // (a short last card never reaches the band).
+    const inBand = new Set<string>();
+    const refresh = () => {
+      if (Date.now() < lockedUntil.current) return;
+      const atBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      if (atBottom && window.scrollY > 0) {
+        setActiveSection(SECTION_IDS[SECTION_IDS.length - 1]);
+        return;
+      }
+      const current = [...SECTION_IDS].reverse().find((id) => inBand.has(id));
+      if (current) setActiveSection(current);
+    };
+    window.addEventListener('scroll', refresh, { passive: true });
+
+    let observer: IntersectionObserver | undefined;
+    if (typeof IntersectionObserver !== 'undefined') {
+      observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) inBand.add(entry.target.id);
+            else inBand.delete(entry.target.id);
+          });
+          refresh();
+        },
+        { rootMargin: '-15% 0px -75% 0px' },
+      );
+      SECTION_IDS.forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) observer?.observe(el);
+      });
+    }
+    return () => {
+      frames.forEach((f) => cancelAnimationFrame(f));
+      window.removeEventListener('hashchange', onHashChange);
+      window.removeEventListener('scroll', refresh);
+      observer?.disconnect();
+    };
+  }, [isLoadingUser, user?.id]);
+
   if (isLoadingUser) {
     return (
       <MainLayout>
@@ -102,20 +200,19 @@ export function ProfileClient() {
             the right one directly. (The former Wishlist & Budget shortcut is
             gone: that page is in the navigation now.) */}
         <nav aria-label={t('profile.sectionsNav')} className="flex flex-wrap gap-2 mb-6">
-          {[
-            { id: 'account', label: t('profile.personalInfo') },
-            { id: 'preferences', label: t('profile.preferences') },
-            { id: 'security', label: t('profile.security') },
-            { id: 'shares', label: t('shares.title') },
-            { id: 'notifications', label: t('notifications.title') },
-            { id: 'data', label: t('gdpr.title') },
-          ].map((section) => (
+          {SECTION_IDS.map((id) => (
             <a
-              key={section.id}
-              href={`#${section.id}`}
-              className="text-xs font-semibold px-3 py-1.5 rounded-full border border-divider text-foreground-600 hover:bg-default-100 focus-visible:outline-2 focus-visible:outline-primary"
+              key={id}
+              href={`#${id}`}
+              aria-current={activeSection === id ? 'true' : undefined}
+              onClick={() => chooseSection(id)}
+              className={`text-xs font-semibold px-3 py-1.5 rounded-full border focus-visible:outline-2 focus-visible:outline-primary ${
+                activeSection === id
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-divider text-foreground-600 hover:bg-default-100'
+              }`}
             >
-              {section.label}
+              {t(`profile.sectionLabels.${id}`)}
             </a>
           ))}
         </nav>
@@ -283,8 +380,9 @@ export function ProfileClient() {
         </div>
 
         {/* Admin panel shortcut */}
+        {/* md:hidden (#774): the sidebar has this link from 768 px up; below that it is in the bottom bar's "More" sheet and kept here. */}
         {user?.isAdmin && (
-          <div className="mt-6">
+          <div className="mt-6 md:hidden">
             <Button
               as={Link}
               href="/admin"
@@ -328,10 +426,11 @@ export function ProfileClient() {
         {/* Running version (#696) */}
         <AppVersion />
 
-        <div className="mt-6">
+        {/* md:hidden (#774): the sidebar has the sign-out button from 768 px up; on a phone this is the only place for it. */}
+        <div className="mt-6 md:hidden">
           <Button
-            color="danger"
-            variant="flat"
+            color="default"
+            variant="bordered"
             startContent={<LogOut size={16} />}
             radius="md"
             fullWidth
