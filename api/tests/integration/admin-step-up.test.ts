@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
-import { authenticator } from 'otplib';
+import { generateSync } from 'otplib';
+import { newTotpSecret } from '../../src/lib/totp';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -37,7 +38,7 @@ import { MaintenanceService } from '../../src/services/maintenance.service';
 const JWT_SECRET = 'integration-test-secret';
 const KEY = 'ab'.repeat(32);
 const ADMIN_PASSWORD = 'admin-pw';
-const TOTP_SECRET = authenticator.generateSecret();
+const TOTP_SECRET = newTotpSecret();
 const DUMP = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'glou-890-')), 'glou-backup.sql.gz');
 fs.writeFileSync(DUMP, 'dump');
 let passwordHash = '';
@@ -148,7 +149,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it.each(ROUTES.map((r) => [r.label, r] as const))('%s: accepted with the password and a current code', async (_label, route) => {
-    const res = await send(route, { password: ADMIN_PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+    const res = await send(route, { password: ADMIN_PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(route.passed);
     expect(route.effect()).toHaveBeenCalled();
@@ -163,7 +164,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it('refuses a wrong code', async () => {
-    const current = authenticator.generate(TOTP_SECRET);
+    const current = generateSync({ secret: TOTP_SECRET });
     const wrong = current === '000000' ? '111111' : '000000';
     const res = await send(ROUTES[5], { password: ADMIN_PASSWORD, code: wrong });
 
@@ -173,7 +174,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it('refuses a wrong password, as before', async () => {
-    const res = await send(ROUTES[6], { password: 'not-it', code: authenticator.generate(TOTP_SECRET) });
+    const res = await send(ROUTES[6], { password: 'not-it', code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('INVALID_PASSWORD');
@@ -182,7 +183,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
 
   it('answers a stale backup id before the step-up, so it spends no backup code', async () => {
     vi.mocked(backupService.getDownloadTarget).mockRejectedValueOnce(new Error('BACKUP_NOT_FOUND'));
-    const res = await send(ROUTES[6], { password: ADMIN_PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+    const res = await send(ROUTES[6], { password: ADMIN_PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(404);
     expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
@@ -197,7 +198,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it('audits a settings change once it went through', async () => {
-    await send(ROUTES[0], { password: ADMIN_PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+    await send(ROUTES[0], { password: ADMIN_PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
 
     await vi.waitFor(() => expect(auditCalls()).toContainEqual(expect.objectContaining({
       userId: 'u1', action: 'CONFIG_UPDATE', status: 'success', details: { section: 'smtp' },

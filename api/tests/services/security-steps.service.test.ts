@@ -32,9 +32,7 @@ vi.mock('jsonwebtoken', () => ({
   default: { sign: vi.fn(() => 'signed-token') },
 }));
 
-vi.mock('otplib', () => ({
-  authenticator: { options: {}, verify: vi.fn(() => true), generateSecret: vi.fn(), keyuri: vi.fn() },
-}));
+vi.mock('../../src/lib/totp', () => ({ newTotpSecret: vi.fn(), totpUri: vi.fn(), isCurrentTotp: vi.fn(() => true) }));
 
 const { send } = vi.hoisted(() => ({ send: vi.fn().mockResolvedValue(undefined) }));
 vi.mock('../../src/services/notification.service', () => ({ notificationService: { send } }));
@@ -223,8 +221,8 @@ describe('security events in the audit log (#601)', () => {
   });
 
   it('a wrong 2FA code at sign-in is a LOGIN_FAILED entry', async () => {
-    const { authenticator } = await import('otplib');
-    vi.mocked(authenticator.verify).mockReturnValueOnce(false);
+    const { isCurrentTotp } = await import('../../src/lib/totp');
+    vi.mocked(isCurrentTotp).mockReturnValueOnce(false);
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(
       userRow({ isTwoFactorEnabled: true, twoFactorSecret: encrypt('JBSWY3DPEHPK3PXP') }) as never,
     );

@@ -42,14 +42,7 @@ vi.mock('jsonwebtoken', () => ({
 
 // Kept deterministic: these cases are about the throttling bookkeeping around
 // the code check, not about TOTP arithmetic.
-vi.mock('otplib', () => ({
-  authenticator: {
-    options: {},
-    verify: vi.fn(() => false),
-    generateSecret: vi.fn(),
-    keyuri: vi.fn(),
-  },
-}));
+vi.mock('../../src/lib/totp', () => ({ newTotpSecret: vi.fn(), totpUri: vi.fn(), isCurrentTotp: vi.fn(() => false) }));
 
 vi.mock('../../src/services/notification.service', () => ({
   notificationService: { send: vi.fn().mockResolvedValue(undefined) },

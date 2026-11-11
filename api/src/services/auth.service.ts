@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { SignOptions } from 'jsonwebtoken';
-import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -20,15 +19,8 @@ import { escapeHtml } from '../lib/html';
 import { isNotifEn } from '../lib/notif-lang';
 import { encrypt } from '../lib/crypto';
 import { openTwoFactorSecret } from '../lib/two-factor-secret';
+import { newTotpSecret, totpUri, isCurrentTotp } from '../lib/totp';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
-
-// ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
-// and implements the same RFC 6238 TOTP algorithm (SHA1, 30s step, 6
-// digits), so existing users' stored base32 secrets keep validating
-// unchanged. `window: 1` matches speakeasy's prior per-call `window: 1`
-// (one 30s step of drift tolerated before and after) across every
-// verification site in this file.
-authenticator.options = { window: 1 };
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -825,7 +817,7 @@ export class AuthService {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
 
-    const base32secret = authenticator.generateSecret();
+    const base32secret = newTotpSecret();
 
     await prisma.user.update({
       where: { id: userId },
@@ -833,7 +825,7 @@ export class AuthService {
     });
 
     // Make sure the qr code and the text secret are perfectly aligned
-    const otpauthUrl = authenticator.keyuri(user.username, 'Glou', base32secret);
+    const otpauthUrl = totpUri(user.username, base32secret);
 
     const qrCodeUrl = await qrcode.toDataURL(otpauthUrl);
     return { qrCodeUrl, secret: base32secret };
@@ -891,7 +883,7 @@ export class AuthService {
   private async checkTotp(user: { id: string; twoFactorSecret: string | null }, code: string): Promise<boolean> {
     if (!user.twoFactorSecret) return false;
     const { secret, legacy } = openTwoFactorSecret(user.twoFactorSecret);
-    if (!authenticator.verify({ token: code, secret })) return false;
+    if (!isCurrentTotp(code, secret)) return false;
     if (legacy) {
       try {
         await prisma.user.updateMany({

@@ -15,7 +15,7 @@ export function openTwoFactorSecret(stored: string): { secret: string; legacy: b
   }
 }
 
-/** What authenticator.generateSecret writes: base32. A ciphertext (base64, 60+ characters) never looks like it. */
+/** What newTotpSecret (lib/totp) writes: base32. A ciphertext (base64, 60+ characters) never looks like it. */
 const BASE32 = /^[A-Z2-7]+=*$/;
 
 /**

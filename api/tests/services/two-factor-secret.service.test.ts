@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { authenticator } from 'otplib';
+import { createGuardrails, generateSecret, generateSync } from 'otplib';
+import { newTotpSecret } from '../../src/lib/totp';
 
 // #613: the TOTP secret (the seed of every 6-digit code) was stored in the
 // clear, so any copy of the database — the nightly backup, a downloaded dump —
@@ -44,7 +45,7 @@ import { decrypt, encrypt } from '../../src/lib/crypto';
 import { authService } from '../../src/services/auth.service';
 
 const deviceInfo = { userAgent: 'test-agent', ip: '127.0.0.1' };
-const SECRET = authenticator.generateSecret();
+const SECRET = newTotpSecret();
 
 function userRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -93,7 +94,7 @@ describe('a newly generated 2FA secret (#613)', () => {
   it('turns 2FA on with a code from the app', async () => {
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ isTwoFactorEnabled: false }) as never);
 
-    const { backupCodes } = await authService.turnOnTwoFactorAuthentication('u1', 'pw', authenticator.generate(SECRET), deviceInfo);
+    const { backupCodes } = await authService.turnOnTwoFactorAuthentication('u1', 'pw', generateSync({ secret: SECRET }), deviceInfo);
 
     expect(backupCodes).toHaveLength(10);
     expect(secretWrites()).toHaveLength(0);
@@ -102,7 +103,7 @@ describe('a newly generated 2FA secret (#613)', () => {
   it('signs in with a current code, and leaves the encrypted secret alone', async () => {
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow() as never);
 
-    const { token } = await authService.verifyTwoFactorLogin('u1', authenticator.generate(SECRET), false, deviceInfo);
+    const { token } = await authService.verifyTwoFactorLogin('u1', generateSync({ secret: SECRET }), false, deviceInfo);
 
     expect(token).toBeTruthy();
     expect(secretWrites()).toHaveLength(0);
@@ -113,7 +114,7 @@ describe('a secret stored in the clear before #613', () => {
   it('still signs in, then is stored encrypted', async () => {
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ twoFactorSecret: SECRET }) as never);
 
-    const { token } = await authService.verifyTwoFactorLogin('u1', authenticator.generate(SECRET), false, deviceInfo);
+    const { token } = await authService.verifyTwoFactorLogin('u1', generateSync({ secret: SECRET }), false, deviceInfo);
 
     expect(token).toBeTruthy();
     const writes = secretWrites();
@@ -127,7 +128,7 @@ describe('a secret stored in the clear before #613', () => {
   it('passes the admin step-up, then is stored encrypted', async () => {
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ twoFactorSecret: SECRET }) as never);
 
-    await authService.reauthenticateAdmin('u1', { password: 'pw', code: authenticator.generate(SECRET) }, deviceInfo, { action: 'CONFIG_UPDATE', details: {} });
+    await authService.reauthenticateAdmin('u1', { password: 'pw', code: generateSync({ secret: SECRET }) }, deviceInfo, { action: 'CONFIG_UPDATE', details: {} });
 
     expect(secretWrites()).toHaveLength(1);
     expect(decrypt(secretWrites()[0].data.twoFactorSecret!)).toBe(SECRET);
@@ -136,7 +137,7 @@ describe('a secret stored in the clear before #613', () => {
   it('turns 2FA on (secret generated before the update), then is stored encrypted', async () => {
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ isTwoFactorEnabled: false, twoFactorSecret: SECRET }) as never);
 
-    await authService.turnOnTwoFactorAuthentication('u1', 'pw', authenticator.generate(SECRET), deviceInfo);
+    await authService.turnOnTwoFactorAuthentication('u1', 'pw', generateSync({ secret: SECRET }), deviceInfo);
 
     expect(secretWrites()).toHaveLength(1);
   });
@@ -144,11 +145,48 @@ describe('a secret stored in the clear before #613', () => {
   it('is not rewritten after a wrong code', async () => {
     vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ twoFactorSecret: SECRET }) as never);
     vi.mocked(prisma.user.update).mockResolvedValue({ twoFactorFailedAttempts: 1 } as never);
-    const current = authenticator.generate(SECRET);
+    const current = generateSync({ secret: SECRET });
 
     await expect(authService.verifyTwoFactorLogin('u1', current === '000000' ? '111111' : '000000', false, deviceInfo))
       .rejects.toThrow('INVALID_TOTP_CODE');
 
     expect(secretWrites()).toHaveLength(0);
+  });
+});
+
+// #604: otplib 12 generated 10-byte secrets, which otplib 13 refuses by
+// default (16 bytes minimum). Members enrolled before the upgrade keep them.
+describe('a 10-byte secret enrolled with otplib 12 (#604)', () => {
+  const OLD_SECRET = generateSecret({ length: 10 });
+  const oldCode = () => generateSync({ secret: OLD_SECRET, guardrails: createGuardrails({ MIN_SECRET_BYTES: 10 }) });
+
+  it('is the 16-character form otplib 12 stored', () => {
+    expect(OLD_SECRET).toMatch(/^[A-Z2-7]{16}$/);
+  });
+
+  it('still signs in, stored encrypted', async () => {
+    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ twoFactorSecret: encrypt(OLD_SECRET) }) as never);
+
+    const { token } = await authService.verifyTwoFactorLogin('u1', oldCode(), false, deviceInfo);
+
+    expect(token).toBeTruthy();
+  });
+
+  it('still signs in, stored in the clear, then is stored encrypted', async () => {
+    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ twoFactorSecret: OLD_SECRET }) as never);
+
+    const { token } = await authService.verifyTwoFactorLogin('u1', oldCode(), false, deviceInfo);
+
+    expect(token).toBeTruthy();
+    expect(decrypt(secretWrites()[0].data.twoFactorSecret!)).toBe(OLD_SECRET);
+  });
+
+  it('still refuses a wrong code', async () => {
+    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(userRow({ twoFactorSecret: encrypt(OLD_SECRET) }) as never);
+    vi.mocked(prisma.user.update).mockResolvedValue({ twoFactorFailedAttempts: 1 } as never);
+    const current = oldCode();
+
+    await expect(authService.verifyTwoFactorLogin('u1', current === '000000' ? '111111' : '000000', false, deviceInfo))
+      .rejects.toThrow('INVALID_TOTP_CODE');
   });
 });

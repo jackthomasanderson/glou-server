@@ -18,20 +18,37 @@ the images) and at the repository linked below.
 
 The `postgresql-client` and `openssl` packages are added to the API image from Alpine.
 
+The api and web images are published for both `linux/amd64` and `linux/arm64`.
+Packages with a native binary (`@img/sharp-*`, including the LGPL-3.0
+`@img/sharp-libvips-*`, and `@next/swc-*`) come in one variant per architecture
+and C library, under the same licence. The tables below list the x64 variants
+installed where this file is generated; each image ships only the variant of its
+own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
+
+## Bundled data and fonts
+
+| Item | Shipped in | Licence | Source and attribution |
+|---|---|---|---|
+| Inter font | web image (embedded at build time by `next/font`) | SIL Open Font License 1.1 | https://github.com/rsms/inter, licence text at https://openfontlicense.org |
+| GeoLite2 data from MaxMind, inside `geoip-lite` | api image | CC BY-SA 4.0 (separate from the package's Apache-2.0 code) | This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com. |
+| Natural Earth country outlines, inside `world-atlas` | web image | Public domain | https://www.naturalearthdata.com/ |
+
 ## API image (`api/`)
 
-305 packages.
+307 packages.
 
 | Package | Version | Licence | Source |
 |---|---|---|---|
 | @electric-sql/pglite | 0.4.3 | Apache-2.0 | https://github.com/electric-sql/pglite |
 | @electric-sql/pglite-socket | 0.1.3 | Apache-2.0 | https://github.com/electric-sql/pglite |
 | @electric-sql/pglite-tools | 0.3.3 | Apache-2.0 | https://github.com/electric-sql/pglite |
-| @otplib/core | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-core |
-| @otplib/plugin-crypto | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-plugin-crypto |
-| @otplib/plugin-thirty-two | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-plugin-thirty-two |
-| @otplib/preset-default | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-preset-default |
-| @otplib/preset-v11 | 12.0.1 | MIT | https://github.com/yeojz/otplib/tree/master/packages/otplib-preset-v11 |
+| @noble/hashes | 2.4.0 | MIT | https://github.com/paulmillr/noble-hashes |
+| @otplib/core | 13.5.0 | MIT | https://github.com/yeojz/otplib |
+| @otplib/hotp | 13.5.0 | MIT | https://github.com/yeojz/otplib |
+| @otplib/plugin-base32-scure | 13.5.0 | MIT | https://github.com/yeojz/otplib |
+| @otplib/plugin-crypto-noble | 13.5.0 | MIT | https://github.com/yeojz/otplib |
+| @otplib/totp | 13.5.0 | MIT | https://github.com/yeojz/otplib |
+| @otplib/uri | 13.5.0 | MIT | https://github.com/yeojz/otplib |
 | @prisma/adapter-pg | 7.10.1 | Apache-2.0 | https://github.com/prisma/orm |
 | @prisma/client | 7.10.1 | Apache-2.0 | https://github.com/prisma/orm |
 | @prisma/client-runtime-utils | 7.10.1 | Apache-2.0 | https://github.com/prisma/orm |
@@ -56,6 +73,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | @radix-ui/react-use-controllable-state | 1.2.2 | MIT | https://github.com/radix-ui/primitives |
 | @radix-ui/react-use-effect-event | 0.0.2 | MIT | https://github.com/radix-ui/primitives |
 | @radix-ui/react-use-layout-effect | 1.1.1 | MIT | https://github.com/radix-ui/primitives |
+| @scure/base | 2.4.0 | MIT | https://github.com/paulmillr/scure-base |
 | @standard-schema/spec | 1.1.0 | MIT | https://github.com/standard-schema/standard-schema |
 | @types/d3-array | 3.0.3 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
 | @types/d3-color | 3.1.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped |
@@ -234,7 +252,7 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | on-finished | 2.4.2 | MIT | jshttp/on-finished |
 | on-headers | 1.1.0 | MIT | jshttp/on-headers |
 | once | 1.4.0 | ISC | https://github.com/isaacs/once |
-| otplib | 12.0.1 | MIT | https://github.com/yeojz/otplib |
+| otplib | 13.5.0 | MIT | https://github.com/yeojz/otplib |
 | p-limit | 2.3.0 | MIT | sindresorhus/p-limit |
 | p-locate | 4.1.0 | MIT | sindresorhus/p-locate |
 | p-try | 2.2.0 | MIT | sindresorhus/p-try |
@@ -307,7 +325,6 @@ The `postgresql-client` and `openssl` packages are added to the API image from A
 | string-width | 4.2.3 | MIT | sindresorhus/string-width |
 | strip-ansi | 6.0.1 | MIT | chalk/strip-ansi |
 | supports-color | 7.2.0 | MIT | chalk/supports-color |
-| thirty-two | 1.0.2 | UNKNOWN | https://github.com/chrisumbel/thirty-two |
 | toidentifier | 1.0.1 | MIT | component/toidentifier |
 | type-is | 1.6.18 | MIT | jshttp/type-is |
 | type-is | 2.1.0 | MIT | jshttp/type-is |

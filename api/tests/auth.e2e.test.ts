@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { authService } from '../src/services/auth.service';
 import { prisma } from '../src/lib/prisma';
-import { authenticator } from 'otplib';
+import { generateSync } from 'otplib';
 import { decrypt } from '../src/lib/crypto';
 import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 
@@ -175,7 +175,7 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
     expect(store!.twoFactorSecret).not.toContain(secret);
     expect(decrypt(store!.twoFactorSecret!)).toBe(secret);
 
-    const firstCode = authenticator.generate(secret);
+    const firstCode = generateSync({ secret: secret });
     const { backupCodes } = await authService.turnOnTwoFactorAuthentication(store!.id, 'correct-horse-battery-staple', firstCode, deviceInfo);
     expect(store!.isTwoFactorEnabled).toBe(true);
     expect(backupCodes).toHaveLength(10);
@@ -191,7 +191,7 @@ describe('Auth e2e smoke test (register -> login -> 2FA)', () => {
     expect(secondLogin.requires2fa).toBe(true);
 
     // 5. Complete the 2FA challenge with a fresh TOTP code.
-    const secondCode = authenticator.generate(secret);
+    const secondCode = generateSync({ secret: secret });
     const finalResult = await authService.verifyTwoFactorLogin(store!.id, secondCode, false, deviceInfo);
     expect(finalResult.token).toEqual(expect.any(String));
     expect(finalResult.user.username).toBe('smoketest');
