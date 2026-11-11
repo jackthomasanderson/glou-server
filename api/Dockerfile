@@ -23,6 +23,23 @@ COPY src ./src
 COPY --from=shared . /build/shared
 RUN npm run build
 
+# ─── IP geolocation data (#434) ──────────────────────────────────────────────
+# DB-IP "IP to City Lite" (CC BY 4.0, https://db-ip.com), fetched at build time
+# and never committed. Published monthly: falls back to the previous month
+# early in the month, and fails the build if neither file is available.
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS geo
+WORKDIR /geo
+RUN set -eu; \
+    y=$(date -u +%Y); m=$(date -u +%m); m=${m#0}; \
+    if [ "$m" -eq 1 ]; then py=$((y - 1)); pm=12; else py=$y; pm=$((m - 1)); fi; \
+    for month in "$y-$(printf %02d "$m")" "$py-$(printf %02d "$pm")"; do \
+      if wget -q -O dbip.mmdb.gz "https://download.db-ip.com/free/dbip-city-lite-$month.mmdb.gz" && gunzip dbip.mmdb.gz; then \
+        mv dbip.mmdb dbip-city-lite.mmdb; echo "DB-IP City Lite $month"; exit 0; \
+      fi; \
+      rm -f dbip.mmdb.gz dbip.mmdb; \
+    done; \
+    echo "No DB-IP City Lite database for $y-$m or the previous month" >&2; exit 1
+
 # ─── Production image ────────────────────────────────────────────────────────
 FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS runner
 
@@ -67,6 +84,10 @@ COPY --from=builder /build/api/prisma.config.ts ./
 # chown: on Linux the host folder must belong to uid 1001 (#537). No
 # /app/logs: logs go to stdout (#540).
 RUN mkdir -p /app/uploads/products /app/uploads/avatars /app/backups && chown -R glou:glou /app
+
+# Read-only for the app, copied after the chown so the ~120 MB file is not
+# stored twice. Path read by GEO_DB_PATH's default (src/lib/device.ts).
+COPY --from=geo /geo/dbip-city-lite.mmdb ./geo/dbip-city-lite.mmdb
 
 USER glou
 

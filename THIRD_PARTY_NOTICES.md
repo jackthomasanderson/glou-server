@@ -30,12 +30,12 @@ own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
 | Item | Shipped in | Licence | Source and attribution |
 |---|---|---|---|
 | Inter font | web image (embedded at build time by `next/font`) | SIL Open Font License 1.1 | https://github.com/rsms/inter, licence text at https://openfontlicense.org |
-| GeoLite2 data from MaxMind, inside `geoip-lite` | api image | CC BY-SA 4.0 (separate from the package's Apache-2.0 code) | This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com. |
+| DB-IP IP to City Lite (`/app/geo/dbip-city-lite.mmdb`, downloaded at build time; see `/app/geo/NOTICE`) | api image | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) | IP Geolocation by DB-IP, https://db-ip.com |
 | Natural Earth country outlines, inside `world-atlas` | web image | Public domain | https://www.naturalearthdata.com/ |
 
 ## API image (`api/`)
 
-307 packages.
+300 packages.
 
 | Package | Version | Licence | Source |
 |---|---|---|---|
@@ -117,7 +117,6 @@ own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
 | call-bind-apply-helpers | 1.0.2 | MIT | https://github.com/ljharb/call-bind-apply-helpers |
 | call-bound | 1.0.4 | MIT | https://github.com/ljharb/call-bound |
 | camelcase | 5.3.1 | MIT | sindresorhus/camelcase |
-| chalk | 4.1.2 | MIT | chalk/chalk |
 | chokidar | 5.0.0 | MIT | https://github.com/paulmillr/chokidar |
 | classnames | 2.5.1 | MIT | https://github.com/JedWatson/classnames |
 | cliui | 6.0.0 | ISC | http://github.com/yargs/cliui |
@@ -187,7 +186,6 @@ own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
 | fresh | 2.0.0 | MIT | jshttp/fresh |
 | function-bind | 1.1.2 | MIT | https://github.com/Raynos/function-bind |
 | generate-function | 2.3.1 | MIT | https://github.com/mafintosh/generate-function |
-| geoip-lite | 2.0.3 | Apache-2.0 | https://github.com/geoip-lite/node-geoip |
 | get-caller-file | 2.0.5 | ISC | https://github.com/stefanpenner/get-caller-file |
 | get-intrinsic | 1.3.0 | MIT | https://github.com/ljharb/get-intrinsic |
 | get-port-please | 3.2.0 | MIT | unjs/get-port-please |
@@ -197,12 +195,10 @@ own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
 | graceful-fs | 4.2.11 | ISC | https://github.com/isaacs/node-graceful-fs |
 | grammex | 3.1.13 | MIT | github:fabiospampinato/grammex |
 | graphmatch | 1.1.1 | MIT | github:fabiospampinato/graphmatch |
-| has-flag | 4.0.0 | MIT | sindresorhus/has-flag |
 | has-symbols | 1.1.0 | MIT | https://github.com/inspect-js/has-symbols |
 | hasown | 2.0.4 | MIT | https://github.com/inspect-js/hasOwn |
 | helmet | 8.3.0 | MIT | https://github.com/helmetjs/helmet |
 | http-errors | 2.0.1 | MIT | jshttp/http-errors |
-| iconv-lite | 0.6.3 | MIT | https://github.com/ashtuchkin/iconv-lite |
 | iconv-lite | 0.7.3 | MIT | https://github.com/pillarjs/iconv-lite |
 | inherits | 2.0.4 | ISC | https://github.com/isaacs/inherits |
 | internmap | 2.0.3 | ISC | https://github.com/mbostock/internmap |
@@ -217,7 +213,6 @@ own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
 | jsonwebtoken | 9.0.3 | MIT | https://github.com/auth0/node-jsonwebtoken |
 | jwa | 2.0.1 | MIT | https://github.com/brianloveswords/node-jwa |
 | jws | 4.0.1 | MIT | https://github.com/brianloveswords/node-jws |
-| lazy | 1.0.11 | MIT | http://github.com/pkrumins/node-lazy |
 | locate-path | 5.0.0 | MIT | sindresorhus/locate-path |
 | lodash | 4.18.1 | MIT | lodash/lodash |
 | lodash.includes | 4.3.0 | MIT | lodash/lodash |
@@ -237,6 +232,7 @@ own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
 | mime-db | 1.54.0 | MIT | jshttp/mime-db |
 | mime-types | 2.1.35 | MIT | jshttp/mime-types |
 | mime-types | 3.0.2 | MIT | jshttp/mime-types |
+| mmdb-lib | 3.0.5 | MIT | https://github.com/runk/mmdb-lib |
 | morgan | 1.12.1 | MIT | expressjs/morgan |
 | ms | 2.0.0 | MIT | zeit/ms |
 | ms | 2.1.3 | MIT | vercel/ms |
@@ -261,7 +257,6 @@ own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
 | path-key | 3.1.1 | MIT | sindresorhus/path-key |
 | path-to-regexp | 8.4.2 | MIT | https://github.com/pillarjs/path-to-regexp |
 | pathe | 2.0.3 | MIT | unjs/pathe |
-| pend | 1.2.0 | MIT | https://github.com/andrewrk/node-pend |
 | perfect-debounce | 2.1.0 | MIT | unjs/perfect-debounce |
 | pg | 8.23.1 | MIT | https://github.com/brianc/node-postgres |
 | pg-cloudflare | 1.4.1 | MIT | https://github.com/brianc/node-postgres |
@@ -324,7 +319,6 @@ own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
 | streamsearch | 1.1.0 | MIT | http://github.com/mscdex/streamsearch |
 | string-width | 4.2.3 | MIT | sindresorhus/string-width |
 | strip-ansi | 6.0.1 | MIT | chalk/strip-ansi |
-| supports-color | 7.2.0 | MIT | chalk/supports-color |
 | toidentifier | 1.0.1 | MIT | component/toidentifier |
 | type-is | 1.6.18 | MIT | jshttp/type-is |
 | type-is | 2.1.0 | MIT | jshttp/type-is |
@@ -343,7 +337,6 @@ own platform (`linuxmusl-x64` or `linuxmusl-arm64` on Alpine).
 | y18n | 4.0.3 | ISC | git@github.com:yargs/y18n |
 | yargs | 15.4.1 | MIT | https://github.com/yargs/yargs |
 | yargs-parser | 18.1.3 | ISC | https://github.com/yargs/yargs-parser |
-| yauzl | 3.4.0 | MIT | https://github.com/thejoshwolfe/yauzl |
 | zeptomatch | 2.1.0 | MIT | github:fabiospampinato/zeptomatch |
 | zod | 4.6.7 | MIT | https://github.com/colinhacks/zod |
 

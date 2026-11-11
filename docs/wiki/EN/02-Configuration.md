@@ -30,6 +30,7 @@
 | `OLLAMA_URL` | `http://ollama:11434` | Vision model used by the [label scan](./26-Label-Scan.md) (only with `--profile scan`). |
 | `OLLAMA_MODEL` | `moondream` | Model name used for the scan. Only `moondream` is tested. Another model means a new multi-gigabyte download, and nothing guarantees it follows the instructions of the scan or returns a usable answer: if scanning gets worse or stops working, go back to `moondream`. |
 | `OLLAMA_TIMEOUT_MS` | `600000` | Maximum time to wait for the model per scan, in milliseconds. |
+| `GEO_DB_PATH` | `/app/geo/dbip-city-lite.mmdb` | Advanced. IP geolocation database (MMDB format) used for the approximate location of sessions and the country check of trusted devices. The API image ships [DB-IP](https://db-ip.com) IP to City Lite at this path; without a readable file, locations are simply not shown (one `[geo]` warning in the API logs). |
 | `API_RATE_LIMIT_MAX` | `1000` | Advanced. Requests allowed per IP address every 15 minutes on the API and uploaded images; a positive whole number, anything else is ignored with a warning in the API logs. Raise it only if many devices share one address and get `Too many requests`. The sign-in and password-reset limits do not change. |
 
 > [!NOTE]

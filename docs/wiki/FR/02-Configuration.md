@@ -30,6 +30,7 @@
 | `OLLAMA_URL` | `http://ollama:11434` | Modèle de vision utilisé par le [scan d'étiquette](./26-Scan-Etiquette.md) (uniquement avec `--profile scan`). |
 | `OLLAMA_MODEL` | `moondream` | Nom du modèle utilisé pour le scan. Seul `moondream` est testé. Un autre modèle implique un nouveau téléchargement de plusieurs Go, et rien ne garantit qu'il suive les consignes du scan ni qu'il renvoie une réponse exploitable : si le scan se dégrade ou cesse de fonctionner, revenez à `moondream`. |
 | `OLLAMA_TIMEOUT_MS` | `600000` | Durée maximale d'attente du modèle par scan, en millisecondes. |
+| `GEO_DB_PATH` | `/app/geo/dbip-city-lite.mmdb` | Avancé. Base de géolocalisation IP (format MMDB) utilisée pour la localisation approximative des sessions et le contrôle du pays des appareils de confiance. L'image de l'API embarque DB-IP IP to City Lite ([DB-IP](https://db-ip.com)) à cet emplacement ; sans fichier lisible, la localisation n'est simplement pas affichée (un avertissement `[geo]` dans les journaux de l'API). |
 | `API_RATE_LIMIT_MAX` | `1000` | Avancé. Requêtes autorisées par adresse IP toutes les 15 minutes sur l'API et les images envoyées ; un entier positif, toute autre valeur est ignorée avec un avertissement dans les journaux de l'API. À relever seulement si beaucoup d'appareils partagent une même adresse et reçoivent `Too many requests`. Les limites de connexion et de réinitialisation du mot de passe ne changent pas. |
 
 > [!NOTE]

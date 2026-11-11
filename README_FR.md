@@ -119,5 +119,5 @@ Cette section est un résumé pour faciliter la lecture. Seul le texte de [LICEN
 
 ## Crédits / Tiers
 
-- Ce produit inclut des données GeoLite créées par MaxMind, disponibles sur [http://maxmind.com/](http://maxmind.com/).
+- [IP Geolocation by DB-IP](https://db-ip.com) : la localisation approximative des sessions utilise la base DB-IP IP to City Lite, sous licence [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.fr).
 - Contours de la carte du monde issus de [Natural Earth](https://www.naturalearthdata.com/) (domaine public), via [world-atlas](https://github.com/topojson/world-atlas).

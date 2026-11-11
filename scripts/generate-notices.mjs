@@ -78,7 +78,7 @@ own platform (\`linuxmusl-x64\` or \`linuxmusl-arm64\` on Alpine).
 | Item | Shipped in | Licence | Source and attribution |
 |---|---|---|---|
 | Inter font | web image (embedded at build time by \`next/font\`) | SIL Open Font License 1.1 | https://github.com/rsms/inter, licence text at https://openfontlicense.org |
-| GeoLite2 data from MaxMind, inside \`geoip-lite\` | api image | CC BY-SA 4.0 (separate from the package's Apache-2.0 code) | This product includes GeoLite2 data created by MaxMind, available from https://www.maxmind.com. |
+| DB-IP IP to City Lite (\`/app/geo/dbip-city-lite.mmdb\`, downloaded at build time; see \`/app/geo/NOTICE\`) | api image | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) | IP Geolocation by DB-IP, https://db-ip.com |
 | Natural Earth country outlines, inside \`world-atlas\` | web image | Public domain | https://www.naturalearthdata.com/ |
 
 `;
