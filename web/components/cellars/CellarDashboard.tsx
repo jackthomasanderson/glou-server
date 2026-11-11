@@ -734,6 +734,7 @@ export const CellarDashboard: React.FC = () => {
               color="primary"
               onPress={handleSubmit}
               isDisabled={zonesExceedRows}
+              isLoading={createMutation.isPending || updateMutation.isPending}
             >
               {editingCellar ? t('actions.save') : t('actions.add')}
             </Button>

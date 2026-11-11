@@ -1,10 +1,14 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { frenchT } from '@/lib/products/__tests__/i18n';
 
 // #907: the envelope days are stored as midnight UTC; a browser west of UTC
 // must still show the stored calendar day. #657: Save stays clickable.
+const originalTz = process.env.TZ;
 process.env.TZ = 'America/Los_Angeles';
+afterAll(() => {
+  if (originalTz === undefined) delete process.env.TZ; else process.env.TZ = originalTz;
+});
 
 let t: Awaited<ReturnType<typeof frenchT>>;
 beforeAll(async () => { t = await frenchT(); });

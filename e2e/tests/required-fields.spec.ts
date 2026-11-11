@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
  * show that field in red with its message (the browser's own bubble used to
  * block the submit first, jsdom never showed it). Nothing is created.
  */
-test('the bottle form, "Add a wish" and the new cellar flag an empty name on Save', async ({ page }) => {
+test('the bottle form and "Add a wish" flag an empty name on Save', async ({ page }) => {
   const required = 'Ce champ est obligatoire';
 
   await page.goto('/bottles');

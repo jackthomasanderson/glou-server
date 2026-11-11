@@ -120,6 +120,8 @@ export function StartSessionScreen() {
           <Button
             color="primary"
             variant="solid"
+            // With no cellar to count, the hint above says why Start cannot be used.
+            isDisabled={mode === 'cellar' && (cellars?.length ?? 0) === 0}
             isLoading={startMutation.isPending}
             onPress={handleStart}
           >
