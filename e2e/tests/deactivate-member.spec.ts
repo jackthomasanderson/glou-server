@@ -21,7 +21,7 @@ async function okData<T>(res: APIResponse): Promise<T> {
 
 test('deactivate then reactivate a member: their old session and guest link stay revoked', async ({ page, baseURL }) => {
   const admin = page.request;
-  const me = await okData<{ id: string; isAdmin: boolean }>(await admin.get('/api/auth/me'));
+  const me = await okData<{ id: string; isAdmin: boolean }>(await admin.get('/api/user/me'));
   test.skip(!me.isAdmin, 'needs the suite user to be the instance admin (fresh database)');
 
   const { registrationOpen } = await okData<{ registrationOpen: boolean }>(await admin.get('/api/auth/registration-status'));
@@ -40,19 +40,19 @@ test('deactivate then reactivate a member: their old session and guest link stay
     const share = await okData<{ token: string }>(await member.post('/api/shares', {
       data: { label: 'E2E 605', cellarIds: [], collectionIds: [collection.id], hidePrices: false },
     }));
-    expect((await member.get('/api/auth/me')).ok()).toBe(true);
+    expect((await member.get('/api/user/me')).ok()).toBe(true);
     expect((await guest.get(`/api/guest/${share.token}`)).ok()).toBe(true);
 
     // #603: a status change asks for the admin's password (the suite user has no 2FA).
     const sessionOnly = await admin.patch(`/api/admin/users/${memberId}/status`, { data: { isActive: false } });
     expect(sessionOnly.status()).toBe(403);
     expect((await sessionOnly.json()).error).toBe('REAUTH_REQUIRED');
-    expect((await member.get('/api/auth/me')).ok()).toBe(true);
+    expect((await member.get('/api/user/me')).ok()).toBe(true);
     const adminPassword = creds().password;
     await okData(await admin.patch(`/api/admin/users/${memberId}/status`, { data: { isActive: false, password: adminPassword } }));
     await okData(await admin.patch(`/api/admin/users/${memberId}/status`, { data: { isActive: true, password: adminPassword } }));
 
-    const session = await member.get('/api/auth/me');
+    const session = await member.get('/api/user/me');
     expect(session.status()).toBe(401);
     expect((await session.json()).error).toBe('SESSION_REVOKED');
     const link = await guest.get(`/api/guest/${share.token}`);

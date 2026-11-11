@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   readinessIndex,
   readinessPercent,
-  distributionWeight,
   CURVE_SHAPES,
 } from '../../src/lib/maturity-curve';
 
@@ -97,10 +96,5 @@ describe('maturity-curve — readinessIndex', () => {
     expect(readinessPercent({ shape: 'LATE_BELL', from: 2030, to: 2040, year: 2037 })).toBe(
       Math.round(idx * 100),
     );
-  });
-
-  it('distributionWeight is 0 outside the envelope and positive inside', () => {
-    expect(distributionWeight({ shape: 'BELL', from: 2030, to: 2040, year: 2000 })).toBe(0);
-    expect(distributionWeight({ shape: 'BELL', from: 2030, to: 2040, year: 2035 })).toBeGreaterThan(0);
   });
 });

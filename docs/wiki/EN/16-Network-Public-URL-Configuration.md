@@ -12,7 +12,7 @@ Tell Glou the address people use to reach your instance from outside, so the lin
 ### Set the public URL
 1. Go to **Admin → System Configuration → Access**.
 2. Fill in **Public URL** with the address your instance is reachable at from outside (e.g. `https://cave.example.com`). Leave it empty to fall back to the `APP_URL` environment variable, or `http://localhost:3000` if that variable isn't set either.
-3. Click **Save**. The panel shows the **effective URL** actually in use (your configured value, or the `APP_URL` fallback if you left the field empty). Password reset links are built from this URL, so saving asks for your password, plus a code from your authenticator app if your account has two-factor authentication. The mail server, Gotify and notification channel settings ask the same.
+3. Click **Save**. The panel shows the **effective URL** actually in use (your configured value, or the `APP_URL` fallback if you left the field empty). Password reset links are built from this URL, so saving asks for your password, plus a code from your authenticator app if your account has two-factor authentication. The mail server, Gotify and notification channel settings ask the same. Bottle QR codes also use this URL (unless it is a `localhost` address), so labels printed from any machine open on a phone.
 
 ### Run the consistency check
 1. Click **Verify consistency**.

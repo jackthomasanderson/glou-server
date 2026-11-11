@@ -154,8 +154,9 @@ export const configClient = {
   // ISSUE_169: what Admin → System Configuration → System reads to show a
   // version a bug reporter can copy, instead of the moving `latest`/`beta`
   // image tags the old bug report template used to ask for.
-  async getVersion(): Promise<{ version: string }> {
-    const { data } = await client.get<{ version: string }>('/version');
+  // #625: it also gives the public URL bottle QR codes encode (null: none set).
+  async getVersion(): Promise<{ version: string; publicUrl: string | null }> {
+    const { data } = await client.get<{ version: string; publicUrl: string | null }>('/version');
     return data;
   },
 

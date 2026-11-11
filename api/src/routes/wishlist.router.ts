@@ -6,7 +6,6 @@ import { accountRequestLimit } from '../lib/rate-limit';
 import { auditLog } from '../services/audit.service';
 import {
   listWishlist,
-  getWishlistItem,
   createWishlistItem,
   updateWishlistItem,
   deleteWishlistItem,
@@ -15,7 +14,6 @@ import {
 } from '../services/wishlist.service';
 import {
   listBudgetEnvelopes,
-  getBudgetEnvelope,
   createBudgetEnvelope,
   updateBudgetEnvelope,
   deleteBudgetEnvelope,
@@ -43,13 +41,6 @@ router.get('/items', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const items = await listWishlist(userId);
   res.json({ data: items });
-});
-
-router.get('/items/:id', async (req: Request, res: Response) => {
-  const userId = req.userId!;
-  const item = await getWishlistItem(userId, routeParam(req.params.id));
-  if (!item) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
-  res.json({ data: item });
 });
 
 router.post('/items', async (req: Request, res: Response, next: NextFunction) => {
@@ -157,12 +148,6 @@ router.post('/items/:id/convert', async (req: Request, res: Response, next: Next
 router.get('/budget-envelopes', async (_req: Request, res: Response) => {
   const envelopes = await listBudgetEnvelopes();
   res.json({ data: envelopes });
-});
-
-router.get('/budget-envelopes/:id', async (req: Request, res: Response) => {
-  const envelope = await getBudgetEnvelope(routeParam(req.params.id));
-  if (!envelope) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
-  res.json({ data: envelope });
 });
 
 router.post('/budget-envelopes', async (req: Request, res: Response, next: NextFunction) => {

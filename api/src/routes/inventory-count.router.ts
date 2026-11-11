@@ -28,28 +28,14 @@ router.use(authMiddleware);
 // ─── GET /api/inventory-count/sessions/active ────────────────────────────────
 // Shared, non-userId-filtered — see inventory-count.service.ts header
 // (single active/paused session instance-wide).
+// #635: a read is not audited (#160) — the log keeps sign-ins and changes only.
 
-router.get('/sessions/active', async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
+router.get('/sessions/active', async (_req: Request, res: Response): Promise<void> => {
   try {
     const session = await getActiveSession();
-    void auditLog({
-      userId: req.userId,
-      action: 'LIST',
-      status: 'success',
-      ip,
-      details: { scope: 'inventory-count-active', found: !!session },
-    });
     res.json({ data: session });
   } catch (error) {
     console.error('[inventory-count] GET /sessions/active error:', error);
-    void auditLog({
-      userId: req.userId,
-      action: 'LIST',
-      status: 'error',
-      ip,
-      details: { scope: 'inventory-count-active', message: String(error) },
-    });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -273,30 +259,15 @@ router.post('/sessions/:id/found', async (req: Request, res: Response): Promise<
 
 router.get('/sessions/:id/report', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  const ip = getClientIp(req);
   try {
     const report = await getSessionReport(id);
     if (!report) {
       res.status(404).json({ error: 'SESSION_NOT_FOUND' });
       return;
     }
-    void auditLog({
-      userId: req.userId,
-      action: 'LIST',
-      status: 'success',
-      ip,
-      details: { scope: 'inventory-count-report', sessionId: id },
-    });
     res.json({ data: report });
   } catch (error) {
     console.error('[inventory-count] GET /sessions/:id/report error:', error);
-    void auditLog({
-      userId: req.userId,
-      action: 'LIST',
-      status: 'error',
-      ip,
-      details: { scope: 'inventory-count-report', sessionId: id, message: String(error) },
-    });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });

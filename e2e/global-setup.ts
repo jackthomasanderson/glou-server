@@ -33,7 +33,7 @@ export default async function globalSetup(config: FullConfig) {
   // starts from a clean checkout, so this branch never fires there.
   if (!process.env.CI && existsSync(AUTH_FILE) && existsSync(CREDS_FILE)) {
     const warm = await request.newContext({ baseURL, storageState: AUTH_FILE });
-    const me = await warm.get('/api/auth/me');
+    const me = await warm.get('/api/user/me');
     if (me.ok()) {
       await warm.patch('/api/user/preferences', { data: { language: 'FR' } });
       await warm.dispose();

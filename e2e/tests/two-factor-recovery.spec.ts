@@ -41,7 +41,7 @@ function totp(base32Secret: string): string {
 
 test('a lost phone is recoverable: new backup codes, then an admin reset turns 2FA off', async ({ page, baseURL }) => {
   const admin = page.request;
-  const me = await okData<{ id: string; isAdmin: boolean }>(await admin.get('/api/auth/me'));
+  const me = await okData<{ id: string; isAdmin: boolean }>(await admin.get('/api/user/me'));
   test.skip(!me.isAdmin, 'needs the suite user to be the instance admin (fresh database)');
 
   const { registrationOpen } = await okData<{ registrationOpen: boolean }>(await admin.get('/api/auth/registration-status'));

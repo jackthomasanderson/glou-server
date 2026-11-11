@@ -451,17 +451,6 @@ router.post('/unlock', unlockLimiter, authMiddleware, unlockAccountLimiter, asyn
   }
 });
 
-// ─── GET /api/auth/me ─────────────────────────────────────────────────────────
-
-router.get('/me', authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  const user = await authService.me(req.userId);
-  if (!user) {
-    res.status(404).json({ error: 'USER_NOT_FOUND' });
-    return;
-  }
-  res.json({ data: user });
-});
-
 // ─── GET /api/auth/smtp-status ────────────────────────────────────────────────
 
 router.get('/smtp-status', async (_req: Request, res: Response): Promise<void> => {

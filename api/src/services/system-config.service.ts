@@ -56,6 +56,7 @@ export type RegistrationConfig = {
 };
 
 const DEFAULT_APP_URL = 'http://localhost:3000';
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /** `publicUrl` if set (non-empty), else `process.env.APP_URL`, else the hardcoded default. */
 function resolveEffectivePublicUrl(publicUrl: string | null): string {
@@ -273,6 +274,23 @@ export const systemConfigService = {
   async getEffectivePublicUrl(): Promise<string> {
     const cfg = await getOrCreate();
     return resolveEffectivePublicUrl(cfg.publicUrl);
+  },
+
+  /**
+   * #625: the public URL the browser should encode in bottle QR codes, or
+   * `null` when nothing but a loopback address is configured (the compose
+   * default APP_URL is http://localhost:3000) — the browser then keeps its
+   * own address and warns. Reads without creating the singleton row, since
+   * the public `GET /api/version` serves it.
+   */
+  async getQrPublicUrl(): Promise<string | null> {
+    const cfg = await prisma.systemConfig.findUnique({ where: { id: 'singleton' }, select: { publicUrl: true } });
+    const url = resolveEffectivePublicUrl(cfg?.publicUrl ?? null);
+    try {
+      return LOOPBACK_HOSTS.has(new URL(url).hostname) ? null : url;
+    } catch {
+      return null;
+    }
   },
 
   async updateNetworkConfig(data: NetworkConfigInput, userId: string): Promise<PublicSystemConfig> {

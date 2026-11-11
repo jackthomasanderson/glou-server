@@ -12,7 +12,7 @@
 2. Configure the web client to include credentials so it accepts the returned `accessToken` cookie.
    *Example (fetch)* : `fetch('/api/auth/login', { method: 'POST', body: JSON.stringify({...}), credentials: 'include' })`
 3. After a successful login, the browser stores the cookie in the background.
-4. For calls to protected routes (`/api/inventory` or `/api/auth/me`), no manual header setup is required: `credentials: 'include'` sends the cookie.
+4. For calls to protected routes (`/api/inventory` or `/api/user/me`), no manual header setup is required: `credentials: 'include'` sends the cookie.
 
 > [!TIP]
 > On Next.js, our Axios / Fetch abstraction already handles cookie propagation.
