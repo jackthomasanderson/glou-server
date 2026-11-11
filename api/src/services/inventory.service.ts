@@ -54,7 +54,7 @@ export type { FieldChange };
  * the FEAT-04 scan pipeline (see scan.service.ts computeOcrFieldSources).
  *
  * #102: a fourth value, 'enrichment', used to be reserved here for a
- * third-party lookup pipeline (Vivino/Whiskybase) that never got built
+ * third-party lookup pipeline (Vivino/Whiskybase) that was never built
  * (#74) and never wrote it — removed rather than kept as protective
  * machinery for a pipeline that doesn't exist.
  */
@@ -134,7 +134,7 @@ type WithoutColumn = Exclude<
 const _everyInputFieldHasAColumn: Record<WithoutColumn, never> = {};
 
 // InventoryItem type inferred from Prisma client
-type InventoryItem =Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> extends infer T | null ? NonNullable<T> : never;
+type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> extends infer T | null ? NonNullable<T> : never;
 
 // #471: every read of /api/inventory* joins the unit's family, which holds
 // the description and the collections (see `toItemView`). Using Prisma's

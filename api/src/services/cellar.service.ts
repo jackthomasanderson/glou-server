@@ -114,25 +114,28 @@ export class CellarService {
     // left with nothing in scope is revoked: an empty scope means "no filter"
     // to the guest view, and it would show the whole inventory. A count on
     // this cellar loses it through its foreign key (SET NULL) and goes on as
-    // a free-label count.
+    // a free-label count. The shares touched are returned for the audit entry.
     return prisma.$transaction(async (tx) => {
       const shares = await tx.guestShare.findMany({
         where: { OR: [{ cellarIds: { has: id } }, { writeCellarIds: { has: id } }] },
         select: { id: true, cellarIds: true, writeCellarIds: true, collectionIds: true, revokedAt: true },
       });
+      const sharesRevoked: string[] = [];
       for (const share of shares) {
         const cellarIds = share.cellarIds.filter((cellarId) => cellarId !== id);
-        const emptied = cellarIds.length === 0 && share.collectionIds.length === 0;
+        const revoke = cellarIds.length === 0 && share.collectionIds.length === 0 && !share.revokedAt;
+        if (revoke) sharesRevoked.push(share.id);
         await tx.guestShare.update({
           where: { id: share.id },
           data: {
             cellarIds,
             writeCellarIds: share.writeCellarIds.filter((cellarId) => cellarId !== id),
-            ...(emptied && !share.revokedAt ? { revokedAt: new Date() } : {}),
+            ...(revoke ? { revokedAt: new Date() } : {}),
           },
         });
       }
-      return tx.cellar.delete({ where: { id } });
+      const deleted = await tx.cellar.delete({ where: { id } });
+      return { cellar: deleted, sharesCleaned: shares.map((share) => share.id), sharesRevoked };
     });
   }
 

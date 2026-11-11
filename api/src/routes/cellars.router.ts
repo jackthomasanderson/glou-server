@@ -169,16 +169,23 @@ router.delete('/:id', async (req: Request, res: Response) => {
   const id = routeParam(req.params.id);
 
   try {
-    const cellar = await CellarService.deleteCellar(id);
-    if (!cellar) {
+    const deleted = await CellarService.deleteCellar(id);
+    if (!deleted) {
       return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
     }
+    // #597: the guest shares the cellar was taken out of, and those revoked
+    // because nothing was left in their scope.
+    const { sharesCleaned, sharesRevoked } = deleted;
     await auditLog({
       userId,
       ip: getClientIp(req),
       action: 'CELLAR_DELETE',
       status: 'success',
-      details: { cellarId: id }
+      details: {
+        cellarId: id,
+        ...(sharesCleaned.length > 0 ? { sharesCleaned } : {}),
+        ...(sharesRevoked.length > 0 ? { sharesRevoked } : {}),
+      },
     });
     res.status(204).send();
   } catch (err: unknown) {

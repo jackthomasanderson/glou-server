@@ -228,8 +228,9 @@ describe('CellarService.deleteCellar — guest shares (#597)', () => {
       { id: 'withCollection', cellarIds: ['c1'], writeCellarIds: [], collectionIds: ['col1'], revokedAt: null },
     ] as never);
 
-    await CellarService.deleteCellar('c1');
+    const result = await CellarService.deleteCellar('c1');
 
+    expect(result).toMatchObject({ sharesCleaned: ['only', 'withCollection'], sharesRevoked: ['only'] });
     expect(prisma.guestShare.update).toHaveBeenCalledWith({
       where: { id: 'only' },
       data: { cellarIds: [], writeCellarIds: [], revokedAt: expect.any(Date) },
@@ -245,8 +246,9 @@ describe('CellarService.deleteCellar — guest shares (#597)', () => {
       { id: 'old', cellarIds: ['c1'], writeCellarIds: [], collectionIds: [], revokedAt: new Date('2026-01-01') },
     ] as never);
 
-    await CellarService.deleteCellar('c1');
+    const result = await CellarService.deleteCellar('c1');
 
+    expect(result).toMatchObject({ sharesCleaned: ['old'], sharesRevoked: [] });
     expect(prisma.guestShare.update).toHaveBeenCalledWith({
       where: { id: 'old' },
       data: { cellarIds: [], writeCellarIds: [] },
