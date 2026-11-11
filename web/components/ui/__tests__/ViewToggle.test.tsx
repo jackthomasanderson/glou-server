@@ -32,3 +32,24 @@ describe('PageSizeToggle', () => {
     expect(pressed[0].getAttribute('aria-label')).toBe('inventory.perPage|50');
   });
 });
+
+// #938: the selected option is not told by colour alone (WCAG 1.4.1).
+describe('selected option cue beyond colour', () => {
+  it('underlines and bolds only the current view', () => {
+    render(<ViewToggle value="list" onChange={() => {}} />);
+    const list = screen.getByRole('button', { name: 'view.list' });
+    const grid = screen.getByRole('button', { name: 'view.grid' });
+    expect(list.className).toContain('border-primary');
+    expect(list.className).toContain('font-semibold');
+    expect(grid.className).not.toContain('border-primary');
+    expect(grid.className).not.toContain('font-semibold');
+  });
+
+  it('underlines and bolds only the current page size', () => {
+    render(<PageSizeToggle value={50} onChange={() => {}} />);
+    const marked = screen.getAllByRole('button').filter((b) => b.className.includes('border-primary'));
+    expect(marked).toHaveLength(1);
+    expect(marked[0].getAttribute('aria-pressed')).toBe('true');
+    expect(marked[0].className).toContain('font-semibold');
+  });
+});

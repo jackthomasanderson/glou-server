@@ -13,6 +13,7 @@ import { InventoryCategory } from '@/lib/inventory/types';
 import { useThemeMode } from '@/hooks/useThemeMode';
 import i18n from '@/lib/i18n';
 import { formatCurrency } from '@/lib/format';
+import { segmentClass } from '@/components/ui/segmentClass';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -191,6 +192,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
             startContent={<LayoutGrid size={14} />}
             onPress={() => setMode('markers')}
             aria-pressed={mode === 'markers'}
+            className={segmentClass(mode === 'markers')}
           >
             {t('analytics.map.mode.markers')}
           </Button>
@@ -200,6 +202,7 @@ export function WorldHeatmap({ regionCategoryBreakdown, onRegionClick, t }: Worl
             startContent={<Flame size={14} />}
             onPress={() => setMode('heatmap')}
             aria-pressed={mode === 'heatmap'}
+            className={segmentClass(mode === 'heatmap')}
           >
             {t('analytics.map.mode.heatmap')}
           </Button>

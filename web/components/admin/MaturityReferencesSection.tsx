@@ -24,6 +24,7 @@ import {
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { CURVE_SHAPES, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { segmentClass } from '@/components/ui/segmentClass';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
@@ -187,7 +188,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                       color={form.mode === 'RELATIVE' ? 'primary' : 'default'}
                       variant={form.mode === 'RELATIVE' ? 'flat' : 'light'}
                       startContent={<Clock size={14} />}
-                      className="flex-1"
+                      className={segmentClass(form.mode === 'RELATIVE', 'flex-1')}
                       onClick={() => setField('mode', 'RELATIVE')}
                       aria-pressed={form.mode === 'RELATIVE'}
                     >
@@ -197,7 +198,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                       color={form.mode === 'ABSOLUTE' ? 'primary' : 'default'}
                       variant={form.mode === 'ABSOLUTE' ? 'flat' : 'light'}
                       startContent={<CalendarDays size={14} />}
-                      className="flex-1"
+                      className={segmentClass(form.mode === 'ABSOLUTE', 'flex-1')}
                       onClick={() => setField('mode', 'ABSOLUTE')}
                       aria-pressed={form.mode === 'ABSOLUTE'}
                     >

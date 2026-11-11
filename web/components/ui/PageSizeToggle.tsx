@@ -1,6 +1,7 @@
 'use client';
 import { Button, ButtonGroup } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
+import { segmentClass } from '@/components/ui/segmentClass';
 import { PAGE_SIZE_OPTIONS, PageSizeOption } from '@/hooks/usePageSize';
 
 interface PageSizeToggleProps {
@@ -20,7 +21,7 @@ export function PageSizeToggle({ value, onChange }: PageSizeToggleProps) {
           onPress={() => onChange(size)}
           aria-pressed={value === size}
           aria-label={t('inventory.perPage', { count: size })}
-          className="min-w-[34px] px-2"
+          className={segmentClass(value === size, 'min-w-[34px] px-2')}
         >
           {size}
         </Button>
