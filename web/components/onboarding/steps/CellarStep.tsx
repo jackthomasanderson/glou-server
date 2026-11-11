@@ -22,6 +22,8 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
   const createCellar = useCreateCellar();
   const [name, setName] = useState('');
   const [type, setType] = useState<CellarType>('VINTAGE');
+  // #657: Create stays clickable; a click with the name empty shows the field in red.
+  const [tried, setTried] = useState(false);
 
   // #685: coming back here after creating the cellar must not create a second
   // one for the whole household.
@@ -42,7 +44,7 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
   }
 
   const handleCreate = () => {
-    if (!name.trim()) return;
+    if (!name.trim()) { setTried(true); return; }
     createCellar.mutate({ name: name.trim(), type }, { onSuccess: (cellar) => onCreated(cellar) });
   };
 
@@ -65,6 +67,9 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
           radius="md"
           labelPlacement="outside"
           isRequired
+          validationBehavior="aria"
+          isInvalid={tried && !name.trim()}
+          errorMessage={t('inventory.validation.required')}
           isDisabled={createCellar.isPending}
         />
         <SingleSelect
@@ -100,7 +105,6 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
             color="primary"
             variant="solid"
             onPress={handleCreate}
-            isDisabled={!name.trim()}
             isLoading={createCellar.isPending}
           >
             {t('onboarding.cellar.createCta')}

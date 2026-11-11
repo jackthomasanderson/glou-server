@@ -69,9 +69,12 @@ export function WishlistDashboard() {
   const [form, setForm] = useState<WishlistForm>(EMPTY_FORM);
   // ISSUE_119: values the form opened with, to detect unsaved input on close.
   const [formBaseline, setFormBaseline] = useState<WishlistForm>(EMPTY_FORM);
+  // #657: Save stays clickable; a click with the name empty shows the field in red.
+  const [formTried, setFormTried] = useState(false);
   const [deleting, setDeleting] = useState<WishlistItem | null>(null);
   const [priceTarget, setPriceTarget] = useState<WishlistItem | null>(null);
   const [priceValue, setPriceValue] = useState('');
+  const [priceTried, setPriceTried] = useState(false);
   const [convertTarget, setConvertTarget] = useState<WishlistItem | null>(null);
   // #471: price of ONE bottle and number bought (one group), parsed like every price field (#725).
   const [convertForm, setConvertForm] = useState<{
@@ -126,6 +129,7 @@ export function WishlistDashboard() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setFormBaseline(EMPTY_FORM);
+    setFormTried(false);
     setFormOpen(true);
   };
   const openEdit = (item: WishlistItem) => {
@@ -136,6 +140,7 @@ export function WishlistDashboard() {
     };
     setForm(nextForm);
     setFormBaseline(nextForm);
+    setFormTried(false);
     setFormOpen(true);
   };
   const closeForm = () => { setFormOpen(false); setEditing(null); };
@@ -149,7 +154,7 @@ export function WishlistDashboard() {
   });
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) { setFormTried(true); return; }
     // #624: a vintage typed beyond the bottle's bounds is not sent (its message shows under the field).
     if (form.vintage !== formBaseline.vintage && form.vintage != null && !isVintage(form.vintage)) return;
     const data: WishlistCreateInput = { ...form, targetQuantity: form.targetQuantity ?? 1 };
@@ -177,11 +182,11 @@ export function WishlistDashboard() {
     }
   };
 
-  const openPriceSeen = (item: WishlistItem) => { setPriceTarget(item); setPriceValue(String(item.lastSeenPrice ?? '')); };
+  const openPriceSeen = (item: WishlistItem) => { setPriceTarget(item); setPriceValue(String(item.lastSeenPrice ?? '')); setPriceTried(false); };
   const handlePriceSubmit = async () => {
     if (!priceTarget) return;
     const price = Number(priceValue);
-    if (!Number.isFinite(price) || price < 0) return;
+    if (priceValue.trim() === '' || !Number.isFinite(price) || price < 0) { setPriceTried(true); return; }
     try {
       await priceSeenMutation.mutateAsync({ id: priceTarget.id, price });
       setPriceTarget(null);
@@ -332,7 +337,9 @@ export function WishlistDashboard() {
                   placeholder={t('wishlist.form.namePlaceholder')}
                   value={form.name}
                   onValueChange={(v) => setForm((f) => ({ ...f, name: v }))}
-                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired
+                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired validationBehavior="aria"
+                  isInvalid={formTried && !form.name.trim()}
+                  errorMessage={t('inventory.validation.required')}
                 />
                 <Input
                   label={t('wishlist.form.producer')}
@@ -386,7 +393,6 @@ export function WishlistDashboard() {
                   data-testid="wishlist-form-submit"
                   color="primary" variant="solid"
                   isLoading={createMutation.isPending || updateMutation.isPending}
-                  isDisabled={!form.name.trim()}
                   onPress={handleSubmit}
                 >
                   {t('actions.save')}
@@ -419,7 +425,9 @@ export function WishlistDashboard() {
                   label={t('wishlist.priceSeen.price')}
                   value={priceValue}
                   onValueChange={setPriceValue}
-                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired autoFocus
+                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired autoFocus validationBehavior="aria"
+                  isInvalid={priceTried && (priceValue.trim() === '' || !(Number(priceValue) >= 0))}
+                  errorMessage={priceValue.trim() === '' ? t('inventory.validation.required') : t('inventory.validation.atLeast', { min: 0 })}
                 />
               </ModalBody>
               <ModalFooter>
@@ -427,7 +435,6 @@ export function WishlistDashboard() {
                 <Button
                   color="primary" variant="solid"
                   isLoading={priceSeenMutation.isPending}
-                  isDisabled={!priceValue}
                   onPress={handlePriceSubmit}
                 >
                   {t('wishlist.priceSeen.submit')}

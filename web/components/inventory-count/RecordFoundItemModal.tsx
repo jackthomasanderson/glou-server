@@ -42,6 +42,8 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
   // #587: a spirit's ABV, optional — left empty, it stays unknown.
   const [alcoholDegree, setAlcoholDegree] = useState<number | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  // #657: Add stays clickable; a click with the name empty shows the field in red.
+  const [tried, setTried] = useState(false);
   // A text field (decimal): the browser does not check its range — out of range, nothing is sent.
   const abvInvalid = category === 'spirit' && alcoholDegree != null && !(alcoholDegree >= 0 && alcoholDegree <= 100);
 
@@ -51,12 +53,14 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
     setQuantity('1');
     setAlcoholDegree(undefined);
     setError(null);
+    setTried(false);
     onClose();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || abvInvalid) return;
+    if (!name.trim()) { setTried(true); return; }
+    if (abvInvalid) return;
     setError(null);
     try {
       const parsedQuantity = Number(quantity);
@@ -91,6 +95,9 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
               radius="md"
               labelPlacement="outside"
               isRequired
+              validationBehavior="aria"
+              isInvalid={tried && !name.trim()}
+              errorMessage={t('inventory.validation.required')}
             />
             <SingleSelect
               label={t('inventoryCount.session.foundNew.categoryLabel')}
@@ -142,7 +149,7 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
             <Button variant="light" size="sm" onPress={resetAndClose}>
               {t('actions.cancel')}
             </Button>
-            <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending} isDisabled={!name.trim() || abvInvalid}>
+            <Button type="submit" color="primary" size="sm" isLoading={mutation.isPending} isDisabled={abvInvalid}>
               {t('actions.add')}
             </Button>
           </ModalFooter>

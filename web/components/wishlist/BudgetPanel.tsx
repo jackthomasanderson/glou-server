@@ -20,6 +20,9 @@ function toDateInputValue(iso: string): string {
   return iso.slice(0, 10);
 }
 
+// #907: an envelope day is stored as midnight UTC and means that calendar day, wherever the browser is.
+const DAY: Intl.DateTimeFormatOptions = { timeZone: 'UTC' };
+
 const EMPTY_FORM = { periodStart: '', periodEnd: '', amount: '' };
 
 function EnvelopeCard({ envelope, onEdit, onDelete }: {
@@ -34,7 +37,7 @@ function EnvelopeCard({ envelope, onEdit, onDelete }: {
     <Card radius="lg" shadow="sm">
       <CardHeader className="flex items-center justify-between">
         <span className="text-sm font-semibold">
-          {formatDate(envelope.periodStart, i18n.language)} — {formatDate(envelope.periodEnd, i18n.language)}
+          {formatDate(envelope.periodStart, i18n.language, DAY)} — {formatDate(envelope.periodEnd, i18n.language, DAY)}
         </span>
         <div className="flex gap-1">
           <Button size="sm" variant="light" color="primary" onPress={() => onEdit(envelope)}>
@@ -86,6 +89,8 @@ export function BudgetPanel() {
   // #469: an envelope can be corrected in place (the API route and hook
   // already existed, but no button reached them).
   const [editing, setEditing] = useState<BudgetEnvelope | null>(null);
+  // #657: Save stays clickable; a click with a field missing shows it in red.
+  const [tried, setTried] = useState(false);
   const [deleting, setDeleting] = useState<BudgetEnvelope | null>(null);
 
   const openCreate = () => {
@@ -95,12 +100,14 @@ export function BudgetPanel() {
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     setEditing(null);
+    setTried(false);
     setForm({ periodStart: todayLocalIso(start), periodEnd: todayLocalIso(end), amount: '' });
     setFormOpen(true);
   };
 
   const openEdit = (envelope: BudgetEnvelope) => {
     setEditing(envelope);
+    setTried(false);
     setForm({
       periodStart: toDateInputValue(envelope.periodStart),
       periodEnd: toDateInputValue(envelope.periodEnd),
@@ -111,7 +118,7 @@ export function BudgetPanel() {
 
   const handleSubmit = async () => {
     const amount = Number(form.amount);
-    if (!form.periodStart || !form.periodEnd || !Number.isFinite(amount) || amount < 0) return;
+    if (!form.periodStart || !form.periodEnd || form.amount.trim() === '' || !Number.isFinite(amount) || amount < 0) { setTried(true); return; }
     const data = {
       // Days, as the date fields give them: the API counts each one whole (#578).
       periodStart: form.periodStart,
@@ -189,14 +196,18 @@ export function BudgetPanel() {
                     label={t('budget.form.periodStart')}
                     value={form.periodStart}
                     onValueChange={(v) => setForm((f) => ({ ...f, periodStart: v }))}
-                    variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired
+                    variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired validationBehavior="aria"
+                    isInvalid={tried && !form.periodStart}
+                    errorMessage={t('inventory.validation.required')}
                   />
                   <Input
                     type="date"
                     label={t('budget.form.periodEnd')}
                     value={form.periodEnd}
                     onValueChange={(v) => setForm((f) => ({ ...f, periodEnd: v }))}
-                    variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired
+                    variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired validationBehavior="aria"
+                    isInvalid={tried && !form.periodEnd}
+                    errorMessage={t('inventory.validation.required')}
                   />
                 </div>
                 <Input
@@ -205,7 +216,9 @@ export function BudgetPanel() {
                   label={t('budget.form.amount')}
                   value={form.amount}
                   onValueChange={(v) => setForm((f) => ({ ...f, amount: v }))}
-                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired
+                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired validationBehavior="aria"
+                  isInvalid={tried && (form.amount.trim() === '' || !(Number(form.amount) >= 0))}
+                  errorMessage={form.amount.trim() === '' ? t('inventory.validation.required') : t('inventory.validation.atLeast', { min: 0 })}
                 />
               </ModalBody>
               <ModalFooter>
@@ -213,7 +226,6 @@ export function BudgetPanel() {
                 <Button
                   color="primary" variant="solid"
                   isLoading={createMutation.isPending || updateMutation.isPending}
-                  isDisabled={!form.periodStart || !form.periodEnd || !form.amount}
                   onPress={handleSubmit}
                 >
                   {t('actions.save')}

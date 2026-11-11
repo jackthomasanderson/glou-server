@@ -10,6 +10,10 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Fixed
+- Saving the bottle form, "Add a wish", a budget envelope, a new cellar, a found item during a count, the start of a count, the onboarding cellar and a humidor reading with a required field empty now shows that field in red with "This field is required", instead of a greyed-out button or a browser bubble that disappeared (#657).
+- Budget envelope dates show the stored day (1 Oct – 31 Oct) in a browser west of UTC instead of one day early (#907).
+
 ### Removed
 - The admin "Access mode" setting (direct or behind a reverse proxy) is gone: it was saved and shown back but changed nothing, only feeding a warning in the network check. The "Check configuration" button still checks the public URL and HTTPS in production (#617).
 - The "in-app notifications" channel is gone, from Administration → System configuration → Notifications and from My Profile → Notifications: it was a switch that delivered nothing. Notifications go by email or Gotify. The bell at the top of the page is not affected: it still lists peak-maturity alerts and reminders (#671).
