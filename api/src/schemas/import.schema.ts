@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { CATEGORY_VALUES, categorySchema } from '../lib/category';
+import { CATEGORY_VALUES, categorySchema, normalizeToken, toCategory } from '../lib/category';
+import { manufactureYearSchema, vintageSchema } from '../lib/years';
 import { MAX_COPIES } from './stock.schema';
 import { CSV_IMPORT_MAX_ROWS, CSV_LIST_SEPARATOR, CSV_SINGLE_CIGARS, groupCsvRows } from '../../../shared/import';
 import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '../../../shared/inventory';
@@ -14,23 +15,6 @@ import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '../../../shared/inve
  * for absent optional cells) — used by the /preview endpoint.
  */
 const emptyToUndefined = (v: unknown): unknown => (typeof v === 'string' && v.trim() === '' ? undefined : v);
-
-/** Lower case, no accents, no spaces/punctuation: "Millésime" → "millesime". */
-export function normalizeCsvToken(value: string): string {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9%]/g, '');
-}
-
-// #510: a French spreadsheet ("Vin", "Bulles", "Spiritueux"…) was rejected
-// wholesale. Category names in French and English, singular or plural, and
-// a few common types map to the four codes.
-const CATEGORY_ALIASES: Record<string, (typeof CATEGORY_VALUES)[number]> = {
-  wine: 'wine', wines: 'wine', vin: 'wine', vins: 'wine',
-  sparkling: 'sparkling', bulles: 'sparkling', bulle: 'sparkling', champagne: 'sparkling', cremant: 'sparkling',
-  mousseux: 'sparkling', effervescent: 'sparkling', prosecco: 'sparkling', cava: 'sparkling',
-  spirit: 'spirit', spirits: 'spirit', spiritueux: 'spirit', whisky: 'spirit', whiskey: 'spirit', rhum: 'spirit',
-  rum: 'spirit', cognac: 'spirit', armagnac: 'spirit', calvados: 'spirit', gin: 'spirit', vodka: 'spirit',
-  cigar: 'cigar', cigars: 'cigar', cigare: 'cigar', cigares: 'cigar',
-};
 
 /** "12,50 €" → 12.5; French decimal comma and currency symbols tolerated. */
 const toNumber = (v: unknown): unknown => {
@@ -74,7 +58,7 @@ const SINGLE_CIGAR_TOKENS = new Set(['alunite', 'unite', 'unitaire', 'single', '
 const toBoxSize = (v: unknown): unknown => {
   if (typeof v !== 'string') return v;
   if (v.trim() === '') return undefined;
-  return SINGLE_CIGAR_TOKENS.has(normalizeCsvToken(v)) ? CSV_SINGLE_CIGARS : v.trim();
+  return SINGLE_CIGAR_TOKENS.has(normalizeToken(v)) ? CSV_SINGLE_CIGARS : v.trim();
 };
 
 const purchaseDay = z.iso.date().refine(inPurchaseYears, 'INVALID_PURCHASE_DATE');
@@ -88,7 +72,7 @@ const CLOSED_TOKENS = new Set(['no', 'n', 'non', 'false', '0', 'closed', 'ferme'
 export const toOpened = (v: unknown): unknown => {
   if (typeof v !== 'string') return v;
   if (v.trim() === '') return undefined;
-  const token = normalizeCsvToken(v);
+  const token = normalizeToken(v);
   return OPENED_TOKENS.has(token) ? true : CLOSED_TOKENS.has(token) ? false : v;
 };
 
@@ -117,8 +101,8 @@ const COLOR_ALIASES: Record<string, (typeof WINE_COLORS)[number]> = {
 /** A closed-list cell: an unknown value is dropped (the description is optional), never a reason to refuse the row. */
 const leniently = <T extends string>(values: readonly T[], aliases: Record<string, T> = {}) => (v: unknown): unknown => {
   if (typeof v !== 'string') return v;
-  const token = normalizeCsvToken(v);
-  return aliases[token] ?? values.find((value) => normalizeCsvToken(value) === token);
+  const token = normalizeToken(v);
+  return aliases[token] ?? values.find((value) => normalizeToken(value) === token);
 };
 
 const toNum = (v: unknown): unknown => {
@@ -153,7 +137,7 @@ const familyFields = {
   needsAeration: z.boolean({ error: 'INVALID_NEEDS_AERATION' }).optional(),
   sparklingType: z.enum(SPARKLING_TYPES).optional(),
   sugarLevel: z.enum(SUGAR_LEVELS).optional(),
-  baseYear: optInt(1800, new Date().getFullYear(), 'INVALID_BASE_YEAR'),
+  baseYear: vintageSchema('INVALID_BASE_YEAR').optional(),
   batchDate: z.iso.date({ error: 'INVALID_BATCH_DATE' }).refine(inPurchaseYears, 'INVALID_BATCH_DATE').optional(),
   disgorgingDate: z.iso.date({ error: 'INVALID_DISGORGING_DATE' }).refine(inPurchaseYears, 'INVALID_DISGORGING_DATE').optional(),
   spiritType: optText(50, 'SPIRIT_TYPE_TOO_LONG'),
@@ -165,7 +149,7 @@ const familyFields = {
   isSingleCask: z.boolean({ error: 'INVALID_SINGLE_CASK' }).optional(),
   caskNumber: optText(100, 'CASK_NUMBER_TOO_LONG'),
   caskProof: optNum(0, 100, 'INVALID_CASK_PROOF'),
-  manufactureYear: optInt(1900, new Date().getFullYear(), 'INVALID_MANUFACTURE_YEAR'),
+  manufactureYear: manufactureYearSchema('INVALID_MANUFACTURE_YEAR').optional(),
   leafOrigin: optText(200, 'LEAF_ORIGIN_TOO_LONG'),
   factoryCode: optText(50, 'FACTORY_CODE_TOO_LONG'),
   recommendedHumidity: optNum(50, 100, 'INVALID_HUMIDITY'),
@@ -210,7 +194,7 @@ export const csvRawRowSchema = z.object({
   name: z.string().trim().min(1, 'NAME_REQUIRED').max(200, 'NAME_TOO_LONG'),
   producer: z.string().trim().min(1, 'PRODUCER_REQUIRED').max(200, 'PRODUCER_TOO_LONG'),
   category: z.preprocess(
-    (v) => (typeof v === 'string' ? CATEGORY_ALIASES[normalizeCsvToken(v)] ?? v.trim().toLowerCase() : v),
+    (v) => (typeof v === 'string' ? toCategory(v) ?? v.trim().toLowerCase() : v),
     z.enum(CATEGORY_VALUES, { error: 'INVALID_CATEGORY' }),
   ),
   // #510: optional columns, so an import is not reduced to four fields.
@@ -228,12 +212,8 @@ export const csvRawRowSchema = z.object({
     z.coerce.number({ error: 'INVALID_ABV' }).min(0, 'INVALID_ABV').max(100, 'INVALID_ABV').optional(),
   ),
   vintage: z.preprocess(
-    emptyToUndefined,
-    z.coerce.number({ error: 'INVALID_VINTAGE' })
-      .int('INVALID_VINTAGE')
-      .min(1800, 'INVALID_VINTAGE')
-      .max(new Date().getFullYear(), 'INVALID_VINTAGE')
-      .optional(),
+    (v) => { const cell = emptyToUndefined(v); return cell === undefined ? cell : Number(cell); },
+    vintageSchema('INVALID_VINTAGE').optional(),
   ),
   // #471 (FEAT-99): the cellar (created when unknown), the purchase day, the
   // bottle size, a cigar's vitola and box — what tells a group apart (D5).
@@ -277,7 +257,7 @@ export const csvImportRowSchema = z.object({
   name: z.string().trim().min(1).max(200),
   producer: z.string().trim().min(1).max(200),
   category: categorySchema,
-  vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
+  vintage: vintageSchema().optional(),
   purchasePrice: z.number().min(0).max(10_000_000).optional(),
   region: z.string().trim().max(200).optional(),
   quantity: z.number().int().min(1).max(1000).optional(),

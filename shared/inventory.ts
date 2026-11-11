@@ -55,3 +55,8 @@ export const TRASH_RETENTION_DAYS = 7;
 
 /** Items listed at most by GET /api/inventory (ISSUE_083, #475): beyond, `truncated` is true. */
 export const INVENTORY_LIST_LIMIT = 2000;
+
+/** #624: the oldest vintage (and base year of a sparkling) a bottle may carry; the newest is this year. */
+export const VINTAGE_MIN = 1800;
+/** #624: the oldest manufacture year of a cigar box; the newest is this year. */
+export const MANUFACTURE_YEAR_MIN = 1900;

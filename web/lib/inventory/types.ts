@@ -1,7 +1,7 @@
 import type { ItemSlotView, SlotCell, SlotChoiceFields } from '@shared/product';
 import { z } from 'zod';
 import {
-  ALERT_STATUSES, ALERT_URGENCY_ORDER, CATEGORY_VALUES, CURVE_SHAPES,
+  ALERT_STATUSES, ALERT_URGENCY_ORDER, CATEGORY_VALUES, CURVE_SHAPES, VINTAGE_MIN,
   type AlertStatus, type CurveShape, type FieldSource, type InventoryCategory,
 } from '@shared/inventory';
 
@@ -184,7 +184,7 @@ export const inventoryFormSchema = z.object({
   reminderDate: z.string().optional().nullable(),
   alertStatus: z.enum(ALERT_STATUSES).default('none'),
   curveShape: z.enum(CURVE_SHAPES).optional().nullable(),
-  vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional(),
+  vintage: z.number().int().min(VINTAGE_MIN).max(new Date().getFullYear()).optional(),
   quantity: z.number().int().min(1).optional(),
   alcoholDegree: z.number().min(0).max(100).optional(),
 });

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { distinctFromSchema } from './product.schema';
 import { unitPrice } from './stock.schema';
 import { categorySchema } from '../lib/category';
+import { vintageSchema } from '../lib/years';
 
 // ─── POST /wishlist/items ─────────────────────────────────────────────────────
 
@@ -9,7 +10,8 @@ export const wishlistCreateSchema = z.object({
   name: z.string().min(1).max(200),
   producer: z.string().max(200).optional(),
   category: categorySchema,
-  vintage: z.number().int().min(1800).max(new Date().getFullYear() + 1).optional().nullable(),
+  // #624: the vintage rule of a bottle — a wish is bought as one.
+  vintage: vintageSchema().optional().nullable(),
   targetQuantity: z.number().int().min(1).max(1000).default(1),
   maxPrice: z.number().min(0).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),

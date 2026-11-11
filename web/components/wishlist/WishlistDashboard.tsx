@@ -20,8 +20,10 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ParsedNumberInput } from '@/components/ui/ParsedInput';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
+import { buildEditPatch } from '@/lib/forms/editPatch';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { MAX_COPIES } from '@shared/product';
+import { VINTAGE_MIN } from '@shared/inventory';
 import { KnownWineBanner } from '@/components/inventory/KnownWineBanner';
 import { useKnownWine } from '@/hooks/useKnownWine';
 import { wineName } from '@/lib/products/stock';
@@ -30,6 +32,9 @@ import { CigarGroupFields } from '@/components/inventory/CigarGroupFields';
 import { cigarGroupInput, cigarPriceKey, draftFrom, isCigarGroupValid, type CigarGroupDraft } from '@/lib/products/cigarGroup';
 import type { Product } from '@/lib/products/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+
+/** A vintage a bottle may carry (the API's rule, #624). */
+const isVintage = (year: number) => Number.isInteger(year) && year >= VINTAGE_MIN && year <= new Date().getFullYear();
 
 /** "Aucune cave", a choice of the convert form's cellar list. */
 const NO_CELLAR = 'none';
@@ -145,10 +150,14 @@ export function WishlistDashboard() {
 
   const handleSubmit = async () => {
     if (!form.name.trim()) return;
+    // #624: a vintage typed beyond the bottle's bounds is not sent (its message shows under the field).
+    if (form.vintage !== formBaseline.vintage && form.vintage != null && !isVintage(form.vintage)) return;
     const data: WishlistCreateInput = { ...form, targetQuantity: form.targetQuantity ?? 1 };
     try {
       if (editing) {
-        await updateMutation.mutateAsync({ id: editing.id, data });
+        // #624: only what changed (like a bottle, #572) — a wish saved with a
+        // vintage the API no longer accepts stays editable.
+        await updateMutation.mutateAsync({ id: editing.id, data: buildEditPatch(formBaseline, data) });
       } else {
         await createMutation.mutateAsync(data);
       }
@@ -342,6 +351,7 @@ export function WishlistDashboard() {
                 </SingleSelect>
                 <div className="grid grid-cols-2 gap-4">
                   <ParsedNumberInput
+                    min={VINTAGE_MIN} max={new Date().getFullYear()}
                     label={t('wishlist.form.vintage')}
                     value={form.vintage}
                     onValueChange={(v) => setForm((f) => ({ ...f, vintage: v ?? null }))}

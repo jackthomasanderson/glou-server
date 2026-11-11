@@ -1,8 +1,14 @@
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import {
   inventoryInputSchema,
+  inventoryPatchObject,
   inventoryPatchSchema,
   guestInventoryUpdateSchema,
+  wineInventorySchema,
+  sparklingInventorySchema,
+  spiritInventorySchema,
+  cigarInventorySchema,
 } from '../src/schemas/inventory.schema';
 
 describe('inventoryInputSchema', () => {
@@ -292,4 +298,82 @@ describe('cigar groups on creation (FEAT-95)', () => {
     expect(res.success && res.data).not.toHaveProperty('cigarsPerBox');
     expect(res.success && res.data).not.toHaveProperty('cigarsLeft');
   });
+});
+
+// #624: the patch schema is written flat (Zod cannot make a discriminated
+// union partial), so nothing tied its rules to the create schemas — the
+// bounds of baseYear and manufactureYear were lost on the way. This compares
+// every field both accept: same JSON shape and same answers (with the same
+// messages) to a set of probe values, once optional/nullable/default removed.
+describe('create and patch schemas (#624)', () => {
+  type Schema = z.ZodType;
+  const createShapes: Record<string, Schema>[] = [
+    wineInventorySchema, sparklingInventorySchema, spiritInventorySchema, cigarInventorySchema,
+  ].map((schema) => (schema instanceof z.ZodObject ? schema : (schema as unknown as { def: { schema: z.ZodObject } }).def.schema).shape);
+  const patchShape: Record<string, Schema> = inventoryPatchObject.shape;
+
+  /** Fields whose create and patch rules differ on purpose, and why. */
+  const INTENDED: Record<string, string> = {
+    category: 'a literal per category on create, any category on the patch',
+    purchasedAt: 'the patch turns the day into a Date (stored at midnight UTC)',
+    cellarId: "the patch reads 'none' and '' as no cellar",
+    quantity: 'a patch may write 0 (an emptied cigar box), a create starts at 1',
+    cigarsLeft: 'a patch may write 0 (box smoked through), a create starts at 1',
+    purchasePrice: 'the patch accepts more than cents (rounded by the service)',
+    estimatedValue: 'the patch accepts more than cents (rounded by the service)',
+  };
+
+  const bare = (schema: Schema): Schema => {
+    let current = schema;
+    while (current instanceof z.ZodOptional || current instanceof z.ZodNullable || current instanceof z.ZodDefault) {
+      current = current.def.innerType as Schema;
+    }
+    return current;
+  };
+  const json = (schema: Schema) => z.toJSONSchema(bare(schema), { io: 'input', unrepresentable: 'any' });
+  const year = new Date().getFullYear();
+  const PROBES: unknown[] = [
+    -1, 0, 1, 1.5, 49, 50, 100, 101, 200, 999, 1000, 1001, 1799, 1800, 1899, 1900, year, year + 1, 2200, 2201,
+    '', 'a', 'x'.repeat(51), 'x'.repeat(101), 'x'.repeat(201), 'x'.repeat(501), 'x'.repeat(2001),
+    true, false, [], ['a'], {}, '2024-03-15', 'red', 'brut', 'LINEAR',
+  ];
+  const answers = (schema: Schema) => PROBES.map((probe) => {
+    const result = bare(schema).safeParse(probe);
+    return result.success ? 'ok' : result.error.issues.map((issue) => issue.message).join(' | ');
+  });
+
+  const shared = createShapes.flatMap((shape) =>
+    Object.keys(shape).filter((key) => key in patchShape && !(key in INTENDED)).map((key) => [key, shape[key]] as const));
+
+  it('compares the fields both schemas accept', () => {
+    expect(shared.map(([key]) => key)).toEqual(expect.arrayContaining(['name', 'producer', 'vintage', 'baseYear', 'manufactureYear']));
+  });
+
+  // The list above holds only real differences: a field brought back in line leaves it.
+  it.each(Object.keys(INTENDED))('%s does differ on purpose', (key) => {
+    const createRules = createShapes.filter((shape) => key in shape).map((shape) => shape[key]);
+    expect(createRules.length, key).toBeGreaterThan(0);
+    expect(createRules.some((rule) => JSON.stringify([json(rule), answers(rule)]) !== JSON.stringify([json(patchShape[key]), answers(patchShape[key])])), key).toBe(true);
+  });
+
+  it.each(shared)('%s has the same rule on create and on edit', (key, createRule) => {
+    expect(json(patchShape[key]), key).toEqual(json(createRule));
+    expect(answers(patchShape[key]), key).toEqual(answers(createRule));
+  });
+
+  it('refuses an edit to a year the create refuses, with the same message', () => {
+    for (const [field, value] of [['baseYear', year + 181], ['manufactureYear', 1850]] as const) {
+      const created = sparklingOrCigar(field, value);
+      const patched = inventoryPatchSchema.safeParse({ [field]: value });
+      expect(created.success, field).toBe(false);
+      expect(patched.success, field).toBe(false);
+      expect(patched.error?.issues[0].message).toBe(created.error?.issues.find((issue) => issue.path[0] === field)?.message);
+    }
+  });
+
+  const sparklingOrCigar = (field: string, value: number) => inventoryInputSchema.safeParse(
+    field === 'baseYear'
+      ? { category: 'sparkling', name: 'N', producer: 'P', [field]: value }
+      : { category: 'cigar', name: 'N', producer: 'P', quantity: 1, [field]: value },
+  );
 });
