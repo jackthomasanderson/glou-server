@@ -2607,14 +2607,18 @@
       "title": "Photographiez une étiquette",
       "subtitle": "Cadrez l'étiquette de la bouteille, du spiritueux ou de la boîte de cigares.",
       "start": "Scanner une étiquette",
-      "next": "Scanner l'article suivant"
+      "next": "Scanner l'article suivant",
+      "gallery": "Choisir une photo"
     },
     "uploading": "Envoi de la photo…",
     "processing": "Analyse de l'étiquette en cours… cela peut prendre quelques instants.",
+    "queued": "En attente : d'autres étiquettes sont analysées avant la vôtre…",
     "errors": {
       "unavailable": "Le service de reconnaissance d'étiquettes n'est pas disponible sur ce serveur. Vous pouvez saisir l'article à la main.",
       "rateLimited": "Trop de scans en peu de temps. Réessayez dans quelques minutes.",
+      "busy": "Trop d'étiquettes sont déjà en cours d'analyse sur ce serveur. Réessayez dans quelques minutes.",
       "photoRejected": "Cette photo n'a pas pu être envoyée : elle est trop lourde (10 Mo maximum) ou son format n'est pas pris en charge (JPEG, PNG, WebP ou GIF).",
+      "heic": "Les photos HEIC ne sont pas prises en charge. Sur iPhone, choisissez la photo dans la Photothèque (pas dans Fichiers) : elle est alors envoyée en JPEG. Vous pouvez aussi la prendre avec le bouton de l'appareil photo.",
       "timeout": "L'analyse a pris trop de temps : ce serveur manque probablement de puissance pour la reconnaissance d'étiquettes.",
       "interrupted": "L'analyse a été interrompue par un redémarrage du serveur. Reprenez la photo.",
       "failed": "L'analyse de l'étiquette a échoué pour une raison technique. Réessayez ou saisissez l'article à la main."

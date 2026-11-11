@@ -17,4 +17,6 @@ export interface ScanStatus {
 export const SCAN_UPLOAD_ERROR_CODES = {
   unavailable: 'SCAN_UNAVAILABLE',
   rateLimited: 'SCAN_RATE_LIMITED',
+  /** #609: too many scans already wait for the model, every member included. */
+  busy: 'SCAN_BUSY',
 } as const;

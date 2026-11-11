@@ -4,12 +4,25 @@ import { SCAN_UPLOAD_ERROR_CODES } from '@shared/scan';
 // A failed job is never a blurry photo: the model answering with nothing usable
 // ends as a 'done' job and the review's "label not recognised" notice.
 
-export type ScanErrorCause = 'unavailable' | 'rateLimited' | 'photoRejected' | 'timeout' | 'interrupted' | 'failed';
+export type ScanErrorCause =
+  | 'unavailable'
+  | 'rateLimited'
+  | 'busy'
+  | 'photoRejected'
+  | 'heic'
+  | 'timeout'
+  | 'interrupted'
+  | 'failed';
+
+/** #808: said by scanClient.upload, before anything is sent. */
+export const HEIC_NOT_SUPPORTED = 'HEIC_NOT_SUPPORTED';
 
 /** Upload error codes (POST /api/scan) and failed-job codes (shared/scan.ts SCAN_FAILURE_CODES). */
 const CAUSE_BY_CODE: Partial<Record<string, ScanErrorCause>> = {
   [SCAN_UPLOAD_ERROR_CODES.unavailable]: 'unavailable',
   [SCAN_UPLOAD_ERROR_CODES.rateLimited]: 'rateLimited',
+  [SCAN_UPLOAD_ERROR_CODES.busy]: 'busy',
+  [HEIC_NOT_SUPPORTED]: 'heic',
   FILE_TOO_LARGE: 'photoRejected',
   INVALID_FILE_TYPE: 'photoRejected',
   SVG_NOT_ALLOWED: 'photoRejected',
