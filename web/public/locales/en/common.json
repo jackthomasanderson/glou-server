@@ -1773,7 +1773,7 @@
     "backHome": "Back to home"
   },
   "qr": {
-    "localhostWarning": "This address (localhost) will not be reachable from another device: the QR code will not work on a phone. Open Glou through the server address before printing it.",
+    "localhostWarning": "This address (localhost) will not be reachable from another device: the QR code will not work on a phone. Open Glou through the server address, or ask the administrator to set the public URL (Administration), before printing it.",
     "title": "QR Code",
     "download": "Download PNG"
   },

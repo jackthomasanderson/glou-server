@@ -34,6 +34,7 @@ import wishlistRouter from './routes/wishlist.router';
 import { scanRouter } from './routes/scan.router';
 import humidorRouter from './routes/humidor.router';
 import { APP_VERSION } from './lib/app-version';
+import { systemConfigService } from './services/system-config.service';
 import { redactUrlSecrets } from './lib/log-redact';
 import { apiRateLimitMax } from './lib/rate-limit-max';
 import { authRateLimit } from './lib/rate-limit';
@@ -129,9 +130,17 @@ export function createApp(): express.Express {
   // ISSUE_169: the bug report template and SECURITY.md ask reporters for a
   // version/tag, but nothing ever surfaced one — `latest`/`beta` are moving
   // tags, not versions. This is what Admin → System Configuration → System
-  // reads to show a copyable value.
-  app.get('/api/version', (_req, res) => {
-    res.json({ data: { version: APP_VERSION } });
+  // reads to show a copyable value. #625: it also gives the public URL the
+  // browser encodes in bottle QR codes (null: none configured).
+  app.get('/api/version', async (_req, res) => {
+    let publicUrl: string | null = null;
+    try {
+      publicUrl = await systemConfigService.getQrPublicUrl();
+    } catch (error) {
+      // The version must stay readable through a database outage (bug reports).
+      console.error('[version] public URL lookup failed:', error);
+    }
+    res.json({ data: { version: APP_VERSION, publicUrl } });
   });
 
   // ─── Connectivity check (no auth) ─────────────────────────────────────────

@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import QRCode from 'qrcode';
 import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
 import { distinctFromSchema } from '../schemas/product.schema';
@@ -10,7 +9,6 @@ import { scanService } from '../services/scan.service';
 import type { UnitSlotChanges } from '../services/product.service';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
-import { systemConfigService } from '../services/system-config.service';
 import { routeParam } from '../lib/http';
 import { AppError } from '../lib/errors';
 import type { FieldChange, UnitWriteResult } from '../../../shared/product';
@@ -65,37 +63,6 @@ router.get('/trash', async (req: Request, res: Response): Promise<void> => {
     res.json({ data: items });
   } catch (error) {
     console.error('[inventory] GET /trash error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
-});
-
-// ─── GET /api/inventory/:id/qr ──────────────────────────────────────────────
-
-router.get('/:id/qr', async (req: Request, res: Response): Promise<void> => {
-  const id = routeParam(req.params.id);
-  try {
-    // Verify the item belongs to this user before issuing a QR
-    const result = await inventoryService.getItemWithTraceability(req.userId, id);
-    if (!result) {
-      res.status(404).json({ error: 'ITEM_NOT_FOUND' });
-      return;
-    }
-
-    const appUrl = await systemConfigService.getEffectivePublicUrl();
-    const targetUrl = `${appUrl}/bottles?scan=${id}`;
-
-    const pngBuffer = await QRCode.toBuffer(targetUrl, {
-      type: 'png',
-      width: 400,
-      margin: 2,
-      errorCorrectionLevel: 'M',
-    });
-
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Content-Disposition', `inline; filename="qr-${id}.png"`);
-    res.send(pngBuffer);
-  } catch (error) {
-    console.error('[inventory] GET /:id/qr error:', error);
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });

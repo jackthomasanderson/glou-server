@@ -1775,7 +1775,7 @@
     "backHome": "Retour à l'accueil"
   },
   "qr": {
-    "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le QR code ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur avant de l'imprimer.",
+    "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le QR code ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur, ou demandez à l'administrateur de renseigner l'URL publique (Administration), avant de l'imprimer.",
     "title": "QR Code",
     "download": "Télécharger PNG"
   },

@@ -64,6 +64,49 @@ describe('unauthenticated access', () => {
     expect(res.body.data.version).toBe(pkg.version);
   });
 
+  // #625: the browser builds bottle QR codes; it reads the address to encode here.
+  describe('GET /api/version publicUrl (#625)', () => {
+    const appUrl = process.env.APP_URL;
+    afterEach(() => {
+      if (appUrl === undefined) delete process.env.APP_URL;
+      else process.env.APP_URL = appUrl;
+    });
+
+    it('gives the public address set by the admin', async () => {
+      process.env.APP_URL = 'http://localhost:3000';
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ publicUrl: 'https://cave.example.org' } as never);
+      const res = await request(app).get('/api/version');
+      expect(res.body.data.publicUrl).toBe('https://cave.example.org');
+    });
+
+    it('falls back to APP_URL when it is a real address', async () => {
+      process.env.APP_URL = 'http://192.168.1.20:3000';
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ publicUrl: null } as never);
+      const res = await request(app).get('/api/version');
+      expect(res.body.data.publicUrl).toBe('http://192.168.1.20:3000');
+    });
+
+    it.each([['http://localhost:3000'], ['http://127.0.0.1:3000'], ['http://[::1]:3000'], [undefined]])(
+      'is null when only a loopback address is configured (APP_URL=%s)',
+      async (value) => {
+        if (value === undefined) delete process.env.APP_URL;
+        else process.env.APP_URL = value;
+        vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ publicUrl: null } as never);
+        const res = await request(app).get('/api/version');
+        expect(res.status).toBe(200);
+        expect(res.body.data.publicUrl).toBeNull();
+      },
+    );
+
+    it('still answers the version when the configuration cannot be read', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.mocked(prisma.systemConfig.findUnique).mockRejectedValue(new Error('db down'));
+      const res = await request(app).get('/api/version');
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ version: pkg.version, publicUrl: null });
+    });
+  });
+
   // ISSUE_019: it used to answer 'ok' unconditionally — now it actually
   // queries the database, so a probe stops going green through an outage.
   it('GET /health returns 503 when the database is unreachable', async () => {

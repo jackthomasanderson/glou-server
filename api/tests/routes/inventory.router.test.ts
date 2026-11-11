@@ -14,7 +14,6 @@ vi.mock('../../src/services/inventory.service', () => ({
 }));
 vi.mock('../../src/services/inventory-export.service', () => ({ inventoryExportService: { exportCsv: vi.fn() } }));
 vi.mock('../../src/services/scan.service', () => ({ scanService: {} }));
-vi.mock('../../src/services/system-config.service', () => ({ systemConfigService: {} }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
 
 import { inventoryRouter } from '../../src/routes/inventory.router';
