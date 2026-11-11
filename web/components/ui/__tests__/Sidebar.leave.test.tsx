@@ -12,7 +12,7 @@ vi.mock('@/hooks/useAuth', () => ({
   useMe: () => ({ data: { id: 'a1', username: 'admin', isAdmin: true } }),
   useLogout: () => ({ mutate: logout, isPending: false }),
 }));
-vi.mock('@/hooks/useSidebarCounts', () => ({ useSidebarCounts: () => ({ data: undefined }) }));
+vi.mock('@/hooks/useSidebarCounts', () => ({ useSidebarCounts: () => ({ data: undefined }), useSidebarCountsSync: () => undefined }));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('../ThemeToggle', () => ({ ThemeToggle: () => null }));
 
