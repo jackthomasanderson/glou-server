@@ -3,7 +3,7 @@ import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Chip, Drawer, DrawerContent, Spinner, Tooltip } from '@heroui/react';
 import {
-  X, Pencil, Flame, Thermometer, Droplets, Wine, BookMarked, GlassWater, Leaf, Sparkles, QrCode,
+  X, Pencil, Flame, Thermometer, Droplets, Wine, BookMarked, Leaf, QrCode,
   TrendingUp, Bell, BellOff, Star, Grape, LayoutGrid,
 } from 'lucide-react';
 import { isIntactItem, unitKind } from '@shared/units';
@@ -41,13 +41,8 @@ import { usePutBackOpened } from './PutBackOpened';
 import { ReviewLineActions } from './ReviewLineActions';
 import { historyNounOf } from '@/lib/products/stockActions';
 import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
-const CATEGORY_ICONS_LG: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={64} className="opacity-20 text-white" />,
-  sparkling: <Sparkles size={64} className="opacity-20 text-white" />,
-  spirit: <GlassWater size={64} className="opacity-20 text-white" />,
-  cigar: <Leaf size={64} className="opacity-20 text-white" />,
-};
 
 function InfoCard({ icon, label, value, valueClassName }: {
   icon: React.ReactElement;
@@ -289,7 +284,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           >
             {p.photoUrl
               ? <img loading="lazy" decoding="async" src={p.photoUrl} alt={p.name} className="max-h-full max-w-full object-contain" />
-              : CATEGORY_ICONS_LG[p.category]}
+              : <CategoryIcon category={p.category} size={64} className="opacity-20 text-white" />}
           </div>
           <p className="text-sm font-semibold" data-testid="family-drawer-stock" aria-label={[wineName(p), stock.spoken].join(', ')}>
             {keepNumbersWhole(stockText)}

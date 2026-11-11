@@ -10,7 +10,7 @@ Indiquez à Glou l'adresse utilisée pour joindre votre instance depuis l'extér
 ## Action
 
 ### Définir l'URL publique
-1. Allez dans **Admin → Configuration Système → Accès**.
+1. Allez dans **Admin → Configuration système → Accès**.
 2. Renseignez **URL publique** avec l'adresse à laquelle votre instance est joignable depuis l'extérieur (ex : `https://cave.example.com`). Laissez vide pour se replier sur la variable d'environnement `APP_URL`, ou sur `http://localhost:3000` si cette variable n'est pas non plus définie.
 3. Cliquez sur **Enregistrer**. Le panneau affiche l'**URL effective** réellement utilisée (votre valeur configurée, ou le repli sur `APP_URL` si le champ est resté vide). Les liens de réinitialisation du mot de passe sont construits à partir de cette URL : l'enregistrement demande donc votre mot de passe, et un code de votre application d'authentification si votre compte a la double authentification. Les réglages du serveur de messagerie, de Gotify et des canaux de notification demandent la même chose. Les QR codes des bouteilles utilisent aussi cette URL (sauf si c'est une adresse `localhost`), pour que les étiquettes imprimées depuis n'importe quel poste s'ouvrent sur un téléphone.
 

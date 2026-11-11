@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Input, Tooltip } from '@heroui/react';
-import { Camera, Link2, Trash2, Check, X, Wine, Sparkles, GlassWater, Leaf, Loader2, RefreshCw } from 'lucide-react';
+import { Camera, Link2, Trash2, Check, X, Loader2, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ImagePickerButton, ImageResult } from './ImagePicker';
 import { InventoryCategory } from '@/lib/inventory/types';
@@ -10,13 +10,8 @@ import { getCategoryPlaceholderSolid } from '@/lib/analytics/categoryColors';
 import { searchClient } from '@/lib/search/client';
 import { downscaleImage } from '@/lib/image-resize';
 import { notifyError } from '@/lib/toast';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
-const PLACEHOLDER_ICON: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={40} className="opacity-30 text-white" />,
-  sparkling: <Sparkles size={40} className="opacity-30 text-white" />,
-  spirit: <GlassWater size={40} className="opacity-30 text-white" />,
-  cigar: <Leaf size={40} className="opacity-30 text-white" />,
-};
 
 interface ItemImageSectionProps {
   photoUrl: string;
@@ -147,7 +142,7 @@ export function ItemImageSection({
             onError={offered.onNext}
           />
         ) : (
-          PLACEHOLDER_ICON[category]
+          <CategoryIcon category={category} size={40} className="opacity-30 text-white" />
         )}
 
         {offered && (

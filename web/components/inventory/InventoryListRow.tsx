@@ -3,20 +3,15 @@ import React from 'react';
 import {
   TableRow, TableCell, Chip, Tooltip, Skeleton, Button,
 } from '@heroui/react';
-import { Wine, Sparkles, GlassWater, Leaf, Pencil, Trash2, Clock } from 'lucide-react';
+import { Pencil, Trash2, Clock } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { keepNumbersWhole, type StockLine } from '@/lib/products/stock';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { TapTooltip } from '@/components/ui/TapTooltip';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={14} />,
-  sparkling: <Sparkles size={14} />,
-  spirit: <GlassWater size={14} />,
-  cigar: <Leaf size={14} />,
-};
 
 /**
  * Recette n°5 ter of #847: the table scrolled sideways at 1471 px. Region and
@@ -73,7 +68,7 @@ export function InventoryListRow({
         <TableCell key="icon" className="w-10 pr-0">
           <Tooltip content={categoryLabel} delay={500}>
             <Chip
-              startContent={CATEGORY_ICONS[item.category]}
+              startContent={<CategoryIcon category={item.category} />}
               color={CATEGORY_CHIP_COLOR[item.category]}
               size="sm"
               classNames={{ base: 'min-w-0 px-1' }}

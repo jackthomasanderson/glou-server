@@ -1,7 +1,6 @@
 import type { ItemSlotView, SlotCell, SlotChoiceFields } from '@shared/product';
-import { z } from 'zod';
 import {
-  ALERT_STATUSES, ALERT_URGENCY_ORDER, CATEGORY_VALUES, CURVE_SHAPES, VINTAGE_MIN,
+  ALERT_URGENCY_ORDER, CATEGORY_VALUES,
   type AlertStatus, type CurveShape, type FieldSource, type InventoryCategory,
 } from '@shared/inventory';
 
@@ -9,8 +8,7 @@ import {
 
 // ISSUE_137 / #466: the category list is declared once, in shared/inventory.ts,
 // with the alert statuses, curve shapes and FieldSource (FEAT-05). Every
-// `type X = 'wine' | …` duplicate across web/lib aliases InventoryCategory, and
-// the Zod schema below derives from the same arrays. #102: FieldSource's unused
+// `type X = 'wine' | …` duplicate across web/lib aliases InventoryCategory. #102: FieldSource's unused
 // 'enrichment' value (a lookup never built, #74) was removed.
 export { CATEGORY_VALUES };
 export type { AlertStatus, CurveShape, FieldSource, InventoryCategory };
@@ -164,29 +162,3 @@ export interface InventoryHistoryEntry {
   changes: InventoryFieldChange[] | null;
   createdAt: string;
 }
-
-// ─── Schéma Zod frontend (validation côté client avant envoi) ─────────────────
-
-export const inventoryFormSchema = z.object({
-  category: z.enum(CATEGORY_VALUES),
-  name: z.string().min(1, 'Nom requis').max(200),
-  producer: z.string().min(1, 'Producteur requis').max(200),
-  location: z.string().max(200).optional(),
-  collection: z.string().max(200).optional(),
-  tags: z.array(z.string().max(50)).max(20).default([]),
-  photoUrl: z.string().url().optional().or(z.literal('')),
-  notes: z.string().max(2000).optional(),
-  purchasePrice: z.number().min(0).optional(),
-  estimatedValue: z.number().min(0).optional(),
-  isOpened: z.boolean().default(false),
-  fillLevel: z.number().int().min(0).max(100).optional(),
-  openedAt: z.string().optional().nullable(),
-  reminderDate: z.string().optional().nullable(),
-  alertStatus: z.enum(ALERT_STATUSES).default('none'),
-  curveShape: z.enum(CURVE_SHAPES).optional().nullable(),
-  vintage: z.number().int().min(VINTAGE_MIN).max(new Date().getFullYear()).optional(),
-  quantity: z.number().int().min(1).optional(),
-  alcoholDegree: z.number().min(0).max(100).optional(),
-});
-
-export type InventoryFormValues = z.infer<typeof inventoryFormSchema>;

@@ -59,7 +59,6 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
   res.json({
     data: {
       id: share.id,
-      label: share.label,
       expiresAt: share.expiresAt,
       hidePrices: share.hidePrices,
       hideNotes: share.hideNotes,

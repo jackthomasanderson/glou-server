@@ -73,6 +73,12 @@
     "spirit": "Spirit",
     "cigar": "Cigar / Box"
   },
+  "categoriesPlural": {
+    "wine": "wines",
+    "sparkling": "sparkling wines",
+    "spirit": "spirits",
+    "cigar": "cigars"
+  },
   "maturity": {
     "readiness": "Readiness",
     "curveSource": {
@@ -1693,7 +1699,7 @@
     "categories": {
       "title": "Category breakdown",
       "active": "In stock",
-      "wine": "Red & White Wines",
+      "wine": "Wines",
       "sparkling": "Bubbles & Champagnes",
       "spirit": "Fine Spirits",
       "cigar": "Prestige Cigars",
@@ -1882,6 +1888,7 @@
       "load": "Unable to load shares."
     },
     "guest": {
+      "title": "Shared cellar",
       "badge": "Shared view",
       "readOnly": "Read-only",
       "partialWrite": "Partial read/write",
@@ -2639,7 +2646,8 @@
       "title": "Review the detected information",
       "confirm": "Confirm and add",
       "moreDetails": "More details",
-      "setDefaultLocation": "Always store scanned {{category}} here"
+      "setDefaultLocation": "Always store scanned {{category}} here",
+      "setDefaultLocation_sparkling": "Always store scanned {{category}} here"
     },
     "cart": {
       "title": "To Shelve ({{count}})",
