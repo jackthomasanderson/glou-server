@@ -12,8 +12,9 @@
  * guests. This is intended behaviour: a JPEG is therefore ALWAYS returned
  * redrawn, even when that is not lighter than the original. The original
  * (metadata included) only goes through when the browser cannot decode or
- * redraw it, or for formats left alone above; the server does not strip
- * metadata.
+ * redraw it, for formats left alone above, and for a PNG/WebP whose redrawn
+ * version is not lighter (metadata kept, not stripped); the server does not
+ * strip metadata.
  */
 const RESIZABLE = /^image\/(jpeg|png|webp)$/i;
 const EXTENSION: Record<string, string> = { 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/png': 'png' };

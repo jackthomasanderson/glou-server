@@ -4,7 +4,7 @@
 
 **Prérequis** :
 - Docker installé et en cours d'exécution (inclut Docker Compose v2).
-- Un navigateur récent pour utiliser l'application : Safari et Safari iOS 16.4+, Chrome 111+, Firefox 128+ (ou plus récent). iOS 15 et antérieurs ne sont pas pris en charge.
+- Un navigateur récent pour utiliser l'application : Safari et Safari iOS 16.4+, Chrome et Edge 111+, Firefox 128+ (ou plus récent). iOS 15 et antérieurs ne sont pas pris en charge.
 
 **Action** :
 

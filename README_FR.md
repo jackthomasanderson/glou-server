@@ -40,7 +40,7 @@
 
 **Prérequis :**
 - Docker installé et en cours d'exécution, sur un hôte 64 bits Intel/AMD ou ARM (Raspberry Pi 4/5, NAS ARM…) : les images sont publiées pour `linux/amd64` et `linux/arm64`.
-- Un navigateur récent pour utiliser l'application : Safari et Safari iOS 16.4+, Chrome 111+, Firefox 128+ (ou plus récent). iOS 15 et antérieurs ne sont pas pris en charge.
+- Un navigateur récent pour utiliser l'application : Safari et Safari iOS 16.4+, Chrome et Edge 111+, Firefox 128+ (ou plus récent). iOS 15 et antérieurs ne sont pas pris en charge.
 
 **Étape 1 : Configurer**
 ```bash
