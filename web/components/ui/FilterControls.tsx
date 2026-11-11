@@ -21,7 +21,9 @@ export function FilterChip({ selected, onPress, startContent, radius, size = 'sm
       type="button"
       aria-pressed={selected}
       onClick={onPress}
-      className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      // #835: never wider than its row; a long label is cut, the full name stays in the tooltip.
+      title={typeof children === 'string' ? children : undefined}
+      className="min-w-0 max-w-full rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <Chip
         size={size}
@@ -29,7 +31,8 @@ export function FilterChip({ selected, onPress, startContent, radius, size = 'sm
         startContent={startContent}
         variant={selected ? 'solid' : 'bordered'}
         color={selected ? color : 'default'}
-        className="cursor-pointer text-xs"
+        className="min-w-0 max-w-full cursor-pointer text-xs"
+        classNames={{ content: 'min-w-0 truncate' }}
       >
         {children}
       </Chip>

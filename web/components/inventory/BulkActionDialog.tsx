@@ -74,8 +74,8 @@ export function BulkActionDialog({
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [deletingPresetId, setDeletingPresetId] = useState<string | null>(null);
 
-  // The dialog stays mounted while closed: every opening starts blank, so a
-  // cancelled edit never carries over. Adjusted during render (React's
+  // Every opening starts blank (the inventory page mounts it only while open,
+  // other callers may keep it mounted), so a cancelled edit never carries over. Adjusted during render (React's
   // documented pattern) rather than in an effect.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
