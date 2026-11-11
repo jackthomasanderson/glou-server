@@ -12,6 +12,15 @@ import {
 } from '../src/schemas/inventory.schema';
 
 describe('inventoryInputSchema', () => {
+  // #961: the Region field places sparkling wines and spirits on the Analytics map too.
+  it.each([
+    { category: 'sparkling', name: 'Brut', producer: 'Maison' },
+    { category: 'spirit', name: 'Single Malt', producer: 'Distillerie', alcoholDegree: 43 },
+  ])('keeps the region of a $category', (input) => {
+    const result = inventoryInputSchema.safeParse({ ...input, region: 'Champagne' });
+    expect(result.success && (result.data as { region?: string }).region).toBe('Champagne');
+  });
+
   it('validates a minimal wine item', () => {
     const result = inventoryInputSchema.safeParse({
       category: 'wine',

@@ -17,6 +17,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { useInventoryFilters } from './useInventoryFilters';
+import { product, unit } from '@/lib/products/__tests__/factories';
 
 const t = (key: string) => key;
 
@@ -67,6 +68,32 @@ describe('useInventoryFilters reads its filters from the URL (#470)', () => {
     rerender();
     expect(result.current.selectedCellars).toEqual(['garage']);
     expect(result.current.selectedCategories).toEqual(['spirit']);
+  });
+});
+
+// #961: the "not on the map" line of Analytics links to /bottles?filter=notLocated.
+describe('useInventoryFilters — "Pas sur la carte" from the Analytics map (#961)', () => {
+  const placed = product({ id: 'placed', region: 'Bordeaux', items: [unit()] });
+  const unplaced = product({ id: 'unplaced', region: 'Terroir Imaginaire', items: [unit({ quantity: 3 })] });
+
+  it('opens the list on the wines in stock the map cannot place', () => {
+    searchParams = new URLSearchParams('filter=notLocated');
+    const { result } = renderHook(() => useInventoryFilters({ products: [placed, unplaced], cellars: [], t, hasMounted: true }));
+    expect(result.current.notLocated).toBe(true);
+    expect(result.current.isFiltersOpen).toBe(true);
+    expect(result.current.hasActiveFilters).toBe(true);
+    expect(result.current.filteredItems.map((p) => p.id)).toEqual(['unplaced']);
+  });
+
+  it('is dropped by another link and by "Reset filters"', () => {
+    const { result, rerender } = renderFilters('filter=notLocated');
+    navigate(rerender, 'filter=opened');
+    expect(result.current.notLocated).toBe(false);
+
+    navigate(rerender, 'filter=notLocated');
+    expect(result.current.notLocated).toBe(true);
+    act(() => result.current.clearFilters());
+    expect(result.current.notLocated).toBe(false);
   });
 });
 

@@ -19,6 +19,7 @@ function Bar() {
       selectedWineColors={[]} setSelectedWineColors={noop} selectedTags={[]} setSelectedTags={noop}
       minValue="" setMinValue={noop} maxValue="" setMaxValue={noop} sortBy="default" setSortBy={noop}
       openedFilter={openedFilter} setOpenedFilter={setOpenedFilter} showGone={showGone} setShowGone={setShowGone}
+      notLocated={false} setNotLocated={noop}
       tagSearchQuery="" setTagSearchQuery={noop} showAllTags={false} setShowAllTags={noop}
     />
   );
@@ -61,6 +62,7 @@ describe('InventoryFilterBar — "Sans cave"', () => {
           selectedWineColors={[]} setSelectedWineColors={noop} selectedTags={[]} setSelectedTags={noop}
           minValue="" setMinValue={noop} maxValue="" setMaxValue={noop} sortBy="default" setSortBy={noop}
           openedFilter="all" setOpenedFilter={noop} showGone={false} setShowGone={noop}
+          notLocated={false} setNotLocated={noop}
           tagSearchQuery="" setTagSearchQuery={noop} showAllTags={false} setShowAllTags={noop}
         />
         <output data-testid="selected">{JSON.stringify(selectedCellars)}</output>
@@ -84,5 +86,50 @@ describe('InventoryFilterBar — "Sans cave"', () => {
   it('is offered even once every cellar is deleted', () => {
     render(<CellarBar products={withBottle(null)} cellarList={[] as never} />);
     expect(screen.getByRole('button', { name: 'inventory.noCellarFilter' })).toBeInTheDocument();
+  });
+});
+
+// #961: the wines in stock the Analytics map cannot place, to correct their region in a row.
+describe('InventoryFilterBar — "Pas sur la carte"', () => {
+  const placed = { id: 'placed', category: 'wine', region: 'Bordeaux', appellation: null, leafOrigin: null, tags: [], items: [{ id: 'u1', cellarId: null, quantity: 1 }] };
+  const unplaced = { ...placed, id: 'unplaced', region: 'Terroir Imaginaire', items: [{ id: 'u2', cellarId: null, quantity: 2 }] };
+
+  function LocatedBar({ products }: { products: unknown[] }) {
+    const [showGone, setShowGone] = useState(false);
+    const [notLocated, setNotLocated] = useState(false);
+    return (
+      <InventoryFilterBar
+        variant="desktop" t={(key: string) => key} isFiltersOpen hasActiveFilters={false} onClearFilters={noop}
+        products={products as never}
+        selectedCategories={[]} setSelectedCategories={noop} selectedCellars={[]} setSelectedCellars={noop}
+        selectedWineColors={[]} setSelectedWineColors={noop} selectedTags={[]} setSelectedTags={noop}
+        minValue="" setMinValue={noop} maxValue="" setMaxValue={noop} sortBy="default" setSortBy={noop}
+        openedFilter="all" setOpenedFilter={noop} showGone={showGone} setShowGone={setShowGone}
+        notLocated={notLocated} setNotLocated={setNotLocated}
+        tagSearchQuery="" setTagSearchQuery={noop} showAllTags={false} setShowAllTags={noop}
+      />
+    );
+  }
+
+  it('is offered when a wine in stock cannot be placed, and never checked with "Plus en cave"', () => {
+    render(<LocatedBar products={[placed, unplaced]} />);
+    const notLocated = screen.getByRole('button', { name: 'inventory.filters.notLocated' });
+    const gone = screen.getByRole('button', { name: 'familyList.filters.gone' });
+
+    fireEvent.click(notLocated);
+    expect(notLocated).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(gone);
+    expect(gone).toHaveAttribute('aria-pressed', 'true');
+    expect(notLocated).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(notLocated);
+    expect(notLocated).toHaveAttribute('aria-pressed', 'true');
+    expect(gone).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('is not offered when every wine in stock is on the map', () => {
+    render(<LocatedBar products={[placed]} />);
+    expect(screen.queryByRole('button', { name: 'inventory.filters.notLocated' })).toBeNull();
   });
 });

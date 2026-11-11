@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { normalizeRegionName } from '@shared/map-location';
 import fc from 'fast-check';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
@@ -57,11 +58,12 @@ describe('productMatchesMapFilters — properties', () => {
     );
   });
 
-  it('a matched item under a region scope always sits in that exact region', () => {
+  // #961: a region is one place whatever its case, spaces or accents.
+  it('a matched item under a region scope always sits in that region, spelt one way or another', () => {
     fc.assert(
       fc.property(itemArb, fc.string({ minLength: 1 }), (item, region) => {
         if (productMatchesMapFilters(item, DEFAULT_MAP_FILTERS, noRatings, region)) {
-          expect(getProductMapRegion(item)).toBe(region);
+          expect(normalizeRegionName(getProductMapRegion(item) ?? '')).toBe(normalizeRegionName(region));
         }
       }),
     );

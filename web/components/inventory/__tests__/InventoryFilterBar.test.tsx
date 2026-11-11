@@ -45,6 +45,7 @@ function Bar({ report, variant = 'desktop', isFiltersOpen = true, products = [],
       selectedWineColors={colors} setSelectedWineColors={setColors} selectedTags={tags} setSelectedTags={setTags}
       minValue={min} setMinValue={setMin} maxValue={max} setMaxValue={setMax} sortBy={sortBy} setSortBy={setSortBy}
       openedFilter={opened} setOpenedFilter={setOpened} showGone={gone} setShowGone={setGone}
+      notLocated={false} setNotLocated={() => {}}
       tagSearchQuery={tagSearch} setTagSearchQuery={setTagSearch} showAllTags={showAllTags} setShowAllTags={setShowAllTags}
     />
   );

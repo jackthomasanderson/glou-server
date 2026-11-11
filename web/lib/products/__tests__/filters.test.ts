@@ -38,6 +38,32 @@ describe('filterProducts — wines with nothing left (FEAT-101)', () => {
   });
 });
 
+// #961: "Pas sur la carte" lists the wines in stock the Analytics map cannot
+// place, so their region can be corrected in a row.
+describe('filterProducts — wines not on the map (#961)', () => {
+  const located = product({ id: 'located', region: 'Bordeaux', items: [unit()] });
+  const spelt = product({ id: 'spelt', region: 'nouvelle aquitaine ', items: [unit()] });
+  const byAppellation = product({ id: 'appellation', region: null, appellation: 'Pomerol', items: [unit()] });
+  const unknown = product({ id: 'unknown', region: 'Terroir Imaginaire', appellation: 'Pomerol', items: [unit({ quantity: 6 })] });
+  const noRegion = product({ id: 'noRegion', region: '  ', appellation: 'Cuvée Imaginaire', items: [unit()] });
+  const goneUnknown = product({ id: 'goneUnknown', region: 'Terroir Imaginaire', items: [] });
+  const list = [located, spelt, byAppellation, unknown, noRegion, goneUnknown];
+
+  it('keeps only the wines in stock whose region, or appellation when the region is empty, cannot be placed', () => {
+    expect(ids({ notLocated: true }, list)).toEqual(['unknown', 'noRegion']);
+  });
+
+  it('lists every wine in stock when it is off', () => {
+    expect(ids({}, list)).toEqual(['located', 'spelt', 'appellation', 'unknown', 'noRegion']);
+  });
+
+  it('applies to cigars by their leaf origin', () => {
+    const cuban = product({ id: 'cuban', category: 'cigar', leafOrigin: 'Cuba', items: [unit()] });
+    const unplaced = product({ id: 'unplaced', category: 'cigar', leafOrigin: 'Vuelta Imaginaire', items: [unit()] });
+    expect(ids({ notLocated: true }, [cuban, unplaced])).toEqual(['unplaced']);
+  });
+});
+
 describe('filterProducts — other filters on wines', () => {
   it('a cellar filter keeps a wine with some of its bottles there', () => {
     expect(ids({ selectedCellars: ['kitchen'] })).toEqual(['stock']);

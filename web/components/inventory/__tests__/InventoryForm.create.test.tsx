@@ -25,6 +25,12 @@ vi.mock('../ProductAutocomplete', () => ({
     <input aria-label="Nom" value={value} onChange={(e) => onChange(e.target.value)} />
   ),
 }));
+// #961: the Region field reads the cellar's regions (react-query); a plain input here.
+vi.mock('../RegionAutocomplete', () => ({
+  RegionAutocomplete: ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => (
+    <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
+  ),
+}));
 vi.mock('../ProducerAutocomplete', () => ({
   ProducerAutocomplete: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <input aria-label="Producteur" value={value} onChange={(e) => onChange(e.target.value)} />
@@ -223,5 +229,25 @@ describe('InventoryForm — an opened bottle', () => {
     fireEvent.click(within(scale).getByRole('button', { name: '1/4' }));
     fireEvent.click(within(dialog).getByTestId('inventory-form-submit'));
     expect(sent()).toMatchObject({ isOpened: true, fillLevel: 25 });
+  });
+});
+
+// #961: every bottle the Analytics map lists as "not on the map" can be
+// corrected from its form: sparkling wines and spirits have a Region too.
+describe('InventoryForm — a region for every bottle', () => {
+  it.each([
+    ['wine', {}],
+    ['sparkling', {}],
+    ['spirit', { alcoholDegree: 43 }],
+  ] as const)('%s: sends the region typed', (category, extra) => {
+    const { dialog, sent } = draw({ defaultCategory: category, initialValues: { category, ...extra } as Partial<InventoryItem> });
+    type(dialog, 'Région', 'Champagne');
+    fireEvent.click(within(dialog).getByTestId('inventory-form-submit'));
+    expect(sent()).toMatchObject({ category, region: 'Champagne' });
+  });
+
+  it('cigar: no region field (placed by its leaf origin)', () => {
+    const { dialog } = draw({ defaultCategory: 'cigar' });
+    expect(within(dialog).queryByLabelText('Région')).toBeNull();
   });
 });

@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ThemeModeProvider } from '@/hooks/useThemeMode';
 import { WorldHeatmap } from '../WorldHeatmap';
-import type { RegionCategoryStat } from '@/lib/analytics/types';
+import type { NoLocationStat, RegionCategoryStat } from '@/lib/analytics/types';
 
 // Real HeroUI Button/Select pull in react-aria internals jsdom doesn't
 // implement (see ThemeToggle.test.tsx) — passthroughs keep the test on this
@@ -56,28 +56,90 @@ const stats: RegionCategoryStat[] = [
   { region: 'Not A Real Place', category: 'wine', count: 1, valuation: 10 },
 ];
 
-function mount(regionCategoryBreakdown: RegionCategoryStat[], onRegionClick?: (region: string) => void) {
+function mount(
+  regionCategoryBreakdown: RegionCategoryStat[],
+  onRegionClick?: (region: string) => void,
+  noLocation: NoLocationStat[] = [],
+  onlyCategory: string | null = null,
+) {
   return render(
     <ThemeModeProvider>
-      <WorldHeatmap regionCategoryBreakdown={regionCategoryBreakdown} onRegionClick={onRegionClick} t={t} />
+      <WorldHeatmap
+        regionCategoryBreakdown={regionCategoryBreakdown}
+        noLocationBreakdown={noLocation}
+        onlyCategory={onlyCategory}
+        onRegionClick={onRegionClick}
+        t={t}
+      />
     </ThemeModeProvider>,
   );
 }
 
+const notOnMapLine = () => screen.queryByTestId('map-not-located');
+
 describe('WorldHeatmap', () => {
-  it('renders the mode toggle and reports the one region it could not place', async () => {
+  it('renders the mode toggle', async () => {
     mount(stats);
+    await act(async () => {});
     expect(screen.getByText('analytics.map.mode.markers')).toBeInTheDocument();
     expect(screen.getByText('analytics.map.mode.heatmap')).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByText(/analytics\.regionMap\.unmapped/)).toHaveTextContent('"count":1'),
-    );
   });
 
-  it('shows no unmapped notice when every region resolves', async () => {
+  // #961: the line counts bottles (quantity-weighted), names the unknown
+  // regions, includes the bottles with no region, and links to them.
+  it('counts the bottles that are not on the map, names the unknown regions and links to them', async () => {
+    mount(
+      [
+        ...stats,
+        { region: 'Not A Real Place', category: 'spirit', count: 2, valuation: 10 },
+        { region: 'Terroir Imaginaire', category: 'wine', count: 1, valuation: 10 },
+      ],
+      undefined,
+      [{ category: 'wine', count: 3 }],
+    );
+    await waitFor(() => expect(notOnMapLine()).not.toBeNull());
+    const line = notOnMapLine()!;
+    // 1 + 2 + 1 bottles in unknown regions, 3 without a region.
+    expect(line).toHaveTextContent(/analytics\.regionMap\.notOnMap \{"count":7/);
+    expect(line).toHaveTextContent(/"regions":"Not A Real Place, Terroir Imaginaire"/);
+    expect(line).toHaveTextContent(/analytics\.regionMap\.noRegion \{"count":3\}/);
+    expect(screen.getByRole('link', { name: 'analytics.regionMap.seeBottles' })).toHaveAttribute('href', '/bottles?filter=notLocated');
+    expect(screen.queryByRole('link', { name: 'analytics.regionMap.seeCigars' })).not.toBeInTheDocument();
+  });
+
+  // Review of #963: with the map narrowed to one category, the list matches the count.
+  it('narrows the list to the one category the map shows', async () => {
+    mount([{ region: 'Bordeaux', category: 'sparkling', count: 1, valuation: 10 }], undefined, [{ category: 'sparkling', count: 2 }], 'sparkling');
+    await waitFor(() => expect(notOnMapLine()).not.toBeNull());
+    expect(screen.getByRole('link', { name: 'analytics.regionMap.seeBottles' }))
+      .toHaveAttribute('href', '/bottles?filter=notLocated&category=sparkling');
+  });
+
+  it('links to the cigars page for the cigars that cannot be placed', async () => {
+    mount([{ region: 'Bordeaux', category: 'wine', count: 5, valuation: 200 }], undefined, [{ category: 'cigar', count: 2 }]);
+    await waitFor(() => expect(notOnMapLine()).not.toBeNull());
+    expect(notOnMapLine()).toHaveTextContent(/analytics\.regionMap\.notOnMap \{"count":2,"what":"analytics\.regionMap\.cigars /);
+    expect(screen.getByRole('link', { name: 'analytics.regionMap.seeCigars' })).toHaveAttribute('href', '/cigars?filter=notLocated');
+    expect(screen.queryByRole('link', { name: 'analytics.regionMap.seeBottles' })).not.toBeInTheDocument();
+  });
+
+  it('shows no line when every bottle is on the map', async () => {
     mount([{ region: 'Bordeaux', category: 'wine', count: 5, valuation: 200 }]);
     await act(async () => {});
-    expect(screen.queryByText(/analytics\.regionMap\.unmapped/)).not.toBeInTheDocument();
+    expect(notOnMapLine()).toBeNull();
+  });
+
+  it('places a French administrative region as one point counting its whole lot', async () => {
+    const { container } = mount([{ region: 'Auvergne-Rhône-Alpes', category: 'wine', count: 6, valuation: 60 }]);
+    await waitFor(() => expect(container.querySelectorAll('circle')).toHaveLength(1));
+    expect(notOnMapLine()).toBeNull();
+    expect(screen.queryByText(/analytics\.regionMap\.empty/)).not.toBeInTheDocument();
+  });
+
+  it('explains how bottles are placed when nothing can be placed', async () => {
+    mount([{ region: 'Terroir Imaginaire', category: 'wine', count: 1, valuation: 10 }], undefined, [{ category: 'wine', count: 2 }]);
+    await waitFor(() => expect(screen.getByText('analytics.regionMap.empty')).toBeInTheDocument());
+    expect(notOnMapLine()).toHaveTextContent(/"count":3/);
   });
 
   it('switches to heatmap mode and shows the category legend', async () => {
@@ -87,9 +149,10 @@ describe('WorldHeatmap', () => {
     expect(screen.getByLabelText('analytics.map.heatmapType.label')).toBeInTheDocument();
   });
 
-  it('renders with an empty breakdown without crashing', async () => {
+  it('renders with an empty breakdown, explaining how bottles are placed', async () => {
     mount([]);
     await act(async () => {});
     expect(screen.getByText('analytics.map.mode.markers')).toBeInTheDocument();
+    expect(screen.getByText('analytics.regionMap.empty')).toBeInTheDocument();
   });
 });

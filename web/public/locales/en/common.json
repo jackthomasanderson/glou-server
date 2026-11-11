@@ -227,6 +227,8 @@
       "noVintage": "Leave empty if non-vintage",
       "color": "Color",
       "region": "Region",
+      "regionHelp": "Used to place the bottle on the Analytics map.",
+      "regionUnknown": "Not recognised: this bottle won't appear on the Analytics map. Pick a suggested region to place it.",
       "grapeVarieties": "Grape varieties",
       "alcoholDegree": "Alcohol degree (%)",
       "alcoholDegreeOptional": "Leave empty if you do not know it",
@@ -259,6 +261,7 @@
       "recommendedHumidity": "Recommended humidity (%)",
       "humidificationSystem": "Humidification system",
       "appellation": "Appellation",
+      "appellationHelp": "Used to place the bottle on the Analytics map when the region is empty.",
       "classification": "Classification",
       "classificationPlaceholder": "E.g. Grand Cru, 1er Cru...",
       "batchDate": "Cask filling / batch bottling date",
@@ -351,6 +354,7 @@
       "opened": "Opened only",
       "openedCigar": "Opened only",
       "alerts": "Reminders to consume",
+      "notLocated": "Not on the map",
       "sortBy": "Sort by",
       "sortOptions": {
         "default": "Default",
@@ -805,7 +809,9 @@
   },
   "autocomplete": {
     "internal": "My inventory",
-    "external": "Internet"
+    "external": "Internet",
+    "notOnMap": "Not on the map",
+    "regionSuggestions": "Suggested regions"
   },
   "profile": {
     "version": {
@@ -1657,8 +1663,22 @@
       "subtitle": "Your collection's spread by terroir",
       "mapTitle": "World Map — Taste Heatmap",
       "mapSubtitle": "Hover over a geographic hotspot to see its valuation and composition.",
-      "unmapped_one": "{{count}} region not geolocated",
-      "unmapped_other": "{{count}} regions not geolocated",
+      "notOnMap_one": "{{what}} is not on the map.",
+      "notOnMap_other": "{{what}} are not on the map.",
+      "bottles_one": "{{count}} bottle",
+      "bottles_other": "{{count}} bottles",
+      "cigars_one": "{{count}} cigar",
+      "cigars_other": "{{count}} cigars",
+      "bottlesAndCigars": "{{bottles}} and {{cigars}}",
+      "unknownRegions_one": "Region the map does not know: {{regions}}.",
+      "unknownRegions_other": "Regions the map does not know: {{regions}}.",
+      "moreRegions_one": "and {{count}} more",
+      "moreRegions_other": "and {{count}} more",
+      "noRegion_one": "{{count}} without a region.",
+      "noRegion_other": "{{count}} without a region.",
+      "seeBottles": "See these bottles",
+      "seeCigars": "See these cigars",
+      "empty": "Nothing to place on the map yet: a bottle appears by its region, or by its appellation when the region is empty.",
       "items_one": "item in stock",
       "items_other": "items in stock",
       "valuation": "Valuation:"

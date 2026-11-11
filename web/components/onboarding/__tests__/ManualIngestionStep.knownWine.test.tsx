@@ -46,6 +46,12 @@ vi.mock('@/components/inventory/ProductAutocomplete', () => ({
     <input aria-label="Nom" value={value} onChange={(e) => onChange(e.target.value)} />
   ),
 }));
+// #961: the Region field reads the cellar's regions (react-query); a plain input here.
+vi.mock('@/components/inventory/RegionAutocomplete', () => ({
+  RegionAutocomplete: ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => (
+    <input aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} />
+  ),
+}));
 vi.mock('@/components/inventory/ProducerAutocomplete', () => ({
   ProducerAutocomplete: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <input aria-label="Producteur" value={value} onChange={(e) => onChange(e.target.value)} />
