@@ -18,15 +18,10 @@ import { SharesDashboard } from '@/components/shares/SharesDashboard';
 import { NotificationPreferences } from '@/components/profile/NotificationPreferences';
 import { AppVersion } from '@/components/profile/AppVersion';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { ACCENT_PRESETS, DEFAULT_ACCENT, resolveAccentPreset } from '@/lib/theme-colors';
 
-const ACCENT_COLORS = [
-  { name: 'indigo', val: '#6366f1' },
-  { name: 'rose', val: '#f43f5e' },
-  { name: 'amber', val: '#f59e0b' },
-  { name: 'emerald', val: '#10b981' },
-  { name: 'cyan', val: '#06b6d4' },
-  { name: 'violet', val: '#8b5cf6' },
-];
+// #648: the presets and their contrast checks live in lib/theme-colors.ts.
+const ACCENT_COLORS = ACCENT_PRESETS.map((p) => ({ name: p.name, val: p.light.DEFAULT }));
 
 export function ProfileClient() {
   const { t } = useTranslation();
@@ -41,7 +36,7 @@ export function ProfileClient() {
     language: 'FR' as 'FR' | 'EN',
     tempUnit: 'CELSIUS' as 'CELSIUS' | 'FAHRENHEIT',
     dateFormat: 'SYSTEM' as 'SYSTEM' | 'H24' | 'H12',
-    accentColor: '#6366f1',
+    accentColor: DEFAULT_ACCENT,
     expertMode: false,
   });
   // Seeding form state once the user loads is adjusted during render
@@ -58,7 +53,8 @@ export function ProfileClient() {
         language: user.language || 'FR',
         tempUnit: user.tempUnit || 'CELSIUS',
         dateFormat: user.dateFormat || 'SYSTEM',
-        accentColor: user.accentColor || '#6366f1',
+        // A colour stored before #648 shows as its new preset.
+        accentColor: resolveAccentPreset(user.accentColor).light.DEFAULT,
         expertMode: user.expertMode ?? false,
       });
     }
@@ -133,7 +129,7 @@ export function ProfileClient() {
                 <h2 className="text-base font-semibold">{t('profile.personalInfo')}</h2>
               </div>
               {user && (
-                <span className={`text-xs font-bold px-2 py-1 rounded-lg ${user.isAdmin ? 'bg-primary text-white' : 'bg-default-100 text-foreground-500 border border-divider'}`}>
+                <span className={`text-xs font-bold px-2 py-1 rounded-lg ${user.isAdmin ? 'bg-primary text-primary-foreground' : 'bg-default-100 text-foreground-500 border border-divider'}`}>
                   {user.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}
                 </span>
               )}

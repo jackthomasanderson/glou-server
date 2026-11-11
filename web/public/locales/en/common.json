@@ -292,6 +292,11 @@
       "peak": "At peak",
       "past": "Past peak"
     },
+    "alertStatusShort": {
+      "approaching": "Nearly ready",
+      "peak": "Drink now",
+      "past": "Past peak"
+    },
     "sealedStatus": {
       "sealed": "Sealed",
       "opened": "Opened"

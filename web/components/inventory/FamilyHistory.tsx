@@ -233,7 +233,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
               {/* Who and when on a line, what below: the author is no longer cut
                   to 80 px beside the sentence (recette #471). */}
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-md bg-primary text-white text-xs font-bold min-w-0 truncate" title={entry.actorName}>
+                <span className="px-2 py-0.5 rounded-md bg-primary text-primary-foreground text-xs font-bold min-w-0 truncate" title={entry.actorName}>
                   {entry.actorName}
                 </span>
                 <span className="ml-auto shrink-0 text-xs text-foreground-400">

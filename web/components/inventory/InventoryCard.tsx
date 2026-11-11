@@ -4,7 +4,7 @@ import {
   Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button, Checkbox,
 } from '@heroui/react';
 import {
-  Wine, Sparkles, GlassWater, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock,
+  Wine, Sparkles, GlassWater, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock, CheckCircle, BellOff,
 } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
@@ -16,6 +16,13 @@ const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
   sparkling: <Sparkles size={12} />,
   spirit: <GlassWater size={12} />,
   cigar: <Leaf size={12} />,
+};
+
+// The icons of DrinkingWindowBadge (list view), one per status (#647).
+const DRINKING_WINDOW_ICONS: Record<'approaching' | 'peak' | 'past', { icon: typeof Clock; color: string }> = {
+  approaching: { icon: Clock, color: 'text-primary' },
+  peak: { icon: CheckCircle, color: 'text-success' },
+  past: { icon: AlertTriangle, color: 'text-danger' },
 };
 
 // Placeholder gradient (no photo yet) — derived from the shared
@@ -68,14 +75,18 @@ export function InventoryCard({
       ? `≤ ${item.peakMaturityTo}`
       : null;
 
-  const alertIconColor =
-    item.alertStatus === 'peak'
-      ? 'text-success'
-      : item.alertStatus === 'past'
-      ? 'text-danger'
-      : item.alertStatus === 'approaching'
-      ? 'text-primary'
-      : 'text-foreground-400';
+  // #647: an icon and a short label per status (the icons of the list view's
+  // DrinkingWindowBadge), so colour is never the only cue. A paused alert: a greyed bell.
+  const windowStatus = item.alertStatus && item.alertStatus !== 'none' && !item.alertsPaused ? item.alertStatus : null;
+  const WindowIcon = windowStatus ? DRINKING_WINDOW_ICONS[windowStatus].icon : item.alertsPaused ? BellOff : Clock;
+  const windowIconColor = windowStatus ? DRINKING_WINDOW_ICONS[windowStatus].color : 'text-foreground-400';
+  const windowLabel = windowStatus ? t(`inventory.alertStatusShort.${windowStatus}`) : t('view.columns.peak');
+  const windowDescription = [
+    // WCAG 2.5.3: the visible words first, so voice control finds the button.
+    `${windowLabel} : ${drinkingWindow}`,
+    t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`),
+    item.alertsPaused ? t('alerts.paused') : null,
+  ].filter(Boolean).join(' — ');
 
   return (
     // #517: the card is no longer one big button containing other buttons
@@ -111,7 +122,8 @@ export function InventoryCard({
         <Chip
           startContent={CATEGORY_ICONS[item.category]}
           size="sm"
-          variant="bordered"
+          // flat (ux-ui.md §4.6): its text shade is checked by theme-contrast.test.ts (#648).
+          variant="flat"
           color={CATEGORY_CHIP_COLOR[item.category]}
           radius="sm"
           classNames={{ base: 'h-5 shrink-0', content: 'px-1.5 text-xs font-bold tracking-wider' }}
@@ -173,8 +185,8 @@ export function InventoryCard({
           <span
             aria-hidden="true"
             data-testid="family-card-badge"
-            className={`absolute top-2 right-2 max-w-[calc(100%-1rem)] whitespace-nowrap rounded-lg px-1.5 py-0.5 text-xs font-bold leading-tight tracking-wide tabular-nums text-white${
-              stock.badgeLow ? ' bg-danger' : ' bg-[#111]'
+            className={`absolute top-2 right-2 max-w-[calc(100%-1rem)] whitespace-nowrap rounded-lg px-1.5 py-0.5 text-xs font-bold leading-tight tracking-wide tabular-nums${
+              stock.badgeLow ? ' bg-danger text-danger-foreground' : ' bg-[#111] text-white'
             }`}
           >
             {stock.badge}
@@ -300,18 +312,15 @@ export function InventoryCard({
             </span>
           )}
           {drinkingWindow && (
-            <Tooltip
-              content={t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}
-              delay={500}
-            >
+            <Tooltip content={windowDescription} delay={500}>
               <button
                 type="button"
-                aria-label={`${t('view.columns.peak')} : ${drinkingWindow} — ${t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}`}
+                aria-label={windowDescription}
                 className="relative z-10 flex items-center gap-0.5 overflow-hidden min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
               >
-                <AlertTriangle size={12} className={`shrink-0 ${alertIconColor}`} />
-                <span className="text-xs text-foreground-500 truncate" aria-hidden="true">
-                  {t('view.columns.peak')} : {drinkingWindow}
+                <WindowIcon size={12} aria-hidden="true" className={`shrink-0 ${windowIconColor}${item.alertsPaused ? ' opacity-60' : ''}`} />
+                <span className={`text-xs truncate ${windowStatus ? 'font-semibold text-foreground' : 'text-foreground-500'}`} aria-hidden="true">
+                  {windowLabel} : {drinkingWindow}
                 </span>
               </button>
             </Tooltip>
