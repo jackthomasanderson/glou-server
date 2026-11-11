@@ -148,7 +148,7 @@ export function FamilyHistory({ productId, productUpdatedAt, history, itemIds, c
       }
       if (change.field === 'slot') return formatSlotChange(change.from, change.to, t);
       if (change.field === 'fillLevel' && typeof change.to === 'number') {
-        const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : `${change.to}%`;
+        const level = change.to >= 100 ? t('inventory.detail.full') : change.to === 0 ? t('inventory.detail.empty') : t('percent', { value: change.to });
         return `${t('inventory.detail.levelAdjusted')} ${level}`;
       }
       return t('traceability.changeLine', {

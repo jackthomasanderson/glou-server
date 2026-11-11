@@ -332,7 +332,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                     <span className="flex items-center gap-1.5">
                       <CurveGlyph shape={curveShape} width={32} className="text-primary shrink-0" />
                       {t(curveShapeLabelKey(curveShape))}
-                      {p.readiness != null && <span className="text-primary">· {p.readiness}%</span>}
+                      {p.readiness != null && <span className="text-primary">· {t('percent', { value: p.readiness })}</span>}
                     </span>
                     <span className="text-xs font-normal text-foreground-500">
                       {t(curveShapeDescriptionKey(curveShape))} — {curveSource}

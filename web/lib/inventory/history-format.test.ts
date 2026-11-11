@@ -12,6 +12,7 @@ const t = (key: string, options?: Record<string, unknown>) =>
     'history.fields.location': 'Repère libre',
     'inventory.fields.location': 'Repère libre (étagère, carton…)',
     'history.slotNone': 'aucune',
+    percent: `${options?.value} %`,
   } as Record<string, string>)[key]
     ?? (key === 'cellars.grid.cellShort' ? `C${options?.col}·R${options?.row}` : undefined)
     ?? (key === 'history.slotMoved' ? `Case ${options?.from} → ${options?.to}` : undefined)
@@ -36,7 +37,7 @@ describe('item history formatting (#508)', () => {
     expect(formatHistoryValue('isOpened', true, t)).toBe('Yes');
     expect(formatHistoryValue('notes', null, t)).toBe('None');
     expect(formatHistoryValue('category', 'spirit', t)).toBe('Spirit');
-    expect(formatHistoryValue('fillLevel', 50, t)).toBe('50%');
+    expect(formatHistoryValue('fillLevel', 50, t)).toBe('50 %');
     expect(formatHistoryValue('slotColumn', 3, t)).toBe('3');
   });
 

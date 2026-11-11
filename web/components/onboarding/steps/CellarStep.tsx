@@ -4,7 +4,7 @@ import { Button, Input, SelectItem } from '@heroui/react';
 import { Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCreateCellar } from '@/hooks/useCellars';
-import { Cellar, CellarType } from '@/lib/cellars/types';
+import { Cellar, CellarType, CELLAR_TYPES } from '@/lib/cellars/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 
 interface CellarStepProps {
@@ -80,9 +80,9 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
           labelPlacement="outside"
           isDisabled={createCellar.isPending}
         >
-          <SelectItem key="VINTAGE">{t('cellars.types.VINTAGE')}</SelectItem>
-          <SelectItem key="COOLER">{t('cellars.types.COOLER')}</SelectItem>
-          <SelectItem key="SHELF">{t('cellars.types.SHELF')}</SelectItem>
+          {CELLAR_TYPES.map((key) => (
+            <SelectItem key={key}>{t(`cellars.types.${key}`)}</SelectItem>
+          ))}
         </SingleSelect>
       </div>
 

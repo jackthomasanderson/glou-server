@@ -6,6 +6,7 @@ import {
 import {
   Wine, Sparkles, GlassWater, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock, CheckCircle, BellOff,
 } from 'lucide-react';
+import { TapTooltip } from '@/components/ui/TapTooltip';
 import { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { keepNumbersWhole, wineName, type StockLine } from '@/lib/products/stock';
@@ -147,11 +148,14 @@ export function InventoryCard({
             </Chip>
           )}
           {hasPendingSync && (
-            <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
-              <span className="relative z-10 shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-warning-100 text-warning-700">
-                <Clock size={11} aria-label={t('offline.pendingSyncTooltip')} />
-              </span>
-            </Tooltip>
+            // #656: a button whose tooltip opens on keyboard focus and on tap.
+            <TapTooltip
+              content={t('offline.pendingSyncTooltip')}
+              aria-label={t('offline.pendingSyncTooltip')}
+              className="relative z-10 shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-warning-100 text-warning-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              <Clock size={11} aria-hidden="true" />
+            </TapTooltip>
           )}
         </div>
       </div>
@@ -312,18 +316,16 @@ export function InventoryCard({
             </span>
           )}
           {drinkingWindow && (
-            <Tooltip content={windowDescription} delay={500}>
-              <button
-                type="button"
-                aria-label={windowDescription}
-                className="relative z-10 flex items-center gap-0.5 overflow-hidden min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
-              >
-                <WindowIcon size={12} aria-hidden="true" className={`shrink-0 ${windowIconColor}${item.alertsPaused ? ' opacity-60' : ''}`} />
-                <span className={`text-xs truncate ${windowStatus ? 'font-semibold text-foreground' : 'text-foreground-500'}`} aria-hidden="true">
-                  {windowLabel} : {drinkingWindow}
-                </span>
-              </button>
-            </Tooltip>
+            <TapTooltip
+              content={windowDescription}
+              aria-label={windowDescription}
+              className="relative z-10 flex items-center gap-0.5 overflow-hidden min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+            >
+              <WindowIcon size={12} aria-hidden="true" className={`shrink-0 ${windowIconColor}${item.alertsPaused ? ' opacity-60' : ''}`} />
+              <span className={`text-xs truncate ${windowStatus ? 'font-semibold text-foreground' : 'text-foreground-500'}`} aria-hidden="true">
+                {windowLabel} : {drinkingWindow}
+              </span>
+            </TapTooltip>
           )}
         </div>
       </CardBody>

@@ -134,7 +134,7 @@ export function ValuationBreakdown({
                 </p>
                 {roiPercent !== null && (
                   <span className={`text-xs font-bold ${roiColorClass}`}>
-                    ({isPositive ? '+' : ''}{roiPercent}%)
+                    ({t('percent', { value: `${isPositive ? '+' : ''}${roiPercent}` })})
                   </span>
                 )}
               </div>
