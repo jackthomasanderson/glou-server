@@ -30,7 +30,7 @@ async function expectRefused(res: APIResponse, error: string, label: string) {
 
 test('a stolen admin session cannot redirect mail, links or alerts, nor download a backup (#890, #613)', async ({ page }) => {
   const admin = page.request;
-  const me = await okData<{ id: string; isAdmin: boolean; isTwoFactorEnabled: boolean }>(await admin.get('/api/auth/me'));
+  const me = await okData<{ id: string; isAdmin: boolean; isTwoFactorEnabled: boolean }>(await admin.get('/api/user/me'));
   test.skip(!me.isAdmin || me.isTwoFactorEnabled, 'needs the suite user to be the instance admin, without 2FA (fresh database)');
 
   type Config = {

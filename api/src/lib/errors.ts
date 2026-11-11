@@ -33,8 +33,6 @@ export class AppError extends Error {
 
 export const badRequest = (code = 'BAD_REQUEST', details?: unknown): AppError =>
   new AppError(400, code, { details });
-export const unauthorized = (code = 'UNAUTHORIZED'): AppError => new AppError(401, code);
-export const forbidden = (code = 'FORBIDDEN'): AppError => new AppError(403, code);
 export const notFound = (code = 'NOT_FOUND'): AppError => new AppError(404, code);
 export const conflict = (code = 'CONFLICT'): AppError => new AppError(409, code);
 

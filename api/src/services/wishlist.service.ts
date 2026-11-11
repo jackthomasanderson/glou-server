@@ -13,7 +13,7 @@ import { InventoryDraft } from '../schemas/inventory.schema';
  * FEAT-20: Liste de Souhaits & Pilotage Budgétaire.
  *
  * IMPORTANT — this service is deliberately scoped by `userId` throughout
- * (list/get/update/delete/recordPriceSeen/convertToInventory all filter on
+ * (list/update/delete/recordPriceSeen/convertToInventory all filter on
  * the calling user). This does NOT violate the design.md "userId = audit
  * only, never an access filter" invariant: that invariant governs INVENTORY
  * entities (bottles, cellars — shared across the whole instance). A
@@ -31,10 +31,6 @@ export async function listWishlist(userId: string) {
     where: { userId },
     orderBy: { createdAt: 'desc' },
   });
-}
-
-export async function getWishlistItem(userId: string, id: string) {
-  return prisma.wishlistItem.findFirst({ where: { id, userId } });
 }
 
 export async function createWishlistItem(userId: string, input: WishlistCreateInput) {

@@ -18,10 +18,6 @@ export async function listBudgetEnvelopes() {
   });
 }
 
-export async function getBudgetEnvelope(id: string) {
-  return prisma.budgetEnvelope.findFirst({ where: { id } });
-}
-
 export async function createBudgetEnvelope(userId: string, input: BudgetEnvelopeCreateInput) {
   return prisma.budgetEnvelope.create({
     data: {
