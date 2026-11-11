@@ -41,6 +41,7 @@ const OPENED = { ...BOTTLE, id: 'o', isOpened: true, fillLevel: 40, openedAt: T 
 
 let requests: { url: string; method: string; body: Record<string, unknown> }[];
 let metaStatus: number;
+let inventoryStatus: number;
 let inventory: unknown[];
 /** When set, what opening the full bottle `g` answers (and leaves in the inventory). */
 let openG: (() => unknown) | null;
@@ -50,7 +51,10 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
   requests.push({ url, method, body });
   const reply = (status: number, payload: unknown) => new Response(JSON.stringify(payload), { status, headers: { 'Content-Type': 'application/json' } });
   if (url === '/api/guest/tok') return metaStatus === 200 ? reply(200, { data: META }) : reply(metaStatus, { error: 'SHARE_EXPIRED_OR_REVOKED' });
-  if (url === '/api/guest/tok/inventory') return reply(200, { data: inventory });
+  if (url === '/api/guest/tok/inventory') {
+    if (inventoryStatus === 200) return reply(200, { data: inventory });
+    return reply(inventoryStatus, { error: inventoryStatus === 403 ? 'SHARE_EXPIRED_OR_REVOKED' : 'INTERNAL_ERROR' });
+  }
   if (url.endsWith('/inventory/g') && openG) return reply(200, { data: openG() });
   if (url.endsWith('/inventory/g')) {
     inventory = []; // the last bottle drunk: its wine leaves the showcase
@@ -67,6 +71,7 @@ const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
 beforeEach(() => {
   requests = [];
   metaStatus = 200;
+  inventoryStatus = 200;
   inventory = [BOTTLE];
   openG = null;
   vi.stubGlobal('fetch', fetchMock);
@@ -192,5 +197,44 @@ describe('GuestPageContent', () => {
     fireEvent.click(drink);
 
     expect(await screen.findByText('Ce lien de partage a expiré ou a été révoqué.')).toBeInTheDocument();
+  });
+});
+
+// #650: the bottle list failing left a blank page, and a search finding
+// nothing said the share was empty.
+describe('GuestPageContent — bottle list states (#650)', () => {
+  it('a failed bottle list shows an error with a Retry button that works', async () => {
+    inventoryStatus = 500;
+    draw();
+    expect(await screen.findByText('Impossible de charger ce partage. Vérifiez votre connexion et réessayez.')).toBeInTheDocument();
+    expect(screen.queryByText('Aucun article dans ce partage.')).toBeNull();
+
+    inventoryStatus = 200;
+    fireEvent.click(screen.getByRole('button', { name: 'Réessayer' }));
+    expect(await screen.findByTestId('guest-family')).toHaveTextContent('Talbot');
+    expect(screen.queryByText('Impossible de charger ce partage. Vérifiez votre connexion et réessayez.')).toBeNull();
+  });
+
+  it('a bottle list refused because the link died shows the "expired" screen, not a Retry', async () => {
+    inventoryStatus = 403;
+    draw();
+    expect(await screen.findByText('Ce lien de partage a expiré ou a été révoqué.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Réessayer' })).toBeNull();
+  });
+
+  it('a search with no match says so; "no items" is kept for a share that really is empty', async () => {
+    inventory = [BOTTLE, { ...BOTTLE, id: 'm', productId: 'p2', name: 'Margaux', producer: 'Château Margaux' }];
+    draw();
+    await waitFor(() => expect(screen.getAllByTestId('guest-family')).toHaveLength(2));
+    fireEvent.change(screen.getByLabelText('Rechercher dans ce partage'), { target: { value: 'Yquem' } });
+
+    expect(await screen.findByText('Aucun résultat pour « Yquem »')).toBeInTheDocument();
+    expect(screen.queryByText('Aucun article dans ce partage.')).toBeNull();
+  });
+
+  it('an empty share says it has no items', async () => {
+    inventory = [];
+    draw();
+    expect(await screen.findByText('Aucun article dans ce partage.')).toBeInTheDocument();
   });
 });

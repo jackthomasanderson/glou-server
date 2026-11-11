@@ -1,30 +1,37 @@
 import type { WineColor } from '@shared/inventory';
 import { InventoryCategory } from '@/lib/inventory/types';
 
+/**
+ * A food pairing, by its key under `tastings.pairings` (#653): display labels,
+ * translated, never stored. Read from the English file (type only, nothing is
+ * bundled), so a key missing there fails the type check.
+ */
+export type PairingKey = keyof (typeof import('../../public/locales/en/common.json'))['tastings']['pairings'];
+
 export interface ServiceReco {
   tempMin: number;
   tempMax: number;
   aerationMin: number;
   aerationMax: number;
-  foodPairings: string[];
+  foodPairings: PairingKey[];
 }
 
 // Keyed on the colour values stored on a bottle (shared WINE_COLORS), so a
 // missing colour is a type error rather than a silent mismatch (#703).
 const WINE_RECOS: Record<WineColor, ServiceReco> = {
-  red: { tempMin: 16, tempMax: 18, aerationMin: 30, aerationMax: 60, foodPairings: ['Viande rouge grillée', 'Fromage affiné', 'Agneau', 'Champignons'] },
-  white: { tempMin: 10, tempMax: 12, aerationMin: 0, aerationMax: 15, foodPairings: ['Poisson', 'Fruits de mer', 'Chèvre frais', 'Volaille'] },
-  rosé: { tempMin: 10, tempMax: 12, aerationMin: 0, aerationMax: 0, foodPairings: ['Salade niçoise', 'Pizza', 'Barbecue léger', 'Charcuterie'] },
-  orange: { tempMin: 12, tempMax: 14, aerationMin: 15, aerationMax: 30, foodPairings: ['Curry', 'Cuisine orientale', 'Fromage à pâte pressée'] },
+  red: { tempMin: 16, tempMax: 18, aerationMin: 30, aerationMax: 60, foodPairings: ['grilledRedMeat', 'agedCheese', 'lamb', 'mushrooms'] },
+  white: { tempMin: 10, tempMax: 12, aerationMin: 0, aerationMax: 15, foodPairings: ['fish', 'seafood', 'freshGoatCheese', 'poultry'] },
+  rosé: { tempMin: 10, tempMax: 12, aerationMin: 0, aerationMax: 0, foodPairings: ['nicoiseSalad', 'pizza', 'lightBarbecue', 'charcuterie'] },
+  orange: { tempMin: 12, tempMax: 14, aerationMin: 15, aerationMax: 30, foodPairings: ['curry', 'easternCuisine', 'semiHardCheese'] },
 };
 
 const SPIRIT_RECOS: Record<string, ServiceReco> = {
-  whisky: { tempMin: 18, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['Chocolat noir', 'Fromage fumé', 'Charcuterie', 'Cigare'] },
-  rhum: { tempMin: 18, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['Chocolat au lait', 'Fruits exotiques', 'Cigare léger'] },
-  cognac: { tempMin: 18, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['Chocolat noir', 'Foie gras', 'Fromage Roquefort', 'Cigare'] },
-  gin: { tempMin: 4, tempMax: 8, aerationMin: 0, aerationMax: 0, foodPairings: ['Concombre', 'Fruits de mer', 'Tapas'] },
-  vodka: { tempMin: 2, tempMax: 6, aerationMin: 0, aerationMax: 0, foodPairings: ['Caviar', 'Hareng fumé', 'Blinis'] },
-  default: { tempMin: 18, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['Chocolat noir', 'Fromage sec', 'Fruits secs'] },
+  whisky: { tempMin: 18, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['darkChocolate', 'smokedCheese', 'charcuterie', 'cigar'] },
+  rhum: { tempMin: 18, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['milkChocolate', 'tropicalFruit', 'mildCigar'] },
+  cognac: { tempMin: 18, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['darkChocolate', 'foieGras', 'roquefort', 'cigar'] },
+  gin: { tempMin: 4, tempMax: 8, aerationMin: 0, aerationMax: 0, foodPairings: ['cucumber', 'seafood', 'tapas'] },
+  vodka: { tempMin: 2, tempMax: 6, aerationMin: 0, aerationMax: 0, foodPairings: ['caviar', 'smokedHerring', 'blinis'] },
+  default: { tempMin: 18, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['darkChocolate', 'hardCheese', 'driedFruitAndNuts'] },
 };
 
 // Exported so pairingEngine.ts can build a dish→bottle inverse index from this
@@ -32,11 +39,11 @@ const SPIRIT_RECOS: Record<string, ServiceReco> = {
 export const RECOS: Record<InventoryCategory, Record<string, ServiceReco>> = {
   wine: WINE_RECOS,
   sparkling: {
-    default: { tempMin: 6, tempMax: 9, aerationMin: 0, aerationMax: 0, foodPairings: ['Fruits de mer', 'Saumon fumé', 'Canapés', 'Fromage de chèvre'] },
+    default: { tempMin: 6, tempMax: 9, aerationMin: 0, aerationMax: 0, foodPairings: ['seafood', 'smokedSalmon', 'canapes', 'goatCheese'] },
   },
   spirit: SPIRIT_RECOS,
   cigar: {
-    default: { tempMin: 20, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['Café expresso', 'Cognac', 'Rhum vieux', 'Chocolat noir'] },
+    default: { tempMin: 20, tempMax: 22, aerationMin: 0, aerationMax: 0, foodPairings: ['espresso', 'cognac', 'agedRum', 'darkChocolate'] },
   },
 };
 

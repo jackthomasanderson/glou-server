@@ -14,14 +14,15 @@ import { useTranslation } from 'react-i18next';
 import { ShareFormValues } from '@/lib/shares/types';
 import { useCellars } from '@/hooks/useCellars';
 import { useCollections } from '@/hooks/useCollections';
-import { todayLocalIso } from '@/lib/format';
+import { endOfLocalDay, todayLocalIso } from '@/lib/format';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 
 type DurationKey = '1d' | '7d' | '30d' | 'custom' | 'unlimited';
 
-function computeExpiresAt(duration: DurationKey, customDate: string): string | null {
+export function computeExpiresAt(duration: DurationKey, customDate: string): string | null {
   if (duration === 'unlimited') return null;
-  if (duration === 'custom') return customDate ? new Date(customDate).toISOString() : null;
+  // #598: the chosen day is a local day, valid until its very end (today included).
+  if (duration === 'custom') return customDate ? endOfLocalDay(customDate).toISOString() : null;
   const days = duration === '1d' ? 1 : duration === '7d' ? 7 : 30;
   const d = new Date();
   d.setDate(d.getDate() + days);

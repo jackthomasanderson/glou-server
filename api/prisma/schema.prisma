@@ -530,8 +530,8 @@ model GuestShare {
   inviteeName   String? // Display name of the invited person (FEAT-37), distinct from `label`
   expiresAt     DateTime?
   revokedAt     DateTime?
-  hidePrices    Boolean   @default(false)
-  hideNotes     Boolean   @default(false)
+  hidePrices    Boolean   @default(true) // #611: hidden unless the owner shows them
+  hideNotes     Boolean   @default(true)
   cellarIds     String[]
   // Subset of cellarIds granted read/write access (FEAT-37). Cellars in cellarIds
   // but absent here remain read-only. Never a superset of cellarIds.

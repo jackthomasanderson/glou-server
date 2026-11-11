@@ -82,6 +82,8 @@ export function GuestPageContent({ token }: { token: string }) {
   // network drops, 5xx and rate limits are transient and deserve a retry.
   const linkIsInvalid = metaQuery.error instanceof GuestRequestError
     && [400, 403, 404, 410].includes(metaQuery.error.status);
+  // #650: the bottle list refused because the link died meanwhile → the same "expired" screen.
+  const inventoryLinkGone = inventoryQuery.isError && isLinkGone(inventoryQuery.error);
 
   if (metaQuery.isError && !linkIsInvalid) {
     return (
@@ -97,7 +99,7 @@ export function GuestPageContent({ token }: { token: string }) {
     );
   }
 
-  if (metaQuery.isError) {
+  if (metaQuery.isError || inventoryLinkGone) {
     return (
       <main className="min-h-screen flex items-center justify-center p-8">
         <div role="alert" className="text-center max-w-sm">
@@ -222,10 +224,19 @@ export function GuestPageContent({ token }: { token: string }) {
           </div>
         )}
 
-        {/* Empty */}
+        {/* The bottle list failed (#650): said, with a way to try again, never a blank page */}
+        {inventoryQuery.isError && (
+          <ErrorState
+            message={t('shares.guest.loadError')}
+            onRetry={() => { void inventoryQuery.refetch(); }}
+            isRetrying={inventoryQuery.isFetching}
+          />
+        )}
+
+        {/* Empty: the share itself, or only the search (#650) */}
         {inventoryQuery.isSuccess && items.length === 0 && (
           <div role="status" aria-live="polite" className="text-center py-16 text-foreground-400">
-            <p>{t('shares.guest.empty')}</p>
+            <p>{allItems.length > 0 ? t('shares.guest.noResults', { query: search.trim() }) : t('shares.guest.empty')}</p>
           </div>
         )}
 

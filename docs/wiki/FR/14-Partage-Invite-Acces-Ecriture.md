@@ -17,8 +17,8 @@ Envoyez un lien à un ami pour qu'il consulte des caves sélectionnées, et éve
 2. Cliquez sur **Nouveau partage**, donnez-lui un libellé et (optionnellement) le nom de l'invité.
 3. Sélectionnez le périmètre : cochez chaque **cave** à inclure dans le partage.
 4. Pour chaque cave cochée, activez l'interrupteur **Autoriser à ouvrir, boire ou fumer** si vous voulez que cet invité puisse y ouvrir ou boire une bouteille (ou fumer un cigare) et y noter des dégustations. Laissez-le désactivé pour les caves que vous voulez seulement lui laisser consulter.
-5. Activez si besoin **Masquer les prix** et/ou **Masquer les notes** pour masquer ces informations à l'invité.
-6. Choisissez une expiration : 1 jour, 7 jours, 30 jours, personnalisée, ou illimitée.
+5. Les prix et les notes sont masqués par défaut : les interrupteurs **Masquer les prix et valeurs** et **Masquer les notes personnelles** sont déjà activés. Désactivez un interrupteur pour montrer ces informations à l'invité.
+6. Choisissez une expiration : 1 jour, 7 jours, 30 jours, personnalisée, ou illimitée. Avec une date personnalisée, le lien fonctionne jusqu'à la fin de ce jour-là, aujourd'hui compris.
 7. Cliquez sur **Créer** et copiez le lien généré pour l'envoyer à votre invité.
 
 > [!CAUTION]

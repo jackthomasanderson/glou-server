@@ -1,18 +1,21 @@
 import { describe, it, expect } from 'vitest';
+import { pairingLabels } from './__tests__/pairingLabels';
 import fc from 'fast-check';
 import { matchDishToPairings, pickBestPairingLabel } from './pairingEngine';
+
+const french = pairingLabels('fr');
 
 describe('matchDishToPairings — properties', () => {
   it('returns an empty list for blank / punctuation-only queries', () => {
     for (const q of ['', '   ', '\n\t', '!!!', '- , .']) {
-      expect(matchDishToPairings(q)).toEqual([]);
+      expect(matchDishToPairings(q, french)).toEqual([]);
     }
   });
 
   it('always returns results sorted by descending score, each strictly positive', () => {
     fc.assert(
       fc.property(fc.string({ maxLength: 40 }), (query) => {
-        const matches = matchDishToPairings(query);
+        const matches = matchDishToPairings(query, french);
         for (let i = 1; i < matches.length; i++) {
           expect(matches[i - 1].score).toBeGreaterThanOrEqual(matches[i].score);
         }
@@ -27,19 +30,19 @@ describe('matchDishToPairings — properties', () => {
   it('is deterministic (pure) for a given query', () => {
     fc.assert(
       fc.property(fc.string({ maxLength: 40 }), (query) => {
-        expect(matchDishToPairings(query)).toEqual(matchDishToPairings(query));
+        expect(matchDishToPairings(query, french)).toEqual(matchDishToPairings(query, french));
       }),
     );
   });
 
   it('matches known vocabulary — a beef dish resolves to at least one combo', () => {
-    expect(matchDishToPairings('entrecôte de boeuf grillée').length).toBeGreaterThan(0);
-    expect(matchDishToPairings('grilled beef steak').length).toBeGreaterThan(0);
+    expect(matchDishToPairings('entrecôte de boeuf grillée', french).length).toBeGreaterThan(0);
+    expect(matchDishToPairings('grilled beef steak', french).length).toBeGreaterThan(0);
   });
 
   it('English and French synonyms both land on a fish pairing', () => {
-    const fr = matchDishToPairings('saumon fumé');
-    const en = matchDishToPairings('smoked salmon');
+    const fr = matchDishToPairings('saumon fumé', french);
+    const en = matchDishToPairings('smoked salmon', french);
     expect(fr.length).toBeGreaterThan(0);
     expect(en.length).toBeGreaterThan(0);
   });
