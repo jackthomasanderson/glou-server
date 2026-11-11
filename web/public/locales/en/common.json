@@ -73,6 +73,12 @@
     "spirit": "Spirit",
     "cigar": "Cigar / Box"
   },
+  "categoriesPlural": {
+    "wine": "wines",
+    "sparkling": "sparkling wines",
+    "spirit": "spirits",
+    "cigar": "cigars"
+  },
   "maturity": {
     "readiness": "Readiness",
     "curveSource": {
@@ -1882,6 +1888,7 @@
       "load": "Unable to load shares."
     },
     "guest": {
+      "title": "Shared cellar",
       "badge": "Shared view",
       "readOnly": "Read-only",
       "partialWrite": "Partial read/write",

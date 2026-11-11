@@ -36,7 +36,7 @@
 > [!NOTE]
 > `PUID`/`PGID` ne sont pas pris en charge : le conteneur API tourne toujours sous l'utilisateur `1001:1001`.
 
-Les réglages qui vivent dans l'application plutôt que dans `.env` (SMTP, notifications, rétention, sauvegardes, URL publique, inscription) se trouvent dans **Administration → Configuration Système**, voir [Installation](./01-Installation.md).
+Les réglages qui vivent dans l'application plutôt que dans `.env` (SMTP, notifications, rétention, sauvegardes, URL publique, inscription) se trouvent dans **Administration → Configuration système**, voir [Installation](./01-Installation.md).
 
 **Le "Pare-feu" (Troubleshooting)** :
 

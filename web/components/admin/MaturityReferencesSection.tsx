@@ -7,7 +7,7 @@ import {
   Skeleton, Tooltip, ButtonGroup, SelectItem,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays, ArrowUp, ArrowDown, Info } from 'lucide-react';
+import { Plus, Pencil, Trash2, Clock, CalendarDays, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import { FilterChip } from '@/components/ui/FilterControls';
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import { WINE_COLORS } from '@shared/inventory';
@@ -25,6 +25,7 @@ import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { CURVE_SHAPES, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
 const CATEGORY_CONFIG = {
   wine:      { hasColor: true,  hasVintage: true,  forceAbsolute: false },
@@ -33,12 +34,6 @@ const CATEGORY_CONFIG = {
   cigar:     { hasColor: false, hasVintage: false, forceAbsolute: true  },
 } as const;
 
-const CATEGORY_ICONS = {
-  wine: <Wine size={14} />,
-  sparkling: <Sparkles size={14} />,
-  spirit: <GlassWater size={14} />,
-  cigar: <Leaf size={14} />,
-};
 
 const EMPTY_FORM: MaturityReferenceInput = {
   name: '',
@@ -173,7 +168,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                       key={cat}
                       radius="sm"
                       size="md"
-                      startContent={CATEGORY_ICONS[cat]}
+                      startContent={<CategoryIcon category={cat} />}
                       selected={form.category === cat}
                       onPress={() => handleCategoryChange(cat)}
                     >

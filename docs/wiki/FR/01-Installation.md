@@ -29,13 +29,13 @@
    mkdir -p backups && sudo chown 1001:1001 backups
    docker compose up -d
    ```
-   L'API tourne sous l'uid non privilégié 1001 et écrit ses sauvegardes nocturnes dans `./backups`. Si le dossier n'existe pas, Docker le crée en root et chaque sauvegarde échoue avec « Permission denied » (l'API le signale au démarrage et **Administration → Configuration Système → Données** affiche un avertissement). Docker Desktop sous macOS/Windows n'a pas besoin de cette étape.
+   L'API tourne sous l'uid non privilégié 1001 et écrit ses sauvegardes nocturnes dans `./backups`. Si le dossier n'existe pas, Docker le crée en root et chaque sauvegarde échoue avec « Permission denied » (l'API le signale au démarrage et **Administration → Configuration système → Données** affiche un avertissement). Docker Desktop sous macOS/Windows n'a pas besoin de cette étape.
    Docker télécharge `glou-server-api` et `glou-server-web` depuis GHCR automatiquement. Cela démarre uniquement la base, l'API et le web (~1,5 Go de RAM). Pour le scan d'étiquette optionnel (~9 Go de disque et ~3 Go de RAM en plus), utilisez `docker compose --profile scan up -d`.
 
 4. Ouvrir [http://localhost:3000](http://localhost:3000), cliquer sur **S'inscrire** (sous le formulaire de connexion), puis sur **Créer mon compte**.
-   Le premier compte créé reçoit automatiquement les droits administrateur. **L'inscription est ensuite fermée** : les autres personnes ne peuvent s'inscrire qu'une fois que l'admin a activé **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Accès**.
+   Le premier compte créé reçoit automatiquement les droits administrateur. **L'inscription est ensuite fermée** : les autres personnes ne peuvent s'inscrire qu'une fois que l'admin a activé **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration système → Accès**.
 
-5. *(Facultatif)* Configurer l'instance depuis **Administration → Configuration Système**.
+5. *(Facultatif)* Configurer l'instance depuis **Administration → Configuration système**.
    Rien ici n'est requis pour utiliser l'application : chaque section reste inactive tant qu'elle n'est pas configurée. À paramétrer plus tard, si besoin :
 
    | Onglet | Rôle |
@@ -60,7 +60,7 @@ Quand l'API ne démarre pas, son journal en donne la raison : dans Portainer, **
 
 **Mise à jour vers une nouvelle version** :
 
-Sauvegardez d'abord (**Administration → Configuration Système → Données → Sauvegarder maintenant**) : les migrations de la base ne peuvent pas être annulées. Sous Linux, vérifiez que `backups` appartient à l'uid 1001 (`sudo chown 1001:1001 backups`), sinon la sauvegarde échoue. Puis :
+Sauvegardez d'abord (**Administration → Configuration système → Données → Sauvegarder maintenant**) : les migrations de la base ne peuvent pas être annulées. Sous Linux, vérifiez que `backups` appartient à l'uid 1001 (`sudo chown 1001:1001 backups`), sinon la sauvegarde échoue. Puis :
 ```bash
 docker compose pull && docker compose up -d
 ```
@@ -81,5 +81,5 @@ Pour revenir en arrière, voir [Mettre à jour & revenir en arrière](./31-Mises
 | Portainer (ou une autre interface) affiche `dependency failed to start: container …-api-1 is unhealthy` | L'API n'a pas démarré. Lisez son journal (voir **Portainer, Synology Container Manager ou une autre interface** ci-dessus). Après une mise à jour, la cause la plus fréquente est `[backup] Migrations are pending, but /app/backups is not writable` : utilisez un chemin `backups` absolu appartenant à l'uid 1001, comme décrit ci-dessus, puis redéployez. |
 | Erreur de migration Prisma au démarrage | Le conteneur `db` n'était pas prêt. Exécutez `docker compose restart api` pour relancer la migration. |
 | Création de compte ou connexion qui échoue avec « erreur inattendue » (ou « adresse non autorisée ») quand vous ouvrez Glou par son IP, ex. `http://192.168.1.20:3000`, sans rien dans les logs de `api` ni de `web` | L'API refuse les requêtes qui modifient des données depuis une adresse inconnue. Renseignez `APP_URL` dans `.env` avec l'adresse exacte saisie dans le navigateur (ex. `http://192.168.1.20:3000`), puis recréez le conteneur `api`. Plusieurs adresses : listez-les dans `CSRF_TRUSTED_ORIGINS`, séparées par des virgules. Le log de `api` affiche alors une ligne `[csrf] Rejected ...` quand cela se produit. |
-| « L'inscription de nouveaux comptes est actuellement fermée sur cette instance », ou pas de lien **S'inscrire** sur la page de connexion | Attendu dès que le premier compte existe. Un admin ouvre l'inscription dans **Administration → Configuration Système → Accès → Autoriser l'inscription de nouveaux comptes** et peut la refermer une fois la personne inscrite. |
+| « L'inscription de nouveaux comptes est actuellement fermée sur cette instance », ou pas de lien **S'inscrire** sur la page de connexion | Attendu dès que le premier compte existe. Un admin ouvre l'inscription dans **Administration → Configuration système → Accès → Autoriser l'inscription de nouveaux comptes** et peut la refermer une fois la personne inscrite. |
 | Besoin d'un accès `psql` ponctuel à la base | Postgres n'est volontairement pas exposé au LAN/hôte (`expose`, pas `ports`, dans `docker-compose.yml`). Utilisez `docker compose exec db psql -U glou -d glou_db` plutôt que d'ouvrir le port. |

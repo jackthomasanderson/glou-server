@@ -10,7 +10,7 @@ import { currencySymbol, todayLocalIso } from '@/lib/format';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { FilterChip } from '@/components/ui/FilterControls';
 import { notifyError } from '@/lib/toast';
-import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical, GlassWater } from 'lucide-react';
+import { X, Save, ChevronDown, ChevronUp, Camera, FlaskConical } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import type { UnitKind } from '@shared/units';
 import { useCellars } from '@/hooks/useCellars';
@@ -52,6 +52,7 @@ import {
 } from '@/lib/products/cigarGroup';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 import { halfFieldColumns, halfFieldSpan, lastFieldDesktopSpan } from '@/lib/inventory/fieldSpan';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
 /**
  * A half-width field of the form's grids: its label, and two columns when that
@@ -126,12 +127,6 @@ const creationDefaults = (): Partial<InventoryItem> => ({
 const storageOf = (values?: Partial<InventoryItem>): CigarStorage =>
   values && 'cigarsPerBox' in values && values.cigarsPerBox === null ? 'singles' : 'boxes';
 
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={14} />,
-  sparkling: <Sparkles size={14} />,
-  spirit: <GlassWater size={14} />,
-  cigar: <Leaf size={14} />,
-};
 
 // #498: one colour per category everywhere (ux-ui.md §4.6).
 const CATEGORY_COLORS = CATEGORY_CHIP_COLOR;
@@ -398,7 +393,7 @@ export function InventoryForm({
             <div className="flex items-center justify-between gap-3 pl-6 pr-4 pt-4 pb-2 shrink-0">
               <div className="flex items-center gap-2 min-w-0">
                 <Chip
-                  startContent={CATEGORY_ICONS[category]}
+                  startContent={<CategoryIcon category={category} />}
                   color={CATEGORY_COLORS[category]}
                   size="sm"
                   variant="flat"
@@ -484,7 +479,7 @@ export function InventoryForm({
                         <FilterChip
                           key={cat}
                           size="md"
-                          startContent={CATEGORY_ICONS[cat]}
+                          startContent={<CategoryIcon category={cat} />}
                           color={CATEGORY_COLORS[cat]}
                           selected={category === cat}
                           onPress={() => setValues((prev) => {

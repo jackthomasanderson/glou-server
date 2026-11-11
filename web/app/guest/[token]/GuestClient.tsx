@@ -137,7 +137,7 @@ export function GuestPageContent({ token }: { token: string }) {
         <div className="flex items-center gap-2 min-w-0">
           <Eye size={16} className="text-primary shrink-0" />
           <h1 className="text-sm font-semibold truncate">
-            {meta?.label ?? t('shares.guest.badge')}
+            {t('shares.guest.title')}
           </h1>
         </div>
       </div>

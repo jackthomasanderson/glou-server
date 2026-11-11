@@ -5,7 +5,7 @@ import {
   ModalContent, Button, Chip, Input, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf, PenLine, Images } from 'lucide-react';
+import { Camera, X, AlertTriangle, ListChecks, PenLine, Images } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { useCreateFromForm } from '@/hooks/useCreateFromForm';
@@ -20,6 +20,7 @@ import { AddUnitsModal } from './AddUnitsDialog';
 import { useKnownWine } from '@/hooks/useKnownWine';
 import type { Product } from '@/lib/products/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
 /** The formats the API accepts for a label photo (upload.middleware.ts). */
 const SCAN_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
@@ -39,12 +40,6 @@ interface CartEntry {
 const addedKey = (category?: InventoryCategory) =>
   category === 'cigar' ? 'scan.cart.addedCigar' : category === 'spirit' ? 'scan.cart.addedSpirit' : 'scan.cart.addedWine';
 
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={14} />,
-  sparkling: <Sparkles size={14} />,
-  spirit: <span className="text-xs font-bold">S</span>,
-  cigar: <Leaf size={14} />,
-};
 
 interface ScanFlowProps {
   open: boolean;
@@ -389,7 +384,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                         <FilterChip
                           key={cat}
                           size="md"
-                          startContent={CATEGORY_ICONS[cat]}
+                          startContent={<CategoryIcon category={cat} />}
                           color={CATEGORY_CHIP_COLOR[cat]}
                           selected={reviewValues.category === cat}
                           onPress={() =>
@@ -495,7 +490,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
 
                     {reviewValues.cellarId && (
                       <Checkbox isSelected={saveAsDefault} onValueChange={setSaveAsDefault} size="sm">
-                        {t('scan.review.setDefaultLocation', { category: t(`categories.${reviewValues.category}`) })}
+                        {t('scan.review.setDefaultLocation', { context: reviewValues.category, category: t(`categoriesPlural.${reviewValues.category}`) })}
                       </Checkbox>
                     )}
 

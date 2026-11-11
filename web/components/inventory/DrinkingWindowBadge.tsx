@@ -3,8 +3,7 @@ import React from 'react';
 import { Chip } from '@heroui/react';
 import { TapTooltip } from '@/components/ui/TapTooltip';
 import { Clock, CheckCircle, AlertTriangle } from 'lucide-react';
-
-type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
+import type { AlertStatus } from '@/lib/inventory/types';
 
 interface DrinkingWindowBadgeProps {
   alertStatus?: AlertStatus | null;

@@ -4,20 +4,15 @@ import {
   Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button, Checkbox,
 } from '@heroui/react';
 import {
-  Wine, Sparkles, GlassWater, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock, CheckCircle, BellOff,
+  MapPin, AlertTriangle, Pencil, Trash2, Clock, CheckCircle, BellOff,
 } from 'lucide-react';
 import { TapTooltip } from '@/components/ui/TapTooltip';
 import { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { keepNumbersWhole, wineName, type StockLine } from '@/lib/products/stock';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={12} />,
-  sparkling: <Sparkles size={12} />,
-  spirit: <GlassWater size={12} />,
-  cigar: <Leaf size={12} />,
-};
 
 // The icons of DrinkingWindowBadge (list view), one per status (#647).
 const DRINKING_WINDOW_ICONS: Record<'approaching' | 'peak' | 'past', { icon: typeof Clock; color: string }> = {
@@ -121,7 +116,7 @@ export function InventoryCard({
           « CIGARE / BOÎTE », it was squeezed to nothing (recette v3 of #471). */}
       <div className="flex flex-wrap items-center justify-between gap-1 px-3 pt-2.5 pb-1 overflow-hidden">
         <Chip
-          startContent={CATEGORY_ICONS[item.category]}
+          startContent={<CategoryIcon category={item.category} size={12} />}
           size="sm"
           // flat (ux-ui.md §4.6): its text shade is checked by theme-contrast.test.ts (#648).
           variant="flat"
@@ -180,7 +175,7 @@ export function InventoryCard({
               filter: stock.gone ? 'grayscale(1)' : undefined,
             }}
           >
-            {React.cloneElement(CATEGORY_ICONS[item.category], { size: 40 } as React.SVGProps<SVGSVGElement>)}
+            <CategoryIcon category={item.category} size={40} />
           </div>
         )}
 

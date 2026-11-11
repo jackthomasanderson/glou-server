@@ -24,7 +24,7 @@
 
 | Erreur / Symptôme | Cause probable | Solution |
 | :--- | :--- | :--- |
-| `403 REGISTRATION_CLOSED` sur `/api/auth/register` | L'inscription est fermée par défaut dès que le premier compte (l'admin) existe. | Un admin active **Autoriser l'inscription de nouveaux comptes** dans Administration → Configuration Système → Accès, voir [Réseau & URL publique](./16-Configuration-Reseau-URL-Publique.md). |
+| `403 REGISTRATION_CLOSED` sur `/api/auth/register` | L'inscription est fermée par défaut dès que le premier compte (l'admin) existe. | Un admin active **Autoriser l'inscription de nouveaux comptes** dans Administration → Configuration système → Accès, voir [Réseau & URL publique](./16-Configuration-Reseau-URL-Publique.md). |
 | `500 Internal Server Error` (sur `/api/auth/*`) | Connexion à la base de données PostgreSQL perdue (`P1001` ou `P1012`). | Vérifiez que le conteneur Docker `db` tourne : `docker-compose up -d db` et relancez le backend s'il n'arrive pas à se reconnecter. |
 | `401 Unauthorized` sur `/api/inventory` | Le cookie JWT n'a pas été envoyé, est expiré ou absent du header. | Assurez-vous que le client HTTP frontend a bien la configuration `credentials: 'include'` (déjà en place sur HttpClient natif) et que l'utilisateur s'est bien loggué. |
 | `404 Not Found` sur affichage web des formulaires | Fichiers de traduction (`common.json`) manquants ou mal chargés. | Assurez-vous d'avoir importé `i18n.ts` et que le service API n'a pas crashé, bloquant les requêtes de traduction dynamiques. |

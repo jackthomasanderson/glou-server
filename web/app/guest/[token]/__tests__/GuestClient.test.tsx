@@ -186,6 +186,13 @@ describe('GuestPageContent', () => {
     expect(screen.getByRole('heading', { level: 1 }).parentElement?.parentElement).not.toHaveTextContent('Lecture/écriture partielle');
   });
 
+  it('titles the page with a generic name, never the share\'s internal label (#532)', async () => {
+    draw();
+    const h1 = await screen.findByRole('heading', { level: 1 });
+    expect(h1).toHaveTextContent('Cave partagée');
+    expect(h1).not.toHaveTextContent('Chez nous');
+  });
+
   it('switches to the "expired" screen when a write finds the link revoked meanwhile', async () => {
     draw();
     const drink = await screen.findByTestId('guest-move-drink');

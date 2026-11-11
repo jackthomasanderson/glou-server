@@ -10,7 +10,7 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 ## Action
 
 ### Configurer les durées de rétention
-1. Allez dans **Admin → Configuration Système → Données**.
+1. Allez dans **Admin → Configuration système → Données**.
 2. Renseignez les trois champs (en jours, 1 à 3650) :
    - **Rétention des logs d'audit** : défaut `90`.
    - **Rétention des sessions** : défaut `30`. S'applique aux sessions expirées/révoquées et aux appareils de confiance.

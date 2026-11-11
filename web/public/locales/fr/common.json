@@ -73,6 +73,12 @@
     "spirit": "Spiritueux",
     "cigar": "Cigare / Boîte"
   },
+  "categoriesPlural": {
+    "wine": "vins",
+    "sparkling": "bulles",
+    "spirit": "spiritueux",
+    "cigar": "cigares"
+  },
   "maturity": {
     "readiness": "Maturité",
     "curveSource": {
@@ -125,7 +131,7 @@
       "empty": "Vide",
       "sommelierNotes": "Notes du sommelier",
       "tastingNotes": "Notes de dégustation & arômes",
-      "agingEstimate": "Apogée estimée",
+      "agingEstimate": "Apogée estimé",
       "levelAdjusted": "Niveau ajusté à",
       "humidityValue": "{{value}} % HR"
     },
@@ -296,7 +302,7 @@
     "alertStatusShort": {
       "approaching": "Bientôt prêt",
       "peak": "À boire",
-      "past": "Apogée passée"
+      "past": "Apogée passé"
     },
     "sealedStatus": {
       "sealed": "Scellé",
@@ -307,7 +313,7 @@
       "cremant": "Crémant",
       "prosecco": "Prosecco",
       "cava": "Cava",
-      "petnat": "Pétillant Naturel",
+      "petnat": "Pétillant naturel",
       "other": "Autre"
     },
     "spiritTypes": {
@@ -397,7 +403,7 @@
     }
   },
   "alerts": {
-    "title": "Alertes Apogée",
+    "title": "Alertes d'apogée",
     "from": "À partir de",
     "until": "Jusqu'en",
     "paused": "Alerte suspendue",
@@ -586,7 +592,7 @@
     "submit": "Valider le mot de passe"
   },
   "cellars": {
-    "title": "Mes Caves",
+    "title": "Mes caves",
     "addCellar": "Ajouter une cave",
     "editCellar": "Modifier la cave",
     "noCellars": "Vous n'avez pas encore de cave.",
@@ -596,12 +602,12 @@
     "type": "Type de cave",
     "types": {
       "VINTAGE": "Vieillissement / Enterrée",
-      "COOLER": "Armoire Climatisée / Service",
+      "COOLER": "Armoire climatisée / de service",
       "SHELF": "Vitrines / Étagères",
       "HUMIDOR": "Humidor (cigares)"
     },
     "humidor": {
-      "title": "Monitoring hygrométrique",
+      "title": "Suivi de l'hygrométrie",
       "targetRangeHint": "Plage cible d'hygrométrie (ex : 68-72%) utilisée pour détecter une dérive.",
       "targetHumidityMin": "Humidité min. (%)",
       "targetHumidityMax": "Humidité max. (%)",
@@ -782,7 +788,7 @@
     "savedLocally": "Stocké en local",
     "remove": "Supprimer l'image",
     "pasteUrl": "Coller une URL d'image",
-    "upload": "Uploader une image depuis votre appareil",
+    "upload": "Importer une image depuis votre appareil",
     "urlPlaceholder": "https://… (URL de l'image)",
     "errors": {
       "tooLarge": "Cette photo est trop volumineuse (5 Mo au maximum). Choisissez-en une plus légère.",
@@ -810,7 +816,7 @@
       "unavailable": "Version indisponible"
     },
     "adminPanelLink": "Accéder au panneau d'administration",
-    "title": "Mon Profil",
+    "title": "Mon profil",
     "sectionsNav": "Sections du profil",
     "sectionLabels": {
       "account": "Profil",
@@ -822,9 +828,9 @@
     },
     "personalInfo": "Informations personnelles",
     "preferences": "Préférences d'affichage",
-    "appName": "Nom perso pour l'app",
+    "appName": "Nom personnalisé de l'application",
     "appNamePlaceholder": "Ex: Ma Cave Privée",
-    "appSlogan": "Slogan perso pour l'app",
+    "appSlogan": "Slogan personnalisé de l'application",
     "appSloganPlaceholder": "Votre devise...",
     "reviewOnboarding": "Revoir le guide de démarrage",
     "security": "Sécurité du compte",
@@ -867,7 +873,7 @@
     "saveSuccess": "Profil mis à jour avec succès",
     "saveError": "Erreur lors de la mise à jour du profil",
     "avatarSuccess": "Photo de profil mise à jour",
-    "avatarError": "Erreur lors du téléchargement de l'image",
+    "avatarError": "Erreur lors de l'envoi de l'image",
     "changeAvatar": "Changer la photo de profil",
     "deleteAvatar": "Supprimer la photo de profil",
     "deleteAvatarConfirm": "Voulez-vous vraiment supprimer votre photo de profil ?",
@@ -898,7 +904,7 @@
     "pinRemoveSuccess": "Code PIN supprimé",
     "pinError": "Impossible de mettre à jour le code PIN",
     "twoFactor": {
-      "title": "Sécurité & Authentification",
+      "title": "Sécurité et authentification",
       "description": "Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application lors de la connexion.",
       "status": "Statut 2FA :",
       "enabled": "Activé",
@@ -910,7 +916,7 @@
       "enableSuccess": "Double authentification activée avec succès !",
       "backupCodesWarning": "⚠️ C'est la seule fois que ces codes de secours seront affichés.",
       "backupCodesHint": "Conservez-les dans un endroit sûr. Ils vous permettront de vous connecter si vous perdez l'accès à votre application.",
-      "step1": "1. Scannez ce QR Code avec votre application d'authentification (Google Authenticator, Authy, etc.).",
+      "step1": "1. Scannez ce code QR avec votre application d'authentification (Google Authenticator, Authy, etc.).",
       "orSecret": "Ou utilisez la clé secrète :",
       "step2": "2. Saisissez le code à 6 chiffres pour confirmer.",
       "step3": "3. Confirmez avec votre mot de passe.",
@@ -1129,7 +1135,7 @@
       },
       "errors": {
         "nameRequired": "Le nom est obligatoire.",
-        "windowInvalid": "La fenêtre de fin doit être ≥ à la fenêtre de début."
+        "windowInvalid": "La fin de la fenêtre ne peut pas précéder son début."
       },
       "bottleCount_one": "{{count}} bouteille",
       "bottleCount_other": "{{count}} bouteilles",
@@ -1634,7 +1640,7 @@
     "pageTitle": "Analyses & Terroirs",
     "pageSubtitle": "Analyse financière, temporelle, volumétrique et géographique de la cave.",
     "stats": {
-      "totalValuation": "Valorisation Globale",
+      "totalValuation": "Valorisation globale",
       "totalValuationHint": "Estimation totale actuelle",
       "liquidStock": "Liquide en stock",
       "liquidStockHint": "Hors cigares de collection",
@@ -1648,7 +1654,7 @@
     "regionMap": {
       "title": "Répartition géographique",
       "subtitle": "Distribution de votre collection par terroir",
-      "mapTitle": "Carte du Monde — Heatmap des Goûts",
+      "mapTitle": "Carte du monde — carte de chaleur des goûts",
       "mapSubtitle": "Survolez un hotspot géographique pour voir sa valorisation et sa composition.",
       "unmapped_one": "{{count}} terroir non géolocalisé",
       "unmapped_other": "{{count}} terroirs non géolocalisés",
@@ -1659,7 +1665,7 @@
     "map": {
       "mode": {
         "markers": "Marqueurs",
-        "heatmap": "Heatmap par type"
+        "heatmap": "Carte de chaleur par type"
       },
       "heatmapType": {
         "label": "Catégorie",
@@ -1695,7 +1701,7 @@
     "categories": {
       "title": "Répartition des catégories",
       "active": "En stock",
-      "wine": "Vins Rouges & Blancs",
+      "wine": "Vins",
       "sparkling": "Bulles & Champagnes",
       "spirit": "Spiritueux Fins",
       "cigar": "Cigares de Prestige",
@@ -1707,7 +1713,7 @@
       }
     },
     "garde": {
-      "title": "Planning de Garde (Histogramme)",
+      "title": "Planning de garde",
       "subtitle": "Distribution temporelle des bouteilles par année d'apogée optimale",
       "noData": "Aucune fenêtre d'apogée renseignée dans votre inventaire.",
       "bottles_one": "bouteille à l'apogée",
@@ -1735,7 +1741,7 @@
       "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
     },
     "tastingInsights": {
-      "title": "Statistiques Dégustations",
+      "title": "Statistiques de dégustation",
       "producers": "Producteurs les mieux notés",
       "topItems": "Meilleures entrées",
       "flopItems": "Entrées les moins bien notées",
@@ -1884,6 +1890,7 @@
       "load": "Impossible de charger les partages."
     },
     "guest": {
+      "title": "Cave partagée",
       "badge": "Vue partagée",
       "readOnly": "Lecture seule",
       "partialWrite": "Lecture/écriture partielle",
@@ -1993,7 +2000,7 @@
     "categories": {
       "title": "Catégories d'alertes",
       "lastOne": "Au moins une catégorie reste active. Pour ne plus rien recevoir, désactivez les canaux ci-dessus.",
-      "peak": "Apogée atteinte",
+      "peak": "Apogée atteint",
       "temperature": "Variations température/hygrométrie",
       "security": "Sécurité du compte",
       "wishlist": "Opportunités tarifaires (liste de souhaits)",
@@ -2023,7 +2030,7 @@
     "loadError": "Vos préférences de notification n'ont pas pu être chargées."
   },
   "adminConfig": {
-    "title": "Configuration Système",
+    "title": "Configuration système",
     "subtitle": "Comment les membres sont prévenus, qui peut rejoindre l'instance, les sauvegardes et les données, et la version en service.",
     "tabsAriaLabel": "Sections de configuration",
     "loadError": "La configuration n'a pas pu être chargée : aucun réglage n'est affiché.",
@@ -2359,15 +2366,15 @@
       "subtitle": "Choisissez la méthode la plus adaptée. Vous pourrez toujours utiliser les autres plus tard.",
       "skipStep": "Passer cette étape",
       "scan": {
-        "title": "Scan Rapide",
+        "title": "Scan rapide",
         "description": "Photographiez vos étiquettes pour un ajout automatique."
       },
       "import": {
-        "title": "Import Fichier",
+        "title": "Import de fichier",
         "description": "Importez un fichier CSV listant vos bouteilles."
       },
       "manual": {
-        "title": "Ajout Manuel",
+        "title": "Ajout manuel",
         "description": "Entrez vos bouteilles et vos cigares un par un."
       }
     },
@@ -2480,7 +2487,7 @@
       "adminConfig": {
         "title": "Configuration système (facultatif)",
         "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer les notifications (e-mail, Gotify), qui peut rejoindre l'instance, les sauvegardes et la conservation des données, dans Administration → Configuration système.",
-        "link": "Administration → Configuration Système"
+        "link": "Administration → Configuration système"
       },
       "finishButton": "Voir ma cave"
     }
@@ -2611,7 +2618,7 @@
   },
   "scan": {
     "launchButton": "Scanner une étiquette",
-    "title": "Scan Étiquette",
+    "title": "Scan d'étiquette",
     "finish": "Terminer",
     "capture": {
       "title": "Photographiez une étiquette",
@@ -2641,10 +2648,11 @@
       "title": "Vérifiez les informations détectées",
       "confirm": "Confirmer et ajouter",
       "moreDetails": "Plus de détails",
-      "setDefaultLocation": "Toujours ranger les {{category}} scannés ici"
+      "setDefaultLocation": "Toujours ranger les {{category}} scannés ici",
+      "setDefaultLocation_sparkling": "Toujours ranger les {{category}} scannées ici"
     },
     "cart": {
-      "title": "À Ranger ({{count}})",
+      "title": "À ranger ({{count}})",
       "created": "Créé",
       "addedWine": "Ajouté à votre vin",
       "addedSpirit": "Ajouté à votre spiritueux",
