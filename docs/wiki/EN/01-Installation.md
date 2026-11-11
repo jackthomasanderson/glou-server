@@ -4,6 +4,7 @@
 
 **Prerequisites**:
 - Docker installed and running (includes Docker Compose v2).
+- A recent browser to use the app: Safari and iOS Safari 16.4+, Chrome and Edge 111+, Firefox 128+ (or newer). iOS 15 and earlier are not supported.
 
 **Action**:
 

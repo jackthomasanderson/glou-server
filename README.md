@@ -40,6 +40,7 @@
 
 **Prerequisites:**
 - Docker installed and running, on a 64-bit Intel/AMD or ARM host (Raspberry Pi 4/5, ARM NAS…): images are published for `linux/amd64` and `linux/arm64`.
+- A recent browser to use the app: Safari and iOS Safari 16.4+, Chrome and Edge 111+, Firefox 128+ (or newer). iOS 15 and earlier are not supported.
 
 **Step 1: Configure**
 ```bash
