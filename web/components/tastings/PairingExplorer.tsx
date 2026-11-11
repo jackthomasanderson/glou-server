@@ -1,5 +1,6 @@
 'use client';
 import React, { useMemo, useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Avatar, Button, Card, CardBody, Chip, Input, Skeleton } from '@heroui/react';
 import { Search, Utensils, Wine } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -151,7 +152,7 @@ export function PairingExplorer() {
 
       {/* Loading */}
       {isLoading && hasSearched ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <LoadingRegion className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i} radius="lg" shadow="sm">
               <CardBody className="gap-2">
@@ -161,7 +162,7 @@ export function PairingExplorer() {
               </CardBody>
             </Card>
           ))}
-        </div>
+        </LoadingRegion>
       ) : !hasSearched ? (
         /* Prompt state */
         <div className="flex flex-col items-center py-16 text-center">

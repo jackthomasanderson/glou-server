@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Chip } from '@heroui/react';
 import { Trash2 } from 'lucide-react';
 import { useInventoryTrash, useRestoreInventoryItem } from '@/hooks/useInventory';
@@ -63,9 +64,9 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
 
   if (isLoading || winesTrash.isLoading) {
     return (
-      <div className="flex flex-col gap-2">
+      <LoadingRegion className="flex flex-col gap-2">
         {[0, 1, 2].map((i) => <InventoryListRowSkeleton key={i} />)}
-      </div>
+      </LoadingRegion>
     );
   }
 

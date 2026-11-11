@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Input, Card, CardHeader, CardBody, Progress, Skeleton, Spinner,
@@ -27,7 +28,7 @@ function EnvelopeCard({ envelope, onEdit, onDelete }: {
   onDelete: (e: BudgetEnvelope) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { data: progress, isLoading } = useBudgetProgress(envelope.id);
+  const { data: progress, isLoading, isError } = useBudgetProgress(envelope.id);
 
   return (
     <Card radius="lg" shadow="sm">
@@ -45,8 +46,8 @@ function EnvelopeCard({ envelope, onEdit, onDelete }: {
         </div>
       </CardHeader>
       <CardBody className="gap-2">
-        {isLoading || !progress ? (
-          <Skeleton className="h-3 w-full rounded-full" />
+        {isError && !progress ? null : isLoading || !progress ? (
+          <LoadingRegion><Skeleton className="h-3 w-full rounded-full" /></LoadingRegion>
         ) : (
           <>
             <p className="text-sm text-foreground-500">

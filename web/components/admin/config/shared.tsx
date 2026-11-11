@@ -1,5 +1,6 @@
 'use client';
 import React, { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Chip, Skeleton } from '@heroui/react';
 import type { LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -149,9 +150,9 @@ export function QueryList<T>({ query, emptyText, children }: {
   const { t } = useTranslation();
   if (query.isPending) {
     return (
-      <div className="flex flex-col gap-2">
+      <LoadingRegion className="flex flex-col gap-2">
         {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
-      </div>
+      </LoadingRegion>
     );
   }
   if (query.isError) {

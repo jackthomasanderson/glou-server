@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Input, Tooltip } from '@heroui/react';
 import { Search, Loader2, X } from 'lucide-react';
 import { useConnectivityWarning } from '@/hooks/useConnectivityWarning';
@@ -194,9 +195,9 @@ export function ImagePickerButton({
           />
 
           {(loading || saving) && (
-            <div className="flex justify-center py-4">
-              <Loader2 size={24} className="animate-spin text-primary" />
-            </div>
+            <LoadingRegion className="flex justify-center py-4">
+              <Loader2 size={24} aria-hidden="true" className="animate-spin text-primary" />
+            </LoadingRegion>
           )}
 
           {saveError && !saving && (

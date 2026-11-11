@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Skeleton, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { Link2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -45,9 +46,9 @@ export function AdminSharesSection() {
       <p className="text-sm text-foreground-500 mb-4">{t('admin.shares.subtitle')}</p>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <LoadingRegion className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
-        </div>
+        </LoadingRegion>
       ) : isError ? (
         <p role="alert" className="text-sm text-danger">{t('admin.shares.loadError')}</p>
       ) : !shares?.length ? (

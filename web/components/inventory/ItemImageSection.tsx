@@ -1,5 +1,6 @@
 'use client';
 import React, { useRef, useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Input, Tooltip } from '@heroui/react';
 import { Camera, Link2, Trash2, Check, X, Wine, Sparkles, GlassWater, Leaf, Loader2, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -125,9 +126,9 @@ export function ItemImageSection({
         }}
       >
         {(saving || isAutoLoading) && (
-          <div role="status" aria-label={t('status.loading')} className="absolute inset-0 z-20 flex items-center justify-center bg-black/35">
-            <Loader2 size={28} className="animate-spin text-white" />
-          </div>
+          <LoadingRegion className="absolute inset-0 z-20 flex items-center justify-center bg-black/35">
+            <Loader2 size={28} aria-hidden="true" className="animate-spin text-white" />
+          </LoadingRegion>
         )}
 
         {hasPhoto ? (

@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter, Skeleton } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Monitor, MapPin, ShieldCheck, ShieldOff } from 'lucide-react';
@@ -77,13 +78,13 @@ export function SessionsPanel() {
       </div>
 
       {isLoading && (
-        <div className="flex flex-col gap-3">
+        <LoadingRegion className="flex flex-col gap-3">
           {[0, 1].map((i) => (
             <Skeleton key={i} className="rounded-xl">
               <div className="h-16 rounded-xl bg-default-200" />
             </Skeleton>
           ))}
-        </div>
+        </LoadingRegion>
       )}
 
       {!isLoading && isError && (
