@@ -8,7 +8,7 @@ Cette documentation couvre l'installation, la configuration et le dépannage.
 3. [Dépannage](./03-Depannage.md)
 4. [Caves, Vins & Bouteilles](./04-Gestion-Des-Caves.md)
 5. [Ajouter des Bouteilles](./05-Ajout-Bouteille.md)
-6. [Alertes Apogée](./06-Alertes-Apogee.md)
+6. [Alertes d'apogée](./06-Alertes-Apogee.md)
 7. [Recherche Globale](./07-Recherche-Globale.md)
 8. [Autocomplétion & Recherche d'Image](./08-Autocompletion-Image.md)
 9. [Journal de Dégustation](./09-Journal-Degustation.md)

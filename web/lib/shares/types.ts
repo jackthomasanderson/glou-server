@@ -38,7 +38,6 @@ export interface ShareFormValues {
 
 export interface GuestShareMeta {
   id: string;
-  label: string | null;
   expiresAt: string | null;
   hidePrices: boolean;
   hideNotes: boolean;

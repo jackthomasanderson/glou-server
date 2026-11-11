@@ -17,7 +17,7 @@ Quand vous activez la 2FA, Glou affiche **10 codes de secours**, une seule fois.
 1. Sur la page de connexion, saisissez votre identifiant et votre mot de passe.
 2. À l'étape **Code d'authentification**, cliquez sur **Utiliser un code de secours** et saisissez l'un de vos codes.
 3. Dans **Profil → Sessions actives**, cliquez sur **Déconnecter** sur la session du téléphone perdu (voir [Sessions](./11-Sessions-Appareils-De-Confiance.md)) : celui qui le trouve ne doit pas rester connecté.
-4. Allez dans **Profil → Sécurité et authentification**, cliquez sur **Désactiver** (mot de passe + un autre code de secours), puis sur **Activer** et scannez le nouveau QR code avec votre nouveau téléphone. Vous obtenez 10 nouveaux codes de secours.
+4. Allez dans **Profil → Sécurité et authentification**, cliquez sur **Désactiver** (mot de passe + un autre code de secours), puis sur **Activer** et scannez le nouveau code QR avec votre nouveau téléphone. Vous obtenez 10 nouveaux codes de secours.
    Si vous venez de vous connecter avec votre dernier code, il n'en reste plus pour confirmer cette étape : demandez à un administrateur (section suivante).
 
 ## Téléphone perdu, aucun code de secours : demandez à un administrateur

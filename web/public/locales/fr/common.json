@@ -1553,7 +1553,7 @@
       "unexpectedFound_one": "{{count}} exemplaire trouvé hors périmètre",
       "unexpectedFound_other": "{{count}} exemplaires trouvés hors périmètre",
       "searchLabel": "Rechercher un vin ou un cigare",
-      "searchTruncated": "La recherche ne porte que sur les {{limit}} éléments les plus récents : un plus ancien se compte en scannant son QR code.",
+      "searchTruncated": "La recherche ne porte que sur les {{limit}} éléments les plus récents : un plus ancien se compte en scannant son code QR.",
       "searchPlaceholder": "Nom ou producteur...",
       "emptyList": "Rien à vérifier pour ce périmètre.",
       "confirmTap": "Confirmer",
@@ -1647,7 +1647,7 @@
       "cigarHumidor": "Cigares en humidor",
       "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
       "urgentDegustation": "Urgence de dégustation",
-      "urgentDegustationHint": "Bouteilles à l'apogée ou l'ayant dépassée",
+      "urgentDegustationHint": "Bouteilles à l'apogée ou l'ayant dépassé",
       "cigarCount_one": "{{count}} cigare",
       "cigarCount_other": "{{count}} cigares"
     },
@@ -1781,8 +1781,8 @@
     "backHome": "Retour à l'accueil"
   },
   "qr": {
-    "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le QR code ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur, ou demandez à l'administrateur de renseigner l'URL publique (Administration), avant de l'imprimer.",
-    "title": "QR Code",
+    "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le code QR ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur, ou demandez à l'administrateur de renseigner l'URL publique (Administration), avant de l'imprimer.",
+    "title": "Code QR",
     "download": "Télécharger PNG"
   },
   "gdpr": {

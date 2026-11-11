@@ -24,6 +24,13 @@ describe('CategoryIcon (#622)', () => {
   });
 });
 
+describe('CategoryIcon with an unknown category', () => {
+  it('renders nothing instead of throwing', () => {
+    const { container } = render(<CategoryIcon category={'mead' as never} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
 describe('scan review default-location label (#532)', () => {
   let t: Awaited<ReturnType<typeof frenchT>>;
   beforeAll(async () => { t = await frenchT(); });

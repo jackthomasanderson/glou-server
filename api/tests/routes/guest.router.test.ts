@@ -149,6 +149,15 @@ describe('GET /api/guest/:token', () => {
     expect(res.body.data).toMatchObject({ writeCellarIds: ['c1'], cellars: [{ id: 'c1', name: 'Garage' }, { id: 'c2', name: 'Cuisine' }] });
     expect(sharesService.getCellarsForShare).toHaveBeenCalledWith(expect.objectContaining({ cellarIds: ['c1', 'c2'] }));
   });
+
+  it('does not send the share\'s internal label to the guest (#532)', async () => {
+    vi.mocked(sharesService.getCellarsForShare).mockResolvedValue([] as never);
+
+    const res = await request(app).get('/api/guest/tok');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).not.toHaveProperty('label');
+  });
 });
 
 // #471 (FEAT-109 c3, D16): a guest notes a tasting on a wine of a cellar shared with write access.

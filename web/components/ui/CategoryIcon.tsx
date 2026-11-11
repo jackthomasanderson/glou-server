@@ -16,6 +16,8 @@ interface CategoryIconProps {
 }
 
 export function CategoryIcon({ category, size = 14, className }: CategoryIconProps) {
+  // An unknown value (an offline cache written by another build) draws nothing rather than crashing the card.
   const Icon = ICONS[category];
+  if (!Icon) return null;
   return <Icon size={size} className={className} aria-hidden />;
 }

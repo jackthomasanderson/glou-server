@@ -33,7 +33,7 @@ Chaque carte affiche un badge coloré dans la zone de métadonnées :
 
 ### 3. Consulter le centre d'alertes
 
-Le panneau **Alertes Apogée** apparaît en haut du tableau de bord dès qu'une bouteille non suspendue a le statut `approaching`, `peak` ou `past`.
+Le panneau **Alertes d'apogée** apparaît en haut du tableau de bord dès qu'une bouteille non suspendue a le statut `approaching`, `peak` ou `past`.
 
 - Les bouteilles sont triées par urgence : **past** en tête, puis **peak**, puis **approaching**.
 - Le bandeau change de couleur selon le cas le plus urgent (rouge / vert / bleu).
