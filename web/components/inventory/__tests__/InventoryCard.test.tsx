@@ -152,7 +152,7 @@ describe('InventoryCard — drinking-window status without colour or hover', () 
     expect(seen.map((s) => s.text)).toEqual([
       'Bientôt prêt : 2020 – 2030',
       'À boire : 2020 – 2030',
-      'Apogée passée : 2020 – 2030',
+      'Apogée passé : 2020 – 2030',
     ]);
     expect(new Set(seen.map((s) => s.icon)).size).toBe(3);
   });
