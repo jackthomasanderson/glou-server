@@ -227,6 +227,8 @@
       "noVintage": "Laisser vide si sans millésime",
       "color": "Couleur",
       "region": "Région",
+      "regionHelp": "Sert à placer la bouteille sur la carte des Analyses.",
+      "regionUnknown": "Non reconnue : cette bouteille n'apparaîtra pas sur la carte des Analyses. Choisissez une région proposée pour l'y placer.",
       "grapeVarieties": "Cépages",
       "alcoholDegree": "Degré d'alcool (%)",
       "alcoholDegreeOptional": "Laissez vide si vous ne le connaissez pas",
@@ -259,6 +261,7 @@
       "recommendedHumidity": "Humidité recommandée (%)",
       "humidificationSystem": "Système d'humidification",
       "appellation": "Appellation",
+      "appellationHelp": "Sert à placer la bouteille sur la carte des Analyses quand la région est vide.",
       "classification": "Classification",
       "classificationPlaceholder": "Ex : Grand Cru, 1er Cru...",
       "batchDate": "Date de mise en fût / d'embouteillage du lot",
@@ -808,7 +811,8 @@
   },
   "autocomplete": {
     "internal": "Mon inventaire",
-    "external": "Internet"
+    "external": "Internet",
+    "notOnMap": "Pas sur la carte"
   },
   "profile": {
     "version": {

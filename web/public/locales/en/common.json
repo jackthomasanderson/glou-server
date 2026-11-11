@@ -227,6 +227,8 @@
       "noVintage": "Leave empty if non-vintage",
       "color": "Color",
       "region": "Region",
+      "regionHelp": "Used to place the bottle on the Analytics map.",
+      "regionUnknown": "Not recognised: this bottle won't appear on the Analytics map. Pick a suggested region to place it.",
       "grapeVarieties": "Grape varieties",
       "alcoholDegree": "Alcohol degree (%)",
       "alcoholDegreeOptional": "Leave empty if you do not know it",
@@ -259,6 +261,7 @@
       "recommendedHumidity": "Recommended humidity (%)",
       "humidificationSystem": "Humidification system",
       "appellation": "Appellation",
+      "appellationHelp": "Used to place the bottle on the Analytics map when the region is empty.",
       "classification": "Classification",
       "classificationPlaceholder": "E.g. Grand Cru, 1er Cru...",
       "batchDate": "Cask filling / batch bottling date",
@@ -806,7 +809,8 @@
   },
   "autocomplete": {
     "internal": "My inventory",
-    "external": "Internet"
+    "external": "Internet",
+    "notOnMap": "Not on the map"
   },
   "profile": {
     "version": {

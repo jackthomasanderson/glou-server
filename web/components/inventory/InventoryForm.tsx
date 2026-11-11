@@ -19,6 +19,7 @@ import { Collection } from '@/lib/collections/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
+import { RegionAutocomplete } from './RegionAutocomplete';
 import { FILL_LEVELS } from '@/lib/products/fillLevels';
 import { parseTags } from '@/lib/products/tags';
 import { ImageResult } from './ImagePicker';
@@ -689,12 +690,11 @@ export function InventoryForm({
                             ))}
                           </SingleSelect>
                           <div className="col-span-2">
-                            <Input
+                            {/* #961: free text with suggestions, placed on the Analytics map. */}
+                            <RegionAutocomplete
                               label={t('inventory.fields.region')}
-                              variant="bordered"
-                              size="sm"
                               value={values.region ?? ''}
-                              onValueChange={(v) => setField('region', v)}
+                              onChange={(v) => setField('region', v)}
                             />
                           </div>
                           <ParsedNumberInput decimal
@@ -926,6 +926,7 @@ export function InventoryForm({
                             <div className="col-span-2">
                               <Input
                                 label={t('inventory.fields.appellation')}
+                                description={t('inventory.fields.appellationHelp')}
                                 variant="bordered"
                                 size="sm"
                                 value={values.appellation ?? ''}
