@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 // asked a 2FA account for its code and the server answered INVALID_CODE.
 
 let mockTwoFactor = false;
+let mockSessions: unknown[] = [];
 const trustMutate = vi.fn();
 
 vi.mock('react-i18next', () => ({
@@ -14,7 +15,7 @@ vi.mock('react-i18next', () => ({
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('@/components/ui/ErrorState', () => ({ ErrorState: () => null }));
 vi.mock('@/hooks/useAuth', () => ({
-  useSessions: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn(), isRefetching: false }),
+  useSessions: () => ({ data: mockSessions, isLoading: false, isError: false, refetch: vi.fn(), isRefetching: false }),
   useMe: () => ({ data: { id: 'u1', isTwoFactorEnabled: mockTwoFactor } }),
   useRevokeSession: () => ({ mutate: vi.fn(), isPending: false }),
   useTrustDevice: () => ({ mutate: trustMutate, isPending: false }),
@@ -81,5 +82,28 @@ describe('SessionsPanel trust-device dialog (#576)', () => {
     expect(confirmButton().disabled).toBe(false);
     fireEvent.click(confirmButton());
     expect(trustMutate).toHaveBeenCalledWith({ password: 'secret', code: '123456' }, expect.anything());
+  });
+});
+
+describe('SessionsPanel DB-IP credit (#434)', () => {
+  beforeEach(() => {
+    mockSessions = [];
+  });
+
+  it('links back to DB-IP under the list of sessions', () => {
+    mockSessions = [{
+      id: 's1', isCurrent: true, device: { browser: 'Firefox', os: 'Linux' },
+      location: { city: 'Paris', country: 'FR' }, lastActiveAt: '2026-11-11T09:00:00Z',
+    }];
+    render(<SessionsPanel />);
+    const link = screen.getByRole('link', { name: 'profile.sessions.geoCredit' });
+    expect(link.getAttribute('href')).toBe('https://db-ip.com');
+    expect(link.getAttribute('target')).toBe('_blank');
+    expect(link.getAttribute('rel')).toContain('noopener');
+  });
+
+  it('shows no credit when there is no session to locate', () => {
+    render(<SessionsPanel />);
+    expect(screen.queryByRole('link', { name: 'profile.sessions.geoCredit' })).toBeNull();
   });
 });

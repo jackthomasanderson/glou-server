@@ -936,6 +936,7 @@
       "title": "Sessions actives",
       "current": "Session actuelle",
       "lastActive": "Dernière activité",
+      "geoCredit": "Géolocalisation IP par DB-IP",
       "unknownLocation": "Localisation inconnue",
       "unknownDevice": "Appareil inconnu",
       "unknownBrowser": "Navigateur inconnu",

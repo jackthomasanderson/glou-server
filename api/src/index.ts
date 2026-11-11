@@ -11,6 +11,7 @@ import { BACKUPS_DIR_FIX_HINT } from './lib/pg-dump';
 import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
 import { encryptClearTwoFactorSecrets } from './lib/two-factor-secret';
 import { installEarlyExit, installGracefulShutdown } from './lib/graceful-shutdown';
+import { loadGeoDatabase } from './lib/device';
 import { DAILY_ALERTS_CRON, DAILY_ALERTS_HOUR, isAlertsCatchUpWindow } from './lib/alerts-schedule';
 
 // ─── Startup secret guard ────────────────────────────────────────────────────
@@ -77,6 +78,9 @@ async function bootstrap(): Promise<void> {
   // Docker's SIGKILL (Node is PID 1 and would otherwise ignore SIGTERM).
   installEarlyExit();
   logTimeZone();
+  // #434: without the database, session locations and the trusted-device
+  // country check are off; say so at boot, not at the first sign-in.
+  loadGeoDatabase();
   await connectWithRetry();
 
   // #613: 2FA secrets stored in the clear before the update (or by a dump

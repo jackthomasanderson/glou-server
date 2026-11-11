@@ -132,6 +132,12 @@ export function SessionsPanel() {
               )}
             </div>
           ))}
+          {/* #434: the DB-IP Lite licence asks for a link back where locations are shown. */}
+          <p className="text-xs text-foreground-400">
+            <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer" className="hover:underline">
+              {t('profile.sessions.geoCredit')}
+            </a>
+          </p>
         </div>
       )}
 

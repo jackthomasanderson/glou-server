@@ -119,5 +119,5 @@ This section is a summary for convenience. The [LICENSE](LICENSE) file is the bi
 
 ## Credits / Third parties
 
-- This product includes GeoLite data created by MaxMind, available from [http://maxmind.com/](http://maxmind.com/).
+- [IP Geolocation by DB-IP](https://db-ip.com): the approximate location of sessions uses the DB-IP IP to City Lite database, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - World map outlines from [Natural Earth](https://www.naturalearthdata.com/) (public domain), packaged by [world-atlas](https://github.com/topojson/world-atlas).
