@@ -386,9 +386,13 @@ describe('TwoFactorSettings setup secret (#950)', () => {
     return screen.getByRole('dialog');
   }
 
-  it('shows the secret in blocks of 4 so it can wrap', () => {
+  it('shows the secret in blocks of 4 that wrap, with no real space to copy', () => {
     const dialog = openSetup();
-    expect(within(dialog).getByText('JBSW Y3DP EHPK 3PXP JBSW Y3DP EHPK 3PXP')).toBeTruthy();
+    const code = dialog.querySelector('code') as HTMLElement;
+    expect(code.textContent?.replace(/\s/g, '')).toBe(SECRET);
+    expect(code.textContent).toBe(SECRET);
+    expect(code.querySelectorAll('span')).toHaveLength(8);
+    expect(code.querySelectorAll('wbr')).toHaveLength(7);
   });
 
   it('copies the raw secret, without the spaces', async () => {

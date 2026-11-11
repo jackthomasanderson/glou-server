@@ -13,7 +13,7 @@ import {
 import { TwoFactorCodeInput } from '@/components/auth/TwoFactorCodeInput';
 import { BackupCodesDialog } from '@/components/profile/BackupCodesDialog';
 import { authErrorMessage } from '@/lib/auth/error-message';
-import { groupSecret } from '@/lib/auth/group-secret';
+import { secretBlocks } from '@/lib/auth/group-secret';
 import { copyText } from '@/lib/clipboard';
 
 /** #638: at or below this many codes left, the count is shown as a warning. */
@@ -203,17 +203,22 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                     />
                     <p className="text-xs text-foreground-400 text-center max-w-full">
                       {t('profile.twoFactor.orSecret')}{' '}
-                      {/* Spaces are display only (#950): they let it wrap at 320 px; the button copies the raw secret. */}
-                      <code className="font-mono font-bold text-foreground break-words">{groupSecret(setupData.secret)}</code>
+                      {/* #950: blocks of 4 with a CSS gap and <wbr/>, no real spaces: it wraps at 320 px and a manual selection still copies the raw secret. */}
+                      <code className="font-mono font-bold text-foreground">
+                        {secretBlocks(setupData.secret).map((block, i) => (
+                          <React.Fragment key={i}>
+                            {i > 0 && <wbr />}
+                            <span className="inline-block mr-1.5">{block}</span>
+                          </React.Fragment>
+                        ))}
+                      </code>
                     </p>
                     <Button size="sm" variant="flat" startContent={<Copy size={14} />} onPress={handleCopySecret}>
                       {t('profile.twoFactor.copySecret')}
                     </Button>
-                    {secretCopy !== 'idle' && (
-                      <p role="status" className="text-xs text-center text-foreground-500">
-                        {t(secretCopy === 'copied' ? 'profile.twoFactor.secretCopied' : 'profile.twoFactor.copySecretFailed')}
-                      </p>
-                    )}
+                    <p role="status" className="text-xs text-center text-foreground-500">
+                      {secretCopy === 'idle' ? '' : t(secretCopy === 'copied' ? 'profile.twoFactor.secretCopied' : 'profile.twoFactor.copySecretFailed')}
+                    </p>
                     <Divider className="w-full" />
                     <p className="text-sm text-center text-foreground-600">
                       {t('profile.twoFactor.step2')}
