@@ -64,4 +64,15 @@ describe('RegionAutocomplete', () => {
     expect(input()).toHaveAccessibleDescription(/^Non reconnue : cette bouteille n'apparaîtra pas sur la carte des Analyses/);
     expect(input()).not.toHaveAttribute('aria-invalid', 'true');
   });
+
+  it('waits for the member to leave the field before saying the region is not recognised', () => {
+    render(<Field />);
+    act(() => input().focus());
+    fireEvent.change(input(), { target: { value: 'Bor' } });
+    expect(input()).toHaveAccessibleDescription('Sert à placer la bouteille sur la carte des Analyses.');
+    fireEvent.change(input(), { target: { value: 'Terroir Imaginaire' } });
+    expect(input()).toHaveAccessibleDescription('Sert à placer la bouteille sur la carte des Analyses.');
+    act(() => input().blur());
+    expect(input()).toHaveAccessibleDescription(/^Non reconnue/);
+  });
 });

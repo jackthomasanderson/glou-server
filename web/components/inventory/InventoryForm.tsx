@@ -744,6 +744,14 @@ export function InventoryForm({
                               <SelectItem key={s}>{s ? t(`inventory.sugarLevels.${s}`) : <em>—</em>}</SelectItem>
                             ))}
                           </SingleSelect>
+                          <div className="col-span-2">
+                            {/* #961: free text with suggestions, placed on the Analytics map. */}
+                            <RegionAutocomplete
+                              label={t('inventory.fields.region')}
+                              value={values.region ?? ''}
+                              onChange={(v) => setField('region', v)}
+                            />
+                          </div>
                         </>
                       )}
 
@@ -770,6 +778,15 @@ export function InventoryForm({
                               size="sm"
                               value={values.edition ?? ''}
                               onValueChange={(v) => setField('edition', v)}
+                            />
+                          </div>
+                          {/* A whole row: the four short spirit fields keep their two pairs (#867). */}
+                          <div className="col-span-2 sm:col-span-4">
+                            {/* #961: free text with suggestions, placed on the Analytics map. */}
+                            <RegionAutocomplete
+                              label={t('inventory.fields.region')}
+                              value={values.region ?? ''}
+                              onChange={(v) => setField('region', v)}
                             />
                           </div>
                           <div className="col-span-2">

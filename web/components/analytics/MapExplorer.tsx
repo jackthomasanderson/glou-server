@@ -172,6 +172,7 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
         <WorldHeatmap
           regionCategoryBreakdown={filteredRegionCategoryBreakdown}
           noLocationBreakdown={filteredNoLocationBreakdown}
+          onlyCategory={filters.categories.length === 1 ? filters.categories[0] : null}
           onRegionClick={handleRegionClick}
           t={t}
         />

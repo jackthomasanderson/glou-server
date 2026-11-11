@@ -83,7 +83,8 @@ export function RegionAutocomplete({ value, onChange, label }: Props) {
     pick: (o) => pick(o.label),
   });
   const expanded = isOpen && options.length > 0;
-  const notRecognised = value.trim() !== '' && !findKnownRegion(value);
+  // Said once the member is done typing (list closed: blur, Escape, a pick), not on every keystroke.
+  const notRecognised = !isOpen && value.trim() !== '' && !findKnownRegion(value);
 
   return (
     <div className="relative">
@@ -119,11 +120,11 @@ export function RegionAutocomplete({ value, onChange, label }: Props) {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(opt.label)}
                 onMouseEnter={() => keys.setActiveIndex(idx)}
-                className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${idx === keys.activeIndex ? 'bg-default-100' : 'hover:bg-default-100'}`}
+                className={`flex min-w-0 items-center gap-2 px-3 py-2 cursor-pointer ${idx === keys.activeIndex ? 'bg-default-100' : 'hover:bg-default-100'}`}
               >
-                <span className="text-sm font-semibold">{opt.label}</span>
+                <span className="min-w-0 truncate text-sm font-semibold" title={opt.label}>{opt.label}</span>
                 {opt.notOnMap && (
-                  <Chip size="sm" variant="bordered" color="default" classNames={{ base: 'h-[18px]', content: 'text-xs px-1.5' }}>
+                  <Chip size="sm" variant="bordered" color="default" classNames={{ base: 'h-[18px] shrink-0', content: 'text-xs px-1.5' }}>
                     {t('autocomplete.notOnMap')}
                   </Chip>
                 )}

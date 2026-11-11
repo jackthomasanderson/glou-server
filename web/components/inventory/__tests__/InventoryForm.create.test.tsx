@@ -231,3 +231,23 @@ describe('InventoryForm — an opened bottle', () => {
     expect(sent()).toMatchObject({ isOpened: true, fillLevel: 25 });
   });
 });
+
+// #961: every bottle the Analytics map lists as "not on the map" can be
+// corrected from its form: sparkling wines and spirits have a Region too.
+describe('InventoryForm — a region for every bottle', () => {
+  it.each([
+    ['wine', {}],
+    ['sparkling', {}],
+    ['spirit', { alcoholDegree: 43 }],
+  ] as const)('%s: sends the region typed', (category, extra) => {
+    const { dialog, sent } = draw({ defaultCategory: category, initialValues: { category, ...extra } as Partial<InventoryItem> });
+    type(dialog, 'Région', 'Champagne');
+    fireEvent.click(within(dialog).getByTestId('inventory-form-submit'));
+    expect(sent()).toMatchObject({ category, region: 'Champagne' });
+  });
+
+  it('cigar: no region field (placed by its leaf origin)', () => {
+    const { dialog } = draw({ defaultCategory: 'cigar' });
+    expect(within(dialog).queryByLabelText('Région')).toBeNull();
+  });
+});

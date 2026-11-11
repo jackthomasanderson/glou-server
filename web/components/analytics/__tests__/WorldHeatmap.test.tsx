@@ -60,12 +60,14 @@ function mount(
   regionCategoryBreakdown: RegionCategoryStat[],
   onRegionClick?: (region: string) => void,
   noLocation: NoLocationStat[] = [],
+  onlyCategory: string | null = null,
 ) {
   return render(
     <ThemeModeProvider>
       <WorldHeatmap
         regionCategoryBreakdown={regionCategoryBreakdown}
         noLocationBreakdown={noLocation}
+        onlyCategory={onlyCategory}
         onRegionClick={onRegionClick}
         t={t}
       />
@@ -103,6 +105,14 @@ describe('WorldHeatmap', () => {
     expect(line).toHaveTextContent(/analytics\.regionMap\.noRegion \{"count":3\}/);
     expect(screen.getByRole('link', { name: 'analytics.regionMap.seeBottles' })).toHaveAttribute('href', '/bottles?filter=notLocated');
     expect(screen.queryByRole('link', { name: 'analytics.regionMap.seeCigars' })).not.toBeInTheDocument();
+  });
+
+  // Review of #963: with the map narrowed to one category, the list matches the count.
+  it('narrows the list to the one category the map shows', async () => {
+    mount([{ region: 'Bordeaux', category: 'sparkling', count: 1, valuation: 10 }], undefined, [{ category: 'sparkling', count: 2 }], 'sparkling');
+    await waitFor(() => expect(notOnMapLine()).not.toBeNull());
+    expect(screen.getByRole('link', { name: 'analytics.regionMap.seeBottles' }))
+      .toHaveAttribute('href', '/bottles?filter=notLocated&category=sparkling');
   });
 
   it('links to the cigars page for the cigars that cannot be placed', async () => {

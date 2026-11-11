@@ -139,13 +139,15 @@ interface WorldHeatmapProps {
   regionCategoryBreakdown: RegionCategoryStat[];
   /** #961: units in stock with nothing to place them by, filtered like the breakdown. */
   noLocationBreakdown: NoLocationStat[];
+  /** The one category the map is narrowed to, if any: the bottles list opens on it too. */
+  onlyCategory?: string | null;
   onRegionClick?: (region: string) => void;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function WorldHeatmap({ regionCategoryBreakdown, noLocationBreakdown, onRegionClick, t }: WorldHeatmapProps) {
+export function WorldHeatmap({ regionCategoryBreakdown, noLocationBreakdown, onlyCategory, onRegionClick, t }: WorldHeatmapProps) {
   const [mode, setMode] = useState<MapDisplayMode>('markers');
   const [heatmapType, setHeatmapType] = useState<HeatmapType>('dominant');
   const [hovered, setHovered] = useState<{ marker: MarkerData; x: number; y: number } | null>(null);
@@ -373,7 +375,10 @@ export function WorldHeatmap({ regionCategoryBreakdown, noLocationBreakdown, onR
           {missing.bottles > 0 && (
             <>
               {' '}
-              <Link href="/bottles?filter=notLocated" className="text-primary font-semibold hover:underline">
+              <Link
+                href={`/bottles?filter=notLocated${onlyCategory && onlyCategory !== 'cigar' ? `&category=${encodeURIComponent(onlyCategory)}` : ''}`}
+                className="text-primary font-semibold hover:underline"
+              >
                 {t('analytics.regionMap.seeBottles')}
               </Link>
             </>

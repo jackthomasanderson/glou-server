@@ -119,6 +119,8 @@ export const sparklingInventorySchema = commonInventorySchema.extend({
   vintage: vintageSchema().optional(),
   sparklingType: z.enum(SPARKLING_TYPES).optional(),
   sugarLevel: z.enum(SUGAR_LEVELS).optional(),
+  // #961: places the bottle on the Analytics map, as for a wine.
+  region: z.string().max(200).optional(),
   // Nullable, see batchDate (#726).
   disgorgingDate: z.coerce.date().optional().nullable(),
   baseYear: vintageSchema().optional(),
@@ -135,6 +137,8 @@ export const spiritInventorySchema = commonInventorySchema.extend({
   category: z.literal('spirit'),
   spiritType: z.string().max(50).optional(),
   edition: z.string().max(200).optional(),
+  // #961: places the bottle on the Analytics map, as for a wine.
+  region: z.string().max(200).optional(),
   alcoholDegree: z.number().min(0).max(100),
   declaredAge: z.number().int().min(0).max(200).optional(),
   additions: z.string().max(500).optional(),
