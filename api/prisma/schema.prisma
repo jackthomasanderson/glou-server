@@ -163,6 +163,7 @@ model Cellar {
   humidorReadings HumidorReading[]
   slots           ItemSlot[]
   tastingNotes    TastingNote[]
+  countSessions   InventoryCountSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -828,7 +829,11 @@ enum InventoryCountSessionStatus {
 model InventoryCountSession {
   id          String                       @id @default(uuid())
   scopeLabel  String // Libellé libre du périmètre (ex: "Cave Principale", "Meuble A", "Bac 3")
-  cellarId    String? // Optionnel : lien vers une Cellar si le périmètre correspond à une cave entière
+  // Optional: the cellar counted when the scope is a whole cellar. #597: a
+  // real relation, so deleting that cellar empties it (SetNull) and the count
+  // goes on as a free-label one, instead of keeping a dead id it can't close.
+  cellarId    String?
+  cellar      Cellar?                      @relation(fields: [cellarId], references: [id], onDelete: SetNull)
   status      InventoryCountSessionStatus
   // ISSUE_098: audit field, not an ownership field — see the matching note
   // on Cellar.userId. A stocktaking session belongs to the shared cellar.

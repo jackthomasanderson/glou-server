@@ -114,7 +114,7 @@ export class MaturityReferenceService {
 
   async suggest(params: SuggestQuery): Promise<MaturitySuggestion | null> {
     const refs = await prisma.maturityReference.findMany({
-      where: { category: params.category as never },
+      where: { category: params.category },
     });
 
     if (refs.length === 0) return null;

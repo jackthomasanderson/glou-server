@@ -121,7 +121,7 @@ describe('InventoryService', () => {
     const mockItems = [unitRow({ name: 'stale mirror' }, { name: 'Pétrus', collections: [{ id: 'col1' }] })];
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(mockItems as never);
 
-    const result = await service.listInventory('u1');
+    const result = await service.listInventory();
 
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: { deletedAt: null },
@@ -146,7 +146,7 @@ describe('InventoryService', () => {
     const mockItems = Array.from({ length: 2001 }, (_, i) => unitRow({ id: `b${i}` }));
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(mockItems as never);
 
-    const result = await service.listInventory('u1');
+    const result = await service.listInventory();
 
     expect(result.items).toHaveLength(2000);
     expect(result.truncated).toBe(true);
@@ -155,14 +155,14 @@ describe('InventoryService', () => {
   it('softDelete - returns null when item not found', async () => {
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null);
 
-    const result = await service.softDelete('u1', 'unknown-id');
+    const result = await service.softDelete('unknown-id');
     expect(result).toBeNull();
   });
 
   it('restore - returns null when item is past retention window', async () => {
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null);
 
-    const result = await service.restore('u1', 'old-id');
+    const result = await service.restore('old-id');
     expect(result).toBeNull();
   });
 
@@ -178,7 +178,7 @@ describe('InventoryService', () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(trashed as never);
       slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3, deletedAt: trashedAt }), slot({ itemId: 'other', column: 2, row: 3 }));
 
-      await service.restore('u1', 'b1');
+      await service.restore('b1');
 
       expect(prisma.inventoryItem.update).toHaveBeenCalledWith({ where: { id: 'b1' }, data: { deletedAt: null } });
       expect(slots.rows.filter((row) => row.itemId === 'b1')).toEqual([]);
@@ -195,7 +195,7 @@ describe('InventoryService', () => {
         throw new Prisma.PrismaClientKnownRequestError('unique', { code: 'P2002', clientVersion: 'x' });
       });
 
-      const restored = await service.restore('u1', 'b1');
+      const restored = await service.restore('b1');
 
       expect(restored).toMatchObject({ id: 'b1' });
       expect(prisma.$transaction).toHaveBeenCalledTimes(2);
@@ -210,7 +210,7 @@ describe('InventoryService', () => {
       slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1, deletedAt: trashedAt })));
       const freed: unknown[] = [];
 
-      await service.restore('u1', 'b1', freed as never);
+      await service.restore('b1', freed as never);
 
       expect(slots.rows.filter((row) => row.itemId === 'b1' && row.deletedAt === null)).toHaveLength(1);
       expect(freed).toHaveLength(2);
@@ -221,7 +221,7 @@ describe('InventoryService', () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(trashed as never);
       slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3, deletedAt: trashedAt }));
 
-      await service.restore('u1', 'b1');
+      await service.restore('b1');
 
       expect(slots.cellsOf('b1')).toBe('2:3');
     });
@@ -229,7 +229,7 @@ describe('InventoryService', () => {
     // Review #789: the locking rule — the family before its unit.
     it('locks the family before writing the unit back', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ deletedAt: new Date() }, { deletedAt: new Date() }) as never);
-      await service.restore('u1', 'b1');
+      await service.restore('b1');
 
       const [, productId] = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown as [string[], string];
       expect(productId).toBe('p1');
@@ -244,7 +244,7 @@ describe('InventoryService', () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(
         unitRow({ deletedAt: new Date() }, { deletedAt: new Date() }) as never,
       );
-      await service.restore('u1', 'b1');
+      await service.restore('b1');
 
       expect(prisma.product.update).toHaveBeenCalledWith({ where: { id: 'p1' }, data: { deletedAt: null } });
       expect(prisma.inventoryItem.update).toHaveBeenCalledWith({ where: { id: 'b1' }, data: { deletedAt: null } });
@@ -252,7 +252,7 @@ describe('InventoryService', () => {
 
     it('leaves a family that is not in the trash alone', async () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ deletedAt: new Date() }) as never);
-      await service.restore('u1', 'b1');
+      await service.restore('b1');
 
       expect(prisma.product.update).not.toHaveBeenCalled();
     });
@@ -262,7 +262,7 @@ describe('InventoryService', () => {
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ cellarId: 'c1' }) as never);
     slots.rows.push(slot({ itemId: 'b1', column: 1, row: 1 }));
 
-    await service.softDelete('u1', 'b1');
+    await service.softDelete('b1');
 
     const { data } = vi.mocked(prisma.inventoryItem.update).mock.calls[0][0] as unknown as { data: { deletedAt: Date } };
     expect(slots.rows.find((row) => row.itemId === 'b1')).toMatchObject({ deletedAt: data.deletedAt });
@@ -354,7 +354,7 @@ describe('InventoryService', () => {
     });
     const listed = async () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([row()] as never);
-      return (await service.listInventory('u1')).items[0];
+      return (await service.listInventory()).items[0];
     };
 
     it('updateItem returns the item as listInventory lists it', async () => {
@@ -390,7 +390,7 @@ describe('InventoryService', () => {
       vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ deletedAt: new Date() }) as never);
       vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation((async () => row()) as never);
 
-      const restored = await service.restore('u1', 'b1');
+      const restored = await service.restore('b1');
 
       expect(restored).toEqual(await listed());
     });

@@ -12,7 +12,7 @@ import { INVENTORY_LIST_LIMIT, TRASH_RETENTION_DAYS, type FieldSource } from '..
 import {
   compareFamilyIds, isProductField, lockFamilies, lockFamily, nextLocksAndSources, pickProductFields, purchaseDayFromInput,
   toItemView, toUnitView, UNIT_SLOTS_INCLUDE,
-  type FlatItemView,
+  type FlatItemView, type ProductField,
 } from '../lib/product-fields';
 import {
   applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
@@ -112,6 +112,27 @@ export interface InventoryWithTraceability {
   lastEditor: { id: string; name: string } | null;
 }
 
+/**
+ * #629: the bottle the API accepts, checked against the database. The writes
+ * split a patch with `Object.entries` (family fields to the family, the rest
+ * to the unit), so the compiler cannot see a field with no column there:
+ * Prisma would refuse it at the first save. Every key of the Zod schemas
+ * must be a family field (`PRODUCT_FIELDS`, checked against `products`), a
+ * column of the unit (`bottles`), or one of these instructions, taken out
+ * before any write (`updateItem`, `bulkUpdate`, `mapInputToDb`).
+ */
+type PatchInstruction =
+  | 'expectedUpdatedAt' | 'smokeOne' | 'keepTastings' | 'tastingId' | 'isOwned'
+  | 'fromSlotId' | 'fromUnplaced' | 'placeAt';
+type KeysOf<T> = T extends unknown ? keyof T : never;
+type WithoutColumn = Exclude<
+  KeysOf<InventoryPatch | InventoryDraft>,
+  PatchInstruction | ProductField | Prisma.InventoryItemScalarFieldEnum
+>;
+// A field added to the Zod schema without its migration fails `typecheck`
+// here: "Property '<field>' is missing".
+const _everyInputFieldHasAColumn: Record<WithoutColumn, never> = {};
+
 // InventoryItem type inferred from Prisma client
 type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> extends infer T | null ? NonNullable<T> : never;
 
@@ -179,7 +200,7 @@ export class InventoryService {
    * `truncated` tells the caller the list isn't complete so it isn't
    * mistaken for the full inventory.
    */
-  async listInventory(_userId: string): Promise<{ items: WithReadiness<InventoryItemView>[]; truncated: boolean }> {
+  async listInventory(): Promise<{ items: WithReadiness<InventoryItemView>[]; truncated: boolean }> {
     const limit = INVENTORY_LIST_LIMIT;
     const items = await prisma.inventoryItem.findMany({
       where: { deletedAt: null },
@@ -191,7 +212,7 @@ export class InventoryService {
     return { items: items.slice(0, limit).map((item) => attachReadiness(toItemView(item))), truncated };
   }
 
-  async listTrash(_userId: string): Promise<InventoryItemView[]> {
+  async listTrash(): Promise<InventoryItemView[]> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const items = await prisma.inventoryItem.findMany({
       where: {
@@ -203,7 +224,7 @@ export class InventoryService {
     return items.map(toItemView);
   }
 
-  async getItem(_userId: string, id: string): Promise<InventoryItemView | null> {
+  async getItem(id: string): Promise<InventoryItemView | null> {
     const item = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
@@ -211,7 +232,7 @@ export class InventoryService {
     return item ? toItemView(item) : null;
   }
 
-  async getItemWithTraceability(_userId: string, id: string): Promise<InventoryWithTraceability | null> {
+  async getItemWithTraceability(id: string): Promise<InventoryWithTraceability | null> {
     const item = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
@@ -513,7 +534,7 @@ export class InventoryService {
     });
     if (!written) return null;
     if ('conflict' in written) {
-      const server = await this.getItem(userId, id);
+      const server = await this.getItem(id);
       return server ? { conflict: true, serverItem: attachReadiness(server) } : null;
     }
     const outcome: ApplyStateResult<InventoryItemRow> = written.result;
@@ -686,7 +707,7 @@ export class InventoryService {
           const { cellarId, ...others } = changed;
           const group = Object.keys(others).length === 0 ? fresh : await tx.inventoryItem.update({
             where: { id: item.id },
-            data: { ...others, updatedAt: new Date(), updatedBy: userId } as never,
+            data: { ...others, updatedAt: new Date(), updatedBy: userId },
           });
           await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
           updatedCount++;
@@ -710,7 +731,7 @@ export class InventoryService {
             ...changed,
             updatedAt: new Date(),
             updatedBy: userId,
-          } as never,
+          },
         });
         updatedCount++;
       }
@@ -719,7 +740,7 @@ export class InventoryService {
     return updatedCount;
   }
 
-  async softDelete(_userId: string, id: string): Promise<InventoryItemView | null> {
+  async softDelete(id: string): Promise<InventoryItemView | null> {
     const existing = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
@@ -735,7 +756,6 @@ export class InventoryService {
   }
 
   async restore(
-    _userId: string,
     id: string,
     /** FEAT-93: filled with the cells it could not take back (see restoreOnce), for its history. */
     slotChanges: FieldChange[] = [],

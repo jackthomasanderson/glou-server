@@ -201,9 +201,16 @@ function normalizeCigarState(item: StateItem, next: StateItem, given: StatePatch
 /** The columns a detached sub-record does not inherit from its group. */
 const NOT_INHERITED = new Set(['id', 'createdAt', 'updatedAt', 'product', 'cellar', 'user']);
 
-/** Prisma refuses a bare `null` for a Json column. */
-function writable(row: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(row).filter(([field, value]) => !(field === 'fieldSources' && value === null)));
+/** A unit's columns as copied or written back: its row, without what a write never carries. */
+type UnitColumns = Omit<StateItem, 'id' | 'createdAt' | 'updatedAt'>;
+
+/**
+ * Prisma refuses a bare `null` for a Json column. #629: typed, so what is
+ * written is checked against the unit's columns.
+ */
+function writable<T extends { fieldSources?: Prisma.JsonValue }>(row: T): Omit<T, 'fieldSources'> & { fieldSources?: Prisma.InputJsonValue } {
+  const { fieldSources, ...rest } = row;
+  return fieldSources == null ? rest : { ...rest, fieldSources };
 }
 
 /**
@@ -252,12 +259,14 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   if (changesCellar) slotChanges.push(...slotsFreed(await freeSlots(tx, item.id)));
   const own = (row: StateItem) => Object.fromEntries(
     Object.entries(row).filter(([field]) => !NOT_INHERITED.has(field)),
-  );
+  ) as UnitColumns;
 
   if (outcome === 'detached') {
+    // The patch's keys are the unit's columns: inventory.service.ts checks
+    // the Zod schema against them (#629).
     const { quantity: _q, ...unit } = Object.fromEntries(
       Object.entries(write.unit ?? {}).filter(([field]) => !isStateField(field)),
-    );
+    ) as Partial<UnitColumns>;
     const from = next.quantity ?? 1;
     // The copy taken: from the cell chosen, an unplaced one, or by the
     // automatic rule. Single cigars share the group's one cell, which stays
@@ -275,7 +284,7 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
       needsReview: false,
       writtenOffAt: null,
     };
-    await tx.inventoryItem.create({ data: writable(sub) as never });
+    await tx.inventoryItem.create({ data: writable(sub) });
     // Cells freed so far were the group's (a cellar change).
     const groupSlots = slotChanges.splice(0);
     // Opened, the copy takes the cell it came from; finished, it frees it.
@@ -287,7 +296,7 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     // Written once its cells are settled: the row answered carries them.
     const group = await tx.inventoryItem.update({
       where: { id: item.id },
-      data: { ...unit, quantity: (next.quantity ?? 1) - 1, ...stamp } as never,
+      data: { ...writable(unit), quantity: (next.quantity ?? 1) - 1, ...stamp },
       include,
     });
     const created = await tx.inventoryItem.findUniqueOrThrow({ where: { id: subId }, include });
@@ -313,7 +322,7 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     if (fits) return { ...(await absorb<I, R>(tx, item, next, parent, write.keepTastings, { include, stamp })), ...done };
     const regrouped = await tx.inventoryItem.update({
       where: { id: item.id },
-      data: { ...writable(changedColumns(item, next)), parentItemId: null, ...stamp } as never,
+      data: { ...writable(changedColumns(item, next)), parentItemId: null, ...stamp },
       include,
     });
     return { outcome: 'regrouped', ...done, data: regrouped as R, changed: [], removedIds: [] };
@@ -325,7 +334,7 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   slotChanges.push(...slotsFreed(await fitSlotsTo(tx, item.id, next, context.kind)));
   const updated = await tx.inventoryItem.update({
     where: { id: item.id },
-    data: { ...writable(changedColumns(item, next)), ...(outcome === 'regrouped' ? { parentItemId: null } : {}), ...stamp } as never,
+    data: { ...writable(changedColumns(item, next)), ...(outcome === 'regrouped' ? { parentItemId: null } : {}), ...stamp },
     include,
   });
   return { outcome, ...done, data: updated as R, changed: [], removedIds: [] };
@@ -360,11 +369,11 @@ async function slotsJoin(
 const REATTACH_BOOKKEEPING = new Set(['lockedFields', 'fieldSources', 'updatedBy']);
 
 /** The columns of `next` that differ from `item`: only what really changes is written. */
-function changedColumns(item: StateItem, next: StateItem): Record<string, unknown> {
+function changedColumns(item: StateItem, next: StateItem): Partial<UnitColumns> {
   return Object.fromEntries(
     Object.entries(next).filter(([field, value]) =>
       !NOT_INHERITED.has(field) && JSON.stringify((item as Record<string, unknown>)[field]) !== JSON.stringify(value)),
-  );
+  ) as Partial<UnitColumns>;
 }
 
 /**
@@ -418,7 +427,7 @@ async function absorb<I extends Prisma.InventoryItemInclude, R>(
     data: {
       quantity: (parent.quantity ?? 1) + (next.quantity ?? 1),
       ...stamp,
-    } as never,
+    },
     include,
   });
   const from = parent.quantity ?? 1;
