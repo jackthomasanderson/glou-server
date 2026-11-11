@@ -13,7 +13,7 @@ export const categorySchema = z.enum(CATEGORY_VALUES);
 
 /** Lower case, no accents, no spaces/punctuation: "Millésime" → "millesime", "Rosé" → "rose". */
 export function normalizeToken(value: string): string {
-  return value.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9%]/g, '');
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9%]/g, '');
 }
 
 // #596: the label scan and the CSV import each had their own list of

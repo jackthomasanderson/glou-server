@@ -38,7 +38,7 @@ import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import {
   CURVE_SHAPES, DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey,
 } from '@/lib/maturity-references/curve';
-import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '@shared/inventory';
+import { MANUFACTURE_YEAR_MIN, SPARKLING_TYPES, SUGAR_LEVELS, VINTAGE_MIN, WINE_COLORS } from '@shared/inventory';
 import { MAX_COPIES } from '@shared/product';
 import { DESCRIPTION_LIMITS } from '@shared/review';
 import { CigarGroupFields } from './CigarGroupFields';
@@ -680,7 +680,7 @@ export function InventoryForm({
                             value={values.vintage}
                             onValueChange={(v) => setField('vintage', v)}
                             description={t('inventory.fields.noVintage')}
-                            min={1800} max={new Date().getFullYear()}
+                            min={VINTAGE_MIN} max={new Date().getFullYear()}
                           />
                           <SingleSelect
                             {...halfField(t('inventory.fields.color'))}
@@ -723,7 +723,7 @@ export function InventoryForm({
                             value={values.vintage}
                             onValueChange={(v) => setField('vintage', v)}
                             description={t('inventory.fields.noVintage')}
-                            min={1800} max={new Date().getFullYear()}
+                            min={VINTAGE_MIN} max={new Date().getFullYear()}
                           />
                           <SingleSelect
                             {...halfField(t('inventory.fields.sparklingType'))}
@@ -822,7 +822,7 @@ export function InventoryForm({
                             size="sm"
                             value={values.manufactureYear}
                             onValueChange={(v) => setField('manufactureYear', v)}
-                            min={1900} max={2100}
+                            min={MANUFACTURE_YEAR_MIN} max={new Date().getFullYear()}
                           />
                         </>
                       )}
@@ -1134,7 +1134,7 @@ export function InventoryForm({
                                   size="sm"
                                   value={values.baseYear}
                                   onValueChange={(v) => setField('baseYear', v)}
-                                  min={1800} max={2100}
+                                  min={VINTAGE_MIN} max={new Date().getFullYear()}
                                 />
                                 <Input
                                   {...halfField(t('inventory.fields.disgorgingDate'), t('inventory.fields.baseYear'))}
