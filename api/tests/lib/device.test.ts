@@ -88,8 +88,19 @@ describe('locateIp with the DB-IP database', () => {
     expect(device.locateIp('fe80::1')).toBeNull();
   });
 
+  it('loads the database at startup and reports whether it is available', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const device = await loadDevice({ '81.2.69.142': { country: { iso_code: 'GB' } } });
+    expect(device.loadGeoDatabase()).toBe(true);
+    expect(device.countryOfIp('81.2.69.142')).toBe('GB');
+    expect(info).toHaveBeenCalledTimes(1);
+    info.mockRestore();
+    expect((await loadDevice(null)).loadGeoDatabase()).toBe(false);
+  });
+
   it('returns null and warns once when the database cannot be read', async () => {
     const device = await loadDevice(null);
+    expect(device.loadGeoDatabase()).toBe(false);
     expect(device.locateIp('81.2.69.142')).toBeNull();
     expect(device.countryOfIp('8.8.8.8')).toBeNull();
     expect(warn).toHaveBeenCalledTimes(1);

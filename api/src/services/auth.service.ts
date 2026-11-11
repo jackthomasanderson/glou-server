@@ -381,6 +381,10 @@ export class AuthService {
       `<p style="color:#666;font-size:12px;">${isEn
         ? 'If this was not you, secure your account immediately: change your password and sign out other sessions.'
         : "Si vous n'êtes pas à l'origine de cette action, sécurisez votre compte immédiatement : changez votre mot de passe et déconnectez les autres sessions."}</p>`,
+      // #434: DB-IP Lite licence requires a link back wherever its results are shown.
+      location
+        ? `<p style="color:#666;font-size:12px;"><a href="https://db-ip.com">${isEn ? 'IP Geolocation by DB-IP' : 'Géolocalisation IP par DB-IP'}</a></p>`
+        : '',
     ].join('');
 
     await notificationService.send({ userId, category: 'security', subject, htmlBody, bypassQuietHours: true, emailOverride });

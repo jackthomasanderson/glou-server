@@ -29,6 +29,10 @@ services:
       context: ./api
       additional_contexts:
         shared: ./shared
+      # #434: no DB-IP download, so e2e and the nightly fuzz do not depend on
+      # db-ip.com; session locations are simply null.
+      args:
+        GEO_DOWNLOAD: 'false'
     depends_on:
       db:
         condition: service_healthy

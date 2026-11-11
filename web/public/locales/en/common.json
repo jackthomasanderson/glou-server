@@ -933,6 +933,7 @@
       "title": "Active Sessions",
       "current": "Current Session",
       "lastActive": "Last active",
+      "geoCredit": "IP Geolocation by DB-IP",
       "unknownLocation": "Unknown location",
       "unknownDevice": "Unknown device",
       "unknownBrowser": "Unknown browser",

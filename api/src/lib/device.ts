@@ -46,11 +46,17 @@ function geoReader(): Reader<CityResponse> | null {
   const path = process.env.GEO_DB_PATH || DEFAULT_GEO_DB_PATH;
   try {
     reader = new Reader<CityResponse>(readFileSync(path));
+    console.info(`[geo] IP geolocation database loaded from ${path}`);
   } catch (err) {
     console.warn(`[geo] IP geolocation disabled, cannot read ${path}: ${(err as Error).message}`);
     reader = null;
   }
   return reader;
+}
+
+/** Loads the database at startup, so a missing file is reported at boot. */
+export function loadGeoDatabase(): boolean {
+  return geoReader() !== null;
 }
 
 /**

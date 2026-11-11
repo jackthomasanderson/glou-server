@@ -26,8 +26,16 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    outputs:
+      geo_month: ${{ steps.geo.outputs.month }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # #434: month of the DB-IP database baked into the API image, read once
+      # so the amd64 and arm64 builds embed the same file (see api/Dockerfile).
+      - name: Pick the IP geolocation database month
+        id: geo
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
 
       # ISSUE_105: scans the checked-out tree for committed secrets before
       # anything else runs. The CLI directly, not gitleaks/gitleaks-action —
@@ -308,7 +316,7 @@ jobs:
             shared=./shared
           platforms: linux/${{ matrix.platform.arch }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: ${{ matrix.image == 'web' && 'NEXT_PUBLIC_API_URL=http://api:3001' || '' }}
+          build-args: ${{ matrix.image == 'web' && 'NEXT_PUBLIC_API_URL=http://api:3001' || format('GEO_MONTH={0}', needs.test.outputs.geo_month) }}
           outputs: type=image,name=${{ matrix.image == 'api' && env.IMAGE_API || env.IMAGE_WEB }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.platform.arch }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.platform.arch }}
