@@ -950,6 +950,43 @@ describe('InventoryService', () => {
     }
   });
 
+  // #588: the old bulk edit (tags, cellar, level…) writes one history entry
+  // per line it changed, and the description once on the wine — never a
+  // single summary row that no bottle's history shows.
+  it('bulkUpdate - a change of the description only is told once on the wine, never as empty line entries (#588)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unitRow({ id: 'b1', cellarId: 'c1' }, { region: 'Bordeaux' }),
+      unitRow({ id: 'b2', cellarId: 'c1' }, { region: 'Bordeaux' }),
+    ] as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockImplementation((async (args: { where: { id: string } }) =>
+      unitRow({ id: args.where.id, cellarId: 'c1' })) as never);
+    const history: unknown[] = [];
+
+    await service.bulkUpdate('u1', ['b1', 'b2'], { region: 'Médoc' }, history as never);
+
+    expect(history).toEqual([
+      { action: 'UPDATE', productId: 'p1', details: { bulk: true, changes: [expect.objectContaining({ field: 'region', to: 'Médoc' })] } },
+    ]);
+  });
+
+  it('bulkUpdate - records each line changed, and the wine once, for their history (#588)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unitRow({ id: 'b1', cellarId: 'c1' }, { region: 'Bordeaux' }),
+      unitRow({ id: 'b2', cellarId: 'c1' }, { region: 'Bordeaux' }),
+    ] as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockImplementation((async (args: { where: { id: string } }) =>
+      unitRow({ id: args.where.id, cellarId: 'c1', isOpened: true, fillLevel: 50 })) as never);
+    const history: unknown[] = [];
+
+    expect(await service.bulkUpdate('u1', ['b1', 'b2'], { region: 'Médoc', cellarId: 'c2' }, history as never)).toBe(2);
+
+    expect(history).toEqual([
+      { action: 'UPDATE', productId: 'p1', details: { bulk: true, changes: [expect.objectContaining({ field: 'region', to: 'Médoc' })] } },
+      { action: 'UPDATE', bottleId: 'b1', productId: 'p1', details: { bulk: true, changes: [{ field: 'cellarId', from: 'c1', to: 'c2' }] } },
+      { action: 'UPDATE', bottleId: 'b2', productId: 'p1', details: { bulk: true, changes: [{ field: 'cellarId', from: 'c1', to: 'c2' }] } },
+    ]);
+  });
+
   it('bulkUpdate - returns 0 and writes nothing when no item matches', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
 
@@ -1311,15 +1348,22 @@ describe('InventoryService', () => {
       vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([opened] as never);
       slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1 })));
       const txUpdate = mockTransactionClient();
-      const slotChanges: Array<{ itemId: string; changes: unknown[] }> = [];
+      const history: unknown[] = [];
 
-      expect(await service.bulkUpdate('u1', ['b1'], { quantity: 1 }, slotChanges as never)).toBe(1);
+      expect(await service.bulkUpdate('u1', ['b1'], { quantity: 1 }, history as never)).toBe(1);
 
       expect(txUpdate.mock.calls[0]?.[0]).toMatchObject({ where: { id: 'b1' }, data: { quantity: 1 } });
       expect(slots.cellsOf('b1')).toBe('1:1');
-      expect(slotChanges).toEqual([{
-        itemId: 'b1',
-        changes: [{ field: 'slot', from: { column: 3, row: 1 }, to: null }, { field: 'slot', from: { column: 2, row: 1 }, to: null }],
+      // #588: the line's own entry tells its number and the cells it gave up.
+      expect(history).toEqual([{
+        action: 'UPDATE', bottleId: 'b1', productId: 'p1',
+        details: {
+          bulk: true,
+          changes: [
+            { field: 'quantity', from: 3, to: 1 },
+            { field: 'slot', from: { column: 3, row: 1 }, to: null }, { field: 'slot', from: { column: 2, row: 1 }, to: null },
+          ],
+        },
       }]);
     });
 

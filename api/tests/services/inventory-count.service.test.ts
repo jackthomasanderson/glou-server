@@ -97,11 +97,11 @@ describe('applyCorrections', () => {
       id: 's1',
       cellarId: 'c1',
     } as never);
-    const tx = mockTransactionClient({ id: 'b1', deletedAt: null, lockedFields: ['cellarId'] });
+    const tx = mockTransactionClient({ id: 'b1', productId: 'p1', deletedAt: null, lockedFields: ['cellarId'], cellarId: 'c2' });
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'move_to_scope' }], 'u1');
 
-    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [], history: [] });
+    expect(result).toMatchObject({ status: 'success', appliedCount: 1, skipped: [], history: [{ itemId: 'b1' }] });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
       data: expect.objectContaining({ cellarId: 'c1', updatedBy: 'u1' }),
@@ -115,12 +115,22 @@ describe('applyCorrections', () => {
       cellarId: 'c1',
     } as never);
     const tx = mockTransactionClient({
-      id: 'b1', deletedAt: null, lockedFields: [], cellarId: 'c2',
+      id: 'b1', productId: 'p1', deletedAt: null, lockedFields: [], cellarId: 'c2',
     }, [slot({ itemId: 'b1', cellarId: 'c2', column: 2, row: 3 })]);
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'move_to_scope' }], 'u1');
 
-    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [], history: [] });
+    // #588: the move is told in the bottle's history, with the cell it left.
+    expect(result).toEqual({
+      status: 'success', appliedCount: 1, skipped: [],
+      history: [{
+        action: 'UPDATE', itemId: 'b1', productId: 'p1',
+        details: {
+          scope: 'inventory-count', sessionId: 's1',
+          changes: [{ field: 'cellarId', from: 'c2', to: 'c1' }, { field: 'slot', from: { column: 2, row: 3 }, to: null }],
+        },
+      }],
+    });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
       data: expect.objectContaining({ cellarId: 'c1' }),
