@@ -533,7 +533,7 @@ export function AnalyticsDashboard() {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<Period>('all');
   const { from, to } = periodToDates(period);
-  const { data, isLoading, isError, refetch, isRefetching } = useAnalytics(from, to);
+  const { data, isLoading, isError, error: loadError, refetch, isRefetching } = useAnalytics(from, to);
 
   // Defer to the next frame so the click handler returns before the
   // (synchronous, blocking) print layout pass starts (#421).
@@ -546,6 +546,7 @@ export function AnalyticsDashboard() {
       <MainLayout>
         <div className="max-w-5xl mx-auto py-6 px-4">
           <ErrorState
+            error={loadError}
             message={t('analytics.errors.load')}
             onRetry={() => { void refetch(); }}
             isRetrying={isRefetching}

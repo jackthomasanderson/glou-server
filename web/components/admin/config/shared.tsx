@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { CONFIG_HISTORY_KEY, SYSTEM_CONFIG_KEY } from '@/hooks/useAdmin';
-import { isNetworkFailure } from '@/lib/auth/error-message';
+import { isNetworkFailure, isServerUnavailable } from '@/lib/auth/error-message';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import type { SystemConfigPublic } from '@/lib/config/client';
 
@@ -20,6 +20,7 @@ const CONFIG_ERRORS = new Set([
 /** The translation key for a failed settings request: never the raw code, nor "Error" (#615). */
 export function configErrorKey(err: unknown): string {
   if (isNetworkFailure(err)) return 'status.serverUnreachable';
+  if (isServerUnavailable(err)) return 'status.serverUnavailable';
   const code = err instanceof Error ? err.message : '';
   return CONFIG_ERRORS.has(code) ? `adminConfig.errors.${code}` : 'adminConfig.errors.UNEXPECTED_ERROR';
 }
@@ -159,6 +160,7 @@ export function QueryList<T>({ query, emptyText, children }: {
     return (
       <ErrorState
         compact
+        error={query.error}
         message={t('adminConfig.listLoadError')}
         onRetry={() => void query.refetch()}
         isRetrying={query.isFetching}

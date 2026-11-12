@@ -23,7 +23,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 
 export function SharesDashboard() {
   const { t } = useTranslation();
-  const { data: shares, isLoading, isError, refetch, isRefetching } = useShares();
+  const { data: shares, isLoading, isError, error: loadError, refetch, isRefetching } = useShares();
   const createMutation = useCreateShare();
   const revokeMutation = useRevokeShare();
   const [formOpen, setFormOpen] = useState(false);
@@ -103,6 +103,7 @@ export function SharesDashboard() {
           {/* Error */}
           {isError && (
             <ErrorState
+              error={loadError}
               compact
               message={t('shares.errors.load')}
               onRetry={() => { void refetch(); }}

@@ -91,6 +91,7 @@ export function GuestPageContent({ token }: { token: string }) {
       <main className="min-h-screen flex items-center justify-center p-8">
         <div className="max-w-sm w-full">
           <ErrorState
+            error={metaQuery.error}
             message={t('shares.guest.loadError')}
             onRetry={() => { void metaQuery.refetch(); }}
             isRetrying={metaQuery.isFetching}
@@ -228,6 +229,7 @@ export function GuestPageContent({ token }: { token: string }) {
         {/* The bottle list failed (#650): said, with a way to try again, never a blank page */}
         {inventoryQuery.isError && (
           <ErrorState
+            error={inventoryQuery.error}
             message={t('shares.guest.loadError')}
             onRetry={() => { void inventoryQuery.refetch(); }}
             isRetrying={inventoryQuery.isFetching}

@@ -85,6 +85,7 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
         </LoadingRegion>
       ) : !config ? (
         <ErrorState
+          error={configQuery.error}
           message={t('adminConfig.loadError')}
           onRetry={() => void configQuery.refetch()}
           isRetrying={configQuery.isFetching}

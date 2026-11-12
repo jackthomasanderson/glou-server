@@ -11,7 +11,7 @@ import { ForcedPasswordChange } from './ForcedPasswordChange';
 import { OnboardingWizard } from '../onboarding/OnboardingWizard';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { data: user, isLoading, isError, refetch, isFetching } = useMe();
+  const { data: user, isLoading, isError, error: queryError, refetch, isFetching } = useMe();
   const router = useRouter();
   const { t } = useTranslation();
 
@@ -29,6 +29,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <ErrorState
+          error={queryError}
           className="max-w-md w-full"
           message={t('status.serverUnreachable')}
           onRetry={() => { void refetch(); }}

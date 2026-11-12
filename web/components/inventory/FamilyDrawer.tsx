@@ -145,7 +145,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const hasMounted = useHasMounted();
-  const { data: product, isLoading, isError, refetch, isRefetching } = useProductDetail(productId);
+  const { data: product, isLoading, isError, error: queryError, refetch, isRefetching } = useProductDetail(productId);
   const { data: cellars } = useCellars();
   const updateItem = useUpdateInventoryItem();
   const queryClient = useQueryClient();
@@ -542,7 +542,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
               )}
               {isError && (
                 <div className="p-5">
-                  <ErrorState message={t('familyDrawer.loadError')} onRetry={() => { void refetch(); }} isRetrying={isRefetching} />
+                  <ErrorState error={queryError} message={t('familyDrawer.loadError')} onRetry={() => { void refetch(); }} isRetrying={isRefetching} />
                 </div>
               )}
               {product && renderBody(product)}

@@ -20,7 +20,7 @@ export function TrustedDeviceSettings({ user }: { user: PublicUser }) {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
   const isTwoFactorEnabled = !!user.isTwoFactorEnabled;
-  const { data: state, isLoading, isError, refetch, isRefetching } = useTrustedDevice(isTwoFactorEnabled);
+  const { data: state, isLoading, isError, error: loadError, refetch, isRefetching } = useTrustedDevice(isTwoFactorEnabled);
   const trustDevice = useTrustDevice();
   const untrustDevice = useUntrustDevice();
 
@@ -79,6 +79,7 @@ export function TrustedDeviceSettings({ user }: { user: PublicUser }) {
 
       {isError ? (
         <ErrorState
+          error={loadError}
           compact
           message={t('profile.sessions.trustLoadError')}
           onRetry={() => { void refetch(); }}

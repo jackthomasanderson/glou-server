@@ -87,7 +87,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const { i18n } = useTranslation();
   // #471: the list shows wines (families); the flat bottles still back the
   // drawer, the edit form, QR codes, duplicates and bulk actions until their lots.
-  const { data: products, isLoading, isError, refetch, isRefetching } = useProducts();
+  const { data: products, isLoading, isError, error: loadError, refetch, isRefetching } = useProducts();
   const { data: items } = useInventory();
   const productsTruncated = useProductsTruncated();
   const itemsTruncated = useInventoryTruncated();
@@ -514,6 +514,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           {/* Error */}
           {isError && (
             <ErrorState
+              error={loadError}
               className="mb-4"
               message={t('inventory.errors.load')}
               onRetry={() => { void refetch(); }}

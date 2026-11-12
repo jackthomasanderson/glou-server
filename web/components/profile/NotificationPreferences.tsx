@@ -144,6 +144,7 @@ export function NotificationPreferences() {
   if (query.isError) {
     return (
       <ErrorState
+        error={query.error}
         message={t('notifications.loadError')}
         onRetry={() => void query.refetch()}
         isRetrying={query.isFetching}

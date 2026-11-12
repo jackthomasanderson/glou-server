@@ -41,7 +41,7 @@ export function TastingsDashboard() {
     return () => clearTimeout(handle);
   }, [searchInput]);
 
-  const { data, isLoading, isError, refetch, isRefetching } = useTastings(page, pageSize, undefined, search);
+  const { data, isLoading, isError, error: loadError, refetch, isRefetching } = useTastings(page, pageSize, undefined, search);
   const deleteMutation = useDeleteTasting();
 
   const handleEdit = (note: TastingNote) => setEditing(note);
@@ -102,6 +102,7 @@ export function TastingsDashboard() {
       {/* Error banner */}
       {isError && (
         <ErrorState
+          error={loadError}
           className="mb-4"
           message={t('tastings.errors.load')}
           onRetry={() => { void refetch(); }}

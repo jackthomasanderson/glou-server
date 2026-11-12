@@ -25,6 +25,7 @@ import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { useCellarProducts, useProducts, useProductsTruncated } from '@/hooks/useProducts';
 import { segmentClass } from '@/components/ui/segmentClass';
 import { useExpertMode } from '@/hooks/useExpertMode';
+import { isServerUnavailable } from '@/lib/auth/error-message';
 
 type DetailView = 'grid' | 'list' | 'map';
 
@@ -117,7 +118,7 @@ export function CellarDetailClient() {
     if (cell) focusCellOnceClosed(cell);
   };
 
-  const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
+  const { data: cellar, isLoading: cellarLoading, isError: cellarError, error: cellarLoadError } = useCellar(cellarId);
   const { data: allProducts } = useProducts();
   // #475: once the household's list is cut at its cap, the wines of this
   // cellar are read on their own (scoped server-side), so none goes missing.
@@ -125,7 +126,7 @@ export function CellarDetailClient() {
   const { data: cellarList, isError: cellarListError } = useCellarProducts(cellarId, { enabled: householdCut });
   const products = householdCut && cellarList ? cellarList.data : allProducts;
   const isIncomplete = householdCut && (cellarListError || cellarList?.truncated === true);
-  const { data: gridData, isLoading: gridLoading } = useCellarGrid(cellarId);
+  const { data: gridData, isLoading: gridLoading, error: gridLoadError } = useCellarGrid(cellarId);
   const isExpert = useExpertMode();
 
   // #707: "Ajouter une bouteille ici" — the add form, this cellar preselected.
@@ -167,7 +168,7 @@ export function CellarDetailClient() {
     return (
       <MainLayout>
         <div className="max-w-6xl mx-auto px-4 mt-8">
-          <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
+          <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t(isServerUnavailable(cellarLoadError) ? 'status.serverUnavailable' : 'status.error')}</div>
         </div>
       </MainLayout>
     );
@@ -316,7 +317,7 @@ export function CellarDetailClient() {
           ) : gridData ? (
             <CellarGridPlan data={gridData} onOpenSlot={openSlot} onAddHere={() => setAdding(true)} />
           ) : (
-            <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
+            <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t(isServerUnavailable(gridLoadError) ? 'status.serverUnavailable' : 'status.error')}</div>
           )
         )}
 

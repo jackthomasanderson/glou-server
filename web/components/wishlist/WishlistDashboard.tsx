@@ -56,7 +56,7 @@ const EMPTY_FORM: WishlistForm = {
 
 export function WishlistDashboard() {
   const { t, i18n } = useTranslation();
-  const { data: items, isLoading, isError, refetch, isRefetching } = useWishlist();
+  const { data: items, isLoading, isError, error: queryError, refetch, isRefetching } = useWishlist();
   const createMutation = useCreateWishlistItem();
   const updateMutation = useUpdateWishlistItem();
   const deleteMutation = useDeleteWishlistItem();
@@ -245,6 +245,7 @@ export function WishlistDashboard() {
 
       {isError && (
         <ErrorState
+          error={queryError}
           className="mb-4"
           message={t('wishlist.errors.load')}
           onRetry={() => { void refetch(); }}

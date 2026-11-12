@@ -63,6 +63,18 @@ describe('createQueryClient — shared failure message', () => {
     expect(notifyError).toHaveBeenCalledWith('status.serverUnreachable');
   });
 
+  // #467: the database is restarting: the server answered, nothing is lost, retry soon.
+  it.each([
+    ['the API', new ApiError('DATABASE_UNAVAILABLE', 503)],
+    ['a proxy', new ApiError('HTTP 503', 503)],
+  ])('says the server is temporarily unavailable on a 503 from %s', async (_label, error) => {
+    const observer = new MutationObserver(createQueryClient(), {
+      mutationFn: async () => { throw error; },
+    });
+    await expect(observer.mutate()).rejects.toBe(error);
+    expect(notifyError).toHaveBeenCalledWith('status.serverUnavailable');
+  });
+
   it('stays silent for an action that says its own failure (meta.handlesError)', async () => {
     const observer = new MutationObserver(createQueryClient(), {
       mutationFn: async () => { throw new Error('HTTP 500'); },

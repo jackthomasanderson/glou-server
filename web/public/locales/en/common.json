@@ -64,6 +64,7 @@
     "saving": "Saving…",
     "error": "An error occurred",
     "serverUnreachable": "Cannot reach the server. Check your connection and try again.",
+    "serverUnavailable": "The server is temporarily unavailable. Your data is safe: try again in a moment.",
     "retry": "Retry",
     "empty": "No items"
   },
