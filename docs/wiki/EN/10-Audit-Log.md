@@ -97,4 +97,5 @@ Log entries older than **90 days** are deleted at API startup (via `purgeOldAudi
 | **Redirected to `/` when accessing `/admin`** | The frontend checks `isAdmin` client-side. If the auth token has expired, the redirect occurs. Log in again and retry. |
 | **The table shows a permanent loading state** | The `GET /api/admin/audit-logs` endpoint is unreachable. Verify that the API service is running and that `NEXT_PUBLIC_API_URL` points to the correct URL. |
 | **"User" column shows `-`** | The user who performed the action has been deleted from the database. The log entry is kept but the join with `User` returns `null`. |
-| **`INTERNAL_SERVER_ERROR` from the API** | Check the API container logs (`docker logs glou-api`). The most common cause is a lost connection to the PostgreSQL database. |
+| **`503 DATABASE_UNAVAILABLE` from the API** (the app says "The server is temporarily unavailable") | The API cannot reach PostgreSQL: it is restarting, stopped or out of connections. Check the database container (`docker compose logs db`) and retry once it is back; nothing is lost. |
+| **`500 UNEXPECTED_ERROR` from the API** | An unexpected server failure. The response never carries its detail: check the API container logs (`docker compose logs api`), where each failure is written once with its cause, as `[error] <method> <path> -> 500 UNEXPECTED_ERROR`. |

@@ -6,6 +6,7 @@ import { AppError, badRequest, conflict, isRecordNotFound, notFound } from '../l
 import { routeParam } from '../lib/http';
 import { assertUrlAllowed } from '../lib/ssrf';
 import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { isDatabaseUnavailable } from '../middleware/error.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
 import { paginationQuerySchema } from '../schemas/pagination.schema';
 import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenceReorderSchema } from '../schemas/maturity-reference.schema';
@@ -874,12 +875,13 @@ adminRouter.post('/backups/:id/restore', stepUpLimiter, async (req: Request, res
     if (msg === 'BACKUP_FROM_NEWER_VERSION') throw conflict('BACKUP_FROM_NEWER_VERSION');
     // #748: the file was deleted from the backups folder; same code as a download.
     if (msg === 'BACKUP_FILE_NOT_FOUND') throw notFound('BACKUP_FILE_MISSING');
-    // #748, #467: stable codes only; the raw failure (psql's stderr) stays in
-    // the log, written there by the error middleware with this cause.
+    // A database outage stays a 503: retry once it is back.
+    if (isDatabaseUnavailable(error)) throw error;
+    // #748, #467: stable codes only. Any other failure (psql's stderr, a
+    // corrupt dump, psql missing or too slow, an unreadable file) is the
+    // cause, written to the log by the error middleware, never sent.
     if (msg === 'BACKUP_BEFORE_RESTORE_FAILED') throw new AppError(500, msg, { cause: error });
-    if (msg.startsWith('PSQL_RESTORE_FAILED')) throw new AppError(500, 'RESTORE_FAILED', { cause: error });
-    // Anything else (the database down): 503 or 500 from the error middleware.
-    throw error;
+    throw new AppError(500, 'RESTORE_FAILED', { cause: error });
   }
 });
 

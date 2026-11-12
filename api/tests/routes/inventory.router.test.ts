@@ -47,6 +47,19 @@ describe('POST /api/inventory validation (#467)', () => {
   });
 });
 
+// #467 review: a refused creation leaves its reason in the audit log, as bulk, PATCH and rollback do.
+describe('POST /api/inventory refusal (#467)', () => {
+  it('answers the refusal with its own code and audits its reason', async () => {
+    vi.mocked(inventoryService.createItem).mockRejectedValue(new AppError(400, 'QUANTITY_TOO_LARGE'));
+    const res = await request(app).post('/api/inventory').send(wine);
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ error: 'QUANTITY_TOO_LARGE' });
+    expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'CREATE', status: 'error', details: { reason: 'QUANTITY_TOO_LARGE' },
+    }));
+  });
+});
+
 describe('POST /api/inventory (FEAT-97)', () => {
   it('creates the wine even when one of the same name exists, without looking for it', async () => {
     vi.mocked(inventoryService.createItem).mockResolvedValue({ id: 'b2', productId: 'p2' } as never);

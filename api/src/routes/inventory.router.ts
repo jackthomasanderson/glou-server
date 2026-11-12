@@ -153,7 +153,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, productId: item.productId, details: { category: data.category, ...apart } });
     res.status(201).json({ data: item });
   } catch (error) {
-    if (error instanceof ZodError) {
+    if (error instanceof AppError) {
+      // A creation the stock rules refuse (QUANTITY_TOO_LARGE…): nothing was created.
+      void auditLog({ userId: req.userId, action: 'CREATE', status: 'error', ip, details: { reason: error.code } });
+    } else if (error instanceof ZodError) {
       void auditLog({ userId: req.userId, action: 'CREATE', status: 'validation_error', ip, details: { issues: zodIssues(error) } });
     }
     throw error;
