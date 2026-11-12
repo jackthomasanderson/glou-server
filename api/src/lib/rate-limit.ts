@@ -99,14 +99,15 @@ export const unlockAccountLimiter = accountRateLimit(PASSWORD_CHECK_MAX, 'unlock
 export const SIGN_IN_FAILURES_MAX = 10;
 
 /**
- * #980: the trusted device a sign-in comes from, as resolved by the route
- * before the limiters run (`res.locals.signInTrustedDeviceId`): set only when
- * the request carries a valid trusted-device cookie of the account the
- * identifier names.
+ * #980/#988: proof that the sign-in comes from a device or browser of the
+ * account the identifier names, as resolved by the route before the limiters
+ * run (`res.locals.signInProof`): `device:<trusted device id>` for a valid
+ * trusted-device cookie (#980), `browser:<known browser id>` for a valid
+ * known-browser cookie (#988). Unset without one.
  */
-function signInTrustedDevice(res: Response): string | undefined {
-  const id: unknown = res.locals.signInTrustedDeviceId;
-  return typeof id === 'string' && id ? id : undefined;
+function signInProof(res: Response): string | undefined {
+  const proof: unknown = res.locals.signInProof;
+  return typeof proof === 'string' && proof ? proof : undefined;
 }
 
 function signInIdentifier(req: Request): string | undefined {
@@ -150,12 +151,15 @@ function oncePerWindow(windowMs: number, onLocked: (req: Request) => void): (req
  *
  * #980: a stranger who knows a username could renew that lock every window
  * and keep the member out for good. So:
- * - A sign-in from a trusted device of that very account (see
- *   {@link signInTrustedDevice}) skips the identifier's budget: the cookie
- *   proves a past sign-in on that device, which a stranger does not have.
- *   Its wrong passwords are counted on a budget of that device instead, so a
- *   stolen cookie buys no more guesses than the identifier gives; only the
- *   cookie's holder can spend it. The per-address limiter still applies.
+ * - A sign-in from a trusted device (#980) or a known browser (#988) of that
+ *   very account (see {@link signInProof}) skips the identifier's budget:
+ *   the cookie proves a past sign-in there, which a stranger does not have.
+ *   Its wrong passwords are counted on a budget of that device or browser
+ *   instead (10 per window); only the cookie's holder can spend it. So each
+ *   stolen cookie adds one such budget to the identifiers' own: a thief
+ *   holding both cookies of an account gets at most 40 guesses per window
+ *   (device 10 + browser 10 + username 10 + e-mail 10), and every one of
+ *   them is still under the per-address limiter.
  * - The first refusal of each window is reported through `onLocked`, for the
  *   route to file under the account (one row per window, not per guess).
  */
@@ -177,15 +181,16 @@ export function signInAccountLimiter(onLocked: (identifier: string, req: Request
       skipSuccessfulRequests: true,
       requestWasSuccessful: countsAsGuess,
       // A malformed body is refused by the route's validation; nothing to count.
-      // #980: a trusted device of the account has its own budget below.
-      skip: (req, res) => signInIdentifier(req) === undefined || signInTrustedDevice(res) !== undefined,
+      // #980/#988: a trusted device or known browser of the account has its own budget below.
+      skip: (req, res) => signInIdentifier(req) === undefined || signInProof(res) !== undefined,
       keyGenerator: identifierKey,
       handler: (req, res, next, options) => {
         reportLock(req, identifierKey(req));
         sendTooManyRequests(req, res, next, options);
       },
     }),
-    // #980: wrong passwords sent with a trusted-device cookie, per device.
+    // #980/#988: wrong passwords sent with a trusted-device or known-browser
+    // cookie, per device or browser.
     rateLimit({
       windowMs,
       max: SIGN_IN_FAILURES_MAX,
@@ -193,8 +198,8 @@ export function signInAccountLimiter(onLocked: (identifier: string, req: Request
       legacyHeaders: false,
       skipSuccessfulRequests: true,
       requestWasSuccessful: countsAsGuess,
-      skip: (_req, res) => signInTrustedDevice(res) === undefined,
-      keyGenerator: (_req, res) => `sign-in-device:${signInTrustedDevice(res)}`,
+      skip: (_req, res) => signInProof(res) === undefined,
+      keyGenerator: (_req, res) => `sign-in-proof:${signInProof(res)}`,
       handler: sendTooManyRequests,
     }),
   ];

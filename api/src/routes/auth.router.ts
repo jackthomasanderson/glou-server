@@ -3,7 +3,7 @@ import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
 import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema, regenerateBackupCodesSchema, forgotPasswordSchema, validateResetTokenSchema, resetPasswordSchema } from '../schemas/auth.schema';
 import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
-import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
+import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, KNOWN_BROWSER_COOKIE_NAME, KNOWN_BROWSER_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { authRateLimit, passwordCheckLimiter, signInAccountLimiter, unlockAccountLimiter } from '../lib/rate-limit';
@@ -32,6 +32,12 @@ const TRUSTED_DEVICE_COOKIE_OPTIONS = {
   maxAge: 30 * 24 * 60 * 60 * 1000,
   path: '/api/auth',
 };
+
+// ─── Known-browser cookie (#988, see auth.service) ─────────────────────────────
+
+function setKnownBrowserCookie(res: Response, token: string | undefined): void {
+  if (token) res.cookie(KNOWN_BROWSER_COOKIE_NAME, token, KNOWN_BROWSER_COOKIE_OPTIONS);
+}
 
 // ─── Public error codes (ISSUE_051) ──────────────────────────────────────────
 // `/reset-password` and `/2fa/verify-login` are reachable without a session, and
@@ -123,9 +129,10 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = registerSchema.parse(req.body);
-    const { user, token } = await authService.register(data, readDeviceInfo(req));
+    const { user, token, knownBrowserToken } = await authService.register(data, readDeviceInfo(req));
 
     res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
+    setKnownBrowserCookie(res, knownBrowserToken);
     void auditLog({ userId: user.id, action: 'REGISTER', status: 'success', ip });
     res.status(201).json({ data: user });
   } catch (error) {
@@ -140,17 +147,26 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
 
 /**
- * #980: notes the trusted device a sign-in comes from, when its cookie belongs
- * to the account the identifier names, for the sign-in limiter to skip that
- * identifier's budget (see signInAccountLimiter). Without a valid cookie
- * (the only case a stranger can produce) nothing is looked up.
+ * #980/#988: notes the trusted device, or else the known browser, a sign-in
+ * comes from, when its cookie belongs to the account the identifier names,
+ * for the sign-in limiter to skip that identifier's budget (see
+ * signInAccountLimiter). Without a valid cookie (the only case a stranger can
+ * produce) the account is not looked up.
  */
-async function resolveSignInTrustedDevice(req: Request, res: Response, next: NextFunction): Promise<void> {
+async function resolveSignInProof(req: Request, res: Response, next: NextFunction): Promise<void> {
   const identifier = (req.body as { identifier?: unknown } | undefined)?.identifier;
-  const token = readTrustedDeviceCookie(req);
-  if (typeof identifier === 'string' && token) {
-    const deviceId = await authService.signInTrustedDeviceId(identifier, token, getClientIp(req));
-    if (deviceId) res.locals.signInTrustedDeviceId = deviceId;
+  if (typeof identifier !== 'string') {
+    next();
+    return;
+  }
+  const deviceToken = readTrustedDeviceCookie(req);
+  const deviceId = deviceToken ? await authService.signInTrustedDeviceId(identifier, deviceToken, getClientIp(req)) : null;
+  if (deviceId) {
+    res.locals.signInProof = `device:${deviceId}`;
+  } else {
+    const browserCookie = (req.cookies as Record<string, string | undefined>)?.[KNOWN_BROWSER_COOKIE_NAME];
+    const browserId = browserCookie ? await authService.signInKnownBrowserId(identifier, browserCookie) : null;
+    if (browserId) res.locals.signInProof = `browser:${browserId}`;
   }
   next();
 }
@@ -160,7 +176,7 @@ const signInLimiter = signInAccountLimiter((identifier, req) => {
   void authService.auditSignInLocked(identifier, getClientIp(req));
 });
 
-router.post('/login', resolveSignInTrustedDevice, signInLimiter, async (req: Request, res: Response): Promise<void> => {
+router.post('/login', resolveSignInProof, signInLimiter, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = loginSchema.parse(req.body);
@@ -171,6 +187,7 @@ router.post('/login', resolveSignInTrustedDevice, signInLimiter, async (req: Req
     const cookieOpts = rememberMe ? COOKIE_OPTIONS : SESSION_COOKIE_OPTIONS;
     res.cookie(COOKIE_NAME, token, cookieOpts);
     if (!requires2fa) {
+      setKnownBrowserCookie(res, result.knownBrowserToken);
       void auditLog({
         userId: user.id,
         action: 'LOGIN',
@@ -241,6 +258,7 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
     if (result.trustedDeviceToken) {
       res.cookie(TRUSTED_DEVICE_COOKIE_NAME, packTrustedDeviceToken(result.trustedDeviceToken), TRUSTED_DEVICE_COOKIE_OPTIONS);
     }
+    setKnownBrowserCookie(res, result.knownBrowserToken);
     void auditLog({ userId: result.user.id, action: 'LOGIN_2FA', status: 'success', ip });
     res.json({ data: result.user });
   } catch (error) {
