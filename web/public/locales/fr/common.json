@@ -3393,5 +3393,23 @@
     "slotPlaced": "Case {{cell}} occupée",
     "slotFreed": "Case {{cell}} libérée",
     "slotMoved": "Case {{from}} → {{to}}"
+  },
+  "whatsNew": {
+    "title": "Quoi de neuf ?",
+    "open": "Quoi de neuf ?",
+    "installedVersion": "Version installée : {{version}}",
+    "version": "Version {{version}}",
+    "upcoming": "À venir",
+    "empty": "Pas encore de notes pour cette version.",
+    "loadError": "Les notes de version n'ont pas pu être chargées. Réessayez quand le serveur sera joignable.",
+    "gotIt": "Compris",
+    "sections": {
+      "attention": "Points d'attention",
+      "security": "Sécurité",
+      "new": "Nouveautés",
+      "improved": "Améliorations",
+      "fixed": "Corrections",
+      "removed": "Retiré"
+    }
   }
 }

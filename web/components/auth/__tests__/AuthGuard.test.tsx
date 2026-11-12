@@ -39,6 +39,15 @@ vi.mock('../../onboarding/OnboardingWizard', () => ({
   ),
 }));
 
+// FEAT-115 (#990): the What's New? window waits for every cover to go.
+const whatsNewBlocked: boolean[] = [];
+vi.mock('../../whats-new/WhatsNewProvider', () => ({
+  WhatsNewProvider: ({ blocked, children }: { blocked: boolean; children: ReactNode }) => {
+    whatsNewBlocked.push(blocked);
+    return <>{children}</>;
+  },
+}));
+
 import { AuthGuard } from '../AuthGuard';
 
 function appWrapper() {
@@ -53,6 +62,19 @@ describe('AuthGuard keeps the app unreachable under an overlay (#200)', () => {
     onboarding.data = { postponed: false };
     onboarding.isSuccess = true;
     onboarding.isError = false;
+  });
+
+  it('holds the What\'s New? window back while the lock or the setup wizard is up, not otherwise (#990)', () => {
+    whatsNewBlocked.length = 0;
+    render(<AuthGuard><button data-testid="app">inventory</button></AuthGuard>);
+    expect(whatsNewBlocked.at(-1)).toBe(false);
+    state.isLocked = true;
+    render(<AuthGuard><button data-testid="app">inventory</button></AuthGuard>);
+    expect(whatsNewBlocked.at(-1)).toBe(true);
+    state.isLocked = false;
+    state.onboardingCompletedAt = null;
+    render(<AuthGuard><button data-testid="app">inventory</button></AuthGuard>);
+    expect(whatsNewBlocked.at(-1)).toBe(true);
   });
 
   it('leaves the app interactive when nothing covers it', () => {

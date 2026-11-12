@@ -9,6 +9,7 @@ import { loginPathFor } from '@/lib/auth/next-path';
 import { LockScreen } from './LockScreen';
 import { ForcedPasswordChange } from './ForcedPasswordChange';
 import { OnboardingWizard } from '../onboarding/OnboardingWizard';
+import { WhatsNewProvider } from '../whats-new/WhatsNewProvider';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading, isError, error: queryError, refetch, isFetching } = useMe();
@@ -135,14 +136,16 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
     }
   }, [covered]);
 
+  // FEAT-115 (#990): the administrators' What's New? window opens last, once
+  // none of these covers the app.
   return (
-    <>
+    <WhatsNewProvider blocked={covered}>
       <div ref={appRef} style={{ display: 'contents' }}>
         {children}
       </div>
       {isLocked && <LockScreen unlock={unlock} isUnlocking={isUnlocking} />}
       {showForcedPasswordChange && <ForcedPasswordChange />}
       {showOnboarding && <OnboardingWizard forced={forcedOnboarding} onClose={closeOnboarding} />}
-    </>
+    </WhatsNewProvider>
   );
 }

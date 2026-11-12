@@ -3391,5 +3391,23 @@
     "slotPlaced": "Slot {{cell}} taken",
     "slotFreed": "Slot {{cell}} freed",
     "slotMoved": "Slot {{from}} → {{to}}"
+  },
+  "whatsNew": {
+    "title": "What's New?",
+    "open": "What's New?",
+    "installedVersion": "Installed version: {{version}}",
+    "version": "Version {{version}}",
+    "upcoming": "Upcoming",
+    "empty": "No release notes for this version yet.",
+    "loadError": "The release notes could not be loaded. Try again once the server can be reached.",
+    "gotIt": "Got it",
+    "sections": {
+      "attention": "Points of attention",
+      "security": "Security",
+      "new": "New",
+      "improved": "Improved",
+      "fixed": "Fixed",
+      "removed": "Removed"
+    }
   }
 }
