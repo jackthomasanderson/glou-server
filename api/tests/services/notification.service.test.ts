@@ -185,6 +185,66 @@ describe('notificationService.send — quiet hours (#575)', () => {
   });
 });
 
+// #981: security alerts are mandatory. Whatever an earlier session saved
+// (category removed, e-mail channel off), they reach the account e-mail
+// whenever the instance can send e-mail; the Gotify copy follows its switch.
+describe('notificationService.send — security alerts are mandatory (#981)', () => {
+  const silenced = { ...baseUser, notifEmail: false, notifWebhook: false, notifCategories: ['peak'] };
+
+  it('e-mails the account address even with the category removed and the e-mail channel off', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...silenced } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 'Password changed', htmlBody: '<p>b</p>' });
+
+    expect(emailService.send).toHaveBeenCalledWith({ to: 'a@b.com', subject: 'Password changed', html: '<p>b</p>' });
+  });
+
+  it('still warns the previous address of an e-mail change', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...silenced } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b', emailOverride: 'old@b.com' });
+
+    expect(emailService.send).toHaveBeenCalledWith(expect.objectContaining({ to: 'old@b.com' }));
+  });
+
+  it('is not dropped by quiet hours, even when the sender forgets to say so', async () => {
+    const hour = hourInTimeZone(new Date());
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({
+      ...silenced, notifQuietStart: hour, notifQuietEnd: (hour + 1) % 24,
+    } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b' });
+
+    expect(emailService.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the Gotify copy to its switch', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...silenced } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b' });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('sends no e-mail when the instance cannot send any, and Gotify still gets its copy', async () => {
+    vi.mocked(systemConfigService.getPublic).mockResolvedValue({ smtpEnabled: false } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...silenced, notifWebhook: true } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b' });
+
+    expect(emailService.send).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('other categories still follow the member\'s choices', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...silenced, notifCategories: [] } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'peak', subject: 's', htmlBody: 'b' });
+
+    expect(emailService.send).not.toHaveBeenCalled();
+  });
+});
+
 describe('notificationService.testChannel — the profile "Test" button (#767)', () => {
   it('sends to the instance URL with its app token, naming the member', async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);

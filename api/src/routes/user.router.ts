@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { authService } from '../services/auth.service';
 import type { ExportCategory } from '../../../shared/auth';
-import { notificationCategoriesFor } from '../../../shared/notifications';
+import { MANDATORY_NOTIFICATION_CATEGORIES, notificationCategoriesFor } from '../../../shared/notifications';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
@@ -362,6 +362,10 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
     if (notifCategories.length > 0 && kept.length === 0) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
+    }
+    // #981: security alerts cannot be turned off, whatever the session sends.
+    if (kept.length > 0) {
+      kept.push(...MANDATORY_NOTIFICATION_CATEGORIES.filter((c) => allowed.includes(c) && !kept.includes(c)));
     }
     data.notifCategories = kept;
   }
