@@ -23,6 +23,8 @@ import { newTotpSecret, totpUri, isCurrentTotp } from '../lib/totp';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
 import { deletePersonalData } from './account-deletion.service';
 import { countOtherAdmins, countOtherAdminsLocked } from '../lib/last-admin';
+import { RELEASE_NOTES, seenStateNow } from '../lib/release-notes';
+import { APP_VERSION } from '../lib/app-version';
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -459,6 +461,9 @@ export class AuthService {
         email,
         passwordHash,
         isAdmin,
+        // FEAT-115 (#990): a new install starts with its version seen; the
+        // What's New? window first opens at the next update.
+        ...(isAdmin ? seenStateNow(RELEASE_NOTES, APP_VERSION) : {}),
         displayName: displayName || null,
         ...(data.language ? { language: data.language } : {}),
       },

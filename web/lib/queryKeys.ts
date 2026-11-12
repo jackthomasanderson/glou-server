@@ -96,6 +96,7 @@ export const qk = {
     maintenanceRuns: ['admin_maintenance_runs'],
     backupRuns: ['admin_backup_runs'],
     shares: ['admin_shares'],
+    releaseNotes: ['admin_release_notes'],
   },
   guest: {
     meta: (token: string) => ['guest', token, 'meta'],

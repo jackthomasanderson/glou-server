@@ -32,6 +32,9 @@ import { sharesService } from '../services/shares.service';
 import { deleteMemberForGood } from '../services/account-deletion.service';
 import { scanService } from '../services/scan.service';
 import { countOtherAdmins, countOtherAdminsLocked } from '../lib/last-admin';
+import { RELEASE_NOTES, releaseNotesView, seenStateNow } from '../lib/release-notes';
+import { APP_VERSION } from '../lib/app-version';
+import type { ReleaseNotesView } from '../../../shared/release-notes';
 
 const adminRouter = Router();
 
@@ -195,7 +198,9 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
             if (!isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) throw new Error('CANNOT_REMOVE_LAST_ADMIN');
             return tx.user.update({
                 where: { id: userId },
-                data: { isAdmin },
+                // FEAT-115 (#990): a new administrator starts with the installed
+                // release notes seen, not the whole history in the What's New? window.
+                data: isAdmin ? { isAdmin, ...seenStateNow(RELEASE_NOTES, APP_VERSION) } : { isAdmin },
                 select: {
                     id: true,
                     username: true,
@@ -471,6 +476,39 @@ adminRouter.post('/users/:userId/export', stepUpLimiter, async (req: Request, re
     const data = await authService.exportUserData(userId);
     auditSuccess(req, audit);
     res.json({ data });
+});
+
+/**
+ * @route   GET /api/admin/release-notes
+ * @desc    FEAT-115 (#990): the release notes of the installed version and the
+ *          older ones (plus the upcoming ones on a beta image), each marked
+ *          seen or not by this administrator. The What's New? window opens by
+ *          itself when one is unseen, and reopens on demand with all of them.
+ * @access  Admin Private
+ */
+adminRouter.get('/release-notes', async (req: Request, res: Response): Promise<void> => {
+    const seen = await prisma.user.findUnique({
+        where: { id: req.userId },
+        select: { lastSeenReleaseVersion: true, seenReleaseNoteIds: true },
+    });
+    const view: ReleaseNotesView = releaseNotesView(RELEASE_NOTES, APP_VERSION, seen ?? { lastSeenReleaseVersion: null, seenReleaseNoteIds: [] });
+    res.json({ data: view });
+});
+
+/**
+ * @route   POST /api/admin/release-notes/seen
+ * @desc    FEAT-115 (#990): the What's New? window was closed, whichever way:
+ *          everything installed counts as seen by this administrator, on every
+ *          device. Personal state, like the onboarding: not audited.
+ * @access  Admin Private
+ */
+adminRouter.post('/release-notes/seen', async (req: Request, res: Response): Promise<void> => {
+    await prisma.user.update({
+        where: { id: req.userId },
+        data: seenStateNow(RELEASE_NOTES, APP_VERSION),
+        select: { id: true },
+    });
+    res.status(204).end();
 });
 
 /**
