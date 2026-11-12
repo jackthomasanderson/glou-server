@@ -75,6 +75,9 @@ Ce qui change qui peut entrer, et comment. Aucune entrée ne contient de mot de 
 | `ADMIN_PASSWORD_RESET` | Mot de passe d'un membre réinitialisé par un administrateur (`details.twoFactorDisabled` : sa double authentification a été coupée) | L'administrateur |
 | `ADMIN_ROLE_CHANGE` | Droits d'administrateur donnés ou retirés | L'administrateur |
 | `ADMIN_STATUS_CHANGE` | Membre désactivé ou réactivé | L'administrateur |
+| `ADMIN_MEMBER_DELETE` | Compte d'un membre supprimé définitivement (`details.username` : qui c'était). Ses entrées passées restent, sous son nom | L'administrateur |
+| `ADMIN_DELETION_SCHEDULE` | Suppression du compte d'un membre programmée (`details.scheduled: true`) ou annulée | L'administrateur |
+| `ADMIN_MEMBER_EXPORT` | Données d'un membre exportées | L'administrateur |
 | `SHARE_CREATE` / `SHARE_REVOKE` | Lien invité créé (caves, caves en écriture, collections, expiration) / révoqué | Le membre |
 
 Les trois actions d'administration ci-dessus demandent le mot de passe de l'administrateur (et son code s'il a la double authentification) : un refus est enregistré avec le statut `error` et la raison dans `details.error`.

@@ -75,6 +75,9 @@ What changes who can get in, and how. No entry holds a password, a code or a sec
 | `ADMIN_PASSWORD_RESET` | A member's password reset by an administrator (`details.twoFactorDisabled`: their two-factor authentication was turned off) | The administrator |
 | `ADMIN_ROLE_CHANGE` | Administrator rights granted or removed | The administrator |
 | `ADMIN_STATUS_CHANGE` | Member deactivated or reactivated | The administrator |
+| `ADMIN_MEMBER_DELETE` | Member account deleted for good (`details.username`: who it was). Their earlier entries stay, under their name | The administrator |
+| `ADMIN_DELETION_SCHEDULE` | A member's account deletion scheduled (`details.scheduled: true`) or cancelled | The administrator |
+| `ADMIN_MEMBER_EXPORT` | A member's data exported | The administrator |
 | `SHARE_CREATE` / `SHARE_REVOKE` | Guest link created (cellars, writable cellars, collections, expiry) / revoked | The member |
 
 The three administration actions above ask for the administrator's password (and their code when they have two-factor authentication): a refusal is recorded with the `error` status and the reason in `details.error`.
