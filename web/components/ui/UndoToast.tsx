@@ -95,6 +95,8 @@ export function UndoToast({ message, undoLabel, onUndo, onExpire }: UndoToastPro
       aria-live="polite"
       // A mouse pointer only: a tap emulates hover with no "leave" until the next tap.
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') hoveredRef.current = true; }}
+      // A mouse already resting where the toast appears sends no "enter", only moves.
+      onPointerMove={(e) => { if (e.pointerType === 'mouse') hoveredRef.current = true; }}
       onPointerLeave={() => { hoveredRef.current = false; }}
       // Focus placed by the toast itself or by a tap is not a request to wait: only keyboard focus pauses.
       onFocus={(e) => { if (e.target.matches(':focus-visible')) focusedRef.current = true; }}
@@ -127,6 +129,9 @@ export function UndoToast({ message, undoLabel, onUndo, onExpire }: UndoToastPro
           radius="full"
           className="mt-2"
           aria-hidden="true"
+          // The value already moves every frame: HeroUI's 500 ms easing only
+          // made the bar trail the timer, and go on moving once it was paused.
+          disableAnimation
         />
       </div>
     </div>
