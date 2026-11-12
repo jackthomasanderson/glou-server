@@ -21,11 +21,13 @@ vi.mock('../../src/services/inventory.service', () => ({
   inventoryService: { daysUntilPermanentDelete: vi.fn(() => 7) },
 }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
+vi.mock('../../src/services/stock-movement.service', () => ({ listMovements: vi.fn() }));
 
 import { productsRouter } from '../../src/routes/products.router';
 import { errorMiddleware } from '../../src/middleware/error.middleware';
 import { productService } from '../../src/services/product.service';
 import { auditLog } from '../../src/services/audit.service';
+import { listMovements } from '../../src/services/stock-movement.service';
 
 const app = express();
 app.use(express.json());
@@ -87,6 +89,28 @@ describe('GET /api/products/:id', () => {
     vi.mocked(productService.get).mockResolvedValue(null);
 
     const res = await request(app).get('/api/products/nope');
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'PRODUCT_NOT_FOUND' });
+  });
+});
+
+// #848 (FEAT-110): the wine's movement journal.
+describe('GET /api/products/:id/movements', () => {
+  it('answers the journal, newest first as the service reads it', async () => {
+    vi.mocked(listMovements).mockResolvedValue([{ id: '2', kind: 'ADDED' }, { id: '1', kind: 'INITIAL' }] as never);
+
+    const res = await request(app).get('/api/products/p1/movements');
+
+    expect(res.status).toBe(200);
+    expect(listMovements).toHaveBeenCalledWith('p1');
+    expect(res.body.data.map((line: { id: string }) => line.id)).toEqual(['2', '1']);
+  });
+
+  it('answers 404 for an unknown wine', async () => {
+    vi.mocked(listMovements).mockResolvedValue(null);
+
+    const res = await request(app).get('/api/products/nope/movements');
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: 'PRODUCT_NOT_FOUND' });

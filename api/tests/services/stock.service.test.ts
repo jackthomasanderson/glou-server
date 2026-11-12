@@ -4,6 +4,7 @@ vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     product: { findFirst: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn() },
     cellar: { findUnique: vi.fn() },
+    stockMovement: { createMany: vi.fn(async () => ({ count: 0 })) },
     inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn() },
     itemSlot: {},
     $queryRaw: vi.fn(),
@@ -109,6 +110,16 @@ describe('stockService.addUnits (FEAT-92 c1-c2, D5)', () => {
     expect(updateArgs()).toEqual({ where: { id: 'b1' }, data: { quantity: 8, updatedBy: 'u2' } });
     expect(outcome).toMatchObject({ merged: true, from: 6, to: 8 });
     expect(outcome.result).toMatchObject({ data: { id: 'b1', quantity: 8, purchasedAt: '2026-01-15' }, changed: [], removedIds: [] });
+  });
+
+  it('#848: the copies added are told in the wine\'s journal, by their author', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([unit({ quantity: 6 })] as never);
+
+    await stockService.addUnits('u2', 'p1', { quantity: 2, cellarId: 'c1', purchasePrice: 20, purchasedAt: '2026-01-15' });
+
+    expect(prisma.stockMovement.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({
+      productId: 'p1', itemId: 'b1', kind: 'ADDED', delta: 2, count: 2, details: { cellarId: 'c1' }, userId: 'u2', guestName: null,
+    })] });
   });
 
   it('matches the size as the group identity does: trimmed, case-insensitive', async () => {
@@ -449,6 +460,15 @@ describe('stockService.correctQuantity (FEAT-92 c3, point 34)', () => {
     expect(outcome.changes).toEqual([{ field: 'quantity', from: 7, to: 5 }]);
     expect(slots.cellsOf('b1')).toBe('2:3');
     expect(outcome.writtenOffItemId).toBe(outcome.result.data.id);
+  });
+
+  it('#848: "Nombre corrigé : 7 → 5 (cassée, offerte ou perdue)" in the wine\'s journal', async () => {
+    await stockService.correctQuantity('u2', 'b1', { quantity: 5, reason: 'written_off' });
+
+    expect(prisma.stockMovement.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({
+      productId: 'p1', itemId: 'b1', kind: 'CORRECTED', delta: -2, count: 2, userId: 'u2',
+      details: { cellarId: 'c1', from: 7, to: 5, reason: 'written_off' },
+    })] });
   });
 
   it('a whole group written off is marked itself and gives its cells back', async () => {

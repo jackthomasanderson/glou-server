@@ -7,6 +7,7 @@ vi.mock('../../src/lib/prisma', () => ({
     productDistinction: { findMany: vi.fn(), count: vi.fn(), createMany: vi.fn() },
     inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
     inventoryCountEntry: { findMany: vi.fn() },
+    stockMovement: { findMany: vi.fn(async () => []), update: vi.fn(), deleteMany: vi.fn() },
     $queryRaw: vi.fn(),
     $executeRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -179,6 +180,22 @@ describe('reviewService.merge (FEAT-102 c2)', () => {
   });
   const families = (...rows: unknown[]) => vi.mocked(prisma.product.findMany).mockResolvedValue(rows as never);
 
+  // Review of #982 (remark 5): one "Mise à jour : N en cave" line per wine, also once merged.
+  it('#848: folds the absorbed wine\'s first journal line into the survivor\'s, so the merged wine has one', async () => {
+    families(newer(), older());
+    vi.mocked(prisma.stockMovement.findMany).mockResolvedValueOnce([
+      { id: 1, productId: 'p1', delta: 9 }, { id: 2, productId: 'p2', delta: 4 },
+    ] as never);
+
+    await reviewService.merge('u2', { productIds: ['p2', 'p1'], choices: { region: 'p1' } });
+
+    expect(prisma.stockMovement.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { productId: { in: ['p1', 'p2'] }, kind: 'INITIAL' },
+    }));
+    expect(prisma.stockMovement.update).toHaveBeenCalledWith({ where: { id: 1 }, data: { productId: 'p1', delta: 13, count: 13 } });
+    expect(prisma.stockMovement.deleteMany).toHaveBeenCalledWith({ where: { id: { in: [2] } } });
+  });
+
   it('makes one family of them, the oldest surviving with the values chosen, everything gathered', async () => {
     families(newer(), older());
 
@@ -190,6 +207,8 @@ describe('reviewService.merge (FEAT-102 c2)', () => {
     expect(rawLike('UPDATE "bottles" SET "productId"')[0].values).toEqual(['p1', ['p2']]);
     expect(rawLike('UPDATE "tasting_notes" SET "productId"')[0].values).toEqual(['p1', ['p2']]);
     expect(rawLike('UPDATE "audit_logs" SET "productId"')[0].values).toEqual(['p1', ['p2']]);
+    // #848: the absorbed wine's movement journal follows its bottles.
+    expect(rawLike('UPDATE "stock_movements" SET "productId"')[0].values).toEqual(['p1', ['p2']]);
     expect(rawLike('INSERT INTO "_CollectionProducts"')[0].values).toEqual(['p1', ['p2']]);
     expect(productUpdate().where).toEqual({ id: 'p1' });
     expect(productUpdate().data).toMatchObject({

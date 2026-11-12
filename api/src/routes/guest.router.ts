@@ -146,7 +146,10 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
       if (!entry?.undo) throw new AppError(403, 'GUEST_UNDO_REFUSED');
       const marker = entry.undo;
       const restore = undoPatch(marker.before, item.cigarsPerBox ?? null, marker.slot);
-      const options = { guard: (unit: StateItem) => { checkGuestUndo(share, entry, unit); }, slotChoice: 'auto' as const };
+      const options = {
+        guard: (unit: StateItem) => { checkGuestUndo(share, entry, unit); }, slotChoice: 'auto' as const,
+        guest: { name: share.inviteeName ?? null },
+      };
       result = await inventoryService.updateItem(share.userId, itemId, restore, options);
       undone = marker;
     } else {
@@ -160,6 +163,8 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
           before = unit;
         },
         slotChoice: 'auto',
+        // #848: the movement journal names the guest.
+        guest: { name: share.inviteeName ?? null },
       });
     }
 

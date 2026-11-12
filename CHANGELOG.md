@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Added
+- A wine's drawer now shows its **Movements**, newest first, above its **History**: who added, opened, drank, moved, repriced, corrected, trashed or put back its bottles (or smoked its cigars), when, in which cellar, and the difference ("+6", "−1"). A guest's movement shows the guest's name, a change made offline appears once when it is sent, and a deleted member shows as "Deleted member". Every way of changing the stock is recorded, and the movements are never removed by the audit-log clean-up. The journal starts at this update with one line per wine, "Update: N in the cellar"; earlier changes stay in the History. **Analytics → Added / Deleted / Restored** now count bottles (cigars) from this journal instead of lines from the audit log, so they start again from this update (#848).
+
 ### Changed
 - **Profile → Sign-in and security** is now one card: username, e-mail, password, two-factor authentication and the trusted device, then the app lock (auto-lock and PIN); active sessions stay in their own card below. "Trust this device" only shows when two-factor authentication is on, says whether this device is trusted and until when, and offers the one button that matches; the server refuses to trust a device when two-factor is off (#766).
 - The pencil beside your name no longer changes your **username**: it is now in **Sign-in and security**, labelled as the name you sign in with, and asks for your password. The name others see is the **display name** field ("added by"); the custom app name and slogan moved to **Display preferences**, marked as seen by you only. A refused change now gives its real reason instead of an image upload error, and the profile form no longer opens empty when you come back to it from another page (#769).

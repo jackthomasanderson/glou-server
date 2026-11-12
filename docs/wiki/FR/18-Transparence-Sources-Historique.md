@@ -18,6 +18,12 @@ Chaque champ de la description d'un vin peut afficher l'origine de sa valeur. Ch
 > [!TIP]
 > En pratique, seuls les badges **Import CSV** apparaissent : les pipelines OCR et enrichissement existent dans le modèle de données mais ne sont pas encore branchés sur une source active. Vous pouvez ne voir que le badge CSV, ou aucun badge.
 
+### Voir les mouvements de ses bouteilles
+1. Dans le même tiroir, la section **Mouvements** liste, du plus récent au plus ancien, chaque changement du nombre de bouteilles (de cigares) du vin ou de leur prix : qui l'a fait (un membre, ou un invité par son nom), quand, ce qui s'est passé, dans quelle cave, et l'écart (« +6 », « −1 »). Par exemple « 6 bouteilles ajoutées · Garage +6 », « 2 bouteilles déplacées vers Cuisine », « 1 bouteille ouverte · Cuisine », « Nombre corrigé : 4 → 3 (cassée, offerte ou perdue) −1 », « Prix de 2 bouteilles : 20 € → 25 € », « Bouteille remise avec les autres », « 1 bouteille mise à la corbeille ».
+2. Chaque façon de changer le stock est notée : le formulaire, le scan d'étiquette, l'import CSV, la liste d'envies, l'inventaire, le plan de consommation, une dégustation, une étiquette QR/NFC, un changement fait hors ligne (une seule fois, à son envoi), un invité, les actions groupées et la corbeille.
+3. Le journal a commencé à la mise à jour qui l'a apporté, avec une ligne par vin : « Mise à jour : 9 en cave ». Rien d'antérieur n'est reconstitué ; l'historique des modifications d'avant reste dans la section **Historique** en dessous. Un membre dont le compte a été supprimé apparaît comme « Membre supprimé ».
+4. Dix mouvements sont affichés, **Voir les N mouvements** montre les autres. Les mouvements ne sont jamais supprimés par le nettoyage du journal d'audit.
+
 ### Consulter l'historique des modifications
 1. Dans le même tiroir, ouvrez la section **Historique** (affichée uniquement si au moins une modification a été enregistrée).
 2. Elle liste les modifications les plus récentes (jusqu'à 10), chacune avec l'auteur du changement, une description de ce qui a changé et la date. Elle mêle les changements de la **description** du vin et les mouvements de ses bouteilles : « Bouteilles ajoutées », « Nombre corrigé : 6 → 4 » (avec son motif), « 2 bouteilles déplacées vers Cuisine », « Prix de 2 bouteilles : 20 € → 25 € », « Vins regroupés », « Nombre vérifié ».

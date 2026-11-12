@@ -212,6 +212,10 @@ jobs:
       - name: Migration bench (finished stamp)
         run: bash e2e/migration/check-finished-at-migration.sh
 
+      # #848: each wine's movement journal starts with its units in stock.
+      - name: Migration bench (movement journal)
+        run: bash e2e/migration/check-stock-movements-migration.sh
+
       # #588: the retention purge keeps the history of bottles and wines.
       - name: History survives the audit-log retention purge
         run: bash e2e/check-history-retention.sh

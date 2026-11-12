@@ -35,6 +35,7 @@ Set how long Glou keeps audit logs, expired sessions and unused guest shares/inv
 The audit log also holds the history shown in a wine's drawer: who changed which field, bottles added, moved, repriced or corrected, and the values **Restore** brings back. That history is business data, not a security trace, so the purge never deletes it, whatever **Audit log retention** is set to:
 - kept: every successful entry tied to a wine or a bottle (created, edited, restored, a value restored, a guest's change, bottles added, moved, repriced, a number corrected, wines merged, moved to the trash), including the per-bottle entries of bulk actions and of a closed inventory count;
 - kept without the IP address: past the retention, these entries lose the IP address they were made from (a security trace). A guest's display name stays, as it is shown in the history;
+- the **Movements** journal of each wine (bottles added, opened, drunk, moved, repriced, corrected) is never purged either, and holds no IP address;
 - purged past the retention: sign-ins and other account events, admin actions, failed or refused requests, and the one-line summary of a bulk edit (each bottle it changed keeps its own entry).
 
 > [!CAUTION]

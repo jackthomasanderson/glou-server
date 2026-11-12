@@ -11,6 +11,7 @@ vi.mock('../../src/lib/prisma', () => ({
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
     },
+    stockMovement: { createMany: vi.fn(async () => ({ count: 0 })) },
     inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), groupBy: vi.fn() },
     // FEAT-93: the cells of the plan, a fakeSlots() set in beforeEach.
     itemSlot: {},
@@ -390,7 +391,7 @@ describe('productService.trash / restore (D10)', () => {
     vi.mocked(prisma.product.findFirst).mockResolvedValue({ id: 'p1' } as never);
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ id: 'b1' }, { id: 'b2' }] as never);
 
-    const result = await productService.trash('p1');
+    const result = await productService.trash('p1', 'u1');
 
     const unitWrite = vi.mocked(prisma.inventoryItem.updateMany).mock.calls[0][0]!;
     expect(unitWrite.where).toEqual({ productId: 'p1', deletedAt: null });
@@ -407,7 +408,7 @@ describe('productService.trash / restore (D10)', () => {
   it('is null for a family in the trash, itself or through all its units (D10)', async () => {
     vi.mocked(prisma.product.findFirst).mockResolvedValue(null);
 
-    expect(await productService.trash('p1')).toBeNull();
+    expect(await productService.trash('p1', 'u1')).toBeNull();
     expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.where).toEqual({
       id: 'p1', deletedAt: null, OR: [{ items: { none: {} } }, { items: { some: { deletedAt: null } } }],
     });
@@ -419,7 +420,7 @@ describe('productService.trash / restore (D10)', () => {
     vi.mocked(prisma.product.findFirst).mockResolvedValue(family({ deletedAt }) as never);
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ id: 'b1' }] as never);
 
-    const restored = await productService.restore('p1');
+    const restored = await productService.restore('p1', 'u1');
 
     expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.where).toMatchObject({ id: 'p1', deletedAt: { not: null, gte: expect.any(Date) } });
     expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]!.where).toEqual({ productId: 'p1', deletedAt });
@@ -439,7 +440,7 @@ describe('productService.trash / restore (D10)', () => {
       slot({ itemId: 'other', column: 2, row: 3 }),
     );
 
-    await productService.restore('p1');
+    await productService.restore('p1', 'u1');
 
     expect(slots.cellsOf('b1')).toBe('4:3');
     expect(slots.rows.filter((row) => row.itemId === 'b1')).toHaveLength(1);
@@ -456,7 +457,7 @@ describe('productService.trash / restore (D10)', () => {
     slots.rows.push(...[1, 2, 3].map((column) => slot({ itemId: 'b1', column, row: 1, deletedAt })));
     const freed: Array<{ itemId: string; changes: unknown[] }> = [];
 
-    await productService.restore('p1', freed as never);
+    await productService.restore('p1', 'u1', freed as never);
 
     expect(slots.rows.filter((row) => row.itemId === 'b1' && row.deletedAt === null)).toHaveLength(1);
     expect(freed).toEqual([{ itemId: 'b1', changes: [expect.objectContaining({ field: 'slot', to: null }), expect.objectContaining({ field: 'slot', to: null })] }]);
@@ -465,7 +466,7 @@ describe('productService.trash / restore (D10)', () => {
   it('is null once the family is past the retention period', async () => {
     vi.mocked(prisma.product.findFirst).mockResolvedValue(null);
 
-    expect(await productService.restore('p1')).toBeNull();
+    expect(await productService.restore('p1', 'u1')).toBeNull();
     expect(prisma.product.update).not.toHaveBeenCalled();
   });
 

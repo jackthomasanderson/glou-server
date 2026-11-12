@@ -265,7 +265,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
-    const item = await inventoryService.softDelete(id);
+    const item = await inventoryService.softDelete(id, req.userId);
     if (!item) {
       void auditLog({ userId: req.userId, action: 'DELETE', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
@@ -288,7 +288,7 @@ router.post('/:id/restore', async (req: Request, res: Response): Promise<void> =
   const ip = getClientIp(req);
   try {
     const slotChanges: FieldChange[] = [];
-    const item = await inventoryService.restore(id, slotChanges);
+    const item = await inventoryService.restore(id, req.userId, slotChanges);
     if (!item) {
       void auditLog({ userId: req.userId, action: 'RESTORE', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'ITEM_NOT_FOUND_OR_EXPIRED' });

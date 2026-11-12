@@ -1,5 +1,6 @@
 import { client, requestJson } from '../api';
 import type { BulkStockResult, BulkWinesAction, ProductDescription, UnitWriteResult } from '@shared/product';
+import type { StockMovementView } from '@shared/stock-movement';
 import type { InventoryCategory } from '@shared/inventory';
 import type { Wire } from '@shared/wire';
 import type { TrashDeletion } from '../inventory/client';
@@ -65,6 +66,12 @@ export const productsClient = {
   /** A wine with every bottle out of the trash, its tastings and history. */
   async get(id: string): Promise<ProductDetailView> {
     const { data } = await client.get<ProductDetailView>(`/products/${encodeURIComponent(id)}`);
+    return data;
+  },
+
+  /** #848 (FEAT-110): the wine's movement journal, newest first. */
+  async movements(id: string): Promise<Wire<StockMovementView>[]> {
+    const { data } = await client.get<Wire<StockMovementView>[]>(`/products/${encodeURIComponent(id)}/movements`);
     return data;
   },
 

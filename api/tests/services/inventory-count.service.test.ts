@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     inventoryCountSession: { findUnique: vi.fn() },
+    stockMovement: { createMany: vi.fn(async () => ({ count: 0 })) },
     inventoryItem: { findFirst: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     inventoryCountEntry: { findMany: vi.fn() },
     $transaction: vi.fn(),
@@ -27,7 +28,7 @@ function mockTransactionClient(itemRow: Record<string, unknown> | null, cells: F
   const $queryRaw = vi.fn();
   vi.mocked(prisma.$transaction).mockImplementation(
     ((callback: (tx: unknown) => unknown) =>
-      callback({ inventoryItem: { findFirst, update, findMany }, inventoryCountEntry: { findMany: vi.fn().mockResolvedValue([]) }, itemSlot: slots.delegate, $queryRaw })) as never,
+      callback({ inventoryItem: { findFirst, update, findMany }, stockMovement: prisma.stockMovement, inventoryCountEntry: { findMany: vi.fn().mockResolvedValue([]) }, itemSlot: slots.delegate, $queryRaw })) as never,
   );
   return { findFirst, update, $queryRaw, slots };
 }

@@ -33,6 +33,8 @@ const tx = {
       return product;
     }),
   },
+  // #848: the movement journal, written with each change.
+  stockMovement: { createMany: vi.fn(async () => ({ count: 0 })) },
   inventoryItem: {
     findMany: vi.fn(async ({ where }: { where: { productId: string | { in: string[] }; needsReview?: boolean } }) =>
       db.units.filter((u) => u.deletedAt === null && u.writtenOffAt === null && (where.needsReview === undefined || (u.needsReview ?? false) === where.needsReview)

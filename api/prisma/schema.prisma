@@ -99,6 +99,7 @@ model User {
   budgetEnvelopes     BudgetEnvelope[]
   scanJobs            ScanJob[]
   humidorReadings     HumidorReading[]
+  stockMovements      StockMovement[]
 }
 
 enum Theme {
@@ -257,6 +258,7 @@ model Product {
   items             InventoryItem[]
   tastingNotes      TastingNote[]
   auditLogs         AuditLog[]
+  stockMovements    StockMovement[]
   collections       Collection[]         @relation("CollectionProducts")
   distinctions      ProductDistinction[] @relation("ProductDistinctionFirst")
   otherDistinctions ProductDistinction[] @relation("ProductDistinctionSecond")
@@ -360,6 +362,8 @@ model InventoryItem {
   updatedAt DateTime @updatedAt
 
   auditLogs    AuditLog[]
+
+  stockMovements StockMovement[]
   tastingNotes TastingNote[]
   countEntries InventoryCountEntry[]
   // FEAT-93: the cells of the cellar plan its copies occupy.
@@ -443,6 +447,56 @@ model AuditLog {
   // #588: a bottle's history, newest first (the drawer, "Restore this value").
   @@index([bottleId, createdAt])
   @@map("audit_logs")
+}
+
+// #848 (FEAT-110): the movement journal of a wine — every change of a number
+// of bottles (cigars) or of their price, by whom, in the transaction that
+// made it (stock-movement.service.ts). Kinds and details: shared/stock-movement.ts.
+// Business history: never purged by the audit-log retention (#588); it goes
+// only with its wine. Starts with one `INITIAL` line per wine (migration
+// 20261112123434_stock_movements), the past is not rebuilt.
+model StockMovement {
+  // In the order written: the movements of one transaction share its time.
+  id        Int               @id @default(autoincrement())
+  productId String
+  product   Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // The line or bottle concerned; it may be joined into another line or
+  // deleted later, the movement stays.
+  itemId    String?
+  item      InventoryItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  kind      StockMovementKind
+  // Units in stock gained or lost by the wine (bottles, or cigars): 0 for a move or a new price.
+  delta     Int
+  // Copies concerned (bottles moved, repriced, cigars smoked…).
+  count     Int
+  details   Json?
+  // The member who made it. A guest's movement has no member: `guestName`
+  // (the share's invitee, possibly empty) tells it. #661/#695: an account
+  // deleted later leaves the movement, shown as "deleted member".
+  userId    String?
+  user      User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestName String?
+  createdAt DateTime          @default(now())
+
+  @@index([productId, createdAt])
+  @@index([kind, createdAt])
+  @@index([itemId])
+  @@index([userId])
+  @@map("stock_movements")
+}
+
+enum StockMovementKind {
+  INITIAL
+  ADDED
+  OPENED
+  CONSUMED
+  UNFINISHED
+  PUT_BACK
+  MOVED
+  CORRECTED
+  PRICE_CHANGED
+  TRASHED
+  RESTORED
 }
 
 enum BottleCategory {

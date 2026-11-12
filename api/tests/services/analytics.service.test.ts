@@ -4,7 +4,7 @@ vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     inventoryItem: { findMany: vi.fn() },
     cellar: { findMany: vi.fn() },
-    auditLog: { groupBy: vi.fn() },
+    stockMovement: { groupBy: vi.fn() },
   },
 }));
 
@@ -76,9 +76,10 @@ describe('getAnalytics — aggregation invariants', () => {
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([
       { id: 'c1', name: 'Cave A', type: 'VINTAGE' },
     ] as never);
-    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([
-      { action: 'CREATE', _count: { action: 5 } },
-      { action: 'DELETE', _count: { action: 2 } },
+    vi.mocked(prisma.stockMovement.groupBy).mockResolvedValue([
+      // #848: bottles added and trashed, read from the movement journal.
+      { kind: 'ADDED', _sum: { delta: 5 } },
+      { kind: 'TRASHED', _sum: { delta: -2 } },
     ] as never);
   });
 
@@ -142,7 +143,7 @@ describe('getAnalytics — aggregation invariants', () => {
     expect(Math.max(...years)).toBeLessThanOrEqual(thisYear + 20);
   });
 
-  it('maps audit groupBy rows onto movement counters, consumed coming from item state', async () => {
+  it('maps the journal\'s movements onto the counters, consumed coming from item state (#848)', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       item({ isOpened: true, fillLevel: 0 }),
       item({ isOpened: true, fillLevel: 0 }),
@@ -156,12 +157,12 @@ describe('getAnalytics — aggregation invariants', () => {
     expect(stats.maturityPlanning.noWindow.percent).toBe(0);
   });
 
-  it('threads the date range into the audit-movement query only', async () => {
+  it('threads the date range into the journal query only', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
     const from = new Date('2026-01-01');
     const to = new Date('2026-06-30');
     await getAnalytics(from, to);
-    const call = vi.mocked(prisma.auditLog.groupBy).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
+    const call = vi.mocked(prisma.stockMovement.groupBy).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
     expect(call.where.createdAt).toEqual({ gte: from, lte: to });
     // The consumed counter is dated by the item's own finishedAt stamp (#589
     // case below); the inventory aggregate query itself stays unfiltered (beyond
@@ -200,7 +201,7 @@ describe('getAnalytics — finished bottles are not valued', () => {
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([
       { id: 'c1', name: 'Cave A', type: 'VINTAGE' },
     ] as never);
-    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.stockMovement.groupBy).mockResolvedValue([] as never);
   });
 
   it('excludes a finished bottle from the collection valuation', async () => {
@@ -277,7 +278,7 @@ describe('getAnalytics — finished bottles are out of the maturity planning (#5
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([
       { id: 'c1', name: 'Cave A', type: 'VINTAGE' },
     ] as never);
-    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.stockMovement.groupBy).mockResolvedValue([] as never);
   });
 
   it('counts a finished bottle at its peak nowhere: not as a bottle, urgent, in a maturity bucket or in the garde histogram', async () => {
@@ -345,7 +346,7 @@ describe('getAnalytics excludes non-owned references (FEAT-87)', () => {
   it('restricts the inventory query, consumed units included, to owned items', async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([] as never);
-    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.stockMovement.groupBy).mockResolvedValue([] as never);
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
 
     await getAnalytics();
@@ -363,7 +364,7 @@ describe('getAnalytics — units, value and spending of groups (#471, FEAT-96)',
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c1', name: 'Garage', type: 'VINTAGE' }] as never);
-    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.stockMovement.groupBy).mockResolvedValue([] as never);
   });
 
   it('reads the units\' state and their family\'s description', async () => {
@@ -467,7 +468,7 @@ describe('getAnalytics — consumed units and the capital gain (#838)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([] as never);
-    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.stockMovement.groupBy).mockResolvedValue([] as never);
   });
 
   it('counts each cigar smoked, not each box finished', async () => {
@@ -579,7 +580,7 @@ describe('getAnalytics — where the world map places the bottles (#961)', () =>
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(prisma.cellar.findMany).mockResolvedValue([] as never);
-    vi.mocked(prisma.auditLog.groupBy).mockResolvedValue([] as never);
+    vi.mocked(prisma.stockMovement.groupBy).mockResolvedValue([] as never);
   });
 
   it('counts a bottle with only an appellation under that appellation', async () => {

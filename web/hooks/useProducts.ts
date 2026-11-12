@@ -6,6 +6,8 @@ import { wineName } from '@/lib/products/stock';
 import { NetworkError } from '@/lib/network-error';
 import type { Product, ProductDetailView, ProductItem, ProductListResponse, TrashedProduct } from '@/lib/products/types';
 import { BULK_WINES_ERRORS, type BulkStockResult, type BulkWinesAction, type ProductDescription } from '@shared/product';
+import type { StockMovementView } from '@shared/stock-movement';
+import type { Wire } from '@shared/wire';
 import { getAllQueuedMutations, getCachedInventory, type QueuedMutation } from '@/lib/offline/db';
 import { overlayChanges, unitInStock, type UnitLike } from '@/lib/offline/optimistic';
 import { notifyError, notifySuccess } from '@/lib/toast';
@@ -110,6 +112,15 @@ export function useCellarProducts(cellarId: string, options?: { enabled?: boolea
     enabled: options?.enabled ?? true,
     // Offline it fails at once (not paused): the page then says it is incomplete.
     networkMode: 'always',
+  });
+}
+
+/** #848 (FEAT-110): a wine's movement journal, for its drawer; not kept offline (read again with the network). */
+export function useProductMovements(id: string | null) {
+  return useQuery<Wire<StockMovementView>[]>({
+    queryKey: qk.movements.ofProduct(id),
+    queryFn: () => productsClient.movements(id as string),
+    enabled: !!id,
   });
 }
 

@@ -345,6 +345,20 @@ export const reviewService = {
       await tx.$executeRaw`UPDATE "bottles" SET "productId" = ${survivor.id} WHERE "productId" IN (${absorbed})`;
       await tx.$executeRaw`UPDATE "tasting_notes" SET "productId" = ${survivor.id} WHERE "productId" IN (${absorbed})`;
       await tx.$executeRaw`UPDATE "audit_logs" SET "productId" = ${survivor.id} WHERE "productId" IN (${absorbed})`;
+      // #848: the movement journals follow their bottles, so the merged wine's journal still adds up —
+      // with one first line ("Mise à jour : N en cave"), the sum of theirs.
+      const firsts = await tx.stockMovement.findMany({
+        where: { productId: { in: [survivor.id, ...otherIds] }, kind: 'INITIAL' },
+        select: { id: true, productId: true, delta: true },
+        orderBy: { id: 'asc' },
+      });
+      if (firsts.length > 1) {
+        const kept = firsts.find((line) => line.productId === survivor.id) ?? firsts[0];
+        const units = firsts.reduce((sum, line) => sum + line.delta, 0);
+        await tx.stockMovement.update({ where: { id: kept.id }, data: { productId: survivor.id, delta: units, count: units } });
+        await tx.stockMovement.deleteMany({ where: { id: { in: firsts.filter((line) => line.id !== kept.id).map((line) => line.id) } } });
+      }
+      await tx.$executeRaw`UPDATE "stock_movements" SET "productId" = ${survivor.id} WHERE "productId" IN (${absorbed})`;
       await tx.$executeRaw`INSERT INTO "_CollectionProducts" ("A", "B")
         SELECT "A", ${survivor.id} FROM "_CollectionProducts" WHERE "B" IN (${absorbed}) ON CONFLICT DO NOTHING`;
       // "C'est un autre vin" with a third family holds for the merged one.
