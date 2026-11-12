@@ -77,6 +77,26 @@ describe('AuthGuard keeps the app unreachable under an overlay (#200)', () => {
     expect(whatsNewBlocked.at(-1)).toBe(true);
   });
 
+  it('holds the What\'s New? window back while it is not yet known whether the setup wizard opens (#990)', () => {
+    whatsNewBlocked.length = 0;
+    state.onboardingCompletedAt = null;
+    onboarding.data = undefined;
+    onboarding.isSuccess = false;
+    render(<AuthGuard><button data-testid="app">inventory</button></AuthGuard>);
+    // The wizard is not up yet (its state is loading), but it may be in a moment.
+    expect(screen.queryByText('wizard')).toBeNull();
+    expect(whatsNewBlocked.at(-1)).toBe(true);
+  });
+
+  it('lets the What\'s New? window open once the wizard was postponed for this sign-in (#990)', () => {
+    whatsNewBlocked.length = 0;
+    state.onboardingCompletedAt = null;
+    onboarding.data = { postponed: true };
+    render(<AuthGuard><button data-testid="app">inventory</button></AuthGuard>);
+    expect(screen.queryByText('wizard')).toBeNull();
+    expect(whatsNewBlocked.at(-1)).toBe(false);
+  });
+
   it('leaves the app interactive when nothing covers it', () => {
     render(<AuthGuard><button data-testid="app">inventory</button></AuthGuard>);
     expect(appWrapper().hasAttribute('inert')).toBe(false);

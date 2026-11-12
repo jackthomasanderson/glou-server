@@ -17,7 +17,7 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - Security alerts (new device sign-in, password, e-mail, username or two-factor changes…) can no longer be turned off and always reach the account e-mail when the server can send e-mail. The notices about members' accounts move to a new "Member accounts" category.
 - Changing your username, and creating a guest link that lets the guest open, drink or smoke, now ask for your password.
 - Turning two-factor authentication on revokes the devices trusted before.
-- Each visitor's sign-in attempts are now counted on their own address, and wrong passwords are also limited per account: a stranger can no longer block everyone's sign-in. A trusted device with two-factor still signs in while its account is locked, and the lock shows in the audit log.
+- Each visitor's sign-in attempts are now counted on their own address, and wrong passwords are also limited per account: a stranger can no longer block everyone's sign-in. A browser the member already signed in from still signs in while their account is locked, with or without two-factor, and the lock shows in the audit log.
 
 ### New
 - This "What's New?" window: after each update, administrators see what changed. It opens again from Administration and from the bottom of the sidebar.

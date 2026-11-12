@@ -3408,6 +3408,7 @@
       "improved": "Improved",
       "fixed": "Fixed",
       "removed": "Removed"
-    }
+    },
+    "onlyAttention": "Only points of attention, shown above."
   }
 }

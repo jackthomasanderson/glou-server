@@ -137,9 +137,11 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
   }, [covered]);
 
   // FEAT-115 (#990): the administrators' What's New? window opens last, once
-  // none of these covers the app.
+  // none of these covers the app — nor may cover it in a moment: while the
+  // wizard's state is loading, it is not known yet whether the wizard opens.
+  const onboardingUndecided = onboardingPending && !stateKnown;
   return (
-    <WhatsNewProvider blocked={covered}>
+    <WhatsNewProvider blocked={covered || onboardingUndecided}>
       <div ref={appRef} style={{ display: 'contents' }}>
         {children}
       </div>

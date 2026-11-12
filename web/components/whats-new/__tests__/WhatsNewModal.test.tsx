@@ -102,6 +102,23 @@ describe('WhatsNewModal (#990)', () => {
     expect(screen.getByRole('button', { name: 'Version 2026.12' })).toBeInTheDocument();
   });
 
+  it('names a lone release, so a beta admin sees the notes are not released yet', () => {
+    open({ currentVersion: '2026.11.3', releases: [{ version: null, notes: [note('soon', 'new')] }] });
+    expect(screen.getByText('Upcoming')).toBeInTheDocument();
+    expect(screen.getByText('soon en')).toBeInTheDocument();
+  });
+
+  it('expands the newest missed release even when it only brings points of attention', () => {
+    open({ currentVersion: '2027.02', releases: [
+      { version: '2027.02', notes: [note('feb-warn', 'attention')] },
+      { version: '2027.01', notes: [note('jan-fix', 'fixed')] },
+    ] });
+    const toggles = screen.getAllByRole('button', { name: /^Version / });
+    expect(toggles.map((b) => b.textContent)).toEqual(['Version 2027.02', 'Version 2027.01']);
+    expect(toggles.map((b) => b.getAttribute('aria-expanded'))).toEqual(['true', 'false']);
+    expect(screen.getAllByText('feb-warn en')).toHaveLength(1);
+  });
+
   it('says so when there is nothing to show', () => {
     open({ currentVersion: '2026.12', releases: [] }, 'all');
     expect(screen.getByText('No release notes for this version yet.')).toBeInTheDocument();

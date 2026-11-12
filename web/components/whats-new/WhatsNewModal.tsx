@@ -69,8 +69,10 @@ export function WhatsNewModal({ view, mode, isOpen, onClose, isError = false }: 
   const label = (release: ReleaseNotesRelease) => (release.version === null ? t('whatsNew.upcoming') : t('whatsNew.version', { version: release.version }));
   const grouped = releases.length > 1;
   const attention = grouped ? releases.flatMap((r) => r.notes.filter((n) => n.section === 'attention').map((note) => ({ note, release: r }))) : [];
+  // Grouped: the points of attention are above. A release that only had some
+  // stays listed (its version must still show, and the newest stays the expanded one).
   const listed = grouped
-    ? releases.map((r) => ({ ...r, notes: r.notes.filter((n) => n.section !== 'attention') })).filter((r) => r.notes.length > 0)
+    ? releases.map((r) => ({ ...r, notes: r.notes.filter((n) => n.section !== 'attention') }))
     : releases;
 
   return (
@@ -98,12 +100,20 @@ export function WhatsNewModal({ view, mode, isOpen, onClose, isError = false }: 
             </section>
           )}
 
-          {listed.length === 1 && !grouped && <ReleaseSections notes={listed[0].notes} Heading="h3" />}
+          {listed.length === 1 && !grouped && (
+            <>
+              {/* A lone release is named too: on a beta, "Upcoming" says the notes are not released yet. */}
+              <p className="text-xs font-semibold uppercase tracking-wide text-foreground-500">{label(listed[0])}</p>
+              <ReleaseSections notes={listed[0].notes} Heading="h3" />
+            </>
+          )}
           {grouped && listed.length > 0 && (
             <Accordion selectionMode="multiple" defaultExpandedKeys={[releaseKey(listed[0])]} variant="splitted" className="px-0">
               {listed.map((release) => (
                 <AccordionItem key={releaseKey(release)} title={label(release)} aria-label={label(release)} HeadingComponent="h3">
-                  <ReleaseSections notes={release.notes} Heading="h4" />
+                  {release.notes.length > 0
+                    ? <ReleaseSections notes={release.notes} Heading="h4" />
+                    : <p className="text-sm text-foreground-500">{t('whatsNew.onlyAttention')}</p>}
                 </AccordionItem>
               ))}
             </Accordion>

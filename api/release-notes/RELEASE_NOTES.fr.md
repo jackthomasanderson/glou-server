@@ -18,7 +18,7 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - Les alertes de sécurité (connexion d'un nouvel appareil, changement de mot de passe, d'e-mail, d'identifiant ou de double authentification…) ne peuvent plus être désactivées et arrivent toujours sur l'e-mail du compte quand le serveur sait envoyer des e-mails. Les avis sur les comptes des membres passent dans une nouvelle catégorie « Comptes des membres ».
 - Changer d'identifiant, et créer un lien invité qui permet d'ouvrir, boire ou fumer, demandent désormais votre mot de passe.
 - Activer la double authentification révoque les appareils approuvés avant.
-- Les tentatives de connexion de chaque visiteur sont comptées sur sa propre adresse, et les mauvais mots de passe sont aussi limités par compte : un inconnu ne peut plus bloquer la connexion de tout le monde. Un appareil approuvé avec double authentification se connecte même quand son compte est bloqué, et le blocage apparaît dans le journal d'audit.
+- Les tentatives de connexion de chaque visiteur sont comptées sur sa propre adresse, et les mauvais mots de passe sont aussi limités par compte : un inconnu ne peut plus bloquer la connexion de tout le monde. Un navigateur depuis lequel le membre s'est déjà connecté se connecte même quand son compte est bloqué, avec ou sans double authentification, et le blocage apparaît dans le journal d'audit.
 
 ### Nouveautés
 - Cette fenêtre « Quoi de neuf ? » : après chaque mise à jour, les administrateurs voient ce qui a changé. Elle se rouvre depuis Administration et depuis le bas du menu latéral.

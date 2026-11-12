@@ -3410,6 +3410,7 @@
       "improved": "Améliorations",
       "fixed": "Corrections",
       "removed": "Retiré"
-    }
+    },
+    "onlyAttention": "Seulement des points d'attention, affichés plus haut."
   }
 }
