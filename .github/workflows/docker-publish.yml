@@ -216,6 +216,10 @@ jobs:
       - name: Migration bench (movement journal)
         run: bash e2e/migration/check-stock-movements-migration.sh
 
+      # #981: admins who got member account notices through `security` keep them.
+      - name: Migration bench (members notification category)
+        run: bash e2e/migration/check-members-category-migration.sh
+
       # #588: the retention purge keeps the history of bottles and wines.
       - name: History survives the audit-log retention purge
         run: bash e2e/check-history-retention.sh

@@ -2069,12 +2069,16 @@
     },
     "categories": {
       "title": "Alert categories",
-      "lastOne": "At least one category stays on. To receive nothing at all, turn off the channels above.",
+      "securityLockedLead": "Always on.",
+      "securityLocked": "Security alerts (sign-in from a new device, change of password, email, username or two-factor authentication) tell you when someone else uses your account, so they cannot be turned off. They always go to your account email, even with the email channel off. Gotify gets a copy only if you turned it on.",
+      "securityLockedNoChannel": "Security alerts (sign-in from a new device, change of password, email, username or two-factor authentication) tell you when someone else uses your account, so they cannot be turned off. This server can send neither email nor Gotify messages, so they cannot reach you until your administrator sets up email.",
+      "securityLockedNoEmail": "Security alerts (sign-in from a new device, change of password, email, username or two-factor authentication) tell you when someone else uses your account, so they cannot be turned off. This server cannot send email, so they reach you only through Gotify, if you turn it on. Ask your administrator to set up email.",
       "peak": "Peak maturity reached",
       "temperature": "Temperature/humidity variations",
       "security": "Account security",
       "wishlist": "Price opportunities (wishlist)",
       "backup": "Backup failures",
+      "members": "Member accounts (deletion requests and deletions)",
       "backupAutomaticOff": "Automatic backups are off: only a manual backup, or the copy taken before a restore, can still fail and alert you."
     },
     "quietHours": {
@@ -2083,7 +2087,7 @@
       "droppedLead": "Deleted, not delayed.",
       "dropped": "A message that falls in this range is lost: it is not sent later.",
       "details": "Peak and daily humidor alerts are sent at {{hour}}:00; alerts about your account's security always get through.",
-      "detailsAdmin": "Peak and daily humidor alerts are sent at {{hour}}:00; alerts about your account's security and backup failures always get through.",
+      "detailsAdmin": "Peak and daily humidor alerts are sent at {{hour}}:00; alerts about your account's security, backup failures and notices about members' accounts always get through.",
       "timeZone": "Hours of the instance's time zone: {{timeZone}}.",
       "otherTimeZone": "Your device is set to {{deviceTimeZone}}: pick the hours as they read in {{timeZone}}.",
       "from": "From",

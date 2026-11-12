@@ -2071,12 +2071,16 @@
     },
     "categories": {
       "title": "Catégories d'alertes",
-      "lastOne": "Au moins une catégorie reste active. Pour ne plus rien recevoir, désactivez les canaux ci-dessus.",
+      "securityLockedLead": "Toujours activées.",
+      "securityLocked": "Les alertes de sécurité (connexion depuis un nouvel appareil, changement de mot de passe, d'email, de nom d'utilisateur ou de double authentification) vous préviennent quand quelqu'un d'autre utilise votre compte : elles ne peuvent pas être désactivées. Elles partent toujours à l'email de votre compte, même si le canal email est désactivé. Gotify n'en reçoit une copie que si vous l'avez activé.",
+      "securityLockedNoChannel": "Les alertes de sécurité (connexion depuis un nouvel appareil, changement de mot de passe, d'email, de nom d'utilisateur ou de double authentification) vous préviennent quand quelqu'un d'autre utilise votre compte : elles ne peuvent pas être désactivées. Ce serveur ne peut envoyer ni email ni message Gotify : elles ne peuvent pas vous parvenir tant que votre administrateur n'a pas configuré l'email.",
+      "securityLockedNoEmail": "Les alertes de sécurité (connexion depuis un nouvel appareil, changement de mot de passe, d'email, de nom d'utilisateur ou de double authentification) vous préviennent quand quelqu'un d'autre utilise votre compte : elles ne peuvent pas être désactivées. Ce serveur ne peut pas envoyer d'email : elles ne vous parviennent que par Gotify, si vous l'activez. Demandez à votre administrateur de configurer l'email.",
       "peak": "Apogée atteint",
       "temperature": "Variations température/hygrométrie",
       "security": "Sécurité du compte",
       "wishlist": "Opportunités tarifaires (liste de souhaits)",
       "backup": "Échec des sauvegardes",
+      "members": "Comptes des membres (demandes de suppression et suppressions)",
       "backupAutomaticOff": "Les sauvegardes automatiques sont désactivées : seule une sauvegarde manuelle, ou la copie prise avant une restauration, peut encore échouer et vous alerter."
     },
     "quietHours": {
@@ -2085,7 +2089,7 @@
       "droppedLead": "Supprimés, pas différés.",
       "dropped": "Un message qui tombe dans cette plage est perdu : il n'est pas envoyé plus tard.",
       "details": "Les alertes d'apogée et le contrôle quotidien de l'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte passent toujours.",
-      "detailsAdmin": "Les alertes d'apogée et le contrôle quotidien de l'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte et les échecs de sauvegarde passent toujours.",
+      "detailsAdmin": "Les alertes d'apogée et le contrôle quotidien de l'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte, les échecs de sauvegarde et les avis sur les comptes des membres passent toujours.",
       "timeZone": "Heures du fuseau de l'instance : {{timeZone}}.",
       "otherTimeZone": "Votre appareil est réglé sur {{deviceTimeZone}} : choisissez les heures telles qu'elles se lisent à {{timeZone}}.",
       "from": "De",

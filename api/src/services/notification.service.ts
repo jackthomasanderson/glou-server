@@ -5,7 +5,7 @@ import { htmlToPlainText } from '../lib/html';
 import { gotifyService, isGotifyUsable } from './gotify.service';
 import { isWithinQuietHours } from '../lib/quiet-hours';
 import {
-  isNotificationCategoryEnabled, type ChannelOffReason, type NotificationCategory, type NotificationChannelPolicy,
+  isMandatoryNotificationCategory, isNotificationCategoryEnabled, type ChannelOffReason, type NotificationCategory, type NotificationChannelPolicy,
 } from '../../../shared/notifications';
 
 // #469: only categories with a real emitter (consumption, shares,
@@ -18,8 +18,9 @@ interface NotificationPayload {
   subject: string;
   htmlBody: string;
   /**
-   * Skip the user's quiet-hours window entirely (FEAT-29). Reserved for the
-   * `security` category: a compromised account must not wait for morning.
+   * Skip the user's quiet-hours window entirely (FEAT-29). A mandatory
+   * category (`security`, #981) always skips it: a compromised account must
+   * not wait for morning.
    */
   bypassQuietHours?: boolean;
   /**
@@ -77,10 +78,13 @@ export const notificationService = {
     // security event needs an account that can still sign in.
     if (!user || !user.isActive) return;
 
+    // #981: security alerts cannot be turned off, delayed or dropped.
+    const mandatory = isMandatoryNotificationCategory(payload.category);
+
     // Quiet hours drop the message (they do not delay it), in the instance's
     // time zone (#575). Senders run in the daytime for that reason.
     if (
-      !payload.bypassQuietHours
+      !payload.bypassQuietHours && !mandatory
       && user.notifQuietStart != null && user.notifQuietEnd != null
       && isWithinQuietHours(user.notifQuietStart, user.notifQuietEnd, new Date())
     ) {
@@ -90,8 +94,10 @@ export const notificationService = {
     // Check category subscription
     if (!isNotificationCategoryEnabled(user.notifCategories, payload.category)) return;
 
-    // Email channel
-    if (user.notifEmail && policy.smtpEnabled) {
+    // Email channel. #981: a mandatory alert reaches the account e-mail even
+    // with the member's e-mail switch off. Without e-mail on the instance,
+    // nothing can be mailed: the Gotify copy (if on) is all that leaves.
+    if ((user.notifEmail || mandatory) && policy.smtpEnabled) {
       try {
         await emailService.send({ to: payload.emailOverride ?? user.email, subject: payload.subject, html: payload.htmlBody });
       } catch (error) {

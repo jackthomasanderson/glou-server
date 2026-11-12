@@ -4,11 +4,16 @@
  * #469/#338: the categories that have a real sender, in display order.
  * A member's stored list (`User.notifCategories`) holds the ones they receive.
  */
-export const NOTIFICATION_CATEGORIES = ['peak', 'temperature', 'security', 'wishlist', 'backup'] as const;
+export const NOTIFICATION_CATEGORIES = ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
-/** #780: categories whose only sender writes to administrators (backup failures). */
-const ADMIN_ONLY_CATEGORIES: readonly NotificationCategory[] = ['backup'];
+/**
+ * #780: categories whose only sender writes to administrators: backup
+ * failures, and (#981) notices about members' accounts (a deletion requested,
+ * deletions carried out). Those are not about the admin's own account, so
+ * they are not mandatory security alerts.
+ */
+const ADMIN_ONLY_CATEGORIES: readonly NotificationCategory[] = ['backup', 'members'];
 
 /** #780: the categories a member can receive, hence choose: an admin gets them all. */
 export function notificationCategoriesFor(isAdmin: boolean): NotificationCategory[] {
@@ -16,11 +21,24 @@ export function notificationCategoriesFor(isAdmin: boolean): NotificationCategor
 }
 
 /**
+ * #981: categories nobody can turn off. Security alerts tell the owner that
+ * someone used their account; a stolen session must not be able to silence
+ * them first. They also reach the account e-mail whatever the e-mail switch
+ * says, whenever the instance can send e-mail.
+ */
+export const MANDATORY_NOTIFICATION_CATEGORIES: readonly NotificationCategory[] = ['security'];
+
+export function isMandatoryNotificationCategory(category: NotificationCategory): boolean {
+  return MANDATORY_NOTIFICATION_CATEGORIES.includes(category);
+}
+
+/**
  * An empty stored list means "every category" — the default of a new
  * account. The profile screen saves `[]` again once every category is ticked.
+ * A mandatory category is always on, whatever was stored before #981.
  */
 export function isNotificationCategoryEnabled(stored: readonly string[], category: NotificationCategory): boolean {
-  return stored.length === 0 || stored.includes(category);
+  return stored.length === 0 || isMandatoryNotificationCategory(category) || stored.includes(category);
 }
 
 /**

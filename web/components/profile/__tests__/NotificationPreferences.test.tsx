@@ -50,7 +50,7 @@ vi.mock('@heroui/react', () => {
 
 import { NotificationPreferences, sameClock } from '../NotificationPreferences';
 
-const ALL = ['peak', 'temperature', 'security', 'wishlist', 'backup'];
+const ALL = ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'];
 
 function prefs(patch: Partial<NotificationPrefs> = {}): NotificationPrefs {
   return {
@@ -61,7 +61,7 @@ function prefs(patch: Partial<NotificationPrefs> = {}): NotificationPrefs {
     notifQuietEnd: null,
     notifLanguage: null,
     policy: { smtpEnabled: true, gotifyEnabled: false },
-    categories: ['peak', 'temperature', 'security', 'wishlist', 'backup'],
+    categories: ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'],
     automaticBackups: true,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     ...patch,
@@ -104,15 +104,15 @@ describe('NotificationPreferences categories (#583)', () => {
     fireEvent.click(chip('backup'));
 
     await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledTimes(1));
-    expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security', 'wishlist'] });
+    expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security', 'wishlist', 'members'] });
     expect(chip('backup')).not.toBeChecked();
-    for (const cat of ['peak', 'temperature', 'security', 'wishlist']) {
+    for (const cat of ['peak', 'temperature', 'security', 'wishlist', 'members']) {
       expect(chip(cat)).toBeChecked();
     }
   });
 
   it('ticking every category again saves an empty list', async () => {
-    await renderWith(['peak', 'temperature', 'security', 'wishlist']);
+    await renderWith(['peak', 'temperature', 'security', 'wishlist', 'members']);
     expect(chip('backup')).not.toBeChecked();
 
     fireEvent.click(chip('backup'));
@@ -131,14 +131,58 @@ describe('NotificationPreferences categories (#583)', () => {
     expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security'] });
   });
 
-  it('the last category on cannot be unticked, since an empty list means all', async () => {
-    await renderWith(['peak']);
+  it('unticking the last optional category keeps security alerts on', async () => {
+    await renderWith(['peak', 'security']);
 
-    expect(chip('peak')).toBeDisabled();
-    expect(chip('peak')).toHaveAccessibleDescription('notifications.categories.lastOne');
     fireEvent.click(chip('peak'));
 
+    await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['security'] }));
+  });
+});
+
+// #981: security alerts cannot be turned off; the screen says so, next to the
+// box and in its accessible description.
+describe('NotificationPreferences — security alerts are locked on (#981)', () => {
+  it('shows security alerts ticked and locked, even if an earlier save removed them', async () => {
+    await renderWith(['peak']);
+
+    expect(chip('security')).toBeChecked();
+    expect(chip('security')).toBeDisabled();
+    fireEvent.click(chip('security'));
+
     expect(updateNotifPrefs).not.toHaveBeenCalled();
+  });
+
+  it('explains why, on screen and to a screen reader', async () => {
+    await renderWith([]);
+
+    expect(screen.getByText('notifications.categories.securityLocked')).toBeVisible();
+    expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLocked');
+  });
+
+  it('with e-mail on the instance, says they always go to the account e-mail', async () => {
+    await renderWith([], { policy: { smtpEnabled: true, gotifyEnabled: true } });
+
+    expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLocked');
+  });
+
+  it('with Gotify but no e-mail on the instance, says they only reach Gotify, if turned on', async () => {
+    await renderWith([], { policy: { smtpEnabled: false, gotifyEnabled: true } });
+
+    expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLockedNoEmail');
+  });
+
+  it('with neither e-mail nor Gotify on the instance, says they cannot reach the member yet', async () => {
+    await renderWith([], { policy: { smtpEnabled: false, gotifyEnabled: false } });
+
+    expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLockedNoChannel');
+  });
+
+  it('describes no other category', async () => {
+    await renderWith([]);
+
+    expect(chip('peak')).not.toHaveAccessibleDescription();
+    expect(chip('peak')).not.toBeDisabled();
   });
 });
 
