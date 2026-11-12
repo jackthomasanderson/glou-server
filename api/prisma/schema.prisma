@@ -73,6 +73,13 @@ model User {
   // there is no separate "current step" column to keep in sync.
   onboardingCompletedAt DateTime?
 
+  // What's New? window (FEAT-115, #990) — what an administrator has already
+  // seen of the release notes (api/release-notes/): every note of a version up
+  // to `lastSeenReleaseVersion` (CalVer), plus the upcoming notes whose id is
+  // in `seenReleaseNoteIds` (a beta image). Personal, never read for a member.
+  lastSeenReleaseVersion String?
+  seenReleaseNoteIds     String[]  @default([])
+
   // Notifications (FEAT-32)
   notifEmail         Boolean    @default(false)
   notifWebhook       Boolean    @default(false)

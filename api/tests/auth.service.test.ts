@@ -4,6 +4,8 @@ import { prisma } from '../src/lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Prisma, Theme, Language, TempUnit, DateFormat } from '@prisma/client';
+import { RELEASE_NOTES, seenStateNow } from '../src/lib/release-notes';
+import { APP_VERSION } from '../src/lib/app-version';
 
 vi.mock('../src/lib/prisma', () => ({
   prisma: {
@@ -102,6 +104,8 @@ describe('AuthService', () => {
         pinHash: null,
         autoLockDelayMin: null,
         onboardingCompletedAt: null,
+        lastSeenReleaseVersion: null,
+        seenReleaseNoteIds: [],
         mustChangePassword: false,
         notifEmail: false,
         notifWebhook: false,
@@ -190,6 +194,8 @@ describe('AuthService', () => {
         pinHash: null,
         autoLockDelayMin: null,
         onboardingCompletedAt: null,
+        lastSeenReleaseVersion: null,
+        seenReleaseNoteIds: [],
         mustChangePassword: false,
         notifEmail: false,
         notifWebhook: false,
@@ -207,6 +213,25 @@ describe('AuthService', () => {
 
       expect(prisma.systemConfig.findUnique).not.toHaveBeenCalled();
       expect(result.user.isAdmin).toBe(true);
+      // FEAT-115 (#990): on a new install the installed version counts as
+      // seen — the What's New? window first opens at the next update.
+      const created = vi.mocked(prisma.user.create).mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(created.data).toMatchObject({ lastSeenReleaseVersion: seenStateNow(RELEASE_NOTES, APP_VERSION).lastSeenReleaseVersion });
+      expect(created.data.seenReleaseNoteIds).toEqual(seenStateNow(RELEASE_NOTES, APP_VERSION).seenReleaseNoteIds);
+    });
+
+    it('records no release notes seen for a member, who never sees them (#990)', async () => {
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ registrationOpen: true } as any);
+      vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue({ id: '2', isAdmin: false, createdAt: new Date() } as any);
+      vi.mocked(prisma.session.create).mockResolvedValue({ id: 'session-2' } as any);
+      vi.mocked(jwt.sign).mockReturnValue('mock-jwt-token' as never);
+
+      await authService.register(validData, deviceInfo);
+
+      const created = vi.mocked(prisma.user.create).mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(created.data).not.toHaveProperty('lastSeenReleaseVersion');
     });
   });
 
@@ -244,6 +269,8 @@ describe('AuthService', () => {
       pinHash: null,
       autoLockDelayMin: null,
       onboardingCompletedAt: null,
+      lastSeenReleaseVersion: null,
+      seenReleaseNoteIds: [],
       mustChangePassword: false,
       notifEmail: false,
       notifWebhook: false,

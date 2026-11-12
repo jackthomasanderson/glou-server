@@ -597,7 +597,7 @@ describe('POST /api/admin/users/:id/role', () => {
     expect(res.status).toBe(200);
     expect(spy).toHaveBeenCalledWith('u1', { password: 'admin-pw', code: '123456' }, expect.anything(),
       { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: 'm1', isAdmin: true } });
-    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: { isAdmin: true } }));
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ isAdmin: true }) }));
     spy.mockRestore();
   });
 

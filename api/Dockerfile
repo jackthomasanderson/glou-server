@@ -105,6 +105,10 @@ RUN mkdir -p /app/uploads/products /app/uploads/avatars /app/backups && chown -R
 # GEO_DB_PATH's default (src/lib/device.ts).
 COPY --from=geo /geo/ ./geo/
 
+# FEAT-115 (#990): the bilingual release notes of the What's New? window, read
+# at start-up from the working directory (src/lib/release-notes.ts). Read-only.
+COPY release-notes ./release-notes
+
 USER glou
 
 EXPOSE 3001
