@@ -6,7 +6,7 @@ import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.sch
 import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
-import { authRateLimit, passwordCheckLimiter, unlockAccountLimiter } from '../lib/rate-limit';
+import { authRateLimit, passwordCheckLimiter, signInAccountLimiter, unlockAccountLimiter } from '../lib/rate-limit';
 import { auditLog } from '../services/audit.service';
 import { AuthPayload } from '../services/auth.service';
 import { passwordResetService } from '../services/password-reset.service';
@@ -136,7 +136,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
 
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
 
-router.post('/login', async (req: Request, res: Response): Promise<void> => {
+router.post('/login', signInAccountLimiter, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = loginSchema.parse(req.body);

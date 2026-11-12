@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
 import rateLimit, { type Options, type RateLimitRequestHandler } from 'express-rate-limit';
 import {
@@ -93,6 +94,44 @@ export const passwordCheckLimiter = accountRateLimit(PASSWORD_CHECK_MAX, 'passwo
  * the shared one cannot keep the owner from unlocking their own device.
  */
 export const unlockAccountLimiter = accountRateLimit(PASSWORD_CHECK_MAX, 'unlock');
+
+/** #914: wrong passwords one sign-in identifier may take per auth window. */
+export const SIGN_IN_FAILURES_MAX = 10;
+
+/**
+ * #914: wrong passwords at sign-in, counted per identifier typed (username or
+ * e-mail, exactly as the account lookup compares it) whatever the address
+ * they come from, so forging X-Forwarded-For no longer buys fresh guesses.
+ *
+ * - Keyed on what was typed, not on the account found: an unknown identifier
+ *   is counted and refused exactly like an existing one (#607), and the
+ *   limit cannot tell whether a username and an e-mail are the same account.
+ *   An account thus has two budgets (its username and its e-mail).
+ * - Checked before the password is compared: once spent, even the right
+ *   password gets 429, so the budget is not a guessing oracle.
+ * - A successful sign-in is not counted and resets nothing.
+ * - Its own budget: an anonymous stranger spending it cannot keep the member
+ *   from the password checks of their open session ({@link passwordCheckLimiter}).
+ * - Fixed window: the refusal lifts at the end of the window, never for good.
+ */
+export const signInAccountLimiter: RequestHandler[] = [
+  rememberErrorCode,
+  rateLimit({
+    windowMs: AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
+    max: SIGN_IN_FAILURES_MAX,
+    // No RateLimit-* headers: they would tell anyone how many recent wrong
+    // passwords an identifier has, and overwrite the per-address ones.
+    standardHeaders: false,
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+    requestWasSuccessful: (_req, res) => !WRONG_SECRET_CODES.has(String(res.locals.errorCode)),
+    // A malformed body is refused by the route's validation; nothing to count.
+    skip: (req) => typeof (req.body as { identifier?: unknown } | undefined)?.identifier !== 'string',
+    // Hashed so the store keeps a fixed-size key, whatever was typed.
+    keyGenerator: (req) => `sign-in:${crypto.createHash('sha256').update((req.body as { identifier: string }).identifier).digest('hex')}`,
+    handler: sendTooManyRequests,
+  }),
+];
 
 /**
  * `max` requests per signed-in account over the auth window, whatever their
