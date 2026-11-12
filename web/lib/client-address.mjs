@@ -82,14 +82,27 @@ export function clientAddress(forwardedFor, socketAddress, hops) {
 }
 
 /**
+ * The events through which Node hands a parsed request to an HTTP server.
+ * With an `Expect` header, Node raises `checkContinue` or `checkExpectation`
+ * instead of `request` when the server listens to them (Next does not today).
+ */
+const REQUEST_EVENTS = new Set(['request', 'upgrade', 'checkContinue', 'checkExpectation']);
+/** Marks http.Server.prototype while the rewrite is installed. */
+const INSTALLED = Symbol.for('glou.clientAddress.installed');
+
+/**
  * Rewrites X-Forwarded-For on every request this process's HTTP servers
- * receive. Returns a function that stops it (tests).
+ * receive. Returns a function that stops it (tests). Installing again while
+ * it is in place does nothing (and returns a function that does nothing):
+ * the first install stays in charge.
  *
  * @param {number} hops
  * @returns {() => void}
  */
 export function installClientAddress(hops) {
-  const proto = http.Server.prototype;
+  const proto = /** @type {typeof http.Server.prototype & { [INSTALLED]?: true }} */ (http.Server.prototype);
+  if (proto[INSTALLED]) return () => {};
+  proto[INSTALLED] = true;
   const hadOwnEmit = Object.prototype.hasOwnProperty.call(proto, 'emit');
   const emit = proto.emit;
   /**
@@ -98,10 +111,11 @@ export function installClientAddress(hops) {
    * @param {...any} args
    */
   proto.emit = function emitWithClientAddress(event, ...args) {
-    if (event === 'request' || event === 'upgrade') {
+    if (typeof event === 'string' && REQUEST_EVENTS.has(event)) {
       /** @type {import('node:http').IncomingMessage} */
       const request = args[0];
-      // `request`: (req, res); `upgrade`: (req, socket, head).
+      // `request`, `checkContinue`, `checkExpectation`: (req, res);
+      // `upgrade`: (req, socket, head).
       const address = clientAddress(request.headers['x-forwarded-for'], request.socket?.remoteAddress, hops);
       if (address) request.headers['x-forwarded-for'] = address;
       else delete request.headers['x-forwarded-for'];
@@ -109,6 +123,7 @@ export function installClientAddress(hops) {
     return emit.call(this, event, ...args);
   };
   return () => {
+    delete proto[INSTALLED];
     if (hadOwnEmit) proto.emit = emit;
     else delete (/** @type {{ emit?: unknown }} */ (proto)).emit;
   };

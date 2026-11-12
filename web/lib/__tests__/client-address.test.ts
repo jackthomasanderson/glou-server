@@ -177,9 +177,75 @@ describe('the web hop sends the API one trusted address', () => {
     expect(await forwardedFor('127.0.0.3', UPGRADE)).toBe('127.0.0.3');
   });
 
+  it('a second install changes nothing: the first one stays in charge', async () => {
+    uninstall = installClientAddress(1);
+    const second = installClientAddress(0);
+    // 1 hop: the appended entry, not the socket address 0 hops would give.
+    expect(await forwardedFor('127.0.0.2', { 'X-Forwarded-For': '203.0.113.66' })).toBe('203.0.113.66');
+    second();
+    expect(await forwardedFor('127.0.0.2', { 'X-Forwarded-For': '203.0.113.66' })).toBe('203.0.113.66');
+    expect(await forwardedFor('127.0.0.2')).toBe('127.0.0.2');
+  });
+
   it('stops rewriting once uninstalled', async () => {
     installClientAddress(0)();
     expect(await forwardedFor('127.0.0.2', { 'X-Forwarded-For': '203.0.113.66' })).toBe('203.0.113.66');
     expect(await forwardedFor('127.0.0.2', { ...UPGRADE, 'X-Forwarded-For': '203.0.113.66' })).toBe('203.0.113.66');
+  });
+});
+
+/**
+ * Review of #987: with an `Expect` header, Node raises `checkContinue` or
+ * `checkExpectation` instead of `request` when the server listens to them.
+ * Next does not today; a future version might.
+ */
+describe('requests with an Expect header', () => {
+  let server: http.Server;
+  let port = 0;
+  let uninstall: (() => void) | undefined;
+
+  beforeAll(async () => {
+    const answer = (req: http.IncomingMessage, res: http.ServerResponse) => {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ forwardedFor: req.headers['x-forwarded-for'] ?? null }));
+    };
+    server = http.createServer(answer);
+    server.on('checkContinue', answer);
+    server.on('checkExpectation', answer);
+    port = await new Promise<number>((resolve) => server.listen(0, '127.0.0.1', () => resolve((server.address() as AddressInfo).port)));
+  });
+
+  afterEach(() => {
+    uninstall?.();
+    uninstall = undefined;
+  });
+
+  afterAll(async () => {
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  function forwardedFor(expectation: string): Promise<string | null> {
+    return new Promise((resolve, reject) => {
+      const req = http.request(
+        { host: '127.0.0.1', port, method: 'POST', path: '/api/echo', localAddress: '127.0.0.2', agent: false, headers: { Expect: expectation, 'X-Forwarded-For': '203.0.113.66' } },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => (body += chunk));
+          res.on('end', () => resolve(res.statusCode === 200 ? JSON.parse(body).forwardedFor : `status ${res.statusCode}`));
+        },
+      );
+      req.on('error', reject);
+      req.end('{}');
+    });
+  }
+
+  it('rewrites the header on checkContinue (Expect: 100-continue)', async () => {
+    uninstall = installClientAddress(0);
+    expect(await forwardedFor('100-continue')).toBe('127.0.0.2');
+  });
+
+  it('rewrites the header on checkExpectation (any other Expect)', async () => {
+    uninstall = installClientAddress(0);
+    expect(await forwardedFor('something-else')).toBe('127.0.0.2');
   });
 });
