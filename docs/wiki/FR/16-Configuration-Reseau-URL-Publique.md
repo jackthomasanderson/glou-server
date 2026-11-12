@@ -22,9 +22,21 @@ Indiquez à Glou l'adresse utilisée pour joindre votre instance depuis l'extér
 3. Lisez le résultat : les avertissements sont consultatifs, pas bloquants : le contrôle ne renvoie `ok: false` que si l'URL elle-même est invalide.
 
 > [!TIP]
-> L'URL publique ne configure ni le `trust proxy` d'Express ni aucun comportement serveur lié au proxy. Si votre reverse proxy doit transmettre des en-têtes spécifiques, configurez-le au niveau du proxy/déploiement.
->
-> L'API fait confiance à un seul relais : elle prend l'adresse du client dans la dernière entrée de `X-Forwarded-For`. Le conteneur `web` transmet les requêtes `/api` à l'API sans ajouter l'adresse du client à cet en-tête : les limites par adresse n'ont donc de sens que si un reverse proxy placé devant `web` (Caddy, Traefik, nginx avec `proxy_add_x_forwarded_for`…) y ajoute la vraie adresse du client. Sans lui, un client peut écrire l'adresse de son choix dans cet en-tête, et ceux qui n'en envoient pas partagent tous l'adresse du conteneur `web`. Les mauvais mots de passe à la connexion sont alors freinés par la limite par compte, pas par la limite par adresse. Laisser le port de l'API (3001) non publié, comme dans le `docker-compose.yml` par défaut, reste nécessaire, mais ne suffit pas.
+> L'URL publique ne configure aucun comportement serveur lié au proxy. Le nombre de reverse proxies de confiance se règle dans `.env` avec `TRUSTED_PROXY_HOPS`, voir ci-dessous.
+
+### Adresse du client et reverse proxy
+Le formulaire de connexion et l'API limitent le nombre de requêtes par adresse (par exemple 20 tentatives de connexion toutes les 15 minutes). Pour cela, le conteneur `web` détermine l'adresse de chaque client et ne transmet que celle-là à l'API, quoi que le client ait écrit dans son propre en-tête `X-Forwarded-For`. `TRUSTED_PROXY_HOPS` dans `.env` lui indique combien de reverse proxies se trouvent devant lui :
+
+| Votre installation | `TRUSTED_PROXY_HOPS` | Adresse retenue |
+|---|---|---|
+| Un reverse proxy devant `web` (Caddy, Traefik, nginx…), le cas courant | `1` (défaut, rien à régler) | L'adresse que votre proxy ajoute à `X-Forwarded-For`. |
+| `web` accessible directement (port 3000 ouvert sur le réseau, sans proxy) | `0` | L'adresse de la connexion elle-même. Un `X-Forwarded-For` forgé est ignoré. |
+| Deux proxies à la suite (ex. un CDN, puis Caddy) | `2` | L'adresse ajoutée par le premier proxy. |
+
+- Votre reverse proxy doit **ajouter** l'adresse du client à `X-Forwarded-For` : Caddy et Traefik le font par défaut ; avec nginx, utilisez `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`.
+- Une requête qui porte moins d'adresses que prévu (quelqu'un qui atteint `web` sans passer par votre proxy) est comptée sur l'adresse de sa propre connexion, jamais sur une adresse partagée par tous les membres.
+- Si `web` est accessible directement alors que `TRUSTED_PROXY_HOPS` vaut encore `1`, un client peut choisir l'adresse sur laquelle il est compté : les mauvais mots de passe restent freinés par la limite par compte, mais mettez `0` pour fermer cette brèche.
+- Redémarrez après l'avoir changé : `docker compose up -d`. Laissez le port de l'API (3001) non publié, comme dans le `docker-compose.yml` par défaut : l'API ne fait confiance qu'au conteneur `web`.
 
 ### Autoriser ou fermer l'inscription de nouveaux comptes
 L'inscription est **fermée par défaut** : dès que le premier compte (l'admin de l'instance) existe, `POST /api/auth/register` répond `REGISTRATION_CLOSED` et la page de connexion masque le lien d'inscription.

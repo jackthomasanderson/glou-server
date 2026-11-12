@@ -22,9 +22,21 @@ Tell Glou the address people use to reach your instance from outside, so the lin
 3. Read the result: warnings are advisory, not blocking: the check only reports `ok: false` when the URL itself is invalid.
 
 > [!TIP]
-> The public URL does not configure Express's `trust proxy` setting or any other server-side proxy behavior. If your reverse proxy needs specific headers forwarded, configure that at the proxy/deployment level.
->
-> The API trusts exactly one forwarding hop: it takes the client address from the last `X-Forwarded-For` entry. The `web` container relays `/api` requests to the API without adding the client address to that header, so the per-address limits only mean something when a reverse proxy in front of `web` (Caddy, Traefik, nginx with `proxy_add_x_forwarded_for`…) appends the real client address. Without one, a client can write any address it likes in that header, and clients that send none all share the `web` container's address. Wrong passwords at sign-in are then held back by the per-account limit, not by the per-address one. Keeping the API port (3001) unpublished, as in the default `docker-compose.yml`, is still required, but it is not enough on its own.
+> The public URL does not configure any server-side proxy behavior. How many reverse proxies are trusted is set in `.env` with `TRUSTED_PROXY_HOPS`, see below.
+
+### Client address and reverse proxy
+The sign-in form and the API limit how many requests one address may send (for example 20 sign-in attempts every 15 minutes). For that, the `web` container works out each client's address and hands the API that single address, whatever the client wrote in its own `X-Forwarded-For` header. `TRUSTED_PROXY_HOPS` in `.env` tells it how many reverse proxies are in front of it:
+
+| Your install | `TRUSTED_PROXY_HOPS` | Address used |
+|---|---|---|
+| One reverse proxy in front of `web` (Caddy, Traefik, nginx…), the usual case | `1` (default, nothing to set) | The address your proxy appends to `X-Forwarded-For`. |
+| `web` reached directly (port 3000 open on the network, no proxy) | `0` | The address of the connection itself. A forged `X-Forwarded-For` is ignored. |
+| Two proxies in a row (e.g. a CDN, then Caddy) | `2` | The address the first proxy appended. |
+
+- Your reverse proxy must **append** the client address to `X-Forwarded-For`: Caddy and Traefik do it by default; with nginx, use `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`.
+- A request that carries fewer addresses than expected (someone reaching `web` without going through your proxy) is counted on its own connection address, never on an address shared by every member.
+- If `web` is reached directly while `TRUSTED_PROXY_HOPS` is still `1`, a client can choose the address it is counted on: wrong passwords are then still held back by the per-account limit, but set `0` to close that gap.
+- Restart after changing it: `docker compose up -d`. Keep the API port (3001) unpublished, as in the default `docker-compose.yml`: the API trusts the `web` container only.
 
 ### Allow or close new registrations
 Registration is **closed by default**: once the first account (the instance admin) exists, `POST /api/auth/register` answers `REGISTRATION_CLOSED` and the login page hides the sign-up link.

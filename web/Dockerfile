@@ -28,9 +28,13 @@ ENV NODE_ENV=production \
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=glou:glou /app/.next/standalone ./
 COPY --from=builder --chown=glou:glou /app/.next/static ./.next/static
+# #979: preloaded before Next's server, it sets the X-Forwarded-For the API
+# reads (TRUSTED_PROXY_HOPS) — see lib/client-address.mjs.
+COPY --from=builder /app/client-address-hook.mjs ./
+COPY --from=builder /app/lib/client-address.mjs ./lib/
 
 USER glou
 
 EXPOSE 3000
 
-CMD ["node", "server.js"]
+CMD ["node", "--import", "./client-address-hook.mjs", "server.js"]
