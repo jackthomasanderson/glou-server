@@ -1,5 +1,5 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query';
-import { isNetworkFailure } from './auth/error-message';
+import { isNetworkFailure, isServerUnavailable } from './auth/error-message';
 import { notifyError } from './toast';
 
 declare module '@tanstack/react-query' {
@@ -37,7 +37,9 @@ export function createQueryClient(): QueryClient {
       onError: (error, _variables, _context, mutation) => {
         if (mutation.meta?.handlesError) return;
         // #619: no answer, a deadline passed or a proxy's error page alike.
-        notifyError(isNetworkFailure(error) ? 'status.serverUnreachable' : 'status.error');
+        // #467: a 503 is the database restarting: retry in a moment.
+        notifyError(isNetworkFailure(error) ? 'status.serverUnreachable'
+          : isServerUnavailable(error) ? 'status.serverUnavailable' : 'status.error');
       },
     }),
     defaultOptions: {

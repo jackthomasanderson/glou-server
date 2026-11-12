@@ -14,7 +14,7 @@ export function SessionsPanel() {
   const { t, i18n } = useTranslation();
   const hasMounted = useHasMounted();
 
-  const { data: sessions, isLoading, isError, refetch, isRefetching } = useSessions();
+  const { data: sessions, isLoading, isError, error: queryError, refetch, isRefetching } = useSessions();
   const revokeSession = useRevokeSession();
 
   const [sessionToRevoke, setSessionToRevoke] = useState<SessionInfo | null>(null);
@@ -55,6 +55,7 @@ export function SessionsPanel() {
 
       {!isLoading && isError && (
         <ErrorState
+          error={queryError}
           message={t('profile.sessions.loadError')}
           onRetry={() => { void refetch(); }}
           isRetrying={isRefetching}

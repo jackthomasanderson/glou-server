@@ -11,21 +11,16 @@ router.use(authMiddleware);
 // no traceability value, and the stats page itself runs a group-by over
 // that same table, which only made things slower.
 router.get('/', async (req: Request, res: Response): Promise<void> => {
-  try {
-    // The range narrows the movement counters only; the response echoes its
-    // scope back (see ANALYTICS_PERIOD_SCOPE in shared/analytics.ts).
-    const parsed = analyticsQuerySchema.safeParse(req.query);
-    if (!parsed.success) {
-      res.status(400).json({ error: 'INVALID_DATE_RANGE' });
-      return;
-    }
-    const { from, to } = parsed.data;
-    const stats = await getAnalytics(from, to);
-    res.json({ data: stats });
-  } catch (error) {
-    console.error('[analytics] GET / error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  // The range narrows the movement counters only; the response echoes its
+  // scope back (see ANALYTICS_PERIOD_SCOPE in shared/analytics.ts).
+  const parsed = analyticsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'INVALID_DATE_RANGE' });
+    return;
   }
+  const { from, to } = parsed.data;
+  const stats = await getAnalytics(from, to);
+  res.json({ data: stats });
 });
 
 export { router as analyticsRouter };

@@ -5,24 +5,23 @@ import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
 import { slotService } from '../services/slot.service';
+import { notFound } from '../lib/errors';
 
 const router = Router();
 
 // Fully protected route
 router.use(authMiddleware);
 
+// #467: no catch-all here. Express 5 forwards any failure to the error
+// middleware, which answers 503 during a database outage, 500 otherwise.
+
 /**
  * GET /api/cellars
  * List every cellar of the instance (the inventory is shared by the family)
  */
 router.get('/', async (_req: Request, res: Response) => {
-  try {
-    const cellars = await CellarService.listCellars();
-    res.json({ data: cellars });
-  } catch (err: unknown) {
-    console.error('[cellars] GET / error:', err);
-    res.status(500).json({ error: 'FAILED_TO_FETCH_CELLARS' });
-  }
+  const cellars = await CellarService.listCellars();
+  res.json({ data: cellars });
 });
 
 /**
@@ -31,16 +30,9 @@ router.get('/', async (_req: Request, res: Response) => {
  */
 router.get('/:id', async (req: Request, res: Response) => {
   const id = routeParam(req.params.id);
-  try {
-    const cellar = await CellarService.getCellar(id);
-    if (!cellar) {
-      return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
-    }
-    res.json({ data: cellar });
-  } catch (err: unknown) {
-    console.error('[cellars] GET /:id error:', err);
-    res.status(500).json({ error: 'FAILED_TO_FETCH_CELLAR' });
-  }
+  const cellar = await CellarService.getCellar(id);
+  if (!cellar) throw notFound('CELLAR_NOT_FOUND');
+  res.json({ data: cellar });
 });
 
 /**
@@ -62,27 +54,15 @@ router.post('/', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
   }
 
-  try {
-    const cellar = await CellarService.createCellar(userId, validation.data);
-    await auditLog({
-      userId,
-      ip: getClientIp(req),
-      action: 'CELLAR_CREATE',
-      status: 'success',
-      details: { cellarId: cellar.id }
-    });
-    res.status(201).json({ data: cellar });
-  } catch (err: unknown) {
-    console.error('[cellars] POST / error:', err);
-    await auditLog({
-      userId,
-      ip: getClientIp(req),
-      action: 'CELLAR_CREATE',
-      status: 'error',
-      details: { error: err instanceof Error ? err.message : 'UNEXPECTED_ERROR' }
-    });
-    res.status(500).json({ error: 'FAILED_TO_CREATE_CELLAR' });
-  }
+  const cellar = await CellarService.createCellar(userId, validation.data);
+  await auditLog({
+    userId,
+    ip: getClientIp(req),
+    action: 'CELLAR_CREATE',
+    status: 'success',
+    details: { cellarId: cellar.id }
+  });
+  res.status(201).json({ data: cellar });
 });
 
 /**
@@ -98,23 +78,16 @@ router.patch('/:id', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'VALIDATION_ERROR', details: validation.error.format() });
   }
 
-  try {
-    const cellar = await CellarService.updateCellar(id, validation.data);
-    if (!cellar) {
-      return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
-    }
-    await auditLog({
-      userId,
-      ip: getClientIp(req),
-      action: 'CELLAR_UPDATE',
-      status: 'success',
-      details: { cellarId: id }
-    });
-    res.json({ data: cellar });
-  } catch (err: unknown) {
-    console.error('[cellars] PATCH /:id error:', err);
-    res.status(500).json({ error: 'FAILED_TO_UPDATE_CELLAR' });
-  }
+  const cellar = await CellarService.updateCellar(id, validation.data);
+  if (!cellar) throw notFound('CELLAR_NOT_FOUND');
+  await auditLog({
+    userId,
+    ip: getClientIp(req),
+    action: 'CELLAR_UPDATE',
+    status: 'success',
+    details: { cellarId: id }
+  });
+  res.json({ data: cellar });
 });
 
 /**
@@ -123,16 +96,9 @@ router.patch('/:id', async (req: Request, res: Response) => {
  */
 router.get('/:id/grid', async (req: Request, res: Response) => {
   const id = routeParam(req.params.id);
-  try {
-    const data = await CellarService.getGridData(id);
-    if (!data) {
-      return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
-    }
-    res.json({ data });
-  } catch (err: unknown) {
-    console.error('[cellars] GET /:id/grid error:', err);
-    res.status(500).json({ error: 'FAILED_TO_FETCH_GRID' });
-  }
+  const data = await CellarService.getGridData(id);
+  if (!data) throw notFound('CELLAR_NOT_FOUND');
+  res.json({ data });
 });
 
 /**
@@ -168,30 +134,23 @@ router.delete('/:id', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const id = routeParam(req.params.id);
 
-  try {
-    const deleted = await CellarService.deleteCellar(id);
-    if (!deleted) {
-      return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
-    }
-    // #597: the guest shares the cellar was taken out of, and those revoked
-    // because nothing was left in their scope.
-    const { sharesCleaned, sharesRevoked } = deleted;
-    await auditLog({
-      userId,
-      ip: getClientIp(req),
-      action: 'CELLAR_DELETE',
-      status: 'success',
-      details: {
-        cellarId: id,
-        ...(sharesCleaned.length > 0 ? { sharesCleaned } : {}),
-        ...(sharesRevoked.length > 0 ? { sharesRevoked } : {}),
-      },
-    });
-    res.status(204).send();
-  } catch (err: unknown) {
-    console.error('[cellars] DELETE /:id error:', err);
-    res.status(500).json({ error: 'FAILED_TO_DELETE_CELLAR' });
-  }
+  const deleted = await CellarService.deleteCellar(id);
+  if (!deleted) throw notFound('CELLAR_NOT_FOUND');
+  // #597: the guest shares the cellar was taken out of, and those revoked
+  // because nothing was left in their scope.
+  const { sharesCleaned, sharesRevoked } = deleted;
+  await auditLog({
+    userId,
+    ip: getClientIp(req),
+    action: 'CELLAR_DELETE',
+    status: 'success',
+    details: {
+      cellarId: id,
+      ...(sharesCleaned.length > 0 ? { sharesCleaned } : {}),
+      ...(sharesRevoked.length > 0 ? { sharesRevoked } : {}),
+    },
+  });
+  res.status(204).send();
 });
 
 export default router;

@@ -45,7 +45,7 @@ router.patch('/profile', authMiddleware, async (req: Request, res: Response, nex
     res.json({ data: user });
   } catch (err: unknown) {
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.format() });
       return;
     }
     next(err);
@@ -91,7 +91,7 @@ router.patch('/email', authMiddleware, passwordCheckLimiter, async (req: Request
     res.json({ data: user });
   } catch (err: unknown) {
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.format() });
       return;
     }
     if (err instanceof Error && err.message === 'INVALID_CREDENTIALS') {
@@ -119,7 +119,7 @@ router.patch('/username', authMiddleware, passwordCheckLimiter, async (req: Requ
     res.json({ data: user });
   } catch (err: unknown) {
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.format() });
       return;
     }
     if (err instanceof Error && err.message === 'REAUTH_REQUIRED') {
@@ -150,7 +150,7 @@ router.patch('/password', authMiddleware, passwordCheckLimiter, async (req: Requ
     res.json({ success: true });
   } catch (err: unknown) {
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.format() });
       return;
     }
     if (err instanceof Error && err.message === 'INVALID_CREDENTIALS') {
@@ -172,7 +172,7 @@ router.patch('/preferences', authMiddleware, async (req: Request, res: Response,
     res.json({ data: user });
   } catch (err: unknown) {
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.format() });
       return;
     }
     next(err);
@@ -253,7 +253,7 @@ router.post('/onboarding/complete', authMiddleware, async (req: Request, res: Re
     res.json({ data: user });
   } catch (err: unknown) {
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.format() });
       return;
     }
     next(err);
@@ -339,7 +339,7 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
     parsed = updateNotificationPrefsSchema.parse(req.body);
   } catch (err) {
     if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.format() });
       return;
     }
     throw err;

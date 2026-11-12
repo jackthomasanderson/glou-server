@@ -3,6 +3,7 @@ import React from 'react';
 import { Button, Card, CardBody } from '@heroui/react';
 import { AlertTriangle, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { isServerUnavailable } from '@/lib/auth/error-message';
 
 export interface ErrorStateProps {
   /**
@@ -10,6 +11,11 @@ export interface ErrorStateProps {
    * generic `status.error` wording when omitted.
    */
   message?: string;
+  /**
+   * The failure itself (React Query's `error`). A 503 (the database
+   * restarting, #467) replaces `message` with "temporarily unavailable".
+   */
+  error?: unknown;
   /**
    * Usually the `refetch` returned by the React Query hook that failed.
    * The retry button is hidden when no handler is provided.
@@ -30,6 +36,7 @@ export interface ErrorStateProps {
  */
 export function ErrorState({
   message,
+  error,
   onRetry,
   isRetrying = false,
   compact = false,
@@ -56,7 +63,7 @@ export function ErrorState({
           aria-hidden="true"
         />
         <p className={`text-danger-700 flex-1 ${compact ? 'text-xs' : 'text-sm'}`} role="alert">
-          {message ?? t('status.error')}
+          {isServerUnavailable(error) ? t('status.serverUnavailable') : message ?? t('status.error')}
         </p>
         {onRetry && (
           <Button

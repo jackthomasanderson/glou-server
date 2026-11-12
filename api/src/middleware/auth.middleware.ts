@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
+import { AppError } from '../lib/errors';
 
 export interface AuthPayload {
   userId: string;
@@ -74,8 +75,8 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
 
   const secret = process.env.JWT_SECRET;
   if (!secret) {
-    console.error('[auth] JWT_SECRET is not set');
-    res.status(500).json({ error: 'SERVER_CONFIGURATION_ERROR' });
+    // A server fault, logged with its stack by the error middleware (#467).
+    next(new AppError(500, 'SERVER_CONFIGURATION_ERROR', { cause: new Error('JWT_SECRET is not set') }));
     return;
   }
 
@@ -149,22 +150,18 @@ export async function adminMiddleware(req: Request, res: Response, next: NextFun
     return;
   }
 
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.userId },
-      select: { isAdmin: true },
-    });
+  // #467: a failed lookup (database restarting) reaches the error middleware.
+  const user = await prisma.user.findUnique({
+    where: { id: req.userId },
+    select: { isAdmin: true },
+  });
 
-    if (!user || !user.isAdmin) {
-      res.status(403).json({ error: 'FORBIDDEN_ADMIN_ONLY' });
-      return;
-    }
-
-    next();
-  } catch (error) {
-    console.error('[adminMiddleware] Error verifying admin status:', error);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  if (!user || !user.isAdmin) {
+    res.status(403).json({ error: 'FORBIDDEN_ADMIN_ONLY' });
+    return;
   }
+
+  next();
 }
 
 /** Helper to extract client IP (supports reverse proxies) */

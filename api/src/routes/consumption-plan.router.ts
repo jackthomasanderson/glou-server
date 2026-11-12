@@ -1,5 +1,4 @@
 import { Router, Request, Response } from 'express';
-import { ZodError } from 'zod';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
@@ -10,112 +9,63 @@ import {
   setGoal,
 } from '../services/consumption-plan.service';
 import { postponeSchema, setGoalSchema, suggestionsQuerySchema } from '../schemas/consumption-plan.schema';
+import { notFound } from '../lib/errors';
 
 const router = Router();
 
 router.use(authMiddleware);
+
+// #467: errors (a ZodError included: 400 VALIDATION_ERROR) go to the error middleware.
 
 // ─── GET /api/consumption-plan/suggestions ───────────────────────────────────
 // Shared, non-userId-filtered list — see consumption-plan.service.ts header.
 // #635: a read is not audited (#160) — the log keeps sign-ins and changes only.
 
 router.get('/suggestions', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { limit } = suggestionsQuerySchema.parse(req.query);
-    const suggestions = await getSuggestions(limit);
-    res.json({ data: suggestions });
-  } catch (error) {
-    console.error('[consumption-plan] GET /suggestions error:', error);
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
-      return;
-    }
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const { limit } = suggestionsQuerySchema.parse(req.query);
+  const suggestions = await getSuggestions(limit);
+  res.json({ data: suggestions });
 });
 
 // ─── PATCH /api/consumption-plan/items/:id/postpone ──────────────────────────
 
 router.patch('/items/:id/postpone', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  const ip = getClientIp(req);
-  try {
-    const { days } = postponeSchema.parse(req.body ?? {});
-    const success = await postponeItem(id, days);
-    if (!success) {
-      res.status(404).json({ error: 'BOTTLE_NOT_FOUND' });
-      return;
-    }
-    void auditLog({
-      userId: req.userId,
-      action: 'UPDATE',
-      status: 'success',
-      ip,
-      bottleId: id,
-      details: { scope: 'consumption-plan-postpone', days },
-    });
-    res.json({ data: { ok: true } });
-  } catch (error) {
-    console.error('[consumption-plan] PATCH /items/:id/postpone error:', error);
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
-      return;
-    }
-    void auditLog({
-      userId: req.userId,
-      action: 'UPDATE',
-      status: 'error',
-      ip,
-      bottleId: id,
-      details: { scope: 'consumption-plan-postpone', message: String(error) },
-    });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const { days } = postponeSchema.parse(req.body ?? {});
+  const success = await postponeItem(id, days);
+  if (!success) throw notFound('BOTTLE_NOT_FOUND');
+  void auditLog({
+    userId: req.userId,
+    action: 'UPDATE',
+    status: 'success',
+    ip: getClientIp(req),
+    bottleId: id,
+    details: { scope: 'consumption-plan-postpone', days },
+  });
+  res.json({ data: { ok: true } });
 });
 
 // ─── GET /api/consumption-plan/goal ───────────────────────────────────────────
 // Personal — scoped to req.userId, see consumption-plan.service.ts header.
 
 router.get('/goal', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const progress = await getGoalProgress(req.userId);
-    res.json({ data: progress });
-  } catch (error) {
-    console.error('[consumption-plan] GET /goal error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const progress = await getGoalProgress(req.userId);
+  res.json({ data: progress });
 });
 
 // ─── PUT /api/consumption-plan/goal ────────────────────────────────────────────
 
 router.put('/goal', async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
-  try {
-    const input = setGoalSchema.parse(req.body);
-    const goal = await setGoal(req.userId, input);
-    void auditLog({
-      userId: req.userId,
-      action: 'CREATE',
-      status: 'success',
-      ip,
-      details: { scope: 'consumption-goal', goalId: goal.id },
-    });
-    res.status(201).json({ data: goal });
-  } catch (error) {
-    console.error('[consumption-plan] PUT /goal error:', error);
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
-      return;
-    }
-    void auditLog({
-      userId: req.userId,
-      action: 'CREATE',
-      status: 'error',
-      ip,
-      details: { scope: 'consumption-goal', message: String(error) },
-    });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const input = setGoalSchema.parse(req.body);
+  const goal = await setGoal(req.userId, input);
+  void auditLog({
+    userId: req.userId,
+    action: 'CREATE',
+    status: 'success',
+    ip: getClientIp(req),
+    details: { scope: 'consumption-goal', goalId: goal.id },
+  });
+  res.status(201).json({ data: goal });
 });
 
 export { router as consumptionPlanRouter };

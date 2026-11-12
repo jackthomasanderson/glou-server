@@ -79,7 +79,7 @@ function EnvelopeCard({ envelope, onEdit, onDelete }: {
 
 export function BudgetPanel() {
   const { t } = useTranslation();
-  const { data: envelopes, isLoading, isError, refetch, isRefetching } = useBudgetEnvelopes();
+  const { data: envelopes, isLoading, isError, error: queryError, refetch, isRefetching } = useBudgetEnvelopes();
   const createMutation = useCreateBudgetEnvelope();
   const updateMutation = useUpdateBudgetEnvelope();
   const deleteMutation = useDeleteBudgetEnvelope();
@@ -159,6 +159,7 @@ export function BudgetPanel() {
 
       {isError && (
         <ErrorState
+          error={queryError}
           className="mb-4"
           message={t('budget.errors.load')}
           onRetry={() => { void refetch(); }}

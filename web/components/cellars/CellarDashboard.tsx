@@ -93,7 +93,7 @@ export const CellarDashboard: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { data: cellars, isLoading, isError, refetch, isRefetching } = useCellars();
+  const { data: cellars, isLoading, isError, error: loadError, refetch, isRefetching } = useCellars();
   const createMutation = useCreateCellar();
   const updateMutation = useUpdateCellar();
   const deleteMutation = useDeleteCellar();
@@ -294,6 +294,7 @@ export const CellarDashboard: React.FC = () => {
   if (isError) {
     return (
       <ErrorState
+        error={loadError}
         message={t('cellars.errors.load')}
         onRetry={() => { void refetch(); }}
         isRetrying={isRefetching}

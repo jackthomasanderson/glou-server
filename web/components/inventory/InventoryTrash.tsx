@@ -42,7 +42,7 @@ const lineNoun = (item: InventoryItem) => unitNoun({ cigarsPerBox: item.cigarsPe
 // (listTrash, restore) but no screen called useInventoryTrash — deleted
 // items were recoverable for 7 days with no way to see or reach them.
 export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
-  const { data: items, isLoading, isError, refetch, isRefetching } = useInventoryTrash();
+  const { data: items, isLoading, isError, error: loadError, refetch, isRefetching } = useInventoryTrash();
   const winesTrash = useProductsTrash();
   const restoreMutation = useRestoreInventoryItem();
   const restoreWineMutation = useRestoreProduct();
@@ -85,6 +85,7 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
   if (isError || winesTrash.isError) {
     return (
       <ErrorState
+        error={loadError ?? winesTrash.error}
         message={t('inventory.errors.load')}
         onRetry={() => { void refetch(); void winesTrash.refetch(); }}
         isRetrying={isRefetching || winesTrash.isRefetching}

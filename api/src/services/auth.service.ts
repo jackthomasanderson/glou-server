@@ -438,6 +438,13 @@ export class AuthService {
         ...(data.language ? { language: data.language } : {}),
       },
       select: PUBLIC_USER_SELECT,
+    }).catch((err: unknown) => {
+      // Two sign-ups with the same username or e-mail at once both pass the
+      // check above; the unique index refuses the second (#467 review).
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new Error('REGISTRATION_CONFLICT');
+      }
+      throw err;
     });
     const user = this.toPublicUser(rawUser);
 

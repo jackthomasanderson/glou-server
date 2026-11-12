@@ -3,7 +3,7 @@ import { authService } from '../src/services/auth.service';
 import { prisma } from '../src/lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
+import { Prisma, Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 
 vi.mock('../src/lib/prisma', () => ({
   prisma: {
@@ -135,6 +135,19 @@ describe('AuthService', () => {
       vi.mocked(prisma.user.count).mockResolvedValue(1);
       vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ registrationOpen: true } as any);
       vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any);
+
+      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('REGISTRATION_CONFLICT');
+    });
+
+    // #467 review: two sign-ups with the same username or e-mail at once both
+    // pass the check above; the database's unique index refuses the second.
+    it('throws REGISTRATION_CONFLICT when the unique index refuses a concurrent sign-up', async () => {
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ registrationOpen: true } as any);
+      vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' }),
+      );
 
       await expect(authService.register(validData, deviceInfo)).rejects.toThrow('REGISTRATION_CONFLICT');
     });

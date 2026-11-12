@@ -64,6 +64,7 @@
     "saving": "Enregistrement…",
     "error": "Une erreur est survenue",
     "serverUnreachable": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.",
+    "serverUnavailable": "Le serveur est momentanément indisponible. Vos données sont intactes : réessayez dans un instant.",
     "retry": "Réessayer",
     "empty": "Aucun élément"
   },
