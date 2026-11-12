@@ -385,7 +385,9 @@ export function WorldHeatmap({ regionCategoryBreakdown, noLocationBreakdown, onl
           )}
           {missing.cigars > 0 && (
             <>
-              {' '}
+              {missing.bottles > 0 ? (
+                <span data-testid="not-on-map-separator" aria-hidden="true">{' · '}</span>
+              ) : ' '}
               <Link href="/cigars?filter=notLocated" className="text-primary font-semibold hover:underline">
                 {t('analytics.regionMap.seeCigars')}
               </Link>

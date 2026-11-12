@@ -48,4 +48,21 @@ describe('French typography', () => {
     expect(/\}\s?%/.test('{v} %') && !isCssValue('{v} %')).toBe(true);
     expect(isCssValue('style={{ width: `${pct}%`, color }}')).toBe(true);
   });
+
+  // #841 follow-up: the locale files carry the plain space and frenchSpaces
+  // makes it non-breaking at runtime; a digit or placeholder glued to "%" in
+  // a French value is never converted. "(%)" unit labels have no digit.
+  it('no French translation glues a number or placeholder to "%"', () => {
+    const fr = JSON.parse(readFileSync(path.join(import.meta.dirname, '..', '..', 'public', 'locales', 'fr', 'common.json'), 'utf8'));
+    const glued: string[] = [];
+    const walk = (node: unknown, trail: string) => {
+      if (typeof node === 'string') {
+        if (/(\d|\}\})%/.test(node)) glued.push(trail);
+      } else if (node && typeof node === 'object') {
+        for (const [k, v] of Object.entries(node)) walk(v, trail ? `${trail}.${k}` : k);
+      }
+    };
+    walk(fr, '');
+    expect(glued).toEqual([]);
+  });
 });

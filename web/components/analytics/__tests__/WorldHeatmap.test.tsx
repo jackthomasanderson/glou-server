@@ -115,6 +115,23 @@ describe('WorldHeatmap', () => {
       .toHaveAttribute('href', '/bottles?filter=notLocated&category=sparkling');
   });
 
+  // Rec v2026.11.3: the two links read as one phrase under the map.
+  it('separates the two links when both bottles and cigars cannot be placed', async () => {
+    mount([{ region: 'Bordeaux', category: 'wine', count: 5, valuation: 200 }], undefined, [{ category: 'wine', count: 1 }, { category: 'cigar', count: 2 }]);
+    await waitFor(() => expect(notOnMapLine()).not.toBeNull());
+    expect(screen.getByRole('link', { name: 'analytics.regionMap.seeBottles' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'analytics.regionMap.seeCigars' })).toBeInTheDocument();
+    const separator = notOnMapLine()!.querySelector('[data-testid="not-on-map-separator"]');
+    expect(separator).toHaveAttribute('aria-hidden', 'true');
+    expect(separator).toHaveTextContent('·');
+  });
+
+  it('shows no separator when only one link is shown', async () => {
+    mount([{ region: 'Bordeaux', category: 'wine', count: 5, valuation: 200 }], undefined, [{ category: 'cigar', count: 2 }]);
+    await waitFor(() => expect(notOnMapLine()).not.toBeNull());
+    expect(notOnMapLine()!.querySelector('[data-testid="not-on-map-separator"]')).toBeNull();
+  });
+
   it('links to the cigars page for the cigars that cannot be placed', async () => {
     mount([{ region: 'Bordeaux', category: 'wine', count: 5, valuation: 200 }], undefined, [{ category: 'cigar', count: 2 }]);
     await waitFor(() => expect(notOnMapLine()).not.toBeNull());
