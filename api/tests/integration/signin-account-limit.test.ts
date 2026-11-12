@@ -55,8 +55,9 @@ const userRow = (name: string) => ({
   mustChangePassword: false, backupCodes: [], twoFactorFailedAttempts: 0, twoFactorLockedUntil: null, notifLanguage: null,
 });
 const KNOWN = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'gina', 'hank', 'ivan', 'jade', 'kim', 'liam', 'mona', 'ned', 'olga', 'pia', 'quinn', 'rex'];
-// #980: these accounts have two-factor authentication on.
-const WITH_2FA = new Set(['mona']);
+// #980: these accounts have two-factor authentication on. A trusted device
+// only exists on such an account (trusting needs 2FA, turning it off revokes them).
+const WITH_2FA = new Set(['jade', 'kim', 'liam', 'mona', 'olga', 'pia']);
 const accountRow = (name: string) => ({ ...userRow(name), isTwoFactorEnabled: WITH_2FA.has(name) });
 
 // #980: trusted devices, by the raw token their cookie carries.
@@ -220,7 +221,7 @@ describe('POST /api/auth/login from a trusted device (#980)', () => {
     expect((await signIn('jade', PASSWORD)).status).toBe(429);
   });
 
-  it('works with the e-mail too, and keeps the two-factor shortcut of the trusted device', async () => {
+  it('works with the e-mail too, and skips the two-factor code like the trusted device does', async () => {
     const cookie = trustDevice('mona');
     await wrongGuesses('mona@example.com', SIGN_IN_FAILURES_MAX);
     const res = await signInFromDevice('mona@example.com', PASSWORD, cookie);
