@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { ApiError, apiErrorFrom, client, handleResponse } from '../api';
+import { ApiError, apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, request } from '../api';
 import { NetworkError } from '../network-error';
 
 function mockResponse(status: number, body: unknown): Response {
@@ -100,5 +100,81 @@ describe('client without an answer', () => {
     const timeout = new DOMException('The operation timed out.', 'TimeoutError');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(timeout));
     await expect(client.get('/x')).rejects.toBe(timeout);
+  });
+});
+
+// #619: the one door every API call goes through — cookie, deadline, errors.
+describe('request', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  /** A server that accepts the connection and never answers (captive portal, cellar Wi-Fi). */
+  const neverAnswers = () => vi.fn((_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    init?.signal?.addEventListener('abort', () => reject(init.signal?.reason));
+  }));
+
+  it('aborts a request that never answers', async () => {
+    const fetchMock = neverAnswers();
+    vi.stubGlobal('fetch', fetchMock);
+    const err = await request('/user/me', { timeoutMs: 20 }).catch((e: unknown) => e);
+    expect((err as { name?: string }).name).toBe('TimeoutError');
+    expect((fetchMock.mock.calls[0][1] as RequestInit).signal?.aborted).toBe(true);
+  });
+
+  it('gives every request the app-wide deadline and the session cookie', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    await request('/auth/login', { method: 'POST' });
+    expect(timeout).toHaveBeenCalledWith(DEFAULT_TIMEOUT_MS);
+    expect(fetchMock).toHaveBeenCalledWith('/api/auth/login', expect.objectContaining({ method: 'POST', credentials: 'include' }));
+  });
+
+  it('still lets the caller cancel', async () => {
+    vi.stubGlobal('fetch', neverAnswers());
+    const controller = new AbortController();
+    const pending = request('/x', { signal: controller.signal });
+    controller.abort(new DOMException('superseded', 'AbortError'));
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('rethrows a request without an answer as a NetworkError', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+    await expect(request('/x')).rejects.toBeInstanceOf(NetworkError);
+  });
+});
+
+describe('client.upload and client.blob', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('sends the form as it is, without a JSON content type', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { ok: 1 } }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const form = new FormData();
+    await expect(client.upload('/user/avatar', form)).resolves.toEqual({ data: { ok: 1 } });
+    const init = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(init.body).toBe(form);
+    expect(new Headers(init.headers).has('Content-Type')).toBe(false);
+  });
+
+  it('reads a proxy page without a code from its status', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>413</html>', { status: 413 })));
+    await expect(client.upload('/scan', new FormData(), { codeByStatus: { 413: 'FILE_TOO_LARGE' } }))
+      .rejects.toMatchObject({ message: 'FILE_TOO_LARGE', status: 413 });
+  });
+
+  it('reads a proxy 502 page as NETWORK_ERROR', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>Bad gateway</html>', { status: 502 })));
+    await expect(client.upload('/scan', new FormData())).rejects.toMatchObject({ message: 'NETWORK_ERROR' });
+    await expect(client.blob('/user/export')).rejects.toMatchObject({ message: 'NETWORK_ERROR' });
+  });
+
+  it('hands a download back as a file with its headers', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('a;b', { status: 200, headers: { 'X-Glou-Rows': '2' } })));
+    const { blob, headers } = await client.blob('/inventory/export.csv');
+    expect(await blob.text()).toBe('a;b');
+    expect(headers.get('X-Glou-Rows')).toBe('2');
   });
 });

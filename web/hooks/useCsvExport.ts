@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { client } from '@/lib/api';
 import { notifyError, notifyWarning } from '@/lib/toast';
 import { CSV_IMPORT_MAX_ROWS } from '@shared/import';
 
@@ -11,10 +12,8 @@ export function useCsvExport() {
     meta: { handlesError: true },
     mutationFn: async (language) => {
       const lang = language.startsWith('fr') ? 'fr' : 'en';
-      const res = await fetch(`/api/inventory/export.csv?lang=${lang}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('CSV_EXPORT_FAILED');
-      const rows = Number(res.headers?.get?.('X-Glou-Rows') ?? 0);
-      const blob = await res.blob();
+      const { blob, headers } = await client.blob(`/inventory/export.csv?lang=${lang}`);
+      const rows = Number(headers?.get?.('X-Glou-Rows') ?? 0);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;

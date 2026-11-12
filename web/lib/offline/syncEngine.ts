@@ -1,7 +1,7 @@
 'use client';
 import type { QueryClient } from '@tanstack/react-query';
 import { randomId } from '@/lib/uuid';
-import { timeoutSignal } from '@/lib/api';
+import { request } from '@/lib/api';
 import type { InventoryItem } from '@/lib/inventory/types';
 import {
   type QueuedMutation,
@@ -357,10 +357,9 @@ function isTemporaryStatus(status: number): boolean {
 }
 
 /**
- * Raw call to the inventory API — deliberately NOT reusing `lib/api.ts`'s
- * `client.patch`: that helper collapses any non-2xx response into a plain
- * `Error` and discards the parsed body, but the offline sync flow
- * specifically needs the HTTP status (409) and the server's current item
+ * Raw answer of the inventory API (`request`, not `client.patch`): `client`
+ * turns a refusal into an ApiError and drops the body, but the offline sync
+ * flow specifically needs the HTTP status (409) and the server's current item
  * from the response body to drive conflict resolution. FEAT-108: a
  * "Corriger le nombre" goes to its own route, with the same guard.
  */
@@ -368,12 +367,10 @@ async function sendChange(mutation: QueuedMutation): Promise<PatchOutcome> {
   const isCorrection = mutation.kind === 'correct';
   let res: Response;
   try {
-    res = await fetch(`/api/inventory/${mutation.itemId}${isCorrection ? '/correct' : ''}`, {
+    res = await request(`/inventory/${mutation.itemId}${isCorrection ? '/correct' : ''}`, {
       method: isCorrection ? 'POST' : 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ ...mutation.patch, expectedUpdatedAt: mutation.expectedUpdatedAt }),
-      signal: timeoutSignal(15000),
     });
   } catch {
     // Network cut or timeout: the server never answered.
@@ -423,10 +420,7 @@ async function alreadyApplied(mutation: QueuedMutation, serverItem: InventoryIte
   const productId = mutation.productId ?? (typeof server.productId === 'string' ? server.productId : undefined);
   if (!productId) return null;
   try {
-    const res = await fetch(`/api/products/${encodeURIComponent(productId)}`, {
-      credentials: 'include',
-      signal: timeoutSignal(15000),
-    });
+    const res = await request(`/products/${encodeURIComponent(productId)}`);
     if (!res.ok) return null;
     const body = (await res.json()) as { data?: { items?: UnitLike[] } };
     const copy = body.data?.items?.find((unit) =>

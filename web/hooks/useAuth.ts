@@ -2,8 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { clearOfflineData } from '@/lib/offline/db';
-import { apiErrorFrom } from '@/lib/api';
-import { fetchOrNetworkError } from '@/lib/network-error';
+import { apiErrorFrom, client, request } from '@/lib/api';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
 import { resetReviewBanner } from '@/lib/review/banner';
@@ -32,34 +31,19 @@ export interface SessionInfo {
   isCurrent: boolean;
 }
 
-async function apiFetch<T>(
-  url: string,
-  options?: RequestInit,
-): Promise<T> {
-  const res = await fetchOrNetworkError(url, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  });
-  // #640: a refusal that is not JSON (a 429 from a limiter, a proxy's 502)
-  // used to fail here on parsing and read as "unexpected error".
-  if (!res.ok) throw await apiErrorFrom(res);
-  const json = (await res.json()) as { data?: T };
-  return json.data as T;
-}
-
 // ─── useMe ──────────────────────────────────────────────────────────────────
 
 export function useMe() {
   return useQuery<PublicUser | null>({
     queryKey: ME_KEY,
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       // Only "the server answered: not authenticated" means "no user".
-      // Network failures and 5xx errors must propagate so the guard does not
-      // bounce a signed-in member to /login during a brief outage (#341).
-      const res = await fetch('/api/user/me', { credentials: 'include' });
+      // Network failures, timeouts (#619) and 5xx errors must propagate so the
+      // guard says the server cannot be reached rather than bouncing a
+      // signed-in member to /login during a brief outage (#341).
+      const res = await request('/user/me', { signal });
       if (res.status === 401 || res.status === 403) return null;
-      if (!res.ok) throw new Error(`ME_REQUEST_FAILED_${res.status}`);
+      if (!res.ok) throw await apiErrorFrom(res);
       const json = (await res.json()) as { data?: PublicUser };
       return json.data as PublicUser;
     },
@@ -75,7 +59,7 @@ export function useLogin() {
   return useMutation<PublicUser & { requires2fa?: boolean }, Error, { identifier: string; password: string; rememberMe?: boolean }>({
     // Said by the sign-in form.
     meta: { handlesError: true },
-    mutationFn: (data) => apiFetch<PublicUser & { requires2fa?: boolean }>('/api/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) => (await client.post<PublicUser & { requires2fa?: boolean }>('/auth/login', data)).data,
     onSuccess: (data) => {
       if (data.requires2fa) {
         // Will be handled by the component
@@ -103,8 +87,8 @@ export function useRegister() {
   >({
     // Said by the sign-up form.
     meta: { handlesError: true },
-    mutationFn: (data) =>
-      apiFetch<PublicUser>('/api/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) =>
+      (await client.post<PublicUser>('/auth/register', data)).data,
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
@@ -155,7 +139,7 @@ export function useLogout() {
     meta: { handlesError: true },
     mutationFn: async () => {
       try {
-        await apiFetch<void>('/api/auth/logout', { method: 'POST' });
+        await client.post('/auth/logout');
       } finally {
         // Always purge local caches, even if the server-side call failed —
         // on a shared device the local data must not linger either way.
@@ -179,8 +163,8 @@ export function useUpdateProfile() {
   const queryClient = useQueryClient();
   return useMutation<PublicUser, Error, { username?: string; displayName?: string | null; appName?: string | null; appSlogan?: string | null }>({
     meta: { handlesError: true },
-    mutationFn: (data) =>
-      apiFetch<PublicUser>('/api/user/profile', { method: 'PATCH', body: JSON.stringify(data) }),
+    mutationFn: async (data) =>
+      (await client.patch<PublicUser>('/user/profile', data)).data,
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
@@ -200,15 +184,7 @@ export function useUploadAvatar() {
     mutationFn: async (file) => {
       const formData = new FormData();
       formData.append('avatar', file);
-
-      const res = await fetch('/api/user/avatar', {
-        method: 'POST',
-        credentials: 'include',
-        body: formData,
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? 'UNEXPECTED_ERROR');
-      return json.data as PublicUser;
+      return (await client.upload<PublicUser>('/user/avatar', formData)).data;
     },
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
@@ -223,7 +199,7 @@ export function useDeleteAvatar() {
   return useMutation<PublicUser, Error, void>({
     // Said by AvatarUploader.
     meta: { handlesError: true },
-    mutationFn: () => apiFetch<PublicUser>('/api/user/avatar', { method: 'DELETE' }),
+    mutationFn: async () => (await client.delete<PublicUser>('/user/avatar')).data,
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
@@ -238,8 +214,8 @@ export function useUpdateEmail() {
   return useMutation<PublicUser, Error, { email: string; currentPassword: string }>({
     // Said by the form (AccountSecurity).
     meta: { handlesError: true },
-    mutationFn: (data) =>
-      apiFetch<PublicUser>('/api/user/email', { method: 'PATCH', body: JSON.stringify(data) }),
+    mutationFn: async (data) =>
+      (await client.patch<PublicUser>('/user/email', data)).data,
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
@@ -252,8 +228,8 @@ export function useUpdatePassword() {
   return useMutation<{ success: boolean }, Error, { currentPassword: string; newPassword: string }>({
     // Said by the form (AccountSecurity, ForcedPasswordChange).
     meta: { handlesError: true },
-    mutationFn: (data) =>
-      apiFetch<{ success: boolean }>('/api/user/password', { method: 'PATCH', body: JSON.stringify(data) }),
+    mutationFn: async (data) =>
+      (await client.patch<{ success: boolean }>('/user/password', data)).data,
   });
 }
 
@@ -275,8 +251,8 @@ export function useUpdatePreferences() {
     }
   >({
     meta: { handlesError: true },
-    mutationFn: (data) =>
-      apiFetch<PublicUser>('/api/user/preferences', { method: 'PATCH', body: JSON.stringify(data) }),
+    mutationFn: async (data) =>
+      (await client.patch<PublicUser>('/user/preferences', data)).data,
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
@@ -290,7 +266,7 @@ export function useGenerate2fa() {
   return useMutation<{ qrCodeUrl: string; secret: string }, Error, void>({
     // Said by TwoFactorSettings.
     meta: { handlesError: true },
-    mutationFn: () => apiFetch<{ qrCodeUrl: string; secret: string }>('/api/auth/2fa/generate', { method: 'POST' }),
+    mutationFn: async () => (await client.post<{ qrCodeUrl: string; secret: string }>('/auth/2fa/generate')).data,
   });
 }
 
@@ -300,7 +276,7 @@ export function useTurnOn2fa() {
   return useMutation<{ backupCodes: string[] }, Error, { password: string; code: string }>({
     // Said by TwoFactorSettings.
     meta: { handlesError: true },
-    mutationFn: (data) => apiFetch<{ backupCodes: string[] }>('/api/auth/2fa/turn-on', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) => (await client.post<{ backupCodes: string[] }>('/auth/2fa/turn-on', data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
       queryClient.invalidateQueries({ queryKey: BACKUP_CODES_KEY });
@@ -313,7 +289,7 @@ export function useTurnOff2fa() {
   return useMutation<{ success: boolean }, Error, { password: string; code?: string }>({
     // Said by TwoFactorSettings.
     meta: { handlesError: true },
-    mutationFn: (data) => apiFetch<{ success: boolean }>('/api/auth/2fa/turn-off', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) => (await client.post<{ success: boolean }>('/auth/2fa/turn-off', data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
       queryClient.invalidateQueries({ queryKey: BACKUP_CODES_KEY });
@@ -325,7 +301,7 @@ export function useTurnOff2fa() {
 export function useBackupCodesCount(enabled: boolean) {
   return useQuery<number>({
     queryKey: BACKUP_CODES_KEY,
-    queryFn: async () => (await apiFetch<{ remaining: number }>('/api/user/backup-codes')).remaining,
+    queryFn: async () => (await client.get<{ remaining: number }>('/user/backup-codes')).data.remaining,
     enabled,
   });
 }
@@ -336,7 +312,7 @@ export function useRegenerateBackupCodes() {
   return useMutation<{ backupCodes: string[] }, Error, { password: string; code: string }>({
     // Said by the dialog.
     meta: { handlesError: true },
-    mutationFn: (data) => apiFetch<{ backupCodes: string[] }>('/api/auth/2fa/backup-codes', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) => (await client.post<{ backupCodes: string[] }>('/auth/2fa/backup-codes', data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: BACKUP_CODES_KEY });
     },
@@ -349,7 +325,7 @@ export function useVerify2faLogin() {
   return useMutation<PublicUser, Error, { code: string; trustDevice?: boolean }>({
     // Said by the sign-in form.
     meta: { handlesError: true },
-    mutationFn: (data) => apiFetch<PublicUser>('/api/auth/2fa/verify-login', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) => (await client.post<PublicUser>('/auth/2fa/verify-login', data)).data,
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
@@ -366,14 +342,14 @@ export function useVerify2faLogin() {
 export function useSessions() {
   return useQuery<SessionInfo[]>({
     queryKey: SESSIONS_KEY,
-    queryFn: () => apiFetch<SessionInfo[]>('/api/auth/sessions'),
+    queryFn: async () => (await client.get<SessionInfo[]>('/auth/sessions')).data,
   });
 }
 
 export function useRevokeSession() {
   const queryClient = useQueryClient();
   return useMutation<{ ok: boolean }, Error, string>({
-    mutationFn: (sessionId) => apiFetch<{ ok: boolean }>(`/api/auth/sessions/${sessionId}`, { method: 'DELETE' }),
+    mutationFn: async (sessionId) => (await client.delete<{ ok: boolean }>(`/auth/sessions/${sessionId}`)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
     },
@@ -388,7 +364,7 @@ export function useTrustDevice() {
   return useMutation<{ ok: boolean }, Error, { password: string; code?: string }>({
     // Said by SessionsPanel.
     meta: { handlesError: true },
-    mutationFn: (body) => apiFetch<{ ok: boolean }>('/api/auth/trust-device', { method: 'POST', body: JSON.stringify(body) }),
+    mutationFn: async (body) => (await client.post<{ ok: boolean }>('/auth/trust-device', body)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
     },
@@ -400,7 +376,7 @@ export function useUntrustDevice() {
   return useMutation<{ ok: boolean }, Error, void>({
     // Said by SessionsPanel.
     meta: { handlesError: true },
-    mutationFn: () => apiFetch<{ ok: boolean }>('/api/auth/trust-device', { method: 'DELETE' }),
+    mutationFn: async () => (await client.delete<{ ok: boolean }>('/auth/trust-device')).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
     },
@@ -418,9 +394,7 @@ export function useExportData() {
   return useMutation<void, Error, ExportCategory[] | void>({
     mutationFn: async (categories) => {
       const query = categories && categories.length > 0 ? `?categories=${categories.join(',')}` : '';
-      const res = await fetch(`/api/user/export${query}`, { credentials: 'include' });
-      if (!res.ok) throw new Error('EXPORT_FAILED');
-      const blob = await res.blob();
+      const { blob } = await client.blob(`/user/export${query}`);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -436,7 +410,7 @@ export function useRequestAccountDeletion() {
   // #603: the password is checked by the API; refusals are said by the dialog.
   return useMutation<void, Error, { password: string }>({
     meta: { handlesError: true },
-    mutationFn: (data) => apiFetch<void>('/api/user/delete-account', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) => { await client.post('/user/delete-account', data); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
     },
@@ -446,7 +420,7 @@ export function useRequestAccountDeletion() {
 export function useCancelAccountDeletion() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, void>({
-    mutationFn: () => apiFetch<void>('/api/user/cancel-delete', { method: 'POST' }),
+    mutationFn: async () => { await client.post('/user/cancel-delete'); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
     },
@@ -462,7 +436,7 @@ export function useSetPin() {
   return useMutation<{ ok: boolean }, Error, { password: string; pin: string }>({
     // Said by the form (AccountSecurity).
     meta: { handlesError: true },
-    mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/pin', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) => (await client.post<{ ok: boolean }>('/auth/pin', data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
     },
@@ -474,7 +448,7 @@ export function useRemovePin() {
   return useMutation<{ ok: boolean }, Error, { password: string }>({
     // Said by the form (AccountSecurity).
     meta: { handlesError: true },
-    mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/pin', { method: 'DELETE', body: JSON.stringify(data) }),
+    mutationFn: async (data) => (await client.delete<{ ok: boolean }>('/auth/pin', data)).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
     },
@@ -485,7 +459,7 @@ export function useUnlock() {
   return useMutation<{ ok: boolean }, Error, { password?: string; pin?: string }>({
     // Said by the lock screen.
     meta: { handlesError: true },
-    mutationFn: (data) => apiFetch<{ ok: boolean }>('/api/auth/unlock', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) => (await client.post<{ ok: boolean }>('/auth/unlock', data)).data,
   });
 }
 
@@ -495,8 +469,8 @@ export function useCompleteOnboarding() {
   const queryClient = useQueryClient();
   return useMutation<PublicUser, Error, { skipped: boolean }>({
     meta: { handlesError: true },
-    mutationFn: (data) =>
-      apiFetch<PublicUser>('/api/user/onboarding/complete', { method: 'POST', body: JSON.stringify(data) }),
+    mutationFn: async (data) =>
+      (await client.post<PublicUser>('/user/onboarding/complete', data)).data,
     onSuccess: (updatedUser, variables) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
       // FEAT-90: "Don't show again" — say where the wizard can be found. Here
@@ -515,7 +489,7 @@ export function useCompleteOnboarding() {
 export function useOnboardingState(enabled: boolean) {
   return useQuery<OnboardingState>({
     queryKey: ONBOARDING_STATE_KEY,
-    queryFn: () => apiFetch<OnboardingState>('/api/user/onboarding'),
+    queryFn: async () => (await client.get<OnboardingState>('/user/onboarding')).data,
     enabled,
     staleTime: Infinity,
   });
@@ -526,7 +500,7 @@ export function usePostponeOnboarding() {
   const queryClient = useQueryClient();
   return useMutation<{ postponed: boolean }, Error, void>({
     meta: { handlesError: true },
-    mutationFn: () => apiFetch<{ postponed: boolean }>('/api/user/onboarding/postpone', { method: 'POST' }),
+    mutationFn: async () => (await client.post<{ postponed: boolean }>('/user/onboarding/postpone')).data,
     onSuccess: () => {
       queryClient.setQueryData<OnboardingState>(ONBOARDING_STATE_KEY, (old) => (old ? { ...old, postponed: true } : old));
     },
