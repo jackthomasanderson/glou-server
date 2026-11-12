@@ -76,7 +76,10 @@ export interface FinishedStamp {
  * at `now`), cleared by the one that puts it back; nothing to write
  * otherwise, so a later edit of a finished unit never re-dates it. Every
  * write of a unit's state calls it (stock-state.service.ts `applyState`, a
- * unit created already finished).
+ * unit created already finished by `createItem`). Deliberate exception: a
+ * CSV import (import.service.ts → stock.service.ts `addCopies`) writes a
+ * finished row unstamped — importing a history is not drinking it today, and
+ * the file says neither when nor by whom it was finished.
  */
 export function finishedStamp(
   before: Parameters<typeof isFinishedState>[0] | null,
