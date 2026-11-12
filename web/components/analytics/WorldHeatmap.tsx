@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ComposableMap, Geographies, Geography, Marker, ZoomableGroup, useMapContext, useZoomPanContext,
 } from 'react-simple-maps';
@@ -118,6 +118,8 @@ type Cluster = MarkerCluster<PlacedMarker>;
 
 const MARKER_BLUE = '#2563EB';
 const UNKNOWN_GREY = '#888888';
+/** A spread marker's line to its place in dark theme: the category colours are too dark on the dark land. */
+const LEADER_DARK = '#d4d4d8';
 /** The map's size until it is measured (and in tests, where nothing has a size). */
 const FALLBACK_SIZE = { width: 800, height: 380 };
 /** The map's ring marking a group of regions, and the gap to its disc, in pixels. */
@@ -191,7 +193,8 @@ type Hovered = { x: number; y: number } & ({ marker: MarkerData } | { cluster: C
 /** Hands the map's projection to the component holding the view (framing needs it). */
 function ProjectionBridge({ onChange }: { onChange: (projector: MapProjector) => void }) {
   const { projection, width, height } = useMapContext();
-  useEffect(() => {
+  // Before the browser paints, so the opening framing is computed before the map shows.
+  useLayoutEffect(() => {
     onChange({
       width,
       height,
@@ -207,8 +210,9 @@ function ProjectionBridge({ onChange }: { onChange: (projector: MapProjector) =>
  * constant size on screen: the zoomable group scales its content by k, so
  * every radius, stroke and font size is divided by k.
  */
-function MarkerLayer({ markers, onHover, onRegionClick, onClusterClick }: {
+function MarkerLayer({ markers, isDark, onHover, onRegionClick, onClusterClick }: {
   markers: MarkerData[];
+  isDark: boolean;
   onHover: (hovered: Hovered | null) => void;
   onRegionClick?: (region: string) => void;
   onClusterClick: (cluster: Cluster) => void;
@@ -239,7 +243,7 @@ function MarkerLayer({ markers, onHover, onRegionClick, onClusterClick }: {
           >
             {/* Spread at the maximum zoom: a thin line ties the marker to its place. */}
             {isSpread && (
-              <line x1={0} y1={0} x2={dx / k} y2={dy / k} stroke={marker.color} strokeOpacity={0.6} strokeWidth={1 / k} />
+              <line x1={0} y1={0} x2={dx / k} y2={dy / k} stroke={isDark ? LEADER_DARK : marker.color} strokeOpacity={0.9} strokeWidth={1.2 / k} />
             )}
             <circle
               cx={dx / k}
@@ -558,43 +562,47 @@ export function WorldHeatmap({
           >
             <ProjectionBridge onChange={setProjector} />
             {/* Remounted when the map is resized: react-simple-maps resets its
-                gesture state on a new size without re-applying the view. */}
-            <ZoomableGroup
-              key={`${size.width}x${size.height}`}
-              center={view.center}
-              zoom={view.zoom}
-              minZoom={MAP_MIN_ZOOM}
-              maxZoom={MAP_MAX_ZOOM}
-              translateExtent={[[0, 0], [size.width, size.height]]}
-              filterZoomEvent={filterGesture}
-              onMoveEnd={handleMoveEnd}
-            >
-              {/* world-atlas ships raw TopoJSON (a `Topology`), which Geographies
-                  converts at runtime via topojson-client — its own type only
-                  declares the already-fetched-and-parsed GeoJSON shape, hence
-                  the cast. */}
-              <Geographies geography={geoUrl as unknown as GeoJsonObject}>
-                {({ geographies }) =>
-                  geographies.map((geo) => (
-                    <Geography
-                      key={geo.rsmKey}
-                      geography={geo}
-                      fill={isDark ? '#3f3f46' : '#e4e4e7'}
-                      stroke={isDark ? '#52525b' : '#d4d4d8'}
-                      strokeWidth={0.5}
-                      vectorEffect="non-scaling-stroke"
-                      style={{ outline: 'none' }}
-                    />
-                  ))
-                }
-              </Geographies>
-              <MarkerLayer
-                markers={markers}
-                onHover={setHovered}
-                onRegionClick={onRegionClick}
-                onClusterClick={zoomToCluster}
-              />
-            </ZoomableGroup>
+                gesture state on a new size without re-applying the view.
+                Drawn once framed, so the world never flashes before the cellar. */}
+            {isFramed && (
+              <ZoomableGroup
+                key={`${size.width}x${size.height}`}
+                center={view.center}
+                zoom={view.zoom}
+                minZoom={MAP_MIN_ZOOM}
+                maxZoom={MAP_MAX_ZOOM}
+                translateExtent={[[0, 0], [size.width, size.height]]}
+                filterZoomEvent={filterGesture}
+                onMoveEnd={handleMoveEnd}
+              >
+                {/* world-atlas ships raw TopoJSON (a `Topology`), which Geographies
+                    converts at runtime via topojson-client — its own type only
+                    declares the already-fetched-and-parsed GeoJSON shape, hence
+                    the cast. */}
+                <Geographies geography={geoUrl as unknown as GeoJsonObject}>
+                  {({ geographies }) =>
+                    geographies.map((geo) => (
+                      <Geography
+                        key={geo.rsmKey}
+                        geography={geo}
+                        fill={isDark ? '#3f3f46' : '#e4e4e7'}
+                        stroke={isDark ? '#52525b' : '#d4d4d8'}
+                        strokeWidth={0.5}
+                        vectorEffect="non-scaling-stroke"
+                        style={{ outline: 'none' }}
+                      />
+                    ))
+                  }
+                </Geographies>
+                <MarkerLayer
+                  markers={markers}
+                  isDark={isDark}
+                  onHover={setHovered}
+                  onRegionClick={onRegionClick}
+                  onClusterClick={zoomToCluster}
+                />
+              </ZoomableGroup>
+            )}
           </ComposableMap>
         )}
 

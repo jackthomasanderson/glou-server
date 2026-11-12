@@ -39,6 +39,20 @@ vi.mock('@heroui/react', () => ({
 // from the region breakdown, mode switching, and the "unmapped region"
 // notice — not the SVG/map internals themselves.
 
+// Records the zoom each ZoomableGroup is drawn at (second review of #993: the
+// map must not show the world for a frame before its opening framing).
+const zoomableGroupZooms: (number | undefined)[] = [];
+vi.mock('react-simple-maps', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-simple-maps')>();
+  return {
+    ...actual,
+    ZoomableGroup: (props: ComponentProps<typeof actual.ZoomableGroup>) => {
+      zoomableGroupZooms.push(props.zoom);
+      return <actual.ZoomableGroup {...props} />;
+    },
+  };
+});
+
 vi.mock('@/hooks/useAuth', () => ({
   useMe: () => ({ data: null }),
   useUpdatePreferences: () => ({ mutate: vi.fn() }),
@@ -435,5 +449,15 @@ describe('WorldHeatmap overlay (review of #993)', () => {
     const overlay = screen.getByRole('region', { name: 'list' });
     expect(map()).toContainElement(overlay);
     expect(fireEvent.wheel(overlay, { deltaY: 100 })).toBe(true);
+  });
+});
+
+describe('WorldHeatmap first paint (second review of #993)', () => {
+  it('draws the map at its opening framing from the first frame, never at the world view first', async () => {
+    zoomableGroupZooms.length = 0;
+    const { container } = mountMap({ regionCategoryBreakdown: [wine('Bordeaux', 6)] });
+    await mapReady(container);
+    expect(zoomableGroupZooms.length).toBeGreaterThan(0);
+    expect(zoomableGroupZooms.every((zoom) => zoom === 8)).toBe(true);
   });
 });
