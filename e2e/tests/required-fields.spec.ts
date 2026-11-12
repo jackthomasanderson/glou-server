@@ -14,8 +14,11 @@ test('the bottle form and "Add a wish" flag an empty name on Save', async ({ pag
   await bottle.getByTestId('inventory-form-submit').click();
   await expect(bottle.getByText(required).first()).toBeVisible();
   await expect(bottle.getByTestId('inventory-name-input')).toHaveAttribute('aria-invalid', 'true');
-  await expect(page.getByText("Complétez les champs obligatoires avant d'enregistrer")).toBeVisible();
+  const notice = page.getByText("Complétez les champs obligatoires avant d'enregistrer");
+  await expect(notice).toBeVisible();
   await bottle.getByRole('button', { name: 'Annuler' }).click();
+  // Recette v2026.11.3: the message belongs to the form and goes with it.
+  await expect(notice).toBeHidden();
 
   await page.goto('/wishlist-budget');
   await page.getByTestId('wishlist-create-button').first().click();

@@ -1208,7 +1208,11 @@
       "revokeTitle": "Revoke this guest link?",
       "revokeBody": "The link “{{label}}” made by {{owner}} will stop working at once. To give access again, the member will have to make a new link.",
       "revoked": "Guest link revoked.",
-      "revokeError": "The link could not be revoked. Try again."
+      "revokeError": "The link could not be revoked. Try again.",
+      "cellars": "Cellars:",
+      "collections": "Collections:",
+      "deleted_one": "{{count}} deleted",
+      "deleted_other": "{{count}} deleted"
     }
   },
   "bulk": {

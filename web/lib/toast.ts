@@ -69,8 +69,9 @@ export function notifySuccess(messageKey: string, values?: Record<string, unknow
   });
 }
 
-export function notifyError(messageKey: string, values?: Record<string, unknown>): void {
-  addToast({
+/** Returns the message's key, for a caller that must close it itself (hooks/useValidationNotice.ts). */
+export function notifyError(messageKey: string, values?: Record<string, unknown>): string | null {
+  return addToast({
     title: translate(messageKey, values),
     color: 'danger',
     timeout: PERSISTENT_TIMEOUT,

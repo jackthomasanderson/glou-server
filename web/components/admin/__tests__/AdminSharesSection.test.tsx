@@ -51,6 +51,7 @@ beforeEach(() => revoke.mockReset());
 const share: AdminGuestShare = {
   id: 's1', label: 'For Paul', inviteeName: 'Paul', expiresAt: null, hidePrices: true, hideNotes: false,
   cellarCount: 2, writeCellarCount: 1, collectionCount: 0, createdAt: '2026-10-01T10:00:00.000Z',
+  cellars: [{ id: 'c1', name: 'Cellar A' }, { id: 'c2', name: 'Cellar B' }], collections: [],
   owner: { id: 'u2', username: 'bob', displayName: 'Bob', isActive: true },
 };
 
@@ -62,10 +63,36 @@ describe('AdminSharesSection (#486)', () => {
     expect(card).toHaveTextContent('For Paul');
     expect(card).toHaveTextContent('Guest: Paul');
     expect(card).toHaveTextContent('Made by Bob');
-    expect(card).toHaveTextContent('2 cellars');
+    expect(card).toHaveTextContent('Cellars: Cellar A, Cellar B');
     expect(card).toHaveTextContent('1 cellar with write access');
     expect(card).toHaveTextContent('No expiration');
     expect(card).toHaveTextContent('Prices and values are hidden');
+  });
+
+  // Recette v2026.11.3 (6.3): « 1 cave » named no cellar.
+  it('names the cellars and collections a link opens, a long name cut with the whole of it on hover', () => {
+    const long = 'A very long cellar name that would not fit on the card at all';
+    shares = [{ ...share, cellarCount: 1, cellars: [{ id: 'c1', name: long }], collectionCount: 1, collections: [{ id: 'k1', name: 'Collection K' }] }];
+    render(<AdminSharesSection />);
+    const card = screen.getByRole('listitem');
+    const name = within(card).getByText(long);
+    expect(name).toHaveAttribute('title', long);
+    expect(name.className).toContain('truncate');
+    expect(card).toHaveTextContent(`Cellars: ${long}`);
+    expect(card).toHaveTextContent('Collections: Collection K');
+    expect(card).not.toHaveTextContent('1 collection');
+  });
+
+  it('counts the ones deleted since, and says "all cellars" for a link made before choosing was possible', () => {
+    shares = [
+      { ...share, cellarCount: 3, cellars: [{ id: 'c1', name: 'Cellar A' }] },
+      { ...share, id: 's2', cellarCount: 0, writeCellarCount: 0, cellars: [] },
+    ];
+    render(<AdminSharesSection />);
+    const [withGone, whole] = screen.getAllByRole('listitem');
+    expect(withGone).toHaveTextContent('Cellar A');
+    expect(withGone).toHaveTextContent('2 deleted');
+    expect(whole).toHaveTextContent('All cellars');
   });
 
   it('revokes a link only once the admin confirms', () => {

@@ -1210,7 +1210,11 @@
       "revokeTitle": "Révoquer ce lien invité ?",
       "revokeBody": "Le lien « {{label}} » créé par {{owner}} cessera de fonctionner immédiatement. Pour rendre l'accès, le membre devra créer un nouveau lien.",
       "revoked": "Lien invité révoqué.",
-      "revokeError": "Le lien n'a pas pu être révoqué. Réessayez."
+      "revokeError": "Le lien n'a pas pu être révoqué. Réessayez.",
+      "cellars": "Caves :",
+      "collections": "Collections :",
+      "deleted_one": "{{count}} supprimée",
+      "deleted_other": "{{count}} supprimées"
     }
   },
   "bulk": {

@@ -17,6 +17,8 @@ vi.mock('../../src/lib/prisma', () => ({
     backupRun: { findUnique: vi.fn(), findFirst: vi.fn() },
     systemConfig: { findUnique: vi.fn() },
     guestShare: { findMany: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
+    cellar: { findMany: vi.fn() },
+    collection: { findMany: vi.fn() },
     $queryRaw: vi.fn(),
   },
   connectWithRetry: vi.fn(),
@@ -748,8 +750,12 @@ describe('admin guest links (#486)', () => {
   it('lists only the links still in force, with their owner and no token', async () => {
     vi.mocked(prisma.guestShare.findMany).mockResolvedValue([share] as never);
     vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u2', username: 'bob', displayName: 'Bob', isActive: false }] as never);
+    // c2 is gone since the link was made: only the cellars still there are named.
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c1', name: 'Cellar A' }] as never);
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([] as never);
     const res = await request(app).get('/api/admin/shares').set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(200);
+    expect(vi.mocked(prisma.cellar.findMany).mock.calls[0][0]).toEqual({ where: { id: { in: ['c1', 'c2'] } }, select: { id: true, name: true } });
     const args = vi.mocked(prisma.guestShare.findMany).mock.calls[0][0] as Record<string, any>;
     expect(args.where.revokedAt).toBeNull();
     expect(args.where.OR).toEqual([{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }]);
@@ -757,9 +763,25 @@ describe('admin guest links (#486)', () => {
     expect(res.body.data).toEqual([{
       id: 's1', label: 'For Paul', inviteeName: 'Paul', expiresAt: null,
       hidePrices: true, hideNotes: false, cellarCount: 2, writeCellarCount: 1, collectionCount: 0,
+      cellars: [{ id: 'c1', name: 'Cellar A' }], collections: [],
       createdAt: '2026-10-01T10:00:00.000Z', owner: { id: 'u2', username: 'bob', displayName: 'Bob', isActive: false },
     }]);
     expect(JSON.stringify(res.body)).not.toContain('secret-hash');
+  });
+
+  // Recette v2026.11.3 (6.3): « 1 cave » named no cellar; the CHANGELOG promises which ones.
+  it('names the cellars and collections each link opens, and nothing else of them', async () => {
+    const other = { ...share, id: 's2', cellarIds: [], writeCellarIds: [], collectionIds: ['k1'] };
+    vi.mocked(prisma.guestShare.findMany).mockResolvedValue([share, other] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c2', name: 'Cellar B' }, { id: 'c1', name: 'Cellar A' }] as never);
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([{ id: 'k1', name: 'Collection K' }] as never);
+    const res = await request(app).get('/api/admin/shares').set('Authorization', `Bearer ${authToken()}`);
+    expect(vi.mocked(prisma.collection.findMany).mock.calls[0][0]).toEqual({ where: { id: { in: ['k1'] } }, select: { id: true, name: true } });
+    expect(res.body.data.map((s: { cellars: unknown; collections: unknown }) => [s.cellars, s.collections])).toEqual([
+      [[{ id: 'c1', name: 'Cellar A' }, { id: 'c2', name: 'Cellar B' }], []],
+      [[], [{ id: 'k1', name: 'Collection K' }]],
+    ]);
   });
 
   it('is refused to a member who is not an admin', async () => {

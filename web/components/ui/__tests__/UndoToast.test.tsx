@@ -136,6 +136,40 @@ describe('UndoToast (#651)', () => {
     expect(document.activeElement?.tagName).toBe('INPUT');
   });
 
+  // Recette v2026.11.3 (8.4): the bar went on moving while the countdown was paused.
+  const bar = () => {
+    const indicator = Array.from(screen.getByRole('status').querySelectorAll<HTMLElement>('[style]'))
+      .find((el) => el.style.transform.startsWith('translateX'));
+    if (!indicator) throw new Error('no progress indicator');
+    return indicator;
+  };
+
+  it('holds its bar still while paused, and goes on from there when resumed', () => {
+    setup();
+    const toast = screen.getByRole('status');
+    advance(UNDO_TIMEOUT_MS / 4);
+    fireEvent.pointerEnter(toast, { pointerType: 'mouse' });
+    advance(100);
+    const paused = bar().style.transform;
+    advance(UNDO_TIMEOUT_MS);
+    expect(bar().style.transform).toBe(paused);
+    fireEvent.pointerLeave(toast, { pointerType: 'mouse' });
+    advance(UNDO_TIMEOUT_MS / 4);
+    expect(bar().style.transform).toBe('translateX(-50%)');
+  });
+
+  it('draws the bar at the timer\'s value, with no easing that would keep it moving after a pause', () => {
+    setup();
+    expect(bar().className).toContain('transition-none');
+  });
+
+  it('pauses under a mouse already resting where it appears (no "enter" then)', () => {
+    const { onExpire } = setup();
+    fireEvent.pointerMove(screen.getByRole('status'), { pointerType: 'mouse' });
+    advance(UNDO_TIMEOUT_MS * 2);
+    expect(onExpire).not.toHaveBeenCalled();
+  });
+
   it('closes on Escape', () => {
     const { onExpire } = setup();
     fireEvent.keyDown(screen.getByRole('status'), { key: 'Escape' });

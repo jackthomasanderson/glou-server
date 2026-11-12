@@ -17,6 +17,9 @@ export interface AdminGuestShare {
   /** Cellars where the guest may also change bottles. */
   writeCellarCount: number;
   collectionCount: number;
+  /** By name, in the link's order; one deleted since is left out, so a list can be shorter than its count. */
+  cellars: { id: string; name: string }[];
+  collections: { id: string; name: string }[];
   createdAt: string | Date;
   /**
    * The member who made it; username null only if that account is gone. A
