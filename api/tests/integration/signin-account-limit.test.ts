@@ -45,7 +45,7 @@ const userRow = (name: string) => ({
   createdAt: new Date(), deletionRequestedAt: null, pinHash: null, autoLockDelayMin: null, onboardingCompletedAt: new Date(),
   mustChangePassword: false, backupCodes: [], twoFactorFailedAttempts: 0, twoFactorLockedUntil: null, notifLanguage: null,
 });
-const KNOWN = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'gina', 'hank'];
+const KNOWN = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'gina', 'hank', 'ivan'];
 
 const sessionsCreated = () => vi.mocked(prisma.session.create).mock.calls.length;
 
@@ -117,6 +117,15 @@ describe('POST /api/auth/login per-account limit (#914)', () => {
     const answers = await Promise.all(Array.from({ length: 3 * SIGN_IN_FAILURES_MAX }, (_, i) => signIn('hank', `burst-${i}`)));
     expect(answers.filter((r) => r.status === 401)).toHaveLength(SIGN_IN_FAILURES_MAX);
     expect(answers.filter((r) => r.status === 429)).toHaveLength(2 * SIGN_IN_FAILURES_MAX);
+  });
+
+  it('does not tell, through rate-limit headers, how many recent failures an identifier has', async () => {
+    await wrongGuesses('ivan', 1);
+    const probe = await signIn('ivan', 'another-guess');
+    const fresh = await signIn('nobody-ever-tried', 'a-guess');
+    // Whatever the per-address limiter says, both answers carry the same headers.
+    expect(probe.headers['ratelimit-remaining']).toBe(fresh.headers['ratelimit-remaining']);
+    expect(probe.headers['ratelimit']).toBe(fresh.headers['ratelimit']);
   });
 
   it('leaves other accounts alone', async () => {

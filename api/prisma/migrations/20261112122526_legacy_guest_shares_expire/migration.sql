@@ -6,7 +6,8 @@
 -- back, and revoked or already expired links are left as they are. Creators can
 -- make a new, scoped link if a guest still needs one.
 -- Prisma stores these columns as UTC timestamps without time zone, hence the
--- explicit conversion of now().
+-- explicit conversion of now(). The scope arrays are nullable columns: NULL counts as
+-- empty, like [].
 UPDATE "guest_shares"
 SET "expiresAt" = (now() AT TIME ZONE 'UTC') + interval '30 days',
     "updatedAt" = now() AT TIME ZONE 'UTC'
@@ -14,8 +15,8 @@ WHERE "revokedAt" IS NULL
   AND (
     "expiresAt" IS NULL
     OR (
-      cardinality("cellarIds") = 0
-      AND cardinality("collectionIds") = 0
+      COALESCE(cardinality("cellarIds"), 0) = 0
+      AND COALESCE(cardinality("collectionIds"), 0) = 0
       AND "expiresAt" > (now() AT TIME ZONE 'UTC') + interval '30 days'
     )
   );

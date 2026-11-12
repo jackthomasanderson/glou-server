@@ -24,7 +24,7 @@ Tell Glou the address people use to reach your instance from outside, so the lin
 > [!TIP]
 > The public URL does not configure Express's `trust proxy` setting or any other server-side proxy behavior. If your reverse proxy needs specific headers forwarded, configure that at the proxy/deployment level.
 >
-> The API trusts exactly one forwarding hop: it reads the client address from the last `X-Forwarded-For` entry, added by whatever relays the request to it. Keep the API port (3001) unpublished, as in the default `docker-compose.yml`, so it is only reached through the `web` container. Reached directly, a client could pick its own address in that header and get a fresh per-address sign-in budget with every request (wrong passwords are still limited per account).
+> The API trusts exactly one forwarding hop: it takes the client address from the last `X-Forwarded-For` entry. The `web` container relays `/api` requests to the API without adding the client address to that header, so the per-address limits only mean something when a reverse proxy in front of `web` (Caddy, Traefik, nginx with `proxy_add_x_forwarded_for`…) appends the real client address. Without one, a client can write any address it likes in that header, and clients that send none all share the `web` container's address. Wrong passwords at sign-in are then held back by the per-account limit, not by the per-address one. Keeping the API port (3001) unpublished, as in the default `docker-compose.yml`, is still required, but it is not enough on its own.
 
 ### Allow or close new registrations
 Registration is **closed by default**: once the first account (the instance admin) exists, `POST /api/auth/register` answers `REGISTRATION_CLOSED` and the login page hides the sign-up link.

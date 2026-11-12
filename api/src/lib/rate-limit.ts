@@ -119,7 +119,9 @@ export const signInAccountLimiter: RequestHandler[] = [
   rateLimit({
     windowMs: AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
     max: SIGN_IN_FAILURES_MAX,
-    standardHeaders: true,
+    // No RateLimit-* headers: they would tell anyone how many recent wrong
+    // passwords an identifier has, and overwrite the per-address ones.
+    standardHeaders: false,
     legacyHeaders: false,
     skipSuccessfulRequests: true,
     requestWasSuccessful: (_req, res) => !WRONG_SECRET_CODES.has(String(res.locals.errorCode)),
