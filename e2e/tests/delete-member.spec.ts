@@ -79,6 +79,11 @@ test('an admin deletes a member for good: shared data stays, attributed to the a
     const theirs = await okData<{ items: AuditItem[] }>(await admin.get(`/api/admin/audit-logs?q=${username}`));
     const created = theirs.items.find((l) => l.action === 'COLLECTION_CREATE' && l.details.id === collection.id);
     expect(created).toMatchObject({ userId: null, actorName: username });
+
+    // Leave no empty cellar behind: other specs take the first cellar listed.
+    expect((await admin.delete(`/api/cellars/${cellar.id}`)).ok()).toBe(true);
+    await admin.delete(`/api/wishlist/budget-envelopes/${envelope.id}`);
+    await admin.delete(`/api/collections/${collection.id}`);
   } finally {
     await admin.put('/api/admin/config/registration', { data: { registrationOpen, password } });
     await member.dispose();
