@@ -65,6 +65,8 @@ services:
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
+      # #979: reverse proxies in front of web (default 1; 0 = reached directly).
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
     ports:
       - "127.0.0.1:3000:3000"
     logging: *logging
