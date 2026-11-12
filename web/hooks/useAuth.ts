@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { clearOfflineData } from '@/lib/offline/db';
 import { apiErrorFrom, client, request } from '@/lib/api';
+import { isNetworkFailure } from '@/lib/auth/error-message';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
 import { resetReviewBanner } from '@/lib/review/banner';
@@ -47,6 +48,9 @@ export function useMe() {
       const json = (await res.json()) as { data?: PublicUser };
       return json.data as PublicUser;
     },
+    // #619: a server that does not answer is said after one deadline (15 s),
+    // not three; a 5xx is still tried again.
+    retry: (failureCount, error) => !isNetworkFailure(error) && failureCount < 2,
     staleTime: Infinity,
   });
 }
@@ -184,7 +188,7 @@ export function useUploadAvatar() {
     mutationFn: async (file) => {
       const formData = new FormData();
       formData.append('avatar', file);
-      return (await client.upload<PublicUser>('/user/avatar', formData)).data;
+      return (await client.upload<PublicUser>('/user/avatar', formData, { codeByStatus: { 413: 'FILE_TOO_LARGE' } })).data;
     },
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);

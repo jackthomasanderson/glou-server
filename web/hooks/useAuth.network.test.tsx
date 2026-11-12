@@ -33,6 +33,7 @@ const neverAnswers = vi.fn((_url: string, init?: RequestInit) => new Promise<Res
 }));
 
 beforeEach(() => {
+  neverAnswers.mockClear();
   qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
 });
 afterEach(() => {
@@ -53,6 +54,13 @@ describe('requests that never answer give up (#619)', () => {
     expect(result.current.data).toBeUndefined();
   });
 
+  it('/api/user/me shows the unreachable screen after one deadline, not three', async () => {
+    qc = new QueryClient({ defaultOptions: { queries: { retry: 2, retryDelay: 0 } } });
+    const { result } = renderHook(() => useMe(), { wrapper });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(neverAnswers).toHaveBeenCalledTimes(1);
+  });
+
   it('sign-in ends in an error', async () => {
     const { result } = renderHook(() => useLogin(), { wrapper });
     result.current.mutate({ identifier: 'a', password: 'b' });
@@ -69,6 +77,14 @@ describe('requests that never answer give up (#619)', () => {
 });
 
 describe('a proxy error page reads as NETWORK_ERROR (#619)', () => {
+  it('on an avatar upload, a proxy 413 page being a file too large', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>413</html>', { status: 413 })));
+    const { result } = renderHook(() => useUploadAvatar(), { wrapper });
+    result.current.mutate(new File(['x'], 'me.png', { type: 'image/png' }));
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.message).toBe('FILE_TOO_LARGE');
+  });
+
   it('on an avatar upload', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('<html>Bad gateway</html>', { status: 502 })));
     const { result } = renderHook(() => useUploadAvatar(), { wrapper });
@@ -77,7 +93,7 @@ describe('a proxy error page reads as NETWORK_ERROR (#619)', () => {
     expect(result.current.error?.message).toBe('NETWORK_ERROR');
   });
 
-  it('on sign-in, with a header of the caller kept next to the JSON one', async () => {
+  it('on sign-in, sent as JSON', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('<html>Bad gateway</html>', { status: 502 }));
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() => useLogin(), { wrapper });

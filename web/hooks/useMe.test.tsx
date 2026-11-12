@@ -10,7 +10,7 @@ vi.mock('@/lib/toast', () => ({ notifyError: vi.fn() }));
 import { useMe } from './useAuth';
 
 function run() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   );
@@ -41,6 +41,15 @@ describe('useMe (#341)', () => {
     const { result } = run();
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.data).toBeUndefined();
+  });
+
+  // #619: an outage answered by the server is tried again before the unreachable screen.
+  it('tries a 503 again', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({ error: 'DATABASE_UNAVAILABLE' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = run();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('errors on network failure', async () => {

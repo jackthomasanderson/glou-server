@@ -244,7 +244,8 @@ export const configClient = {
 
   /** POST (password and code in the body), returned as a file to save. */
   async downloadBackup(id: string, reauth: AdminReauth): Promise<{ blob: Blob; filename: string }> {
-    const { blob, headers } = await client.blob(`/admin/backups/${id}/download`, { method: 'POST', body: reauth });
+    // #619: a whole dump over a slow link gets the budget of a restore, not that of a small file.
+    const { blob, headers } = await client.blob(`/admin/backups/${id}/download`, { method: 'POST', body: reauth, timeoutMs: RESTORE_TIMEOUT_MS });
     const disposition = headers.get('Content-Disposition') ?? '';
     const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? 'glou-backup.sql.gz';
     return { blob, filename };
