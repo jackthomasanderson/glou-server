@@ -9,7 +9,6 @@ import i18n from '@/lib/i18n';
 import { currencySymbol, todayLocalIso } from '@/lib/format';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { FilterChip } from '@/components/ui/FilterControls';
-import { notifyError } from '@/lib/toast';
 import { X, Save, ChevronDown, ChevronUp, Camera, FlaskConical } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import type { UnitKind } from '@shared/units';
@@ -28,6 +27,7 @@ import { MaturitySuggestionField } from './MaturitySuggestionField';
 import { CollectionSelector } from './CollectionSelector';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useValidationNotice } from '@/hooks/useValidationNotice';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ParsedNumberInput, ParsedInput } from '@/components/ui/ParsedInput';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
@@ -297,6 +297,8 @@ export function InventoryForm({
   const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity || invalidBottleCount;
   const tagLimits = { max: DESCRIPTION_LIMITS.tags, length: DESCRIPTION_LIMITS.tagLength };
   const canSave = !missingRequired && !peakWindowReversed && !invalidTags;
+  // #657: the message goes once the fields are right or the form is closed.
+  const notifyInvalid = useValidationNotice(canSave || !open);
 
   // ISSUE_119: closing a half-filled form must never discard the entry silently.
   const baselineCollectionIds = initialValues?.collections?.map(c => c.id) ?? [];
@@ -314,7 +316,7 @@ export function InventoryForm({
     if (!canSave) {
       setSubmitAttempted(true);
       setPeakWindowChecked(true);
-      notifyError(missingRequired ? 'inventory.validation.missingFields'
+      notifyInvalid(missingRequired ? 'inventory.validation.missingFields'
         : invalidTags ? 'inventory.validation.tags' : 'inventory.validation.peakWindowOrder', tagLimits);
       if (!missingRequired && invalidTags) {
         flushSync(() => setShowOptionals(true));
