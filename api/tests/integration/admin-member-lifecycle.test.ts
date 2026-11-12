@@ -139,6 +139,16 @@ describe('POST /api/admin/users/:userId/delete (#695)', () => {
     expect(deleteMemberForGood).not.toHaveBeenCalled();
   });
 
+  it('answers 409 when the last-admin check made in the transaction refuses (two admins deleting each other)', async () => {
+    vi.mocked(deleteMemberForGood).mockRejectedValue(new Error('CANNOT_DELETE_LAST_ADMIN'));
+
+    const res = await as('post', '/api/admin/users/a2/delete', { password: ADMIN_PASSWORD });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CANNOT_DELETE_LAST_ADMIN');
+    expect(authService.deleteAvatarFiles).not.toHaveBeenCalled();
+  });
+
   it('answers 404 for an unknown member', async () => {
     const res = await as('post', '/api/admin/users/nobody/delete', { password: ADMIN_PASSWORD });
 

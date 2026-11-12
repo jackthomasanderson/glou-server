@@ -1,4 +1,5 @@
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
+import { countOtherAdminsLocked } from '../lib/last-admin';
 
 /**
  * #661: the data personal to a member — their wishlist, consumption goals,
@@ -34,7 +35,8 @@ export async function deletePersonalData(
 
 /**
  * #695: an administrator deletes a member's account for good (the checks —
- * not themselves, not the last admin, their own password — are the route's).
+ * not themselves, not the last admin, their own password — are the route's;
+ * the last-admin one is made again here, in the transaction).
  *
  * - What the member created in the shared inventory (cellars, wines and
  *   bottles, tastings, counts, humidor readings, budget envelopes) is attributed to the
@@ -54,8 +56,13 @@ export async function deleteMemberForGood(
   return prisma.$transaction(async (tx) => {
     const member = await tx.user.findUniqueOrThrow({
       where: { id: memberId },
-      select: { username: true, displayName: true, avatarUrl: true },
+      select: { username: true, displayName: true, avatarUrl: true, isAdmin: true },
     });
+    // The route checked it before the step-up; checked again here, admin
+    // rows locked, so two admins deleting each other cannot both go.
+    if (member.isAdmin && (await countOtherAdminsLocked(tx, memberId)) === 0) {
+      throw new Error('CANNOT_DELETE_LAST_ADMIN');
+    }
     const author = { where: { userId: memberId } };
     const actorName = member.displayName ?? member.username;
     await tx.auditLog.updateMany({ ...author, data: { actorName } });

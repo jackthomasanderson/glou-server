@@ -1044,9 +1044,10 @@
       "scheduleDeletionConfirm": "Programmer la suppression du compte de {{username}} ? Elle a lieu dans 30 jours, comme une suppression qu'il demande lui-même : ses données personnelles (liste de souhaits, liens invités, objectifs de consommation, préréglages, historique des scans, sessions) sont supprimées ; les bouteilles, dégustations et collections qu'il a ajoutées restent pour le foyer, sans son nom. Vous pouvez annuler d'ici là.",
       "cancelDeletion": "Annuler la suppression programmée",
       "cancelDeletionConfirm": "Annuler la suppression programmée du compte de {{username}} ?",
-      "deletionScheduledOn": "Supprimé le {{date}}",
+      "deletionScheduledOn": "Suppression le {{date}}",
       "exportData": "Exporter ses données",
-      "exportConfirm": "Télécharger les données de {{username}} en fichier JSON, celui qu'il obtient depuis son profil ? Il contient des données personnelles : conservez-le en lieu sûr et ne le remettez qu'à lui."
+      "exportConfirm": "Télécharger les données de {{username}} en fichier JSON, celui qu'il obtient depuis son profil ? Il contient des données personnelles : conservez-le en lieu sûr et ne le remettez qu'à lui.",
+      "removeLastAdmin": "C'est le dernier administrateur : donnez d'abord les droits d'administrateur à un autre membre."
     },
     "auditLog": {
       "filters": {

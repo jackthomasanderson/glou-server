@@ -126,7 +126,8 @@ export interface InventoryItem {
   // Traceability (FEAT-62) — present only on single-item GET
   updatedBy?: string | null;
   _creator?: { id: string; name: string } | null;
-  _lastEditor?: { id: string; name: string } | null;
+  /** #695: `name` is null once that member was deleted for good. */
+  _lastEditor?: { id: string; name: string | null } | null;
 }
 
 /**

@@ -29,6 +29,7 @@ import { lowersRetention, opensRegistration, weakensBackups } from '../../../sha
 import { sharesService } from '../services/shares.service';
 import { deleteMemberForGood } from '../services/account-deletion.service';
 import { scanService } from '../services/scan.service';
+import { countOtherAdminsLocked } from '../lib/last-admin';
 
 const adminRouter = Router();
 
@@ -183,20 +184,28 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
         // otherwise demote the other admins and stay the only one.
         const audit: StepUpAudit = { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: userId, isAdmin } };
         if (!(await stepUp(req, res, audit))) return;
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: { isAdmin },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                isAdmin: true,
-                isActive: true,
-            },
+        const user = await prisma.$transaction(async (tx) => {
+            // Review of #975: two admins demoting each other at once would leave none.
+            if (!isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) throw new Error('CANNOT_REMOVE_LAST_ADMIN');
+            return tx.user.update({
+                where: { id: userId },
+                data: { isAdmin },
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    isAdmin: true,
+                    isActive: true,
+                },
+            });
         });
         auditSuccess(req, audit);
         res.json({ data: user });
     } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'CANNOT_REMOVE_LAST_ADMIN') {
+            res.status(409).json({ error: 'CANNOT_REMOVE_LAST_ADMIN' });
+            return;
+        }
         console.error('[Admin] Error updating user role:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
@@ -256,6 +265,11 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
         // reactivating the account never wakes up a stolen session, a trusted
         // device or a guest link (same revocation as adminResetPassword).
         const user = await prisma.$transaction(async (tx) => {
+            // Review of #975: counted again with the admin rows locked, so two
+            // admins deactivating each other at once cannot both pass.
+            if (!isActive && target.isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) {
+                throw new Error('CANNOT_DEACTIVATE_LAST_ADMIN');
+            }
             const updated = await tx.user.update({
                 where: { id: userId },
                 data: { isActive },
@@ -278,6 +292,10 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
         auditSuccess(req, audit);
         res.json({ data: user });
     } catch (error) {
+        if (error instanceof Error && error.message === 'CANNOT_DEACTIVATE_LAST_ADMIN') {
+            res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
+            return;
+        }
         console.error('[Admin] Error updating user status:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
@@ -375,6 +393,10 @@ adminRouter.post('/users/:userId/delete', stepUpLimiter, async (req: Request, re
         auditSuccess(req, { action: audit.action, details: { ...audit.details, username: deleted.username } });
         res.json({ data: { id: userId } });
     } catch (error) {
+        if (error instanceof Error && error.message === 'CANNOT_DELETE_LAST_ADMIN') {
+            res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+            return;
+        }
         console.error('[Admin] Error deleting member:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });

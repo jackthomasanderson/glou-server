@@ -31,6 +31,7 @@ export function useMemberChanges() {
   const OWN_MESSAGES: Record<string, string> = {
     CANNOT_DEACTIVATE_LAST_ADMIN: 'admin.users.deactivateLastAdmin',
     CANNOT_DELETE_LAST_ADMIN: 'admin.users.deleteLastAdmin',
+    CANNOT_REMOVE_LAST_ADMIN: 'admin.users.removeLastAdmin',
   };
 
   const run = async (change: () => Promise<unknown>, errorKey: string, successKey?: string) => {

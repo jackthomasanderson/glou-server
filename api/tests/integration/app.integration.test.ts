@@ -572,6 +572,7 @@ describe('POST /api/admin/users/:id/role', () => {
     vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
       args.where.id === 'm1' ? { id: 'm1', isActive: true, isAdmin: false } : { id: args.where.id, isActive: true, isAdmin: true }) as never);
     (prisma.user as unknown as { update: ReturnType<typeof vi.fn> }).update = vi.fn().mockResolvedValue({ id: 'm1', isAdmin: true });
+    (prisma as unknown as { $transaction: unknown }).$transaction = vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
   });
   const post = (body: Record<string, unknown>) => request(app)
     .post('/api/admin/users/m1/role')
@@ -625,6 +626,25 @@ describe('POST /api/admin/users/:id/role', () => {
     const res = await post({ isAdmin: false });
     expect(res.status).toBe(403);
     expect(spy).toHaveBeenCalledWith('u1', {}, expect.anything(), { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: 'm1', isAdmin: false } });
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  // Review of #975: two admins removing each other's role at the same moment
+  // left none. The count is made again in the transaction, admin rows locked.
+  it('refuses to remove the role of the last other admin, counted after locking the admin rows', async () => {
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      ({ id: args.where.id, isActive: true, isAdmin: true })) as never);
+    const p = prisma as unknown as Record<string, unknown> & { user: Record<string, ReturnType<typeof vi.fn>> };
+    p.user.count = vi.fn().mockResolvedValue(0);
+    vi.mocked(prisma.$queryRaw).mockClear();
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
+
+    const res = await post({ isAdmin: false, password: 'admin-pw' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CANNOT_REMOVE_LAST_ADMIN');
+    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]).toBeLessThan(p.user.count.mock.invocationCallOrder[0]);
     expect(prisma.user.update).not.toHaveBeenCalled();
     spy.mockRestore();
   });
@@ -1071,6 +1091,23 @@ describe('PATCH /api/admin/users/:id/status', () => {
     expect(p.session.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
     expect(p.trustedDevice.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
     expect(p.guestShare.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
+  });
+
+  // Review of #975: two admins deactivating each other at the same moment
+  // both passed the count made before the step-up.
+  it('re-counts the other active admins in the transaction, after locking the admin rows', async () => {
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      ({ id: args.where.id, isActive: true, isAdmin: true })) as never);
+    // Two active admins before the step-up; none left besides the target once locked.
+    p.user.count = vi.fn().mockResolvedValueOnce(2).mockResolvedValueOnce(0);
+    vi.mocked(prisma.$queryRaw).mockClear();
+
+    const res = await patch(false);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('CANNOT_DEACTIVATE_LAST_ADMIN');
+    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]).toBeLessThan(p.user.count.mock.invocationCallOrder[1]);
+    expect(p.user.update).not.toHaveBeenCalled();
   });
 
   it('deactivate then reactivate: what was revoked stays revoked, and both changes are audited', async () => {

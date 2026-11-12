@@ -1042,9 +1042,10 @@
       "scheduleDeletionConfirm": "Schedule the deletion of {{username}}'s account? It is carried out in 30 days, like a deletion they ask for themselves: their personal data (wishlist, consumption goals, saved presets, scan history, sessions, guest links) is deleted; the bottles, tastings and collections they added stay for the household, without their name. You can cancel until then.",
       "cancelDeletion": "Cancel scheduled deletion",
       "cancelDeletionConfirm": "Cancel the scheduled deletion of {{username}}'s account?",
-      "deletionScheduledOn": "Deleted on {{date}}",
+      "deletionScheduledOn": "Deletion on {{date}}",
       "exportData": "Export their data",
-      "exportConfirm": "Download {{username}}'s data as a JSON file, the one they get from their profile? It holds personal data: keep it safe and hand it to them only."
+      "exportConfirm": "Download {{username}}'s data as a JSON file, the one they get from their profile? It holds personal data: keep it safe and hand it to them only.",
+      "removeLastAdmin": "This is the last administrator: make another member an administrator first."
     },
     "auditLog": {
       "filters": {

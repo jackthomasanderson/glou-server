@@ -12,7 +12,8 @@ const PERSONAL = ['scanJob', 'wishlistItem', 'consumptionGoal', 'bulkPreset', 'p
 vi.mock('../../src/lib/prisma', () => {
   const table = () => ({ updateMany: vi.fn(), deleteMany: vi.fn(), findMany: vi.fn() });
   const tx: Record<string, unknown> = {
-    user: { findUniqueOrThrow: vi.fn(), delete: vi.fn() },
+    user: { findUniqueOrThrow: vi.fn(), delete: vi.fn(), count: vi.fn() },
+    $queryRaw: vi.fn(),
   };
   for (const name of ['cellar', 'product', 'inventoryItem', 'tastingNote', 'inventoryCountSession', 'humidorReading', 'budgetEnvelope',
     'auditLog', 'configChangeLog', 'scanJob', 'wishlistItem', 'consumptionGoal', 'bulkPreset', 'passwordResetToken', 'session',
@@ -24,11 +25,16 @@ import { prisma } from '../../src/lib/prisma';
 import { deleteMemberForGood } from '../../src/services/account-deletion.service';
 
 type Table = { updateMany: ReturnType<typeof vi.fn>; deleteMany: ReturnType<typeof vi.fn>; findMany: ReturnType<typeof vi.fn> };
-const db = prisma as unknown as Record<string, Table> & { user: { findUniqueOrThrow: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn> } };
+const db = prisma as unknown as Record<string, Table> & {
+  user: { findUniqueOrThrow: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn> };
+  $queryRaw: ReturnType<typeof vi.fn>;
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.user.findUniqueOrThrow.mockResolvedValue({ username: 'marie', displayName: 'Marie D.', avatarUrl: '/uploads/avatars/m.png' });
+  db.user.findUniqueOrThrow.mockResolvedValue({ username: 'marie', displayName: 'Marie D.', avatarUrl: '/uploads/avatars/m.png', isAdmin: false });
+  db.user.count.mockResolvedValue(1);
+  db.$queryRaw.mockResolvedValue([]);
   db.scanJob.findMany.mockResolvedValue([{ imagePath: '/app/uploads/scans/s.jpg' }]);
 });
 
@@ -71,5 +77,30 @@ describe('deleteMemberForGood (#695)', () => {
 
     expect(db.auditLog.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1' }, data: { actorName: 'marie' } });
     expect(result.avatarPaths).toEqual([]);
+  });
+
+  // Review of #975: two admins deleting each other at the same moment both
+  // passed the route's check (made before the transaction) and left none.
+  it('re-checks the last admin inside the transaction, once the admin rows are locked', async () => {
+    db.user.findUniqueOrThrow.mockResolvedValue({ username: 'paul', displayName: null, avatarUrl: null, isAdmin: true });
+    db.user.count.mockResolvedValue(0);
+
+    await expect(deleteMemberForGood('a2', 'a1')).rejects.toThrow('CANNOT_DELETE_LAST_ADMIN');
+
+    expect(db.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(db.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(db.user.count.mock.invocationCallOrder[0]);
+    expect(db.user.count).toHaveBeenCalledWith({
+      where: { isAdmin: true, isActive: true, deletionRequestedAt: null, id: { not: 'a2' } },
+    });
+    expect(db.user.delete).not.toHaveBeenCalled();
+    expect(db.cellar.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('deletes an admin while another one remains', async () => {
+    db.user.findUniqueOrThrow.mockResolvedValue({ username: 'paul', displayName: null, avatarUrl: null, isAdmin: true });
+
+    await deleteMemberForGood('a2', 'a1');
+
+    expect(db.user.delete).toHaveBeenCalledWith({ where: { id: 'a2' } });
   });
 });

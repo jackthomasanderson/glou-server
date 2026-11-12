@@ -152,6 +152,14 @@ describe('member changes ask for the admin\'s step-up (#603)', () => {
     await waitFor(() => expect(notifyError).toHaveBeenCalledWith('admin.users.deactivateLastAdmin'));
   });
 
+  // Review of #975: the last-admin check made in the transaction, two admins demoting each other.
+  it('removing the role of the last other admin is said by its own message', async () => {
+    updateRole.mockRejectedValue(new ApiError('CANNOT_REMOVE_LAST_ADMIN', 409));
+    confirmWith(open(member({ isAdmin: true }), 'removeAdmin'), 'admin-pw');
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('admin.users.removeLastAdmin'));
+    for (const lang of [en, fr]) expect(lang.admin.users.removeLastAdmin).toBeTruthy();
+  });
+
   it('any other failure of the change itself is the shared toast', async () => {
     updateRole.mockRejectedValue(new ApiError('HTTP 500', 500));
     confirmWith(open(member({ isAdmin: true }), 'removeAdmin'), 'admin-pw');

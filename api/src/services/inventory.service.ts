@@ -125,7 +125,8 @@ const retentionCutoff = () => new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 
 export interface InventoryWithTraceability {
   item: Record<string, unknown>;
   creator: { id: string; name: string } | null;
-  lastEditor: { id: string; name: string } | null;
+  /** #695: `name` is null once that member was deleted for good (`updatedBy` has no foreign key). */
+  lastEditor: { id: string; name: string | null } | null;
 }
 
 /**
@@ -267,7 +268,8 @@ export class InventoryService {
 
     const creator = item.userId ? { id: item.userId, name: userMap.get(item.userId) ?? item.userId } : null;
     const updatedById = item.updatedBy ?? undefined;
-    const lastEditor = updatedById ? { id: updatedById, name: userMap.get(updatedById) ?? updatedById } : null;
+    // #695: never the raw id as a name, for an editor deleted since.
+    const lastEditor = updatedById ? { id: updatedById, name: userMap.get(updatedById) ?? null } : null;
 
     // `item` (a concrete typed object) is a structural subtype of
     // `Record<string, unknown>` — every property value is assignable to

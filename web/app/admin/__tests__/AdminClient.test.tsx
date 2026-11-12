@@ -154,7 +154,7 @@ describe('AdminClient (#698, #756)', () => {
     users[1].deletionRequestedAt = '2026-11-01T12:00:00.000Z';
     render(<AdminClient />);
     const bob = screen.getByRole('row', { name: /bob/ });
-    expect(within(bob).getByText(/^Deleted on /)).toBeInTheDocument();
+    expect(within(bob).getByText(/^Deletion on /)).toBeInTheDocument();
     fireEvent.click(within(bob).getByRole('button', { name: 'Cancel scheduled deletion' }));
     expect(memberChanges.toggleDeletion).toHaveBeenCalledWith(users[1]);
   });
