@@ -1763,7 +1763,24 @@
         "itemCount_one": "{{count}} result",
         "itemCount_other": "{{count}} results"
       },
-      "regionSelected": "Selected region: {{region}}"
+      "regionSelected": "Selected region: {{region}}",
+      "controls": {
+        "label": "Map controls",
+        "zoomIn": "Zoom in on the map",
+        "zoomOut": "Zoom out of the map",
+        "recenter": "Recenter on my cellar",
+        "fullscreen": "Show the map full screen",
+        "exitFullscreen": "Exit full screen"
+      },
+      "cluster": {
+        "regions_one": "{{count}} region",
+        "regions_other": "{{count}} regions grouped",
+        "hint": "Select to zoom in on these regions"
+      },
+      "fullscreen": {
+        "label": "World map, full screen",
+        "closeList": "Close the list"
+      }
     },
     "categories": {
       "title": "Category breakdown",
