@@ -31,10 +31,12 @@ Le formulaire de connexion et l'API limitent le nombre de requêtes par adresse 
 |---|---|---|
 | Un reverse proxy devant `web` (Caddy, Traefik, nginx…), le cas courant | `1` (défaut, rien à régler) | L'adresse que votre proxy ajoute à `X-Forwarded-For`. |
 | `web` accessible directement (port 3000 ouvert sur le réseau, sans proxy) | `0` | L'adresse de la connexion elle-même. Un `X-Forwarded-For` forgé est ignoré. |
-| Deux proxies à la suite (ex. un CDN, puis Caddy) | `2` | L'adresse ajoutée par le premier proxy. |
+| Deux proxies à la suite (ex. un CDN, puis Caddy) | `2` | L'adresse ajoutée par le premier proxy. Le second proxy doit conserver l'en-tête qu'il reçoit : avec Caddy, listez les adresses du CDN dans `trusted_proxies`, sinon Caddy repart d'un en-tête neuf et tous les visiteurs sont comptés sur l'adresse du CDN. |
 
 - Votre reverse proxy doit **ajouter** l'adresse du client à `X-Forwarded-For` : Caddy et Traefik le font par défaut ; avec nginx, utilisez `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`.
-- Une requête qui porte moins d'adresses que prévu (quelqu'un qui atteint `web` sans passer par votre proxy) est comptée sur l'adresse de sa propre connexion, jamais sur une adresse partagée par tous les membres.
+- Une requête qui porte moins d'adresses que prévu est comptée sur l'adresse de la connexion reçue par `web`. Pour quelqu'un qui atteint `web` directement, c'est sa propre adresse. Derrière un proxy qui n'ajoute pas l'adresse du client (nginx sans la ligne ci-dessus), ou avec plus de relais déclarés que de proxies, c'est l'adresse du proxy, partagée par tous les visiteurs : vérifiez ce réglage si tous les membres reçoivent `Too many requests` en même temps. Une entrée qui n'est pas une adresse IP simple (avec un port, comme `203.0.113.7:5678`, ou entre crochets) est traitée de la même façon.
+- Avec `0`, `web` voit l'adresse que Docker lui transmet. Les visiteurs en IPv6 sur un réseau Docker sans IPv6, ou tous les visiteurs avec Docker rootless, atteignent `web` depuis l'adresse de la passerelle Docker et partagent donc une seule adresse. Dans ce cas, placez un reverse proxy devant (et gardez `1`).
+- Une valeur supérieure à `3` est conservée, avec un avertissement dans les journaux de `web` au démarrage : déclarez autant de relais que de proxies, pas plus.
 - Si `web` est accessible directement alors que `TRUSTED_PROXY_HOPS` vaut encore `1`, un client peut choisir l'adresse sur laquelle il est compté : les mauvais mots de passe restent freinés par la limite par compte, mais mettez `0` pour fermer cette brèche.
 - Redémarrez après l'avoir changé : `docker compose up -d`. Laissez le port de l'API (3001) non publié, comme dans le `docker-compose.yml` par défaut : l'API ne fait confiance qu'au conteneur `web`.
 

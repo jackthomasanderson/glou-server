@@ -9,10 +9,10 @@ import { test, expect, request, type APIRequestContext } from '@playwright/test'
  *
  * Through the real web image (the hook is preloaded by its Dockerfile) and
  * the real API. The documentation test-net addresses below are random per
- * run, so a retry or a local re-run starts from fresh budgets; requests
- * without the header (the rest of the suite) are never spent here. The
- * "web reached directly" deployment (0 hops) is covered with distinct socket
- * addresses in web/lib/__tests__/client-address.test.ts.
+ * run, so a retry or a local re-run starts from fresh budgets; the sign-in
+ * budget of requests without the header (the rest of the suite) is never
+ * spent here. The "web reached directly" deployment (0 hops) is covered with
+ * distinct socket addresses in web/lib/__tests__/client-address.test.ts.
  */
 
 const octet = () => 1 + Math.floor(Math.random() * 250);
@@ -40,6 +40,40 @@ test('one client spending the per-address sign-in budget does not block another 
     expect(await signIn(api, `${other}, ${spent}`)).toBe(429);
     // …and cannot borrow the spent address to block someone else either.
     expect(await signIn(api, `${spent}, ${other}`)).not.toBe(429);
+  } finally {
+    await api.dispose();
+  }
+});
+
+/** `RateLimit-Remaining` of the API's per-address limiter (app.ts apiLimiter) for one request. */
+async function remaining(api: APIRequestContext, headers: Record<string, string> = {}): Promise<number> {
+  const res = await api.get('/api/version', { headers });
+  expect(res.ok(), `${res.status()} ${await res.text()}`).toBe(true);
+  const value = Number(res.headers()['ratelimit-remaining']);
+  expect(Number.isInteger(value), 'RateLimit-Remaining header').toBe(true);
+  return value;
+}
+
+/**
+ * Proves the web image really runs the hook. Without it, Express alone
+ * already takes the last X-Forwarded-For entry, so the test above holds on
+ * an image that lost `--import` too. Two requests the hook alone counts on
+ * the same address — this runner's own connection to web:
+ * - one without the header: without the hook, the API sees web's container
+ *   address (the one every member used to share);
+ * - one whose last entry is not an address: without the hook, the API counts
+ *   it on that text.
+ * With the hook both draw from one budget, so the second leaves exactly one
+ * request fewer. Without it they are two unrelated budgets: web's address has
+ * already served the whole suite, the text one is new.
+ */
+test('web counts a request without the header on the visitor\'s own connection, not on web\'s address', async ({ baseURL }) => {
+  const api = await request.newContext({ baseURL });
+  try {
+    const own = await remaining(api);
+    expect(await remaining(api, { 'X-Forwarded-For': `198.51.100.${octet()}, not-an-address` })).toBe(own - 1);
+    // A proxy-appended address has a budget of its own.
+    expect(await remaining(api, { 'X-Forwarded-For': `192.0.2.${octet()}` })).toBeGreaterThan(own);
   } finally {
     await api.dispose();
   }

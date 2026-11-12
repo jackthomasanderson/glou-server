@@ -62,6 +62,15 @@ describe('trustedProxyHops', () => {
     expect(trustedProxyHops(' 2 ')).toBe(2);
   });
 
+  it('keeps a large number of hops but warns about it', () => {
+    const warn = vi.fn();
+    expect(trustedProxyHops('3', warn)).toBe(3);
+    expect(warn).not.toHaveBeenCalled();
+    expect(trustedProxyHops('4', warn)).toBe(4);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toMatch(/TRUSTED_PROXY_HOPS is above 3/);
+  });
+
   it('keeps the default and warns on any other value', () => {
     const warn = vi.fn();
     for (const value of ['-1', '1.5', 'yes', '2abc']) {
@@ -100,6 +109,12 @@ describe('the web hop sends the API one trusted address', () => {
     web = http.createServer((req, res) => {
       // What the rewrite hands it: the destination, parsed the legacy way.
       void proxyRequest(req, res, parse(`http://127.0.0.1:${apiPort}${req.url}`, true), undefined, undefined, 5000).catch(() => undefined);
+    });
+    // Next's router sends an `Upgrade` request to an external rewrite the same
+    // way (router-server.js upgradeHandler). The API answers it like any GET,
+    // and httpxy writes that answer back to the client.
+    web.on('upgrade', (req, socket, head) => {
+      void proxyRequest(req, socket, parse(`http://127.0.0.1:${apiPort}${req.url}`, true), head).catch(() => undefined);
     });
     webPort = await listen(web);
   });
@@ -145,5 +160,26 @@ describe('the web hop sends the API one trusted address', () => {
     // A client reaching web directly without the header is never seen with
     // web's own address (which every member would then share).
     expect(await forwardedFor('127.0.0.3')).toBe('127.0.0.3');
+  });
+
+  // Review of #987: Node raises `upgrade`, not `request`, for these.
+  const UPGRADE = { Connection: 'Upgrade', Upgrade: 'websocket' };
+
+  it('a WebSocket upgrade request is rewritten too (0 hops)', async () => {
+    uninstall = installClientAddress(0);
+    expect(await forwardedFor('127.0.0.2', { ...UPGRADE, 'X-Forwarded-For': '203.0.113.66' })).toBe('127.0.0.2');
+    expect(await forwardedFor('127.0.0.3', UPGRADE)).toBe('127.0.0.3');
+  });
+
+  it('a WebSocket upgrade request is rewritten too (1 hop)', async () => {
+    uninstall = installClientAddress(1);
+    expect(await forwardedFor('127.0.0.2', { ...UPGRADE, 'X-Forwarded-For': '203.0.113.66, 198.51.100.8' })).toBe('198.51.100.8');
+    expect(await forwardedFor('127.0.0.3', UPGRADE)).toBe('127.0.0.3');
+  });
+
+  it('stops rewriting once uninstalled', async () => {
+    installClientAddress(0)();
+    expect(await forwardedFor('127.0.0.2', { 'X-Forwarded-For': '203.0.113.66' })).toBe('203.0.113.66');
+    expect(await forwardedFor('127.0.0.2', { ...UPGRADE, 'X-Forwarded-For': '203.0.113.66' })).toBe('203.0.113.66');
   });
 });

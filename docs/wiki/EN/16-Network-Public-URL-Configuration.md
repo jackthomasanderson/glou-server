@@ -31,10 +31,12 @@ The sign-in form and the API limit how many requests one address may send (for e
 |---|---|---|
 | One reverse proxy in front of `web` (Caddy, Traefik, nginx…), the usual case | `1` (default, nothing to set) | The address your proxy appends to `X-Forwarded-For`. |
 | `web` reached directly (port 3000 open on the network, no proxy) | `0` | The address of the connection itself. A forged `X-Forwarded-For` is ignored. |
-| Two proxies in a row (e.g. a CDN, then Caddy) | `2` | The address the first proxy appended. |
+| Two proxies in a row (e.g. a CDN, then Caddy) | `2` | The address the first proxy appended. The second proxy must keep the header it receives: with Caddy, list the CDN's addresses in `trusted_proxies`, or Caddy starts a new header and every visitor ends up counted on the CDN's address. |
 
 - Your reverse proxy must **append** the client address to `X-Forwarded-For`: Caddy and Traefik do it by default; with nginx, use `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`.
-- A request that carries fewer addresses than expected (someone reaching `web` without going through your proxy) is counted on its own connection address, never on an address shared by every member.
+- A request that carries fewer addresses than expected is counted on the address of the connection `web` received. For someone reaching `web` directly, that is their own address. Behind a proxy that does not append the client address (nginx without the line above), or with more hops set than there are proxies, it is the proxy's address, shared by every visitor: check the setting if every member gets `Too many requests` at once. An entry that is not a plain IP address (with a port, such as `203.0.113.7:5678`, or in brackets) is treated the same way.
+- With `0`, `web` sees the address Docker hands it. Visitors arriving over IPv6 on a Docker network without IPv6, or every visitor with rootless Docker, reach `web` from Docker's gateway address and therefore share one address. Put a reverse proxy in front (and keep `1`) in that case.
+- A value above `3` is kept, with a warning in the `web` logs at startup: set only as many hops as there are proxies.
 - If `web` is reached directly while `TRUSTED_PROXY_HOPS` is still `1`, a client can choose the address it is counted on: wrong passwords are then still held back by the per-account limit, but set `0` to close that gap.
 - Restart after changing it: `docker compose up -d`. Keep the API port (3001) unpublished, as in the default `docker-compose.yml`: the API trusts the `web` container only.
 
