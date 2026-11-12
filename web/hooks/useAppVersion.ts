@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { configClient } from '@/lib/config/client';
+import { qk } from '@/lib/queryKeys';
 
-export const APP_VERSION_KEY = ['app-version'];
+const APP_VERSION_KEY = qk.appVersion;
 
 const fetchVersion = () => configClient.getVersion();
 

@@ -7,16 +7,14 @@ import { mirrorInventoryToCache, getCachedInventory } from '@/lib/offline/db';
 import type { UnitLike } from '@/lib/offline/optimistic';
 import { enqueueMutation, markQueuedResult, overlayQueuedChanges, queuedMutationOf, shownAfter } from '@/lib/offline/syncEngine';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
-import { PRODUCTS_KEY, productDetailKey } from '@/hooks/useProducts';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 import { detailWithUnitWrite, flatWithUnitChanges, withFlatItem, withoutUnit, withUnitChanges } from '@/lib/products/fromFlat';
 import type { Product, ProductDetailView } from '@/lib/products/types';
 import { TASTINGS_ON_ITEM } from '@shared/product';
 
-export const INVENTORY_KEY = ['inventory'];
-// #475: whether the last loaded list hit the server's 2,000-item cap.
-const INVENTORY_TRUNCATED_KEY = ['inventory-meta', 'truncated'];
-const TRASH_KEY = ['inventory', 'trash'];
+const INVENTORY_KEY = qk.inventory.list;
+const PRODUCTS_KEY = qk.products.list;
+const TRASH_KEY = qk.inventory.trash;
 
 /**
  * ISSUE_381: React Query hands `useEffect` a new array reference on every
@@ -48,7 +46,7 @@ function inventoryFingerprint(items: InventoryItem[]): string {
 /** #475: true when the list only holds the 2,000 most recent items. */
 export function useInventoryTruncated(): boolean {
   const { data } = useQuery<boolean>({
-    queryKey: INVENTORY_TRUNCATED_KEY,
+    queryKey: qk.inventory.truncated,
     queryFn: () => false,
     enabled: false,
     staleTime: Infinity,
@@ -63,7 +61,7 @@ export function useInventory(options?: { enabled?: boolean }) {
     queryFn: async () => {
       try {
         const { items, truncated } = await inventoryClient.listWithMeta();
-        queryClient.setQueryData(INVENTORY_TRUNCATED_KEY, truncated);
+        queryClient.setQueryData(qk.inventory.truncated, truncated);
         // #585: changes still waiting in the offline queue stay on screen.
         return await overlayQueuedChanges(items);
       } catch (error) {
@@ -110,7 +108,7 @@ export function useInventoryTrash() {
 
 export function useInventoryItem(id: string) {
   return useQuery<InventoryItem>({
-    queryKey: ['inventory', id],
+    queryKey: qk.inventory.item(id),
     queryFn: () => inventoryClient.get(id),
     enabled: !!id,
   });
@@ -128,10 +126,10 @@ export function useInventoryItemLookup() {
     async (id: string): Promise<InventoryItem | undefined> => {
       const known =
         queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((item) => item.id === id) ??
-        queryClient.getQueryData<InventoryItem>(['inventory', id]);
+        queryClient.getQueryData<InventoryItem>(qk.inventory.item(id));
       if (known) return known;
       try {
-        return await queryClient.fetchQuery({ queryKey: ['inventory', id], queryFn: () => inventoryClient.get(id) });
+        return await queryClient.fetchQuery({ queryKey: qk.inventory.item(id), queryFn: () => inventoryClient.get(id) });
       } catch {
         return undefined;
       }
@@ -153,7 +151,7 @@ function unitCtx(category: string | undefined): [Record<string, unknown>] | [] {
 function cachedCategory(queryClient: ReturnType<typeof useQueryClient>, id: string): string | undefined {
   return (
     queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY)?.find((item) => item.id === id) ??
-    queryClient.getQueryData<InventoryItem>(['inventory', id]) ??
+    queryClient.getQueryData<InventoryItem>(qk.inventory.item(id)) ??
     queryClient.getQueryData<InventoryItem[]>(TRASH_KEY)?.find((item) => item.id === id) ??
     unitOfWines(queryClient, id)
   )?.category;
@@ -165,7 +163,7 @@ function unitOfWines(queryClient: ReturnType<typeof useQueryClient>, id: string)
     const unit = product.items.find((item) => item.id === id);
     if (unit) return unit as unknown as InventoryItem;
   }
-  for (const [, detail] of queryClient.getQueriesData<ProductDetailView>({ queryKey: productDetailKey(null).slice(0, 2) })) {
+  for (const [, detail] of queryClient.getQueriesData<ProductDetailView>({ queryKey: qk.products.details })) {
     const unit = detail?.items?.find((item) => item.id === id);
     if (unit) return unit as unknown as InventoryItem;
   }
@@ -190,10 +188,7 @@ export function useCreateInventoryItem() {
       // form problem from a connection problem.
       notifyError(error.message === 'VALIDATION_ERROR' ? 'toast.createRejected' : 'toast.createError', ...unitCtx(variables.category));
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-    },
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
 
@@ -240,10 +235,10 @@ export function useUpdateInventoryItem() {
           flatWithUnitChanges(old, write.changed, write.removedIds));
         queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) =>
           withUnitChanges(old, write.changed, write.removedIds));
-        for (const removedId of write.removedIds) queryClient.removeQueries({ queryKey: ['inventory', removedId], exact: true });
+        for (const removedId of write.removedIds) queryClient.removeQueries({ queryKey: qk.inventory.item(removedId), exact: true });
         // The wine's drawer, if open: the bottle written itself follows in onSuccess.
         if (write.data.productId) {
-          queryClient.setQueryData<ProductDetailView>(productDetailKey(write.data.productId), (old) =>
+          queryClient.setQueryData<ProductDetailView>(qk.products.detail(write.data.productId), (old) =>
             detailWithUnitWrite(old, null, write.changed, write.removedIds));
         }
         return write.data;
@@ -260,7 +255,7 @@ export function useUpdateInventoryItem() {
         const cachedList = queryClient.getQueryData<InventoryItem[]>(INVENTORY_KEY);
         const cachedItem =
           cachedList?.find((item) => item.id === id) ??
-          queryClient.getQueryData<InventoryItem>(['inventory', id]) ??
+          queryClient.getQueryData<InventoryItem>(qk.inventory.item(id)) ??
           unitOfWines(queryClient, id);
         // No known `updatedAt` to anchor the conflict check on (item never
         // loaded in this session) — nothing sensible to queue.
@@ -294,11 +289,11 @@ export function useUpdateInventoryItem() {
           ? [...old, updatedItem]
           : old?.map((item) => (item.id === updatedItem.id ? updatedItem : item))
       );
-      queryClient.setQueryData<InventoryItem>(['inventory', updatedItem.id], updatedItem);
+      queryClient.setQueryData<InventoryItem>(qk.inventory.item(updatedItem.id), updatedItem);
       // #471: the wine's card sums its bottles: update it in place too.
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withFlatItem(old, updatedItem));
       if (updatedItem.productId) {
-        queryClient.setQueryData<ProductDetailView>(productDetailKey(updatedItem.productId), (old) =>
+        queryClient.setQueryData<ProductDetailView>(qk.products.detail(updatedItem.productId), (old) =>
           detailWithUnitWrite(old, updatedItem));
       }
     },
@@ -318,13 +313,18 @@ export function useUpdateInventoryItem() {
       // #572: changed meanwhile. Nothing was written; fetch the current
       // version so the bottle opens with it next time.
       notifyError('toast.updateConflict', ...unitCtx(cachedCategory(queryClient, id)));
-      void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-      // The sidebar badges (useSidebarCounts) normally piggyback on an
-      // INVENTORY_KEY invalidation, which this mutation no longer does.
-      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
+    onSettled: (item, error) => {
+      // FEAT-108: queued without network — nothing changed on the server yet, and
+      // reading the bell, plan or analytics now would only fail. The replay
+      // refreshes everything once the change went through.
+      if (item && queuedMutationOf(item)) return;
+      // #621: the drawer (its history), cellars, counters, bell, plan… follow.
+      // The two lists were written in place above (#462) — unless the change
+      // was refused as made meanwhile: they are then read again too.
+      invalidateAfterInventoryChange(queryClient, {
+        alreadyWritten: error?.message === 'CONFLICT' ? [] : [INVENTORY_KEY, PRODUCTS_KEY],
+      });
     },
   });
 }
@@ -337,13 +337,7 @@ export function useRollbackField() {
     // Said by the history's restore dialog (FamilyHistory).
     meta: { handlesError: true },
     mutationFn: ({ id, field, toValue }) => inventoryClient.rollbackField(id, field, toValue),
-    onSuccess: (_updatedItem, variables) => {
-      void queryClient.invalidateQueries({ queryKey: ['inventory', variables.id, 'history'] });
-      void queryClient.invalidateQueries({ queryKey: ['inventory', variables.id] });
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
-    },
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
 
@@ -355,10 +349,7 @@ export function useBulkUpdateInventoryItem() {
     meta: { handlesError: true },
     mutationFn: ({ ids, patch }) => inventoryClient.bulkUpdate(ids, patch),
     onError: () => notifyError('toast.bulkUpdateError'),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-    },
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
 
@@ -376,18 +367,12 @@ export function useDeleteInventoryItem() {
       );
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withoutUnit(old, id));
       // #471 (W3): the line leaves the wine's drawer too (every copy out of the trash is listed there).
-      queryClient.setQueriesData<ProductDetailView>({ queryKey: productDetailKey(null).slice(0, 2) }, (old) =>
+      queryClient.setQueriesData<ProductDetailView>({ queryKey: qk.products.details }, (old) =>
         old?.items.some((unit) => unit.id === id) ? { ...old, items: old.items.filter((unit) => unit.id !== id) } : old);
     },
     onError: (_error, id) => notifyError('toast.deleteError', ...unitCtx(cachedCategory(queryClient, id))),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
-      void queryClient.invalidateQueries({ queryKey: productDetailKey(null).slice(0, 2) });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-      // See useUpdateInventoryItem: the sidebar badges piggyback on an
-      // INVENTORY_KEY invalidation that this mutation no longer does.
-      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-    },
+    // The trash, the drawers and everything derived follow; the two lists were written above.
+    onSettled: () => invalidateAfterInventoryChange(queryClient, { alreadyWritten: [INVENTORY_KEY, PRODUCTS_KEY] }),
   });
 }
 
@@ -400,10 +385,6 @@ export function useRestoreInventoryItem() {
     mutationFn: inventoryClient.restore,
     onSuccess: (restored) => notifySuccess('toast.restoreSuccess', ...unitCtx(restored.category)),
     onError: (_error, id) => notifyError('toast.restoreError', ...unitCtx(cachedCategory(queryClient, id))),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: INVENTORY_KEY });
-      void queryClient.invalidateQueries({ queryKey: TRASH_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-    },
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }

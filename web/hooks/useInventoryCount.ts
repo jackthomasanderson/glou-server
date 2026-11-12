@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryCountClient } from '@/lib/inventory-count/client';
 import { notifyError } from '@/lib/toast';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 import {
   CountSession,
   SessionReport,
@@ -13,8 +14,14 @@ import {
   RecordFoundItemResult,
 } from '@/lib/inventory-count/types';
 
-const ACTIVE_SESSION_KEY = ['inventory-count', 'active'];
-const reportKey = (sessionId: string) => ['inventory-count', 'report', sessionId];
+const ACTIVE_SESSION_KEY = qk.inventoryCount.active;
+const reportKey = qk.inventoryCount.report;
+
+/** The session, and the menu's badge saying one is in progress. */
+function refreshSession(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: ACTIVE_SESSION_KEY });
+  void queryClient.invalidateQueries({ queryKey: qk.sidebarCounts });
+}
 
 // ─── Active session (single session instance-wide, see api/.../inventory-count.service.ts) ──
 
@@ -35,9 +42,7 @@ export function useStartCountSession() {
     onSuccess: (session) => {
       queryClient.setQueryData<CountSession | null>(ACTIVE_SESSION_KEY, session);
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ACTIVE_SESSION_KEY });
-    },
+    onSettled: () => refreshSession(queryClient),
   });
 }
 
@@ -48,9 +53,7 @@ export function usePauseCountSession() {
     onSuccess: (session) => {
       queryClient.setQueryData<CountSession | null>(ACTIVE_SESSION_KEY, session);
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ACTIVE_SESSION_KEY });
-    },
+    onSettled: () => refreshSession(queryClient),
   });
 }
 
@@ -61,9 +64,7 @@ export function useResumeCountSession() {
     onSuccess: (session) => {
       queryClient.setQueryData<CountSession | null>(ACTIVE_SESSION_KEY, session);
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ACTIVE_SESSION_KEY });
-    },
+    onSettled: () => refreshSession(queryClient),
   });
 }
 
@@ -124,12 +125,7 @@ export function useCompleteCountSession(sessionId: string) {
         old ? { ...old, session: result.session } : old
       );
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ACTIVE_SESSION_KEY });
-      void queryClient.invalidateQueries({ queryKey: reportKey(sessionId) });
-      // The prefix covers the list of wines (PRODUCTS_KEY) and an open wine's drawer too.
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-    },
+    // The corrections are applied to the stock: the session (and its badge), the report and everything derived follow.
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }

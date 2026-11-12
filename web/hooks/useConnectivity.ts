@@ -2,8 +2,9 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { request } from '@/lib/api';
+import { qk } from '@/lib/queryKeys';
 
-const CONNECTIVITY_KEY = ['connectivity'];
+const CONNECTIVITY_KEY = qk.connectivity;
 
 /**
  * Connectivity state, combining two signals (FEAT-16/23):

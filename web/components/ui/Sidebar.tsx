@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useLogout } from '@/hooks/useAuth';
-import { useSidebarCounts, useSidebarCountsSync } from '@/hooks/useSidebarCounts';
+import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
 import { safeWriteStorage, glouKey, readStorageMigrating } from '@/lib/safe-storage';
@@ -274,8 +274,6 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
 /** Desktop sidebar. On mobile the bottom bar (BottomNav.tsx) is the navigation. */
 export function Sidebar() {
   const { t } = useTranslation();
-  // The only mount of the counts subscription (#632); always rendered, hidden by CSS on mobile.
-  useSidebarCountsSync();
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {

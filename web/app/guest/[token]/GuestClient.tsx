@@ -14,6 +14,7 @@ import { GuestTastingDialog } from '@/components/shares/GuestTastingDialog';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import type { GuestItem, GuestShareMeta, GuestTastingPayload } from '@/lib/shares/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { qk } from '@/lib/queryKeys';
 
 // ─── Main page ───────────────────────────────────────────────────────────────
 
@@ -24,7 +25,7 @@ export function GuestPageContent({ token }: { token: string }) {
   useBrowserTabTitle(t('shares.guest.badge'));
 
   const metaQuery = useQuery<GuestShareMeta, Error>({
-    queryKey: ['guest', token, 'meta'],
+    queryKey: qk.guest.meta(token),
     queryFn: () => guestClient.getMeta(token),
     retry: false,
   });
@@ -35,7 +36,7 @@ export function GuestPageContent({ token }: { token: string }) {
   const [sortKey, setSortKey] = useState<'name' | 'producer' | 'vintage'>('name');
 
   const inventoryQuery = useQuery<GuestItem[], Error>({
-    queryKey: ['guest', token, 'inventory'],
+    queryKey: qk.guest.inventory(token),
     queryFn: () => guestClient.getInventory(token) as Promise<GuestItem[]>,
     retry: false,
   });
@@ -44,7 +45,7 @@ export function GuestPageContent({ token }: { token: string }) {
 
   // #471 (FEAT-109): a write refused because the link died meanwhile → the "expired" screen.
   const queryClient = useQueryClient();
-  const linkGone = () => { void queryClient.invalidateQueries({ queryKey: ['guest', token, 'meta'] }); };
+  const linkGone = () => { void queryClient.invalidateQueries({ queryKey: qk.guest.meta(token) }); };
 
   // « Noter une dégustation »: held by the page, so it outlives the card of a
   // wine whose last bottle was just drunk (decision #471 point 70).

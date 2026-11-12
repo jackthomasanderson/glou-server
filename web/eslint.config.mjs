@@ -55,6 +55,30 @@ const eslintConfig = [
       }))],
     },
   },
+  // #621: every React Query key comes from lib/queryKeys.ts, so "what does
+  // this invalidation refresh?" is answered in one file, not by grepping the
+  // hooks. Tests spell keys out on purpose (they check the exact key).
+  {
+    files: ['**/*.{ts,tsx}'],
+    ignores: ['lib/queryKeys.ts', '**/*.test.{ts,tsx}', '**/__tests__/**'],
+    rules: {
+      'no-restricted-syntax': ['error',
+        {
+          selector: "Property[key.name='queryKey'] > ArrayExpression",
+          message: 'Use a key from @/lib/queryKeys (qk.…) instead of a literal array (#621).',
+        },
+        {
+          selector: "CallExpression[callee.property.name=/^(get|set)QueryData$|^getQueryState$/] > ArrayExpression:first-child",
+          message: 'Use a key from @/lib/queryKeys (qk.…) instead of a literal array (#621).',
+        },
+        {
+          // A key kept in a constant first (`const FOO_KEY = ['foo']`), query or mutation key alike.
+          selector: 'VariableDeclarator[id.name=/(_KEY|Key)$/] > ArrayExpression',
+          message: 'Declare the key in @/lib/queryKeys (qk.… or mutationKeys.…) instead of a literal array (#621).',
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

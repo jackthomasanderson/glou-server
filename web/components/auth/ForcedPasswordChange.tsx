@@ -8,8 +8,7 @@ import { useMe, useUpdatePassword } from '@/hooks/useAuth';
 import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 import { PASSWORD_MIN_LENGTH } from '@shared/auth';
 import { useRestoreFocus } from '@/hooks/useRestoreFocus';
-
-const ME_KEY = ['auth', 'me'];
+import { qk } from '@/lib/queryKeys';
 
 /**
  * #336: blocks the whole app, the same way LockScreen does, until a member
@@ -34,7 +33,7 @@ export function ForcedPasswordChange() {
     setErrorMsg(null);
     updatePassword.mutate({ currentPassword, newPassword }, {
       onSuccess: () => {
-        void queryClient.invalidateQueries({ queryKey: ME_KEY });
+        void queryClient.invalidateQueries({ queryKey: qk.auth.me });
       },
       onError: (err: Error) => {
         setErrorMsg(err.message === 'INVALID_CREDENTIALS' ? t('forcedPasswordChange.invalidTemp') : t('status.error'));

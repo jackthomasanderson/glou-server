@@ -16,7 +16,6 @@ const addToCollection = vi.fn();
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries }) }));
 const uploaded = vi.fn();
 vi.mock('@/hooks/useScan', () => ({
-  SCAN_STATUS_QUERY_KEY: ['scan-status'],
   useUploadScan: () => ({
     mutate: (file: File, handlers: { onSuccess: (r: { jobId: string }) => void; onError: (e: Error) => void }) => {
       uploaded(file);

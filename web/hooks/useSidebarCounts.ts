@@ -1,59 +1,20 @@
-import { useEffect } from 'react';
-import { hashKey, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { client } from '@/lib/api';
+import { qk } from '@/lib/queryKeys';
 import type { SidebarCounts } from '@shared/stats';
-
-export const SIDEBAR_COUNTS_KEY = ['stats', 'counts'];
-
-/** Query roots whose mutations change a sidebar badge. */
-const WATCHED_ROOTS = new Set(['inventory', 'cellars', 'collections', 'wishlist', 'inventory-count']);
 
 /**
  * Badge counts of the sidebar from one lightweight endpoint (#212). The sidebar
  * used to mount five list queries (the whole inventory included) on every page
- * just to call `.length` on them.
+ * just to call `.length` on them. Also read by the notification bell.
  *
- * The counts follow the mutations through `useSidebarCountsSync`, which must be
- * mounted ONCE (by the Sidebar): this hook is also read by the notification bell.
+ * #621: the mutations that change a badge invalidate `qk.sidebarCounts`
+ * themselves — a stock change through `invalidateAfterInventoryChange` —
+ * instead of a global cache subscription watching for list invalidations.
  */
 export function useSidebarCounts() {
   return useQuery<SidebarCounts>({
-    queryKey: SIDEBAR_COUNTS_KEY,
+    queryKey: qk.sidebarCounts,
     queryFn: async ({ signal }) => (await client.get<SidebarCounts>('/stats/counts', { signal })).data,
   });
-}
-
-/**
- * Invalidates the counts when a watched list query is invalidated. An edit
- * invalidates many queries at once (every cached cellar, every list): the events
- * are merged into one invalidation, so one edit means one counts request (#632).
- */
-export function useSidebarCountsSync() {
-  const queryClient = useQueryClient();
-
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    // A mutation often invalidates the counts itself next to a watched root: that
-    // one request is enough, the deferred invalidation would restart it.
-    let countsInvalidated = false;
-    const countsHash = hashKey(SIDEBAR_COUNTS_KEY);
-    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
-      if (event.type !== 'updated' || event.action.type !== 'invalidate') return;
-      const root = event.query.queryKey[0];
-      const isCounts = event.query.queryHash === countsHash;
-      if (isCounts) countsInvalidated = true;
-      else if (typeof root !== 'string' || !WATCHED_ROOTS.has(root)) return;
-      if (timer !== undefined) return;
-      timer = setTimeout(() => {
-        timer = undefined;
-        const done = countsInvalidated;
-        countsInvalidated = false;
-        if (!done) void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-      }, 0);
-    });
-    return () => {
-      unsubscribe();
-      clearTimeout(timer);
-    };
-  }, [queryClient]);
 }

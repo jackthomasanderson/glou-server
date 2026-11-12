@@ -11,8 +11,11 @@ vi.mock('@/lib/inventory-count/client', () => ({
   inventoryCountClient: { complete: vi.fn(async () => ({ session: { id: 's1' }, skipped: [] })) },
 }));
 
-import { PRODUCTS_KEY, productDetailKey } from '@/hooks/useProducts';
+import { qk } from '@/lib/queryKeys';
 import { useCompleteCountSession } from './useInventoryCount';
+
+const PRODUCTS_KEY = qk.products.list;
+const productDetailKey = qk.products.detail;
 
 describe('useCompleteCountSession', () => {
   it('refreshes the list of wines and an open wine once the inventory is closed', async () => {

@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { randomId } from '@/lib/uuid';
 import { request } from '@/lib/api';
 import type { InventoryItem } from '@/lib/inventory/types';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 import {
   type QueuedMutation,
   getAllQueuedMutations,
@@ -27,15 +28,11 @@ import {
 // driven equally by the `online` window event and by the `useOfflineSync`
 // hook's mount effect.
 
-// Must match `INVENTORY_KEY` / the per-item key in hooks/useInventory.ts —
-// duplicated here (rather than imported) to avoid a circular module
-// dependency (useInventory.ts calls into this module for `enqueueMutation`).
-const INVENTORY_LIST_KEY = ['inventory'] as const;
-const inventoryItemKey = (id: string) => ['inventory', id] as const;
-// #471: the wines (hooks/useProducts.ts `PRODUCTS_KEY`) and every open
-// drawer (`productDetailKey(id)`), duplicated for the same reason.
-const PRODUCTS_LIST_KEY = ['inventory', 'products'] as const;
-const PRODUCT_DETAIL_PREFIX = ['inventory', 'product'] as const;
+// #471: the flat list, the wines and every open drawer show the queued changes.
+const INVENTORY_LIST_KEY = qk.inventory.list;
+const inventoryItemKey = qk.inventory.item;
+const PRODUCTS_LIST_KEY = qk.products.list;
+const PRODUCT_DETAIL_PREFIX = qk.products.details;
 
 /**
  * Review of #753: every tab runs its own replay on the same IndexedDB queue;
@@ -308,7 +305,7 @@ export async function removeQueuedMutation(id: string, queryClient?: QueryClient
   if (queryClient) {
     // FEAT-108: its effect is taken back on screen at once, even offline.
     dropped = await discardQueuedMutation(id, queryClient);
-    if (dropped) void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
+    if (dropped) invalidateAfterInventoryChange(queryClient);
   } else {
     dropped = (await takeQueuedMutationUnlessSyncing(id)) !== undefined;
   }
@@ -588,8 +585,9 @@ async function replayQueue(queryClient: QueryClient): Promise<void> {
     else cancelSyncRetry();
   } finally {
     // Refetch only when something reached the server; the refetched list
-    // keeps the changes still queued on top (`overlayQueuedChanges`).
-    if (anySynced) void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
+    // keeps the changes still queued on top (`overlayQueuedChanges`). What
+    // derives from the stock (goal, bell, counters…) follows too (#621).
+    if (anySynced) invalidateAfterInventoryChange(queryClient);
   }
 }
 
@@ -641,6 +639,6 @@ export async function resolveConflictKeepLocal(mutationId: string, queryClient: 
 export async function resolveConflictKeepServer(mutationId: string, queryClient: QueryClient): Promise<void> {
   await deleteQueuedMutation(mutationId);
   // The screen already shows the server's version (put there when the conflict came back).
-  void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
+  invalidateAfterInventoryChange(queryClient);
   notifyListeners();
 }

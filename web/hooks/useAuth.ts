@@ -11,16 +11,17 @@ import { DEFAULT_LANDING, postLoginPath } from '@/lib/auth/next-path';
 import type { ExportCategory, PublicUser as PublicUserContract } from '@shared/auth';
 import type { Wire } from '@shared/wire';
 import type { OnboardingState } from '@shared/onboarding';
+import { qk } from '@/lib/queryKeys';
 
 /** The signed-in member as the API sends it (#466: declared once in shared/auth.ts). */
 export type PublicUser = Wire<PublicUserContract>;
 
-const ME_KEY = ['auth', 'me'];
+const ME_KEY = qk.auth.me;
 // FEAT-90: "Later" belongs to one sign-in, so a new sign-in drops the cached state.
-const ONBOARDING_STATE_KEY = ['auth', 'onboarding'];
-const SESSIONS_KEY = ['auth', 'sessions'];
+const ONBOARDING_STATE_KEY = qk.auth.onboarding;
+const SESSIONS_KEY = qk.auth.sessions;
 // #638: how many 2FA backup codes are left.
-const BACKUP_CODES_KEY = ['auth', 'backup-codes'];
+const BACKUP_CODES_KEY = qk.auth.backupCodes;
 
 export interface SessionInfo {
   id: string;

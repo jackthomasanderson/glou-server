@@ -2,15 +2,14 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { scanClient } from '@/lib/scan/client';
 import { ScanJob } from '@/lib/scan/types';
+import { qk } from '@/lib/queryKeys';
 
 // ─── FEAT-04: Scan Étiquette & Ajout Express ─────────────────────────────────
-
-export const SCAN_STATUS_QUERY_KEY = ['scan-status'] as const;
 
 /** FEAT-88 (#639): GET /api/scan/status — is the recognition service up on this instance? */
 export function useScanStatus() {
   return useQuery({
-    queryKey: SCAN_STATUS_QUERY_KEY,
+    queryKey: qk.scan.status,
     queryFn: () => scanClient.getStatus(),
     staleTime: 60_000,
   });
@@ -40,7 +39,7 @@ const POLL_INTERVAL_MS = 1500;
  */
 export function useScanJob(jobId: string | null) {
   return useQuery<ScanJob>({
-    queryKey: ['scan-job', jobId],
+    queryKey: qk.scan.job(jobId),
     queryFn: () => scanClient.getJob(jobId as string),
     enabled: !!jobId,
     refetchInterval: (query) => {

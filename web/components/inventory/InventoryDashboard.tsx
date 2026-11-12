@@ -232,13 +232,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   // page size changes — both adjusted during render (React's documented
   // pattern) rather than in effects, guarded against the previous render's
   // values so each reset only fires on an actual change.
-  const filterSortKey = [
+  const filterSortValues = [
     searchQuery, selectedCategories, selectedCellars, selectedTags,
     selectedWineColors, minValue, maxValue, sortBy, openedFilter, showGone, notLocated, selectedCollectionId,
   ];
-  const [prevFilterSortKey, setPrevFilterSortKey] = useState(filterSortKey);
-  if (filterSortKey.some((v, i) => v !== prevFilterSortKey[i])) {
-    setPrevFilterSortKey(filterSortKey);
+  const [prevFilterSortValues, setPrevFilterSortValues] = useState(filterSortValues);
+  if (filterSortValues.some((v, i) => v !== prevFilterSortValues[i])) {
+    setPrevFilterSortValues(filterSortValues);
     setAnchorId(null);
     setCurrentPage(1);
   }

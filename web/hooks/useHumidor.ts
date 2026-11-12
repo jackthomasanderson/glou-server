@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api';
+import { qk } from '@/lib/queryKeys';
 
 // ─── Task 4: Humidor Hygrometric Monitoring ──────────────────────────────────
 // Follows the same direct-`client` pattern as useCellars.ts (no separate
@@ -35,7 +36,7 @@ export interface HumidorHistory {
  */
 export function useHumidorHistory(cellarId: string, enabled = true) {
   return useQuery<HumidorHistory>({
-    queryKey: ['humidor', cellarId, 'readings'],
+    queryKey: qk.humidor.readings(cellarId),
     queryFn: async () => {
       const { data } = await client.get<HumidorHistory>(`/humidor/cellars/${cellarId}/readings`);
       return data;
@@ -64,7 +65,7 @@ export function useRecordHumidorReading(cellarId: string) {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['humidor', cellarId] });
+      void queryClient.invalidateQueries({ queryKey: qk.humidor.ofCellar(cellarId) });
     },
   });
 }

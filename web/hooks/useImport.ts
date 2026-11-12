@@ -3,6 +3,7 @@ import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-quer
 import { importClient } from '@/lib/import/client';
 import { CsvImportChoice, CsvImportPreview, CsvImportResult, CsvImportRow } from '@/lib/import/types';
 import { notifyError } from '@/lib/toast';
+import { invalidateAfterInventoryChange, mutationKeys } from '@/lib/queryKeys';
 
 /** Refusals of the confirmation that get their own message. */
 const EXPLAINED_CONFIRM_ERRORS = new Set(['LINE_TOO_LARGE', 'QUANTITY_TOO_LARGE']);
@@ -17,7 +18,7 @@ export function useCsvPreview() {
   });
 }
 
-const CSV_CONFIRM_KEY = ['import', 'csv-confirm'];
+const CSV_CONFIRM_KEY = mutationKeys.csvConfirm;
 
 export function useCsvConfirm() {
   const queryClient = useQueryClient();
@@ -25,10 +26,7 @@ export function useCsvConfirm() {
     mutationKey: CSV_CONFIRM_KEY,
     meta: { handlesError: true },
     mutationFn: ({ rows, cellarId, choices }) => importClient.confirmCsv(rows, cellarId, choices),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-    },
+    onSuccess: () => invalidateAfterInventoryChange(queryClient),
     // FEAT-91 (#641): a failed import used to just stop the button spinning.
     // #471 (FEAT-99): a group the import would push past 1,000 copies gets its own explanation.
     onError: (error) => notifyError(

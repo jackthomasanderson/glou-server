@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { TASTINGS_ON_ITEM } from '@shared/product';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
-import { productDetailKey } from '@/hooks/useProducts';
+import { qk } from '@/lib/queryKeys';
 import { notifyUndoable } from '@/lib/toast';
 import { bottleLabel, hasOwnLevel, type LineContext } from '@/lib/products/lines';
 import { putBackPatch } from '@/lib/products/openDrink';
@@ -32,12 +32,8 @@ export function usePutBackOpened(ctx: LineContext) {
   const answer = useRef<((keep: boolean | null) => void) | null>(null);
 
   const latest = useCallback((item: Pick<ProductItem, 'id' | 'productId'>): ProductItem | undefined =>
-    queryClient.getQueryData<ProductDetailView>(productDetailKey(item.productId))?.items.find((unit) => unit.id === item.id),
+    queryClient.getQueryData<ProductDetailView>(qk.products.detail(item.productId))?.items.find((unit) => unit.id === item.id),
   [queryClient]);
-
-  const settle = useCallback((productId: string) => {
-    void queryClient.invalidateQueries({ queryKey: productDetailKey(productId) });
-  }, [queryClient]);
 
   /** "Annuler": opens the bottle again (from the line it went back to), then sets its level on that one bottle. */
   const reopen = useCallback(async (written: InventoryItem, before: ProductItem) => {
@@ -54,11 +50,9 @@ export function usePutBackOpened(ctx: LineContext) {
         await mutateAsync({ id: opened.id, patch: { fillLevel: level }, expectedUpdatedAt: opened.updatedAt });
       }
     } catch {
-      // Refused (changed meanwhile): told by the mutation.
-    } finally {
-      settle(before.productId);
+      // Refused (changed meanwhile): told by the mutation, which reads the drawer again (#621).
     }
-  }, [latest, mutateAsync, settle]);
+  }, [latest, mutateAsync]);
 
   const putBack = useCallback(async (item: ProductItem): Promise<boolean> => {
     const before = latest(item) ?? item;
@@ -74,10 +68,7 @@ export function usePutBackOpened(ctx: LineContext) {
     try {
       written = await send();
     } catch (error) {
-      if (!(error instanceof Error && error.message === TASTINGS_ON_ITEM)) {
-        settle(item.productId);
-        return false;
-      }
+      if (!(error instanceof Error && error.message === TASTINGS_ON_ITEM)) return false;
       // "Une dégustation a été notée sur cette bouteille. La garder ?"
       const keep = await new Promise<boolean | null>((resolve) => {
         answer.current = resolve;
@@ -89,11 +80,9 @@ export function usePutBackOpened(ctx: LineContext) {
       try {
         written = await send(keep);
       } catch {
-        settle(item.productId);
         return false;
       }
     }
-    settle(item.productId);
     // Without network the write waits in the offline queue: nothing to take back yet.
     if (written.id === item.id && written.updatedAt === before.updatedAt) return true;
     const rejoined = written.id !== item.id;
@@ -104,7 +93,7 @@ export function usePutBackOpened(ctx: LineContext) {
       () => { void reopen(written, before); },
     );
     return true;
-  }, [ctx, latest, mutateAsync, reopen, settle]);
+  }, [ctx, latest, mutateAsync, reopen]);
 
   const dialog = asking ? (
     <KeepTastingDialog

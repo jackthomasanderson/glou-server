@@ -2,10 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tastingsClient } from '@/lib/tastings/client';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { PRODUCTS_KEY } from '@/hooks/useProducts';
+import { qk } from '@/lib/queryKeys';
 import { TastingNote, TastingFormValues, TastingListResult, TastingAnalytics } from '@/lib/tastings/types';
-
-export const TASTINGS_KEY = ['tastings'];
 
 /**
  * #471 (FEAT-107): a tasting changes its wine's drawer (its tastings), the
@@ -13,14 +11,14 @@ export const TASTINGS_KEY = ['tastings'];
  * elsewhere added without any bottle) and the journal.
  */
 function refreshAfterTasting(queryClient: ReturnType<typeof useQueryClient>) {
-  void queryClient.invalidateQueries({ queryKey: TASTINGS_KEY });
-  void queryClient.invalidateQueries({ queryKey: PRODUCTS_KEY, exact: true });
-  void queryClient.invalidateQueries({ queryKey: ['inventory', 'product'] });
+  void queryClient.invalidateQueries({ queryKey: qk.tastings.all });
+  void queryClient.invalidateQueries({ queryKey: qk.products.list, exact: true });
+  void queryClient.invalidateQueries({ queryKey: qk.products.details });
 }
 
 export function useTastings(page = 1, limit = 20, itemId?: string, search?: string) {
   return useQuery<TastingListResult>({
-    queryKey: [...TASTINGS_KEY, { page, limit, itemId, search }],
+    queryKey: qk.tastings.list({ page, limit, itemId, search }),
     queryFn: () => tastingsClient.list(page, limit, itemId, search),
     staleTime: 1000 * 30,
   });
@@ -61,7 +59,7 @@ export function useDeleteTasting() {
 
 export function useTastingAnalytics() {
   return useQuery<TastingAnalytics>({
-    queryKey: [...TASTINGS_KEY, 'analytics'],
+    queryKey: qk.tastings.analytics,
     queryFn: () => tastingsClient.analytics(),
     staleTime: 1000 * 60,
   });
