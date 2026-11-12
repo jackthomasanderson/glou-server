@@ -20,7 +20,7 @@ La catégorie de notification **Sécurité du compte** couvre ces événements, 
 6. Demande de suppression du compte.
 7. Révocation d'une session (la vôtre ou depuis le panneau des sessions, voir [11-Sessions-Appareils-De-Confiance.md](./11-Sessions-Appareils-De-Confiance.md)).
 
-Les administrateurs reçoivent aussi, dans cette catégorie, les avis de suppression de comptes de membres.
+Les avis envoyés aux administrateurs sur les comptes **d'autres membres** (un membre a demandé la suppression de son compte, comptes supprimés après le délai de grâce) ne sont pas des alertes de sécurité sur votre propre compte : ils ont leur propre catégorie **Comptes des membres**, que les administrateurs peuvent désactiver comme les autres catégories.
 
 Chaque notification inclut l'horodatage, l'appareil ou l'IP concerné, et un lien direct vers vos paramètres de sécurité (`/profile#security`) pour réagir.
 
@@ -36,7 +36,7 @@ Sans cela, quelqu'un qui vole une session ouverte pourrait d'abord couper ces al
 | Configuré | Activé ou non | Désactivé | Un email à l'adresse de votre compte. |
 | Configuré | Activé ou non | Activé | Un email à l'adresse de votre compte, et une copie Gotify. |
 | Non configuré ou désactivé | — | Activé | Une copie Gotify seulement. |
-| Non configuré ou désactivé | — | Désactivé | Rien ne peut être envoyé : demandez à votre administrateur de configurer l'email. Les administrateurs voient toujours les connexions et les changements de compte dans le [journal d'audit](./10-Audit-Actions.md). |
+| Non configuré ou désactivé | — | Désactivé, ou Gotify non configuré | Rien ne peut être envoyé : demandez à votre administrateur de configurer l'email. Les administrateurs voient toujours les connexions et les changements de compte dans le [journal d'audit](./10-Audit-Actions.md). |
 
 Votre interrupteur email ne règle que les autres catégories (apogée, température, liste de souhaits, sauvegardes). Désactiver Gotify n'arrête que la copie Gotify.
 

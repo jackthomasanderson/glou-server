@@ -4,11 +4,16 @@
  * #469/#338: the categories that have a real sender, in display order.
  * A member's stored list (`User.notifCategories`) holds the ones they receive.
  */
-export const NOTIFICATION_CATEGORIES = ['peak', 'temperature', 'security', 'wishlist', 'backup'] as const;
+export const NOTIFICATION_CATEGORIES = ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
-/** #780: categories whose only sender writes to administrators (backup failures). */
-const ADMIN_ONLY_CATEGORIES: readonly NotificationCategory[] = ['backup'];
+/**
+ * #780: categories whose only sender writes to administrators: backup
+ * failures, and (#981) notices about members' accounts (a deletion requested,
+ * deletions carried out). Those are not about the admin's own account, so
+ * they are not mandatory security alerts.
+ */
+const ADMIN_ONLY_CATEGORIES: readonly NotificationCategory[] = ['backup', 'members'];
 
 /** #780: the categories a member can receive, hence choose: an admin gets them all. */
 export function notificationCategoriesFor(isAdmin: boolean): NotificationCategory[] {

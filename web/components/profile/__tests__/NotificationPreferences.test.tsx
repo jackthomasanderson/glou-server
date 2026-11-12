@@ -50,7 +50,7 @@ vi.mock('@heroui/react', () => {
 
 import { NotificationPreferences, sameClock } from '../NotificationPreferences';
 
-const ALL = ['peak', 'temperature', 'security', 'wishlist', 'backup'];
+const ALL = ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'];
 
 function prefs(patch: Partial<NotificationPrefs> = {}): NotificationPrefs {
   return {
@@ -61,7 +61,7 @@ function prefs(patch: Partial<NotificationPrefs> = {}): NotificationPrefs {
     notifQuietEnd: null,
     notifLanguage: null,
     policy: { smtpEnabled: true, gotifyEnabled: false },
-    categories: ['peak', 'temperature', 'security', 'wishlist', 'backup'],
+    categories: ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'],
     automaticBackups: true,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     ...patch,
@@ -104,15 +104,15 @@ describe('NotificationPreferences categories (#583)', () => {
     fireEvent.click(chip('backup'));
 
     await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledTimes(1));
-    expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security', 'wishlist'] });
+    expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security', 'wishlist', 'members'] });
     expect(chip('backup')).not.toBeChecked();
-    for (const cat of ['peak', 'temperature', 'security', 'wishlist']) {
+    for (const cat of ['peak', 'temperature', 'security', 'wishlist', 'members']) {
       expect(chip(cat)).toBeChecked();
     }
   });
 
   it('ticking every category again saves an empty list', async () => {
-    await renderWith(['peak', 'temperature', 'security', 'wishlist']);
+    await renderWith(['peak', 'temperature', 'security', 'wishlist', 'members']);
     expect(chip('backup')).not.toBeChecked();
 
     fireEvent.click(chip('backup'));
@@ -160,10 +160,22 @@ describe('NotificationPreferences — security alerts are locked on (#981)', () 
     expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLocked');
   });
 
-  it('says where they go when the instance cannot send e-mail', async () => {
-    await renderWith([], { policy: { smtpEnabled: false, gotifyEnabled: false } });
+  it('with e-mail on the instance, says they always go to the account e-mail', async () => {
+    await renderWith([], { policy: { smtpEnabled: true, gotifyEnabled: true } });
+
+    expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLocked');
+  });
+
+  it('with Gotify but no e-mail on the instance, says they only reach Gotify, if turned on', async () => {
+    await renderWith([], { policy: { smtpEnabled: false, gotifyEnabled: true } });
 
     expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLockedNoEmail');
+  });
+
+  it('with neither e-mail nor Gotify on the instance, says they cannot reach the member yet', async () => {
+    await renderWith([], { policy: { smtpEnabled: false, gotifyEnabled: false } });
+
+    expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLockedNoChannel');
   });
 
   it('describes no other category', async () => {

@@ -158,6 +158,8 @@ export function NotificationPreferences() {
   const { policy, categories } = prefs;
   const toggleCategory = (cat: NotificationCategory) => save({ notifCategories: toggledCategories(prefs.notifCategories, categories, cat) });
   const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // #981: where the locked security alerts can go on this instance.
+  const securityDelivery = policy.smtpEnabled ? 'securityLocked' : policy.gotifyEnabled ? 'securityLockedNoEmail' : 'securityLockedNoChannel';
 
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-6">
@@ -235,7 +237,7 @@ export function NotificationPreferences() {
                     <Lock size={12} className="shrink-0 mt-0.5 text-foreground" aria-hidden="true" />
                     <span>
                       <strong className="font-semibold text-foreground">{t('notifications.categories.securityLockedLead')}</strong>{' '}
-                      <span>{t(policy.smtpEnabled ? 'notifications.categories.securityLocked' : 'notifications.categories.securityLockedNoEmail')}</span>
+                      <span>{t(`notifications.categories.${securityDelivery}`)}</span>
                     </span>
                   </p>
                 )}

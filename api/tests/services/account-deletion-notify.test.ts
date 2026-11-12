@@ -44,7 +44,8 @@ describe('admins are told about account deletions (#509)', () => {
 
     const where = vi.mocked(prisma.user.findMany).mock.calls[0]?.[0]?.where;
     expect(where).toMatchObject({ isAdmin: true, id: { not: 'u1' } });
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({ userId: 'admin1', category: 'security' }));
+    // #981: about a member's account, not the admin's own: not a mandatory security alert.
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ userId: 'admin1', category: 'members' }));
     const toAdmin = send.mock.calls.find(([arg]) => arg.userId === 'admin1')?.[0];
     expect(toAdmin.htmlBody).toContain('&lt;b&gt;marie&lt;/b&gt;');
   });
@@ -53,6 +54,6 @@ describe('admins are told about account deletions (#509)', () => {
     await authService.notifyAdminsOfExecutedDeletions(0);
     expect(send).not.toHaveBeenCalled();
     await authService.notifyAdminsOfExecutedDeletions(2);
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({ subject: '2 accounts deleted' }));
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ subject: '2 accounts deleted', category: 'members' }));
   });
 });

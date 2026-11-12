@@ -20,7 +20,7 @@ function prefs(patch: Partial<NotificationPrefs>): NotificationPrefs {
     notifEmail: true, notifWebhook: false, notifCategories: [],
     notifQuietStart: null, notifQuietEnd: null, notifLanguage: null,
     policy: { smtpEnabled: true, gotifyEnabled: false },
-    categories: ['peak', 'temperature', 'security', 'wishlist', 'backup'],
+    categories: ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'],
     automaticBackups: true,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     ...patch,

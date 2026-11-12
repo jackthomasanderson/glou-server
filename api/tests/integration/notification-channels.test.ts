@@ -230,7 +230,7 @@ describe('GET /user/notifications — categories and time zone (#772, #780)', ()
 
     const { data } = (await get()).body;
 
-    expect(data.categories).toEqual(['peak', 'temperature', 'security', 'wishlist', 'backup']);
+    expect(data.categories).toEqual(['peak', 'temperature', 'security', 'wishlist', 'backup', 'members']);
     expect(data.automaticBackups).toBe(false);
   });
 
@@ -266,6 +266,22 @@ describe('PATCH /user/notifications — categories (#780)', () => {
 
     expect(res.status).toBe(400);
     expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it('does not store member account notices for a member (#981)', async () => {
+    isAdmin = false;
+
+    const res = await patch(['peak', 'members']);
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak', 'security'] } });
+  });
+
+  it('lets an admin turn member account notices off (#981)', async () => {
+    const res = await patch(['peak', 'backup']);
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak', 'backup', 'security'] } });
   });
 
   it('stores backup failures for an admin', async () => {

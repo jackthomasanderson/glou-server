@@ -20,7 +20,7 @@ The **Account security** notification category covers these events, with no per-
 6. Account deletion requested.
 7. A session revoked (yours or from the sessions panel, see [11-Sessions-Trusted-Devices.md](./11-Sessions-Trusted-Devices.md)).
 
-Administrators also get, in this category, the notices about member accounts being deleted.
+Notices sent to administrators about **other members'** accounts (a member asked for their account to be deleted, accounts deleted after the grace period) are not security alerts about your own account: they have their own **Member accounts** category, which administrators can turn off like the other categories.
 
 Each notification includes the timestamp, the device or IP involved, and a direct link back to your security settings (`/profile#security`) so you can react.
 
@@ -36,7 +36,7 @@ Someone who steals a signed-in session could otherwise turn these alerts off fir
 | Set up | On or off | Off | An email to your account address. |
 | Set up | On or off | On | An email to your account address, and a Gotify copy. |
 | Not set up or off | — | On | A Gotify copy only. |
-| Not set up or off | — | Off | Nothing can be sent: ask your administrator to set up email. Administrators still see sign-ins and account changes in the [audit log](./10-Audit-Log.md). |
+| Not set up or off | — | Off, or Gotify not set up | Nothing can be sent: ask your administrator to set up email. Administrators still see sign-ins and account changes in the [audit log](./10-Audit-Log.md). |
 
 Your email switch only affects the other categories (peak maturity, temperature, wishlist, backups). Turning Gotify off only stops the Gotify copy.
 

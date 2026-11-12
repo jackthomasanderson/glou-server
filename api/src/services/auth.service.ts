@@ -1632,9 +1632,10 @@ async function notifyAdminsOfAccountDeletion(event: AccountDeletionEvent): Promi
       }
       // #742: the "N accounts deleted" notice is sent by the 3 a.m.
       // maintenance run, inside most night-time quiet hours, which drop a
-      // message rather than delay it. Like the other security alerts, it
-      // goes through them.
-      return notificationService.send({ userId: admin.id, category: 'security', subject, htmlBody, bypassQuietHours: true });
+      // message rather than delay it, so it goes through them.
+      // #981: about a member's account, not the admin's own: an admin can
+      // turn these off, unlike security alerts.
+      return notificationService.send({ userId: admin.id, category: 'members', subject, htmlBody, bypassQuietHours: true });
     }));
   } catch (err) {
     console.error('[auth] Could not notify administrators of an account deletion:', err);
