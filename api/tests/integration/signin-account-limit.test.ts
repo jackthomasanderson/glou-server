@@ -12,10 +12,10 @@ import crypto from 'crypto';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    user: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findFirst: vi.fn(), update: vi.fn() },
-    session: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn(), create: vi.fn() },
+    user: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), findFirst: vi.fn(), update: vi.fn(), count: vi.fn(), create: vi.fn() },
+    session: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn(), create: vi.fn(), updateMany: vi.fn() },
     auditLog: { create: vi.fn() },
-    trustedDevice: { findUnique: vi.fn(), update: vi.fn() },
+    trustedDevice: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     $queryRaw: vi.fn(),
   },
   connectWithRetry: vi.fn(),
@@ -55,7 +55,7 @@ const userRow = (name: string) => ({
   mustChangePassword: false, backupCodes: [], twoFactorFailedAttempts: 0, twoFactorLockedUntil: null, notifLanguage: null,
 });
 const KNOWN = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'gina', 'hank', 'ivan', 'jade', 'kim', 'liam', 'mona', 'ned', 'olga', 'pia', 'quinn', 'rex',
-  'sam', 'tina', 'uma', 'vic', 'walt', 'xena', 'yann', 'zoe', 'abel', 'beth', 'cleo'];
+  'sam', 'tina', 'uma', 'vic', 'walt', 'xena', 'yann', 'zoe', 'abel', 'beth', 'cleo', 'dora', 'newbie'];
 // #980: these accounts have two-factor authentication on. A trusted device
 // only exists on such an account (trusting needs 2FA, turning it off revokes them).
 const WITH_2FA = new Set(['jade', 'kim', 'liam', 'mona', 'olga', 'pia']);
@@ -109,7 +109,19 @@ beforeEach(() => {
     return KNOWN.includes(name) ? accountRow(name) : null;
   }) as never);
   vi.mocked(prisma.user.findUniqueOrThrow).mockImplementation((async (args: { where: { id: string } }) => accountRow(args.where.id.replace(/^id-/, ''))) as never);
-  vi.mocked(prisma.user.update).mockImplementation((async (args: { where: { id: string } }) => userRow(args.where.id.replace(/^id-/, ''))) as never);
+  vi.mocked(prisma.user.update).mockImplementation((async (args: { where: { id: string }; data?: { passwordHash?: string } }) => {
+    const name = args.where.id.replace(/^id-/, '');
+    // #988: a new password is kept, so cookies bound to the old one stop working.
+    if (args.data?.passwordHash) changed.set(name, { ...changed.get(name), passwordHash: args.data.passwordHash });
+    return accountRow(name);
+  }) as never);
+  vi.mocked(prisma.user.count).mockResolvedValue(0 as never);
+  vi.mocked(prisma.user.create).mockImplementation((async (args: { data: { username: string; passwordHash: string } }) => {
+    changed.set(args.data.username, { passwordHash: args.data.passwordHash });
+    return accountRow(args.data.username);
+  }) as never);
+  vi.mocked(prisma.session.updateMany).mockResolvedValue({ count: 0 } as never);
+  vi.mocked(prisma.trustedDevice.updateMany).mockResolvedValue({ count: 0 } as never);
   vi.mocked(prisma.session.findUnique).mockResolvedValue({ revokedAt: null, expiresAt: new Date(Date.now() + 3_600_000) } as never);
   vi.mocked(prisma.session.update).mockResolvedValue({} as never);
   vi.mocked(prisma.session.findMany).mockResolvedValue([] as never);
@@ -467,4 +479,36 @@ describe('POST /api/auth/login from a known browser (#988)', () => {
     expect(answers.slice(0, 20).every((s) => s === 200)).toBe(true);
     expect(answers[20]).toBe(429);
   });
+});
+
+describe('the known-browser cookie follows the member (#988, review)', () => {
+  it('is renewed by a password change, so the member\'s own browser stays known while older cookies stop working', async () => {
+    const older = await signedInBefore('dora');
+    const token = jwt.sign({ userId: 'id-dora', email: 'dora@example.com', username: 'dora', scope: 'full', sessionId: 's1' }, JWT_SECRET, { algorithm: 'HS256' });
+    const NEW_PASSWORD = 'a-brand-new-password';
+    const changedRes = await request(app).patch('/api/user/password').set('Authorization', `Bearer ${token}`)
+      .set('Sec-Fetch-Site', 'same-origin').set('X-Forwarded-For', nextIp())
+      .send({ currentPassword: PASSWORD, newPassword: NEW_PASSWORD });
+    expect(changedRes.status).toBe(200);
+    const header = knownBrowserSetCookie(changedRes);
+    expect(header).toMatch(/HttpOnly/i);
+    expect(header).toMatch(/Path=\/api\/auth/);
+    const renewed = knownBrowserOf(changedRes);
+
+    await wrongGuesses('dora', SIGN_IN_FAILURES_MAX);
+    expect((await signInFromBrowser('dora', NEW_PASSWORD, older)).status).toBe(429);
+    expect((await signInFromBrowser('dora', NEW_PASSWORD, renewed)).status).toBe(200);
+  }, 30_000); // the new password is hashed at the real cost (12), and checked a dozen times
+
+  it('is set by the automatic sign-in after registration', async () => {
+    vi.mocked(prisma.user.findFirst).mockResolvedValueOnce(null as never); // the name is free
+    const res = await request(app).post('/api/auth/register').set('Sec-Fetch-Site', 'same-origin').set('X-Forwarded-For', nextIp())
+      .send({ username: 'newbie', email: 'newbie@example.com', password: PASSWORD });
+    expect(res.status).toBe(201);
+    const cookie = knownBrowserOf(res);
+
+    await wrongGuesses('newbie', SIGN_IN_FAILURES_MAX);
+    expect((await signIn('newbie', PASSWORD)).status).toBe(429);
+    expect((await signInFromBrowser('newbie', PASSWORD, cookie)).status).toBe(200);
+  }, 30_000); // registration hashes at the real cost (12), checked a dozen times
 });

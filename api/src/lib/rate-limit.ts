@@ -155,9 +155,11 @@ function oncePerWindow(windowMs: number, onLocked: (req: Request) => void): (req
  *   very account (see {@link signInProof}) skips the identifier's budget:
  *   the cookie proves a past sign-in there, which a stranger does not have.
  *   Its wrong passwords are counted on a budget of that device or browser
- *   instead, so a stolen cookie buys no more guesses than the identifier
- *   gives; only the cookie's holder can spend it. The per-address limiter
- *   still applies.
+ *   instead (10 per window); only the cookie's holder can spend it. So each
+ *   stolen cookie adds one such budget to the identifiers' own: a thief
+ *   holding both cookies of an account gets at most 40 guesses per window
+ *   (device 10 + browser 10 + username 10 + e-mail 10), and every one of
+ *   them is still under the per-address limiter.
  * - The first refusal of each window is reported through `onLocked`, for the
  *   route to file under the account (one row per window, not per guess).
  */

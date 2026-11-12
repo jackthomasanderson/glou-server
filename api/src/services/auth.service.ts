@@ -425,7 +425,7 @@ export class AuthService {
   /**
    * Register a new user.
    */
-  async register(data: RegisterInput, deviceInfo: DeviceInfo): Promise<{ user: PublicUser; token: string }> {
+  async register(data: RegisterInput, deviceInfo: DeviceInfo): Promise<{ user: PublicUser; token: string; knownBrowserToken?: string }> {
     const { username, email, password, displayName } = data;
 
     // If this is the first user, make them an admin
@@ -477,7 +477,8 @@ export class AuthService {
     // its cookie is persistent (COOKIE_OPTIONS), so the Session is flagged rememberMe=true.
     const session = await this.createSession(user.id, deviceInfo, true);
     const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
-    return { user, token };
+    // #988: a sign-in like any other, so this browser is known from now on.
+    return { user, token, knownBrowserToken: knownBrowserToken({ id: user.id, passwordHash }) };
   }
 
   /**
@@ -765,9 +766,12 @@ export class AuthService {
   }
 
   /**
-   * Update user password
+   * Update user password. Also the forced change after an admin reset
+   * (#336). Returns a new known-browser token (#988): the new hash voids
+   * every earlier one, the member's own browser included, so the route hands
+   * that browser a fresh one.
    */
-  async updatePassword(userId: string, currentPass: string, newPass: string, deviceInfo: DeviceInfo, currentSessionId: string): Promise<void> {
+  async updatePassword(userId: string, currentPass: string, newPass: string, deviceInfo: DeviceInfo, currentSessionId: string): Promise<{ knownBrowserToken?: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
     const valid = await bcrypt.compare(currentPass, user.passwordHash);
@@ -787,6 +791,7 @@ export class AuthService {
     await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
     // ISSUE_044: neither must a trusted device, which skips the 2FA challenge.
     await this.revokeAllTrustedDevices(userId);
+    return { knownBrowserToken: knownBrowserToken({ id: userId, passwordHash }) };
   }
 
   /**
@@ -1643,6 +1648,21 @@ export const COOKIE_OPTIONS = {
   sameSite: 'strict' as const,
   maxAge: 30 * 24 * 60 * 60 * 1000,
   path: '/',
+};
+
+// #988: known-browser cookie, see knownBrowserToken. Set on every completed
+// sign-in (2FA or not) and renewed by a password change. It only lets that
+// browser past a locked sign-in identifier (signInAccountLimiter); it never
+// skips 2FA. Same flags and scope as the trusted-device cookie, kept on
+// logout for the same reason, valid 30 days from the last sign-in, void as
+// soon as the password changes.
+export const KNOWN_BROWSER_COOKIE_NAME = 'glou_known_browser';
+export const KNOWN_BROWSER_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: isCookieSecure(),
+  sameSite: 'strict' as const,
+  maxAge: KNOWN_BROWSER_TTL_MS,
+  path: '/api/auth',
 };
 
 // Session cookie (rememberMe=false) — expires when browser closes

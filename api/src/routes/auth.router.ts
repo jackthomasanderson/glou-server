@@ -3,7 +3,7 @@ import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
 import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema, regenerateBackupCodesSchema, forgotPasswordSchema, validateResetTokenSchema, resetPasswordSchema } from '../schemas/auth.schema';
 import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
-import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, KNOWN_BROWSER_TTL_MS, LoginResult } from '../services/auth.service';
+import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, KNOWN_BROWSER_COOKIE_NAME, KNOWN_BROWSER_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { authRateLimit, passwordCheckLimiter, signInAccountLimiter, unlockAccountLimiter } from '../lib/rate-limit';
@@ -33,20 +33,7 @@ const TRUSTED_DEVICE_COOKIE_OPTIONS = {
   path: '/api/auth',
 };
 
-// ─── Known-browser cookie (#988) ───────────────────────────────────────────────
-// Set on every completed sign-in, 2FA or not. It only lets that browser past a
-// locked sign-in identifier (signInAccountLimiter); it never skips 2FA. Same
-// flags and scope as the trusted-device cookie, kept on logout for the same
-// reason, renewed for 30 days on each sign-in, and void as soon as the
-// password changes (see auth.service).
-const KNOWN_BROWSER_COOKIE_NAME = 'glou_known_browser';
-const KNOWN_BROWSER_COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: isCookieSecure(),
-  sameSite: 'strict' as const,
-  maxAge: KNOWN_BROWSER_TTL_MS,
-  path: '/api/auth',
-};
+// ─── Known-browser cookie (#988, see auth.service) ─────────────────────────────
 
 function setKnownBrowserCookie(res: Response, token: string | undefined): void {
   if (token) res.cookie(KNOWN_BROWSER_COOKIE_NAME, token, KNOWN_BROWSER_COOKIE_OPTIONS);
@@ -142,9 +129,10 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = registerSchema.parse(req.body);
-    const { user, token } = await authService.register(data, readDeviceInfo(req));
+    const { user, token, knownBrowserToken } = await authService.register(data, readDeviceInfo(req));
 
     res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
+    setKnownBrowserCookie(res, knownBrowserToken);
     void auditLog({ userId: user.id, action: 'REGISTER', status: 'success', ip });
     res.status(201).json({ data: user });
   } catch (error) {

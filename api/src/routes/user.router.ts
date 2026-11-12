@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import { authService } from '../services/auth.service';
+import { authService, KNOWN_BROWSER_COOKIE_NAME, KNOWN_BROWSER_COOKIE_OPTIONS } from '../services/auth.service';
 import type { ExportCategory } from '../../../shared/auth';
 import { MANDATORY_NOTIFICATION_CATEGORIES, notificationCategoriesFor } from '../../../shared/notifications';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
@@ -146,7 +146,9 @@ router.patch('/password', authMiddleware, passwordCheckLimiter, async (req: Requ
   try {
     const { currentPassword, newPassword } = updatePasswordSchema.parse(req.body);
     const deviceInfo = { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
-    await authService.updatePassword(req.userId, currentPassword, newPassword, deviceInfo, req.sessionId);
+    const { knownBrowserToken } = await authService.updatePassword(req.userId, currentPassword, newPassword, deviceInfo, req.sessionId);
+    // #988: the new password voided this browser's known-browser cookie too; renew it.
+    if (knownBrowserToken) res.cookie(KNOWN_BROWSER_COOKIE_NAME, knownBrowserToken, KNOWN_BROWSER_COOKIE_OPTIONS);
     res.json({ success: true });
   } catch (err: unknown) {
     if (err instanceof ZodError) {
