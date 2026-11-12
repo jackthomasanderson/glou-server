@@ -37,9 +37,39 @@ describe('ShareForm — write access of a shared cellar', () => {
     expect(toggle).toBeChecked();
     expect(screen.getByText('Autoriser à ouvrir, boire ou fumer')).toBeInTheDocument();
 
+    // #911: a read/write link asks for the account password before it is created.
+    const save = screen.getByRole('button', { name: 'Enregistrer' });
+    expect(save).toBeDisabled();
+    expect(screen.getByText(/reste valable même après votre déconnexion/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Votre mot de passe'), { target: { value: 'secret' } });
+    expect(save).not.toBeDisabled();
+    fireEvent.click(save);
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).toMatchObject({ cellarIds: ['garage'], writeCellarIds: ['garage'], password: 'secret' });
+  });
+
+  it('a read-only link stays one click: no password asked or sent (#911)', async () => {
+    const onSubmit = vi.fn<(values: ShareFormValues) => Promise<void>>(async () => {});
+    render(<ShareForm onSubmit={onSubmit} onCancel={() => {}} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Garage' }));
+    expect(screen.queryByLabelText('Votre mot de passe')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect(onSubmit.mock.calls[0][0]).toMatchObject({ cellarIds: ['garage'], writeCellarIds: ['garage'] });
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('password');
+  });
+
+  it('turning write access off again drops the password (#911)', async () => {
+    const onSubmit = vi.fn<(values: ShareFormValues) => Promise<void>>(async () => {});
+    render(<ShareForm onSubmit={onSubmit} onCancel={() => {}} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Garage' }));
+    const toggle = screen.getByRole('switch', { name: 'Garage Autoriser à ouvrir, boire ou fumer' });
+    fireEvent.click(toggle);
+    fireEvent.change(screen.getByLabelText('Votre mot de passe'), { target: { value: 'secret' } });
+    fireEvent.click(toggle);
+    expect(screen.queryByLabelText('Votre mot de passe')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty('password');
   });
 
   it('the Partages section no longer says the view is read-only only (FR/EN)', () => {

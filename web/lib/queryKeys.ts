@@ -79,6 +79,7 @@ export const qk = {
     onboarding: ['auth', 'onboarding'],
     sessions: ['auth', 'sessions'],
     backupCodes: ['auth', 'backup-codes'],
+    trustedDevice: ['auth', 'trusted-device'],
   },
   admin: {
     users: ['admin_users'],

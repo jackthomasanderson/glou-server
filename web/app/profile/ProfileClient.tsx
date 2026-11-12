@@ -6,7 +6,6 @@ import { User, Settings, ShieldCheck, Compass, FlaskConical, LogOut } from 'luci
 import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { PageHeader } from '@/components/ui/PageHeader';
-import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
 import { useMe, useLogout, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
 import { notifySuccess } from '@/lib/toast';
 import { useTranslation } from 'react-i18next';
@@ -43,7 +42,9 @@ export function ProfileClient() {
   const { t } = useTranslation();
   const { data: user, isLoading: isLoadingUser } = useMe();
   const logout = useLogout();
+  // One mutation per form, so each Save button spins for its own form only.
   const updateProfile = useUpdateProfile();
+  const updateAppDisplay = useUpdateProfile();
   const updatePrefs = useUpdatePreferences();
 
   const [profileData, setProfileData] = useState({ displayName: '', appName: '', appSlogan: '' });
@@ -58,12 +59,20 @@ export function ProfileClient() {
   // Seeding form state once the user loads is adjusted during render
   // (React's documented pattern) rather than in an effect, guarded against
   // the previous render's user so it only fires when the fetched user
-  // reference actually changes.
-  const [prevUser, setPrevUser] = useState(user);
+  // reference actually changes. It starts empty so a member already in the
+  // query cache (client-side navigation) is seeded too, not left blank.
+  // The text fields are filled once per member only: every save (a theme
+  // auto-saved, the other form) updates the member, and refilling them then
+  // wiped what was being typed. The auto-saved settings follow the member.
+  const [prevUser, setPrevUser] = useState<typeof user>(undefined);
+  const [textSeededFor, setTextSeededFor] = useState<string | undefined>(undefined);
   if (user !== prevUser) {
     setPrevUser(user);
     if (user) {
-      setProfileData({ displayName: user.displayName || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
+      if (user.id !== textSeededFor) {
+        setTextSeededFor(user.id);
+        setProfileData({ displayName: user.displayName || '', appName: user.appName || '', appSlogan: user.appSlogan || '' });
+      }
       setPrefsData({
         theme: user.theme || 'SYSTEM',
         language: user.language || 'FR',
@@ -76,9 +85,18 @@ export function ProfileClient() {
     }
   }
 
+  // #769: the display name is how the other members see you; the app name
+  // and slogan are display settings of your own, saved from the preferences card.
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    updateProfile.mutate(profileData, {
+    updateProfile.mutate({ displayName: profileData.displayName }, {
+      onSuccess: () => notifySuccess('profile.saveSuccess'),
+    });
+  };
+
+  const handleAppDisplaySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateAppDisplay.mutate({ appName: profileData.appName, appSlogan: profileData.appSlogan }, {
       onSuccess: () => notifySuccess('profile.saveSuccess'),
     });
   };
@@ -237,23 +255,10 @@ export function ProfileClient() {
             <form onSubmit={handleProfileSubmit} className="flex flex-col gap-4 mt-2">
               <Input
                 label={t('auth.displayName')}
+                description={t('profile.displayNameHint')}
                 value={profileData.displayName}
                 onValueChange={(v) => setProfileData(prev => ({ ...prev, displayName: v }))}
                 maxLength={60}
-                variant="bordered" size="sm" radius="md" labelPlacement="outside"
-              />
-              <Input
-                label={t('profile.appName')}
-                value={profileData.appName}
-                onValueChange={(v) => setProfileData(prev => ({ ...prev, appName: v }))}
-                placeholder={t('profile.appNamePlaceholder')}
-                variant="bordered" size="sm" radius="md" labelPlacement="outside"
-              />
-              <Input
-                label={t('profile.appSlogan')}
-                value={profileData.appSlogan}
-                onValueChange={(v) => setProfileData(prev => ({ ...prev, appSlogan: v }))}
-                placeholder={t('profile.appSloganPlaceholder')}
                 variant="bordered" size="sm" radius="md" labelPlacement="outside"
               />
               <Button
@@ -371,6 +376,33 @@ export function ProfileClient() {
               </div>
             </div>
 
+            {/* #769: shown in this member's own menu only. */}
+            <form onSubmit={handleAppDisplaySubmit} className="flex flex-col gap-4 mt-4 pt-4 border-t border-divider">
+              <p className="text-xs text-foreground-500">{t('profile.appDisplayHint')}</p>
+              <Input
+                label={t('profile.appName')}
+                value={profileData.appName}
+                onValueChange={(v) => setProfileData(prev => ({ ...prev, appName: v }))}
+                placeholder={t('profile.appNamePlaceholder')}
+                maxLength={40}
+                variant="bordered" size="sm" radius="md" labelPlacement="outside"
+              />
+              <Input
+                label={t('profile.appSlogan')}
+                value={profileData.appSlogan}
+                onValueChange={(v) => setProfileData(prev => ({ ...prev, appSlogan: v }))}
+                placeholder={t('profile.appSloganPlaceholder')}
+                maxLength={100}
+                variant="bordered" size="sm" radius="md" labelPlacement="outside"
+              />
+              <Button
+                type="submit" color="primary" variant="bordered" size="sm" radius="md"
+                isLoading={updateAppDisplay.isPending} isDisabled={updateAppDisplay.isPending}
+              >
+                {t('profile.appDisplaySave')}
+              </Button>
+            </form>
+
             <div className="mt-6 p-3 bg-default-50 rounded-xl">
               <p className="text-xs text-foreground-400">
                 {t('profile.preferencesHint')}
@@ -397,11 +429,10 @@ export function ProfileClient() {
           </div>
         )}
 
-        {/* Security sections */}
+        {/* Security: one card (#766: sign-in, two-factor, trusted device, app lock), then the sessions */}
         {user && (
           <div id="security" className="flex flex-col gap-6 mt-6 scroll-mt-24">
             <AccountSecurity user={user} />
-            <TwoFactorSettings user={user} />
             <SessionsPanel />
           </div>
         )}
