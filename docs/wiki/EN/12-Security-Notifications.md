@@ -5,7 +5,7 @@ Glou notifies you when something sensitive happens on your account: new device l
 
 ## Prerequisites
 * Logged into your account.
-* At least one notification channel enabled (in-app and/or email) in **Profile → Notifications**.
+* At least one notification channel enabled (email and/or Gotify) in **Profile → Notifications**, offered there once an administrator has set it up.
 
 ## Action
 
@@ -21,7 +21,7 @@ Each notification includes the timestamp, the device or IP involved, and a direc
 ### Enable or disable security notifications
 1. Go to **Profile → Notifications**.
 2. Find the **Security** category chip and click it to toggle it on or off.
-3. Choose your delivery channel(s) (in-app, email) using the channel switches in the same panel.
+3. Choose your delivery channel(s) (email, Gotify) using the channel switches in the same panel.
 
 > [!CAUTION]
 > Security notifications always bypass your configured quiet hours. You cannot mute this category during quiet hours, only disable it entirely.

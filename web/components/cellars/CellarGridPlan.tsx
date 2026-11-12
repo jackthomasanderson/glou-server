@@ -12,7 +12,7 @@ import {
   CircularProgress,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Flame, Snowflake } from 'lucide-react';
+import { Flame, Plus, Snowflake } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -216,7 +216,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = 
             onOpenSlot(item);
           }
         }}
-        className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-focus"
         style={{
           ...cellBackground(item),
           cursor: isDragging ? 'grabbing' : 'grab',
@@ -303,7 +303,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording
               if (!offlineReasonId) onClickEmpty();
             }
           }}
-          className={`w-full h-full rounded outline-none focus-visible:ring-2 focus-visible:ring-primary ${offlineReasonId ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-default-100'}`}
+          className={`w-full h-full rounded outline-none focus-visible:ring-2 focus-visible:ring-focus ${offlineReasonId ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-default-100'}`}
         />
       )}
     </div>
@@ -382,9 +382,13 @@ interface AssignDialogProps {
   cellarId: string;
   onClose: () => void;
   wording: GridWording;
+  /** #707: the cellar holds nothing at all — said so, rather than "all already placed". */
+  isCellarEmpty: boolean;
+  /** #707: "Ajouter une bouteille ici", offered by an empty cellar. */
+  onAddHere?: () => void;
 }
 
-function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, onClose, wording }: AssignDialogProps) {
+function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, onClose, wording, isCellarEmpty, onAddHere }: AssignDialogProps) {
   const { t, i18n } = useTranslation();
   const assignSlot = useAssignSlot(cellarId);
   const [error, setError] = useState<string | null>(null);
@@ -416,7 +420,16 @@ function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, o
               {error}
             </div>
           )}
-          {unassignedItems.length === 0 ? (
+          {isCellarEmpty ? (
+            <div className="flex flex-col items-start gap-3 px-4 py-4">
+              <p className="text-sm text-foreground-500">{t('cellars.grid.emptyCellar', wording)}</p>
+              {onAddHere && (
+                <Button size="sm" color="primary" variant="flat" startContent={<Plus size={14} />} onPress={() => { onClose(); onAddHere(); }}>
+                  {t('cellars.addHere', wording)}
+                </Button>
+              )}
+            </div>
+          ) : unassignedItems.length === 0 ? (
             <p className="px-4 py-4 text-sm text-foreground-500">
               {t('cellars.grid.noUnassignedBottles', wording)}
             </p>
@@ -547,6 +560,8 @@ interface CellarGridPlanProps {
    * touched (the drawer's "Case C2·R3" and "Retirer de la case").
    */
   onOpenSlot: (cell: GridCell) => void;
+  /** #707: opens the add form for this cellar, offered when it is empty. */
+  onAddHere?: () => void;
 }
 
 /** A cell a bottle is dropped on, and what it holds. */
@@ -603,7 +618,7 @@ export function dragAnnouncements(
   };
 }
 
-export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
+export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { cellar, items } = data;
@@ -902,6 +917,8 @@ export function CellarGridPlan({ data, onOpenSlot }: CellarGridPlanProps) {
         cellarId={cellar.id}
         onClose={() => setAssignTarget(null)}
         wording={wording}
+        isCellarEmpty={localItems.length === 0}
+        onAddHere={onAddHere}
       />
     </div>
   );

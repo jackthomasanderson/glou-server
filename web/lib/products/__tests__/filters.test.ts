@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { filterProducts, type ProductFilterContext, type ProductFilterCriteria } from '../filters';
+import { collectionEmptiness, filterProducts, NO_CELLAR, type ProductFilterContext, type ProductFilterCriteria } from '../filters';
 import { openedBottle, product, unit } from './factories';
 
 // #471 — the list of wines: "Plus en cave" (FEAT-101 c1-c2), cellar filter (FEAT-96 c3).
@@ -38,10 +38,42 @@ describe('filterProducts — wines with nothing left (FEAT-101)', () => {
   });
 });
 
+// #961: "Pas sur la carte" lists the wines in stock the Analytics map cannot
+// place, so their region can be corrected in a row.
+describe('filterProducts — wines not on the map (#961)', () => {
+  const located = product({ id: 'located', region: 'Bordeaux', items: [unit()] });
+  const spelt = product({ id: 'spelt', region: 'nouvelle aquitaine ', items: [unit()] });
+  const byAppellation = product({ id: 'appellation', region: null, appellation: 'Pomerol', items: [unit()] });
+  const unknown = product({ id: 'unknown', region: 'Terroir Imaginaire', appellation: 'Pomerol', items: [unit({ quantity: 6 })] });
+  const noRegion = product({ id: 'noRegion', region: '  ', appellation: 'Cuvée Imaginaire', items: [unit()] });
+  const goneUnknown = product({ id: 'goneUnknown', region: 'Terroir Imaginaire', items: [] });
+  const list = [located, spelt, byAppellation, unknown, noRegion, goneUnknown];
+
+  it('keeps only the wines in stock whose region, or appellation when the region is empty, cannot be placed', () => {
+    expect(ids({ notLocated: true }, list)).toEqual(['unknown', 'noRegion']);
+  });
+
+  it('lists every wine in stock when it is off', () => {
+    expect(ids({}, list)).toEqual(['located', 'spelt', 'appellation', 'unknown', 'noRegion']);
+  });
+
+  it('applies to cigars by their leaf origin', () => {
+    const cuban = product({ id: 'cuban', category: 'cigar', leafOrigin: 'Cuba', items: [unit()] });
+    const unplaced = product({ id: 'unplaced', category: 'cigar', leafOrigin: 'Vuelta Imaginaire', items: [unit()] });
+    expect(ids({ notLocated: true }, [cuban, unplaced])).toEqual(['unplaced']);
+  });
+});
+
 describe('filterProducts — other filters on wines', () => {
   it('a cellar filter keeps a wine with some of its bottles there', () => {
     expect(ids({ selectedCellars: ['kitchen'] })).toEqual(['stock']);
     expect(ids({ selectedCellars: ['garage'] })).toEqual(['stock', 'opened']);
+  });
+
+  it('#707: "Sans cave" keeps a wine with some bottles left without a cellar', () => {
+    const homeless = product({ id: 'homeless', items: [unit({ cellarId: null })] });
+    expect(ids({ selectedCellars: [NO_CELLAR] }, [...all, homeless])).toEqual(['homeless']);
+    expect(ids({ selectedCellars: [NO_CELLAR, 'kitchen'] }, [...all, homeless])).toEqual(['stock', 'homeless']);
   });
 
   it('the search reads the cellars of its bottles', () => {
@@ -66,6 +98,29 @@ describe('filterProducts — other filters on wines', () => {
     expect(ids({ openedFilter: 'alerts' }, list, { ...ctx, today: null })).toEqual([]);
   });
 
+  it('#644: "alerts" keeps due reminders and wines at or past their peak, not the ones still approaching', () => {
+    const list = [
+      product({ id: 'approaching', alertStatus: 'approaching' }),
+      product({ id: 'peak', alertStatus: 'peak' }),
+      product({ id: 'past', alertStatus: 'past' }),
+      product({ id: 'none', alertStatus: 'none' }),
+      product({ id: 'approaching-due', alertStatus: 'approaching', reminderDate: '2026-10-31' }),
+      product({ id: 'reminder-later', reminderDate: '2026-11-01' }),
+    ];
+    expect(ids({ openedFilter: 'alerts' }, list)).toEqual(['peak', 'past', 'approaching-due']);
+  });
+
+  it('#644: the "urgency" sort lists past, then peak, then approaching, then the rest', () => {
+    const list = [
+      product({ id: 'none', alertStatus: 'none' }),
+      product({ id: 'approaching', alertStatus: 'approaching' }),
+      product({ id: 'unknown', alertStatus: null }),
+      product({ id: 'peak', alertStatus: 'peak' }),
+      product({ id: 'past', alertStatus: 'past' }),
+    ];
+    expect(ids({ sortBy: 'urgency' }, list)).toEqual(['past', 'peak', 'approaching', 'none', 'unknown']);
+  });
+
   it('the value range reads the value of one bottle', () => {
     expect(ids({ minValue: '50' })).toEqual(['opened']);
     expect(ids({ maxValue: '25' })).toEqual(['stock']);
@@ -74,5 +129,32 @@ describe('filterProducts — other filters on wines', () => {
   it('sorts by the value of the stock', () => {
     // Cuvée X: 9 × 20 € = 180 €; the opened bottle: 80 €.
     expect(ids({ sortBy: 'value' })).toEqual(['stock', 'opened']);
+  });
+});
+
+// #708: a collection with nothing to show gets its own empty state.
+describe('collectionEmptiness', () => {
+  const inColl = (p: typeof inStock) => ({ ...p, collections: [{ id: 'c1', name: 'Cadeaux' }] }) as typeof inStock;
+
+  it('says nothing without a collection chosen', () => {
+    expect(collectionEmptiness(all, criteria())).toBeNull();
+  });
+
+  it('a collection holding no wine is empty, whatever the other filters', () => {
+    expect(collectionEmptiness(all, criteria({ selectedCollectionId: 'c1' }))).toBe('empty');
+    expect(collectionEmptiness(all, criteria({ selectedCollectionId: 'c1', searchQuery: 'x' }))).toBe('empty');
+  });
+
+  it('a collection whose wines are all finished has nothing left', () => {
+    expect(collectionEmptiness([inStock, inColl(gone)], criteria({ selectedCollectionId: 'c1' }))).toBe('allGone');
+  });
+
+  it('…unless "Plus en cave" or a search, which show finished wines, is on', () => {
+    expect(collectionEmptiness([inColl(gone)], criteria({ selectedCollectionId: 'c1', showGone: true }))).toBeNull();
+    expect(collectionEmptiness([inColl(gone)], criteria({ selectedCollectionId: 'c1', searchQuery: 'zz' }))).toBeNull();
+  });
+
+  it('a collection with a wine in stock is not empty: other filters may hide it', () => {
+    expect(collectionEmptiness([inColl(inStock), inColl(gone)], criteria({ selectedCollectionId: 'c1' }))).toBeNull();
   });
 });

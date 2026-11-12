@@ -17,3 +17,9 @@ export const recordHumidorReadingSchema = z.object({
 });
 
 export type RecordHumidorReadingInput = z.infer<typeof recordHumidorReadingSchema>;
+
+// #636: `take` for the history query — a whole number, 1 to 100 (1.5 used to
+// reach Prisma as is).
+export const humidorHistoryQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(30),
+});

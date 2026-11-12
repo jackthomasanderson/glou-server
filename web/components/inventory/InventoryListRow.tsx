@@ -3,19 +3,15 @@ import React from 'react';
 import {
   TableRow, TableCell, Chip, Tooltip, Skeleton, Button,
 } from '@heroui/react';
-import { Wine, Sparkles, GlassWater, Leaf, Pencil, Trash2, Clock } from 'lucide-react';
+import { Pencil, Trash2, Clock } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { keepNumbersWhole, type StockLine } from '@/lib/products/stock';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
+import { TapTooltip } from '@/components/ui/TapTooltip';
 import { DrinkingWindowBadge } from './DrinkingWindowBadge';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={14} />,
-  sparkling: <Sparkles size={14} />,
-  spirit: <GlassWater size={14} />,
-  cigar: <Leaf size={14} />,
-};
 
 /**
  * Recette n°5 ter of #847: the table scrolled sideways at 1471 px. Region and
@@ -72,7 +68,7 @@ export function InventoryListRow({
         <TableCell key="icon" className="w-10 pr-0">
           <Tooltip content={categoryLabel} delay={500}>
             <Chip
-              startContent={CATEGORY_ICONS[item.category]}
+              startContent={<CategoryIcon category={item.category} />}
               color={CATEGORY_CHIP_COLOR[item.category]}
               size="sm"
               classNames={{ base: 'min-w-0 px-1' }}
@@ -86,11 +82,14 @@ export function InventoryListRow({
           <div className="flex items-center gap-1.5 min-w-0">
             <p className="text-sm font-semibold line-clamp-2 break-words" title={item.name}>{item.name}</p>
             {hasPendingSync && (
-              <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
-                <span className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700">
-                  <Clock size={10} aria-label={t('offline.pendingSyncTooltip')} />
-                </span>
-              </Tooltip>
+              // #656: a button whose tooltip opens on keyboard focus and on tap.
+              <TapTooltip
+                content={t('offline.pendingSyncTooltip')}
+                aria-label={t('offline.pendingSyncTooltip')}
+                className="shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-warning-100 text-warning-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <Clock size={10} aria-hidden="true" />
+              </TapTooltip>
             )}
           </div>
         </TableCell>,

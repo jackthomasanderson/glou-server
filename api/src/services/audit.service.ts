@@ -1,11 +1,11 @@
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { Prisma } from '@prisma/client';
 import { foldSplitEntries, gestureOf, withoutUndone } from '../lib/audit-history';
+import type { AuditAction, AuditStatus } from '../../../shared/audit';
 import { CORRECTION_REASONS, type CorrectionReason, type FieldChange, type ProductHistoryEntry } from '../../../shared/product';
 
-export type AuditAction = 'LIST' | 'CREATE' | 'READ' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'RESTORE_FIELD' | 'LOGIN' | 'LOGIN_2FA' | 'LOGOUT' | 'REGISTER' | 'CELLAR_CREATE' | 'CELLAR_READ' | 'CELLAR_UPDATE' | 'CELLAR_DELETE' | 'CELLAR_SWAP_SLOTS' | 'COLLECTION_CREATE' | 'COLLECTION_UPDATE' | 'COLLECTION_DELETE' | 'SESSION_REVOKE' | 'TRUST_DEVICE' | 'BACKUP_CODES_REGENERATE' | 'ADMIN_ROLE_CHANGE' | 'ADMIN_STATUS_CHANGE' | 'UNTRUST_DEVICE' | 'PIN_SET' | 'PIN_REMOVE' | 'GUEST_UPDATE' | 'GUEST_TASTING' | 'ONBOARDING_COMPLETE' | 'IMPORT_CSV' | 'BACKUP_RESTORE' | 'PURGE' | 'BACKUP_DOWNLOAD' | 'SCAN' | 'HUMIDOR_READING_CREATE' | 'ADD_UNITS' | 'CORRECT_QUANTITY' | 'MERGE_PRODUCTS' | 'DISTINGUISH_PRODUCTS' | 'REVIEW_OK' | 'MOVE_UNITS' | 'REPRICE_UNITS' | 'CONFIG_UPDATE' | 'CONFIG_TEST';
-
-export type AuditStatus = 'success' | 'error' | 'validation_error' | 'not_found';
+// #698: the list lives in shared/ so the admin page can filter and label it.
+export type { AuditAction, AuditStatus };
 
 export interface AuditEntry {
   userId: string;

@@ -118,3 +118,12 @@ export function todayLocalIso(now: Date = new Date()): string {
   const d = String(now.getDate()).padStart(2, '0');
   return `${y}-${m}-${d}`;
 }
+
+/**
+ * The last millisecond of a `YYYY-MM-DD` day in the user's local time zone (#598).
+ * `new Date('2026-10-25')` is midnight UTC, the very start of the day (2 a.m. in France).
+ */
+export function endOfLocalDay(dateIso: string): Date {
+  const [y, m, d] = dateIso.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+}

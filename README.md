@@ -40,6 +40,7 @@
 
 **Prerequisites:**
 - Docker installed and running, on a 64-bit Intel/AMD or ARM host (Raspberry Pi 4/5, ARM NAS…): images are published for `linux/amd64` and `linux/arm64`.
+- A recent browser to use the app: Safari and iOS Safari 16.4+, Chrome and Edge 111+, Firefox 128+ (or newer). iOS 15 and earlier are not supported.
 
 **Step 1: Configure**
 ```bash
@@ -70,10 +71,10 @@ Docker pulls the pre-built images and starts the stack. No compilation required.
 Open [http://localhost:3000](http://localhost:3000), click **Sign up** (under the sign-in form), then **Create account**. The first account you create is automatically granted admin privileges.
 
 > [!NOTE]
-> Once that first account exists, **registration is closed**. To let other people sign up, an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Network**, and can turn it off again afterwards.
+> Once that first account exists, **registration is closed**. To let other people sign up, an admin turns on **Allow new accounts to register** in **Administration → System Configuration → Access**, and can turn it off again afterwards.
 
 > [!TIP]
-> To update to a new version: `docker compose pull && docker compose up -d`. Back up first (**Administration → System Configuration → Backups → Back up now**); to go back, see [Upgrade & Roll Back](./docs/wiki/EN/31-Upgrades-And-Rollback.md).
+> To update to a new version: `docker compose pull && docker compose up -d`. Back up first (**Administration → System Configuration → Data → Back up now**); to go back, see [Upgrade & Roll Back](./docs/wiki/EN/31-Upgrades-And-Rollback.md).
 
 *For advanced configuration, environment variables, and troubleshooting, see the [Wiki](./docs/wiki/EN/_wiki.md).*
 
@@ -97,12 +98,26 @@ Open [http://localhost:3000](http://localhost:3000), click **Sign up** (under th
 Dozens of smaller features ship regularly; see the [closed pull requests](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) for the full history.
 
 ### Next up
-- Smart Data Engine: auto-enrichment via Vivino and Whiskybase, backed by a local cache. Not built yet: the admin screen's integration keys aren't read by anything today.
+- Smart Data Engine: auto-enrichment via Vivino and Whiskybase, backed by a local cache. Not built yet.
 - Predictive analytics for collection valuation.
 - Advanced IoT integration for live cellar temperature and humidity monitoring.
 - Native mobile companion application.
 
+## License
+
+Starting with the first release after v2026.11.2, Glou is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Each released version is licensed under the LICENSE file it ships with. The licence covers Glou's own code, documentation, wiki, logo and icons; third-party components keep their own licences (see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+
+- **Free** for personal use and any other noncommercial purpose, including sharing an instance with your household, family or friends, and sharing its hosting costs without profit. A club or association managing its members' shared cellar, without selling to the public, is a noncommercial use. Occasionally selling bottles from your own collection does not make your use commercial; trading in wine as a business does.
+- **Also free** for charities, educational institutions, public research organisations, public safety or health organisations, environmental protection organisations and government institutions, whatever their funding.
+- **Other business use needs a commercial licence**: for example, using Glou to run a business (including the cellar of your own shop, bar or restaurant, or cellars you manage for clients), selling Glou hosting, or including Glou in a paid offer. Write to bl00md3v@gmail.com with your organisation's name, what you use Glou for and how many sites or users; terms and price are agreed case by case.
+- The name, logo and baseline are covered by the [trademark policy](TRADEMARKS.md).
+- Contributions require signing the [Contributor License Agreement](CLA.md).
+
+Glou's source code is available and may be changed and shared for noncommercial purposes, but Glou is not free software or open source in the OSI sense.
+
+This section is a summary for convenience. The [LICENSE](LICENSE) file is the binding text; if this summary differs from it, the LICENSE prevails.
+
 ## Credits / Third parties
 
-- This product includes GeoLite data created by MaxMind, available from [http://maxmind.com/](http://maxmind.com/).
+- [IP Geolocation by DB-IP](https://db-ip.com): the approximate location of sessions uses the DB-IP IP to City Lite database, licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 - World map outlines from [Natural Earth](https://www.naturalearthdata.com/) (public domain), packaged by [world-atlas](https://github.com/topojson/world-atlas).

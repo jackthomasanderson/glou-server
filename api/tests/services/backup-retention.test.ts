@@ -8,8 +8,12 @@ import path from 'path';
 // suites write to the real one concurrently.
 
 const findUnique = vi.fn();
+const deleteMany = vi.fn();
 vi.mock('../../src/lib/prisma', () => ({
-  prisma: { systemConfig: { findUnique: (...a: unknown[]) => findUnique(...a) } },
+  prisma: {
+    systemConfig: { findUnique: (...a: unknown[]) => findUnique(...a) },
+    backupRun: { deleteMany: (...a: unknown[]) => deleteMany(...a) },
+  },
 }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
 vi.mock('../../src/services/notification.service', () => ({ notificationService: { send: vi.fn() } }));
@@ -32,6 +36,7 @@ function folderWith(files: Record<string, number>) {
 beforeEach(() => {
   unlinked = [];
   findUnique.mockReset().mockResolvedValue({ backupRetentionDays: 7 });
+  deleteMany.mockReset().mockResolvedValue({ count: 0 });
 });
 
 afterEach(() => {
@@ -50,6 +55,56 @@ describe('backupService.enforceRetention', () => {
     await backupService.enforceRetention();
 
     expect(unlinked).toEqual(['glou-backup-2026-09-01T03-00-00-000Z.sql.gz']);
+  });
+
+  // #748: the history kept listing the deleted backups, which could then be
+  // neither downloaded nor restored.
+  it('removes the deleted backups from the history, and only them', async () => {
+    folderWith({
+      'glou-backup-2026-09-01T03-00-00-000Z.sql.gz': OLD,
+      'glou-backup-2026-09-02T03-00-00-000Z.sql.gz': OLD,
+      'glou-backup-2026-10-30T03-00-00-000Z.sql.gz': RECENT,
+    });
+
+    await backupService.enforceRetention();
+
+    expect(deleteMany).toHaveBeenCalledTimes(1);
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        filePath: {
+          in: [
+            path.join(BACKUPS_DIR, 'glou-backup-2026-09-01T03-00-00-000Z.sql.gz'),
+            path.join(BACKUPS_DIR, 'glou-backup-2026-09-02T03-00-00-000Z.sql.gz'),
+          ],
+        },
+      },
+    });
+  });
+
+  it('leaves the history alone when no file was deleted', async () => {
+    folderWith({ 'glou-backup-2026-10-30T03-00-00-000Z.sql.gz': RECENT });
+
+    await backupService.enforceRetention();
+
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('keeps the row of a file it could not delete', async () => {
+    folderWith({
+      'glou-backup-2026-09-01T03-00-00-000Z.sql.gz': OLD,
+      'glou-backup-2026-09-02T03-00-00-000Z.sql.gz': OLD,
+    });
+    vi.spyOn(fs, 'unlinkSync').mockImplementation(((p: fs.PathLike) => {
+      if (String(p).includes('09-01')) throw new Error('EACCES');
+      unlinked.push(path.basename(String(p)));
+    }) as typeof fs.unlinkSync);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await backupService.enforceRetention();
+
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: { filePath: { in: [path.join(BACKUPS_DIR, 'glou-backup-2026-09-02T03-00-00-000Z.sql.gz')] } },
+    });
   });
 });
 

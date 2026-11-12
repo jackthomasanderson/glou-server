@@ -2,10 +2,10 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
+import { accountRequestLimit } from '../lib/rate-limit';
 import { auditLog } from '../services/audit.service';
 import {
   listWishlist,
-  getWishlistItem,
   createWishlistItem,
   updateWishlistItem,
   deleteWishlistItem,
@@ -14,7 +14,6 @@ import {
 } from '../services/wishlist.service';
 import {
   listBudgetEnvelopes,
-  getBudgetEnvelope,
   createBudgetEnvelope,
   updateBudgetEnvelope,
   deleteBudgetEnvelope,
@@ -42,13 +41,6 @@ router.get('/items', async (req: Request, res: Response) => {
   const userId = req.userId!;
   const items = await listWishlist(userId);
   res.json({ data: items });
-});
-
-router.get('/items/:id', async (req: Request, res: Response) => {
-  const userId = req.userId!;
-  const item = await getWishlistItem(userId, routeParam(req.params.id));
-  if (!item) return res.status(404).json({ error: 'WISHLIST_ITEM_NOT_FOUND' });
-  res.json({ data: item });
 });
 
 router.post('/items', async (req: Request, res: Response, next: NextFunction) => {
@@ -99,7 +91,15 @@ router.delete('/items/:id', async (req: Request, res: Response) => {
 
 // ─── PATCH /items/:id/price-seen — manual price entry, see wishlist.service.ts
 
-router.patch('/items/:id/price-seen', async (req: Request, res: Response, next: NextFunction) => {
+/**
+ * Price entries per account and auth window (#767): an opportunity notice
+ * reaches the instance's shared Gotify app, so the action is capped like the
+ * notification test. Plenty for prices typed by hand.
+ */
+const PRICE_ENTRIES_PER_WINDOW = 30;
+const priceSeenLimiter = accountRequestLimit(PRICE_ENTRIES_PER_WINDOW, 'wishlist-price');
+
+router.patch('/items/:id/price-seen', priceSeenLimiter, async (req: Request, res: Response, next: NextFunction) => {
   const userId = req.userId!;
   const ip = getClientIp(req);
   try {
@@ -148,12 +148,6 @@ router.post('/items/:id/convert', async (req: Request, res: Response, next: Next
 router.get('/budget-envelopes', async (_req: Request, res: Response) => {
   const envelopes = await listBudgetEnvelopes();
   res.json({ data: envelopes });
-});
-
-router.get('/budget-envelopes/:id', async (req: Request, res: Response) => {
-  const envelope = await getBudgetEnvelope(routeParam(req.params.id));
-  if (!envelope) return res.status(404).json({ error: 'BUDGET_ENVELOPE_NOT_FOUND' });
-  res.json({ data: envelope });
 });
 
 router.post('/budget-envelopes', async (req: Request, res: Response, next: NextFunction) => {

@@ -41,9 +41,8 @@ body:
     attributes:
       label: Version
       description: >
-        Admin → Configuration système → À propos affiche une version
-        copiable (ex. 2026.10.0). Si vous n'avez pas accès à cette page,
-        laissez vide.
+        Mon profil → Version affiche une version copiable (ex. 2026.11.2).
+        Admin → Configuration système → Système affiche la même.
     validations:
       required: false
 

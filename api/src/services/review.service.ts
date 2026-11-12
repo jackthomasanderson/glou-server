@@ -5,7 +5,7 @@ import { isIntactItem, productKey, summarizeStock, unitKind } from '../lib/finis
 import { compareFamilyIds, fieldSourcesOf, lockFamilies, lockFamily, toUnitView, UNIT_SLOTS, writeProductFields, type ProductWrite } from '../lib/product-fields';
 import { peakWindowSchema } from '../schemas/inventory.schema';
 import { moveHistoryOnto } from '../lib/audit-history';
-import { computeAlertStatus } from './alert.service';
+import { familyAlertStatus } from './alert.service';
 import { LISTED_PRODUCT_FILTER, productService } from './product.service';
 import type { FieldChange, ItemView } from '../../../shared/product';
 import {
@@ -126,7 +126,9 @@ function mergedFamily(walk: Product[], choices: MergeRequest['choices'] = {}): P
       ? null : earliest(dates((family) => family.consumptionPostponedUntil)),
     reminderDate: earliest(dates((family) => family.reminderDate)),
     curveShape: newest.find((family) => family.curveShape !== null)?.curveShape ?? null,
-    alertStatus: computeAlertStatus(data.peakMaturityFrom as number | null, data.peakMaturityTo as number | null),
+    alertStatus: familyAlertStatus({
+      category: walk[0].category, peakMaturityFrom: data.peakMaturityFrom as number | null, peakMaturityTo: data.peakMaturityTo as number | null,
+    }),
     lockedFields: [...new Set(walk.flatMap((family) => family.lockedFields))],
     fieldSources: Object.keys(sources).length > 0 ? sources : Prisma.DbNull,
   } as ProductWrite;

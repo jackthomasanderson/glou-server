@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY --from=shared . /shared
 RUN npm run build
 
 # ─── Production image ────────────────────────────────────────────────────────
-FROM node:24-alpine AS runner
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS runner
 
 RUN addgroup -g 1001 glou && adduser -u 1001 -G glou -s /bin/sh -D glou
 

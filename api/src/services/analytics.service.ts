@@ -3,6 +3,7 @@ import { CurveShape, readinessIndex } from '../lib/maturity-curve';
 import { consumedUnits, itemCostInStock, itemSpend, itemUnits, itemValue } from '../lib/finished-item';
 import { UNIT_COUNT_SELECT } from '../lib/stock-units';
 import { ANALYTICS_PERIOD_SCOPE, type AnalyticsStats, type CavePoint, type MovementStats } from '../../../shared/analytics';
+import { findKnownRegion, mapLocationOf, normalizeRegionName } from '../../../shared/map-location';
 
 function computeBottleVolume(category: string, bottleSize: string | null, fillLevel: number | null): number {
   if (category === 'cigar') return 0;
@@ -61,6 +62,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
           select: {
             category: true,
             region: true,
+            appellation: true,
             leafOrigin: true,
             alertStatus: true,
             peakMaturityFrom: true,
@@ -102,6 +104,11 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // FEAT-40/41: region × category composite map, built alongside regionMap
   // from the same loop/values — no second pass over `items`.
   const regionCategoryMap: Record<string, Record<string, { count: number; valuation: number }>> = {};
+  // #961: regions are keyed by `normalizeRegionName` ("bordeaux " and
+  // "Bordeaux" are one place); the units of each spelling pick the name shown.
+  const spellingsByRegion: Record<string, Record<string, number>> = {};
+  // #961: units in stock with nothing to place them by, per category.
+  const noLocationMap: Record<string, number> = {};
   const caveMap: Record<string, { count: number; valuation: number }> = {};
   // The key of the units in no cellar (a cellar id is a uuid, never empty).
   const NO_CELLAR = '';
@@ -137,11 +144,9 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     categoryMap[product.category].count += units;
     categoryMap[product.category].valuation += value;
 
-    const region = product.category === 'cigar'
-      ? (product.leafOrigin ?? product.region)
-      : product.region;
-    if (region?.trim()) {
-      const key = region.trim();
+    const location = mapLocationOf(product);
+    if (location) {
+      const key = normalizeRegionName(location);
       if (!regionMap[key]) regionMap[key] = { count: 0, valuation: 0 };
       regionMap[key].count += units;
       regionMap[key].valuation += value;
@@ -150,6 +155,11 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       if (!regionCategoryMap[key][product.category]) regionCategoryMap[key][product.category] = { count: 0, valuation: 0 };
       regionCategoryMap[key][product.category].count += units;
       regionCategoryMap[key][product.category].valuation += value;
+
+      const spellings = (spellingsByRegion[key] ??= {});
+      spellings[location] = (spellings[location] ?? 0) + units;
+    } else {
+      noLocationMap[product.category] = (noLocationMap[product.category] ?? 0) + units;
     }
 
     // Cave distribution. Recette #847 (KO 10.2): a unit in no cellar counts
@@ -203,6 +213,16 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     }
   }
 
+  // #961: one name per region — the map's own when it knows the place, else
+  // the spelling of most units (alphabetical on a tie, to stay stable).
+  const regionName = (key: string): string => {
+    const spellings = Object.entries(spellingsByRegion[key]);
+    const known = findKnownRegion(spellings[0][0]);
+    if (known) return known.name;
+    spellings.sort(([a, x], [b, y]) => y - x || a.localeCompare(b));
+    return spellings[0][0];
+  };
+
   // The maturity buckets split the units in stock, so they add up to 100 %.
   const pct = (n: number) => (inStockUnits > 0 ? Math.round((n / inStockUnits) * 100) : 0);
 
@@ -252,19 +272,22 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
       .map(([category, { count, valuation }]) => ({ category, count, valuation: Math.round(valuation) }))
       .sort((a, b) => b.count - a.count),
     regionBreakdown: Object.entries(regionMap)
-      .map(([region, { count, valuation }]) => ({ region, count, valuation: Math.round(valuation) }))
+      .map(([key, { count, valuation }]) => ({ region: regionName(key), count, valuation: Math.round(valuation) }))
       .sort((a, b) => b.count - a.count || b.valuation - a.valuation)
       .slice(0, 10),
     regionCategoryBreakdown: Object.entries(regionCategoryMap)
-      .flatMap(([region, byCategory]) =>
+      .flatMap(([key, byCategory]) =>
         Object.entries(byCategory).map(([category, { count, valuation }]) => ({
-          region,
+          region: regionName(key),
           category,
           count,
           valuation: Math.round(valuation),
         }))
       )
       .sort((a, b) => b.count - a.count || b.valuation - a.valuation),
+    noLocationBreakdown: Object.entries(noLocationMap)
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count),
     maturityPlanning: {
       preserve: { count: preserve, percent: pct(preserve) },
       atPeak: { count: atPeak, percent: pct(atPeak) },

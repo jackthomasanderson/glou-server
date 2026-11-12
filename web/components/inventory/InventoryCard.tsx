@@ -4,18 +4,21 @@ import {
   Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button, Checkbox,
 } from '@heroui/react';
 import {
-  Wine, Sparkles, GlassWater, Leaf, MapPin, AlertTriangle, Pencil, Trash2, Clock,
+  MapPin, AlertTriangle, Pencil, Trash2, Clock, CheckCircle, BellOff,
 } from 'lucide-react';
+import { TapTooltip } from '@/components/ui/TapTooltip';
 import { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { keepNumbersWhole, wineName, type StockLine } from '@/lib/products/stock';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={12} />,
-  sparkling: <Sparkles size={12} />,
-  spirit: <GlassWater size={12} />,
-  cigar: <Leaf size={12} />,
+
+// The icons of DrinkingWindowBadge (list view), one per status (#647).
+const DRINKING_WINDOW_ICONS: Record<'approaching' | 'peak' | 'past', { icon: typeof Clock; color: string }> = {
+  approaching: { icon: Clock, color: 'text-primary' },
+  peak: { icon: CheckCircle, color: 'text-success' },
+  past: { icon: AlertTriangle, color: 'text-danger' },
 };
 
 // Placeholder gradient (no photo yet) — derived from the shared
@@ -68,24 +71,39 @@ export function InventoryCard({
       ? `≤ ${item.peakMaturityTo}`
       : null;
 
-  const alertIconColor =
-    item.alertStatus === 'peak'
-      ? 'text-success'
-      : item.alertStatus === 'past'
-      ? 'text-danger'
-      : item.alertStatus === 'approaching'
-      ? 'text-primary'
-      : 'text-foreground-400';
+  // #647: an icon and a short label per status (the icons of the list view's
+  // DrinkingWindowBadge), so colour is never the only cue. A paused alert: a greyed bell.
+  const windowStatus = item.alertStatus && item.alertStatus !== 'none' && !item.alertsPaused ? item.alertStatus : null;
+  const WindowIcon = windowStatus ? DRINKING_WINDOW_ICONS[windowStatus].icon : item.alertsPaused ? BellOff : Clock;
+  const windowIconColor = windowStatus ? DRINKING_WINDOW_ICONS[windowStatus].color : 'text-foreground-400';
+  const windowLabel = windowStatus ? t(`inventory.alertStatusShort.${windowStatus}`) : t('view.columns.peak');
+  const windowDescription = [
+    // WCAG 2.5.3: the visible words first, so voice control finds the button.
+    `${windowLabel} : ${drinkingWindow}`,
+    t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`),
+    item.alertsPaused ? t('alerts.paused') : null,
+  ].filter(Boolean).join(' — ');
 
   return (
     // #517: the card is no longer one big button containing other buttons
     // (invalid HTML, inner actions unreachable with VoiceOver). The name is
     // the "open" button, stretched over the whole card with an ::after
     // overlay; the checkbox, drinking window and Edit/Delete sit above it.
+    // #708: in selection mode the whole card toggles, not only its box (the
+    // keyboard goes to the box); its own buttons keep their action. On a
+    // layout-less wrapper: HeroUI's Card drops onClick when not pressable.
+    <div
+      className="contents"
+      onClick={onSelectToggle ? (event) => {
+        if ((event.target as HTMLElement).closest('button, a, input, label')) return;
+        onSelectToggle(item, event);
+      } : undefined}
+    >
     <Card
       data-testid="family-card"
       className={[
         'relative flex flex-col transition-all hover:shadow-md',
+        onSelectToggle && 'cursor-pointer select-none',
         isTemp && 'opacity-75',
         // §10.2: an opened bottle keeps the discreet warning accent.
         stock.hasOpened && 'border border-warning-300',
@@ -98,9 +116,10 @@ export function InventoryCard({
           « CIGARE / BOÎTE », it was squeezed to nothing (recette v3 of #471). */}
       <div className="flex flex-wrap items-center justify-between gap-1 px-3 pt-2.5 pb-1 overflow-hidden">
         <Chip
-          startContent={CATEGORY_ICONS[item.category]}
+          startContent={<CategoryIcon category={item.category} size={12} />}
           size="sm"
-          variant="bordered"
+          // flat (ux-ui.md §4.6): its text shade is checked by theme-contrast.test.ts (#648).
+          variant="flat"
           color={CATEGORY_CHIP_COLOR[item.category]}
           radius="sm"
           classNames={{ base: 'h-5 shrink-0', content: 'px-1.5 text-xs font-bold tracking-wider' }}
@@ -124,11 +143,14 @@ export function InventoryCard({
             </Chip>
           )}
           {hasPendingSync && (
-            <Tooltip content={t('offline.pendingSyncTooltip')} delay={500}>
-              <span className="relative z-10 shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-warning-100 text-warning-700">
-                <Clock size={11} aria-label={t('offline.pendingSyncTooltip')} />
-              </span>
-            </Tooltip>
+            // #656: a button whose tooltip opens on keyboard focus and on tap.
+            <TapTooltip
+              content={t('offline.pendingSyncTooltip')}
+              aria-label={t('offline.pendingSyncTooltip')}
+              className="relative z-10 shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-warning-100 text-warning-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              <Clock size={11} aria-hidden="true" />
+            </TapTooltip>
           )}
         </div>
       </div>
@@ -153,7 +175,7 @@ export function InventoryCard({
               filter: stock.gone ? 'grayscale(1)' : undefined,
             }}
           >
-            {React.cloneElement(CATEGORY_ICONS[item.category], { size: 40 } as React.SVGProps<SVGSVGElement>)}
+            <CategoryIcon category={item.category} size={40} />
           </div>
         )}
 
@@ -162,8 +184,8 @@ export function InventoryCard({
           <span
             aria-hidden="true"
             data-testid="family-card-badge"
-            className={`absolute top-2 right-2 max-w-[calc(100%-1rem)] whitespace-nowrap rounded-lg px-1.5 py-0.5 text-xs font-bold leading-tight tracking-wide tabular-nums text-white${
-              stock.badgeLow ? ' bg-danger' : ' bg-[#111]'
+            className={`absolute top-2 right-2 max-w-[calc(100%-1rem)] whitespace-nowrap rounded-lg px-1.5 py-0.5 text-xs font-bold leading-tight tracking-wide tabular-nums${
+              stock.badgeLow ? ' bg-danger text-danger-foreground' : ' bg-[#111] text-white'
             }`}
           >
             {stock.badge}
@@ -193,9 +215,10 @@ export function InventoryCard({
             <Checkbox
               isSelected={isSelected}
               onValueChange={() => onSelectToggle(item)}
-              size="sm"
+              size="md"
               aria-label={t('familyList.selectWine', { name: wineName(item) })}
-              classNames={{ wrapper: 'bg-black/30 border-2 border-white/60 before:border-0 after:bg-primary' }}
+              // #708: an opaque box with a dark rim and a shadow reads on any photo.
+              classNames={{ wrapper: 'bg-background border-2 border-foreground-500 shadow-md before:border-0 after:bg-primary' }}
             />
           </div>
         )}
@@ -288,21 +311,16 @@ export function InventoryCard({
             </span>
           )}
           {drinkingWindow && (
-            <Tooltip
-              content={t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}
-              delay={500}
+            <TapTooltip
+              content={windowDescription}
+              aria-label={windowDescription}
+              className="relative z-10 flex items-center gap-0.5 overflow-hidden min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
             >
-              <button
-                type="button"
-                aria-label={`${t('view.columns.peak')} : ${drinkingWindow} — ${t(`inventory.alertStatus.${item.alertStatus ?? 'none'}`)}`}
-                className="relative z-10 flex items-center gap-0.5 overflow-hidden min-w-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
-              >
-                <AlertTriangle size={12} className={`shrink-0 ${alertIconColor}`} />
-                <span className="text-xs text-foreground-500 truncate" aria-hidden="true">
-                  {t('view.columns.peak')} : {drinkingWindow}
-                </span>
-              </button>
-            </Tooltip>
+              <WindowIcon size={12} aria-hidden="true" className={`shrink-0 ${windowIconColor}${item.alertsPaused ? ' opacity-60' : ''}`} />
+              <span className={`text-xs truncate ${windowStatus ? 'font-semibold text-foreground' : 'text-foreground-500'}`} aria-hidden="true">
+                {windowLabel} : {drinkingWindow}
+              </span>
+            </TapTooltip>
           )}
         </div>
       </CardBody>
@@ -340,6 +358,7 @@ export function InventoryCard({
         </Tooltip>
       </CardFooter>
     </Card>
+    </div>
   );
 }
 

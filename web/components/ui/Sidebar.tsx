@@ -9,10 +9,11 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useLogout } from '@/hooks/useAuth';
-import { useSidebarCounts } from '@/hooks/useSidebarCounts';
+import { useSidebarCounts, useSidebarCountsSync } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
 import { safeWriteStorage, glouKey, readStorageMigrating } from '@/lib/safe-storage';
+import { confirmLeave } from '@/lib/leaveGuard';
 
 export const SIDEBAR_WIDTH = 220;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
@@ -51,7 +52,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
     { label: t('nav.collections'), href: '/collections', icon: <Library size={18} />, count: counts?.collections ?? 0 },
     // Pas de métrique naturelle et peu coûteuse pour les dégustations : le
     // badge reste à 0 (donc masqué) plutôt que d'inventer un chiffre artificiel.
-    { label: t('nav.tastings'), href: '/cellar-journal', icon: <Martini size={18} />, count: 0 },
+    { label: t('nav.tastings'), href: '/tastings', icon: <Martini size={18} />, count: 0 },
     { label: t('nav.inventoryCount'), href: '/inventory-count', icon: <ClipboardCheck size={18} />, count: counts?.countSessionActive ? 1 : 0 },
     { label: t('nav.wishlist'), href: '/wishlist-budget', icon: <Wallet size={18} />, count: counts?.wishlistReady ?? 0 },
     { label: t('nav.analytics'), href: '/analytics-terroirs', icon: <BarChart3 size={18} />, count: 0 },
@@ -260,7 +261,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             radius="full"
             aria-label={t('auth.logout')}
             isLoading={logout.isPending}
-            onPress={() => logout.mutate()}
+            onPress={() => { if (confirmLeave()) logout.mutate(); }}
           >
             <LogOut size={16} />
           </Button>
@@ -273,6 +274,8 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
 /** Desktop sidebar. On mobile the bottom bar (BottomNav.tsx) is the navigation. */
 export function Sidebar() {
   const { t } = useTranslation();
+  // The only mount of the counts subscription (#632); always rendered, hidden by CSS on mobile.
+  useSidebarCountsSync();
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {

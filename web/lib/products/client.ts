@@ -3,6 +3,7 @@ import { fetchOrNetworkError } from '../network-error';
 import type { BulkStockResult, BulkWinesAction, ProductDescription, UnitWriteResult } from '@shared/product';
 import type { InventoryCategory } from '@shared/inventory';
 import type { Wire } from '@shared/wire';
+import type { TrashDeletion } from '../inventory/client';
 import type { Product, ProductDetailView, ProductItem, ProductListResponse, TrashedProduct } from './types';
 
 /**
@@ -38,9 +39,13 @@ export type UnitWrite = Wire<UnitWriteResult<ProductItem, ProductItem>>;
 // ─── Families API client (#471, D9/D10) ─────────────────────────────────────
 
 export const productsClient = {
-  /** The families with their units in stock, and `truncated` (capped like the flat list). */
-  async list(): Promise<ProductListResponse> {
-    const res = await fetch('/api/products', {
+  /**
+   * The families with their units in stock, and `truncated` (capped like the
+   * flat list); #475: with `cellarId`, only those with a bottle in stock there.
+   */
+  async list(options: { cellarId?: string } = {}): Promise<ProductListResponse> {
+    const query = options.cellarId ? `?${new URLSearchParams({ cellarId: options.cellarId })}` : '';
+    const res = await fetch(`/api/products${query}`, {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
       signal: timeoutSignal(15000),
@@ -132,6 +137,12 @@ export const productsClient = {
   /** Brings back the wine and the bottles trashed together with it. */
   async restore(id: string): Promise<Product> {
     const { data } = await client.post<Product>(`/products/${encodeURIComponent(id)}/restore`);
+    return data;
+  },
+
+  /** #962 (administrators): a wine of the trash with its bottles, deleted for good. */
+  async deleteFromTrash(id: string): Promise<TrashDeletion> {
+    const { data } = await client.delete<TrashDeletion>(`/products/trash/${encodeURIComponent(id)}`);
     return data;
   },
 

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { categorySchema } from '../lib/category';
+import { categorySchema, toCategory } from '../lib/category';
 import type { ScanFailureCode } from '../../../shared/scan';
 
 // ─── FEAT-04: Scan Étiquette & Ajout Express — Vision/OCR via Ollama ─────────
@@ -147,13 +147,6 @@ export function extractFirstJsonBlock(text: string): unknown {
   return null;
 }
 
-const CATEGORY_ALIASES: Record<string, OcrExtractedData['category']> = {
-  wine: 'wine', vin: 'wine', red: 'wine', white: 'wine', rouge: 'wine', blanc: 'wine', rosé: 'wine', rose: 'wine',
-  sparkling: 'sparkling', champagne: 'sparkling', crémant: 'sparkling', cremant: 'sparkling', prosecco: 'sparkling', cava: 'sparkling',
-  spirit: 'spirit', spiritueux: 'spirit', whisky: 'spirit', whiskey: 'spirit', rhum: 'spirit', rum: 'spirit', gin: 'spirit', cognac: 'spirit', vodka: 'spirit',
-  cigar: 'cigar', cigare: 'cigar',
-};
-
 /**
  * Best-effort normalization of the raw parsed JSON into our known shape:
  * coerces loose types (vintage as a numeric string, category free text) and
@@ -172,11 +165,9 @@ function normalizeRawExtraction(raw: unknown): OcrExtractedData {
   const vintageNum = typeof rawVintage === 'number' ? rawVintage : typeof rawVintage === 'string' ? parseInt(rawVintage, 10) : NaN;
   if (Number.isInteger(vintageNum) && vintageNum >= 1000 && vintageNum <= 2100) result.vintage = vintageNum;
 
-  const rawCategory = typeof obj.category === 'string' ? obj.category.trim().toLowerCase() : null;
-  if (rawCategory) {
-    const mapped = CATEGORY_ALIASES[rawCategory];
-    if (mapped) result.category = mapped;
-  }
+  // #596: the same category words as the CSV import (lib/category.ts).
+  const category = typeof obj.category === 'string' ? toCategory(obj.category) : null;
+  if (category) result.category = category;
 
   if (typeof obj.contenance === 'string' && obj.contenance.trim()) result.contenance = obj.contenance.trim().slice(0, 50);
 

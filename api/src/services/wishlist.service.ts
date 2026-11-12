@@ -7,13 +7,13 @@ import { rememberDistinct } from './review.service';
 import { notificationService } from './notification.service';
 import { escapeHtml } from '../lib/html';
 import { WishlistCreateInput, WishlistPatchInput, ConvertToInventoryInput } from '../schemas/wishlist.schema';
-import { InventoryInput } from '../schemas/inventory.schema';
+import { InventoryDraft } from '../schemas/inventory.schema';
 
 /**
  * FEAT-20: Liste de Souhaits & Pilotage Budgétaire.
  *
  * IMPORTANT — this service is deliberately scoped by `userId` throughout
- * (list/get/update/delete/recordPriceSeen/convertToInventory all filter on
+ * (list/update/delete/recordPriceSeen/convertToInventory all filter on
  * the calling user). This does NOT violate the design.md "userId = audit
  * only, never an access filter" invariant: that invariant governs INVENTORY
  * entities (bottles, cellars — shared across the whole instance). A
@@ -31,10 +31,6 @@ export async function listWishlist(userId: string) {
     where: { userId },
     orderBy: { createdAt: 'desc' },
   });
-}
-
-export async function getWishlistItem(userId: string, id: string) {
-  return prisma.wishlistItem.findFirst({ where: { id, userId } });
 }
 
 export async function createWishlistItem(userId: string, input: WishlistCreateInput) {
@@ -83,7 +79,14 @@ export async function recordPriceSeen(userId: string, id: string, price: number)
     data: { lastSeenPrice: price, lastSeenAt: new Date() },
   });
 
-  if (existing.maxPrice != null && price <= existing.maxPrice) {
+  // Only a price that crosses the ceiling is news: the previous one was
+  // unknown or above it. A member entering prices in a row under the ceiling
+  // (or in a loop) must not push one message each into the instance's
+  // shared Gotify app (#767).
+  // Decimal columns: compared as numbers (two Decimals would compare as strings).
+  const wasUnder = existing.lastSeenPrice != null && existing.maxPrice != null
+    && Number(existing.lastSeenPrice) <= Number(existing.maxPrice);
+  if (existing.maxPrice != null && price <= existing.maxPrice && !wasUnder) {
     void notifyOpportunity(userId, item).catch((err) => {
       console.error('[wishlist] Failed to send opportunity notification:', err);
     });
@@ -131,11 +134,8 @@ async function notifyOpportunity(userId: string, item: NonNullable<WishlistItemD
  * identical line (same cellar, price, size, bought today) or form a new one.
  * `distinctFrom` ("C'est un autre vin") remembers the new wine apart.
  *
- * KNOWN LIMITATION (documented, not silently papered over): InventoryInput
- * requires `alcoholDegree` for 'spirit' — a field a wishlist entry never
- * tracks — so it defaults to 0 and the resulting item may need a manual
- * follow-up edit. TODO(FEAT-20): surface it as a required field in the
- * conversion form when category is 'spirit' instead of defaulting.
+ * A wishlist entry never tracks a spirit's ABV: the conversion dialog asks
+ * it, optional — left empty, it stays unknown (#587).
  */
 export async function convertToInventory(userId: string, id: string, additionalFields: ConvertToInventoryInput) {
   const wish = await prisma.wishlistItem.findFirst({ where: { id, userId } });
@@ -162,7 +162,7 @@ export async function convertToInventory(userId: string, id: string, additionalF
   const cigarsPerBox = additionalFields.cigarsPerBox ?? null;
   if (cigarsPerBox !== null && wish.category !== 'cigar') throw badRequest('CIGARS_PER_BOX_FOR_CIGARS_ONLY');
 
-  let inventoryInput: InventoryInput;
+  let inventoryInput: InventoryDraft;
   switch (wish.category) {
     case 'wine':
       inventoryInput = { ...base, category: 'wine', vintage: wish.vintage ?? undefined, grapeVarieties: [], bottleSize, quantity };
@@ -171,7 +171,11 @@ export async function convertToInventory(userId: string, id: string, additionalF
       inventoryInput = { ...base, category: 'sparkling', vintage: wish.vintage ?? undefined, bottleSize, quantity };
       break;
     case 'spirit':
-      inventoryInput = { ...base, category: 'spirit', alcoholDegree: 0, bottleSize, quantity };
+      // #587: the ABV typed at the conversion, else unknown — never an invented 0 %.
+      inventoryInput = {
+        ...base, category: 'spirit', bottleSize, quantity,
+        ...(additionalFields.alcoholDegree != null ? { alcoholDegree: additionalFields.alcoholDegree } : {}),
+      };
       break;
     case 'cigar':
       inventoryInput = { ...base, category: 'cigar', quantity, cigarsPerBox };

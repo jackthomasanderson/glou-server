@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vite
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
-import { authenticator } from 'otplib';
+import { generateSync } from 'otplib';
+import { newTotpSecret } from '../../src/lib/totp';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -18,7 +19,7 @@ import path from 'node:path';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     user: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), updateMany: vi.fn() },
-    session: { findUnique: vi.fn() },
+    session: { findUnique: vi.fn(), update: vi.fn() },
     auditLog: { create: vi.fn() },
     backupRun: { findUnique: vi.fn() },
     $queryRaw: vi.fn(),
@@ -37,7 +38,7 @@ import { MaintenanceService } from '../../src/services/maintenance.service';
 const JWT_SECRET = 'integration-test-secret';
 const KEY = 'ab'.repeat(32);
 const ADMIN_PASSWORD = 'admin-pw';
-const TOTP_SECRET = authenticator.generateSecret();
+const TOTP_SECRET = newTotpSecret();
 const DUMP = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'glou-890-')), 'glou-backup.sql.gz');
 fs.writeFileSync(DUMP, 'dump');
 let passwordHash = '';
@@ -48,7 +49,7 @@ beforeAll(async () => {
 });
 
 const app = createApp();
-const token = () => jwt.sign({ userId: 'u1', email: 'u1@example.com', scope: 'full' }, JWT_SECRET, { algorithm: 'HS256' });
+const token = () => jwt.sign({ userId: 'u1', email: 'u1@example.com', scope: 'full', sessionId: 's1' }, JWT_SECRET, { algorithm: 'HS256' });
 
 const spies: Array<{ mockRestore: () => void }> = [];
 const keep = <T extends { mockRestore: () => void }>(s: T): T => {
@@ -60,6 +61,9 @@ const publicConfig = { gotifyEnabled: false, gotifyUrl: null } as never;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // #608: every token carries a live session.
+  vi.mocked(prisma.session.findUnique).mockResolvedValue({ revokedAt: null, expiresAt: new Date(Date.now() + 3_600_000) } as never);
+  vi.mocked(prisma.session.update).mockResolvedValue({} as never);
   process.env.JWT_SECRET = JWT_SECRET;
   process.env.CONFIG_ENCRYPTION_KEY = KEY;
   adminHasTwoFactor = true;
@@ -79,9 +83,9 @@ beforeEach(() => {
 
   keep(vi.spyOn(systemConfigService, 'updateSmtp').mockResolvedValue(publicConfig));
   keep(vi.spyOn(systemConfigService, 'updateGotify').mockResolvedValue(publicConfig));
-  keep(vi.spyOn(systemConfigService, 'updateNotificationPolicy').mockResolvedValue(publicConfig));
   keep(vi.spyOn(systemConfigService, 'updateNetworkConfig').mockResolvedValue(publicConfig));
   keep(vi.spyOn(systemConfigService, 'getPublic').mockResolvedValue(publicConfig));
+  keep(vi.spyOn(systemConfigService, 'getGotify').mockResolvedValue({ gotifyEnabled: false, gotifyUrl: null, gotifyToken: null }));
   keep(vi.spyOn(emailService, 'testConnection').mockResolvedValue({ success: true }));
   keep(vi.spyOn(emailService, 'sendTestEmail').mockResolvedValue({ success: true }));
   keep(vi.spyOn(backupService, 'getDownloadTarget').mockResolvedValue({ path: DUMP, filename: 'glou-backup.sql.gz' }));
@@ -110,9 +114,8 @@ const ROUTES: GatedRoute[] = [
   { label: 'SMTP settings', method: 'put', path: '/api/admin/config/smtp', body: { smtpHost: 'mail.attacker.example' }, effect: () => systemConfigService.updateSmtp, passed: 200 },
   { label: 'SMTP test', method: 'post', path: '/api/admin/config/test/smtp', body: { email: 'me@attacker.example' }, effect: () => emailService.sendTestEmail, passed: 200 },
   { label: 'Gotify settings', method: 'put', path: '/api/admin/config/gotify', body: { gotifyEnabled: false }, effect: () => systemConfigService.updateGotify, passed: 200 },
-  { label: 'Gotify test', method: 'post', path: '/api/admin/config/test/gotify', body: {}, effect: () => systemConfigService.getPublic, passed: 400 },
-  { label: 'notification channels', method: 'put', path: '/api/admin/config/notifications', body: { smtpEnabled: false, gotifyEnabled: false, inAppEnabled: true }, effect: () => systemConfigService.updateNotificationPolicy, passed: 200 },
-  { label: 'public URL', method: 'put', path: '/api/admin/config/network', body: { publicUrl: 'https://attacker.example', accessMode: 'direct' }, effect: () => systemConfigService.updateNetworkConfig, passed: 200 },
+  { label: 'Gotify test', method: 'post', path: '/api/admin/config/test/gotify', body: {}, effect: () => systemConfigService.getGotify, passed: 400 },
+  { label: 'public URL', method: 'put', path: '/api/admin/config/network', body: { publicUrl: 'https://attacker.example' }, effect: () => systemConfigService.updateNetworkConfig, passed: 200 },
   { label: 'backup download', method: 'post', path: '/api/admin/backups/b1/download', body: {}, effect: () => auditSuccessFor('BACKUP_DOWNLOAD'), passed: 200 },
   { label: 'backup restore', method: 'post', path: '/api/admin/backups/b1/restore', body: { confirm: true }, effect: () => backupService.restoreBackup, passed: 200 },
   { label: 'full purge', method: 'post', path: '/api/admin/maintenance/purge', body: { confirmation: 'SUPPRIMER' }, effect: () => MaintenanceService.purgeAllData, passed: 200 },
@@ -144,7 +147,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it.each(ROUTES.map((r) => [r.label, r] as const))('%s: accepted with the password and a current code', async (_label, route) => {
-    const res = await send(route, { password: ADMIN_PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+    const res = await send(route, { password: ADMIN_PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(route.passed);
     expect(route.effect()).toHaveBeenCalled();
@@ -159,9 +162,9 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it('refuses a wrong code', async () => {
-    const current = authenticator.generate(TOTP_SECRET);
+    const current = generateSync({ secret: TOTP_SECRET });
     const wrong = current === '000000' ? '111111' : '000000';
-    const res = await send(ROUTES[5], { password: ADMIN_PASSWORD, code: wrong });
+    const res = await send(ROUTES[4], { password: ADMIN_PASSWORD, code: wrong });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('INVALID_TOTP_CODE');
@@ -169,7 +172,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it('refuses a wrong password, as before', async () => {
-    const res = await send(ROUTES[6], { password: 'not-it', code: authenticator.generate(TOTP_SECRET) });
+    const res = await send(ROUTES[5], { password: 'not-it', code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(403);
     expect(res.body.error).toBe('INVALID_PASSWORD');
@@ -178,7 +181,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
 
   it('answers a stale backup id before the step-up, so it spends no backup code', async () => {
     vi.mocked(backupService.getDownloadTarget).mockRejectedValueOnce(new Error('BACKUP_NOT_FOUND'));
-    const res = await send(ROUTES[6], { password: ADMIN_PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+    const res = await send(ROUTES[5], { password: ADMIN_PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
 
     expect(res.status).toBe(404);
     expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();
@@ -193,7 +196,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it('audits a settings change once it went through', async () => {
-    await send(ROUTES[0], { password: ADMIN_PASSWORD, code: authenticator.generate(TOTP_SECRET) });
+    await send(ROUTES[0], { password: ADMIN_PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
 
     await vi.waitFor(() => expect(auditCalls()).toContainEqual(expect.objectContaining({
       userId: 'u1', action: 'CONFIG_UPDATE', status: 'success', details: { section: 'smtp' },
@@ -201,7 +204,7 @@ describe('admin routes that can lead to an account takeover ask for the step-up 
   });
 
   it('checks the settings before the step-up, so a typo spends no backup code', async () => {
-    const res = await send(ROUTES[5], { publicUrl: 'not a url', password: ADMIN_PASSWORD });
+    const res = await send(ROUTES[4], { publicUrl: 'not a url', password: ADMIN_PASSWORD });
 
     expect(res.status).toBe(400);
     expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled();

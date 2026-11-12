@@ -11,6 +11,8 @@ import { useAlerts, useToggleAlertPause } from '@/hooks/useAlerts';
 import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { AlertBottle } from '@/lib/alerts/client';
 import { todayLocalIso } from '@/lib/format';
+import { alertUrgency } from '@/lib/inventory/types';
+import { confirmLeave } from '@/lib/leaveGuard';
 
 const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'> = {
   past: 'danger',
@@ -21,7 +23,6 @@ const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'>
 // #506: only what calls for action now is counted in the badge. A bottle
 // "approaching" its window (possibly 15 years ahead) is listed, not counted.
 const ACTIONABLE = new Set(['past', 'peak']);
-const STATUS_ORDER: Record<string, number> = { past: 0, peak: 1, approaching: 2 };
 
 /** Opens the wine's drawer on its own page (same `?scan=` deep link as QR codes). */
 function itemHref(id: string, category: string): string {
@@ -31,7 +32,7 @@ function itemHref(id: string, category: string): string {
 export function NotificationBell() {
   const { t } = useTranslation();
   // #380: the badge count comes from the lightweight /stats/counts endpoint
-  // (already mounted app-wide for the sidebar); the wines are only fetched
+  // (kept fresh app-wide by the sidebar's subscription); the wines are only fetched
   // once the panel is actually opened, to build the detailed reminder list.
   // #471 (W4): the reminder is on the wine, so one wine in stock is one
   // reminder here too, exactly as the badge counts it (never one per bottle).
@@ -52,9 +53,7 @@ export function NotificationBell() {
 
   const alertItems: AlertBottle[] = useMemo(() => {
     if (!apogeeAlerts || !hasMounted) return [];
-    return [...apogeeAlerts].sort(
-      (a, b) => (STATUS_ORDER[a.alertStatus ?? ''] ?? 9) - (STATUS_ORDER[b.alertStatus ?? ''] ?? 9),
-    );
+    return [...apogeeAlerts].sort((a, b) => alertUrgency(a.alertStatus) - alertUrgency(b.alertStatus));
   }, [apogeeAlerts, hasMounted]);
 
   const actionableAlerts = alertItems.filter((a) => ACTIONABLE.has(a.alertStatus ?? ''));
@@ -62,6 +61,8 @@ export function NotificationBell() {
   const count = isOpen ? reminderItems.length + actionableAlerts.length : badgeCount;
 
   const go = (href: string) => {
+    // #759: unsaved changes (admin settings) are not dropped without a question.
+    if (!confirmLeave()) return;
     setIsOpen(false);
     router.push(href);
   };

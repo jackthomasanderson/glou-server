@@ -13,8 +13,10 @@ import { NotificationBell } from './NotificationBell';
 import { ConnectivityIndicator } from './ConnectivityIndicator';
 import { AuthGuard } from '../auth/AuthGuard';
 import { ConflictResolutionModal } from '../offline/ConflictResolutionModal';
+import { BackupAlertBanner } from '../admin/BackupAlertBanner';
 import { useMe } from '@/hooks/useAuth';
 import { useAutoLock } from '@/hooks/useAutoLock';
+import { CATEGORY_TITLES } from '@/lib/inventory/category-titles';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -28,7 +30,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/cigars': 'nav.cigars',
   '/cellars': 'nav.caves',
   '/collections': 'nav.collections',
-  '/cellar-journal': 'nav.tastings',
+  '/tastings': 'nav.tastings',
   '/analytics-terroirs': 'nav.analytics',
   '/profile': 'nav.profile',
   '/admin': 'nav.admin',
@@ -43,11 +45,6 @@ const PAGE_TITLES: Record<string, string> = {
 // see Sidebar.tsx). The breadcrumb/tab title follows the category when
 // one is selected, and falls back to the generic "nav.bottles" label
 // otherwise — same `?category=` param useInventoryFilters reads.
-const CATEGORY_TITLES: Record<string, string> = {
-  wine: 'nav.wines',
-  sparkling: 'nav.sparkling',
-  spirit: 'nav.spirits',
-};
 
 function usePageTitle() {
   const pathname = usePathname();
@@ -138,7 +135,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
           users can jump past the navigation, header and search. */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[10000] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:shadow-lg"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[10000] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground focus:shadow-lg"
       >
         {t('nav.skipToContent')}
       </a>
@@ -146,7 +143,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Content header */}
-        <header className="print:hidden sticky top-0 z-20 flex items-center gap-3 px-4 md:px-6 py-2.5 bg-content1 border-b border-divider"
+        <header className="print:hidden sticky top-0 z-30 flex items-center gap-3 px-4 md:px-6 py-2.5 bg-content1 border-b border-divider"
           style={{ paddingTop: 'calc(0.625rem + env(safe-area-inset-top))' }}
         >
           {/* Breadcrumb */}
@@ -186,6 +183,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
             className="md:hidden shrink-0 cursor-pointer"
           />
         </header>
+
+        {/* #671: a failing backup, told to administrators on every page. */}
+        <BackupAlertBanner />
 
         {/* Page content */}
         <main id="main-content" tabIndex={-1} className="flex-1 pb-[var(--bottom-nav-h)] md:pb-0 outline-none">

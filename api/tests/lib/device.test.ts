@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { describeDevice, locateIp, countryOfIp } from '../../src/lib/device';
 
 describe('describeDevice', () => {
@@ -34,5 +34,76 @@ describe('locateIp / countryOfIp', () => {
   it('strips an IPv6-mapped-IPv4 prefix before lookup', () => {
     // ::ffff:127.0.0.1 -> 127.0.0.1 -> still private -> null (no throw)
     expect(locateIp('::ffff:127.0.0.1')).toBeNull();
+  });
+});
+
+// Fresh module per test: the database is loaded lazily, once per process.
+async function loadDevice(records: Record<string, unknown> | null) {
+  vi.resetModules();
+  vi.doMock('node:fs', async (orig) => ({
+    ...(await orig<typeof import('node:fs')>()),
+    readFileSync: vi.fn(() => {
+      if (!records) throw new Error('ENOENT: no such file');
+      return Buffer.alloc(0);
+    }),
+  }));
+  vi.doMock('mmdb-lib', () => ({
+    Reader: class {
+      get(ip: string) {
+        return records?.[ip] ?? null;
+      }
+    },
+  }));
+  return import('../../src/lib/device');
+}
+
+describe('locateIp with the DB-IP database', () => {
+  let warn: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+    vi.doUnmock('node:fs');
+    vi.doUnmock('mmdb-lib');
+  });
+
+  it('returns the English city name and the ISO country code', async () => {
+    const device = await loadDevice({
+      '81.2.69.142': { city: { names: { en: 'London', fr: 'Londres' } }, country: { iso_code: 'GB' } },
+      '2a01:cb00::1': { country: { iso_code: 'FR' } },
+    });
+    expect(device.locateIp('81.2.69.142')).toEqual({ city: 'London', country: 'GB' });
+    expect(device.locateIp('::ffff:81.2.69.142')).toEqual({ city: 'London', country: 'GB' });
+    expect(device.locateIp('2a01:cb00::1')).toEqual({ city: null, country: 'FR' });
+    expect(device.countryOfIp('81.2.69.142')).toBe('GB');
+  });
+
+  it('returns null for unknown or malformed addresses and never looks up private ones', async () => {
+    const device = await loadDevice({ '192.168.1.10': { country: { iso_code: 'ZZ' } } });
+    expect(device.locateIp('8.8.4.4')).toBeNull();
+    expect(device.locateIp('not-an-ip')).toBeNull();
+    expect(device.locateIp('192.168.1.10')).toBeNull();
+    expect(device.locateIp('::1')).toBeNull();
+    expect(device.locateIp('fe80::1')).toBeNull();
+  });
+
+  it('loads the database at startup and reports whether it is available', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const device = await loadDevice({ '81.2.69.142': { country: { iso_code: 'GB' } } });
+    expect(device.loadGeoDatabase()).toBe(true);
+    expect(device.countryOfIp('81.2.69.142')).toBe('GB');
+    expect(info).toHaveBeenCalledTimes(1);
+    info.mockRestore();
+    expect((await loadDevice(null)).loadGeoDatabase()).toBe(false);
+  });
+
+  it('returns null and warns once when the database cannot be read', async () => {
+    const device = await loadDevice(null);
+    expect(device.loadGeoDatabase()).toBe(false);
+    expect(device.locateIp('81.2.69.142')).toBeNull();
+    expect(device.countryOfIp('8.8.8.8')).toBeNull();
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toMatch(/^\[geo\]/);
   });
 });

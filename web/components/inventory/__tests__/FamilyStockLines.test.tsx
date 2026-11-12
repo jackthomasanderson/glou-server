@@ -163,6 +163,23 @@ describe('FamilyStockLines', () => {
     expect(onLevelCommit).toHaveBeenLastCalledWith(expect.anything(), 50);
   });
 
+  // #708: one fill-level scale, the add form's.
+  it('the shortcuts are the one fill-level scale: Pleine, 3/4, Moitié, 1/4, Vide', () => {
+    const onLevelCommit = vi.fn(async () => {});
+    draw([openedBottle(60)], { onLevelCommit });
+    const shortcuts = ['Pleine', '3/4', 'Moitié', '1/4', 'Vide'].map((name) => screen.getByRole('button', { name }));
+    expect(shortcuts).toHaveLength(5);
+    fireEvent.click(screen.getByRole('button', { name: '1/4' }));
+    expect(onLevelCommit).toHaveBeenLastCalledWith(expect.anything(), 25);
+  });
+
+  // #646: the chosen shortcut is exposed to assistive tech, not only by its colour.
+  it('the shortcut matching the level is pressed, the others are not', () => {
+    draw([openedBottle(50)], { onLevelCommit: vi.fn(async () => {}) });
+    const state = Object.fromEntries(['Pleine', '3/4', 'Moitié', '1/4', 'Vide'].map((n) => [n, screen.getByRole('button', { name: n }).getAttribute('aria-pressed')]));
+    expect(state).toEqual({ Pleine: 'false', '3/4': 'false', Moitié: 'true', '1/4': 'false', Vide: 'false' });
+  });
+
   it('a wine without any bottle left says so', () => {
     draw([]);
     expect(screen.getByText('Plus aucune bouteille en cave.')).toBeInTheDocument();

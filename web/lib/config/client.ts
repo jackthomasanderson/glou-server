@@ -1,4 +1,6 @@
 import { client, handleResponse } from '@/lib/api';
+import type { BackupHealth } from '@shared/maintenance';
+import type { NotificationCategory, NotificationChannelPolicy } from '@shared/notifications';
 
 /**
  * A restore takes a safety backup, then replays a whole dump (#666): far more
@@ -7,6 +9,12 @@ import { client, handleResponse } from '@/lib/api';
  * on the server instead of showing the proxy's error.
  */
 export const RESTORE_TIMEOUT_MS = 75_000;
+
+/**
+ * #748: a manual backup of a large cellar, or one queued behind a running
+ * restore (they share a lock), can outlast the usual 15 s as well.
+ */
+export const RUN_BACKUP_TIMEOUT_MS = RESTORE_TIMEOUT_MS;
 
 /**
  * #890: the admin's own password, plus their code when they have 2FA, sent
@@ -28,19 +36,18 @@ export interface SystemConfigPublic {
   gotifyEnabled: boolean;
   gotifyUrl: string | null;
   gotifyTokenMasked: string | null;
-  inAppEnabled: boolean;
-  vivinoKeyMasked: string | null;
-  whiskybaseKeyMasked: string | null;
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
   publicUrl: string | null;
-  accessMode: string;
   effectivePublicUrl: string;
   registrationOpen: boolean;
   backupEnabled: boolean;
   backupRetentionDays: number;
-  backupHourUtc: number;
+  /** #761: an hour of `timeZone`. */
+  backupHour: number;
+  /** #761: the server's time zone (`TZ`), in which every scheduled job runs. */
+  timeZone: string;
   updatedAt: string | null;
   updatedBy: string | null;
 }
@@ -53,7 +60,6 @@ export interface RetentionConfig {
 
 export interface NetworkConfig {
   publicUrl: string | null;
-  accessMode: 'direct' | 'proxy';
 }
 
 export interface NetworkCheckResult {
@@ -71,7 +77,7 @@ export interface RegistrationConfig {
 export interface BackupConfig {
   backupEnabled: boolean;
   backupRetentionDays: number;
-  backupHourUtc: number;
+  backupHour: number;
 }
 
 export interface BackupRunEntry {
@@ -105,24 +111,35 @@ export interface MaintenanceRunEntry {
 }
 
 export interface NotificationPrefs {
-  notifInApp: boolean;
   notifEmail: boolean;
   notifWebhook: boolean;
   notifCategories: string[];
   notifQuietStart: number | null;
   notifQuietEnd: number | null;
   notifLanguage: string | null;
-  webhookUrl: string | null;
-  policy: {
-    smtpEnabled: boolean;
-    gotifyEnabled: boolean;
-    inAppEnabled: boolean;
-  };
+  /** #767: the member only opts in to Gotify; messages go to the instance's server. */
+  policy: NotificationChannelPolicy;
+  /** #780: the categories this member can receive (backup failures: admins only). */
+  categories: NotificationCategory[];
+  /** #780: admins only — whether automatic backups run. */
+  automaticBackups?: boolean;
+  /** #772: the instance time zone, in which quiet hours are read. */
+  timeZone: string;
 }
+
+/** What the profile saves: its own settings, never the instance policy. */
+export type NotificationPrefsPatch = Partial<Omit<NotificationPrefs, 'policy' | 'categories' | 'automaticBackups' | 'timeZone'>>;
 
 export interface ConfigHistoryEntry {
   id: number;
+  /** The settings section that was saved (`smtp`, `backup`, …). */
   fieldName: string;
+  /**
+   * #760: JSON objects keyed by setting, holding only what changed; secrets
+   * are masked. Entries written before #760 have no old value and hold the
+   * whole submitted form as their new value.
+   */
+  maskedOldVal: string | null;
   maskedNewVal: string | null;
   createdAt: string;
   user?: { username: string };
@@ -134,11 +151,12 @@ export const configClient = {
     return data;
   },
 
-  // ISSUE_169: what Admin → System Configuration → About reads to show a
+  // ISSUE_169: what Admin → System Configuration → System reads to show a
   // version a bug reporter can copy, instead of the moving `latest`/`beta`
   // image tags the old bug report template used to ask for.
-  async getVersion(): Promise<{ version: string }> {
-    const { data } = await client.get<{ version: string }>('/version');
+  // #625: it also gives the public URL bottle QR codes encode (null: none set).
+  async getVersion(): Promise<{ version: string; publicUrl: string | null }> {
+    const { data } = await client.get<{ version: string; publicUrl: string | null }>('/version');
     return data;
   },
 
@@ -152,18 +170,10 @@ export const configClient = {
     return data;
   },
 
-  async updateNotifPolicy(payload: { smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean }, reauth: AdminReauth): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/notifications', { ...payload, ...reauth });
-    return data;
-  },
-
-  async updateIntegrations(payload: Record<string, unknown>): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/integrations', payload);
-    return data;
-  },
-
-  async updateRetention(payload: RetentionConfig): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/retention', payload);
+  // #893: lowering a retention, turning backups off or opening sign-up also
+  // asks for the step-up (shared/admin-config.ts); `reauth` is sent then.
+  async updateRetention(payload: RetentionConfig, reauth?: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/retention', { ...payload, ...reauth });
     return data;
   },
 
@@ -177,8 +187,8 @@ export const configClient = {
     return data;
   },
 
-  async updateRegistration(payload: RegistrationConfig): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/registration', payload);
+  async updateRegistration(payload: RegistrationConfig, reauth?: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/registration', { ...payload, ...reauth });
     return data;
   },
 
@@ -207,8 +217,8 @@ export const configClient = {
     return data;
   },
 
-  async updateBackupConfig(payload: BackupConfig): Promise<SystemConfigPublic> {
-    const { data } = await client.put<SystemConfigPublic>('/admin/config/backup', payload);
+  async updateBackupConfig(payload: BackupConfig, reauth?: AdminReauth): Promise<SystemConfigPublic> {
+    const { data } = await client.put<SystemConfigPublic>('/admin/config/backup', { ...payload, ...reauth });
     return data;
   },
 
@@ -217,13 +227,13 @@ export const configClient = {
     return data;
   },
 
-  async getBackupHealth(): Promise<{ directoryWritable: boolean }> {
-    const { data } = await client.get<{ directoryWritable: boolean }>('/admin/backups/health');
+  async getBackupHealth(): Promise<BackupHealth> {
+    const { data } = await client.get<BackupHealth>('/admin/backups/health');
     return data;
   },
 
   async runBackupNow(): Promise<BackupRunEntry> {
-    const { data } = await client.post<BackupRunEntry>('/admin/backups/run', {});
+    const { data } = await client.post<BackupRunEntry>('/admin/backups/run', {}, { timeoutMs: RUN_BACKUP_TIMEOUT_MS });
     return data;
   },
 
@@ -251,7 +261,7 @@ export const configClient = {
     return data;
   },
 
-  async updateNotifPrefs(payload: Partial<NotificationPrefs>): Promise<void> {
+  async updateNotifPrefs(payload: NotificationPrefsPatch): Promise<void> {
     await client.patch('/user/notifications', payload);
   },
 

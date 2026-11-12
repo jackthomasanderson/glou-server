@@ -9,7 +9,7 @@ import { useTastings } from '@/hooks/useTastings';
 import { useMapFilters } from '@/hooks/useMapFilters';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
-import { RegionCategoryStat } from '@/lib/analytics/types';
+import type { NoLocationStat, RegionCategoryStat } from '@/lib/analytics/types';
 import { productMatchesMapFilters, hasActiveMapFilters } from '@/lib/analytics/mapFilters';
 import { MapFiltersPanel } from './MapFiltersPanel';
 import { MapAssetList } from './MapAssetList';
@@ -45,10 +45,12 @@ const RATING_SAMPLE_SIZE = 50;
 
 interface MapExplorerProps {
   regionCategoryBreakdown: RegionCategoryStat[];
+  /** #961: units in stock with nothing to place them on the map by. */
+  noLocationBreakdown: NoLocationStat[];
   t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
-export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
+export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }: MapExplorerProps) {
   const { data: products } = useProducts();
   const { data: tastingsPage } = useTastings(1, RATING_SAMPLE_SIZE);
   const [filters, setFilters, clearFilters] = useMapFilters();
@@ -77,6 +79,11 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
     if (filters.categories.length === 0) return regionCategoryBreakdown;
     return regionCategoryBreakdown.filter((s) => filters.categories.includes(s.category as InventoryCategory));
   }, [regionCategoryBreakdown, filters.categories]);
+
+  const filteredNoLocationBreakdown = useMemo(() => {
+    if (filters.categories.length === 0) return noLocationBreakdown;
+    return noLocationBreakdown.filter((s) => filters.categories.includes(s.category as InventoryCategory));
+  }, [noLocationBreakdown, filters.categories]);
 
   const filteredProducts = useMemo(() => {
     if (!products) return [];
@@ -108,7 +115,7 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
       selectedRegion={selectedRegion}
       onRegionChange={setSelectedRegion}
     />
-  );;
+  );
 
   return (
     <div className="flex gap-5 items-start">
@@ -164,6 +171,8 @@ export function MapExplorer({ regionCategoryBreakdown, t }: MapExplorerProps) {
 
         <WorldHeatmap
           regionCategoryBreakdown={filteredRegionCategoryBreakdown}
+          noLocationBreakdown={filteredNoLocationBreakdown}
+          onlyCategory={filters.categories.length === 1 ? filters.categories[0] : null}
           onRegionClick={handleRegionClick}
           t={t}
         />

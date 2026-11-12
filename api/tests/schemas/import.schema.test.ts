@@ -44,6 +44,37 @@ describe('csvRawRowSchema (raw CSV cells, all strings)', () => {
   });
 });
 
+// #624: the vintage cell is now read through the one vintage rule
+// (lib/years.ts): what a file imported before still imports, and what was
+// refused is still refused with the same (translated) code.
+describe('csvRawRowSchema vintage and years (#624)', () => {
+  const row = { name: 'X', producer: 'Y', category: 'wine' };
+  const year = new Date().getFullYear();
+  const vintageOf = (vintage: string) => {
+    const res = csvRawRowSchema.safeParse({ ...row, vintage });
+    return res.success ? res.data.vintage : res.error.issues.map((issue) => issue.message).join(' | ');
+  };
+
+  it.each([['2015', 2015], [' 2015 ', 2015], ['2015.0', 2015], ['1800', 1800], [String(year), year], ['', undefined]])(
+    'still reads %j as %j', (cell, vintage) => expect(vintageOf(cell)).toBe(vintage),
+  );
+
+  it.each(['1799', String(year + 1), '2015.5', 'deux mille', 'NV'])('still refuses %j with INVALID_VINTAGE', (cell) => {
+    expect(vintageOf(cell)).toBe('INVALID_VINTAGE');
+  });
+
+  it('keeps a base and a manufacture year in bounds, and leaves an unreadable one out', () => {
+    const sparkling = csvRawRowSchema.parse({ ...row, category: 'sparkling', baseYear: '2015' });
+    expect(sparkling.baseYear).toBe(2015);
+    expect(csvRawRowSchema.parse({ ...row, category: 'sparkling', baseYear: '1700' }).baseYear).toBeUndefined();
+    const cigar = csvRawRowSchema.parse({ ...row, category: 'cigar', manufactureYear: '1950' });
+    expect(cigar.manufactureYear).toBe(1950);
+    expect(csvRawRowSchema.parse({ ...row, category: 'cigar', manufactureYear: '1850' }).manufactureYear).toBeUndefined();
+    expect(csvImportRowSchema.safeParse({ ...row, manufactureYear: 1850 }).error?.issues[0].message).toBe('INVALID_MANUFACTURE_YEAR');
+    expect(csvImportRowSchema.safeParse({ ...row, baseYear: year + 1 }).error?.issues[0].message).toBe('INVALID_BASE_YEAR');
+  });
+});
+
 describe('toPurchaseDay (spreadsheet days)', () => {
   it('reads ISO and European days, and leaves anything else for the schema to refuse', () => {
     expect(toPurchaseDay('2024-03-15')).toBe('2024-03-15');

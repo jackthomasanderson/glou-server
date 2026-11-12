@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", ":semanticCommitTypeAll(chore)"],
+  "extends": ["config:recommended", "docker:pinDigests", ":semanticCommitTypeAll(chore)"],
   "baseBranches": ["dev"],
   "timezone": "Europe/Paris",
   "schedule": ["before 6am on monday"],
@@ -50,9 +50,9 @@
       "groupName": "github actions"
     },
     {
-      "description": "Images Docker de base (node:*-alpine) : minor/patch groupées",
+      "description": "Images Docker de base (node:*-alpine) : minor/patch et digests groupés",
       "matchManagers": ["dockerfile"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
       "groupName": "docker base images"
     },
     {

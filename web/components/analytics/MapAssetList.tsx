@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Chip } from '@heroui/react';
-import { Wine, Sparkles, GlassWater, Leaf, MapPin, Search } from 'lucide-react';
+import { MapPin, Search } from 'lucide-react';
 import { unitKind } from '@shared/units';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
@@ -10,18 +10,13 @@ import { stockSummaryOf } from '@/lib/products/filters';
 import { keepNumbersWhole } from '@/lib/products/stock';
 import { getProductMapRegion } from '@/lib/analytics/mapFilters';
 import { getCategoryPlaceholderGradient, CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
 // FEAT-42: filtered asset list — populated by a marker click (region scope)
 // and/or the sidebar filters (MapFiltersPanel), combined in MapExplorer.
 // One row per wine in stock, with its units (recette n°5 ter of #847);
 // clicking a row opens the drawer of its wine (FamilyDrawer, no duplication).
 
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={14} />,
-  sparkling: <Sparkles size={14} />,
-  spirit: <GlassWater size={14} />,
-  cigar: <Leaf size={14} />,
-};
 
 // Placeholder gradient (no photo yet) — see InventoryCard.tsx comment,
 // derived from the shared CATEGORY_HEX instead of a local palette copy.
@@ -74,7 +69,7 @@ export function MapAssetList({ products, onSelect, t }: MapAssetListProps) {
                 className="w-10 h-10 rounded-lg flex items-center justify-center text-white/60 shrink-0"
                 style={{ background: getCategoryPlaceholderGradient(product.category) }}
               >
-                {React.cloneElement(CATEGORY_ICONS[product.category], { size: 16 })}
+                <CategoryIcon category={product.category} size={16} />
               </div>
             )}
 

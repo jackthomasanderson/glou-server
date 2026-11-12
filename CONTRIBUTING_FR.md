@@ -30,6 +30,8 @@ cp .env.example .env          # définir un JWT_SECRET robuste
 docker compose -f docker-compose.dev.yml up -d
 ```
 
+La pile de développement n'écoute que sur cette machine (http://localhost:3000, API sur le port 3001) : elle tourne en mode développement, où les secrets d'exemple sont acceptés.
+
 Pour travailler directement sur un package :
 
 ```bash
@@ -86,6 +88,18 @@ npm run typecheck      # les specs Playwright sont aussi vérifiées
 - L'état frontend utilise React Query en stale-while-revalidate ; invalidez les caches liés après chaque mutation réussie.
 - Respectez le style du code environnant (nommage, commentaires, structure).
 
+### Invariants du modèle de données
+
+Ces règles valent pour tout le code ; un changement qui en casse une est un bug, pas un choix de style.
+
+- **Un seul inventaire partagé par instance.** Un déploiement Glou a un inventaire unique, partagé par tous ses membres ; il n'y a pas de cave par utilisateur. Tout membre authentifié lit et écrit toutes les caves, familles et articles.
+- **`userId` sur l'inventaire est un champ d'audit, jamais un filtre d'accès.** Sur `Cellar`, `Product`, `InventoryItem`, `TastingNote`, `InventoryCountSession`, `BudgetEnvelope` et `HumidorReading`, il indique qui a créé la ligne. Ne filtrez ni ne restreignez jamais la lecture ou l'écriture de l'inventaire par `userId`, et ne supprimez jamais des lignes partagées parce que leur créateur est parti.
+- **Les entités personnelles sont l'exception.** `ConsumptionGoal`, `WishlistItem`, `BulkPreset`, `ScanJob` et `Collection` appartiennent à un membre et sont filtrées par `userId` volontairement. Une collection regroupe des familles partagées (`Product`) mais est elle-même personnelle. Calculer un agrégat personnel à partir de l'inventaire partagé (par exemple « ce que j'ai bu ce mois-ci ») est permis tant qu'il ne masque l'inventaire à personne.
+- **Famille, groupe, sous-fiche.** Une famille (`Product`) porte la description d'un vin, d'un spiritueux ou d'un cigare (producteur, nom, millésime, apogée, notes, photo, collections). Ses bouteilles ou cigares physiques sont des lignes `InventoryItem` : un groupe de N exemplaires identiques (`quantity`), ou une sous-fiche (`quantity = 1`, `parentItemId` vers le groupe d'origine) dès qu'un exemplaire a son propre état (entamé, fini, à moitié fumé). Ne supposez jamais « une ligne = une bouteille ».
+- **Comptez avec `itemUnits`.** Tout compte, valeur ou dépense passe par les fonctions pures de `shared/units.ts` (`itemUnits` et consorts), jamais par `count(*)` ni une somme de `quantity` sur les lignes. « En stock » se dit `IN_STOCK_ITEM_FILTER` (`api/src/lib/finished-item.ts`) ; ne reconstruisez pas ce périmètre à la main.
+- **Les contrats partagés vivent dans `shared/`.** Un type ou une constante lus par `api/` et `web/` est déclaré une seule fois dans `shared/` (sans dépendance, sans Zod, sans types Prisma) et jamais recopié à la main.
+- **Les migrations ne vont qu'en avant.** Changez le schéma avec Prisma Migrate ; il n'existe pas de migration « inverse ». L'API sauvegarde avant d'appliquer des migrations en attente, et revenir en arrière signifie restaurer cette sauvegarde.
+
 ### Internationalisation
 
 Chaque texte visible par l'utilisateur nécessite une clé i18n structurée avec **à la fois** une valeur française et une valeur anglaise. Gardez les fichiers JSON FR/EN synchronisés ; le JSON doit rester valide.
@@ -102,4 +116,4 @@ Dépôt public : ne référencez jamais de secrets, de contenu `.env`, ou de fic
 
 ## Licence
 
-En contribuant, vous acceptez que vos contributions soient placées sous [licence MIT](LICENSE).
+Glou est sous [licence PolyForm Noncommercial 1.0.0](LICENSE). Avant que votre première pull request puisse être fusionnée, signez le [contrat de licence de contributeur](CLA.md) (CLA, en anglais) : le robot CLA assistant commente la pull request avec un lien, et une seule signature couvre vos contributions suivantes sous cette version du CLA. Vous gardez le droit d'auteur sur votre travail, mais vous accordez au mainteneur une licence large et irrévocable pour l'utiliser et le concéder à d'autres à toutes conditions, y compris commerciales et propriétaires. Lisez le CLA avant de signer (seule la version anglaise fait foi). Si votre employeur ou une autre structure peut avoir des droits sur votre travail, elle doit autoriser votre contribution par écrit (section 7 du CLA). Une nouvelle version du CLA doit être signée à nouveau pour les contributions suivantes.

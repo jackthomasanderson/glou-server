@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hourInTimeZone, isWithinQuietHours } from '../../src/lib/quiet-hours';
+import { hourInTimeZone, instanceTimeZone, isWithinQuietHours } from '../../src/lib/quiet-hours';
 import {
   ALERTS_CATCH_UP_END_HOUR, DAILY_ALERTS_CRON, DAILY_ALERTS_HOUR, isAlertsCatchUpWindow,
 } from '../../src/lib/alerts-schedule';
@@ -84,5 +84,23 @@ describe('daily alert run (#575)', () => {
     expect(isAlertsCatchUpWindow(new Date('2027-01-01T13:00:00Z'), 'Europe/Paris')).toBe(true);
     // The window ends before evening quiet hours start.
     expect(ALERTS_CATCH_UP_END_HOUR).toBeLessThanOrEqual(22);
+  });
+});
+
+// #761: the zone shown next to the backup hour.
+describe('instanceTimeZone', () => {
+  const withTz = (tz: string, check: () => void) => {
+    const previous = process.env.TZ;
+    process.env.TZ = tz;
+    try { check(); } finally {
+      if (previous === undefined) delete process.env.TZ;
+      else process.env.TZ = previous;
+    }
+  };
+
+  it('names the zone set by TZ', () => withTz('Europe/Paris', () => expect(instanceTimeZone()).toBe('Europe/Paris')));
+  it('says UTC when TZ is empty or names no known zone', () => {
+    withTz('', () => expect(instanceTimeZone()).toBe('UTC'));
+    withTz('Foo/Bar', () => expect(instanceTimeZone()).toBe('UTC'));
   });
 });

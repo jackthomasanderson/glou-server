@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { distinctFromSchema } from './product.schema';
 import { unitPrice } from './stock.schema';
 import { categorySchema } from '../lib/category';
+import { vintageSchema } from '../lib/years';
 
 // ─── POST /wishlist/items ─────────────────────────────────────────────────────
 
@@ -9,7 +10,8 @@ export const wishlistCreateSchema = z.object({
   name: z.string().min(1).max(200),
   producer: z.string().max(200).optional(),
   category: categorySchema,
-  vintage: z.number().int().min(1800).max(new Date().getFullYear() + 1).optional().nullable(),
+  // #624: the vintage rule of a bottle — a wish is bought as one.
+  vintage: vintageSchema().optional().nullable(),
   targetQuantity: z.number().int().min(1).max(1000).default(1),
   maxPrice: z.number().min(0).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
@@ -57,8 +59,12 @@ export const convertToInventorySchema = z.object({
   // FEAT-95: a cigar group of closed boxes of this many cigars; absent or null, single cigars.
   cigarsPerBox: z.number().int().min(1).max(1000).optional().nullable(),
   distinctFrom: distinctFromSchema.optional(),
-}).refine((input) => input.productId === undefined || (input.purchasePlace == null && input.distinctFrom === undefined), {
-  message: 'A known wine takes neither a place of purchase nor wines told apart',
+  // #587: a spirit's ABV, bounded as in the add form; absent or null, unknown.
+  // Ignored for another category; a known wine keeps its own.
+  alcoholDegree: z.number().min(0).max(100).optional().nullable(),
+}).refine((input) => input.productId === undefined
+  || (input.purchasePlace == null && input.distinctFrom === undefined && input.alcoholDegree == null), {
+  message: 'A known wine takes neither a place of purchase, wines told apart nor an ABV',
   path: ['productId'],
 });
 

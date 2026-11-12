@@ -3,6 +3,7 @@
     "name": "Glou",
     "tagline": "Simplement précieux"
   },
+  "percent": "{{value}} %",
   "filters": {
     "all": "Toutes",
     "allCategories": "Toutes les catégories"
@@ -27,7 +28,7 @@
     "collections": "Collections",
     "tastings": "Dégustations",
     "analytics": "Analyses & Terroirs",
-    "inventoryCount": "Inventaire physique",
+    "inventoryCount": "Comptage",
     "wishlist": "Souhaits & Budget",
     "more": "Plus",
     "roleAdmin": "Administrateur",
@@ -72,6 +73,12 @@
     "spirit": "Spiritueux",
     "cigar": "Cigare / Boîte"
   },
+  "categoriesPlural": {
+    "wine": "vins",
+    "sparkling": "bulles",
+    "spirit": "spiritueux",
+    "cigar": "cigares"
+  },
   "maturity": {
     "readiness": "Maturité",
     "curveSource": {
@@ -111,6 +118,7 @@
       "required": "Ce champ est obligatoire",
       "missingFields": "Complétez les champs obligatoires avant d'enregistrer",
       "peakWindowOrder": "La fin de l'apogée ne peut pas précéder son début",
+      "tags": "{{max}} étiquettes au plus, de {{length}} caractères chacune",
       "bottleCount": "Entre 1 et {{max}} bouteilles",
       "range": "Entre {{min}} et {{max}}",
       "atLeast": "{{min}} au minimum",
@@ -123,7 +131,7 @@
       "empty": "Vide",
       "sommelierNotes": "Notes du sommelier",
       "tastingNotes": "Notes de dégustation & arômes",
-      "agingEstimate": "Apogée estimée",
+      "agingEstimate": "Apogée estimé",
       "levelAdjusted": "Niveau ajusté à",
       "humidityValue": "{{value}} % HR"
     },
@@ -140,6 +148,10 @@
     "trashDaysLeft_other": "{{count}} jours restants avant suppression définitive",
     "trashEmpty": "La corbeille est vide.",
     "tabsAria": "Vue inventaire",
+    "headings": {
+      "filters": "Filtres",
+      "list": "Liste"
+    },
     "tabs": {
       "items": "Inventaire",
       "trash": "Corbeille"
@@ -148,6 +160,14 @@
     "noBottles_cigar": "Aucun cigare dans votre humidor",
     "noBottlesDesc": "Ajoutez votre première bouteille pour commencer.",
     "noBottlesDesc_cigar": "Ajoutez votre premier cigare pour commencer.",
+    "noCategory_wine": "Aucun vin dans votre cave",
+    "noCategory_wineDesc": "Ajoutez un vin pour le voir ici, ou consultez toutes vos bouteilles.",
+    "noCategory_sparkling": "Aucune bulle dans votre cave",
+    "noCategory_sparklingDesc": "Ajoutez une bulle pour la voir ici, ou consultez toutes vos bouteilles.",
+    "noCategory_spirit": "Aucun spiritueux dans votre cave",
+    "noCategory_spiritDesc": "Ajoutez un spiritueux pour le voir ici, ou consultez toutes vos bouteilles.",
+    "seeAllBottles": "Voir toutes les bouteilles",
+    "noCellarFilter": "Sans cave",
     "noCellarBanner": "Aucune cave créée — vos bouteilles n'auront pas d'emplacement.",
     "noCellarBannerAction": "Créer une cave",
     "noCellar": "Aucune cave",
@@ -167,6 +187,12 @@
       "category": "Catégorie",
       "name": "Nom",
       "producer": "Producteur",
+      "namePlaceholder": {
+        "wine": "Cuvée / Appellation",
+        "sparkling": "Cuvée / Assemblage",
+        "spirit": "Nom / Expression",
+        "cigar": "Vitole / Gamme"
+      },
       "producerPlaceholder": {
         "wine": "Château / Domaine / Négociant",
         "sparkling": "Maison / Domaine / Coopérative",
@@ -176,6 +202,7 @@
       "location": "Repère libre (étagère, carton…)",
       "collection": "Collection",
       "tags": "Étiquettes",
+      "tagsHint": "Ex : Cadeau, À garder (séparées par une virgule)",
       "photoUrl": "URL de la photo",
       "notes": "Notes personnelles",
       "purchasePrice": "Prix d'achat (€)",
@@ -197,11 +224,14 @@
       "peakMaturityTo": "Fin",
       "peakMaturityToHint": "Dernière année de la période idéale",
       "vintage": "Millésime",
-      "noVintage": "Sans millésime",
+      "noVintage": "Laisser vide si sans millésime",
       "color": "Couleur",
       "region": "Région",
+      "regionHelp": "Sert à placer la bouteille sur la carte des Analyses.",
+      "regionUnknown": "Non reconnue : cette bouteille n'apparaîtra pas sur la carte des Analyses. Choisissez une région proposée pour l'y placer.",
       "grapeVarieties": "Cépages",
       "alcoholDegree": "Degré d'alcool (%)",
+      "alcoholDegreeOptional": "Laissez vide si vous ne le connaissez pas",
       "bottleSize": "Taille de bouteille",
       "peakMaturity": "Période idéale de dégustation",
       "curveShape": "Courbe de consommation",
@@ -231,6 +261,7 @@
       "recommendedHumidity": "Humidité recommandée (%)",
       "humidificationSystem": "Système d'humidification",
       "appellation": "Appellation",
+      "appellationHelp": "Sert à placer la bouteille sur la carte des Analyses quand la région est vide.",
       "classification": "Classification",
       "classificationPlaceholder": "Ex : Grand Cru, 1er Cru...",
       "batchDate": "Date de mise en fût / d'embouteillage du lot",
@@ -271,6 +302,11 @@
       "peak": "À l'apogée",
       "past": "Passé l'apogée"
     },
+    "alertStatusShort": {
+      "approaching": "Bientôt prêt",
+      "peak": "À boire",
+      "past": "Apogée passé"
+    },
     "sealedStatus": {
       "sealed": "Scellé",
       "opened": "Ouvert"
@@ -280,7 +316,7 @@
       "cremant": "Crémant",
       "prosecco": "Prosecco",
       "cava": "Cava",
-      "petnat": "Pétillant Naturel",
+      "petnat": "Pétillant naturel",
       "other": "Autre"
     },
     "spiritTypes": {
@@ -305,10 +341,10 @@
       "doux": "Doux"
     },
     "fillLevels": {
-      "full": "Plein",
-      "threeQuarters": "3/4 restant",
+      "full": "Pleine",
+      "threeQuarters": "3/4",
       "half": "Moitié",
-      "quarter": "1/4 restant",
+      "quarter": "1/4",
       "empty": "Vide"
     },
     "filters": {
@@ -318,6 +354,7 @@
       "opened": "Entamées uniquement",
       "openedCigar": "Entamés uniquement",
       "alerts": "Rappels à consommer",
+      "notLocated": "Pas sur la carte",
       "sortBy": "Trier par",
       "sortOptions": {
         "default": "Par défaut",
@@ -370,7 +407,7 @@
     }
   },
   "alerts": {
-    "title": "Alertes Apogée",
+    "title": "Alertes d'apogée",
     "from": "À partir de",
     "until": "Jusqu'en",
     "paused": "Alerte suspendue",
@@ -474,6 +511,12 @@
       "restoreError": "Impossible de restaurer ce vin",
       "restoreError_spirit": "Impossible de restaurer ce spiritueux",
       "restoreError_cigar": "Impossible de restaurer ce cigare"
+    },
+    "trash": {
+      "deleteSuccess": "Supprimé définitivement",
+      "deleteError": "Impossible de supprimer définitivement",
+      "emptySuccess": "Corbeille vidée",
+      "emptyError": "Impossible de vider la corbeille"
     }
   },
   "auth": {
@@ -559,7 +602,7 @@
     "submit": "Valider le mot de passe"
   },
   "cellars": {
-    "title": "Mes Caves",
+    "title": "Mes caves",
     "addCellar": "Ajouter une cave",
     "editCellar": "Modifier la cave",
     "noCellars": "Vous n'avez pas encore de cave.",
@@ -569,13 +612,13 @@
     "type": "Type de cave",
     "types": {
       "VINTAGE": "Vieillissement / Enterrée",
-      "COOLER": "Armoire Climatisée / Service",
+      "COOLER": "Armoire climatisée / de service",
       "SHELF": "Vitrines / Étagères",
       "HUMIDOR": "Humidor (cigares)"
     },
     "humidor": {
-      "title": "Monitoring hygrométrique",
-      "targetRangeHint": "Plage cible d'hygrométrie (ex : 68-72%) utilisée pour détecter une dérive.",
+      "title": "Suivi de l'hygrométrie",
+      "targetRangeHint": "Plage cible d'hygrométrie (ex : 68-72 %) utilisée pour détecter une dérive.",
       "targetHumidityMin": "Humidité min. (%)",
       "targetHumidityMax": "Humidité max. (%)",
       "status": {
@@ -584,7 +627,7 @@
         "unconfigured": "Non configuré"
       },
       "noTargetHint": "Aucune plage cible configurée — modifiez la cave pour en définir une et activer les alertes de dérive.",
-      "latestReading": "Dernière lecture : {{humidity}}% le {{date}}",
+      "latestReading": "Dernière lecture : {{humidity}} % le {{date}}",
       "empty": "Aucune lecture enregistrée pour le moment.",
       "humidityPercent": "Humidité (%)",
       "temperatureCelsius": "Température (°C)",
@@ -596,6 +639,10 @@
     },
     "deleteTitle": "Supprimer la cave",
     "deleteConfirm": "Êtes-vous sûr de vouloir supprimer la cave « {{name}} » ? Les bouteilles et les cigares qu'elle contient resteront sans cave.",
+    "addHere": "Ajouter une bouteille ici",
+    "addHere_cigar": "Ajouter un cigare ici",
+    "deleteConfirmContents": "Supprimer la cave « {{name}} » ? Ce qu'elle contient ({{contents}}) restera dans l'inventaire, sans cave.",
+    "deleteConfirmEmpty": "Supprimer la cave « {{name}} » ? Elle est vide.",
     "stats": {
       "alerts": "alertes",
       "alertCount_one": "{{count}} alerte",
@@ -612,9 +659,9 @@
       "configHint": "Définissez les dimensions physiques de votre cave pour afficher un plan visuel.",
       "columns": "Colonnes (largeur)",
       "rows": "Rangées (hauteur)",
-      "hotZoneRows": "Zone chaude (rangées depuis le haut)",
+      "hotZoneRows": "Zone chaude (rangées)",
       "hotZoneRowsHint": "Rangées à température plus élevée, comptées depuis le haut",
-      "coldZoneRows": "Zone froide (rangées depuis le bas)",
+      "coldZoneRows": "Zone froide (rangées)",
       "coldZoneRowsHint": "Rangées à température plus fraîche, comptées depuis le bas",
       "zonesExceedError": "Zone chaude + zone froide dépassent le nombre total de rangées",
       "configured": "Grille : {{cols}} × {{rows}}",
@@ -648,6 +695,8 @@
       "assignTitle": "Assigner une bouteille à la case C{{col}}·R{{row}}",
       "assignTitle_cigar": "Assigner un cigare ou une boîte à la case C{{col}}·R{{row}}",
       "assignTitle_mixed": "Assigner une bouteille, une boîte ou un cigare à la case C{{col}}·R{{row}}",
+      "emptyCellar": "Cette cave est vide.",
+      "emptyCellar_cigar": "Cet humidor est vide.",
       "noUnassignedBottles": "Toutes les bouteilles de cette cave sont déjà rangées dans une case.",
       "noUnassignedBottles_cigar": "Tous les cigares de cette cave sont déjà rangés dans une case.",
       "noUnassignedBottles_mixed": "Toutes les bouteilles et tous les cigares de cette cave sont déjà rangés dans une case.",
@@ -682,6 +731,10 @@
     },
     "filterByType": "Filtrer par type",
     "filterByStatus": "Filtrer par état",
+    "filters": {
+      "allTypes": "Tous les types",
+      "allStates": "Tous les états"
+    },
     "noResults": "Aucune cave trouvée avec ces critères",
     "errors": {
       "load": "Impossible de charger les caves."
@@ -745,7 +798,7 @@
     "savedLocally": "Stocké en local",
     "remove": "Supprimer l'image",
     "pasteUrl": "Coller une URL d'image",
-    "upload": "Uploader une image depuis votre appareil",
+    "upload": "Importer une image depuis votre appareil",
     "urlPlaceholder": "https://… (URL de l'image)",
     "errors": {
       "tooLarge": "Cette photo est trop volumineuse (5 Mo au maximum). Choisissez-en une plus légère.",
@@ -764,17 +817,32 @@
   },
   "autocomplete": {
     "internal": "Mon inventaire",
-    "external": "Internet"
+    "external": "Internet",
+    "notOnMap": "Pas sur la carte",
+    "regionSuggestions": "Régions proposées"
   },
   "profile": {
+    "version": {
+      "title": "Version",
+      "description": "La version de Glou en cours d'exécution. Indiquez-la quand vous signalez un problème.",
+      "unavailable": "Version indisponible"
+    },
     "adminPanelLink": "Accéder au panneau d'administration",
-    "title": "Mon Profil",
+    "title": "Mon profil",
     "sectionsNav": "Sections du profil",
+    "sectionLabels": {
+      "account": "Profil",
+      "preferences": "Affichage",
+      "security": "Sécurité",
+      "shares": "Partages",
+      "notifications": "Notifications",
+      "data": "Données"
+    },
     "personalInfo": "Informations personnelles",
     "preferences": "Préférences d'affichage",
-    "appName": "Nom perso pour l'app",
+    "appName": "Nom personnalisé de l'application",
     "appNamePlaceholder": "Ex: Ma Cave Privée",
-    "appSlogan": "Slogan perso pour l'app",
+    "appSlogan": "Slogan personnalisé de l'application",
     "appSloganPlaceholder": "Votre devise...",
     "reviewOnboarding": "Revoir le guide de démarrage",
     "security": "Sécurité du compte",
@@ -817,7 +885,7 @@
     "saveSuccess": "Profil mis à jour avec succès",
     "saveError": "Erreur lors de la mise à jour du profil",
     "avatarSuccess": "Photo de profil mise à jour",
-    "avatarError": "Erreur lors du téléchargement de l'image",
+    "avatarError": "Erreur lors de l'envoi de l'image",
     "changeAvatar": "Changer la photo de profil",
     "deleteAvatar": "Supprimer la photo de profil",
     "deleteAvatarConfirm": "Voulez-vous vraiment supprimer votre photo de profil ?",
@@ -828,7 +896,7 @@
     "passwordError": "Mot de passe actuel incorrect",
     "emailLabel": "Adresse email",
     "passwordLabel": "Mot de passe",
-    "avatarHint": "Cliquez ou glissez une image\n(Recommandé : 400×400px, max 5 Mo)",
+    "avatarHint": "Touchez la photo pour la changer (ou glissez une image dessus)",
     "autoLockDelay": "Verrouillage automatique",
     "autoLockHint": "Verrouille l'application après une période d'inactivité",
     "autoLockNever": "Jamais",
@@ -836,6 +904,7 @@
     "pinLabel": "Code PIN de déverrouillage",
     "pinSet": "Configuré",
     "pinNotSet": "Non configuré",
+    "pinOptionalHint": "Facultatif : déverrouiller avec un code au lieu du mot de passe, qui fonctionne toujours.",
     "setPin": "Définir un code PIN",
     "changePin": "Modifier le code PIN",
     "pinModalHint": "Le code doit contenir entre 4 et 6 chiffres. Il permet un déverrouillage rapide sans ressaisir votre mot de passe.",
@@ -847,20 +916,25 @@
     "pinRemoveSuccess": "Code PIN supprimé",
     "pinError": "Impossible de mettre à jour le code PIN",
     "twoFactor": {
-      "title": "Sécurité & Authentification",
+      "title": "Sécurité et authentification",
       "description": "Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application lors de la connexion.",
-      "status": "Statut 2FA",
+      "status": "Statut 2FA :",
       "enabled": "Activé",
       "disabled": "Désactivé",
+      "adminRecommended": "La double authentification est recommandée pour les comptes administrateurs.",
       "enable": "Activer",
       "disable": "Désactiver",
       "enableTitle": "Activer la double authentification",
       "enableSuccess": "Double authentification activée avec succès !",
       "backupCodesWarning": "⚠️ C'est la seule fois que ces codes de secours seront affichés.",
       "backupCodesHint": "Conservez-les dans un endroit sûr. Ils vous permettront de vous connecter si vous perdez l'accès à votre application.",
-      "step1": "1. Scannez ce QR Code avec votre application d'authentification (Google Authenticator, Authy, etc.).",
+      "step1": "1. Scannez ce code QR avec votre application d'authentification (Google Authenticator, Authy, etc.).",
       "orSecret": "Ou utilisez la clé secrète :",
+      "copySecret": "Copier la clé secrète",
+      "secretCopied": "Clé secrète copiée",
+      "copySecretFailed": "La copie n'est pas possible ici. Sélectionnez la clé secrète et copiez-la à la main.",
       "step2": "2. Saisissez le code à 6 chiffres pour confirmer.",
+      "step3": "3. Confirmez avec votre mot de passe.",
       "codeLabel": "Code à 6 chiffres",
       "codesConfirmed": "J'ai sauvegardé mes codes",
       "disableTitle": "Désactiver la double authentification",
@@ -883,6 +957,7 @@
       "title": "Sessions actives",
       "current": "Session actuelle",
       "lastActive": "Dernière activité",
+      "geoCredit": "Géolocalisation IP par DB-IP",
       "unknownLocation": "Localisation inconnue",
       "unknownDevice": "Appareil inconnu",
       "unknownBrowser": "Navigateur inconnu",
@@ -908,6 +983,11 @@
     "users": {
       "title": "Gestion des membres",
       "subtitle": "Gérez les rôles et l'accès de chaque membre à cette instance.",
+      "signUp": {
+        "open": "Inscriptions ouvertes : toute personne qui accède à l'instance peut créer un compte.",
+        "closed": "Inscriptions fermées : personne ne peut créer de compte de lui-même.",
+        "change": "Modifier"
+      },
       "columns": {
         "email": "Email",
         "username": "Nom d'utilisateur",
@@ -921,6 +1001,8 @@
       "deactivateSelf": "Impossible de désactiver votre propre compte",
       "grantAdminConfirm": "Donner les droits d'administrateur à {{username}} ?",
       "deactivateConfirm": "Couper l'accès de {{username}} à cette instance ? Ses sessions, appareils de confiance et liens invités seront révoqués définitivement : réactiver le compte plus tard ne les rétablira pas, il devra se reconnecter et créer de nouveaux liens invités.",
+      "removeAdminConfirm": "Retirer les droits d'administrateur de {{username}} ?",
+      "activateConfirm": "Rendre l'accès à {{username}} ? Il devra se reconnecter ; ses anciennes sessions, appareils de confiance et liens invités restent révoqués.",
       "deactivateLastAdmin": "Impossible de désactiver le dernier administrateur",
       "me": "moi",
       "resetPassword": "Réinitialiser le mot de passe",
@@ -929,7 +1011,9 @@
       "stepUpHint": "Confirmez avec votre propre mot de passe, et un code de votre application d'authentification (ou un code de secours) si votre compte a la double authentification.",
       "stepUpPassword": "Votre mot de passe",
       "stepUpRequired": "Saisissez votre mot de passe pour confirmer.",
-      "stepUpErrors": { "UNEXPECTED_ERROR": "L'action n'a pas pu aboutir. Réessayez." },
+      "stepUpErrors": {
+        "UNEXPECTED_ERROR": "L'action n'a pas pu aboutir. Réessayez."
+      },
       "resetPasswordResultTitle": "Mot de passe temporaire pour {{username}}",
       "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion.",
       "statusEnabled": "Activé",
@@ -940,7 +1024,8 @@
         "search": "Rechercher",
         "searchPlaceholder": "Membre, adresse IP ou action",
         "from": "Du",
-        "to": "Au"
+        "to": "Au",
+        "actions": "Types d'action"
       },
       "title": "Journal d'audit",
       "subtitle": "Toutes les actions effectuées sur cette instance.",
@@ -954,16 +1039,80 @@
       "noLogs": "Aucune entrée de journal",
       "prevPage": "Précédent",
       "nextPage": "Suivant",
-      "pageInfo": "Page {{page}} / {{pages}} — {{total}} entrées"
+      "pageInfo": "Page {{page}} / {{pages}} — {{total}} entrées",
+      "actions": {
+        "LIST": "Consultation d'une liste",
+        "CREATE": "Ajout",
+        "READ": "Consultation d'une fiche",
+        "UPDATE": "Modification",
+        "DELETE": "Suppression",
+        "RESTORE": "Restauration",
+        "RESTORE_FIELD": "Valeur rétablie",
+        "LOGIN": "Connexion",
+        "LOGIN_2FA": "Connexion avec double authentification",
+        "LOGOUT": "Déconnexion",
+        "REGISTER": "Inscription",
+        "CELLAR_CREATE": "Cave créée",
+        "CELLAR_READ": "Cave consultée",
+        "CELLAR_UPDATE": "Cave modifiée",
+        "CELLAR_DELETE": "Cave supprimée",
+        "CELLAR_SWAP_SLOTS": "Emplacements échangés",
+        "COLLECTION_CREATE": "Collection créée",
+        "COLLECTION_UPDATE": "Collection modifiée",
+        "COLLECTION_DELETE": "Collection supprimée",
+        "SESSION_REVOKE": "Session fermée",
+        "TRUST_DEVICE": "Appareil de confiance ajouté",
+        "UNTRUST_DEVICE": "Appareil de confiance retiré",
+        "BACKUP_CODES_REGENERATE": "Codes de secours régénérés",
+        "PIN_SET": "Code PIN défini",
+        "PIN_REMOVE": "Code PIN retiré",
+        "ADMIN_ROLE_CHANGE": "Rôle d'administrateur changé",
+        "ADMIN_STATUS_CHANGE": "Compte activé ou désactivé",
+        "ADMIN_SHARE_REVOKE": "Lien invité révoqué par un administrateur",
+        "GUEST_UPDATE": "Modification par un invité",
+        "GUEST_TASTING": "Dégustation notée par un invité",
+        "ONBOARDING_COMPLETE": "Prise en main terminée",
+        "IMPORT_CSV": "Import CSV",
+        "SCAN": "Scan d'étiquette",
+        "HUMIDOR_READING_CREATE": "Relevé d'humidor",
+        "ADD_UNITS": "Bouteilles ajoutées",
+        "CORRECT_QUANTITY": "Nombre corrigé",
+        "MERGE_PRODUCTS": "Vins fusionnés",
+        "DISTINGUISH_PRODUCTS": "Vins distingués",
+        "REVIEW_OK": "Vérification confirmée",
+        "MOVE_UNITS": "Bouteilles déplacées",
+        "REPRICE_UNITS": "Prix changé",
+        "BACKUP_RESTORE": "Sauvegarde restaurée",
+        "BACKUP_DOWNLOAD": "Sauvegarde téléchargée",
+        "PURGE": "Purge des données",
+        "CONFIG_UPDATE": "Paramètres modifiés",
+        "CONFIG_TEST": "Test des paramètres",
+        "LOGIN_FAILED": "Connexion refusée",
+        "PASSWORD_CHANGE": "Mot de passe modifié",
+        "EMAIL_CHANGE": "Adresse e-mail modifiée",
+        "TWO_FACTOR_ON": "Double authentification activée",
+        "TWO_FACTOR_OFF": "Double authentification désactivée",
+        "ADMIN_PASSWORD_RESET": "Mot de passe réinitialisé par un administrateur",
+        "SHARE_CREATE": "Lien invité créé",
+        "SHARE_REVOKE": "Lien invité révoqué",
+        "TRASH_DELETE": "Supprimé définitivement de la corbeille"
+      },
+      "statuses": {
+        "success": "Réussi",
+        "error": "Erreur",
+        "validation_error": "Refusé, données invalides",
+        "not_found": "Introuvable"
+      }
     },
     "maturityRefs": {
       "title": "Références d'apogée",
       "subtitle": "Définissez des fenêtres de dégustation de référence par catégorie, région, couleur ou producteur.",
-      "cascadeHint": "Les règles sont évaluées de haut en bas — la première qui correspond à un vin l'emporte. Placez vos règles les plus spécifiques au-dessus des règles générales.",
+      "cascadeHint": "Les règles sont évaluées de haut en bas — la première qui correspond à une bouteille l'emporte. Placez vos règles les plus spécifiques au-dessus des règles générales.",
       "add": "Ajouter une référence",
       "addTitle": "Nouvelle référence d'apogée",
       "editTitle": "Modifier la référence",
       "empty": "Aucune référence configurée.",
+      "anyColor": "Toutes les couleurs",
       "moveUp": "Monter (priorité supérieure)",
       "moveDown": "Descendre (priorité inférieure)",
       "deleteConfirmTitle": "Supprimer la référence ?",
@@ -998,18 +1147,19 @@
         "criteria": "Correspondance optionnelle",
         "windowRelative": "Ex : 5 → 15 pour une bouteille buvable de 5 à 15 ans après le millésime",
         "windowAbsolute": "Ex : 2010 → 2030 pour une fenêtre calendaire fixe",
-        "curveShape": "Forme de la courbe de maturité appliquée aux vins correspondants",
-        "colorPlaceholder": "Rouge, Blanc, Rosé…"
+        "curveShape": "Forme de la courbe de maturité appliquée aux vins correspondants"
       },
       "errors": {
         "nameRequired": "Le nom est obligatoire.",
-        "windowInvalid": "La fenêtre de fin doit être ≥ à la fenêtre de début."
+        "windowInvalid": "La fin de la fenêtre ne peut pas précéder son début."
       },
+      "bottleCount_one": "{{count}} bouteille",
+      "bottleCount_other": "{{count}} bouteilles",
       "relativeWindow": "{{from}} → {{to}} ans"
     },
     "maintenance": {
-      "title": "Maintenance",
       "purge": {
+        "title": "Supprimer toutes les données",
         "description": "Cette action supprimera TOUTES les bouteilles et TOUS les cigares, TOUTES les caves et TOUS les journaux d'activité. Les comptes utilisateurs seront préservés.",
         "button": "Purger toutes les données",
         "confirmTitle": "Confirmation de purge complète",
@@ -1021,7 +1171,7 @@
         "success": "La base de données a été remise à zéro avec succès.",
         "error": "Une erreur est survenue lors de la purge des données.",
         "errors": {
-          "BACKUP_BEFORE_PURGE_FAILED": "La sauvegarde préalable à la purge a échoué : rien n'a été supprimé. Consultez l'onglet Sauvegardes."
+          "BACKUP_BEFORE_PURGE_FAILED": "La sauvegarde préalable à la purge a échoué : rien n'a été supprimé. Consultez l'historique des sauvegardes ci-dessus."
         },
         "counts": {
           "bottles_one": "{{count}} bouteille ou cigare supprimé",
@@ -1030,8 +1180,41 @@
           "cellars_other": "{{count}} caves supprimées",
           "logs_one": "{{count}} entrée de log supprimée",
           "logs_other": "{{count}} entrées de log supprimées"
-        }
+        },
+        "lastBackup": "Dernière sauvegarde réussie : {{date}}.",
+        "noBackupYet": "Aucune sauvegarde n'a encore réussi.",
+        "autoBackupOff": "Les sauvegardes automatiques sont désactivées."
       }
+    },
+    "sections": {
+      "navLabel": "Sections de l'administration"
+    },
+    "backupWarning": {
+      "notWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échoue.",
+      "failed": "La dernière sauvegarde a échoué : vérifiez l'espace disque et les journaux de l'API, puis relancez-en une.",
+      "overdue": "Aucune sauvegarde n'a réussi depuis plus de deux jours : les données ne sont plus copiées.",
+      "disabled": "Les sauvegardes automatiques sont désactivées : aucune copie des données n'est faite chaque nuit.",
+      "noBackup": "Aucune sauvegarde n'a jamais réussi : en cas de panne du disque ou de mauvaise manipulation, rien ne pourra être restauré.",
+      "open": "Ouvrir les sauvegardes",
+      "marker": "À vérifier : pas de sauvegarde à jour"
+    },
+    "shares": {
+      "title": "Liens invités",
+      "subtitle": "Les liens invités encore valables de chaque membre. Le lien lui-même n'est jamais affiché ; vous pouvez le révoquer.",
+      "empty": "Aucun lien invité en cours.",
+      "loadError": "Impossible de charger les liens invités.",
+      "owner": "Créé par {{name}}",
+      "createdAt": "Créé le {{date}}",
+      "ownerDeactivated": "Le compte de ce membre est désactivé : le lien ne fonctionne plus, mais il fonctionnerait de nouveau si le compte était réactivé. Révoquez-le pour le couper définitivement.",
+      "unnamed": "Lien sans nom",
+      "revokeTitle": "Révoquer ce lien invité ?",
+      "revokeBody": "Le lien « {{label}} » créé par {{owner}} cessera de fonctionner immédiatement. Pour rendre l'accès, le membre devra créer un nouveau lien.",
+      "revoked": "Lien invité révoqué.",
+      "revokeError": "Le lien n'a pas pu être révoqué. Réessayez.",
+      "cellars": "Caves :",
+      "collections": "Collections :",
+      "deleted_one": "{{count}} supprimée",
+      "deleted_other": "{{count}} supprimées"
     }
   },
   "bulk": {
@@ -1149,6 +1332,12 @@
       "icon": "Icône"
     },
     "filterActive": "Collection : {{name}}",
+    "emptyCollection": "Cette collection est vide",
+    "emptyCollectionHint": "Ajoutez-y un vin depuis son formulaire « Modifier ».",
+    "allGoneCollection": "Plus rien en cave dans cette collection",
+    "allGoneCollectionHint": "Ses vins sont tous finis : le filtre « Plus en cave » les montre.",
+    "showGone": "Voir les vins finis",
+    "backToCollections": "Retour aux collections",
     "addToItem": "Ajouter",
     "allAdded": "Toutes ajoutées",
     "errors": {
@@ -1180,6 +1369,11 @@
     "deleteTitle": "Supprimer la dégustation",
     "deleteConfirm": "Cette note de dégustation sera supprimée définitivement.",
     "noItem": "Produit non lié",
+    "ratingOption_one": "{{count}} étoile sur 5",
+    "ratingOption_other": "{{count}} étoiles sur 5",
+    "ratingValue": "{{value}}/5",
+    "ratingClear": "Effacer la note",
+    "ratingNone": "Non noté",
     "total_one": "{{count}} dégustation",
     "total_other": "{{count}} dégustations",
     "fields": {
@@ -1198,7 +1392,8 @@
       "longueurBouche": "Longueur en bouche"
     },
     "expertSection": {
-      "title": "Grille de dégustation structurée"
+      "title": "Grille de dégustation structurée",
+      "seconds": "{{value}} s"
     },
     "readiness": {
       "TOO_YOUNG": "Trop jeune",
@@ -1227,6 +1422,44 @@
     },
     "stats": {
       "avgRating": "Note moy."
+    },
+    "pairings": {
+      "grilledRedMeat": "Viande rouge grillée",
+      "agedCheese": "Fromage affiné",
+      "lamb": "Agneau",
+      "mushrooms": "Champignons",
+      "fish": "Poisson",
+      "seafood": "Fruits de mer",
+      "freshGoatCheese": "Chèvre frais",
+      "poultry": "Volaille",
+      "nicoiseSalad": "Salade niçoise",
+      "pizza": "Pizza",
+      "lightBarbecue": "Barbecue léger",
+      "charcuterie": "Charcuterie",
+      "curry": "Curry",
+      "easternCuisine": "Cuisine orientale",
+      "semiHardCheese": "Fromage à pâte pressée",
+      "darkChocolate": "Chocolat noir",
+      "smokedCheese": "Fromage fumé",
+      "cigar": "Cigare",
+      "milkChocolate": "Chocolat au lait",
+      "tropicalFruit": "Fruits exotiques",
+      "mildCigar": "Cigare léger",
+      "foieGras": "Foie gras",
+      "roquefort": "Fromage Roquefort",
+      "cucumber": "Concombre",
+      "tapas": "Tapas",
+      "caviar": "Caviar",
+      "smokedHerring": "Hareng fumé",
+      "blinis": "Blinis",
+      "hardCheese": "Fromage sec",
+      "driedFruitAndNuts": "Fruits secs",
+      "smokedSalmon": "Saumon fumé",
+      "canapes": "Canapés",
+      "goatCheese": "Fromage de chèvre",
+      "espresso": "Café expresso",
+      "cognac": "Cognac",
+      "agedRum": "Rhum vieux"
     },
     "recommendations": {
       "title": "Recommandations de service",
@@ -1301,15 +1534,15 @@
     }
   },
   "inventoryCount": {
-    "title": "Inventaire physique",
-    "accessButton": "Inventaire physique",
-    "tabsAria": "Sections de la session d'inventaire",
+    "title": "Comptage",
+    "accessButton": "Comptage",
+    "tabsAria": "Sections de la session de comptage",
     "tabs": {
-      "counting": "Comptage",
+      "counting": "Saisie",
       "summary": "Bilan"
     },
     "start": {
-      "title": "Démarrer une session d'inventaire",
+      "title": "Démarrer une session de comptage",
       "description": "Choisissez le périmètre à vérifier : une cave existante ou un périmètre libre (meuble, bac...).",
       "scopeModeAria": "Mode de sélection du périmètre",
       "modeCellar": "Cave existante",
@@ -1321,12 +1554,12 @@
       "customPlaceholder": "Ex. : Meuble A, Bac 3...",
       "customHint": "Un périmètre libre n'est lié à aucune cave : aucune liste théorique ne peut être calculée automatiquement.",
       "submit": "Démarrer la session",
-      "errorConflict": "Une session d'inventaire est déjà en cours. Reprenez-la ou clôturez-la avant d'en démarrer une nouvelle.",
+      "errorConflict": "Une session de comptage est déjà en cours. Reprenez-la ou clôturez-la avant d'en démarrer une nouvelle.",
       "errorCellarNotFound": "Cette cave est introuvable."
     },
     "resume": {
       "title": "Session en pause",
-      "description": "Une session d'inventaire sur « {{scope}} » est en pause. Reprenez-la où vous vous étiez arrêté.",
+      "description": "Une session de comptage sur « {{scope}} » est en pause. Reprenez-la où vous vous étiez arrêté.",
       "viewSummary": "Voir le bilan",
       "resume": "Reprendre"
     },
@@ -1340,6 +1573,7 @@
       "unexpectedFound_one": "{{count}} exemplaire trouvé hors périmètre",
       "unexpectedFound_other": "{{count}} exemplaires trouvés hors périmètre",
       "searchLabel": "Rechercher un vin ou un cigare",
+      "searchTruncated": "La recherche ne porte que sur les {{limit}} éléments les plus récents : un plus ancien se compte en scannant son code QR.",
       "searchPlaceholder": "Nom ou producteur...",
       "emptyList": "Rien à vérifier pour ce périmètre.",
       "confirmTap": "Confirmer",
@@ -1410,9 +1644,9 @@
       "missingOf_cigar_other": "{{count}} manquants sur {{expected}}"
     },
     "errors": {
-      "SESSION_NOT_FOUND": "Cette session d'inventaire est introuvable.",
-      "SESSION_NOT_ACTIVE": "Cette session d'inventaire n'est plus active.",
-      "SESSION_ALREADY_COMPLETED": "Cette session d'inventaire a déjà été clôturée.",
+      "SESSION_NOT_FOUND": "Cette session de comptage est introuvable.",
+      "SESSION_NOT_ACTIVE": "Cette session de comptage n'est plus active.",
+      "SESSION_ALREADY_COMPLETED": "Cette session de comptage a déjà été clôturée.",
       "VALIDATION_ERROR": "Veuillez vérifier les informations saisies.",
       "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
       "QUANTITY_TOO_LARGE": "Un groupe ne peut pas dépasser 1 000 exemplaires.",
@@ -1426,24 +1660,38 @@
     "pageTitle": "Analyses & Terroirs",
     "pageSubtitle": "Analyse financière, temporelle, volumétrique et géographique de la cave.",
     "stats": {
-      "totalValuation": "Valorisation Globale",
+      "totalValuation": "Valorisation globale",
       "totalValuationHint": "Estimation totale actuelle",
       "liquidStock": "Liquide en stock",
       "liquidStockHint": "Hors cigares de collection",
       "cigarHumidor": "Cigares en humidor",
       "cigarHumidorHint": "Préservés sous hygrométrie contrôlée",
       "urgentDegustation": "Urgence de dégustation",
-      "urgentDegustationHint": "Bouteilles à l'apogée ou l'ayant dépassée",
+      "urgentDegustationHint": "Bouteilles à l'apogée ou l'ayant dépassé",
       "cigarCount_one": "{{count}} cigare",
       "cigarCount_other": "{{count}} cigares"
     },
     "regionMap": {
       "title": "Répartition géographique",
       "subtitle": "Distribution de votre collection par terroir",
-      "mapTitle": "Carte du Monde — Heatmap des Goûts",
+      "mapTitle": "Carte du monde — carte de chaleur des goûts",
       "mapSubtitle": "Survolez un hotspot géographique pour voir sa valorisation et sa composition.",
-      "unmapped_one": "{{count}} terroir non géolocalisé",
-      "unmapped_other": "{{count}} terroirs non géolocalisés",
+      "notOnMap_one": "{{what}} n'est pas sur la carte.",
+      "notOnMap_other": "{{what}} ne sont pas sur la carte.",
+      "bottles_one": "{{count}} bouteille",
+      "bottles_other": "{{count}} bouteilles",
+      "cigars_one": "{{count}} cigare",
+      "cigars_other": "{{count}} cigares",
+      "bottlesAndCigars": "{{bottles}} et {{cigars}}",
+      "unknownRegions_one": "Région inconnue de la carte : {{regions}}.",
+      "unknownRegions_other": "Régions inconnues de la carte : {{regions}}.",
+      "moreRegions_one": "et {{count}} autre",
+      "moreRegions_other": "et {{count}} autres",
+      "noRegion_one": "{{count}} sans région.",
+      "noRegion_other": "{{count}} sans région.",
+      "seeBottles": "Voir ces bouteilles",
+      "seeCigars": "Voir ces cigares",
+      "empty": "Rien à placer sur la carte pour l'instant : une bouteille y apparaît d'après sa région, ou son appellation quand la région est vide.",
       "items_one": "élément en stock",
       "items_other": "éléments en stock",
       "valuation": "Valorisation :"
@@ -1451,7 +1699,7 @@
     "map": {
       "mode": {
         "markers": "Marqueurs",
-        "heatmap": "Heatmap par type"
+        "heatmap": "Carte de chaleur par type"
       },
       "heatmapType": {
         "label": "Catégorie",
@@ -1487,7 +1735,7 @@
     "categories": {
       "title": "Répartition des catégories",
       "active": "En stock",
-      "wine": "Vins Rouges & Blancs",
+      "wine": "Vins",
       "sparkling": "Bulles & Champagnes",
       "spirit": "Spiritueux Fins",
       "cigar": "Cigares de Prestige",
@@ -1499,7 +1747,7 @@
       }
     },
     "garde": {
-      "title": "Planning de Garde (Histogramme)",
+      "title": "Planning de garde",
       "subtitle": "Distribution temporelle des bouteilles par année d'apogée optimale",
       "noData": "Aucune fenêtre d'apogée renseignée dans votre inventaire.",
       "bottles_one": "bouteille à l'apogée",
@@ -1521,13 +1769,13 @@
       "atPeak": "À l'apogée (À consommer en priorité)",
       "pastPeak": "Apogée dépassé (À consommer d'urgence)",
       "noWindow": "Sans fenêtre de maturité renseignée",
-      "countLabel_one": "{{count}} ({{percent}}%)",
-      "countLabel_other": "{{count}} ({{percent}}%)",
+      "countLabel_one": "{{count}} ({{percent}} %)",
+      "countLabel_other": "{{count}} ({{percent}} %)",
       "humidorTip": "Conseil de l'Humidor",
-      "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
+      "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70 %. Évitez les chocs thermiques pour préserver la souplesse de la cape."
     },
     "tastingInsights": {
-      "title": "Statistiques Dégustations",
+      "title": "Statistiques de dégustation",
       "producers": "Producteurs les mieux notés",
       "topItems": "Meilleures entrées",
       "flopItems": "Entrées les moins bien notées",
@@ -1567,8 +1815,8 @@
     "backHome": "Retour à l'accueil"
   },
   "qr": {
-    "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le QR code ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur avant de l'imprimer.",
-    "title": "QR Code",
+    "localhostWarning": "Cette adresse (localhost) ne sera pas joignable depuis un autre appareil : le code QR ne fonctionnera pas sur un téléphone. Ouvrez Glou via l'adresse du serveur, ou demandez à l'administrateur de renseigner l'URL publique (Administration), avant de l'imprimer.",
+    "title": "Code QR",
     "download": "Télécharger PNG"
   },
   "gdpr": {
@@ -1579,6 +1827,9 @@
     "csvTitle": "Exporter ma cave (CSV)",
     "csvDescription": "Un tableau de ce qui est en cave et des bouteilles ou boîtes entamées, une ligne par groupe, avec la description du vin, que l'import de fichier relit. Ne sont pas dans le CSV : les photos, les dégustations, l'historique, les alertes, les cases du plan de cave et les bouteilles bues ou sorties (elles restent dans l'export JSON). L'import prend 500 lignes à la fois.",
     "csvButton": "Exporter en CSV",
+    "importTitle": "Importer un fichier (CSV)",
+    "importDescription": "Ajoute à la cave les bouteilles et les cigares d'un fichier CSV, par exemple celui de l'export ci-dessus, comme l'assistant de démarrage. Un aperçu s'affiche avant tout ajout.",
+    "importButton": "Importer un fichier",
     "csvTooLong_one": "Le fichier compte {{count}} ligne : l'import en prend {{max}} à la fois. Découpez-le avant de le réimporter ; à partir du 2e morceau, les vins déjà importés demandent « Ajouter ces bouteilles » (le choix par défaut est « Ignorer (déjà comptées) »).",
     "csvTooLong_other": "Le fichier compte {{count}} lignes : l'import en prend {{max}} à la fois. Découpez-le avant de le réimporter ; à partir du 2e morceau, les vins déjà importés demandent « Ajouter ces bouteilles » (le choix par défaut est « Ignorer (déjà comptées) »).",
     "csvError": "L'export CSV a échoué. Réessayez dans un instant.",
@@ -1594,7 +1845,7 @@
       "wishlist": "Liste de souhaits",
       "budget": "Budgets",
       "goals": "Objectifs de consommation",
-      "counts": "Inventaires physiques",
+      "counts": "Comptages",
       "humidor": "Relevés d'humidor",
       "sessions": "Sessions",
       "devices": "Appareils de confiance",
@@ -1611,7 +1862,12 @@
     "deleteConfirm": "Confirmer la suppression",
     "deletionPending": "Suppression demandée",
     "deletionRequestedOn": "Votre compte sera supprimé le {{date}}, sauf annulation de votre part avant cette date.",
-    "cancelDeletion": "Annuler la suppression"
+    "cancelDeletion": "Annuler la suppression",
+    "deleteErrors": {
+      "INVALID_CREDENTIALS": "Mot de passe actuel incorrect",
+      "CANNOT_DELETE_LAST_ADMIN": "Vous êtes le seul administrateur de cette instance : donnez d'abord les droits d'administrateur à un autre membre, puis demandez la suppression de votre compte.",
+      "UNEXPECTED_ERROR": "La demande n'a pas pu aboutir. Réessayez."
+    }
   },
   "shares": {
     "title": "Partages invités",
@@ -1632,6 +1888,8 @@
     "statusExpired": "Expiré",
     "statusRevoked": "Révoqué",
     "expiresAt": "Expire le {{date}}",
+    "expiredOn": "Expiré le {{date}}",
+    "revokedOn": "Révoqué le {{date}}",
     "noExpiry": "Sans expiration",
     "allCellars": "Toutes les caves",
     "cellarCount_one": "{{count}} cave",
@@ -1666,6 +1924,7 @@
       "load": "Impossible de charger les partages."
     },
     "guest": {
+      "title": "Cave partagée",
       "badge": "Vue partagée",
       "readOnly": "Lecture seule",
       "partialWrite": "Lecture/écriture partielle",
@@ -1678,6 +1937,7 @@
       "search": "Rechercher dans ce partage",
       "sortBy": "Trier par",
       "empty": "Aucun article dans ce partage.",
+      "noResults": "Aucun résultat pour « {{query}} »",
       "scopeAll": "Collection complète",
       "errors": {
         "finished": "Cette bouteille a été bue ou retirée entre-temps.",
@@ -1733,6 +1993,7 @@
     "errors": {
       "INVALID_OR_EXPIRED_TOKEN": "Ce lien est invalide ou a expiré. Faites une nouvelle demande.",
       "PASSWORD_TOO_SHORT": "Le mot de passe doit contenir au moins 12 caractères.",
+      "PASSWORD_TOO_LONG": "Le mot de passe doit contenir au plus 128 caractères.",
       "PASSWORDS_MISMATCH": "Les mots de passe ne correspondent pas.",
       "UNEXPECTED_ERROR": "Une erreur est survenue. Réessayez."
     }
@@ -1742,35 +2003,53 @@
     "subtitle": "Choisissez comment recevoir vos alertes. Certains canaux peuvent être restreints par votre administrateur.",
     "channels": {
       "title": "Canaux",
-      "inApp": "Notifications dans l'application",
-      "inAppDesc": "Alertes visibles dans l'interface",
       "email": "Email",
       "emailDesc": "Notifications envoyées à votre adresse email",
-      "webhook": "Webhook / Gotify",
-      "webhookDesc": "Notifications envoyées à une URL externe",
-      "webhookUrl": "URL du webhook",
-      "webhookUrlPlaceholder": "https://gotify.example.com",
+      "webhook": "Gotify",
+      "webhookDesc": "Vos notifications partent vers le serveur Gotify de l'instance, géré par l'administrateur, qui peut les lire (alertes de sécurité comprises). Chaque message porte votre nom d'utilisateur.",
       "disabledByAdmin": "Désactivé par l'administrateur",
+      "offReason": {
+        "email": {
+          "notConfigured": "Serveur SMTP non configuré",
+          "off": "E-mail coupé dans l'administration"
+        },
+        "gotify": {
+          "notConfigured": "Serveur Gotify non configuré (URL et jeton d'application)",
+          "off": "Gotify coupé dans l'administration"
+        }
+      },
+      "configure": "Configurer",
       "test": "Tester",
       "testSuccess": "Notification de test envoyée.",
-      "testError": "Échec du test : {{error}}",
-      "unknownError": "Erreur inconnue",
-      "networkError": "Erreur réseau"
+      "testErrors": {
+        "DELIVERY_FAILED": "Le serveur n'a pas accepté la notification de test. Prévenez votre administrateur.",
+        "GOTIFY_NOT_CONFIGURED": "Gotify n'est plus disponible sur cette instance. Rechargez la page.",
+        "INVALID_URL": "L'adresse du serveur Gotify de l'instance ne peut pas être utilisée. Prévenez votre administrateur.",
+        "SMTP_NOT_CONFIGURED": "L'envoi d'e-mails n'est plus disponible sur cette instance. Rechargez la page.",
+        "UNEXPECTED": "La notification de test n'a pas pu être envoyée. Réessayez plus tard ou prévenez votre administrateur.",
+        "TOO_MANY_REQUESTS_one": "Trop de tests d'affilée. Attendez {{count}} minute avant de réessayer.",
+        "TOO_MANY_REQUESTS_other": "Trop de tests d'affilée. Attendez {{count}} minutes avant de réessayer."
+      }
     },
     "categories": {
       "title": "Catégories d'alertes",
-      "hint": "Touchez une catégorie pour l'activer ou la désactiver.",
       "lastOne": "Au moins une catégorie reste active. Pour ne plus rien recevoir, désactivez les canaux ci-dessus.",
-      "peak": "Apogée atteinte",
+      "peak": "Apogée atteint",
       "temperature": "Variations température/hygrométrie",
       "security": "Sécurité du compte",
       "wishlist": "Opportunités tarifaires (liste de souhaits)",
-      "backup": "Échec des sauvegardes (admin)"
+      "backup": "Échec des sauvegardes",
+      "backupAutomaticOff": "Les sauvegardes automatiques sont désactivées : seule une sauvegarde manuelle, ou la copie prise avant une restauration, peut encore échouer et vous alerter."
     },
     "quietHours": {
       "title": "Plage silencieuse",
       "description": "Aucune notification pendant cette plage horaire",
-      "dropped": "Un message qui tombe dans cette plage est supprimé, pas différé. Les heures sont celles du fuseau horaire du serveur. Les alertes d'apogée et d'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte et les échecs de sauvegarde passent toujours.",
+      "droppedLead": "Supprimés, pas différés.",
+      "dropped": "Un message qui tombe dans cette plage est perdu : il n'est pas envoyé plus tard.",
+      "details": "Les alertes d'apogée et le contrôle quotidien de l'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte passent toujours.",
+      "detailsAdmin": "Les alertes d'apogée et le contrôle quotidien de l'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte et les échecs de sauvegarde passent toujours.",
+      "timeZone": "Heures du fuseau de l'instance : {{timeZone}}.",
+      "otherTimeZone": "Votre appareil est réglé sur {{deviceTimeZone}} : choisissez les heures telles qu'elles se lisent à {{timeZone}}.",
       "from": "De",
       "to": "À",
       "disabled": "Désactivée",
@@ -1780,92 +2059,175 @@
       "title": "Langue des notifications",
       "useUI": "Langue de l'interface"
     },
-    "saved": "Préférences enregistrées."
+    "saved": "Préférences enregistrées.",
+    "saveError": "Ce réglage n'a pas pu être enregistré. Réessayez.",
+    "loadError": "Vos préférences de notification n'ont pas pu être chargées."
   },
   "adminConfig": {
-    "title": "Configuration Système",
-    "subtitle": "Paramétrez les intégrations et la politique de notifications de l'instance.",
+    "title": "Configuration système",
+    "subtitle": "Comment les membres sont prévenus, qui peut rejoindre l'instance, les sauvegardes et les données, et la version en service.",
     "tabsAriaLabel": "Sections de configuration",
+    "loadError": "La configuration n'a pas pu être chargée : aucun réglage n'est affiché.",
+    "listLoadError": "Cette liste n'a pas pu être chargée.",
+    "save": "Enregistrer",
+    "unsaved": "Modifications non enregistrées",
+    "leaveConfirm": "Certains réglages ne sont pas encore enregistrés. Quitter la page et les perdre ?",
+    "errors": {
+      "UNEXPECTED_ERROR": "L'opération n'a pas abouti. Réessayez.",
+      "VALIDATION_ERROR": "Une valeur n'est pas valide. Vérifiez les champs de cette carte.",
+      "INVALID_INPUT": "Une valeur n'est pas valide. Vérifiez les champs de cette carte.",
+      "INVALID_URL": "Cette adresse ne peut pas être utilisée : elle doit être une URL valide que le serveur a le droit de joindre.",
+      "SMTP_NOT_CONFIGURED": "L'e-mail est coupé ou n'a pas de serveur : activez-le, renseignez le serveur et enregistrez avant de tester.",
+      "GOTIFY_NOT_CONFIGURED": "Gotify est coupé ou n'a pas d'URL ou de jeton : renseignez l'URL et le jeton d'application, activez-le et enregistrez avant de tester.",
+      "GOTIFY_INCOMPLETE": "Gotify ne peut pas être activé sans son URL et son jeton d'application : renseignez les deux, ou coupez le canal.",
+      "DELIVERY_FAILED": "Le serveur Gotify n'a pas accepté la notification. Vérifiez l'URL et le jeton."
+    },
+    "channelStatus": {
+      "active": "Activé",
+      "configuredOff": "Configuré mais coupé",
+      "notConfigured": "Non configuré"
+    },
+    "testUsesSaved": "Les tests utilisent les réglages enregistrés : enregistrez d'abord vos modifications.",
     "stepUp": {
       "smtp": "Le serveur de messagerie envoie les liens de réinitialisation du mot de passe et les alertes de sécurité : sa modification est confirmée.",
       "smtpTest": "Le test se connecte au serveur de messagerie enregistré, et envoie un message si vous avez donné une adresse.",
-      "notifications": "Ces canaux portent les alertes de sécurité envoyées aux membres : leur modification est confirmée.",
       "gotify": "Le serveur Gotify reçoit les alertes de sécurité : sa modification est confirmée.",
       "gotifyTest": "Le test envoie une notification au serveur Gotify enregistré.",
-      "network": "Les liens de réinitialisation du mot de passe sont construits à partir de l'URL publique : sa modification est confirmée."
+      "network": "Les liens de réinitialisation du mot de passe sont construits à partir de l'URL publique : sa modification est confirmée.",
+      "retention": "Des délais plus courts suppriment définitivement les données plus anciennes au prochain nettoyage, entrées du journal d'audit comprises : cette modification est confirmée.",
+      "backup": "Couper les sauvegardes automatiques, ou garder leurs fichiers moins de jours, laisse moins de moyens de récupérer les données : cette modification est confirmée.",
+      "registration": "Ouvrir l'inscription permet à quiconque atteint cette instance de créer un compte : cette modification est confirmée."
     },
     "tabs": {
-      "smtp": "SMTP / Email",
-      "notifications": "Politique de notifs",
-      "gotify": "Webhook / Gotify",
-      "integrations": "Intégrations API",
-      "retention": "Rétention",
-      "backups": "Sauvegardes",
-      "network": "Réseau",
-      "history": "Historique",
-      "about": "À propos"
+      "notifications": "Notifications",
+      "access": "Accès",
+      "data": "Données",
+      "system": "Système"
     },
-    "about": {
-      "description": "Version en cours d'exécution. À inclure dans un rapport de bug."
+    "cards": {
+      "email": "E-mail",
+      "gotify": "Gotify",
+      "publicUrl": "URL publique",
+      "backups": "Sauvegardes",
+      "retention": "Rétention et nettoyage",
+      "history": "Historique de la configuration"
+    },
+    "version": {
+      "title": "Version",
+      "description": "Version en cours d'exécution. À inclure dans un rapport de bug.",
+      "unavailable": "Version indisponible"
     },
     "smtp": {
       "enabled": "Activer l'envoi d'emails",
       "host": "Serveur SMTP",
-      "hostPlaceholder": "smtp.gmail.com",
+      "hostPlaceholder": "ex. smtp.example.com",
       "port": "Port",
       "user": "Utilisateur",
-      "userPlaceholder": "votre@gmail.com",
+      "userPlaceholder": "ex. glou@example.com",
       "pass": "Mot de passe",
       "passPlaceholder": "Laisser vide pour conserver l'actuel",
       "from": "Adresse expéditeur",
-      "fromPlaceholder": "Glou <votre@gmail.com>",
-      "secure": "Connexion sécurisée (TLS)",
-      "save": "Enregistrer la config SMTP",
+      "fromPlaceholder": "ex. Glou <glou@example.com>",
+      "secure": "Sécurité de la connexion",
+      "secureHint": "STARTTLS démarre en clair puis passe en chiffré (port 587, la plupart des fournisseurs). TLS est chiffré dès le premier octet (port 465).",
+      "secureStarttls": "STARTTLS (port 587)",
+      "secureTls": "TLS (implicite, port 465)",
+      "testRecipient": "Adresse du destinataire du test",
+      "testRecipientPlaceholder": "ex. vous@example.com",
+      "sendTest": "Envoyer le test",
+      "mismatch": {
+        "tlsOn587": "Le port 587 attend STARTTLS : avec TLS (implicite), la connexion échoue le plus souvent. Choisissez STARTTLS, ou le port 465 pour TLS.",
+        "starttlsOn465": "Le port 465 attend TLS (implicite) : avec STARTTLS, la connexion échoue le plus souvent. Choisissez TLS, ou le port 587 pour STARTTLS."
+      },
       "test": "Tester la connexion",
-      "testWithEmail": "Envoyer un email de test",
       "testSuccess": "Connexion SMTP validée.",
       "testEmailSuccess": "Email de test envoyé.",
       "testError": "Échec : {{error}}",
       "saved": "Configuration SMTP enregistrée."
     },
     "notifPolicy": {
-      "description": "Ces réglages sont des interrupteurs globaux pour toute l'instance. Si un canal est désactivé ici, les utilisateurs ne pourront pas l'activer dans leurs préférences personnelles.",
-      "inApp": "Notifications dans l'application",
-      "inAppHint": "Permet aux utilisateurs de recevoir des alertes directement dans l'interface.",
-      "email": "Notifications par email",
-      "emailHint": "Nécessite une configuration SMTP valide (onglet SMTP). Les utilisateurs peuvent ensuite l'activer ou le désactiver individuellement.",
-      "webhook": "Notifications webhook / Gotify",
-      "webhookHint": "Nécessite une URL Gotify configurée. Chaque utilisateur définit sa propre URL de destination dans ses préférences.",
-      "save": "Enregistrer la politique",
-      "saved": "Politique enregistrée."
+      "description": "Chaque canal ci-dessous est activé ou coupé pour toute l'instance. Un canal coupé ici ne peut pas être activé par les membres dans leurs préférences.",
+      "emailHint": "Envoie les liens de réinitialisation du mot de passe, et les notifications que les membres choisissent de recevoir par e-mail.",
+      "webhookHint": "Toutes les notifications Gotify partent vers ce serveur, dans la même application : chaque membre choisit seulement de les recevoir ou non dans son profil, et chaque message porte le nom du membre concerné. L'URL et le jeton d'application sont nécessaires pour activer le canal."
     },
     "gotify": {
+      "enabled": "Activer les notifications Gotify",
+      "needsUrlAndToken": "Renseignez l'URL et le jeton d'application pour pouvoir activer Gotify.",
       "url": "URL Gotify",
       "urlPlaceholder": "https://gotify.example.com",
       "token": "Token Gotify",
       "tokenPlaceholder": "Laisser vide pour conserver l'actuel",
-      "save": "Enregistrer la config Gotify",
-      "test": "Tester le webhook",
-      "testSuccess": "Webhook Gotify validé.",
-      "testError": "Échec : {{error}}",
+      "test": "Envoyer une notification de test",
+      "testSuccess": "Notification de test acceptée par le serveur Gotify.",
       "saved": "Configuration Gotify enregistrée."
     },
-    "integrations": {
-      "vivinoKey": "Clé API Vivino",
-      "whiskybaseKey": "Clé API Whiskybase",
-      "vivinoWhiskybaseNotUsedYet": "Bientôt disponible — stockée en sécurité, mais aucune fonctionnalité ne lit encore ces clés.",
-      "keyPlaceholder": "Laisser vide pour conserver l'actuel",
-      "save": "Enregistrer les intégrations",
-      "saved": "Intégrations enregistrées.",
-      "scan": {
-        "title": "Scan d'étiquette",
-        "active": "Activé",
-        "inactive": "Non activé",
-        "howToEnable": "Le service de reconnaissance n'est pas démarré, ou son modèle est encore en cours de téléchargement : le scan est donc masqué pour les membres. Pour l'activer (environ 9 Go de disque et 3 Go de mémoire), lancez sur le serveur la commande ci-dessous, puis attendez la fin du téléchargement du modèle :"
-      }
+    "scan": {
+      "title": "Scan d'étiquette",
+      "active": "Activé",
+      "inactive": "Non activé",
+      "howToEnable": "Le service de reconnaissance n'est pas démarré, ou son modèle est encore en cours de téléchargement : le scan est donc masqué pour les membres. Pour l'activer (environ 9 Go de disque et 3 Go de mémoire), lancez sur le serveur la commande ci-dessous, puis attendez la fin du téléchargement du modèle :"
     },
     "history": {
-      "noHistory": "Aucune modification enregistrée."
+      "noHistory": "Aucune modification enregistrée.",
+      "changed": "{{field}} : {{from}} → {{to}}",
+      "removed": "{{field}} : valeur supprimée",
+      "secretChanged": "{{field}} : valeur modifiée",
+      "secretSet": "{{field}} : valeur définie",
+      "legacyIntro": "Valeurs enregistrées (les valeurs précédentes n'étaient pas conservées à l'époque) :",
+      "legacyValue": "{{field}} : {{value}}",
+      "legacySecret": "{{field}} : enregistré, non affiché",
+      "noDetails": "Enregistré, aucun détail conservé.",
+      "unknownField": "Autre réglage",
+      "unknownSection": "Réglages",
+      "by": "Par {{user}}",
+      "unknownUser": "un compte supprimé",
+      "empty": "vide",
+      "on": "activé",
+      "off": "désactivé",
+      "days_one": "{{count}} jour",
+      "days_other": "{{count}} jours",
+      "hour": "{{hour}} h",
+      "sections": {
+        "smtp": "E-mail",
+        "gotify": "Gotify",
+        "notifications": "Canaux de notification",
+        "retention": "Rétention et nettoyage",
+        "backup": "Sauvegardes",
+        "network": "URL publique et réseau",
+        "registration": "Inscription",
+        "integrations": "Intégrations"
+      },
+      "fields": {
+        "smtpEnabled": "Envoi d'e-mails",
+        "smtpHost": "Serveur SMTP",
+        "smtpPort": "Port SMTP",
+        "smtpUser": "Utilisateur SMTP",
+        "smtpPassEnc": "Mot de passe SMTP",
+        "smtpFrom": "Adresse d'expédition",
+        "smtpSecure": "Connexion sécurisée (TLS)",
+        "gotifyEnabled": "Notifications Gotify",
+        "gotifyUrl": "URL Gotify",
+        "gotifyTokenEnc": "Token Gotify",
+        "inAppEnabled": "Notifications dans l'application",
+        "logRetentionDays": "Rétention du journal d'audit",
+        "sessionRetentionDays": "Rétention des sessions expirées",
+        "guestShareRetentionDays": "Rétention des liens invités expirés",
+        "backupEnabled": "Sauvegardes automatiques",
+        "backupRetentionDays": "Rétention des sauvegardes",
+        "backupHour": "Heure de sauvegarde",
+        "backupHourUtc": "Heure de sauvegarde (UTC)",
+        "publicUrl": "URL publique",
+        "accessMode": "Mode d'accès",
+        "registrationOpen": "Inscription de nouveaux comptes",
+        "vivinoKeyEnc": "Clé API Vivino",
+        "whiskybaseKeyEnc": "Clé API Whiskybase"
+      },
+      "values": {
+        "accessMode": {
+          "direct": "direct",
+          "proxy": "derrière un proxy inverse"
+        }
+      }
     },
     "retention": {
       "description": "Configurez le délai de conservation avant suppression définitive des données obsolètes. Ce délai s'ajoute à la date d'expiration ou de révocation, il ne la remplace pas.",
@@ -1879,7 +2241,6 @@
         "sessionRetentionDays": "Délai après expiration ou révocation avant suppression définitive des sessions et appareils de confiance.",
         "guestShareRetentionDays": "Délai après expiration ou révocation avant suppression définitive des partages invités."
       },
-      "save": "Enregistrer la rétention",
       "saved": "Configuration de rétention enregistrée.",
       "runNow": {
         "title": "Exécution manuelle",
@@ -1920,20 +2281,20 @@
         "error": "Le téléchargement a échoué."
       },
       "dirCheckFailed": "Glou n'a pas pu vérifier s'il peut écrire dans le dossier des sauvegardes. Rechargez la page ; si ce message reste affiché, consultez les journaux de l'API (docker compose logs api).",
-      "dirNotWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échouera. Sur le serveur, à côté de docker-compose.yml, lancez : mkdir -p backups && sudo chown 1001:1001 backups, puis redémarrez la pile.",
+      "dirNotWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échouera. Avec docker compose, dans le dossier de Glou sur le serveur, lancez : mkdir -p backups && sudo chown 1001:1001 backups, puis redémarrez la pile. Avec Portainer ou une interface de NAS, remplacez ./backups par un chemin absolu de l'hôte (ex. /opt/glou/backups), donnez ce dossier à l'uid 1001 (sudo chown 1001:1001 /opt/glou/backups) et redéployez la pile.",
       "enabled": "Activer les sauvegardes automatiques",
       "retentionDays": "Rétention des sauvegardes (jours)",
       "retentionDaysHint": "Les fichiers de sauvegarde plus anciens que ce délai sont supprimés automatiquement (7 jours minimum recommandé).",
-      "hourUtc": "Heure d'exécution (UTC)",
-      "hourUtcHint": "Heure de la journée (0-23, en UTC) à laquelle la sauvegarde planifiée est déclenchée.",
-      "save": "Enregistrer la configuration",
+      "hour": "Heure d'exécution",
+      "hourHint": "Dans le fuseau horaire du serveur : {{timeZone}}, comme les autres tâches planifiées.",
       "saved": "Configuration de sauvegarde enregistrée.",
       "runNow": {
         "title": "Exécution manuelle",
         "description": "Déclenche immédiatement une sauvegarde complète de la base de données.",
         "button": "Sauvegarder maintenant",
         "success": "Sauvegarde exécutée avec succès.",
-        "error": "La sauvegarde a échoué : {{error}}"
+        "error": "La sauvegarde a échoué : {{error}}",
+        "timeout": "La sauvegarde prend plus de temps que prévu et se poursuit sur le serveur. Patientez quelques minutes, puis rechargez la page et consultez l'historique des sauvegardes."
       },
       "history": {
         "title": "Historique des sauvegardes",
@@ -1964,28 +2325,21 @@
           "BACKUP_BEFORE_RESTORE_FAILED": "La sauvegarde des données actuelles prise avant la restauration a échoué : rien n'a été restauré. Consultez l'historique des sauvegardes.",
           "BACKUP_FROM_OLDER_VERSION": "Cette sauvegarde a été prise par une version antérieure de Glou, avant une mise à jour : rien n'a été restauré. Pour revenir à cette version, suivez « Revenir en arrière » dans la page du wiki « Mettre à jour Glou et revenir en arrière en cas de problème ». Pour garder la version actuelle avec ces données, restaurez-la avec la commande de la page « Reprise après sinistre », puis redémarrez l'API : Glou les met à jour.",
           "BACKUP_FROM_NEWER_VERSION": "Cette sauvegarde a été prise par une version plus récente de Glou : rien n'a été restauré. Mettez Glou à jour, puis restaurez-la.",
+          "BACKUP_FILE_MISSING": "Ce fichier de sauvegarde n'est plus dans le dossier des sauvegardes : rien n'a été restauré. Rechargez la page pour mettre l'historique à jour.",
           "TIMEOUT": "La restauration prend plus de temps que prévu et se poursuit sur le serveur. Patientez quelques minutes, puis rechargez la page et consultez l'historique des sauvegardes."
         }
       }
     },
     "network": {
-      "description": "Définissez l'URL publique de référence de l'instance et la manière dont elle est exposée (accès direct ou via un reverse proxy).",
+      "description": "Définissez l'URL publique de référence de l'instance, utilisée dans les liens que l'application envoie.",
       "publicUrl": "URL publique",
       "publicUrlPlaceholder": "https://cave.mondomaine.fr",
       "publicUrlHint": "Laissez vide pour utiliser la variable d'environnement APP_URL du serveur.",
-      "accessMode": "Mode d'accès",
-      "accessModeHint": "Indique si l'application est atteinte directement ou par l'intermédiaire d'un reverse proxy externe.",
-      "accessModeOptions": {
-        "direct": "Accès direct",
-        "proxy": "Via un reverse proxy"
-      },
-      "save": "Enregistrer la configuration réseau",
       "saved": "Configuration réseau enregistrée.",
       "summary": {
         "title": "Résumé des paramètres actifs",
         "effectiveUrl": "URL publique effective",
-        "fromEnv": "Valeur issue de la variable d'environnement APP_URL (aucune URL publique définie en base).",
-        "accessMode": "Mode d'accès actif"
+        "fromEnv": "Valeur issue de la variable d'environnement APP_URL (aucune URL publique définie en base)."
       },
       "check": {
         "button": "Vérifier la configuration",
@@ -1994,13 +2348,12 @@
         "networkError": "Impossible de contacter le serveur pour effectuer la vérification.",
         "warnings": {
           "INVALID_URL": "L'URL publique effective n'est pas syntaxiquement valide.",
-          "NOT_HTTPS_IN_PRODUCTION": "L'URL publique n'utilise pas HTTPS alors que l'instance est en environnement de production.",
-          "PROXY_MODE_LOCALHOST_URL": "Le mode d'accès est défini sur « via un reverse proxy » mais l'URL publique pointe vers localhost, ce qui est incohérent pour un accès externe."
+          "NOT_HTTPS_IN_PRODUCTION": "L'URL publique n'utilise pas HTTPS alors que l'instance est en environnement de production."
         }
       }
     },
     "registration": {
-      "title": "Inscription de nouveaux comptes",
+      "title": "Qui peut rejoindre l'instance",
       "description": "Une fois le premier compte (l'admin de l'instance) créé, l'inscription anonyme est fermée par défaut. Activez-la pour permettre à de nouveaux membres de s'inscrire eux-mêmes.",
       "enabled": "Autoriser l'inscription de nouveaux comptes",
       "saved": "Paramètre d'inscription enregistré."
@@ -2047,15 +2400,15 @@
       "subtitle": "Choisissez la méthode la plus adaptée. Vous pourrez toujours utiliser les autres plus tard.",
       "skipStep": "Passer cette étape",
       "scan": {
-        "title": "Scan Rapide",
+        "title": "Scan rapide",
         "description": "Photographiez vos étiquettes pour un ajout automatique."
       },
       "import": {
-        "title": "Import Fichier",
+        "title": "Import de fichier",
         "description": "Importez un fichier CSV listant vos bouteilles."
       },
       "manual": {
-        "title": "Ajout Manuel",
+        "title": "Ajout manuel",
         "description": "Entrez vos bouteilles et vos cigares un par un."
       }
     },
@@ -2167,10 +2520,10 @@
       "staleLines_other": "{{count}} lignes non importées : le stock de ces vins a changé depuis l'aperçu (un autre import ou un autre membre les a peut-être déjà ajoutées). Vérifiez le stock avant de relancer l'import pour ces lignes",
       "adminConfig": {
         "title": "Configuration système (facultatif)",
-        "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer SMTP, politique de notifs, webhook/Gotify, intégrations API, rétention, sauvegardes et réseau.",
-        "link": "Administration → Configuration Système"
+        "description": "En tant qu'administrateur, vous pourrez plus tard paramétrer les notifications (e-mail, Gotify), qui peut rejoindre l'instance, les sauvegardes et la conservation des données, dans Administration → Configuration système.",
+        "link": "Administration → Configuration système"
       },
-      "finishButton": "Accéder au tableau de bord"
+      "finishButton": "Voir ma cave"
     }
   },
   "pagination": {
@@ -2258,7 +2611,7 @@
     },
     "progress": {
       "remaining": "Restant",
-      "label": "{{spent}} dépensés sur {{amount}} ({{percent}}%)"
+      "label": "{{spent}} dépensés sur {{amount}} ({{percent}} %)"
     }
   },
   "offline": {
@@ -2299,20 +2652,24 @@
   },
   "scan": {
     "launchButton": "Scanner une étiquette",
-    "title": "Scan Étiquette",
+    "title": "Scan d'étiquette",
     "finish": "Terminer",
     "capture": {
       "title": "Photographiez une étiquette",
       "subtitle": "Cadrez l'étiquette de la bouteille, du spiritueux ou de la boîte de cigares.",
       "start": "Scanner une étiquette",
-      "next": "Scanner l'article suivant"
+      "next": "Scanner l'article suivant",
+      "gallery": "Choisir une photo"
     },
     "uploading": "Envoi de la photo…",
     "processing": "Analyse de l'étiquette en cours… cela peut prendre quelques instants.",
+    "queued": "En attente : d'autres étiquettes sont analysées avant la vôtre…",
     "errors": {
       "unavailable": "Le service de reconnaissance d'étiquettes n'est pas disponible sur ce serveur. Vous pouvez saisir l'article à la main.",
       "rateLimited": "Trop de scans en peu de temps. Réessayez dans quelques minutes.",
+      "busy": "Trop d'étiquettes sont déjà en cours d'analyse sur ce serveur. Réessayez dans quelques minutes.",
       "photoRejected": "Cette photo n'a pas pu être envoyée : elle est trop lourde (10 Mo maximum) ou son format n'est pas pris en charge (JPEG, PNG, WebP ou GIF).",
+      "heic": "Les photos HEIC ne sont pas prises en charge. Sur iPhone, choisissez la photo dans la Photothèque (pas dans Fichiers) : elle est alors envoyée en JPEG. Vous pouvez aussi la prendre avec le bouton de l'appareil photo.",
       "timeout": "L'analyse a pris trop de temps : ce serveur manque probablement de puissance pour la reconnaissance d'étiquettes.",
       "interrupted": "L'analyse a été interrompue par un redémarrage du serveur. Reprenez la photo.",
       "failed": "L'analyse de l'étiquette a échoué pour une raison technique. Réessayez ou saisissez l'article à la main."
@@ -2325,10 +2682,11 @@
       "title": "Vérifiez les informations détectées",
       "confirm": "Confirmer et ajouter",
       "moreDetails": "Plus de détails",
-      "setDefaultLocation": "Toujours ranger les {{category}} scannés ici"
+      "setDefaultLocation": "Toujours ranger les {{category}} scannés ici",
+      "setDefaultLocation_sparkling": "Toujours ranger les {{category}} scannées ici"
     },
     "cart": {
-      "title": "À Ranger ({{count}})",
+      "title": "À ranger ({{count}})",
       "created": "Créé",
       "addedWine": "Ajouté à votre vin",
       "addedSpirit": "Ajouté à votre spiritueux",
@@ -2584,7 +2942,23 @@
       "lineCount_box_other": "{{count}} boîtes",
       "lineCount_cigar_one": "{{count}} cigare",
       "lineCount_cigar_other": "{{count}} cigares",
-      "restore": "Restaurer"
+      "restore": "Restaurer",
+      "deleteForever": "Supprimer définitivement",
+      "deleteForeverTitle": "Supprimer définitivement ?",
+      "deleteForeverConfirm": "Supprimer définitivement {{name}} ?",
+      "deleteForeverConfirmBottles_one": "Supprimer définitivement {{name}} et sa bouteille ?",
+      "deleteForeverConfirmBottles_other": "Supprimer définitivement {{name}} et ses {{count}} bouteilles ?",
+      "deleteForeverConfirmCigars_one": "Supprimer définitivement {{name}} et son cigare ?",
+      "deleteForeverConfirmCigars_other": "Supprimer définitivement {{name}} et ses {{count}} cigares ?",
+      "deleteForeverLine": "Supprimer définitivement {{what}} ({{name}}) ?",
+      "deleteForeverWineNote": "Ses photos et ses dégustations seront effacées aussi. Cette action est irréversible.",
+      "irreversible": "Cette action est irréversible.",
+      "empty": "Vider la corbeille",
+      "emptyTitle": "Vider la corbeille ?",
+      "emptyConfirm_one": "L'entrée de cette corbeille sera supprimée définitivement.",
+      "emptyConfirm_other": "Les {{count}} entrées de cette corbeille seront supprimées définitivement.",
+      "autoDelete_one": "La corbeille se vide d'elle-même : ce qui y est mis est supprimé définitivement après {{count}} jour.",
+      "autoDelete_other": "La corbeille se vide d'elle-même : ce qui y est mis est supprimé définitivement après {{count}} jours."
     },
     "selectWine": "Sélectionner {{name}}",
     "bulkSummary": "{{wines}}, {{bottles}}",
@@ -2624,10 +2998,7 @@
       "showMore_other": "Voir les {{count}} autres",
       "showLess": "Voir moins",
       "needsReview": "À vérifier après la mise à jour",
-      "level": "Niveau de cette bouteille",
-      "levelFull": "Pleine",
-      "levelHalf": "Moitié",
-      "levelEmpty": "Vide"
+      "level": "Niveau de cette bouteille"
     },
     "gone": {
       "title": "Déjà bues ou parties",

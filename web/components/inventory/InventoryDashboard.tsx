@@ -1,16 +1,17 @@
 'use client';
 import { useState, useCallback, useMemo, useEffect, useSyncExternalStore } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import dynamic from 'next/dynamic';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Button, Chip } from '@heroui/react';
-import { Plus, Search, Wine, Leaf, ClipboardCheck, Camera } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, Search, Camera, BookMarked } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CATEGORY_TITLES } from '@/lib/inventory/category-titles';
 import { InventoryItem } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { describeStock, wineName } from '@/lib/products/stock';
-import { isGone } from '@/lib/products/filters';
+import { isGone, NO_CELLAR } from '@/lib/products/filters';
 import { familyIdOf } from '@/lib/products/fromFlat';
 import { inventoryClient } from '@/lib/inventory/client';
 import { isFinishedState } from '@shared/units';
@@ -18,15 +19,12 @@ import { formatDate } from '@/lib/format';
 import {
   useInventory,
   useInventoryTruncated,
-  useCreateInventoryItem,
-  useUpdateInventoryItem,
   useBulkUpdateInventoryItem,
 } from '@/hooks/useInventory';
 import { useProducts, useProductsTruncated, useTrashProduct, useRestoreProduct } from '@/hooks/useProducts';
 import { useCellars } from '@/hooks/useCellars';
-import {
-  useCollections, useAddItemsToCollection, useRemoveItemFromCollection,
-} from '@/hooks/useCollections';
+import { useCollections } from '@/hooks/useCollections';
+import { useCreateFromForm } from '@/hooks/useCreateFromForm';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { useInventoryFilters } from '@/hooks/useInventoryFilters';
 import { useBulkSelection } from '@/hooks/useBulkSelection';
@@ -36,7 +34,6 @@ import type { InventoryCategory } from '@/lib/inventory/types';
 import type { InventoryEntry } from './InventoryForm';
 import { UndoToast } from '@/components/ui/UndoToast';
 import { notifySuccess } from '@/lib/toast';
-import { applyCollectionChanges } from '@/lib/collections/sync';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
 import { BulkWinesDialog, type BulkWinesActionName } from './BulkWinesDialog';
@@ -55,7 +52,9 @@ import { usePageSize } from '@/hooks/usePageSize';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
 
 // Screens that only appear after an action are split out of the page's first
-// load; they open behind a click, so a null placeholder is invisible.
+// load; they open behind a click, so a null placeholder is invisible. They are
+// mounted only while open (#637): a `dynamic` component downloads its code as
+// soon as it renders, open or not.
 const EditWineDialog = dynamic(() => import('./EditWineDialog').then((m) => m.EditWineDialog), { ssr: false, loading: () => null });
 const InventoryForm = dynamic(() => import('./InventoryForm').then((m) => m.InventoryForm), { ssr: false, loading: () => null });
 const FamilyDrawer = dynamic(() => import('./FamilyDrawer').then((m) => m.FamilyDrawer), { ssr: false, loading: () => null });
@@ -95,12 +94,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const isTruncated = productsTruncated || itemsTruncated;
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
-  const createMutation = useCreateInventoryItem();
-  const updateMutation = useUpdateInventoryItem();
   const trashMutation = useTrashProduct();
   const restoreMutation = useRestoreProduct();
-  const addItemsToCollectionMutation = useAddItemsToCollection();
-  const removeItemFromCollectionMutation = useRemoveItemFromCollection();
   const hasMounted = useHasMounted();
 
   // FEAT-16/23: wines with a bottle change still sitting in the local sync
@@ -147,6 +142,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     sortBy, setSortBy,
     openedFilter, setOpenedFilter,
     showGone, setShowGone,
+    notLocated, setNotLocated,
     isFiltersOpen, toggleFilters,
     tagSearchQuery, setTagSearchQuery,
     showAllTags, setShowAllTags,
@@ -154,6 +150,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     baseItems,
     filteredItems,
     hasActiveFilters,
+    navCategory,
+    collectionState: collectionStateOfList,
   } = useInventoryFilters({ products, cellars, lockedCategories, t, hasMounted });
 
   // #504: the counters answer "how many do I hold here?": the chosen section
@@ -236,7 +234,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   // values so each reset only fires on an actual change.
   const filterSortKey = [
     searchQuery, selectedCategories, selectedCellars, selectedTags,
-    selectedWineColors, minValue, maxValue, sortBy, openedFilter, showGone, selectedCollectionId,
+    selectedWineColors, minValue, maxValue, sortBy, openedFilter, showGone, notLocated, selectedCollectionId,
   ];
   const [prevFilterSortKey, setPrevFilterSortKey] = useState(filterSortKey);
   if (filterSortKey.some((v, i) => v !== prevFilterSortKey[i])) {
@@ -251,34 +249,16 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     setCurrentPage(1);
   }
 
-  const syncCollections = useCallback(
-    async (itemId: string, newCollectionIds: string[], oldCollectionIds: string[]) => {
-      const oldSet = new Set(oldCollectionIds);
-      const newSet = new Set(newCollectionIds);
-      const toAdd = newCollectionIds.filter(id => !oldSet.has(id));
-      const toRemove = oldCollectionIds.filter(id => !newSet.has(id));
-      await applyCollectionChanges([
-        ...toAdd.map(colId => addItemsToCollectionMutation.mutateAsync({ id: colId, itemIds: [itemId] })),
-        ...toRemove.map(colId => removeItemFromCollectionMutation.mutateAsync({ id: colId, itemId })),
-      ]);
-    },
-    [addItemsToCollectionMutation, removeItemFromCollectionMutation]
-  );
-
   // #471 (FEAT-97): a wine of the same name is proposed while typing ("Vous
-  // avez déjà ce vin"); a submitted entry is a new wine. A failure is told
-  // by the mutation's toast and leaves the form open with the entry.
+  // avez déjà ce vin"); a submitted entry is a new wine, saved as the scan,
+  // the first-run wizard and the cellar page save it (#690). A failure is
+  // told by the mutation's toast and leaves the form open with the entry.
+  const { create: createFromForm, isPending: isCreating } = useCreateFromForm();
   const handleCreate = useCallback(
     async (values: InventoryEntry, collectionIds: string[]) => {
-      try {
-        const created = await createMutation.mutateAsync(values);
-        setMode('idle');
-        if (collectionIds.length > 0) await syncCollections(created.id, collectionIds, []);
-      } catch {
-        // Reported by the mutation's onError toast.
-      }
+      if (await createFromForm(values, collectionIds)) setMode('idle');
     },
-    [createMutation, syncCollections],
+    [createFromForm],
   );
 
   // The bulk edit (tags, presets) writes the bottles in stock of the wines
@@ -377,17 +357,23 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     const [only] = ids;
     return ids.size === 1 && only ? cellarNames.get(only) : undefined;
   }, [cellarNames]);
+  // #707: the cellars looked at ("2 ici", what the drawer preselects), "Sans cave" not being one.
+  const viewedCellarIds = useMemo(() => selectedCellars.filter((id) => id !== NO_CELLAR), [selectedCellars]);
   const stockOf = useCallback(
     (product: Product) => describeStock(product, t, {
-      cellarIds: selectedCellars,
+      cellarIds: viewedCellarIds,
       formatDate: (iso) => formatDate(iso, i18n.language, { day: 'numeric', month: 'short', year: 'numeric' }),
     }),
-    [t, selectedCellars, i18n.language],
+    [t, viewedCellarIds, i18n.language],
   );
   // A cigars-only page speaks of cigars and the humidor, not of bottles.
   const emptyCtx = lockedCategories?.length === 1 && lockedCategories[0] === 'cigar' ? { context: 'cigar' } : undefined;
   const categoryLabel = (cat: string) => t(`categories.${cat}`);
   const activeCollectionName = selectedCollectionId ? (allCollections?.find(c => c.id === selectedCollectionId)?.name ?? '') : '';
+  // #708: a collection with no wine, or only finished ones, is not "no result
+  // for these filters", whose "Reset filters" would drop the collection. Not
+  // said when the list is cut: the collection's wines may be the ones missing.
+  const collectionState = productsTruncated ? null : collectionStateOfList;
 
   // Shared prop bag for the desktop sidebar + mobile collapsible renderings
   // of the filter panel — both are the same InventoryFilterBar with a
@@ -419,6 +405,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
     openedFilter,
     showGone,
     setShowGone,
+    notLocated,
+    setNotLocated,
     setOpenedFilter,
     tagSearchQuery,
     setTagSearchQuery,
@@ -452,31 +440,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
   return (
     <div className="p-4 pb-24 sm:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 mb-6">
-        <div className="flex items-center gap-2">
-          {lockedCategories?.includes('cigar') ? (
-            <Leaf size={22} className="text-primary" />
-          ) : (
-            <Wine size={22} className="text-primary" />
-          )}
-          <h1 className="text-xl font-bold">
-            {lockedCategories?.includes('cigar') ? t('nav.cigars') : t('nav.bottles')}
-          </h1>
-        </div>
-        <Button
-          as={Link}
-          href="/inventory-count"
-          variant="bordered"
-          color="primary"
-          size="sm"
-          startContent={<ClipboardCheck size={14} />}
-          className="hidden sm:flex"
-        >
-          {t('inventoryCount.accessButton')}
-        </Button>
-      </div>
-
       <InventoryBanners t={t} isTruncated={isTruncated} cellars={cellars} />
 
       {!isLoading && (statsProducts.length > 0 || goneCount > 0) && mode === 'idle' && (
@@ -491,11 +454,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
 
       {/* Main layout */}
       <div className="flex gap-5 items-start">
-        {/* Desktop filter panel */}
+        {/* Desktop filter panel. #701: the page's sections, named for screen readers. */}
+        <h2 className="sr-only">{t('inventory.headings.filters')}</h2>
         <InventoryFilterBar variant="desktop" {...filterBarProps} />
 
         {/* Content column */}
         <div className="flex-1 min-w-0">
+          <h2 className="sr-only">{t('inventory.headings.list')}</h2>
           {/* Toolbar */}
           <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
             <div className="flex flex-wrap gap-2 items-center">
@@ -506,8 +471,11 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                 onToggle={toggleFilters}
               />
               {!isMobile && <ViewToggle value={viewMode} onChange={setViewMode} />}
-              {!isMobile && <div className="w-px h-5 bg-divider" />}
-              <PageSizeToggle value={pageSize} onChange={setPageSize} />
+              {/* #708: an empty cellar has nothing to page through. */}
+              {products && products.length > 0 && (<>
+                {!isMobile && <div className="w-px h-5 bg-divider" />}
+                <PageSizeToggle value={pageSize} onChange={setPageSize} />
+              </>)}
             </div>
             <div className="flex flex-wrap gap-2 items-center">
               {products && products.length > 0 && (
@@ -568,40 +536,43 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           )}
 
           {/* Form dialog */}
-          <InventoryForm
-            open={mode === 'creating'}
-            defaultCategory={
-              lockedCategories?.length === 1
-                ? (lockedCategories[0] as InventoryCategory)
-                : selectedCategories.length === 1
-                ? (selectedCategories[0] as InventoryCategory)
-                : undefined
-            }
-            onSubmit={handleCreate}
-            onClose={handleCancel}
-            isSubmitting={createMutation.isPending || updateMutation.isPending
-              || addItemsToCollectionMutation.isPending || removeItemFromCollectionMutation.isPending}
-            t={t}
-            onScanRequested={scanAvailable ? () => { setMode('idle'); setScanOpen(true); } : undefined}
-          />
-          <EditWineDialog product={mode === 'editing' ? editingProduct : null} onClose={handleCancel} onSaved={handleUpdated} />
+          {mode === 'creating' && (
+            <InventoryForm
+              open
+              defaultCategory={
+                lockedCategories?.length === 1
+                  ? (lockedCategories[0] as InventoryCategory)
+                  : selectedCategories.length === 1
+                  ? (selectedCategories[0] as InventoryCategory)
+                  : undefined
+              }
+              onSubmit={handleCreate}
+              onClose={handleCancel}
+              isSubmitting={isCreating}
+              t={t}
+              onScanRequested={scanAvailable ? () => { setMode('idle'); setScanOpen(true); } : undefined}
+            />
+          )}
+          {mode === 'editing' && editingProduct && (
+            <EditWineDialog product={editingProduct} onClose={handleCancel} onSaved={handleUpdated} />
+          )}
 
           {/* Loading skeletons */}
           {isLoading && effectiveViewMode === 'grid' && (
-            <div className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 sm:gap-4">
+            <LoadingRegion className="grid grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3 sm:gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <InventoryCardSkeleton key={i} />
               ))}
-            </div>
+            </LoadingRegion>
           )}
           {isLoading && effectiveViewMode === 'list' && (
-            <div className="border border-divider rounded-xl overflow-hidden">
+            <LoadingRegion className="border border-divider rounded-xl overflow-hidden">
               <table className="w-full">
                 <tbody>
                   {Array.from({ length: 8 }).map((_, i) => <InventoryListRowSkeleton key={i} />)}
                 </tbody>
               </table>
-            </div>
+            </LoadingRegion>
           )}
 
           {/* Empty states */}
@@ -610,7 +581,25 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
               {/* `baseItems` (not `items`) so a category-scoped page — /cigars
                   with a wine-only inventory — gets the empty state instead of
                   a blank zone. */}
-              {products && baseItems.length === 0 && !hasActiveFilters ? (
+              {/* #503: `?category=` is the page, not a filter: an empty category
+                  page gets its own empty state (Add, and a way to all bottles). */}
+              {products && navCategory && CATEGORY_TITLES[navCategory] && filteredItems.length === 0 && !hasActiveFilters && !collectionState ? (
+                <EmptyState
+                  bordered
+                  title={t(`inventory.noCategory_${navCategory}`)}
+                  description={t(`inventory.noCategory_${navCategory}Desc`)}
+                  action={
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
+                        {t('inventory.add')}
+                      </Button>
+                      <Button variant="light" color="primary" data-testid="see-all-bottles" onPress={() => router.push('/bottles')}>
+                        {t('inventory.seeAllBottles')}
+                      </Button>
+                    </div>
+                  }
+                />
+              ) : products && baseItems.length === 0 && !hasActiveFilters ? (
                 <EmptyState
                   bordered
                   title={t('inventory.noBottles', emptyCtx)}
@@ -619,6 +608,24 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
                     <Button color="primary" startContent={<Plus size={16} />} onPress={() => setMode('creating')}>
                       {t('inventory.add')}
                     </Button>
+                  }
+                />
+              ) : collectionState ? (
+                <EmptyState
+                  icon={<BookMarked size={56} className="text-default-200" />}
+                  title={t(collectionState === 'empty' ? 'collections.emptyCollection' : 'collections.allGoneCollection')}
+                  description={t(collectionState === 'empty' ? 'collections.emptyCollectionHint' : 'collections.allGoneCollectionHint')}
+                  action={
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {collectionState === 'allGone' && (
+                        <Button variant="flat" color="primary" onPress={() => setShowGone(true)}>
+                          {t('collections.showGone')}
+                        </Button>
+                      )}
+                      <Button variant="light" color="primary" data-testid="back-to-collections" onPress={() => router.push('/collections')}>
+                        {t('collections.backToCollections')}
+                      </Button>
+                    </div>
                   }
                 />
               ) : (
@@ -700,7 +707,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         products={products ?? []}
         selectedIds={selectedIds}
         cigars={isCigarPage}
-        viewedCellarIds={selectedCellars}
+        viewedCellarIds={viewedCellarIds}
         onClose={() => setWinesAction(null)}
         onDone={() => {
           setWinesAction(null);
@@ -717,17 +724,19 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         t={t}
       />
 
-      <FamilyDrawer
-        productId={viewingProductId}
-        onClose={() => setViewingProductId(null)}
-        onEdit={handleEditFromDrawer}
-        // FEAT-104 c3: "Quelles bouteilles ?" preselects the line of the cellars filtered on.
-        viewedCellarIds={selectedCellars}
-        // #471 (FEAT-92 c2, FEAT-101 c3, FEAT-95): "Ajouter des bouteilles" / "Ajouter des cigares".
-        primaryAction={(product) => <AddUnitsAction product={product} />}
-      />
+      {viewingProductId && (
+        <FamilyDrawer
+          productId={viewingProductId}
+          onClose={() => setViewingProductId(null)}
+          onEdit={handleEditFromDrawer}
+          // FEAT-104 c3: "Quelles bouteilles ?" preselects the line of the cellars filtered on.
+          viewedCellarIds={viewedCellarIds}
+          // #471 (FEAT-92 c2, FEAT-101 c3, FEAT-95): "Ajouter des bouteilles" / "Ajouter des cigares".
+          primaryAction={(product) => <AddUnitsAction product={product} />}
+        />
+      )}
 
-      <ScanFlow open={scanOpen} onClose={() => setScanOpen(false)} t={t} />
+      {scanOpen && <ScanFlow open onClose={() => setScanOpen(false)} t={t} />}
     </div>
   );
 }

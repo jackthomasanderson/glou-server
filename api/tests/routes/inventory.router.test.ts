@@ -7,6 +7,8 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
     req.userId = 'u1';
     next();
   },
+  // #962: the permanent deletion routes are tested in trash-permanent.router.test.ts.
+  adminMiddleware: (_req: express.Request, res: express.Response) => { res.status(403).end(); },
   getClientIp: () => '127.0.0.1',
 }));
 vi.mock('../../src/services/inventory.service', () => ({
@@ -14,7 +16,6 @@ vi.mock('../../src/services/inventory.service', () => ({
 }));
 vi.mock('../../src/services/inventory-export.service', () => ({ inventoryExportService: { exportCsv: vi.fn() } }));
 vi.mock('../../src/services/scan.service', () => ({ scanService: {} }));
-vi.mock('../../src/services/system-config.service', () => ({ systemConfigService: {} }));
 vi.mock('../../src/services/audit.service', () => ({ auditLog: vi.fn() }));
 
 import { inventoryRouter } from '../../src/routes/inventory.router';

@@ -3,6 +3,7 @@ import React from 'react';
 import { Avatar, Button, Chip, Drawer, DrawerContent } from '@heroui/react';
 import { X, Pencil, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
+import { expertRows } from '@/lib/tastings/expertGrid';
 import { useTranslation } from 'react-i18next';
 import { isTastedElsewhere, tastedPhoto, tastedWineTitle } from '@/lib/tastings/onWine';
 import { useHasMounted } from '@/hooks/useHasMounted';
@@ -24,6 +25,8 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
 
   if (!visible) return null;
 
+  const expert = expertRows(note);
+
   const readinessColor =
     note.readiness === 'PERFECT' ? 'success'
     : note.readiness === 'PEAK' ? 'warning'
@@ -36,6 +39,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
       onClose={onClose}
       placement="right"
       backdrop="opaque"
+      hideCloseButton
       classNames={{ base: 'max-w-[420px] shadow-xl' }}
     >
       <DrawerContent>
@@ -121,6 +125,25 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
                 {note.notes}
               </p>
             </div>
+          )}
+
+          {/* #642: the structured grid of expert mode, shown whatever the mode as soon as one field is filled. */}
+          {expert.length > 0 && (
+            <section aria-labelledby="tasting-expert-title">
+              <p id="tasting-expert-title" className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
+                {t('tastings.expertSection.title')}
+              </p>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+                {expert.map(({ field, value }) => (
+                  <React.Fragment key={field}>
+                    <dt className="text-foreground-500">{t(`tastings.fields.${field}`)}</dt>
+                    <dd className="text-foreground-700 whitespace-pre-wrap break-words">
+                      {field === 'longueurBouche' ? t('tastings.expertSection.seconds', { value }) : value}
+                    </dd>
+                  </React.Fragment>
+                ))}
+              </dl>
+            </section>
           )}
         </div>
 

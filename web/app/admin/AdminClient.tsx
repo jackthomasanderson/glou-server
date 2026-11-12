@@ -1,29 +1,49 @@
 'use client';
 import React from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import {
   Button, CircularProgress, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
-  Switch, Skeleton, Chip, Tooltip, Input, Select, SelectItem, ModalContent, ModalHeader, ModalBody, ModalFooter,
+  Switch, Skeleton, Chip, Tooltip, ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Trash2, ArrowLeft, Ban, CheckCircle, ChevronLeft, ChevronRight, KeyRound, Copy, Check } from 'lucide-react';
+import {
+  ShieldCheck, UserX, UserCheck, KeyRound, Copy, Check, UserPlus,
+  Users, Link2, Hourglass, Settings, ScrollText, type LucideIcon,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
 import {
-  useAdminUsers, useUpdateUserRole, useUpdateUserStatus,
-  useAdminAuditLogs, usePurgeData,
-  AdminUser, AuditLogEntry, AuditLogFilters,
+  useAdminUsers,
+  useAdminBackupHealth, useSystemConfig,
+  AdminUser,
 } from '@/hooks/useAdmin';
-import type { PurgeResponse } from '@shared/maintenance';
 import { useRouter } from 'next/navigation';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { MaturityReferencesSection } from '@/components/admin/MaturityReferencesSection';
-import { SystemConfigSection } from '@/components/admin/SystemConfigSection';
+import { SystemConfigSection, type ConfigTab } from '@/components/admin/SystemConfigSection';
 import { ResetPasswordDialog } from '@/components/admin/ResetPasswordDialog';
 import { GrantAdminDialog } from '@/components/admin/GrantAdminDialog';
-import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
-import { notifyError } from '@/lib/toast';
+import { useMemberChanges } from '@/components/admin/MemberChanges';
 import { MainLayout } from '@/components/ui/MainLayout';
-import { formatDate, formatDateTime } from '@/lib/format';
+import { AuditLogSection } from '@/components/admin/AuditLogSection';
+import { AdminSharesSection } from '@/components/admin/AdminSharesSection';
+import { BackupWarning, BackupMarker, backupProblems } from '@/components/admin/BackupWarning';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { formatDate } from '@/lib/format';
+
+/**
+ * #698: the page's sections, one shown at a time, so none has to be scrolled
+ * through to reach the next and the audit log's pages stay within reach.
+ */
+type AdminSection = 'members' | 'shares' | 'maturity' | 'config' | 'audit';
+const SECTIONS: { key: AdminSection; labelKey: string; icon: LucideIcon }[] = [
+  { key: 'members', labelKey: 'admin.users.title', icon: Users },
+  { key: 'shares', labelKey: 'admin.shares.title', icon: Link2 },
+  { key: 'maturity', labelKey: 'admin.maturityRefs.title', icon: Hourglass },
+  { key: 'config', labelKey: 'adminConfig.title', icon: Settings },
+  { key: 'audit', labelKey: 'admin.auditLog.title', icon: ScrollText },
+];
+import { PageHeader } from '@/components/ui/PageHeader';
 
 export function AdminClient() {
   const { t, i18n } = useTranslation();
@@ -32,46 +52,46 @@ export function AdminClient() {
   const hasMounted = useHasMounted();
 
   const { data: users, isLoading: isUsersLoading } = useAdminUsers();
-  const { mutate: updateRole } = useUpdateUserRole();
-  const { mutate: updateStatus } = useUpdateUserStatus();
-  const { mutateAsync: purgeAll, isPending: isPurging } = usePurgeData();
-  // #890: the purge is confirmed with the admin's password and code.
-  const purgeStepUp = useAdminStepUp();
+  // #603: role removals and status changes are confirmed with the admin's password and code.
+  const memberChanges = useMemberChanges();
+  const isMobile = useIsMobile();
+
+  const [section, setSectionState] = React.useState<AdminSection>('members');
+  // The sections opened so far: each is mounted on first visit, then kept.
+  const [visited, setVisited] = React.useState<ReadonlySet<AdminSection>>(() => new Set(['members']));
+  const setSection = (next: AdminSection) => {
+    setSectionState(next);
+    setVisited((prev) => (prev.has(next) ? prev : new Set(prev).add(next)));
+  };
+  const [configTab, setConfigTab] = React.useState<ConfigTab>('notifications');
+  const openConfigTab = (tab: ConfigTab) => {
+    setSection('config');
+    setConfigTab(tab);
+  };
+  // #671: the backup alert shown on every other page links to /admin?tab=data.
+  // Read once after mount, from the address itself: no Suspense boundary is
+  // needed (useSearchParams), and the server-rendered first pass is unchanged.
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('tab') !== 'data') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSectionState('config');
+    setVisited((prev) => new Set(prev).add('config'));
+    setConfigTab('data');
+  }, []);
+  // #756: no automatic backup, or none that ever succeeded, is said at the top of the page.
+  const { data: backupHealth } = useAdminBackupHealth();
+  const problems = backupProblems(backupHealth);
+  // #757: whether anyone can sign up is read from the Members block too.
+  const { data: systemConfig } = useSystemConfig();
 
   // #336: one-time display of a temp password generated by an admin reset.
   const [resetPasswordResult, setResetPasswordResult] = React.useState<{ username: string; tempPassword: string } | null>(null);
   const [resetPasswordCopied, setResetPasswordCopied] = React.useState(false);
 
-  const [auditPage, setAuditPage] = React.useState(1);
-  const [auditSearch, setAuditSearch] = React.useState('');
-  const [auditFilters, setAuditFilters] = React.useState<AuditLogFilters>({});
-  const { data: auditResponse, isLoading: isAuditLoading } = useAdminAuditLogs(auditPage, 50, auditFilters);
-
-  // Any filter change goes back to page 1; the text search waits for a pause in typing.
-  const updateAuditFilter = (patch: AuditLogFilters) => {
-    setAuditFilters((prev) => ({ ...prev, ...patch }));
-    setAuditPage(1);
-  };
-  React.useEffect(() => {
-    const timer = setTimeout(() => updateAuditFilter({ q: auditSearch.trim() }), 300);
-    return () => clearTimeout(timer);
-  }, [auditSearch]);
-
-  const [isPurgeDialogOpen, setIsPurgeDialogOpen] = React.useState(false);
-  const [confirmationText, setConfirmationText] = React.useState('');
-  const [purgeResult, setPurgeResult] = React.useState<PurgeResponse | null>(null);
-  const [purgeError, setPurgeError] = React.useState<string | null>(null);
-
   React.useEffect(() => {
     if (!isAuthLoading && !user?.isAdmin) router.push('/');
   }, [user, isAuthLoading, router]);
 
-  // #499: sensitive member actions are confirmed in an app dialog, not
-  // window.confirm (off-brand, browser-language buttons, and silently
-  // disabled once a browser offers to "block dialogs from this site").
-  const [pendingAction, setPendingAction] = React.useState<
-    { kind: 'deactivate'; target: AdminUser } | null
-  >(null);
   // #638: their own dialogs, which ask for the admin's password and code.
   const [resetTarget, setResetTarget] = React.useState<AdminUser | null>(null);
   const [grantTarget, setGrantTarget] = React.useState<AdminUser | null>(null);
@@ -79,46 +99,40 @@ export function AdminClient() {
   const handleRoleToggle = (targetUser: AdminUser, checked: boolean) => {
     if (targetUser.id === user?.id) return;
     if (checked) setGrantTarget(targetUser);
-    else updateRole({ userId: targetUser.id, isAdmin: false }, { onError: () => notifyError('toast.admin.roleError') });
+    else memberChanges.removeAdmin(targetUser);
   };
 
   const handleStatusToggle = (targetUser: AdminUser) => {
     if (targetUser.id === user?.id) return;
-    if (targetUser.isActive) setPendingAction({ kind: 'deactivate', target: targetUser });
-    else updateStatus({ userId: targetUser.id, isActive: true });
+    memberChanges.toggleStatus(targetUser);
   };
 
   const handleResetPassword = (targetUser: AdminUser) => {
     setResetTarget(targetUser);
   };
 
-  const confirmPendingAction = () => {
-    if (!pendingAction) return;
-    const { kind, target } = pendingAction;
-    setPendingAction(null);
-    if (kind === 'deactivate') updateStatus({ userId: target.id, isActive: false });
-  };
-
-  const pendingActionMessage = pendingAction
-    ? t(`admin.users.${pendingAction.kind}Confirm`, { username: pendingAction.target.username })
-    : '';
-
-  /** The keyword typed, the step-up confirms the purge (#489, #890). */
-  const handleConfirmPurge = () => {
-    if (confirmationText !== t('admin.maintenance.purge.keywordValue')) return;
-    setPurgeError(null);
-    setIsPurgeDialogOpen(false);
-    setConfirmationText('');
-    purgeStepUp.ask(t('admin.maintenance.purge.stepUp'), async (reauth) => {
-      try {
-        setPurgeResult(await purgeAll(reauth));
-      } catch (err) {
-        if (isStepUpRefusal(err)) throw err;
-        // The fetch client throws Error(<API error code>).
-        setPurgeError(err instanceof Error && err.message ? err.message : 'PURGE_FAILED');
-      }
-    });
-  };
+  // #698: the account's state, as text, apart from the action that changes it.
+  const statusChip = (u: AdminUser) => (
+    <Chip size="sm" variant="flat" radius="sm" color={u.isActive ? 'success' : 'default'}>
+      {t(u.isActive ? 'admin.users.statusEnabled' : 'admin.users.statusDisabled')}
+    </Chip>
+  );
+  const statusActionLabel = (u: AdminUser) =>
+    u.id === user?.id ? t('admin.users.deactivateSelf') : t(u.isActive ? 'admin.users.deactivate' : 'admin.users.activate');
+  const roleSwitch = (u: AdminUser, withLabel: boolean) => (
+    <Tooltip delay={500} content={u.id === user?.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user?.id}>
+      <Switch
+        isSelected={u.isAdmin}
+        onValueChange={(checked) => handleRoleToggle(u, checked)}
+        isDisabled={u.id === user?.id}
+        size="sm"
+        color="primary"
+        aria-label={`${t('admin.users.columns.role')}: ${u.username}`}
+      >
+        {withLabel ? t('admin.users.columns.role') : undefined}
+      </Switch>
+    </Tooltip>
+  );
 
   if (isAuthLoading || !user?.isAdmin) {
     return (
@@ -133,25 +147,89 @@ export function AdminClient() {
   return (
     <MainLayout>
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="flex items-center gap-3 mb-6">
-        <Button size="sm" variant="bordered" startContent={<ArrowLeft size={14} />} onPress={() => router.push('/')}>
-          {t('actions.back')}
-        </Button>
-        <h1 className="text-2xl font-bold">{t('admin.title')}</h1>
-      </div>
+      {/* #701: the shared page header; the breadcrumb and the menu lead back. */}
+      <PageHeader icon={ShieldCheck} title={t('admin.title')} />
 
-      {/* User management */}
-      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-4 overflow-hidden">
+      <BackupWarning problems={problems} onOpenBackups={() => openConfigTab('data')} />
+
+      <nav aria-label={t('admin.sections.navLabel')} className="flex flex-wrap gap-2 mb-4">
+        {SECTIONS.map(({ key, labelKey, icon: Icon }) => (
+          <Button
+            key={key}
+            size="md" radius="md"
+            variant={section === key ? 'flat' : 'light'}
+            color={section === key ? 'primary' : 'default'}
+            aria-current={section === key ? 'true' : undefined}
+            startContent={<Icon size={16} aria-hidden="true" />}
+            endContent={key === 'config' && problems.length > 0 ? <BackupMarker /> : undefined}
+            onPress={() => setSection(key)}
+          >
+            {t(labelKey)}
+          </Button>
+        ))}
+      </nav>
+
+      <div hidden={section !== 'members'}>
+      <div className="bg-content1 border border-divider rounded-2xl p-4 sm:p-6 overflow-hidden">
         <h2 className="text-base font-semibold mb-1">{t('admin.users.title')}</h2>
         <p className="text-sm text-foreground-500 mb-4">{t('admin.users.subtitle')}</p>
+        {systemConfig && (
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm mb-4">
+            <UserPlus size={16} className="text-foreground-500" aria-hidden="true" />
+            <span>{t(systemConfig.registrationOpen ? 'admin.users.signUp.open' : 'admin.users.signUp.closed')}</span>
+            <Button size="sm" variant="light" color="primary" onPress={() => openConfigTab('access')}>
+              {t('admin.users.signUp.change')}
+            </Button>
+          </p>
+        )}
 
+        {isMobile ? (
+          isUsersLoading ? (
+            <LoadingRegion className="flex flex-col gap-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}</LoadingRegion>
+          ) : (
+          <ul className="flex flex-col gap-2" aria-label={t('admin.users.title')}>
+            {users?.map((u) => (
+              <li key={u.id} className="border border-divider rounded-xl p-3 flex flex-col gap-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium flex items-center gap-2">
+                      <span className="break-all">{u.username}</span>
+                      {u.id === user.id && <Chip size="sm" variant="flat" radius="sm">{t('admin.users.me')}</Chip>}
+                    </p>
+                    <p className="text-sm text-foreground-500 break-all">{u.email}</p>
+                  </div>
+                  {statusChip(u)}
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  {roleSwitch(u, true)}
+                  <span className="text-xs text-foreground-500">{t('admin.users.columns.createdAt')} {hasMounted ? formatDate(u.createdAt, i18n.language) : ''}</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="md" variant="flat"
+                    color={u.isActive ? 'danger' : 'success'}
+                    startContent={u.isActive ? <UserX size={16} /> : <UserCheck size={16} />}
+                    onPress={() => handleStatusToggle(u)}
+                    isDisabled={u.id === user.id}
+                  >
+                    {t(u.isActive ? 'admin.users.deactivate' : 'admin.users.activate')}
+                  </Button>
+                  <Button size="md" variant="flat" startContent={<KeyRound size={16} />} onPress={() => handleResetPassword(u)}>
+                    {t('admin.users.resetPassword')}
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          )
+        ) : (
         <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('admin.users.title')}>
           <TableHeader>
-            <TableColumn className="hidden sm:table-cell">{t('admin.users.columns.email')}</TableColumn>
+            <TableColumn>{t('admin.users.columns.email')}</TableColumn>
             <TableColumn>{t('admin.users.columns.username')}</TableColumn>
             <TableColumn className="text-center">{t('admin.users.columns.role')}</TableColumn>
             <TableColumn className="text-center">{t('admin.users.columns.status')}</TableColumn>
-            <TableColumn className="hidden sm:table-cell">{t('admin.users.columns.createdAt')}</TableColumn>
+            <TableColumn>{t('admin.users.columns.createdAt')}</TableColumn>
             <TableColumn className="text-center">{t('admin.users.columns.actions')}</TableColumn>
           </TableHeader>
           <TableBody>
@@ -159,250 +237,77 @@ export function AdminClient() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 6 }).map((__, c) => (
-                      <TableCell key={c} className={c === 0 || c === 4 ? 'hidden sm:table-cell' : undefined}><Skeleton className="h-4 w-full rounded" /></TableCell>
+                      <TableCell key={c}>{i === 0 && c === 0 && <LoadingRegion />}<Skeleton className="h-4 w-full rounded" /></TableCell>
                     ))}
                   </TableRow>
                 ))
               : users?.map((u) => (
-                <TableRow key={u.id} className={u.isActive ? '' : 'opacity-50'}>
-                  <TableCell className="text-sm hidden sm:table-cell">{u.email}</TableCell>
+                // #698: a deactivated member's row stays readable; its status chip says it.
+                <TableRow key={u.id}>
+                  <TableCell className="text-sm">{u.email}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <span className="text-sm">{u.username}</span>
                       {u.id === user.id && <Chip size="sm" variant="flat" radius="sm">{t('admin.users.me')}</Chip>}
                     </div>
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Tooltip delay={500} content={u.id === user.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user.id}>
-                      <Switch
-                        isSelected={u.isAdmin}
-                        onValueChange={(checked) => handleRoleToggle(u, checked)}
-                        isDisabled={u.id === user.id}
-                        size="sm"
-                        color="primary"
-                        aria-label={`${t('admin.users.columns.role')}: ${u.username}`}
-                      />
-                    </Tooltip>
+                  <TableCell className="text-center">{roleSwitch(u, false)}</TableCell>
+                  <TableCell className="text-center">{statusChip(u)}</TableCell>
+                  <TableCell className="text-sm text-foreground-500">
+                    {hasMounted ? formatDate(u.createdAt, i18n.language) : ''}
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <Chip size="sm" variant="flat" radius="sm" color={u.isActive ? 'success' : 'default'}>
-                        {t(u.isActive ? 'admin.users.statusEnabled' : 'admin.users.statusDisabled')}
-                      </Chip>
-                      <Tooltip content={u.id === user.id ? t('admin.users.deactivateSelf') : u.isActive ? t('admin.users.deactivate') : t('admin.users.activate')} delay={500}>
+                      <Tooltip content={statusActionLabel(u)} delay={500}>
                         <Button
                           isIconOnly size="sm" variant="light"
-                          color={u.isActive ? 'success' : 'default'}
+                          color={u.isActive ? 'danger' : 'success'}
                           onPress={() => handleStatusToggle(u)}
                           isDisabled={u.id === user.id}
-                          aria-label={u.id === user.id ? t('admin.users.deactivateSelf') : u.isActive ? t('admin.users.deactivate') : t('admin.users.activate')}
+                          aria-label={statusActionLabel(u)}
                         >
-                          {u.isActive ? <CheckCircle size={16} /> : <Ban size={16} />}
+                          {u.isActive ? <UserX size={16} /> : <UserCheck size={16} />}
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content={t('admin.users.resetPassword')} delay={500}>
+                        <Button
+                          isIconOnly size="sm" variant="light"
+                          onPress={() => handleResetPassword(u)}
+                          aria-label={t('admin.users.resetPassword')}
+                        >
+                          <KeyRound size={16} />
                         </Button>
                       </Tooltip>
                     </div>
                   </TableCell>
-                  <TableCell className="text-sm text-foreground-400 hidden sm:table-cell">
-                    {hasMounted ? formatDate(u.createdAt, i18n.language) : ''}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Tooltip content={t('admin.users.resetPassword')} delay={500}>
-                      <Button
-                        isIconOnly size="sm" variant="light"
-                        onPress={() => handleResetPassword(u)}
-                        aria-label={t('admin.users.resetPassword')}
-                      >
-                        <KeyRound size={16} />
-                      </Button>
-                    </Tooltip>
-                  </TableCell>
                 </TableRow>
               ))
             }</>
           </TableBody>
         </Table>
+        )}
+      </div>
       </div>
 
-      <MaturityReferencesSection />
+      {/* Once opened, a section stays mounted while hidden, so switching
+          sections never drops a half-edited form (settings) or reloads it. */}
+      {visited.has('shares') && <div hidden={section !== 'shares'}><AdminSharesSection /></div>}
 
-      <SystemConfigSection />
+      {visited.has('maturity') && <div hidden={section !== 'maturity'}><MaturityReferencesSection /></div>}
 
-      {/* Audit log */}
-      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6 overflow-hidden">
-        <h2 className="text-base font-semibold mb-1">{t('admin.auditLog.title')}</h2>
-        <p className="text-sm text-foreground-500 mb-4">{t('admin.auditLog.subtitle')}</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4">
-          <Input
-            size="sm" variant="bordered" className="sm:col-span-2"
-            label={t('admin.auditLog.filters.search')}
-            placeholder={t('admin.auditLog.filters.searchPlaceholder')}
-            value={auditSearch}
-            onValueChange={setAuditSearch}
-            isClearable
+      {visited.has('config') && (
+        <div hidden={section !== 'config'}>
+          <SystemConfigSection
+            hasBackupProblem={problems.length > 0}
+            selectedTab={configTab}
+            onTabChange={setConfigTab}
           />
-          <Select
-            // select-may-empty: a filter without an "all" choice: emptying it shows every status.
-            size="sm" variant="bordered"
-            label={t('admin.auditLog.columns.status')}
-            selectedKeys={auditFilters.status ? [auditFilters.status] : []}
-            onSelectionChange={(keys) => updateAuditFilter({ status: String(Array.from(keys)[0] ?? '') })}
-          >
-            {['success', 'error', 'validation_error', 'not_found'].map((s) => (
-              <SelectItem key={s}>{s}</SelectItem>
-            ))}
-          </Select>
-          <div className="flex gap-2">
-            <Input
-              size="sm" variant="bordered" type="date"
-              label={t('admin.auditLog.filters.from')}
-              value={auditFilters.from ?? ''}
-              onValueChange={(v) => updateAuditFilter({ from: v })}
-            />
-            <Input
-              size="sm" variant="bordered" type="date"
-              label={t('admin.auditLog.filters.to')}
-              value={auditFilters.to ?? ''}
-              onValueChange={(v) => updateAuditFilter({ to: v })}
-            />
-          </div>
         </div>
+      )}
 
-        <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('admin.auditLog.title')}>
-          <TableHeader>
-            <TableColumn>{t('admin.auditLog.columns.date')}</TableColumn>
-            <TableColumn>{t('admin.auditLog.columns.user')}</TableColumn>
-            <TableColumn>{t('admin.auditLog.columns.action')}</TableColumn>
-            <TableColumn>{t('admin.auditLog.columns.status')}</TableColumn>
-            <TableColumn>{t('admin.auditLog.columns.ip')}</TableColumn>
-          </TableHeader>
-          <TableBody>
-            <>{isAuditLoading
-              ? Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    {Array.from({ length: 5 }).map((__, c) => (
-                      <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
-                    ))}
-                  </TableRow>
-                ))
-              : auditResponse?.items.length === 0
-              ? (<TableRow><TableCell colSpan={5} className="text-center py-4 text-sm text-foreground-400">{t('admin.auditLog.noLogs')}</TableCell></TableRow>)
-              : auditResponse?.items.map((entry: AuditLogEntry) => (
-                <TableRow key={entry.id}>
-                  <TableCell className="whitespace-nowrap text-xs">{hasMounted ? formatDateTime(entry.createdAt, i18n.language) : ''}</TableCell>
-                  <TableCell className="text-sm">{entry.user?.username || '—'}</TableCell>
-                  <TableCell><Chip size="sm" variant="bordered" radius="sm">{entry.action}</Chip></TableCell>
-                  <TableCell>
-                    <Chip size="sm" color={entry.status === 'success' ? 'success' : 'danger'} variant="flat" radius="sm">{entry.status}</Chip>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs text-foreground-400">{entry.ip}</TableCell>
-                </TableRow>
-              ))
-            }</>
-          </TableBody>
-        </Table>
+      {visited.has('audit') && <div hidden={section !== 'audit'}><AuditLogSection /></div>}
 
-        {auditResponse?.meta && auditResponse.meta.pages > 1 && (
-          <div className="mt-3 flex items-center justify-end gap-2">
-            <span className="text-xs text-foreground-400">
-              {t('admin.auditLog.pageInfo', { page: auditResponse.meta.page, pages: auditResponse.meta.pages, total: auditResponse.meta.total })}
-            </span>
-            <Button isIconOnly size="sm" variant="light" onPress={() => setAuditPage(p => Math.max(1, p - 1))} isDisabled={auditPage <= 1} aria-label={t('admin.auditLog.prevPage')}>
-              <ChevronLeft size={16} />
-            </Button>
-            <Button isIconOnly size="sm" variant="light" onPress={() => setAuditPage(p => p + 1)} isDisabled={auditPage >= (auditResponse?.meta.pages ?? 1)} aria-label={t('admin.auditLog.nextPage')}>
-              <ChevronRight size={16} />
-            </Button>
-          </div>
-        )}
-      </div>
-
-      {/* Maintenance */}
-      <div className="bg-danger-50/50 border border-danger-200 rounded-2xl p-6 mt-6">
-        <h2 className="text-base font-semibold text-danger mb-1 flex items-center gap-2">
-          <Trash2 size={16} /> {t('admin.maintenance.title')}
-        </h2>
-        <p className="text-sm text-foreground-500 mb-4">{t('admin.maintenance.purge.description')}</p>
-
-        {purgeResult && (
-          <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-xl px-4 py-3 mb-4">
-            <p className="font-semibold mb-1">{t('admin.maintenance.purge.success')}</p>
-            <p className="text-xs">{t('admin.maintenance.purge.counts.bottles', { count: purgeResult.counts.items })} · {t('admin.maintenance.purge.counts.cellars', { count: purgeResult.counts.cellars })} · {t('admin.maintenance.purge.counts.logs', { count: purgeResult.counts.auditLogs })}</p>
-          </div>
-        )}
-
-        {purgeError && (
-          <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3 mb-4">
-            {t(`admin.maintenance.purge.errors.${purgeError}`, { defaultValue: `${t('admin.maintenance.purge.error')} (${purgeError})` })}
-          </div>
-        )}
-
-        <Button color="danger" variant="solid" startContent={<Trash2 size={14} />} onPress={() => setIsPurgeDialogOpen(true)} isDisabled={isPurging}>
-          {t('admin.maintenance.purge.button')}
-        </Button>
-      </div>
-
-      {/* Purge dialog */}
-      <ResponsiveModal
-        isOpen={!!pendingAction}
-        onClose={() => setPendingAction(null)}
-        size="sm" radius="lg" backdrop="opaque" placement="center"
-      >
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader>{t('actions.confirm')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-500">{pendingActionMessage}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
-                <Button color="danger" variant="solid" onPress={confirmPendingAction}>{t('actions.confirm')}</Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
-
-      <ResponsiveModal
-        isOpen={isPurgeDialogOpen}
-        onClose={() => !isPurging && setIsPurgeDialogOpen(false)}
-        size="sm" radius="lg" backdrop="opaque" placement="center"
-      >
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="text-danger">{t('admin.maintenance.purge.confirmTitle')}</ModalHeader>
-              <ModalBody className="flex flex-col gap-3">
-                <p className="text-sm text-foreground-500">{t('admin.maintenance.purge.confirmDescription')}</p>
-                <Input
-                  label={t('admin.maintenance.purge.keywordLabel')}
-                  value={confirmationText}
-                  onValueChange={setConfirmationText}
-                  placeholder={t('admin.maintenance.purge.keywordValue')}
-                  variant="bordered" size="md" radius="md" labelPlacement="outside"
-                  isDisabled={isPurging}
-                  autoFocus
-                />
-                <p className="text-xs text-foreground-500">{t('admin.maintenance.purge.backupFirst')}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="danger" variant="light" onPress={onClose} isDisabled={isPurging}>{t('actions.cancel')}</Button>
-                <Button
-                  color="danger" variant="solid"
-                  onPress={handleConfirmPurge}
-                  isDisabled={confirmationText !== t('admin.maintenance.purge.keywordValue') || isPurging}
-                  isLoading={isPurging}
-                >
-                  {t('actions.confirm')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
-
-      {purgeStepUp.dialog}
+      {memberChanges.dialog}
 
       <GrantAdminDialog target={grantTarget} onClose={() => setGrantTarget(null)} />
 

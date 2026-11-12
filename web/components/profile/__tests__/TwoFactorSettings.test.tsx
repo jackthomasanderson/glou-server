@@ -81,6 +81,7 @@ vi.mock('@heroui/react', () => ({
   ),
   Divider: () => <hr />,
   CircularProgress: () => <div />,
+  Chip: ({ children, startContent }: { children?: ReactNode; startContent?: ReactNode }) => <span>{startContent}{children}</span>,
 }));
 
 beforeAll(async () => {
@@ -95,7 +96,7 @@ beforeAll(async () => {
 
 import { TwoFactorSettings } from '../TwoFactorSettings';
 
-function makeUser(isTwoFactorEnabled: boolean): PublicUser {
+function makeUser(isTwoFactorEnabled: boolean, isAdmin = false): PublicUser {
   return {
     id: 'u1',
     username: 'alice',
@@ -110,7 +111,7 @@ function makeUser(isTwoFactorEnabled: boolean): PublicUser {
     accentColor: '#6366f1',
     dateFormat: 'SYSTEM',
     expertMode: false,
-    isAdmin: false,
+    isAdmin,
     isTwoFactorEnabled,
     createdAt: '2026-01-01T00:00:00.000Z',
     deletionRequestedAt: null,
@@ -136,6 +137,24 @@ describe('TwoFactorSettings follows the account 2FA state (#576)', () => {
     expect(screen.queryByText('Disabled')).toBeNull();
     expect(screen.getByRole('button', { name: 'Disable' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Enable' })).toBeNull();
+  });
+});
+
+// #770 — the weakest state was the least visible one, and admins were not told.
+describe('TwoFactorSettings admin recommendation (#770)', () => {
+  it('recommends 2FA to an admin who has it off', () => {
+    render(<TwoFactorSettings user={makeUser(false, true)} />);
+    expect(screen.getByText('Two-factor authentication is recommended for administrator accounts.')).toBeInTheDocument();
+  });
+
+  it('says nothing to a member with 2FA off', () => {
+    render(<TwoFactorSettings user={makeUser(false, false)} />);
+    expect(screen.queryByText('Two-factor authentication is recommended for administrator accounts.')).toBeNull();
+  });
+
+  it('says nothing to an admin who already has 2FA on', () => {
+    render(<TwoFactorSettings user={makeUser(true, true)} />);
+    expect(screen.queryByText('Two-factor authentication is recommended for administrator accounts.')).toBeNull();
   });
 });
 
@@ -172,9 +191,33 @@ describe('TwoFactorSettings messages and code fields (#652)', () => {
     turnOn.mockImplementation((_v: unknown, o: MutateOptions<unknown>) => o.onError?.(new Error('INVALID_TOTP_CODE')));
     const dialog = openEnable();
     fireEvent.change(within(dialog).getByLabelText(translate('profile.twoFactor.codeLabel')), { target: { value: '123456' } });
+    fireEvent.change(within(dialog).getByLabelText(translate('profile.passwordLabel')), { target: { value: 'pw' } });
     fireEvent.click(within(dialog).getByRole('button', { name: translate('actions.confirm') }));
 
     expect(within(dialog).getByRole('alert').textContent).toBe(expected);
+  });
+
+  // #603: an open session alone could tie the account to someone else's app.
+  it('turning 2FA on asks for the password, and sends it with the code', () => {
+    const dialog = openEnable();
+    fireEvent.change(within(dialog).getByLabelText('6-digit code'), { target: { value: '123456' } });
+    const confirm = within(dialog).getByRole('button', { name: 'Confirm' });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(within(dialog).getByLabelText('Password'), { target: { value: 'my-password' } });
+    fireEvent.click(confirm);
+
+    expect(turnOn).toHaveBeenCalledWith({ password: 'my-password', code: '123456' }, expect.anything());
+  });
+
+  it('a wrong password when turning 2FA on says the password is wrong', () => {
+    turnOn.mockImplementation((_v: unknown, o: MutateOptions<unknown>) => o.onError?.(new Error('INVALID_CREDENTIALS')));
+    const dialog = openEnable();
+    fireEvent.change(within(dialog).getByLabelText('6-digit code'), { target: { value: '123456' } });
+    fireEvent.change(within(dialog).getByLabelText('Password'), { target: { value: 'not-it' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Confirm' }));
+
+    expect(within(dialog).getByRole('alert').textContent).toBe('Incorrect current password');
   });
 
   it('a wrong password when turning 2FA off says the password is wrong', () => {
@@ -232,6 +275,7 @@ describe('TwoFactorSettings backup codes (#638)', () => {
     render(<TwoFactorSettings user={makeUser(false)} />);
     fireEvent.click(screen.getByRole('button', { name: 'Enable' }));
     fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('6-digit code'), { target: { value: '123456' } });
+    fireEvent.change(within(screen.getByRole('dialog')).getByLabelText('Password'), { target: { value: 'pw' } });
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Confirm' }));
     return screen.getByRole('dialog');
   }
@@ -322,5 +366,49 @@ describe('TwoFactorSettings backup codes (#638)', () => {
     expect(within(codes).getByText(translate('profile.twoFactor.regenerateSuccess'))).toBeInTheDocument();
     expect(within(codes).getByText(CODES[0])).toBeInTheDocument();
     expect(codes.dataset.keyboardDismissDisabled).toBe('true');
+  });
+});
+
+// #950: a 32-character secret has no break point and overflows a 320 px card.
+describe('TwoFactorSettings setup secret (#950)', () => {
+  const SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    await i18n.changeLanguage('en');
+    generate.mockImplementation((_v: unknown, o: { onSuccess?: (d: unknown) => void }) =>
+      o.onSuccess?.({ qrCodeUrl: 'data:image/png;base64,', secret: SECRET }));
+  });
+
+  function openSetup() {
+    render(<TwoFactorSettings user={makeUser(false)} />);
+    fireEvent.click(screen.getByRole('button', { name: translate('profile.twoFactor.enable') }));
+    return screen.getByRole('dialog');
+  }
+
+  it('shows the secret in blocks of 4 that wrap, with no real space to copy', () => {
+    const dialog = openSetup();
+    const code = dialog.querySelector('code') as HTMLElement;
+    expect(code.textContent?.replace(/\s/g, '')).toBe(SECRET);
+    expect(code.textContent).toBe(SECRET);
+    expect(code.querySelectorAll('span')).toHaveLength(8);
+    expect(code.querySelectorAll('wbr')).toHaveLength(7);
+  });
+
+  it('copies the raw secret, without the spaces', async () => {
+    copyText.mockResolvedValue(true);
+    const dialog = openSetup();
+    fireEvent.click(within(dialog).getByRole('button', { name: translate('profile.twoFactor.copySecret') }));
+
+    expect(copyText).toHaveBeenCalledWith(SECRET);
+    expect((await within(dialog).findByRole('status')).textContent).toBe('Secret key copied');
+  });
+
+  it('says so when copying is not possible', async () => {
+    copyText.mockResolvedValue(false);
+    const dialog = openSetup();
+    fireEvent.click(within(dialog).getByRole('button', { name: translate('profile.twoFactor.copySecret') }));
+
+    expect((await within(dialog).findByRole('status')).textContent).toBe(translate('profile.twoFactor.copySecretFailed'));
   });
 });

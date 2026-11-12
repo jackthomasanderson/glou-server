@@ -40,6 +40,22 @@ async function requireScanAvailable(_req: Request, res: Response, next: NextFunc
   res.status(503).json({ error: SCAN_UPLOAD_ERROR_CODES.unavailable });
 }
 
+/**
+ * #609: the per-member quota above does not bound the household as a whole.
+ * The model reads one label at a time, so past this many waiting scans a new
+ * one would only wait for a long time: refused up front, before multer stores
+ * the photo and before it counts against the member's quota.
+ */
+export const MAX_ACTIVE_SCAN_JOBS = 20;
+
+async function requireScanCapacity(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  if ((await scanService.countActiveJobs()) < MAX_ACTIVE_SCAN_JOBS) {
+    next();
+    return;
+  }
+  res.status(503).json({ error: SCAN_UPLOAD_ERROR_CODES.busy });
+}
+
 // ─── GET /api/scan/status ─────────────────────────────────────────────────────
 // Whether the scan entry points should be shown at all (#639).
 
@@ -53,7 +69,7 @@ router.get('/status', async (_req: Request, res: Response): Promise<void> => {
 // the actual vision/OCR call runs in the background (see scan.service.ts).
 // The client is expected to poll GET /api/scan/jobs/:id until 'done'/'failed'.
 
-router.post('/', requireScanAvailable, scanLimiter, scanUpload.single('photo'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireScanAvailable, requireScanCapacity, scanLimiter, scanUpload.single('photo'), async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     if (!req.file) {

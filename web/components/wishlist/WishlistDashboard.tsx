@@ -6,6 +6,7 @@ import {
 } from '@heroui/react';
 import { Plus, Gift, Tag, ArrowRightCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { CreateAction } from '@/components/ui/PageHeader';
 import {
   useWishlist, useCreateWishlistItem, useUpdateWishlistItem, useDeleteWishlistItem,
   useRecordPriceSeen, useConvertToInventory,
@@ -19,8 +20,10 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ParsedNumberInput } from '@/components/ui/ParsedInput';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
+import { buildEditPatch } from '@/lib/forms/editPatch';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { MAX_COPIES } from '@shared/product';
+import { VINTAGE_MIN } from '@shared/inventory';
 import { KnownWineBanner } from '@/components/inventory/KnownWineBanner';
 import { useKnownWine } from '@/hooks/useKnownWine';
 import { wineName } from '@/lib/products/stock';
@@ -29,6 +32,9 @@ import { CigarGroupFields } from '@/components/inventory/CigarGroupFields';
 import { cigarGroupInput, cigarPriceKey, draftFrom, isCigarGroupValid, type CigarGroupDraft } from '@/lib/products/cigarGroup';
 import type { Product } from '@/lib/products/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+
+/** A vintage a bottle may carry (the API's rule, #624). */
+const isVintage = (year: number) => Number.isInteger(year) && year >= VINTAGE_MIN && year <= new Date().getFullYear();
 
 /** "Aucune cave", a choice of the convert form's cellar list. */
 const NO_CELLAR = 'none';
@@ -63,13 +69,18 @@ export function WishlistDashboard() {
   const [form, setForm] = useState<WishlistForm>(EMPTY_FORM);
   // ISSUE_119: values the form opened with, to detect unsaved input on close.
   const [formBaseline, setFormBaseline] = useState<WishlistForm>(EMPTY_FORM);
+  // #657: Save stays clickable; a click with the name empty shows the field in red.
+  const [formTried, setFormTried] = useState(false);
   const [deleting, setDeleting] = useState<WishlistItem | null>(null);
   const [priceTarget, setPriceTarget] = useState<WishlistItem | null>(null);
   const [priceValue, setPriceValue] = useState('');
+  const [priceTried, setPriceTried] = useState(false);
   const [convertTarget, setConvertTarget] = useState<WishlistItem | null>(null);
   // #471: price of ONE bottle and number bought (one group), parsed like every price field (#725).
   const [convertForm, setConvertForm] = useState<{
     purchasePrice?: number; purchasePlace: string; cellarId: string; bottleSize: string; quantity?: number;
+    /** #587: a spirit's ABV, optional (empty stays unknown). */
+    alcoholDegree?: number;
   }>({ purchasePlace: '', cellarId: '', bottleSize: '' });
   const [convertTried, setConvertTried] = useState(false);
   // #471 (FEAT-97 c4): "Vous avez déjà ce vin" for the wine wished for — the
@@ -87,6 +98,10 @@ export function WishlistDashboard() {
     ? !isCigarGroupValid(cigars)
     : convertForm.quantity == null || !Number.isInteger(convertForm.quantity)
       || convertForm.quantity < 1 || convertForm.quantity > MAX_COPIES;
+  // #587: a new spirit's ABV, asked but optional; a known wine keeps its own.
+  const asksAbv = convertTarget?.category === 'spirit' && !joining;
+  const convertAbvInvalid = asksAbv && convertForm.alcoholDegree != null
+    && !(convertForm.alcoholDegree >= 0 && convertForm.alcoholDegree <= 100);
 
   /**
    * "Ajouter des bouteilles à ce vin": the reduced form starts from the wine's
@@ -114,6 +129,7 @@ export function WishlistDashboard() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setFormBaseline(EMPTY_FORM);
+    setFormTried(false);
     setFormOpen(true);
   };
   const openEdit = (item: WishlistItem) => {
@@ -124,6 +140,7 @@ export function WishlistDashboard() {
     };
     setForm(nextForm);
     setFormBaseline(nextForm);
+    setFormTried(false);
     setFormOpen(true);
   };
   const closeForm = () => { setFormOpen(false); setEditing(null); };
@@ -137,11 +154,15 @@ export function WishlistDashboard() {
   });
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) return;
+    if (!form.name.trim()) { setFormTried(true); return; }
+    // #624: a vintage typed beyond the bottle's bounds is not sent (its message shows under the field).
+    if (form.vintage !== formBaseline.vintage && form.vintage != null && !isVintage(form.vintage)) return;
     const data: WishlistCreateInput = { ...form, targetQuantity: form.targetQuantity ?? 1 };
     try {
       if (editing) {
-        await updateMutation.mutateAsync({ id: editing.id, data });
+        // #624: only what changed (like a bottle, #572) — a wish saved with a
+        // vintage the API no longer accepts stays editable.
+        await updateMutation.mutateAsync({ id: editing.id, data: buildEditPatch(formBaseline, data) });
       } else {
         await createMutation.mutateAsync(data);
       }
@@ -161,11 +182,11 @@ export function WishlistDashboard() {
     }
   };
 
-  const openPriceSeen = (item: WishlistItem) => { setPriceTarget(item); setPriceValue(String(item.lastSeenPrice ?? '')); };
+  const openPriceSeen = (item: WishlistItem) => { setPriceTarget(item); setPriceValue(String(item.lastSeenPrice ?? '')); setPriceTried(false); };
   const handlePriceSubmit = async () => {
     if (!priceTarget) return;
     const price = Number(priceValue);
-    if (!Number.isFinite(price) || price < 0) return;
+    if (priceValue.trim() === '' || !Number.isFinite(price) || price < 0) { setPriceTried(true); return; }
     try {
       await priceSeenMutation.mutateAsync({ id: priceTarget.id, price });
       setPriceTarget(null);
@@ -188,7 +209,7 @@ export function WishlistDashboard() {
     if (!convertTarget) return;
     setConvertTried(true);
     // An emptied number is not the number wished for: it is asked again.
-    if (convertCountInvalid) return;
+    if (convertCountInvalid || convertAbvInvalid) return;
     try {
       await convertMutation.mutateAsync({
         id: convertTarget.id,
@@ -200,6 +221,7 @@ export function WishlistDashboard() {
           ...(joining
             ? { productId: joining.id }
             : { purchasePlace: convertForm.purchasePlace || null, ...(toldApart.length > 0 ? { distinctFrom: toldApart } : {}) }),
+          ...(asksAbv ? { alcoholDegree: convertForm.alcoholDegree ?? null } : {}),
         },
       });
       setConvertTarget(null);
@@ -212,20 +234,14 @@ export function WishlistDashboard() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
-      <div className="flex items-center gap-2 mb-6">
-        <Gift size={22} className="text-primary" />
-        <h1 className="text-xl font-bold">{t('wishlist.title')}</h1>
-        <Button
-          data-testid="wishlist-create-button"
-          className="ml-auto"
-          color="primary"
-          variant="solid"
-          startContent={<Plus size={16} />}
-          onPress={openCreate}
-        >
-          {t('wishlist.create')}
-        </Button>
-      </div>
+      {/* #701: the page title and tabs are in WishlistClient's header; the
+          create button is the empty state's own while the list is empty. */}
+      <h2 className="sr-only">{t('wishlist.tabs.wishlist')}</h2>
+      {!isLoading && activeItems.length > 0 && (
+        <div className="flex justify-end sm:mb-4">
+          <CreateAction label={t('wishlist.create')} onPress={openCreate} testId="wishlist-create-button" />
+        </div>
+      )}
 
       {isError && (
         <ErrorState
@@ -321,7 +337,9 @@ export function WishlistDashboard() {
                   placeholder={t('wishlist.form.namePlaceholder')}
                   value={form.name}
                   onValueChange={(v) => setForm((f) => ({ ...f, name: v }))}
-                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired
+                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired validationBehavior="aria"
+                  isInvalid={formTried && !form.name.trim()}
+                  errorMessage={t('inventory.validation.required')}
                 />
                 <Input
                   label={t('wishlist.form.producer')}
@@ -340,6 +358,7 @@ export function WishlistDashboard() {
                 </SingleSelect>
                 <div className="grid grid-cols-2 gap-4">
                   <ParsedNumberInput
+                    min={VINTAGE_MIN} max={new Date().getFullYear()}
                     label={t('wishlist.form.vintage')}
                     value={form.vintage}
                     onValueChange={(v) => setForm((f) => ({ ...f, vintage: v ?? null }))}
@@ -374,7 +393,6 @@ export function WishlistDashboard() {
                   data-testid="wishlist-form-submit"
                   color="primary" variant="solid"
                   isLoading={createMutation.isPending || updateMutation.isPending}
-                  isDisabled={!form.name.trim()}
                   onPress={handleSubmit}
                 >
                   {t('actions.save')}
@@ -407,7 +425,9 @@ export function WishlistDashboard() {
                   label={t('wishlist.priceSeen.price')}
                   value={priceValue}
                   onValueChange={setPriceValue}
-                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired autoFocus
+                  variant="bordered" size="md" radius="md" labelPlacement="outside" isRequired autoFocus validationBehavior="aria"
+                  isInvalid={priceTried && (priceValue.trim() === '' || !(Number(priceValue) >= 0))}
+                  errorMessage={priceValue.trim() === '' ? t('inventory.validation.required') : t('inventory.validation.atLeast', { min: 0 })}
                 />
               </ModalBody>
               <ModalFooter>
@@ -415,7 +435,6 @@ export function WishlistDashboard() {
                 <Button
                   color="primary" variant="solid"
                   isLoading={priceSeenMutation.isPending}
-                  isDisabled={!priceValue}
                   onPress={handlePriceSubmit}
                 >
                   {t('wishlist.priceSeen.submit')}
@@ -511,6 +530,21 @@ export function WishlistDashboard() {
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
                   />
                 </div>
+                )}
+                {asksAbv && (
+                  <ParsedNumberInput
+                    decimal
+                    min={0} max={100}
+                    data-testid="wishlist-convert-abv"
+                    label={t('inventory.fields.alcoholDegree')}
+                    description={t('inventory.fields.alcoholDegreeOptional')}
+                    // Out of range: said on leaving the field, and again when the conversion is refused.
+                    isInvalid={convertTried && convertAbvInvalid ? true : undefined}
+                    errorMessage={t('inventory.validation.range', { min: 0, max: 100 })}
+                    value={convertForm.alcoholDegree}
+                    onValueChange={(v) => setConvertForm((f) => ({ ...f, alcoholDegree: v }))}
+                    variant="bordered" size="md" radius="md" labelPlacement="outside"
+                  />
                 )}
               </ModalBody>
               <ModalFooter>

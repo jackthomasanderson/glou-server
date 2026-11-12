@@ -9,12 +9,16 @@ import path from 'node:path';
 // mock replaces it wholesale so nothing tries to reach a real database.
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    user: { findUnique: vi.fn(), findFirst: vi.fn() },
-    session: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
+    session: { findUnique: vi.fn(), update: vi.fn() },
     inventoryItem: { findMany: vi.fn() },
     tastingNote: { findMany: vi.fn(), count: vi.fn() },
-    auditLog: { findMany: vi.fn(), count: vi.fn() },
-    backupRun: { findUnique: vi.fn() },
+    auditLog: { findMany: vi.fn(), count: vi.fn(), create: vi.fn() },
+    backupRun: { findUnique: vi.fn(), findFirst: vi.fn() },
+    systemConfig: { findUnique: vi.fn() },
+    guestShare: { findMany: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
+    cellar: { findMany: vi.fn() },
+    collection: { findMany: vi.fn() },
     $queryRaw: vi.fn(),
   },
   connectWithRetry: vi.fn(),
@@ -31,7 +35,7 @@ const app = createApp();
 
 function authToken(overrides: Record<string, unknown> = {}): string {
   return jwt.sign(
-    { userId: 'u1', email: 'u1@example.com', scope: 'full', ...overrides },
+    { userId: 'u1', email: 'u1@example.com', scope: 'full', sessionId: 's1', ...overrides },
     JWT_SECRET,
     { algorithm: 'HS256' },
   );
@@ -41,6 +45,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.JWT_SECRET = JWT_SECRET;
   vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true } as never);
+  vi.mocked(prisma.session.findUnique).mockResolvedValue({ revokedAt: null, expiresAt: new Date(Date.now() + 3_600_000) } as never);
+  vi.mocked(prisma.session.update).mockResolvedValue({} as never);
   vi.mocked(prisma.$queryRaw).mockResolvedValue([{ '?column?': 1 }] as never);
 });
 
@@ -58,6 +64,49 @@ describe('unauthenticated access', () => {
     const res = await request(app).get('/api/version');
     expect(res.status).toBe(200);
     expect(res.body.data.version).toBe(pkg.version);
+  });
+
+  // #625: the browser builds bottle QR codes; it reads the address to encode here.
+  describe('GET /api/version publicUrl (#625)', () => {
+    const appUrl = process.env.APP_URL;
+    afterEach(() => {
+      if (appUrl === undefined) delete process.env.APP_URL;
+      else process.env.APP_URL = appUrl;
+    });
+
+    it('gives the public address set by the admin', async () => {
+      process.env.APP_URL = 'http://localhost:3000';
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ publicUrl: 'https://cave.example.org' } as never);
+      const res = await request(app).get('/api/version');
+      expect(res.body.data.publicUrl).toBe('https://cave.example.org');
+    });
+
+    it('falls back to APP_URL when it is a real address', async () => {
+      process.env.APP_URL = 'http://192.168.1.20:3000';
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ publicUrl: null } as never);
+      const res = await request(app).get('/api/version');
+      expect(res.body.data.publicUrl).toBe('http://192.168.1.20:3000');
+    });
+
+    it.each([['http://localhost:3000'], ['http://127.0.0.1:3000'], ['http://[::1]:3000'], [undefined]])(
+      'is null when only a loopback address is configured (APP_URL=%s)',
+      async (value) => {
+        if (value === undefined) delete process.env.APP_URL;
+        else process.env.APP_URL = value;
+        vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ publicUrl: null } as never);
+        const res = await request(app).get('/api/version');
+        expect(res.status).toBe(200);
+        expect(res.body.data.publicUrl).toBeNull();
+      },
+    );
+
+    it('still answers the version when the configuration cannot be read', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.mocked(prisma.systemConfig.findUnique).mockRejectedValue(new Error('db down'));
+      const res = await request(app).get('/api/version');
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ version: pkg.version, publicUrl: null });
+    });
   });
 
   // ISSUE_019: it used to answer 'ok' unconditionally — now it actually
@@ -226,6 +275,24 @@ describe('database outage during authentication (#581)', () => {
     expect(res.status).toBe(401);
     expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
     expect(prisma.user.findUnique).not.toHaveBeenCalled();
+  });
+
+  // #608: every token the API issues carries a session; one without it (only
+  // a forged one) would never be checked against the sessions table, so no
+  // "sign out everywhere" could cut it off.
+  it('answers 401 for a full token without a session id, before any database read', async () => {
+    for (const sessionId of [undefined, '']) {
+      const res = await request(app)
+        .get('/api/tastings')
+        .set('Authorization', `Bearer ${authToken({ sessionId })}`);
+      expect(res.status, String(sessionId)).toBe(401);
+      expect(res.body.error).toBe('TOKEN_INVALID_OR_EXPIRED');
+    }
+    const legacy = jwt.sign({ userId: 'u1', email: 'u1@example.com' }, JWT_SECRET, { algorithm: 'HS256' });
+    const res = await request(app).get('/api/tastings').set('Authorization', `Bearer ${legacy}`);
+    expect(res.status).toBe(401);
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.session.findUnique).not.toHaveBeenCalled();
   });
 
   it('still answers 401 TOKEN_INVALID_OR_EXPIRED for a token signed with another secret', async () => {
@@ -551,11 +618,14 @@ describe('POST /api/admin/users/:id/role', () => {
     spy.mockRestore();
   });
 
-  it('removing the role needs the session only', async () => {
-    const spy = vi.spyOn(authService, 'reauthenticateAdmin');
+  it('removing the role asks for the step-up too (#603)', async () => {
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      ({ id: args.where.id, isActive: true, isAdmin: true })) as never);
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin').mockRejectedValueOnce(new Error('REAUTH_REQUIRED'));
     const res = await post({ isAdmin: false });
-    expect(res.status).toBe(200);
-    expect(spy).not.toHaveBeenCalled();
+    expect(res.status).toBe(403);
+    expect(spy).toHaveBeenCalledWith('u1', {}, expect.anything(), { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: 'm1', isAdmin: false } });
+    expect(prisma.user.update).not.toHaveBeenCalled();
     spy.mockRestore();
   });
 });
@@ -591,6 +661,25 @@ describe('GET /api/admin/audit-logs filters', () => {
       .set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(400);
   });
+
+  // #698: the action filter, combined with the member search.
+  it('filters on one or more action types, alongside the free-text search', async () => {
+    const res = await request(app)
+      .get('/api/admin/audit-logs?q=alice&actions=LOGIN,LOGIN_2FA')
+      .set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(200);
+    const where = vi.mocked(prisma.auditLog.findMany).mock.calls[0][0]?.where as Record<string, any>;
+    expect(where.action).toEqual({ in: ['LOGIN', 'LOGIN_2FA'] });
+    expect(where.OR).toHaveLength(4);
+  });
+
+  it('rejects an unknown action type', async () => {
+    const res = await request(app)
+      .get('/api/admin/audit-logs?actions=LOGIN,DROP_TABLE')
+      .set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(400);
+    expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
+  });
 });
 
 // #669: the route answered `{ directoryWritable }` without the `data` envelope
@@ -608,7 +697,141 @@ describe('GET /api/admin/backups/health', () => {
     writableSpy = vi.spyOn(backupService, 'isBackupsDirWritable').mockReturnValue(writable);
     const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ data: { directoryWritable: writable } });
+    expect(res.body.data.directoryWritable).toBe(writable);
+  });
+
+  // #756: the admin page warns when automatic backups are off or none ever succeeded.
+  it('says whether automatic backups are on and when the last successful one ran', async () => {
+    writableSpy = vi.spyOn(backupService, 'isBackupsDirWritable').mockReturnValue(true);
+    vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ backupEnabled: false } as never);
+    // The last success, then the last run of any outcome (#671).
+    vi.mocked(prisma.backupRun.findFirst)
+      .mockResolvedValueOnce({ runAt: new Date('2026-11-01T03:00:00Z') } as never)
+      .mockResolvedValueOnce({ success: true } as never);
+    const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: false, lastSuccessAt: '2026-11-01T03:00:00.000Z', lastRunFailed: false, overdue: false } });
+    expect(vi.mocked(prisma.backupRun.findFirst).mock.calls[0][0]?.where).toEqual({ success: true });
+  });
+
+  it('still answers the folder check when the backup status cannot be read', async () => {
+    writableSpy = vi.spyOn(backupService, 'isBackupsDirWritable').mockReturnValue(false);
+    vi.mocked(prisma.systemConfig.findUnique).mockRejectedValue(new Error('db down'));
+    vi.mocked(prisma.backupRun.findFirst).mockResolvedValue(null as never);
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
+    error.mockRestore();
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: { directoryWritable: false } });
+  });
+
+  it('reports no successful backup, and backups on by default before the settings exist', async () => {
+    writableSpy = vi.spyOn(backupService, 'isBackupsDirWritable').mockReturnValue(true);
+    vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue(null as never);
+    vi.mocked(prisma.backupRun.findFirst).mockResolvedValue(null as never);
+    const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
+    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: true, lastSuccessAt: null, lastRunFailed: false, overdue: false } });
+  });
+});
+
+// #486: the admin sees every member's live guest links (never their token) and can revoke one.
+describe('admin guest links (#486)', () => {
+  const share = {
+    id: 's1', tokenHash: 'secret-hash', label: 'For Paul', inviteeName: 'Paul',
+    expiresAt: null, revokedAt: null, hidePrices: true, hideNotes: false,
+    cellarIds: ['c1', 'c2'], writeCellarIds: ['c1'], collectionIds: [],
+    userId: 'u2', createdAt: new Date('2026-10-01T10:00:00Z'), updatedAt: new Date('2026-10-01T10:00:00Z'),
+  };
+
+  beforeEach(() => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true, isAdmin: true } as never);
+  });
+
+  it('lists only the links still in force, with their owner and no token', async () => {
+    vi.mocked(prisma.guestShare.findMany).mockResolvedValue([share] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u2', username: 'bob', displayName: 'Bob', isActive: false }] as never);
+    // c2 is gone since the link was made: only the cellars still there are named.
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c1', name: 'Cellar A' }] as never);
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([] as never);
+    const res = await request(app).get('/api/admin/shares').set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(200);
+    expect(vi.mocked(prisma.cellar.findMany).mock.calls[0][0]).toEqual({ where: { id: { in: ['c1', 'c2'] } }, select: { id: true, name: true } });
+    const args = vi.mocked(prisma.guestShare.findMany).mock.calls[0][0] as Record<string, any>;
+    expect(args.where.revokedAt).toBeNull();
+    expect(args.where.OR).toEqual([{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }]);
+    expect(args.select.tokenHash).toBeUndefined();
+    expect(res.body.data).toEqual([{
+      id: 's1', label: 'For Paul', inviteeName: 'Paul', expiresAt: null,
+      hidePrices: true, hideNotes: false, cellarCount: 2, writeCellarCount: 1, collectionCount: 0,
+      cellars: [{ id: 'c1', name: 'Cellar A' }], collections: [],
+      createdAt: '2026-10-01T10:00:00.000Z', owner: { id: 'u2', username: 'bob', displayName: 'Bob', isActive: false },
+    }]);
+    expect(JSON.stringify(res.body)).not.toContain('secret-hash');
+  });
+
+  // Recette v2026.11.3 (6.3): « 1 cave » named no cellar; the CHANGELOG promises which ones.
+  it('names the cellars and collections each link opens, and nothing else of them', async () => {
+    const other = { ...share, id: 's2', cellarIds: [], writeCellarIds: [], collectionIds: ['k1'] };
+    vi.mocked(prisma.guestShare.findMany).mockResolvedValue([share, other] as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([{ id: 'c2', name: 'Cellar B' }, { id: 'c1', name: 'Cellar A' }] as never);
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([{ id: 'k1', name: 'Collection K' }] as never);
+    const res = await request(app).get('/api/admin/shares').set('Authorization', `Bearer ${authToken()}`);
+    expect(vi.mocked(prisma.collection.findMany).mock.calls[0][0]).toEqual({ where: { id: { in: ['k1'] } }, select: { id: true, name: true } });
+    expect(res.body.data.map((s: { cellars: unknown; collections: unknown }) => [s.cellars, s.collections])).toEqual([
+      [[{ id: 'c1', name: 'Cellar A' }, { id: 'c2', name: 'Cellar B' }], []],
+      [[], [{ id: 'k1', name: 'Collection K' }]],
+    ]);
+  });
+
+  it('is refused to a member who is not an admin', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ isActive: true, isAdmin: false } as never);
+    const res = await request(app).get('/api/admin/shares').set('Authorization', `Bearer ${authToken()}`);
+    expect(res.status).toBe(403);
+    expect(prisma.guestShare.findMany).not.toHaveBeenCalled();
+  });
+
+  it('revokes any member\'s link and audits it', async () => {
+    vi.mocked(prisma.guestShare.findUnique).mockResolvedValue(share as never);
+    vi.mocked(prisma.guestShare.updateMany).mockResolvedValue({ count: 1 } as never);
+    const res = await request(app)
+      .delete('/api/admin/shares/s1')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin');
+    expect(res.status).toBe(200);
+    expect(vi.mocked(prisma.guestShare.updateMany).mock.calls[0][0]).toEqual({ where: { id: 's1', revokedAt: null }, data: { revokedAt: expect.any(Date) } });
+    expect(res.body.data).toEqual({ id: 's1', revokedAt: expect.any(String) });
+    await vi.waitFor(() => expect(prisma.auditLog.create).toHaveBeenCalled());
+    const audit = vi.mocked(prisma.auditLog.create).mock.calls[0][0].data as Record<string, any>;
+    expect(audit).toMatchObject({ userId: 'u1', action: 'ADMIN_SHARE_REVOKE', status: 'success', details: { shareId: 's1', ownerId: 'u2' } });
+    expect(JSON.stringify(res.body)).not.toContain('secret-hash');
+  });
+
+  it('answers 404 for an unknown link', async () => {
+    vi.mocked(prisma.guestShare.findUnique).mockResolvedValue(null as never);
+    const res = await request(app)
+      .delete('/api/admin/shares/nope')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('SHARE_NOT_FOUND');
+    expect(prisma.guestShare.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('leaves an already revoked link as it is, and audits nothing — also when two revocations race', async () => {
+    // The link looked in force when read, but another revocation got there first.
+    vi.mocked(prisma.guestShare.findUnique)
+      .mockResolvedValueOnce(share as never)
+      .mockResolvedValueOnce({ revokedAt: new Date('2026-10-02') } as never);
+    vi.mocked(prisma.guestShare.updateMany).mockResolvedValue({ count: 0 } as never);
+    const res = await request(app)
+      .delete('/api/admin/shares/s1')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin');
+    expect(res.status).toBe(200);
+    expect(res.body.data.revokedAt).toBe('2026-10-02T00:00:00.000Z');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(prisma.auditLog.create).not.toHaveBeenCalled();
   });
 });
 
@@ -688,6 +911,32 @@ describe('POST /api/admin/backups/:id/restore', () => {
     expect(res.body).toEqual({ error: code });
   });
 
+  // #748: a backup file gone from the folder answered 500, and any other
+  // failure sent its raw text (psql's stderr) to the browser.
+  it('answers 404 BACKUP_FILE_MISSING when the file is no longer in the backups folder', async () => {
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error('BACKUP_FILE_NOT_FOUND')));
+
+    const res = await restore();
+
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: 'BACKUP_FILE_MISSING' });
+  });
+
+  it('answers a stable RESTORE_FAILED code, and keeps the raw failure in the server log', async () => {
+    const raw = 'PSQL_RESTORE_FAILED (exit 3): ERROR:  relation "User" does not exist at /var/lib/postgresql';
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error(raw)));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    spies.push(log);
+
+    const res = await restore();
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'RESTORE_FAILED' });
+    expect(log).toHaveBeenCalledWith('[Admin] Backup restore error:', expect.objectContaining({ message: raw }));
+  });
+
   it('takes no backup at all on a wrong password', async () => {
     spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockRejectedValue(new Error('INVALID_PASSWORD')));
     const runSpy = vi.spyOn(backupService, 'runBackup');
@@ -735,14 +984,29 @@ describe('POST /api/user/avatar', () => {
   });
 });
 
+// #468: the Vivino/Whiskybase keys were stored and read by nothing; the route
+// that saved them is gone, so a session can no longer write secrets nobody uses.
+describe('PUT /api/admin/config/integrations', () => {
+  it('no longer exists', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u1', isActive: true, isAdmin: true } as never);
+    const { systemConfigService } = await import('../../src/services/system-config.service');
+    expect('updateIntegrations' in systemConfigService).toBe(false);
+    const res = await request(app)
+      .put('/api/admin/config/integrations')
+      .set('Authorization', `Bearer ${authToken()}`)
+      .set('Sec-Fetch-Site', 'same-origin')
+      .send({ vivinoKey: 'key' });
+    expect(res.status).toBe(404);
+  });
+});
+
 // #599: the admin Gotify test followed redirects, so a public server could
 // bounce the POST (and the Gotify key) into the home network.
 describe('POST /api/admin/config/test/gotify', () => {
   it('does not follow a redirect and reports it as DELIVERY_FAILED', async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ id: 'u1', isActive: true, isAdmin: true } as never);
     const { systemConfigService } = await import('../../src/services/system-config.service');
-    const publicSpy = vi.spyOn(systemConfigService, 'getPublic').mockResolvedValueOnce({ gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4' } as never);
-    const gotifySpy = vi.spyOn(systemConfigService, 'getGotify').mockResolvedValueOnce({ gotifyUrl: 'https://1.2.3.4', gotifyToken: 'key' } as never);
+    const gotifySpy = vi.spyOn(systemConfigService, 'getGotify').mockResolvedValueOnce({ gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4', gotifyToken: 'key' });
     // #890: the test asks for the admin's step-up, passed here.
     const reauthSpy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
     // Like the real fetch: the redirect is followed unless `redirect: 'manual'`.
@@ -763,7 +1027,6 @@ describe('POST /api/admin/config/test/gotify', () => {
       expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ redirect: 'manual' }));
     } finally {
       fetchSpy.mockRestore();
-      publicSpy.mockRestore();
       gotifySpy.mockRestore();
       reauthSpy.mockRestore();
     }
@@ -784,12 +1047,16 @@ describe('PATCH /api/admin/users/:id/status', () => {
     p.guestShare = { updateMany: vi.fn().mockResolvedValue({ count: 1 }) };
     p.auditLog.create = vi.fn().mockResolvedValue({});
     p.$transaction = vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+    // #603: the admin's step-up passes (covered in security-steps.test.ts).
+    reauth = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue();
   });
+  let reauth: ReturnType<typeof vi.spyOn>;
+  afterEach(() => reauth.mockRestore());
   const patch = (isActive: boolean) => request(app)
     .patch('/api/admin/users/m1/status')
     .set('Authorization', `Bearer ${authToken()}`)
     .set('Sec-Fetch-Site', 'same-origin')
-    .send({ isActive });
+    .send({ isActive, password: 'admin-pw' });
 
   it('deactivating revokes the member\'s sessions, trusted devices and guest links in the same transaction', async () => {
     const res = await patch(false);

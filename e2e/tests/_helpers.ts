@@ -16,7 +16,9 @@ export function creds(): E2ECreds {
  * shortcut happens to render first.
  */
 export function bottlesNavLink(page: Page) {
-  return page.locator('a[href^="/bottles"]').first();
+  // #492: scoped to the visible navigation — the desktop sidebar, or the
+  // bottom bar on a phone (the hidden one is left out by the role query).
+  return page.getByRole('navigation').locator('a[href^="/bottles"]').first();
 }
 
 /** The authenticated app routes worth smoke-testing / fuzzing. */
@@ -25,7 +27,7 @@ export const APP_ROUTES = [
   '/cigars',
   '/collections',
   '/cellars',
-  '/cellar-journal',
+  '/tastings',
   '/analytics-terroirs',
   '/wishlist-budget',
   '/inventory-count',
@@ -41,6 +43,9 @@ export function collectPageProblems(page: Page, testInfo: TestInfo) {
   const problems: string[] = [];
 
   page.on('pageerror', (err) => {
+    // WebKit (mobile-safari) reports a link prefetch (`?_rsc=`) cancelled by
+    // the next page.goto as "… due to access control checks": not an app bug.
+    if (/_rsc=.*access control checks/.test(err.message)) return;
     problems.push(`[pageerror] ${err.message}`);
   });
   page.on('console', (msg) => {

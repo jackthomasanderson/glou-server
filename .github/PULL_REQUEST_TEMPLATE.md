@@ -12,6 +12,8 @@
 - [ ] Website (`docs/index.html`) updated if installation or updating changes
 - [ ] Screenshots below (UI changes)
 
+By submitting this pull request, I license my contribution under the [Glou CLA](../CLA.md) version I signed.
+
 <!-- The CI already checks typecheck, lint, tests and strict TypeScript — no need to tick those by hand. PRs should be based on `dev` and target `dev`. -->
 
 ---
@@ -27,5 +29,7 @@
 - [ ] Docs / wiki mis à jour si le comportement change
 - [ ] Site (`docs/index.html`) mis à jour si l'installation ou la mise à jour change
 - [ ] Captures ci-dessous (changements d'UI)
+
+En soumettant cette pull request, je concède ma contribution selon la version du [CLA de Glou](../CLA.md) que j'ai signée.
 
 <!-- La CI vérifie déjà typecheck, lint, tests et TypeScript strict — inutile de les cocher à la main. La PR doit être basée sur `dev` et cibler `dev`. -->

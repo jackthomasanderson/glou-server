@@ -2,13 +2,14 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { authService } from '../services/auth.service';
 import type { ExportCategory } from '../../../shared/auth';
+import { notificationCategoriesFor } from '../../../shared/notifications';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
-import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema } from '../schemas/user.schema';
+import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema, deleteAccountSchema } from '../schemas/user.schema';
+import { accountRequestLimit, passwordCheckLimiter } from '../lib/rate-limit';
 import { prisma } from '../lib/prisma';
-import { assertUrlAllowed } from '../lib/ssrf';
-import { notificationService } from '../services/notification.service';
+import { channelPolicy, notificationService } from '../services/notification.service';
 import { systemConfigService } from '../services/system-config.service';
 import { auditLog } from '../services/audit.service';
 import { onboardingService } from '../services/onboarding.service';
@@ -82,7 +83,7 @@ router.delete('/avatar', authMiddleware, async (req: Request, res: Response) => 
  * PATCH /api/user/email
  * Update user email
  */
-router.patch('/email', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/email', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, currentPassword } = updateEmailSchema.parse(req.body);
     const deviceInfo = { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
@@ -109,7 +110,7 @@ router.patch('/email', authMiddleware, async (req: Request, res: Response, next:
  * PATCH /api/user/password
  * Update user password
  */
-router.patch('/password', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/password', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { currentPassword, newPassword } = updatePasswordSchema.parse(req.body);
     const deviceInfo = { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
@@ -164,11 +165,29 @@ router.get('/export', authMiddleware, async (req: Request, res: Response) => {
 
 /**
  * POST /api/user/delete-account
- * RGPD: schedule account for deletion with 30-day grace period (FEAT-38)
+ * RGPD: schedule account for deletion with 30-day grace period (FEAT-38).
+ * #603: asks for the password; the last active admin cannot leave.
  */
-router.post('/delete-account', authMiddleware, async (req: Request, res: Response) => {
-  await authService.requestAccountDeletion(req.userId);
-  res.json({ data: { ok: true } });
+router.post('/delete-account', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { password } = deleteAccountSchema.parse(req.body ?? {});
+    await authService.requestAccountDeletion(req.userId, password, { userAgent: req.headers['user-agent'], ip: getClientIp(req) });
+    res.json({ data: { ok: true } });
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    if (err instanceof Error && err.message === 'INVALID_CREDENTIALS') {
+      res.status(401).json({ error: 'INVALID_CREDENTIALS' });
+      return;
+    }
+    if (err instanceof Error && err.message === 'CANNOT_DELETE_LAST_ADMIN') {
+      res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+      return;
+    }
+    next(err);
+  }
 });
 
 /**
@@ -246,32 +265,34 @@ router.post('/onboarding/postpone', authMiddleware, async (req: Request, res: Re
  * Return current user's notification preferences + active channels from system policy
  */
 router.get('/notifications', authMiddleware, async (req: Request, res: Response) => {
-  const [user, policy] = await Promise.all([
+  const [user, config] = await Promise.all([
     prisma.user.findUnique({
       where: { id: req.userId },
       select: {
-        notifInApp: true,
+        isAdmin: true,
         notifEmail: true,
         notifWebhook: true,
         notifCategories: true,
         notifQuietStart: true,
         notifQuietEnd: true,
         notifLanguage: true,
-        webhookUrl: true,
       },
     }),
     systemConfigService.getPublic(),
   ]);
   if (!user) { res.status(404).json({ error: 'USER_NOT_FOUND' }); return; }
 
+  const { isAdmin, ...prefs } = user;
   res.json({
     data: {
-      ...user,
-      policy: {
-        smtpEnabled: policy.smtpEnabled,
-        gotifyEnabled: policy.gotifyEnabled,
-        inAppEnabled: policy.inAppEnabled,
-      },
+      ...prefs,
+      policy: channelPolicy(config, isAdmin),
+      // #780: what this member can receive; backup failures go to admins only.
+      categories: notificationCategoriesFor(isAdmin),
+      // #780: without automatic backups, only a manual or pre-restore backup can fail.
+      ...(isAdmin ? { automaticBackups: config.backupEnabled } : {}),
+      // #772: quiet hours are read in this zone; the page names it.
+      timeZone: config.timeZone,
     },
   });
 });
@@ -292,43 +313,43 @@ router.patch('/notifications', authMiddleware, async (req: Request, res: Respons
     throw err;
   }
   const {
-    notifInApp, notifEmail, notifWebhook,
+    notifEmail, notifWebhook,
     notifCategories, notifQuietStart, notifQuietEnd,
-    notifLanguage, webhookUrl,
+    notifLanguage,
   } = parsed;
 
-  // ISSUE_048: a webhook URL is called server-side on every notification —
-  // reject anything that isn't a public HTTPS address at save time, the same
-  // guard already applied to it just before each actual delivery.
-  if (webhookUrl) {
-    try {
-      await assertUrlAllowed(webhookUrl);
-    } catch (err) {
-      console.error('[user] PATCH /notifications error:', err);
-      res.status(400).json({ error: 'INVALID_URL' });
-      return;
-    }
-  }
-
   const data: Record<string, unknown> = {};
-  if (notifInApp !== undefined) data.notifInApp = notifInApp;
   if (notifEmail !== undefined) data.notifEmail = notifEmail;
   if (notifWebhook !== undefined) data.notifWebhook = notifWebhook;
-  if (notifCategories !== undefined) data.notifCategories = notifCategories;
+  if (notifCategories !== undefined) {
+    // #780: only categories this member can receive are kept (backup failures
+    // reach admins only). A list left empty would read as "every category".
+    const user = await prisma.user.findUnique({ where: { id: req.userId }, select: { isAdmin: true } });
+    const allowed: readonly string[] = notificationCategoriesFor(!!user?.isAdmin);
+    const kept = notifCategories.filter((c) => allowed.includes(c));
+    if (notifCategories.length > 0 && kept.length === 0) {
+      res.status(400).json({ error: 'VALIDATION_ERROR' });
+      return;
+    }
+    data.notifCategories = kept;
+  }
   if (notifQuietStart !== undefined) data.notifQuietStart = notifQuietStart;
   if (notifQuietEnd !== undefined) data.notifQuietEnd = notifQuietEnd;
   if (notifLanguage !== undefined) data.notifLanguage = notifLanguage;
-  if (webhookUrl !== undefined) data.webhookUrl = webhookUrl || null;
 
   await prisma.user.update({ where: { id: req.userId }, data });
   res.json({ data: { ok: true } });
 });
 
+/** Tests a member may send per auth window: each one reaches the instance's shared Gotify app or a mailbox (#767). */
+const NOTIFICATION_TESTS_PER_WINDOW = 5;
+const notificationTestLimiter = accountRequestLimit(NOTIFICATION_TESTS_PER_WINDOW, 'notification-test');
+
 /**
  * POST /api/user/notifications/test/:channel
  * Test a notification channel (email or webhook)
  */
-router.post('/notifications/test/:channel', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/notifications/test/:channel', authMiddleware, notificationTestLimiter, async (req: Request, res: Response, next: NextFunction) => {
   const channel = routeParam(req.params.channel);
   if (channel !== 'email' && channel !== 'webhook') {
     res.status(400).json({ error: 'UNKNOWN_CHANNEL' });

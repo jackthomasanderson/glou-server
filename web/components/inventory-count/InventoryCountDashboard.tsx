@@ -1,7 +1,8 @@
 'use client';
 import React, { useState } from 'react';
-import { Tabs, Tab, CircularProgress, Button } from '@heroui/react';
+import { Tab, CircularProgress, Button } from '@heroui/react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader, PageTabs } from '@/components/ui/PageHeader';
 import { ClipboardCheck } from 'lucide-react';
 import { useActiveCountSession, useResumeCountSession } from '@/hooks/useInventoryCount';
 import { StartSessionScreen } from './StartSessionScreen';
@@ -37,17 +38,19 @@ export function InventoryCountDashboard() {
   }
 
   if (!session) {
-    return <StartSessionScreen />;
+    return (
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+        <PageHeader icon={ClipboardCheck} title={t('inventoryCount.title')} />
+        <StartSessionScreen />
+      </div>
+    );
   }
 
   const showResumePrompt = session.status === 'paused' && !resumePromptDismissed;
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-2 mb-6">
-        <ClipboardCheck size={22} className="text-primary" />
-        <h1 className="text-xl font-bold">{t('inventoryCount.title')}</h1>
-      </div>
+      <PageHeader icon={ClipboardCheck} title={t('inventoryCount.title')} />
 
       {showResumePrompt ? (
         <div className="rounded-xl border border-divider bg-content1 p-6 text-center max-w-md mx-auto">
@@ -80,19 +83,15 @@ export function InventoryCountDashboard() {
         </div>
       ) : (
         <>
-          <Tabs
+          <PageTabs
             selectedKey={tab}
             onSelectionChange={(key) => setTab(key as TabKey)}
-            variant="underlined"
-            color="primary"
-            size="md"
             aria-label={t('inventoryCount.tabsAria')}
             className="mb-5"
-            classNames={{ base: 'w-full min-w-0', tabList: 'w-full overflow-x-auto flex-nowrap' }}
           >
             <Tab key="counting" title={t('inventoryCount.tabs.counting')} />
             <Tab key="summary" title={t('inventoryCount.tabs.summary')} />
-          </Tabs>
+          </PageTabs>
 
           {tab === 'counting' ? (
             <ActiveSessionScreen session={session} onOpenSummary={() => setTab('summary')} />

@@ -99,6 +99,21 @@ describe('productService.list (D9)', () => {
     expect(args.take).toBe(2001);
   });
 
+  it('#475: scoped to a cellar, lists only the families with a bottle in stock there', async () => {
+    vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
+
+    await productService.list({ cellarId: 'c1' });
+
+    const args = vi.mocked(prisma.product.findMany).mock.calls[0][0]!;
+    expect(args.where).toEqual({
+      deletedAt: null,
+      items: { some: { ...IN_STOCK_ITEM_FILTER, cellarId: 'c1' } },
+    });
+    // Every bottle in stock still comes with the family ("2 ici · 9 en tout").
+    expect(args.include).toMatchObject({ items: { where: IN_STOCK_ITEM_FILTER } });
+    expect(args.take).toBe(2001);
+  });
+
   it('serves the description on the family and only the unit columns on its units', async () => {
     const year = new Date().getFullYear();
     vi.mocked(prisma.product.findMany).mockResolvedValue([
@@ -308,6 +323,58 @@ describe('productService.updateDescription (FEAT-92 c4)', () => {
     await productService.updateDescription('u2', 'p1', { peakMaturityFrom: year - 1, peakMaturityTo: year + 1 });
 
     expect(vi.mocked(prisma.product.update).mock.calls[0][0].data).toMatchObject({ alertStatus: 'peak' });
+  });
+
+  // #593: a "Lagavulin 16" saved as a wine with a 2026-2030 window, then corrected.
+  it('clears the drinking window of a wine made a spirit or a cigar, never its bottles', async () => {
+    const year = new Date().getFullYear();
+    for (const category of ['spirit', 'cigar'] as const) {
+      vi.mocked(prisma.product.update).mockClear();
+      vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({
+        peakMaturityFrom: year - 1, peakMaturityTo: year + 3, curveShape: 'BELL', alertStatus: 'peak',
+      }) as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([unit()] as never);
+
+      const result = await productService.updateDescription('u2', 'p1', { category });
+
+      const { data } = vi.mocked(prisma.product.update).mock.calls[0][0];
+      expect(data).toMatchObject({ category, peakMaturityFrom: null, peakMaturityTo: null, curveShape: null, alertStatus: 'none' });
+      expect(data).not.toHaveProperty('quantity');
+      expect(prisma.inventoryItem.update).not.toHaveBeenCalled();
+      expect(prisma.inventoryItem.updateMany).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ changes: expect.arrayContaining([
+        { field: 'peakMaturityFrom', from: year - 1, to: null },
+        { field: 'peakMaturityTo', from: year + 3, to: null },
+        { field: 'curveShape', from: 'BELL', to: null },
+      ]) });
+    }
+  });
+
+  it('#593: drops the locks and sources of the cleared window, the others kept', async () => {
+    vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({
+      peakMaturityFrom: 2026, peakMaturityTo: 2030,
+      lockedFields: ['region', 'peakMaturityFrom'], fieldSources: { region: 'ocr', peakMaturityTo: 'import_csv' },
+    }) as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await productService.updateDescription('u2', 'p1', { category: 'spirit', peakMaturityTo: 2031 });
+
+    const { data } = vi.mocked(prisma.product.update).mock.calls[0][0];
+    expect(data.lockedFields).toEqual(['region', 'category']);
+    expect(data.fieldSources).toEqual({ region: 'ocr' });
+  });
+
+  it('#593: writes no drinking window on a spirit, and keeps it on a wine made a sparkling wine', async () => {
+    vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({ category: 'spirit' }) as never);
+    await productService.updateDescription('u2', 'p1', { region: 'Islay', peakMaturityFrom: 2026, peakMaturityTo: 2030 });
+    expect(vi.mocked(prisma.product.update).mock.calls[0][0].data).not.toHaveProperty('peakMaturityFrom');
+    expect(vi.mocked(prisma.product.update).mock.calls[0][0].data).not.toHaveProperty('peakMaturityTo');
+
+    vi.mocked(prisma.product.update).mockClear();
+    vi.mocked(prisma.product.findUniqueOrThrow).mockResolvedValue(family({ peakMaturityFrom: 2026, peakMaturityTo: 2030 }) as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+    await productService.updateDescription('u2', 'p1', { category: 'sparkling' });
+    expect(vi.mocked(prisma.product.update).mock.calls[0][0].data).not.toHaveProperty('peakMaturityFrom');
   });
 
   it('is null for an unknown or trashed family', async () => {

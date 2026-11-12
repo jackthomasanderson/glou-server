@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import QRCode from 'qrcode';
-import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
+import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema, emptyTrashSchema } from '../schemas/inventory.schema';
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
 import { distinctFromSchema } from '../schemas/product.schema';
 import { inventoryService } from '../services/inventory.service';
@@ -9,10 +8,10 @@ import { inventoryExportService } from '../services/inventory-export.service';
 import { scanService } from '../services/scan.service';
 import type { UnitSlotChanges } from '../services/product.service';
 import { auditLog } from '../services/audit.service';
-import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
-import { systemConfigService } from '../services/system-config.service';
+import { adminMiddleware, authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { logTrashDeletion } from '../lib/trash-audit';
 import { routeParam } from '../lib/http';
-import { AppError } from '../lib/errors';
+import { AppError, notFound } from '../lib/errors';
 import type { FieldChange, UnitWriteResult } from '../../../shared/product';
 
 const router = Router();
@@ -26,9 +25,9 @@ router.use(authMiddleware);
 // the browser refetches the list at most every 30s, so a tab left open
 // accumulated thousands of rows a week for an event with zero traceability
 // value. Only actions that actually change data are logged now.
-router.get('/', async (req: Request, res: Response): Promise<void> => {
+router.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const { items, truncated } = await inventoryService.listInventory(req.userId);
+    const { items, truncated } = await inventoryService.listInventory();
     res.json({ data: items, truncated });
   } catch (error) {
     console.error('[inventory] GET / error:', error);
@@ -59,9 +58,9 @@ router.get('/export.csv', async (req: Request, res: Response): Promise<void> => 
 
 // ─── GET /api/inventory/trash ────────────────────────────────────────────────
 
-router.get('/trash', async (req: Request, res: Response): Promise<void> => {
+router.get('/trash', async (_req: Request, res: Response): Promise<void> => {
   try {
-    const items = await inventoryService.listTrash(req.userId);
+    const items = await inventoryService.listTrash();
     res.json({ data: items });
   } catch (error) {
     console.error('[inventory] GET /trash error:', error);
@@ -69,35 +68,26 @@ router.get('/trash', async (req: Request, res: Response): Promise<void> => {
   }
 });
 
-// ─── GET /api/inventory/:id/qr ──────────────────────────────────────────────
+// ─── DELETE /api/inventory/trash/:id ─────────────────────────────────────────
+// #962: one line of the trash, for good. Administrators only (owner decision);
+// errors bubble to the error middleware.
 
-router.get('/:id/qr', async (req: Request, res: Response): Promise<void> => {
+router.delete('/trash/:id', adminMiddleware, async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  try {
-    // Verify the item belongs to this user before issuing a QR
-    const result = await inventoryService.getItemWithTraceability(req.userId, id);
-    if (!result) {
-      res.status(404).json({ error: 'ITEM_NOT_FOUND' });
-      return;
-    }
+  const deleted = await inventoryService.deleteTrashedItem(id);
+  logTrashDeletion(req, 'item', deleted, deleted ? {} : { itemId: id });
+  if (!deleted) throw notFound('ITEM_NOT_IN_TRASH');
+  res.json({ data: { itemIds: deleted.itemIds, productIds: deleted.productIds } });
+});
 
-    const appUrl = await systemConfigService.getEffectivePublicUrl();
-    const targetUrl = `${appUrl}/bottles?scan=${id}`;
+// ─── POST /api/inventory/trash/empty ─────────────────────────────────────────
+// #962: everything in the trash of a page (its categories), for good. Administrators only.
 
-    const pngBuffer = await QRCode.toBuffer(targetUrl, {
-      type: 'png',
-      width: 400,
-      margin: 2,
-      errorCorrectionLevel: 'M',
-    });
-
-    res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Content-Disposition', `inline; filename="qr-${id}.png"`);
-    res.send(pngBuffer);
-  } catch (error) {
-    console.error('[inventory] GET /:id/qr error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+router.post('/trash/empty', adminMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const { categories } = emptyTrashSchema.parse(req.body);
+  const deleted = await inventoryService.emptyTrash(categories);
+  logTrashDeletion(req, 'empty', deleted, { categories });
+  res.json({ data: { itemIds: deleted.itemIds, productIds: deleted.productIds } });
 });
 
 // ─── GET /api/inventory/:id ──────────────────────────────────────────────────
@@ -105,7 +95,7 @@ router.get('/:id/qr', async (req: Request, res: Response): Promise<void> => {
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   try {
-    const result = await inventoryService.getItemWithTraceability(req.userId, id);
+    const result = await inventoryService.getItemWithTraceability(id);
     if (!result) {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
       return;
@@ -122,7 +112,7 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
 router.get('/:id/history', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   try {
-    const item = await inventoryService.getItem(req.userId, id);
+    const item = await inventoryService.getItem(id);
     if (!item) {
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
       return;
@@ -278,7 +268,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
-    const item = await inventoryService.softDelete(req.userId, id);
+    const item = await inventoryService.softDelete(id);
     if (!item) {
       void auditLog({ userId: req.userId, action: 'DELETE', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'ITEM_NOT_FOUND' });
@@ -301,7 +291,7 @@ router.post('/:id/restore', async (req: Request, res: Response): Promise<void> =
   const ip = getClientIp(req);
   try {
     const slotChanges: FieldChange[] = [];
-    const item = await inventoryService.restore(req.userId, id, slotChanges);
+    const item = await inventoryService.restore(id, slotChanges);
     if (!item) {
       void auditLog({ userId: req.userId, action: 'RESTORE', status: 'not_found', ip, bottleId: id });
       res.status(404).json({ error: 'ITEM_NOT_FOUND_OR_EXPIRED' });

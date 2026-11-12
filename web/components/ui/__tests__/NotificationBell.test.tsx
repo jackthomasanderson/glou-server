@@ -3,12 +3,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { NotificationBell } from '../NotificationBell';
 import { product, unit, openedBottle } from '@/lib/products/__tests__/factories';
 import type { Product } from '@/lib/products/types';
+import { registerLeaveQuestion } from '@/lib/leaveGuard';
 
 // #471 (W4): the bell lists reminders by wine, as its badge counts them: a
 // wine of three groups is one reminder, a wine with nothing left is none.
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const push = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('@/hooks/useAlerts', () => ({ useAlerts: () => ({ data: [] }), useToggleAlertPause: () => ({ mutate: vi.fn(), isPending: false }) }));
 vi.mock('@/hooks/useSidebarCounts', () => ({ useSidebarCounts: () => ({ data: { remindersToday: 1 } }) }));
@@ -22,6 +24,7 @@ vi.mock('@/hooks/useProducts', () => ({
 const due = '2000-01-01T00:00:00.000Z';
 
 beforeEach(() => {
+  push.mockReset();
   updateProduct.mockReset();
   products = [];
 });
@@ -50,5 +53,27 @@ describe('NotificationBell — reminders by wine (W4)', () => {
     ];
     open();
     expect(await screen.findByText('inventory.noNotifications')).toBeInTheDocument();
+  });
+});
+
+// #759: opening a reminder does not drop unsaved settings without a question.
+describe('NotificationBell — leaving a page with unsaved changes (#759)', () => {
+  it('stays when the person declines, opens the wine when they confirm', async () => {
+    products = [product({ id: 'w1', name: 'Cuvée X', reminderDate: due, items: [unit({ quantity: 1 })] })];
+    const unregister = registerLeaveQuestion('Leave without saving?');
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    try {
+      open();
+      fireEvent.click(await screen.findByText('Cuvée X'));
+      expect(confirm).toHaveBeenCalledWith('Leave without saving?');
+      expect(push).not.toHaveBeenCalled();
+
+      confirm.mockReturnValue(true);
+      fireEvent.click(screen.getByText('Cuvée X'));
+      expect(push).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+      confirm.mockRestore();
+    }
   });
 });

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { categorySchema } from '../lib/category';
+import { vintageSchema } from '../lib/years';
 
 export const TASTING_READINESS_VALUES = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'] as const;
 
@@ -13,7 +14,7 @@ export const tastedWineSchema = z.object({
   category: categorySchema,
   name: z.string().trim().min(1).max(200),
   producer: z.string().trim().min(1).max(200),
-  vintage: z.number().int().min(1800).max(new Date().getFullYear()).optional().nullable(),
+  vintage: vintageSchema().optional().nullable(),
   // A cigar's vitola: what tells two cigars of a producer and name apart.
   format: z.string().trim().max(100).optional().nullable(),
 });

@@ -65,12 +65,27 @@ export function timeoutSignal(ms: number): AbortSignal {
   return controller.signal;
 }
 
+/** Timeout plus a caller's cancellation signal (AbortSignal.any is missing before Safari 17.4). */
+function withTimeout(signal: AbortSignal | undefined, ms: number): AbortSignal {
+  const timeout = timeoutSignal(ms);
+  if (!signal) return timeout;
+  if (typeof AbortSignal.any === 'function') return AbortSignal.any([signal, timeout]);
+  const controller = new AbortController();
+  const abort = (s: AbortSignal) => () => controller.abort(s.reason);
+  for (const s of [signal, timeout]) {
+    if (s.aborted) controller.abort(s.reason);
+    else s.addEventListener('abort', abort(s), { once: true });
+  }
+  return controller.signal;
+}
+
 export const client = {
-  async get<T>(url: string): Promise<{ data: T }> {
+  /** `signal`: lets React Query really cancel a superseded request. */
+  async get<T>(url: string, { signal }: { signal?: AbortSignal } = {}): Promise<{ data: T }> {
     const res = await fetchOrNetworkError(`${API_BASE}${url}`, {
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
+      signal: withTimeout(signal, DEFAULT_TIMEOUT_MS),
     });
     const data = await handleResponse<T>(res);
     return { data };

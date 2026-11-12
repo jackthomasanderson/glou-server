@@ -14,3 +14,17 @@ export interface PurgeResult {
 export interface PurgeResponse extends PurgeResult {
   backupRunId: string;
 }
+
+/** Body of GET /api/admin/backups/health. */
+export interface BackupHealth {
+  /** Whether the API can write to its backups folder (#537). */
+  directoryWritable: boolean;
+  /** Whether the daily automatic backup is switched on (#756). Absent when it could not be read. */
+  backupEnabled?: boolean;
+  /** When the last successful backup ran, any trigger; null when none ever did, absent when it could not be read (#756). An ISO string on the wire. */
+  lastSuccessAt?: string | Date | null;
+  /** Whether the last backup run, any trigger, failed (#671). Absent when it could not be read. */
+  lastRunFailed?: boolean;
+  /** Whether backups are on and the last success is more than 48 h old (#671). Absent when it could not be read. */
+  overdue?: boolean;
+}

@@ -38,7 +38,6 @@ export interface ShareFormValues {
 
 export interface GuestShareMeta {
   id: string;
-  label: string | null;
   expiresAt: string | null;
   hidePrices: boolean;
   hideNotes: boolean;
@@ -74,7 +73,6 @@ export interface GuestItem {
   producer: string;
   category: string;
   vintage?: number | null;
-  color?: string | null;
   region?: string | null;
   photoUrl?: string | null;
   notes?: string | null;
@@ -90,7 +88,6 @@ export interface GuestItem {
   fillLevel?: number | null;
   openedAt?: string | null;
   cellarId?: string | null;
-  alertStatus?: string | null;
   createdAt: string;
   updatedAt: string;
 }

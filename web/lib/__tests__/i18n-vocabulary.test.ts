@@ -10,7 +10,6 @@ import fr from '../../public/locales/fr/common.json';
 const ADJECTIVAL_FR: Readonly<Record<string, string>> = {
   'wishlist.status.active': 'status of a wish (« Actif / Acquis / Annulé »), not a bottle',
   'adminConfig.network.summary.title': '« Résumé des paramètres actifs »: the settings in force',
-  'adminConfig.network.summary.accessMode': '« Mode d\'accès actif »: the access mode in force',
 };
 
 function leaves(o: Record<string, unknown>, path = ''): [string, string][] {
@@ -56,7 +55,7 @@ describe('vocabulary (FEAT-112)', () => {
     expect(fr.analytics.categories.active).toBe('En stock');
     expect(en.analytics.categories.active).toBe('In stock');
     for (const bundle of [fr, en]) {
-      expect(bundle.analytics.maturity.countLabel_other).toBe('{{count}} ({{percent}}%)');
+      expect(bundle.analytics.maturity.countLabel_other).toBe(bundle === fr ? '{{count}} ({{percent}} %)' : '{{count}} ({{percent}}%)');
       expect(JSON.stringify(bundle.analytics.map.list)).not.toMatch(/bouteille|bottle/i);
     }
   });

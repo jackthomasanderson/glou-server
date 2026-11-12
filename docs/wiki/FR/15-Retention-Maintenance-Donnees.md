@@ -10,12 +10,12 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 ## Action
 
 ### Configurer les durées de rétention
-1. Allez dans **Admin → Configuration Système → Rétention & Maintenance**.
+1. Allez dans **Admin → Configuration système → Données**.
 2. Renseignez les trois champs (en jours, 1 à 3650) :
    - **Rétention des logs d'audit** : défaut `90`.
    - **Rétention des sessions** : défaut `30`. S'applique aux sessions expirées/révoquées et aux appareils de confiance.
    - **Rétention des invitations / partages invités** : défaut `30`. S'applique aux partages invités expirés ou révoqués.
-3. Cliquez sur **Enregistrer**.
+3. Cliquez sur **Enregistrer**. Un délai plus court que celui enregistré se confirme avec votre mot de passe, plus votre code si votre compte a la double authentification : il supprime des données au prochain nettoyage, entrées du journal d'audit comprises, donc une session volée seule ne peut pas effacer les traces. Un délai plus long ne demande aucune confirmation.
 
 ### Forcer une exécution immédiate
 1. Dans le même onglet, cliquez sur **Exécuter maintenant**.
@@ -32,7 +32,7 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 > La tâche automatique s'exécute chaque jour à 03h00 dans le fuseau horaire de l'instance (`TZ`, voir [Configuration](./02-Configuration.md)) et aussi une fois à chaque démarrage du serveur : un redéploiement ou un redémarrage de conteneur ne laisse donc pas de données obsolètes jusqu'à 24h.
 
 > [!CAUTION]
-> Cet onglet ne supprime que des données **déjà expirées ou révoquées** (vieux logs, sessions mortes, invitations mortes). Elle n'a aucun rapport avec l'action "Purger toutes les données" de la zone dangereuse, qui efface toutes les données métier (caves, bouteilles, dégustations) après saisie d'un mot de confirmation.
+> Cet onglet ne supprime que des données **déjà expirées ou révoquées** (vieux logs, sessions mortes, invitations mortes). Elle n'a aucun rapport avec la carte **Supprimer toutes les données** en bas du même onglet, qui efface toutes les données métier (caves, bouteilles, dégustations) après saisie d'un mot de confirmation.
 
 ## Le pare-feu (troubleshooting)
 

@@ -13,12 +13,11 @@ router.use(authMiddleware);
 
 /**
  * GET /api/cellars
- * List all cellars for the authenticated user
+ * List every cellar of the instance (the inventory is shared by the family)
  */
-router.get('/', async (req: Request, res: Response) => {
-  const userId = req.userId!;
+router.get('/', async (_req: Request, res: Response) => {
   try {
-    const cellars = await CellarService.listCellars(userId);
+    const cellars = await CellarService.listCellars();
     res.json({ data: cellars });
   } catch (err: unknown) {
     console.error('[cellars] GET / error:', err);
@@ -31,10 +30,9 @@ router.get('/', async (req: Request, res: Response) => {
  * Get a specific cellar
  */
 router.get('/:id', async (req: Request, res: Response) => {
-  const userId = req.userId!;
   const id = routeParam(req.params.id);
   try {
-    const cellar = await CellarService.getCellar(userId, id);
+    const cellar = await CellarService.getCellar(id);
     if (!cellar) {
       return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
     }
@@ -101,7 +99,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
   }
 
   try {
-    const cellar = await CellarService.updateCellar(userId, id, validation.data);
+    const cellar = await CellarService.updateCellar(id, validation.data);
     if (!cellar) {
       return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
     }
@@ -124,10 +122,9 @@ router.patch('/:id', async (req: Request, res: Response) => {
  * Get cellar grid data: cellar config + all items with slot assignments
  */
 router.get('/:id/grid', async (req: Request, res: Response) => {
-  const userId = req.userId!;
   const id = routeParam(req.params.id);
   try {
-    const data = await CellarService.getGridData(userId, id);
+    const data = await CellarService.getGridData(id);
     if (!data) {
       return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
     }
@@ -172,16 +169,23 @@ router.delete('/:id', async (req: Request, res: Response) => {
   const id = routeParam(req.params.id);
 
   try {
-    const cellar = await CellarService.deleteCellar(userId, id);
-    if (!cellar) {
+    const deleted = await CellarService.deleteCellar(id);
+    if (!deleted) {
       return res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
     }
+    // #597: the guest shares the cellar was taken out of, and those revoked
+    // because nothing was left in their scope.
+    const { sharesCleaned, sharesRevoked } = deleted;
     await auditLog({
       userId,
       ip: getClientIp(req),
       action: 'CELLAR_DELETE',
       status: 'success',
-      details: { cellarId: id }
+      details: {
+        cellarId: id,
+        ...(sharesCleaned.length > 0 ? { sharesCleaned } : {}),
+        ...(sharesRevoked.length > 0 ? { sharesRevoked } : {}),
+      },
     });
     res.status(204).send();
   } catch (err: unknown) {

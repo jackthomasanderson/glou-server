@@ -5,8 +5,9 @@ import { Cellar } from '@/lib/cellars/types';
 import type { Product } from '@/lib/products/types';
 import {
   baseProducts, filterProducts,
-  type InventoryOpenedFilter, type InventorySortBy, type ProductFilterCriteria,
+  type InventoryOpenedFilter, type InventorySortBy, type ProductFilterCriteria, collectionEmptiness,
 } from '@/lib/products/filters';
+import { CATEGORY_TITLES } from '@/lib/inventory/category-titles';
 import { todayLocalIso } from '@/lib/format';
 
 export interface UseInventoryFiltersOptions {
@@ -43,6 +44,9 @@ export interface UseInventoryFiltersResult {
   /** FEAT-101 "Plus en cave": only the wines with nothing left in stock (hidden otherwise). */
   showGone: boolean;
   setShowGone: React.Dispatch<React.SetStateAction<boolean>>;
+  /** #961 "Pas sur la carte": only the wines in stock the Analytics map cannot place. */
+  notLocated: boolean;
+  setNotLocated: React.Dispatch<React.SetStateAction<boolean>>;
   setOpenedFilter: React.Dispatch<React.SetStateAction<InventoryOpenedFilter>>;
 
   isFiltersOpen: boolean;
@@ -59,6 +63,13 @@ export interface UseInventoryFiltersResult {
   baseItems: Product[];
   filteredItems: Product[];
   hasActiveFilters: boolean;
+  /**
+   * #503: the category chosen from the navigation (`?category=`). It is the
+   * page's scope, not a filter: it does not count in `hasActiveFilters`.
+   */
+  navCategory: string | null;
+  /** #708: the chosen collection holds no wine, or only finished ones (see `collectionEmptiness`). */
+  collectionState: 'empty' | 'allGone' | null;
 }
 
 /**
@@ -83,7 +94,9 @@ export function useInventoryFilters({
   hasMounted,
 }: UseInventoryFiltersOptions): UseInventoryFiltersResult {
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategoriesState] = useState<string[]>([]);
+  // #503: categories picked on the page while the URL still carried a nav category.
+  const [pickedCategories, setPickedCategories] = useState<string[] | null>(null);
   const [selectedCellars, setSelectedCellars] = useState<string[]>([]);
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -95,6 +108,7 @@ export function useInventoryFilters({
   // FEAT-101: the list shows what is in the cellar; wines with nothing left
   // stay known, hidden until "Plus en cave" asks for them (a search finds them).
   const [showGone, setShowGone] = useState(false);
+  const [notLocated, setNotLocated] = useState(false);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   const [tagSearchQuery, setTagSearchQuery] = useState('');
@@ -112,34 +126,66 @@ export function useInventoryFilters({
   const [prevSearchParams, setPrevSearchParams] = useState<typeof searchParams | null>(null);
   if (searchParams !== prevSearchParams) {
     setPrevSearchParams(searchParams);
-    const filterParam = searchParams.get('filter');
-    const qParam = searchParams.get('q');
-    const collectionParam = searchParams.get('collection');
-    const categoryParam = searchParams.get('category');
-    if (qParam) setSearchQuery(qParam);
-    setSelectedCollectionId(collectionParam ?? null);
-    // ISSUE_434: a category nav shortcut (Wine/Sparkling/Spirit) pre-selects
-    // the category chip instead of hard-locking it (unlike `lockedCategories`,
-    // which cigars uses) — the user can still broaden or clear it from the
-    // same /bottles page that search results, alerts, collections and QR
-    // codes all deep-link into unfiltered.
-    setSelectedCategories(categoryParam ? [categoryParam] : []);
-    if (filterParam === 'opened') {
-      setOpenedFilter('opened'); setIsFiltersOpen(true);
-    } else if (filterParam === 'full') {
-      setOpenedFilter('full'); setIsFiltersOpen(true);
-    } else if (filterParam === 'alerts') {
-      setOpenedFilter('alerts'); setIsFiltersOpen(true);
+    if (pickedCategories !== null) {
+      // #503: the URL changed because we dropped `?category=` ourselves; only
+      // the picked chips apply, the other filters stay as the member left them.
+      setSelectedCategoriesState(pickedCategories);
+      setPickedCategories(null);
     } else {
-      setOpenedFilter('all');
+      const filterParam = searchParams.get('filter');
+      const qParam = searchParams.get('q');
+      const collectionParam = searchParams.get('collection');
+      const categoryParam = searchParams.get('category');
+      if (qParam) setSearchQuery(qParam);
+      setSelectedCollectionId(collectionParam ?? null);
+      // ISSUE_434: a category nav shortcut (Wine/Sparkling/Spirit) pre-selects
+      // the category chip instead of hard-locking it (unlike `lockedCategories`,
+      // which cigars uses) — the user can still broaden or clear it from the
+      // same /bottles page that search results, alerts, collections and QR
+      // codes all deep-link into unfiltered.
+      setSelectedCategoriesState(categoryParam ? [categoryParam] : []);
+      // #961: the "not on the map" line of Analytics links here.
+      setNotLocated(filterParam === 'notLocated');
+      if (filterParam === 'notLocated') setIsFiltersOpen(true);
+      if (filterParam === 'opened') {
+        setOpenedFilter('opened'); setIsFiltersOpen(true);
+      } else if (filterParam === 'full') {
+        setOpenedFilter('full'); setIsFiltersOpen(true);
+      } else if (filterParam === 'alerts') {
+        setOpenedFilter('alerts'); setIsFiltersOpen(true);
+      } else {
+        setOpenedFilter('all');
+      }
     }
   }
+
+  // Only a category of the navigation is the page's scope; a hand-typed
+  // `?category=foo` stays an ordinary filter.
+  const rawCategory = searchParams.get('category');
+  const navCategory = rawCategory && CATEGORY_TITLES[rawCategory] ? rawCategory : null;
+
+  // #503: the title, breadcrumb and active tab follow `?category=`, so they must
+  // not keep saying "Wines" over a list the member has widened. Leaving the
+  // nav category among the chips drops it from the URL (the page becomes the
+  // plain bottles list); the picked chips survive that navigation.
+  const setSelectedCategories = useCallback<React.Dispatch<React.SetStateAction<string[]>>>((value) => {
+    const next = typeof value === 'function' ? value(selectedCategories) : value;
+    setSelectedCategoriesState(next);
+    if (navCategory && !(next.length === 1 && next[0] === navCategory)) {
+      setPickedCategories(next);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('category');
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    }
+  }, [selectedCategories, navCategory, searchParams, router, pathname]);
 
   const toggleFilters = useCallback(() => setIsFiltersOpen((prev) => !prev), []);
 
   const clearFilters = useCallback(() => {
     setSearchQuery('');
-    setSelectedCategories([]);
+    // #503: a category chosen from the navigation is the page, not a filter.
+    setSelectedCategoriesState(navCategory ? [navCategory] : []);
     setSelectedCellars([]);
     setSelectedTags([]);
     setSelectedWineColors([]);
@@ -148,14 +194,15 @@ export function useInventoryFilters({
     setSortBy('default');
     setOpenedFilter('all');
     setShowGone(false);
-    router.push(pathname);
-  }, [router, pathname]);
+    setNotLocated(false);
+    router.push(navCategory ? `${pathname}?category=${encodeURIComponent(navCategory)}` : pathname);
+  }, [router, pathname, navCategory]);
 
   const criteria = useMemo<ProductFilterCriteria>(() => ({
     lockedCategories, selectedCollectionId, selectedCategories, selectedWineColors, selectedCellars,
-    selectedTags, minValue, maxValue, openedFilter, showGone, searchQuery, sortBy,
+    selectedTags, minValue, maxValue, openedFilter, showGone, notLocated, searchQuery, sortBy,
   }), [lockedCategories, selectedCollectionId, selectedCategories, selectedWineColors, selectedCellars,
-    selectedTags, minValue, maxValue, openedFilter, showGone, searchQuery, sortBy]);
+    selectedTags, minValue, maxValue, openedFilter, showGone, notLocated, searchQuery, sortBy]);
 
   const baseItems = useMemo(() => (products ? baseProducts(products, criteria) : []), [products, criteria]);
 
@@ -169,12 +216,17 @@ export function useInventoryFilters({
     });
   }, [products, criteria, cellars, t, hasMounted]);
 
+  const collectionState = useMemo(() => (products ? collectionEmptiness(products, criteria) : null), [products, criteria]);
+
+  // The navigation category alone is the page, not a filter (#503).
+  const onlyNavCategory = !!navCategory && selectedCategories.length === 1 && selectedCategories[0] === navCategory;
   const hasActiveFilters =
-    selectedCategories.length > 0 ||
+    (selectedCategories.length > 0 && !onlyNavCategory) ||
     selectedWineColors.length > 0 ||
     selectedCellars.length > 0 ||
     openedFilter !== 'all' ||
     showGone ||
+    notLocated ||
     !!searchQuery ||
     !!selectedCollectionId ||
     selectedTags.length > 0 ||
@@ -194,6 +246,7 @@ export function useInventoryFilters({
     sortBy, setSortBy,
     openedFilter, setOpenedFilter,
     showGone, setShowGone,
+    notLocated, setNotLocated,
     isFiltersOpen, toggleFilters,
     tagSearchQuery, setTagSearchQuery,
     showAllTags, setShowAllTags,
@@ -201,5 +254,7 @@ export function useInventoryFilters({
     baseItems,
     filteredItems,
     hasActiveFilters,
+    navCategory,
+    collectionState,
   };
 }

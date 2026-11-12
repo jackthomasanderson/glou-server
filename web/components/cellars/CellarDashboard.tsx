@@ -1,6 +1,6 @@
 'use client';
 
-import { cellarContentsLabel } from '@/lib/cellars/contents';
+import { cellarContentsLabel, cellarDeleteConfirmText } from '@/lib/cellars/contents';
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   Button,
@@ -39,7 +39,7 @@ import { formatCurrency } from '@/lib/format';
 import Link from 'next/link';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useCellars, useCreateCellar, useUpdateCellar, useDeleteCellar } from '../../hooks/useCellars';
-import { Cellar, CellarType } from '@/lib/cellars/types';
+import { Cellar, CellarType, CELLAR_TYPES } from '@/lib/cellars/types';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { useExpertMode } from '@/hooks/useExpertMode';
@@ -49,6 +49,7 @@ import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { PageHeader } from '@/components/ui/PageHeader';
 
 interface GridFormData {
   columns: string;
@@ -101,15 +102,13 @@ export const CellarDashboard: React.FC = () => {
   // #515: a humidor is a cigar lover's basic need, not an expert option —
   // the type is always offered; only the humidity target range and its
   // monitoring stay behind expert mode (see the form below).
-  const cellarTypeOptions = useMemo(() => [
-    { key: 'VINTAGE', label: t('cellars.types.VINTAGE') },
-    { key: 'COOLER', label: t('cellars.types.COOLER') },
-    { key: 'SHELF', label: t('cellars.types.SHELF') },
-    { key: 'HUMIDOR', label: t('cellars.types.HUMIDOR') },
-  ], [t]);
+  const cellarTypeOptions = useMemo(
+    () => CELLAR_TYPES.map((key) => ({ key, label: t(`cellars.types.${key}`) })),
+    [t],
+  );
 
   const typeFilterOptions = useMemo(
-    () => [{ key: 'all', label: t('filters.all') }, ...cellarTypeOptions],
+    () => [{ key: 'all', label: t('cellars.filters.allTypes') }, ...cellarTypeOptions],
     [cellarTypeOptions, t],
   );
 
@@ -121,8 +120,8 @@ export const CellarDashboard: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<CellarTypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<CellarStatusFilter>('all');
   const [deletingCellar, setDeletingCellar] = useState<Cellar | null>(null);
-  // Its name stays in the dialog while it closes (« la cave «  » ? » during the animation).
-  const [deletingName, setDeletingName] = useState('');
+  // Its name and counts stay in the dialog while it closes (« la cave «  » ? » during the animation).
+  const [deletingShown, setDeletingShown] = useState<Pick<Cellar, 'name' | 'stats'>>({ name: '' });
 
   // Parsing filters out of the URL query string is adjusted during render
   // (React's documented pattern) rather than in an effect, guarded against
@@ -184,6 +183,8 @@ export const CellarDashboard: React.FC = () => {
   const [formData, setFormData] = useState<FormData>(EMPTY_CELLAR_FORM);
   // ISSUE_119: values the form opened with, to detect unsaved input on close.
   const [formBaseline, setFormBaseline] = useState<FormData>(EMPTY_CELLAR_FORM);
+  // #657: Save stays clickable; a click with the name empty shows the field in red.
+  const [formTried, setFormTried] = useState(false);
 
   const hotZone = parseOptionalInt(formData.grid.hotZoneRows) ?? 0;
   const coldZone = parseOptionalInt(formData.grid.coldZoneRows) ?? 0;
@@ -218,6 +219,7 @@ export const CellarDashboard: React.FC = () => {
       setFormData(EMPTY_CELLAR_FORM);
       setFormBaseline(EMPTY_CELLAR_FORM);
     }
+    setFormTried(false);
     setOpenForm(true);
   };
 
@@ -241,6 +243,7 @@ export const CellarDashboard: React.FC = () => {
   const isHumidorType = formData.type === 'HUMIDOR';
 
   const handleSubmit = async () => {
+    if (!formData.name.trim()) { setFormTried(true); return; }
     const payload = {
       name: formData.name,
       description: formData.description || null,
@@ -268,7 +271,7 @@ export const CellarDashboard: React.FC = () => {
 
   const handleDelete = (cellar: Cellar) => {
     setDeletingCellar(cellar);
-    setDeletingName(cellar.name);
+    setDeletingShown(cellar);
   };
 
   const confirmDelete = async () => {
@@ -300,33 +303,27 @@ export const CellarDashboard: React.FC = () => {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-2">
-          <Warehouse size={22} className="text-primary" />
-          <h1 className="text-xl font-bold">{t('cellars.title')}</h1>
-        </div>
-        <div className="flex gap-2 items-center">
-          <ViewToggle value={viewMode} onChange={setViewMode} />
-          <Button
-            as={Link}
-            href="/inventory-count"
-            variant="bordered"
-            color="primary"
-            startContent={<ClipboardCheck size={16} />}
-            className="hidden sm:flex"
-          >
-            {t('inventoryCount.accessButton')}
-          </Button>
-          <Button
-            color="primary"
-            startContent={<Plus size={16} />}
-            onPress={() => handleOpenForm()}
-          >
-            {t('cellars.addCellar')}
-          </Button>
-        </div>
-      </div>
+      {/* Header — #701: the create button is the empty state's own while there is no cellar. */}
+      <PageHeader
+        icon={Warehouse}
+        title={t('cellars.title')}
+        actions={
+          <>
+            <ViewToggle value={viewMode} onChange={setViewMode} />
+            <Button
+              as={Link}
+              href="/inventory-count"
+              variant="bordered"
+              color="primary"
+              startContent={<ClipboardCheck size={16} />}
+              className="hidden sm:flex"
+            >
+              {t('inventoryCount.accessButton')}
+            </Button>
+          </>
+        }
+        create={cellars?.length ? { label: t('cellars.addCellar'), onPress: () => handleOpenForm() } : undefined}
+      />
 
       {/* Filters (only shown when there are cellars) */}
       {(cellars?.length ?? 0) > 0 && (
@@ -353,7 +350,7 @@ export const CellarDashboard: React.FC = () => {
             className="w-full sm:w-44"
             aria-label={t('cellars.filterByStatus')}
           >
-            <SelectItem key="all">{t('filters.all')}</SelectItem>
+            <SelectItem key="all">{t('cellars.filters.allStates')}</SelectItem>
             <SelectItem key="alerts">{t('cellars.status.withAlerts')}</SelectItem>
             <SelectItem key="no-alerts">{t('cellars.status.noAlerts')}</SelectItem>
             <SelectItem key="empty">{t('cellars.status.empty')}</SelectItem>
@@ -400,28 +397,30 @@ export const CellarDashboard: React.FC = () => {
         /* Grid view */
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {filteredCellars.map((cellar) => (
+            // #656: not one big button containing other buttons (invalid HTML,
+            // Edit and Delete unreachable with a screen reader). The name is the
+            // "open" button, stretched over the card by an ::after overlay; the
+            // actions sit above it.
             <Card
               key={cellar.id}
-              isPressable
-              onPress={() => router.push(`/cellars/${cellar.id}`)}
-              className="h-full"
+              className="h-full relative transition-shadow hover:shadow-lg"
             >
               <CardBody className="flex flex-col gap-2 p-4">
                 {/* Title row */}
                 <div className="flex items-center gap-2 mb-1">
                   <Warehouse size={18} className="text-primary shrink-0" />
-                  <span className="text-base font-semibold flex-1 min-w-0 truncate">{cellar.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/cellars/${cellar.id}`)}
+                    title={cellar.name}
+                    className="text-base font-semibold flex-1 min-w-0 truncate text-left rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-focus after:absolute after:inset-0 after:content-['']"
+                  >
+                    {cellar.name}
+                  </button>
                   {cellar.columns && cellar.rows && (
-                    <Tooltip delay={500} content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
-                      <button
-                        type="button"
-                        aria-label={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}
-                        className="flex items-center rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Grid2x2 size={14} className="text-foreground-500" />
-                      </button>
-                    </Tooltip>
+                    <Chip size="sm" variant="flat" className="shrink-0">
+                      {t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}
+                    </Chip>
                   )}
                 </div>
 
@@ -450,29 +449,30 @@ export const CellarDashboard: React.FC = () => {
                 )}
 
                 {/* Actions */}
-                <div
-                  className="flex gap-1 mt-2 pt-2 border-t border-default-100"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    variant="light"
-                    onPress={() => handleOpenForm(cellar)}
-                    aria-label={t('actions.edit')}
-                  >
-                    <Pencil size={14} />
-                  </Button>
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    variant="light"
-                    color="danger"
-                    onPress={() => handleDelete(cellar)}
-                    aria-label={t('actions.delete')}
-                  >
-                    <Trash2 size={14} />
-                  </Button>
+                <div className="relative z-10 flex gap-1 mt-2 pt-2 border-t border-default-100">
+                  <Tooltip delay={500} content={t('actions.edit')}>
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="light"
+                      onPress={() => handleOpenForm(cellar)}
+                      aria-label={t('actions.edit')}
+                    >
+                      <Pencil size={14} />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip delay={500} content={t('actions.delete')}>
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      variant="light"
+                      color="danger"
+                      onPress={() => handleDelete(cellar)}
+                      aria-label={t('actions.delete')}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  </Tooltip>
                 </div>
               </CardBody>
             </Card>
@@ -600,6 +600,9 @@ export const CellarDashboard: React.FC = () => {
                 value={formData.name}
                 onValueChange={(v) => setFormData({ ...formData, name: v })}
                 isRequired
+                validationBehavior="aria"
+                isInvalid={formTried && !formData.name.trim()}
+                errorMessage={t('inventory.validation.required')}
               />
 
               <SingleSelect
@@ -730,7 +733,8 @@ export const CellarDashboard: React.FC = () => {
             <Button
               color="primary"
               onPress={handleSubmit}
-              isDisabled={!formData.name || zonesExceedRows}
+              isDisabled={zonesExceedRows}
+              isLoading={createMutation.isPending || updateMutation.isPending}
             >
               {editingCellar ? t('actions.save') : t('actions.add')}
             </Button>
@@ -758,7 +762,7 @@ export const CellarDashboard: React.FC = () => {
             <>
               <ModalHeader>{t('cellars.deleteTitle')}</ModalHeader>
               <ModalBody>
-                <p className="text-sm text-foreground-600">{t('cellars.deleteConfirm', { name: deletingName })}</p>
+                <p className="text-sm text-foreground-600">{cellarDeleteConfirmText(deletingShown, t)}</p>
               </ModalBody>
               <ModalFooter>
                 <Button color="default" variant="light" onPress={() => setDeletingCellar(null)}>

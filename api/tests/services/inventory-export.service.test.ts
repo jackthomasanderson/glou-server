@@ -14,7 +14,7 @@ vi.mock('../../src/lib/prisma', () => ({
 import { prisma } from '../../src/lib/prisma';
 import { inventoryExportService } from '../../src/services/inventory-export.service';
 import { HEADER_ALIASES, importService } from '../../src/services/import.service';
-import { normalizeCsvToken } from '../../src/schemas/import.schema';
+import { normalizeToken } from '../../src/lib/category';
 import { parseCsv } from '../../src/lib/csv';
 import { CSV_EXPORT_COLUMNS, CSV_EXPORT_HEADERS, groupCsvRows } from '../../../shared/import';
 
@@ -41,7 +41,7 @@ describe('export headers', () => {
   it('are all columns the import reads, in English and in French', () => {
     for (const lang of ['en', 'fr'] as const) {
       for (const column of CSV_EXPORT_COLUMNS) {
-        expect(HEADER_ALIASES[normalizeCsvToken(CSV_EXPORT_HEADERS[lang][column])], `${lang} ${column}`).toBe(column);
+        expect(HEADER_ALIASES[normalizeToken(CSV_EXPORT_HEADERS[lang][column])], `${lang} ${column}`).toBe(column);
       }
     }
   });

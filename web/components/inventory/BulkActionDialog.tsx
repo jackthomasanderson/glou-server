@@ -12,6 +12,7 @@ import { useCellars } from '@/hooks/useCellars';
 import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { useBulkPresets, useCreateBulkPreset, useDeleteBulkPreset } from '@/hooks/useBulkPresets';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { FILL_LEVELS } from '@/lib/products/fillLevels';
 
 interface BulkActionDialogProps {
   open: boolean;
@@ -71,10 +72,12 @@ export function BulkActionDialog({
 
   const [presetName, setPresetName] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
+  // #657: Save stays clickable; a click with the name empty shows the field in red.
+  const [presetTried, setPresetTried] = useState(false);
   const [deletingPresetId, setDeletingPresetId] = useState<string | null>(null);
 
-  // The dialog stays mounted while closed: every opening starts blank, so a
-  // cancelled edit never carries over. Adjusted during render (React's
+  // Every opening starts blank (the inventory page mounts it only while open,
+  // other callers may keep it mounted), so a cancelled edit never carries over. Adjusted during render (React's
   // documented pattern) rather than in an effect.
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
@@ -107,9 +110,9 @@ export function BulkActionDialog({
   const handleApply = () => onApply(buildPatch());
 
   const handleSavePreset = () => {
-    if (!presetName.trim()) return;
+    if (!presetName.trim()) { setPresetTried(true); return; }
     createPresetMutation.mutate({ name: presetName, payload: buildPatch() }, {
-      onSuccess: () => { setPresetName(''); setShowSavePreset(false); },
+      onSuccess: () => { setPresetName(''); setPresetTried(false); setShowSavePreset(false); },
     });
   };
 
@@ -309,13 +312,13 @@ export function BulkActionDialog({
                   </Checkbox>
                   {enabledFields.fillLevel && (
                     <div role="group" aria-label={t('inventory.fields.fillLevel')} className="flex flex-wrap gap-1 mt-2">
-                      {[100, 75, 50, 25, 0].map((v) => (
+                      {FILL_LEVELS.map(({ value, key }) => (
                         <FilterChip
-                          key={v}
-                          selected={values.fillLevel === v}
-                          onPress={() => setField('fillLevel', v)}
+                          key={value}
+                          selected={values.fillLevel === value}
+                          onPress={() => setField('fillLevel', value)}
                         >
-                          {v}%
+                          {t(key)}
                         </FilterChip>
                       ))}
                     </div>
@@ -365,12 +368,16 @@ export function BulkActionDialog({
                         label={t('bulk.presetName')}
                         value={presetName}
                         onValueChange={setPresetName}
+                        isRequired
+                        validationBehavior="aria"
+                        isInvalid={presetTried && !presetName.trim()}
+                        errorMessage={t('inventory.validation.required')}
                         className="flex-1"
                       />
-                      <Button size="sm" color="primary" onPress={handleSavePreset} isDisabled={!presetName.trim()}>
+                      <Button size="sm" color="primary" onPress={handleSavePreset} isLoading={createPresetMutation.isPending}>
                         {t('actions.save')}
                       </Button>
-                      <Button size="sm" variant="light" onPress={() => setShowSavePreset(false)}>
+                      <Button size="sm" variant="light" onPress={() => { setShowSavePreset(false); setPresetTried(false); }}>
                         {t('actions.cancel')}
                       </Button>
                     </div>

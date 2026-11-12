@@ -12,8 +12,14 @@ export const PLACEHOLDER_CONFIG_ENCRYPTION_KEY =
 
 export interface SecretProblem {
   name: 'JWT_SECRET' | 'CONFIG_ENCRYPTION_KEY';
-  reason: 'missing' | 'placeholder' | 'invalid';
+  reason: 'missing' | 'placeholder' | 'invalid' | 'too_short';
 }
+
+/**
+ * #608: every member can read their own signed token in the browser, so a
+ * short secret can be guessed offline and used to forge an admin token.
+ */
+export const JWT_SECRET_MIN_LENGTH = 32;
 
 export function findSecretProblems(env: NodeJS.ProcessEnv): SecretProblem[] {
   const problems: SecretProblem[] = [];
@@ -21,6 +27,7 @@ export function findSecretProblems(env: NodeJS.ProcessEnv): SecretProblem[] {
   const jwtSecret = env.JWT_SECRET?.trim();
   if (!jwtSecret) problems.push({ name: 'JWT_SECRET', reason: 'missing' });
   else if (jwtSecret === PLACEHOLDER_JWT_SECRET) problems.push({ name: 'JWT_SECRET', reason: 'placeholder' });
+  else if (jwtSecret.length < JWT_SECRET_MIN_LENGTH) problems.push({ name: 'JWT_SECRET', reason: 'too_short' });
 
   const encryptionKey = env.CONFIG_ENCRYPTION_KEY?.trim();
   if (!encryptionKey) problems.push({ name: 'CONFIG_ENCRYPTION_KEY', reason: 'missing' });
@@ -42,6 +49,7 @@ const REASONS: Record<SecretProblem['reason'], string> = {
   missing: 'is not set (or empty)',
   placeholder: 'still has its .env.example placeholder value',
   invalid: 'is malformed',
+  too_short: `is shorter than ${JWT_SECRET_MIN_LENGTH} characters`,
 };
 
 export function describeSecretProblem({ name, reason }: SecretProblem): string {

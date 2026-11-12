@@ -2,7 +2,7 @@ import { BottleCategory, Prisma } from '@prisma/client';
 import { prisma, PrismaTransactionClient } from '../lib/prisma';
 import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../schemas/inventory-count.schema';
 import { inventoryService } from './inventory.service';
-import { InventoryInput } from '../schemas/inventory.schema';
+import { InventoryDraft } from '../schemas/inventory.schema';
 import { IN_STOCK_ITEM_FILTER, isFinishedState, isIntactItem } from '../lib/finished-item';
 import { freeSlots, type SlotChange } from '../lib/slots';
 import { lockFamilies } from '../lib/product-fields';
@@ -375,6 +375,8 @@ export async function recordUnlistedFind(
       newItemName: input.name,
       newItemCategory: input.category,
       newItemQuantity: input.quantity ?? null,
+      // #587: only a spirit keeps an ABV (unknown when none is typed).
+      newItemAlcoholDegree: input.category === 'spirit' ? input.alcoholDegree ?? null : null,
     },
   });
 
@@ -526,14 +528,15 @@ async function matchingProductsFor(
  * switch + safe placeholder defaults for fields the capture flow doesn't
  * collect) for consistency — only name/category/quantity come from the
  * count session (feature.md); everything else is left as an editable
- * placeholder, same spirit as the CSV import's `alcoholDegree: 0`.
+ * placeholder — a spirit's ABV is the one recorded with the find, else
+ * unknown, as by the CSV import (#510, #587).
  * #471 (FEAT-100): the copies found form one group (a find of six bottles is
  * a group ×6), whatever the category.
  */
 function toInventoryInputForFound(
-  entry: { newItemName: string; newItemCategory: BottleCategory; newItemQuantity: number | null },
+  entry: { newItemName: string; newItemCategory: BottleCategory; newItemQuantity: number | null; newItemAlcoholDegree: number | null },
   cellarId: string | null,
-): InventoryInput {
+): InventoryDraft {
   const common = {
     name: entry.newItemName,
     producer: '',
@@ -553,7 +556,11 @@ function toInventoryInputForFound(
     case 'sparkling':
       return { ...common, category: 'sparkling' as const };
     case 'spirit':
-      return { ...common, category: 'spirit' as const, alcoholDegree: 0 };
+      // #587: the ABV recorded with the find, else unknown — never an invented 0 %.
+      return {
+        ...common, category: 'spirit' as const,
+        ...(entry.newItemAlcoholDegree != null ? { alcoholDegree: entry.newItemAlcoholDegree } : {}),
+      };
     case 'cigar':
       // Single cigars (no `cigarsPerBox`): a find is counted cigar by cigar.
       return { ...common, category: 'cigar' as const };
@@ -662,7 +669,10 @@ async function applyCorrectionsInternal(
       const created = await inventoryService.createItem(
         actingUserId,
         toInventoryInputForFound(
-          { newItemName: entry.newItemName, newItemCategory: entry.newItemCategory, newItemQuantity: entry.newItemQuantity },
+          {
+            newItemName: entry.newItemName, newItemCategory: entry.newItemCategory,
+            newItemQuantity: entry.newItemQuantity, newItemAlcoholDegree: entry.newItemAlcoholDegree,
+          },
           session.cellarId,
         ),
         tx,

@@ -30,10 +30,14 @@ async function expectRefused(res: APIResponse, error: string, label: string) {
 
 test('a stolen admin session cannot redirect mail, links or alerts, nor download a backup (#890, #613)', async ({ page }) => {
   const admin = page.request;
-  const me = await okData<{ id: string; isAdmin: boolean; isTwoFactorEnabled: boolean }>(await admin.get('/api/auth/me'));
+  const me = await okData<{ id: string; isAdmin: boolean; isTwoFactorEnabled: boolean }>(await admin.get('/api/user/me'));
   test.skip(!me.isAdmin || me.isTwoFactorEnabled, 'needs the suite user to be the instance admin, without 2FA (fresh database)');
 
-  type Config = { smtpHost: string | null; publicUrl: string | null; accessMode: string; smtpEnabled: boolean; gotifyEnabled: boolean; inAppEnabled: boolean };
+  type Config = {
+    smtpHost: string | null; publicUrl: string | null; smtpEnabled: boolean; gotifyEnabled: boolean;
+    logRetentionDays: number; sessionRetentionDays: number; guestShareRetentionDays: number;
+    backupEnabled: boolean; backupRetentionDays: number; backupHour: number; registrationOpen: boolean;
+  };
   const before = await okData<Config>(await admin.get('/api/admin/config'));
   const run = await okData<{ id: string; success: boolean }>(await admin.post('/api/admin/backups/run'));
   expect(run.success).toBe(true);
@@ -42,14 +46,24 @@ test('a stolen admin session cannot redirect mail, links or alerts, nor download
   const sessionOnly: Array<[string, Promise<APIResponse>]> = [
     ['SMTP settings', admin.put('/api/admin/config/smtp', { data: { smtpHost: 'mail.attacker.example' } })],
     ['SMTP test', admin.post('/api/admin/config/test/smtp', { data: { email: 'me@attacker.example' } })],
-    ['public URL', admin.put('/api/admin/config/network', { data: { publicUrl: 'https://attacker.example', accessMode: 'direct' } })],
+    ['public URL', admin.put('/api/admin/config/network', { data: { publicUrl: 'https://attacker.example' } })],
     ['Gotify settings', admin.put('/api/admin/config/gotify', { data: { gotifyEnabled: false } })],
     ['Gotify test', admin.post('/api/admin/config/test/gotify', { data: {} })],
-    ['notification channels', admin.put('/api/admin/config/notifications', { data: { smtpEnabled: false, gotifyEnabled: false, inAppEnabled: true } })],
     ['backup download', admin.post(`/api/admin/backups/${run.id}/download`, { data: {} })],
     ['backup restore', admin.post(`/api/admin/backups/${run.id}/restore`, { data: { confirm: true } })],
     ['full purge', admin.post('/api/admin/maintenance/purge', { data: { confirmation: 'SUPPRIMER' } })],
+    // #893: erasing the audit trail, turning backups off, opening sign-up.
+    ['audit log retention lowered', admin.put('/api/admin/config/retention', {
+      data: { logRetentionDays: 1, sessionRetentionDays: before.sessionRetentionDays, guestShareRetentionDays: before.guestShareRetentionDays },
+    })],
+    ['scheduled backups turned off', admin.put('/api/admin/config/backup', {
+      data: { backupEnabled: false, backupRetentionDays: before.backupRetentionDays, backupHour: before.backupHour },
+    })],
   ];
+  // Sign-up is closed on a fresh database (and the specs that open it close it again).
+  if (!before.registrationOpen) {
+    sessionOnly.push(['sign-up opened', admin.put('/api/admin/config/registration', { data: { registrationOpen: true } })]);
+  }
   for (const [label, res] of sessionOnly) await expectRefused(await res, 'REAUTH_REQUIRED', label);
   await expectRefused(
     await admin.put('/api/admin/config/smtp', { data: { smtpHost: 'mail.attacker.example', password: 'not-the-admin-password' } }),
@@ -61,7 +75,7 @@ test('a stolen admin session cannot redirect mail, links or alerts, nor download
 
   // The admin's own password lets a change through (here, the same public URL again).
   await okData(await admin.put('/api/admin/config/network', {
-    data: { publicUrl: before.publicUrl, accessMode: before.accessMode, password: creds().password },
+    data: { publicUrl: before.publicUrl, password: creds().password },
   }));
 
   type Log = { action: string; status: string; details: { section?: string; error?: string } };

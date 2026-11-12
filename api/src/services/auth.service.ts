@@ -1,7 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { SignOptions } from 'jsonwebtoken';
-import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -20,21 +19,19 @@ import { escapeHtml } from '../lib/html';
 import { isNotifEn } from '../lib/notif-lang';
 import { encrypt } from '../lib/crypto';
 import { openTwoFactorSecret } from '../lib/two-factor-secret';
+import { newTotpSecret, totpUri, isCurrentTotp } from '../lib/totp';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
-
-// ISSUE_090: speakeasy was abandoned in 2016; otplib is actively maintained
-// and implements the same RFC 6238 TOTP algorithm (SHA1, 30s step, 6
-// digits), so existing users' stored base32 secrets keep validating
-// unchanged. `window: 1` matches speakeasy's prior per-call `window: 1`
-// (one 30s step of drift tolerated before and after) across every
-// verification site in this file.
-authenticator.options = { window: 1 };
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
 // (FEAT-25: a Session must not outlive the JWT that references it).
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000;
 const BCRYPT_ROUNDS = 12;
+// #607: a refused sign-in costs one bcrypt comparison whether or not the
+// account exists, so the response time does not tell who has one. Unknown
+// identifiers are compared against this hash of a random value nobody knows,
+// made once at startup with the same cost as real password hashes.
+const UNKNOWN_ACCOUNT_HASH: Promise<string> = bcrypt.hash(crypto.randomBytes(32).toString('hex'), BCRYPT_ROUNDS);
 // Hex-encoded length of a generated backup code (crypto.randomBytes(10) -> 20 hex chars).
 // A TOTP code is always 6 digits, so checking this length is enough to tell the two apart.
 const BACKUP_CODE_LENGTH = 20;
@@ -163,7 +160,8 @@ export type SecurityEventKey =
   | 'sessionRevoked'
   | 'emailChanged'
   | 'twoFactorLocked'
-  | 'backupCodesRegenerated';
+  | 'backupCodesRegenerated'
+  | 'accountDeletionRequested';
 
 const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subject: string; intro: string }> = {
   newDevice: (isEn) => isEn
@@ -194,6 +192,10 @@ const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subj
   backupCodesRegenerated: (isEn) => isEn
     ? { subject: 'Glou — New backup codes generated', intro: 'New two-factor backup codes were just generated for your account. The previous ones no longer work.' }
     : { subject: 'Glou — Nouveaux codes de secours générés', intro: 'De nouveaux codes de secours de double authentification viennent d’être générés pour votre compte. Les précédents ne fonctionnent plus.' },
+  // #603 — the request used to show up only in the profile's GDPR section.
+  accountDeletionRequested: (isEn) => isEn
+    ? { subject: 'Glou — Account deletion requested', intro: `The deletion of your account was just requested. It will be anonymised in ${ACCOUNT_DELETION_GRACE_DAYS} days unless the request is cancelled from your profile before then.` }
+    : { subject: 'Glou — Demande de suppression du compte', intro: `La suppression de votre compte vient d’être demandée. Il sera anonymisé dans ${ACCOUNT_DELETION_GRACE_DAYS} jours, sauf si la demande est annulée depuis votre profil d’ici là.` },
 };
 
 export class AuthService {
@@ -379,6 +381,10 @@ export class AuthService {
       `<p style="color:#666;font-size:12px;">${isEn
         ? 'If this was not you, secure your account immediately: change your password and sign out other sessions.'
         : "Si vous n'êtes pas à l'origine de cette action, sécurisez votre compte immédiatement : changez votre mot de passe et déconnectez les autres sessions."}</p>`,
+      // #434: DB-IP Lite licence requires a link back wherever its results are shown.
+      location
+        ? `<p style="color:#666;font-size:12px;"><a href="https://db-ip.com">${isEn ? 'IP Geolocation by DB-IP' : 'Géolocalisation IP par DB-IP'}</a></p>`
+        : '',
     ].join('');
 
     await notificationService.send({ userId, category: 'security', subject, htmlBody, bypassQuietHours: true, emailOverride });
@@ -453,11 +459,21 @@ export class AuthService {
       },
     });
 
+    // #601: a refusal on an existing account is audited under that account;
+    // an unknown identifier is not (no account to file it under, and what
+    // was typed, maybe a password, is never kept).
+    // #607: compared in every case, before any refusal, so an unknown or
+    // deactivated account takes as long to refuse as a wrong password.
+    const valid = await bcrypt.compare(password, user ? user.passwordHash : await UNKNOWN_ACCOUNT_HASH);
     if (!user) throw new Error('INVALID_CREDENTIALS');
-    if (!user.isActive) throw new Error('ACCOUNT_DEACTIVATED');
-
-    const valid = await bcrypt.compare(password, user.passwordHash);
-    if (!valid) throw new Error('INVALID_CREDENTIALS');
+    if (!user.isActive) {
+      this.auditLoginFailure(user.id, deviceInfo, 'account_deactivated');
+      throw new Error('ACCOUNT_DEACTIVATED');
+    }
+    if (!valid) {
+      this.auditLoginFailure(user.id, deviceInfo, 'wrong_password');
+      throw new Error('INVALID_CREDENTIALS');
+    }
 
     const publicUser: PublicUser = this.toPublicUser(user);
 
@@ -500,6 +516,16 @@ export class AuthService {
     const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
     if (!isKnownDevice) this.notifySecurityEvent(user.id, 'newDevice', deviceInfo);
     return { user: publicUser, token, rememberMe };
+  }
+
+  /** #601: a refused sign-in, with the reason only. */
+  private auditLoginFailure(userId: string, deviceInfo: DeviceInfo, reason: 'account_deactivated' | 'wrong_password' | 'wrong_2fa_code'): void {
+    void auditLog({ userId, action: 'LOGIN_FAILED', status: 'error', ip: deviceInfo.ip ?? 'unknown', details: { reason } });
+  }
+
+  /** #601: a successful change of the account's own credentials. */
+  private auditSecurityChange(userId: string, action: AuditAction, deviceInfo: DeviceInfo, details?: Record<string, unknown>): void {
+    void auditLog({ userId, action, status: 'success', ip: deviceInfo.ip ?? 'unknown', ...(details ? { details } : {}) });
   }
 
   /**
@@ -585,6 +611,8 @@ export class AuthService {
 
     if (previousEmail !== user.email) {
       this.notifySecurityEvent(userId, 'emailChanged', deviceInfo, previousEmail);
+      // #601: both addresses, so an admin can tell where the account went.
+      this.auditSecurityChange(userId, 'EMAIL_CHANGE', deviceInfo, { previousEmail, newEmail: user.email });
     }
 
     return this.toPublicUser(user);
@@ -608,6 +636,7 @@ export class AuthService {
     });
 
     this.notifySecurityEvent(userId, 'passwordChanged', deviceInfo);
+    this.auditSecurityChange(userId, 'PASSWORD_CHANGE', deviceInfo);
     // A stolen session must not survive a password change.
     await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
     // ISSUE_044: neither must a trusted device, which skips the 2FA challenge.
@@ -643,7 +672,8 @@ export class AuthService {
     reauth: { password?: string; code?: string } = {},
   ): Promise<string> {
     const target = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { isTwoFactorEnabled: true } });
-    const audit = { action: 'SESSION_REVOKE' as const, details: { reason: 'admin_password_reset', targetUserId: userId } };
+    // #601: its own action in the log, not a SESSION_REVOKE among others.
+    const audit = { action: 'ADMIN_PASSWORD_RESET' as const, details: { targetUserId: userId } };
     // Every reset, the admin's own included: a temporary password handed to
     // the session holder is a credential, and a known password is what the
     // step-up itself accepts (review: resetting oneself or a member without
@@ -791,7 +821,7 @@ export class AuthService {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
 
-    const base32secret = authenticator.generateSecret();
+    const base32secret = newTotpSecret();
 
     await prisma.user.update({
       where: { id: userId },
@@ -799,16 +829,23 @@ export class AuthService {
     });
 
     // Make sure the qr code and the text secret are perfectly aligned
-    const otpauthUrl = authenticator.keyuri(user.username, 'Glou', base32secret);
+    const otpauthUrl = totpUri(user.username, base32secret);
 
     const qrCodeUrl = await qrcode.toDataURL(otpauthUrl);
     return { qrCodeUrl, secret: base32secret };
   }
 
-  async turnOnTwoFactorAuthentication(userId: string, code: string, deviceInfo: DeviceInfo): Promise<{ backupCodes: string[] }> {
+  /**
+   * #603: asks for the password, like turning 2FA off: otherwise whoever
+   * holds an open session could tie the account to their own authenticator
+   * app and leave with the backup codes, locking the owner out.
+   */
+  async turnOnTwoFactorAuthentication(userId: string, password: string, code: string, deviceInfo: DeviceInfo): Promise<{ backupCodes: string[] }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (user.isTwoFactorEnabled) throw new Error('2FA_ALREADY_ENABLED');
     if (!user.twoFactorSecret) throw new Error('2FA_SECRET_NOT_GENERATED');
+
+    if (!password || !(await bcrypt.compare(password, user.passwordHash))) throw new Error('INVALID_CREDENTIALS');
 
     if (!(await this.checkTotp(user, code))) throw new Error('INVALID_TOTP_CODE');
 
@@ -823,6 +860,7 @@ export class AuthService {
     });
 
     this.notifySecurityEvent(userId, 'twoFactorEnabled', deviceInfo);
+    this.auditSecurityChange(userId, 'TWO_FACTOR_ON', deviceInfo);
 
     return { backupCodes }; // Return plain codes ONCE
   }
@@ -849,7 +887,7 @@ export class AuthService {
   private async checkTotp(user: { id: string; twoFactorSecret: string | null }, code: string): Promise<boolean> {
     if (!user.twoFactorSecret) return false;
     const { secret, legacy } = openTwoFactorSecret(user.twoFactorSecret);
-    if (!authenticator.verify({ token: code, secret })) return false;
+    if (!isCurrentTotp(code, secret)) return false;
     if (legacy) {
       try {
         await prisma.user.updateMany({
@@ -950,6 +988,7 @@ export class AuthService {
     });
 
     this.notifySecurityEvent(userId, 'twoFactorDisabled', deviceInfo);
+    this.auditSecurityChange(userId, 'TWO_FACTOR_OFF', deviceInfo);
     // A stolen session must not survive 2FA being turned off (it weakens the
     // account's remaining auth factor, same rationale as a password change).
     await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
@@ -1052,19 +1091,17 @@ export class AuthService {
     }
     if (includes('notifications')) {
       result.notificationPreferences = {
-        notifInApp: user.notifInApp,
         notifEmail: user.notifEmail,
         notifWebhook: user.notifWebhook,
         notifCategories: user.notifCategories,
         notifQuietStart: user.notifQuietStart,
         notifQuietEnd: user.notifQuietEnd,
         notifLanguage: user.notifLanguage,
-        webhookUrl: user.webhookUrl,
       };
     }
     if (includes('configHistory')) {
       // fieldName/maskedOldVal/maskedNewVal are already redacted at write
-      // time by systemConfigService.logChange — safe to export as-is.
+      // time by logChange (system-config.service) — safe to export as-is.
       result.configHistory = user.configChangeLogs.map(c => ({
         fieldName: c.fieldName,
         maskedOldVal: c.maskedOldVal,
@@ -1078,13 +1115,32 @@ export class AuthService {
     return result;
   }
 
-  async requestAccountDeletion(userId: string): Promise<void> {
-    const user = await prisma.user.update({
+  /**
+   * #603: asks for the password (an open session alone used to be enough),
+   * refuses the last active admin (the anonymisation would leave the
+   * instance without one), and tells the owner as well as the other admins.
+   */
+  async requestAccountDeletion(userId: string, password: string, deviceInfo: DeviceInfo): Promise<void> {
+    const account = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { passwordHash: true, isAdmin: true, username: true },
+    });
+    if (!password || !(await bcrypt.compare(password, account.passwordHash))) throw new Error('INVALID_CREDENTIALS');
+    if (account.isAdmin) {
+      // Admins already leaving do not count: two admins asking at once would
+      // otherwise each see the other one stay.
+      const otherAdmins = await prisma.user.count({
+        where: { isAdmin: true, isActive: true, deletionRequestedAt: null, id: { not: userId } },
+      });
+      if (otherAdmins === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
+    }
+
+    await prisma.user.update({
       where: { id: userId },
       data: { deletionRequestedAt: new Date() },
-      select: { username: true },
     });
-    void notifyAdminsOfAccountDeletion({ kind: 'requested', username: user.username, requesterId: userId });
+    void notifyAdminsOfAccountDeletion({ kind: 'requested', username: account.username, requesterId: userId });
+    this.notifySecurityEvent(userId, 'accountDeletionRequested', deviceInfo);
   }
 
   /** #509: called by the maintenance run once due deletions were carried out. */
@@ -1113,7 +1169,7 @@ export class AuthService {
    * either fail outright or require reassigning those rows to some other
    * identity. Anonymizing in place keeps every such reference valid while
    * removing the PII GDPR Art. 17 actually targets (email, username,
-   * password hash, 2FA secret, avatar, webhook URL...) and deactivating the
+   * password hash, 2FA secret, avatar...) and deactivating the
    * account (`isActive: false`) so it can no longer sign in. Sessions,
    * trusted devices and guest shares created by the account are removed
    * outright — nothing legitimately needs them to survive.
@@ -1151,7 +1207,6 @@ export class AuthService {
           passwordHash: unusablePasswordHash,
           displayName: null,
           avatarUrl: null,
-          webhookUrl: null,
           notifWebhook: false,
           isTwoFactorEnabled: false,
           twoFactorSecret: null,
@@ -1284,6 +1339,7 @@ export class AuthService {
     }
 
     if (!validCode) {
+      this.auditLoginFailure(user.id, deviceInfo, 'wrong_2fa_code');
       await this.registerFailedTwoFactorAttempt(user.id, deviceInfo);
       throw new Error('INVALID_TOTP_CODE');
     }
@@ -1457,7 +1513,11 @@ async function notifyAdminsOfAccountDeletion(event: AccountDeletionEvent): Promi
           ? `<p>${event.count} account${plural ? 's were' : ' was'} anonymised, ${ACCOUNT_DELETION_GRACE_DAYS} days after the member's deletion request. Their past edits now show as "deleted-…" in the history.</p>`
           : `<p>${event.count} compte${plural ? 's ont été anonymisés' : ' a été anonymisé'}, ${ACCOUNT_DELETION_GRACE_DAYS} jours après la demande de suppression du membre. Ses modifications passées apparaissent désormais comme « deleted-… » dans l'historique.</p>`;
       }
-      return notificationService.send({ userId: admin.id, category: 'security', subject, htmlBody });
+      // #742: the "N accounts deleted" notice is sent by the 3 a.m.
+      // maintenance run, inside most night-time quiet hours, which drop a
+      // message rather than delay it. Like the other security alerts, it
+      // goes through them.
+      return notificationService.send({ userId: admin.id, category: 'security', subject, htmlBody, bypassQuietHours: true });
     }));
   } catch (err) {
     console.error('[auth] Could not notify administrators of an account deletion:', err);

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { CURVE_SHAPES } from '../lib/maturity-curve';
 import { categorySchema } from '../lib/category';
+import { WINE_COLORS } from '../../../shared/inventory';
 
 const maturityReferenceBase = z.object({
   name: z.string().min(1).max(200),
@@ -13,7 +14,9 @@ const maturityReferenceBase = z.object({
   curveShape: z.enum(CURVE_SHAPES).default('LINEAR'),
   priority: z.number().int().min(0).max(100_000).default(0),
   region: z.string().max(200).optional().nullable(),
-  color: z.string().max(100).optional().nullable(),
+  // #733: one of the colours stored on a bottle, compared as is by the
+  // suggestion score and the bottle count; free text never matched.
+  color: z.enum(WINE_COLORS).optional().nullable(),
   producer: z.string().max(200).optional().nullable(),
   vintageFrom: z.number().int().min(1800).max(2200).optional().nullable(),
   vintageTo: z.number().int().min(1800).max(2200).optional().nullable(),

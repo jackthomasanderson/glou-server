@@ -42,14 +42,7 @@ vi.mock('jsonwebtoken', () => ({
 
 // Kept deterministic: these cases are about the throttling bookkeeping around
 // the code check, not about TOTP arithmetic.
-vi.mock('otplib', () => ({
-  authenticator: {
-    options: {},
-    verify: vi.fn(() => false),
-    generateSecret: vi.fn(),
-    keyuri: vi.fn(),
-  },
-}));
+vi.mock('../../src/lib/totp', () => ({ newTotpSecret: vi.fn(), totpUri: vi.fn(), isCurrentTotp: vi.fn(() => false) }));
 
 vi.mock('../../src/services/notification.service', () => ({
   notificationService: { send: vi.fn().mockResolvedValue(undefined) },
@@ -61,6 +54,12 @@ vi.mock('../../src/services/system-config.service', () => ({
   },
 }));
 
+// #434: lets a test give the alert a location (the real lookup needs the DB-IP file).
+vi.mock('../../src/lib/device', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../src/lib/device')>()),
+  locateIp: vi.fn(() => null),
+}));
+
 vi.mock('../../src/services/audit.service', () => ({
   auditLog: vi.fn().mockResolvedValue(undefined),
 }));
@@ -70,6 +69,7 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '../../src/lib/prisma';
 import { authService } from '../../src/services/auth.service';
 import { notificationService } from '../../src/services/notification.service';
+import { locateIp } from '../../src/lib/device';
 
 const deviceInfo = { userAgent: 'test-agent', ip: '127.0.0.1' };
 
@@ -148,6 +148,38 @@ describe('authService.updateEmail (ISSUE_042)', () => {
         expect.objectContaining({ category: 'security', emailOverride: 'old@example.com' }),
       );
     });
+  });
+});
+
+describe('security alert location credit (#434)', () => {
+  async function sendAlert(language: 'FR' | 'EN') {
+    vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(
+      { passwordHash: 'stored-hash', email: 'old@example.com' } as never,
+    );
+    vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
+    vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+    vi.mocked(prisma.user.update).mockResolvedValue(userRow() as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ language, notifLanguage: null } as never);
+    await authService.updateEmail('u1', 'new@example.com', 'good-password', deviceInfo);
+    await vi.waitFor(() => expect(notificationService.send).toHaveBeenCalled());
+    return vi.mocked(notificationService.send).mock.calls[0][0].htmlBody;
+  }
+
+  it('links back to DB-IP when the alert shows a location', async () => {
+    vi.mocked(locateIp).mockReturnValue({ city: 'Paris', country: 'FR' });
+    const fr = await sendAlert('FR');
+    expect(fr).toContain('Paris, FR');
+    expect(fr).toContain('<a href="https://db-ip.com">Géolocalisation IP par DB-IP</a>');
+    vi.clearAllMocks();
+    vi.mocked(locateIp).mockReturnValue({ city: null, country: 'GB' });
+    expect(await sendAlert('EN')).toContain('<a href="https://db-ip.com">IP Geolocation by DB-IP</a>');
+  });
+
+  it('has no credit when no location was found', async () => {
+    vi.mocked(locateIp).mockReturnValue(null);
+    const html = await sendAlert('EN');
+    expect(html).toContain('Unknown location');
+    expect(html).not.toContain('db-ip.com');
   });
 });
 

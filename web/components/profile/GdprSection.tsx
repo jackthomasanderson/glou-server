@@ -2,11 +2,17 @@
 import React, { useState } from 'react';
 import { Button, Card, CardBody, Checkbox, Input, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter } from 'lucide-react';
+import { Download, Trash2, RotateCcw, ShieldAlert, ListFilter, Upload } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCsvExport } from '@/hooks/useCsvExport';
+import { useCsvConfirmPending } from '@/hooks/useImport';
 import { useExportData, useRequestAccountDeletion, useCancelAccountDeletion, PublicUser, ExportCategory } from '@/hooks/useAuth';
 import { formatDate } from '@/lib/format';
+import { CsvImportStep } from '@/components/onboarding/steps/CsvImportStep';
+import type { CsvImportResult } from '@/lib/import/types';
+import { importedText } from '@/lib/import/summary';
+import { notifySuccess } from '@/lib/toast';
+import { authErrorMessage } from '@/lib/auth/error-message';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES } from '@shared/auth';
 
 interface GdprSectionProps {
@@ -17,7 +23,13 @@ export function GdprSection({ user }: GdprSectionProps) {
   const { t, i18n } = useTranslation('common');
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  // #603: the deletion is confirmed with the password too.
+  const [password, setPassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  // #641: the file import, outside the first-run wizard.
+  const [importOpen, setImportOpen] = useState(false);
+  const importing = useCsvConfirmPending();
   const [selectedCategories, setSelectedCategories] = useState<ExportCategory[]>([...EXPORT_CATEGORIES]);
 
   const exportMutation = useExportData();
@@ -40,9 +52,26 @@ export function GdprSection({ user }: GdprSectionProps) {
       )
     : null;
 
+  const handleImported = (result: CsvImportResult) => {
+    setImportOpen(false);
+    const what = importedText(result, t);
+    notifySuccess(what ? 'onboarding.summary.imported' : 'onboarding.summary.nothingImported', what ? { what } : undefined);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModalOpen(false);
+    setConfirmText('');
+    setPassword('');
+    setDeleteError(null);
+  };
+
   const handleConfirmDelete = () => {
-    if (confirmText !== t('gdpr.deleteKeyword')) return;
-    deleteMutation.mutate(undefined, { onSuccess: () => { setDeleteModalOpen(false); setConfirmText(''); } });
+    if (confirmText !== t('gdpr.deleteKeyword') || !password) return;
+    setDeleteError(null);
+    deleteMutation.mutate({ password }, {
+      onSuccess: closeDeleteModal,
+      onError: (err) => setDeleteError(authErrorMessage(t, err, 'gdpr.deleteErrors')),
+    });
   };
 
   return (
@@ -157,6 +186,24 @@ export function GdprSection({ user }: GdprSectionProps) {
             </Button>
           </div>
 
+          {/* #641: a file import, outside the first-run wizard */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">{t('gdpr.importTitle')}</p>
+              <p className="text-xs text-foreground-500 mt-0.5">{t('gdpr.importDescription')}</p>
+            </div>
+            <Button
+              size="sm"
+              variant="flat"
+              color="default"
+              className="shrink-0"
+              startContent={<Upload size={14} />}
+              onPress={() => setImportOpen(true)}
+            >
+              {t('gdpr.importButton')}
+            </Button>
+          </div>
+
           {/* Delete account */}
           {!isDeletionPending && (
             <div className="flex items-start justify-between gap-4">
@@ -179,8 +226,31 @@ export function GdprSection({ user }: GdprSectionProps) {
         </CardBody>
       </Card>
 
+      <ResponsiveModal
+        isOpen={importOpen}
+        onClose={() => { if (!importing) setImportOpen(false); }}
+        // Review of #908: closed while the import is confirmed, its result would never show.
+        isDismissable={!importing}
+        isKeyboardDismissDisabled={importing}
+        hideCloseButton={importing}
+        size="2xl"
+        scrollBehavior="inside"
+        aria-label={t('gdpr.importTitle')}
+      >
+        <ModalContent>
+          <ModalBody className="p-0">
+            <CsvImportStep
+              cellarId={null}
+              onImported={handleImported}
+              onBack={() => setImportOpen(false)}
+              backLabel={t('actions.cancel')}
+            />
+          </ModalBody>
+        </ModalContent>
+      </ResponsiveModal>
+
       {/* Confirmation modal */}
-      <ResponsiveModal isOpen={deleteModalOpen} onClose={() => { setDeleteModalOpen(false); setConfirmText(''); }} size="sm" placement="center">
+      <ResponsiveModal isOpen={deleteModalOpen} onClose={closeDeleteModal} size="sm" placement="center">
         <ModalContent>
           <ModalHeader className="text-danger">{t('gdpr.deleteModalTitle')}</ModalHeader>
           <ModalBody className="flex flex-col gap-4">
@@ -195,16 +265,31 @@ export function GdprSection({ user }: GdprSectionProps) {
               value={confirmText}
               onValueChange={setConfirmText}
             />
+            <Input
+              label={t('profile.passwordLabel')}
+              type="password"
+              variant="bordered"
+              size="sm"
+              radius="md"
+              labelPlacement="outside"
+              autoComplete="current-password"
+              value={password}
+              onValueChange={setPassword}
+              isDisabled={deleteMutation.isPending}
+            />
+            {deleteError && (
+              <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3">{deleteError}</div>
+            )}
           </ModalBody>
           <ModalFooter className="gap-2">
-            <Button variant="light" size="sm" onPress={() => { setDeleteModalOpen(false); setConfirmText(''); }}>
+            <Button variant="light" size="sm" onPress={closeDeleteModal}>
               {t('actions.cancel')}
             </Button>
             <Button
               color="danger"
               size="sm"
               isLoading={deleteMutation.isPending}
-              isDisabled={confirmText !== t('gdpr.deleteKeyword')}
+              isDisabled={confirmText !== t('gdpr.deleteKeyword') || !password}
               onPress={handleConfirmDelete}
             >
               {t('gdpr.deleteConfirm')}

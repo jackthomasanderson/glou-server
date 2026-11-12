@@ -6,6 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 // The real HeroUI <Input> is used on purpose: what matters is that the combobox
 // attributes and key handlers reach the actual <input> element.
 
+import { registerLeaveQuestion } from '@/lib/leaveGuard';
 const push = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 vi.mock('react-i18next', () => ({
@@ -82,6 +83,24 @@ describe('GlobalSearch keyboard support (#198)', () => {
     fireEvent.keyDown(input, { key: 'ArrowDown' });
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(push).toHaveBeenCalledWith('/bottles?scan=i1');
+  });
+
+  // #759: unsaved settings are not dropped by opening a search result.
+  it('does not open a result while the person declines to leave unsaved changes', () => {
+    const unregister = registerLeaveQuestion('Leave without saving?');
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    try {
+      render(<GlobalSearch />);
+      const input = screen.getByRole('combobox');
+      typeQuery(input, 'pet');
+      fireEvent.keyDown(input, { key: 'ArrowDown' });
+      fireEvent.keyDown(input, { key: 'Enter' });
+      expect(confirm).toHaveBeenCalled();
+      expect(push).not.toHaveBeenCalled();
+    } finally {
+      unregister();
+      confirm.mockRestore();
+    }
   });
 
   // #471 FEAT-101 c2: a wine with nothing left is still found, and says so.

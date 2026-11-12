@@ -1,5 +1,6 @@
 'use client';
-import React from 'react';
+import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Chip } from '@heroui/react';
 import { Trash2 } from 'lucide-react';
 import { useInventoryTrash, useRestoreInventoryItem } from '@/hooks/useInventory';
@@ -10,8 +11,12 @@ import type { InventoryItem } from '@/lib/inventory/types';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { InventoryListRowSkeleton } from './InventoryListRow';
-import { TRASH_RETENTION_DAYS } from '@shared/inventory';
 import { unitNoun } from '@/lib/products/stockActions';
+import { useMe } from '@/hooks/useAuth';
+import { useDeleteTrashedItem, useDeleteTrashedProduct, useEmptyTrash } from '@/hooks/usePermanentDelete';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
+import { CATEGORY_VALUES, TRASH_RETENTION_DAYS, type InventoryCategory } from '@shared/inventory';
+import { TrashDeleteDialog } from './TrashDeleteDialog';
 
 interface InventoryTrashProps {
   t: (key: string, options?: Record<string, unknown>) => string;
@@ -41,6 +46,14 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
   const winesTrash = useProductsTrash();
   const restoreMutation = useRestoreInventoryItem();
   const restoreWineMutation = useRestoreProduct();
+  // #962 (owner decision): deleting for good is for administrators only — the
+  // API refuses the others (403); they restore, and are told the trash empties itself.
+  const isAdmin = useMe().data?.isAdmin === true;
+  const offline = useOfflineBlocked();
+  const deleteItemMutation = useDeleteTrashedItem();
+  const deleteWineMutation = useDeleteTrashedProduct();
+  const emptyMutation = useEmptyTrash();
+  const [pending, setPending] = useState<{ kind: 'wine' | 'item'; id: string } | { kind: 'empty' } | null>(null);
 
   const inScope = (category: string) => !lockedCategories || lockedCategories.includes(category);
   // #471 (D10): a wine thrown away is listed once, with the bottles that went
@@ -63,9 +76,9 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
 
   if (isLoading || winesTrash.isLoading) {
     return (
-      <div className="flex flex-col gap-2">
+      <LoadingRegion className="flex flex-col gap-2">
         {[0, 1, 2].map((i) => <InventoryListRowSkeleton key={i} />)}
-      </div>
+      </LoadingRegion>
     );
   }
 
@@ -92,8 +105,89 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
   const page = !lockedCategories ? undefined : lockedCategories.every((category) => category === 'cigar') ? 'cigar' : 'bottle';
   const winesHeading = t('familyList.trash.wines', { context: page === 'cigar' ? 'cigar' : undefined });
   const linesHeading = t('familyList.trash.bottles', { context: page });
+
+  // Named as listed: "Producer — Name (vintage)".
+  const nameOf = (entry: { producer?: string | null; name?: string | null; vintage?: number | null }) =>
+    [entry.producer, entry.name].filter(Boolean).join(' — ') + (entry.vintage ? ` (${entry.vintage})` : '');
+  // A wine deleted for good takes all its bottles in the trash, those listed apart included.
+  const wineUnits = (wine: TrashedProduct) =>
+    unitsOf(wine) + visibleItems.filter((item) => item.productId === wine.id).reduce((sum, item) => sum + itemUnits({
+      quantity: item.quantity ?? null, isOpened: item.isOpened, fillLevel: item.fillLevel ?? null,
+      cigarsPerBox: item.cigarsPerBox ?? null, cigarsLeft: item.cigarsLeft ?? null, writtenOffAt: item.writtenOffAt ?? null,
+    }), 0);
+  const pageCategories: readonly InventoryCategory[] = (lockedCategories as InventoryCategory[] | undefined) ?? CATEGORY_VALUES;
+  const confirmation = (() => {
+    if (!pending) return null;
+    const action = t('familyList.trash.deleteForever');
+    if (pending.kind === 'empty') {
+      return {
+        title: t('familyList.trash.emptyTitle'),
+        question: t('familyList.trash.emptyConfirm', { count: wines.length + visibleItems.length }),
+        note: t('familyList.trash.irreversible'),
+        action: t('familyList.trash.empty'),
+      };
+    }
+    if (pending.kind === 'wine') {
+      const wine = wines.find((entry) => entry.id === pending.id);
+      if (!wine) return null;
+      const units = wineUnits(wine);
+      const key = units === 0 ? 'deleteForeverConfirm'
+        : unitKind(wine.category) === 'cigar' ? 'deleteForeverConfirmCigars' : 'deleteForeverConfirmBottles';
+      return {
+        title: t('familyList.trash.deleteForeverTitle'),
+        question: t(`familyList.trash.${key}`, { name: nameOf(wine), count: units }),
+        note: t('familyList.trash.deleteForeverWineNote'),
+        action,
+      };
+    }
+    const item = visibleItems.find((entry) => entry.id === pending.id);
+    if (!item) return null;
+    return {
+      title: t('familyList.trash.deleteForeverTitle'),
+      question: t('familyList.trash.deleteForeverLine', {
+        name: nameOf(item), what: t('familyList.trash.lineCount', { context: lineNoun(item), count: lineCopies(item) }),
+      }),
+      note: t('familyList.trash.irreversible'),
+      action,
+    };
+  })();
+  const close = () => setPending(null);
+  const confirm = () => {
+    if (!pending || offline) return;
+    const options = { onSettled: close };
+    if (pending.kind === 'empty') emptyMutation.mutate(pageCategories, options);
+    else if (pending.kind === 'wine') deleteWineMutation.mutate(pending.id, options);
+    else deleteItemMutation.mutate(pending.id, options);
+  };
+  const deleteButton = (target: { kind: 'wine' | 'item'; id: string }) => isAdmin && (
+    <OfflineBlockedButton
+      blocked={offline}
+      size="sm"
+      color="danger"
+      variant="light"
+      onPress={() => setPending(target)}
+    >
+      {t('familyList.trash.deleteForever')}
+    </OfflineBlockedButton>
+  );
+
   return (
     <div className="flex flex-col gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="text-xs text-foreground-500">{t('familyList.trash.autoDelete', { count: TRASH_RETENTION_DAYS })}</p>
+      {isAdmin && (
+        <OfflineBlockedButton blocked={offline} size="sm" color="danger" variant="light" className="ml-auto" onPress={() => setPending({ kind: 'empty' })}>
+          {t('familyList.trash.empty')}
+        </OfflineBlockedButton>
+      )}
+    </div>
+    <TrashDeleteDialog
+      confirmation={confirmation}
+      onConfirm={confirm}
+      onClose={close}
+      isPending={emptyMutation.isPending || deleteWineMutation.isPending || deleteItemMutation.isPending}
+      t={t}
+    />
     {wines.length > 0 && (
       <section aria-label={winesHeading}>
         <h2 className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">{winesHeading}</h2>
@@ -102,7 +196,7 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
             const units = unitsOf(wine);
             const cigars = unitKind(wine.category) === 'cigar';
             return (
-              <li key={wine.id} className="flex items-center justify-between gap-3 bg-content1 border border-divider rounded-xl px-4 py-3">
+              <li key={wine.id} className="flex flex-wrap items-center justify-between gap-3 bg-content1 border border-divider rounded-xl px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-medium truncate">
@@ -116,15 +210,18 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
                     {t('inventory.trashDaysLeft', { count: daysLeft(wine.deletedAt) })}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  color="primary"
-                  variant="flat"
-                  isLoading={restoreWineMutation.isPending && restoreWineMutation.variables === wine.id}
-                  onPress={() => restoreWineMutation.mutate(wine.id)}
-                >
-                  {t('familyList.trash.restore')}
-                </Button>
+                <div className="flex flex-wrap justify-end gap-2 ml-auto">
+                  {deleteButton({ kind: 'wine', id: wine.id })}
+                  <Button
+                    size="sm"
+                    color="primary"
+                    variant="flat"
+                    isLoading={restoreWineMutation.isPending && restoreWineMutation.variables === wine.id}
+                    onPress={() => restoreWineMutation.mutate(wine.id)}
+                  >
+                    {t('familyList.trash.restore')}
+                  </Button>
+                </div>
               </li>
             );
           })}
@@ -140,7 +237,7 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
         return (
         <li
           key={item.id}
-          className="flex items-center justify-between gap-3 bg-content1 border border-divider rounded-xl px-4 py-3"
+          className="flex flex-wrap items-center justify-between gap-3 bg-content1 border border-divider rounded-xl px-4 py-3"
         >
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -158,15 +255,18 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
               </p>
             )}
           </div>
-          <Button
-            size="sm"
-            color="primary"
-            variant="flat"
-            isLoading={restoreMutation.isPending && restoreMutation.variables === item.id}
-            onPress={() => restoreMutation.mutate(item.id)}
-          >
-            {label.restore}
-          </Button>
+          <div className="flex flex-wrap justify-end gap-2 ml-auto">
+            {deleteButton({ kind: 'item', id: item.id })}
+            <Button
+              size="sm"
+              color="primary"
+              variant="flat"
+              isLoading={restoreMutation.isPending && restoreMutation.variables === item.id}
+              onPress={() => restoreMutation.mutate(item.id)}
+            >
+              {label.restore}
+            </Button>
+          </div>
         </li>
         );
       })}

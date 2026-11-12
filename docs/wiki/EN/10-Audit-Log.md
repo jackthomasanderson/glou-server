@@ -62,6 +62,23 @@ Action codes recorded by the system:
 | `COLLECTION_UPDATE` | Collection update |
 | `COLLECTION_DELETE` | Collection deletion |
 
+#### Security events
+
+What changes who can get in, and how. No entry holds a password, a code or a secret.
+
+| Code | Trigger | Entry filed under |
+| :--- | :--- | :--- |
+| `LOGIN_FAILED` | Sign-in refused: wrong password, wrong two-factor code, or deactivated account (`details.reason`). An unknown identifier is not recorded: what was typed is never kept. | The account targeted |
+| `PASSWORD_CHANGE` | Password changed from the profile, or through a "forgot password" link (`details.via`) | The member |
+| `EMAIL_CHANGE` | E-mail address changed (previous and new address in `details`) | The member |
+| `TWO_FACTOR_ON` / `TWO_FACTOR_OFF` | Two-factor authentication turned on / off by the member | The member |
+| `ADMIN_PASSWORD_RESET` | A member's password reset by an administrator (`details.twoFactorDisabled`: their two-factor authentication was turned off) | The administrator |
+| `ADMIN_ROLE_CHANGE` | Administrator rights granted or removed | The administrator |
+| `ADMIN_STATUS_CHANGE` | Member deactivated or reactivated | The administrator |
+| `SHARE_CREATE` / `SHARE_REVOKE` | Guest link created (cellars, writable cellars, collections, expiry) / revoked | The member |
+
+The three administration actions above ask for the administrator's password (and their code when they have two-factor authentication): a refusal is recorded with the `error` status and the reason in `details.error`.
+
 ### 5. Retention and automatic purge
 
 Log entries older than **90 days** are deleted at API startup (via `purgeOldAuditLogs`). This value is not configurable from the UI.

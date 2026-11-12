@@ -5,10 +5,10 @@ import {
   ModalContent, Button, Chip, Input, SelectItem, Checkbox, CircularProgress,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Camera, X, AlertTriangle, ListChecks, Wine, Sparkles, Leaf, PenLine } from 'lucide-react';
+import { Camera, X, AlertTriangle, ListChecks, PenLine, Images } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
-import { useCreateInventoryItem } from '@/hooks/useInventory';
+import { useCreateFromForm } from '@/hooks/useCreateFromForm';
 import { useCellars } from '@/hooks/useCellars';
 import { useUploadScan, useScanJob, SCAN_STATUS_QUERY_KEY } from '@/hooks/useScan';
 import { scanErrorCause, type ScanErrorCause } from '@/lib/scan/errors';
@@ -20,6 +20,10 @@ import { AddUnitsModal } from './AddUnitsDialog';
 import { useKnownWine } from '@/hooks/useKnownWine';
 import type { Product } from '@/lib/products/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
+
+/** The formats the API accepts for a label photo (upload.middleware.ts). */
+const SCAN_ACCEPT = 'image/jpeg,image/png,image/webp,image/gif';
 
 type Phase = 'capture' | 'uploading' | 'processing' | 'review' | 'error';
 
@@ -32,25 +36,10 @@ interface CartEntry {
   category?: InventoryCategory;
 }
 
-/**
- * Escape hatch mirrored on the server (see inventory.router.ts's POST /):
- * `scanJobId` is read directly off the raw request body, not part of
- * `inventoryInputSchema` — it only exists to let the server re-read the
- * job's own extracted data and tag the fields it really populated as 'ocr'
- * (FEAT-05 provenance), never trusting a client-supplied source map.
- */
-type InventoryCreateWithScanHint = InventoryEntry & { scanJobId?: string };
-
 /** "Ajouté à votre vin / spiritueux / cigare" (ux-ui.md §10.1). */
 const addedKey = (category?: InventoryCategory) =>
   category === 'cigar' ? 'scan.cart.addedCigar' : category === 'spirit' ? 'scan.cart.addedSpirit' : 'scan.cart.addedWine';
 
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={14} />,
-  sparkling: <Sparkles size={14} />,
-  spirit: <span className="text-xs font-bold">S</span>,
-  cigar: <Leaf size={14} />,
-};
 
 interface ScanFlowProps {
   open: boolean;
@@ -77,11 +66,16 @@ interface ScanFlowProps {
  */
 export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitted, t }: ScanFlowProps) {
   const { data: cellars } = useCellars();
-  const createMutation = useCreateInventoryItem();
+  // #690: saved as on the inventory page — the fallback cellar for an
+  // untouched cellar field, the collections picked under "More details" (#660).
+  const { create, isPending: isSubmitting } = useCreateFromForm({ defaultCellarId });
   const uploadScan = useUploadScan();
   const queryClient = useQueryClient();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // #808: `capture` above opens the camera straight away on a phone, so a photo
+  // already in the gallery needs its own input.
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<Phase>('capture');
   const [errorCause, setErrorCause] = useState<ScanErrorCause>('failed');
   // Once the service is known to be gone, no photo can succeed in this session:
@@ -181,6 +175,12 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     });
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) handleFileSelected(f);
+    e.target.value = '';
+  };
+
   // From the error screen: the failed job extracted nothing, so no scanJobId
   // is sent and no field is tagged as read from the label. `reviewValues` is
   // either empty here or what the user typed before a failed save: kept.
@@ -221,16 +221,13 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     afterCommit();
   };
 
-  const commitItem = async (values: InventoryEntry) => {
+  const commitItem = async (values: InventoryEntry, collectionIds: string[] = []) => {
     setReviewValues(values);
-    const payload: InventoryCreateWithScanHint = { ...values, scanJobId: jobId ?? undefined };
-    try {
-      const created = await createMutation.mutateAsync(payload);
-      pushCartEntry(created, 'created');
-      afterCommit();
-    } catch {
-      // Reported by the mutation's onError toast.
-    }
+    // `scanJobId` lets the server tag the fields the label really filled (FEAT-05).
+    const created = await create({ ...values, scanJobId: jobId ?? undefined }, collectionIds);
+    if (!created) return; // Reported by the mutation's onError toast.
+    pushCartEntry(created, 'created');
+    afterCommit();
   };
 
   const handleReviewConfirm = () => {
@@ -241,11 +238,9 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     void commitItem(toldApart.length > 0 ? { ...reviewValues, distinctFrom: toldApart } : reviewValues);
   };
 
-  const handleAdvancedSubmit = (values: InventoryEntry) => {
+  const handleAdvancedSubmit = (values: InventoryEntry, collectionIds: string[]) => {
     setFullFormOpen(false);
-    // An untouched cellar field (undefined, not the explicit "none") gets the
-    // wizard's cellar, as the scan review and ManualIngestionStep do.
-    void commitItem(values.cellarId === undefined ? { ...values, cellarId: defaultCellarId } : values);
+    void commitItem(values, collectionIds);
   };
 
   const canConfirm = Boolean(
@@ -260,8 +255,6 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     !reviewValues?.producer?.trim() && t('inventory.fields.producer'),
     reviewValues?.category === 'spirit' && reviewValues.alcoholDegree == null && t('inventory.fields.alcoholDegree'),
   ].filter((f): f is string => Boolean(f));
-
-  const isSubmitting = createMutation.isPending;
 
   return (
     <>
@@ -304,26 +297,41 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       <p className="text-lg font-semibold">{t('scan.capture.title')}</p>
                       <p className="text-sm text-foreground-500 mt-1">{t('scan.capture.subtitle')}</p>
                     </div>
-                    <Button
-                      color="primary"
-                      size="lg"
-                      radius="full"
-                      startContent={<Camera size={20} />}
-                      onPress={() => fileInputRef.current?.click()}
-                    >
-                      {cart.length > 0 ? t('scan.capture.next') : t('scan.capture.start')}
-                    </Button>
+                    <div className="flex flex-col items-center gap-3">
+                      <Button
+                        color="primary"
+                        size="lg"
+                        radius="full"
+                        startContent={<Camera size={20} />}
+                        onPress={() => fileInputRef.current?.click()}
+                      >
+                        {cart.length > 0 ? t('scan.capture.next') : t('scan.capture.start')}
+                      </Button>
+                      <Button
+                        color="primary"
+                        variant="bordered"
+                        radius="full"
+                        startContent={<Images size={18} />}
+                        onPress={() => galleryInputRef.current?.click()}
+                      >
+                        {t('scan.capture.gallery')}
+                      </Button>
+                    </div>
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      accept={SCAN_ACCEPT}
                       capture="environment"
                       className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleFileSelected(f);
-                        e.target.value = '';
-                      }}
+                      onChange={handleInputChange}
+                    />
+                    {/* No HEIC in `accept`: iOS then hands over a JPEG copy of the photo. */}
+                    <input
+                      ref={galleryInputRef}
+                      type="file"
+                      accept={SCAN_ACCEPT}
+                      className="hidden"
+                      onChange={handleInputChange}
                     />
                   </div>
                 )}
@@ -332,7 +340,11 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                   <div className="flex flex-col items-center justify-center gap-4 flex-1 px-6 py-10 text-center">
                     <CircularProgress color="primary" size="lg" isIndeterminate aria-label={t('status.loading')} />
                     <p className="text-sm text-foreground-500">
-                      {phase === 'uploading' ? t('scan.uploading') : t('scan.processing')}
+                      {phase === 'uploading'
+                        ? t('scan.uploading')
+                        : jobQuery.data?.status === 'pending'
+                          ? t('scan.queued')
+                          : t('scan.processing')}
                     </p>
                   </div>
                 )}
@@ -372,7 +384,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                         <FilterChip
                           key={cat}
                           size="md"
-                          startContent={CATEGORY_ICONS[cat]}
+                          startContent={<CategoryIcon category={cat} />}
                           color={CATEGORY_CHIP_COLOR[cat]}
                           selected={reviewValues.category === cat}
                           onPress={() =>
@@ -478,7 +490,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
 
                     {reviewValues.cellarId && (
                       <Checkbox isSelected={saveAsDefault} onValueChange={setSaveAsDefault} size="sm">
-                        {t('scan.review.setDefaultLocation', { category: t(`categories.${reviewValues.category}`) })}
+                        {t('scan.review.setDefaultLocation', { context: reviewValues.category, category: t(`categoriesPlural.${reviewValues.category}`) })}
                       </Checkbox>
                     )}
 

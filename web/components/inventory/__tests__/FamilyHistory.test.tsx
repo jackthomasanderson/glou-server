@@ -233,7 +233,7 @@ describe('FamilyHistory — gestures (recette #847)', () => {
 
   it('says the level of a bottle opened short of full', () => {
     renderHistory([entry({ itemId: 's', gesture: 'opened', changes: [{ field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 50 }] })]);
-    expect(lines()[0]).toHaveTextContent('1 bouteille ouverte · Niveau ajusté à 50%');
+    expect(lines()[0]).toHaveTextContent('1 bouteille ouverte · Niveau ajusté à 50 %');
   });
 
   it('says "1 bouteille bue" and the cell it freed', () => {
@@ -300,7 +300,7 @@ describe('FamilyHistory — gestures (recette #847)', () => {
 
   it('still reads an entry without gesture as before (a level adjusted)', () => {
     renderHistory([entry({ itemId: 'b1', changes: [{ field: 'fillLevel', from: 100, to: 40 }] })]);
-    expect(lines()[0]).toHaveTextContent('Niveau ajusté à 40%');
+    expect(lines()[0]).toHaveTextContent('Niveau ajusté à 40 %');
   });
 
   it('says the cell a bottle moved to another cellar left (KO 6.6)', () => {

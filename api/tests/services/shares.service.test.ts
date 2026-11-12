@@ -245,7 +245,6 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     expect(call.select.product.select.notes).toBe(false);
     expect(call.select).not.toHaveProperty('notes');
     expect(call.select.purchasePrice).toBe(false);
-    expect(call.select.purchasePlace).toBe(false);
     expect(call.select.estimatedValue).toBe(false);
     // #471 (FEAT-109): the purchase day is purchase information, hidden with the prices.
     expect(call.select.purchasedAt).toBe(false);
@@ -263,6 +262,24 @@ describe('sharesService.getInventoryForShare — price/notes masking (security)'
     expect(call.select.product.select.notes).toBe(true);
     expect(call.select.purchasePrice).toBe(true);
     expect(call.select.purchasedAt).toBe(true);
+  });
+
+  // #620: data minimisation — only what the guest showcase displays
+  // (GuestFamilyCard: name, producer, vintage, region, photo, notes; the
+  // category picks the card's wording). No technical sheet, no maturity.
+  it('sends the guest only the description the showcase displays', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await sharesService.getInventoryForShare({
+      cellarIds: [], collectionIds: [], userId: 'owner1', hidePrices: false, hideNotes: false,
+    });
+
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> & { product: { select: Record<string, unknown> } } };
+    expect(Object.keys(call.select.product.select).sort()).toEqual(
+      ['category', 'name', 'notes', 'photoUrl', 'producer', 'region', 'vintage'],
+    );
+    // A purchase place is never shown to a guest, prices shown or not.
+    expect(call.select).not.toHaveProperty('purchasePlace');
   });
 
   // #471 (lot Z): a unit has no description of its own; the guest reads its family's, flat as before.

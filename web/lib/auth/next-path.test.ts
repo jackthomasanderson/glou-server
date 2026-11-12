@@ -10,14 +10,15 @@ describe('post-login destination (#507)', () => {
   it('does not bother for the default landing page', () => {
     expect(loginPathFor('/')).toBe('/login');
     expect(loginPathFor('/bottles')).toBe('/login');
-    expect(postLoginPath('')).toBe('/bottles');
+    expect(loginPathFor('/bottles?category=wine')).toBe('/login');
+    expect(postLoginPath('')).toBe('/bottles?category=wine');
   });
 
   it('refuses anything that would leave the site', () => {
     expect(safeNextPath('https://evil.example')).toBeNull();
     expect(safeNextPath('//evil.example/x')).toBeNull();
     expect(safeNextPath('/\\evil.example')).toBeNull();
-    expect(postLoginPath('?next=%2F%2Fevil.example')).toBe('/bottles');
+    expect(postLoginPath('?next=%2F%2Fevil.example')).toBe('/bottles?category=wine');
   });
 
   it('never loops back to the login page', () => {
@@ -39,9 +40,9 @@ describe('post-login destination never leaves the site (#602)', () => {
 
   it('refuses an encoded tab, newline or carriage return after the leading slash', () => {
     for (const ch of ['%09', '%0A', '%0D']) {
-      expect(postLoginPath(`?next=%2F${ch}%2Fevil.example`)).toBe('/bottles');
-      expect(postLoginPath(`?next=${ch}%2F%2Fevil.example`)).toBe('/bottles');
-      expect(postLoginPath(`?next=%2F%2F${ch}evil.example`)).toBe('/bottles');
+      expect(postLoginPath(`?next=%2F${ch}%2Fevil.example`)).toBe('/bottles?category=wine');
+      expect(postLoginPath(`?next=${ch}%2F%2Fevil.example`)).toBe('/bottles?category=wine');
+      expect(postLoginPath(`?next=%2F%2F${ch}evil.example`)).toBe('/bottles?category=wine');
     }
     expect(safeNextPath('/\t/evil.example')).toBeNull();
     expect(safeNextPath('/\n/evil.example')).toBeNull();
@@ -63,9 +64,9 @@ describe('post-login destination never leaves the site (#602)', () => {
     ]) {
       expect(safeNextPath(raw), raw).toBeNull();
     }
-    expect(postLoginPath('?next=%2F%5Cevil.example')).toBe('/bottles');
-    expect(postLoginPath('?next=javascript%3Aalert(1)')).toBe('/bottles');
-    expect(postLoginPath('?next=https%3A%2F%2Fevil.example')).toBe('/bottles');
+    expect(postLoginPath('?next=%2F%5Cevil.example')).toBe('/bottles?category=wine');
+    expect(postLoginPath('?next=javascript%3Aalert(1)')).toBe('/bottles?category=wine');
+    expect(postLoginPath('?next=https%3A%2F%2Fevil.example')).toBe('/bottles?category=wine');
   });
 
   it('refuses dot segments that collapse into "//"', () => {
@@ -81,7 +82,7 @@ describe('post-login destination never leaves the site (#602)', () => {
       expect(out, raw).not.toBeNull();
       expect(landsOnSite(out), raw).toBe(true);
     }
-    expect(postLoginPath('?next=%252F%252Fevil.example')).toBe('/bottles');
+    expect(postLoginPath('?next=%252F%252Fevil.example')).toBe('/bottles?category=wine');
   });
 
   it('never returns anything that lands on another origin', () => {

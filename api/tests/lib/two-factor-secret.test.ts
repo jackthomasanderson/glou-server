@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { authenticator } from 'otplib';
+import { newTotpSecret } from '../../src/lib/totp';
 
 // #613 / #890 (review): re-encrypting a clear secret only after its next code
 // left it in every new backup for a member who signs in on a trusted device,
@@ -17,7 +17,7 @@ import { encrypt, decrypt } from '../../src/lib/crypto';
 import { encryptClearTwoFactorSecrets } from '../../src/lib/two-factor-secret';
 
 const KEY = 'ab'.repeat(32);
-const CLEAR = authenticator.generateSecret();
+const CLEAR = newTotpSecret();
 
 beforeEach(() => {
   findMany.mockReset();

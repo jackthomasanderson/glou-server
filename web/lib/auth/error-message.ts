@@ -4,7 +4,7 @@ import { NetworkError } from '@/lib/network-error';
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
 /** The request never got an answer: offline, server down, or timed out. */
-function isNetworkFailure(err: unknown): boolean {
+export function isNetworkFailure(err: unknown): boolean {
   return err instanceof NetworkError
     || (err as { name?: unknown } | null)?.name === 'TimeoutError'
     || (err instanceof Error && err.message === 'NETWORK_ERROR');

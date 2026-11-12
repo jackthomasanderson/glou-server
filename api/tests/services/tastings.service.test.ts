@@ -48,7 +48,7 @@ describe('tastingsService — the bottle of a tasting, described by its family',
     vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([row, { ...row, id: 't2', itemId: null, item: null }] as never);
     vi.mocked(prisma.tastingNote.count).mockResolvedValue(2 as never);
 
-    const { notes: served } = await tastingsService.list('u1');
+    const { notes: served } = await tastingsService.list();
 
     expect(served[0].item).toEqual({ id: 'b1', name: 'Talbot', producer: 'Château Talbot', category: 'wine', photoUrl: '/p.jpg', color: 'red', spiritType: null, sparklingType: null, format: null });
     expect(served[1].item).toBeNull();
@@ -64,7 +64,7 @@ describe('tastingsService — the bottle of a tasting, described by its family',
     vi.mocked(prisma.tastingNote.update).mockResolvedValue(row as never);
 
     const created = await tastingsService.create('u1', { itemId: 'b1', rating: 4 } as never);
-    const edited = await tastingsService.update('t1', 'u1', { rating: 3 } as never);
+    const edited = await tastingsService.update('t1', { rating: 3 } as never);
 
     expect(created.item).toMatchObject({ id: 'b1', name: 'Talbot' });
     expect(edited!.item).toMatchObject({ id: 'b1', name: 'Talbot' });
@@ -75,7 +75,7 @@ describe('tastingsService.analytics — top/flop items (ISSUE_038)', () => {
   it('hides the flop list while there are too few rated items', async () => {
     vi.mocked(prisma.tastingNote.findMany).mockResolvedValue(notes(1) as never);
 
-    const stats = await tastingsService.analytics('u1');
+    const stats = await tastingsService.analytics();
 
     expect(stats.topItems.map((i) => i.id)).toEqual(['i1']);
     // The single rated item must not be its own worst entry.
@@ -85,7 +85,7 @@ describe('tastingsService.analytics — top/flop items (ISSUE_038)', () => {
   it('still hides the flop list just below the threshold', async () => {
     vi.mocked(prisma.tastingNote.findMany).mockResolvedValue(notes(9) as never);
 
-    const stats = await tastingsService.analytics('u1');
+    const stats = await tastingsService.analytics();
 
     expect(stats.topItems).toHaveLength(5);
     expect(stats.flopItems).toEqual([]);
@@ -94,7 +94,7 @@ describe('tastingsService.analytics — top/flop items (ISSUE_038)', () => {
   it('returns disjoint top and flop lists once there are enough rated items', async () => {
     vi.mocked(prisma.tastingNote.findMany).mockResolvedValue(notes(12) as never);
 
-    const stats = await tastingsService.analytics('u1');
+    const stats = await tastingsService.analytics();
 
     const topIds = stats.topItems.map((i) => i.id);
     const flopIds = stats.flopItems.map((i) => i.id);
@@ -111,7 +111,7 @@ describe('tastingsService.analytics — top/flop items (ISSUE_038)', () => {
       { rating: 4, readiness: 'PAST', product: null },
     ] as never);
 
-    const stats = await tastingsService.analytics('u1');
+    const stats = await tastingsService.analytics();
 
     expect(stats.topItems.map((i) => i.id)).toEqual(['i1', 'i2']);
     expect(stats.producerRankings).toHaveLength(2);
@@ -144,7 +144,7 @@ describe('tastingsService — the family of the tasted bottle', () => {
     vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1' } as never);
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ id: 'b2', productId: 'p2' } as never);
 
-    await tastingsService.update('t1', 'u1', { itemId: 'b2' });
+    await tastingsService.update('t1', { itemId: 'b2' });
 
     expect(vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]).toMatchObject({ data: { itemId: 'b2', productId: 'p2' } });
   });
@@ -152,7 +152,7 @@ describe('tastingsService — the family of the tasted bottle', () => {
   it('leaves the family alone when the bottle does not change', async () => {
     vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1' } as never);
 
-    await tastingsService.update('t1', 'u1', { rating: 3 });
+    await tastingsService.update('t1', { rating: 3 });
 
     const data = vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]?.data as Record<string, unknown>;
     expect(data).not.toHaveProperty('productId');
@@ -250,7 +250,7 @@ describe('tastingsService — tastings of the wine (FEAT-107)', () => {
     vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', productId: 'p1', itemId: 'b1' } as never);
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null as never);
 
-    await tastingsService.update('t1', 'u1', { itemId: 'b1', rating: 2 });
+    await tastingsService.update('t1', { itemId: 'b1', rating: 2 });
 
     expect(prisma.inventoryItem.findFirst).not.toHaveBeenCalled();
     expect(vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]?.data).toMatchObject({ rating: 2 });
@@ -261,7 +261,7 @@ describe('tastingsService — tastings of the wine (FEAT-107)', () => {
     vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', productId: 'p1', itemId: 'b1' } as never);
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(null as never);
 
-    await expect(tastingsService.update('t1', 'u1', { itemId: 'b2' })).rejects.toMatchObject({ status: 404, code: 'ITEM_NOT_FOUND' });
+    await expect(tastingsService.update('t1', { itemId: 'b2' })).rejects.toMatchObject({ status: 404, code: 'ITEM_NOT_FOUND' });
   });
 
   // Review #818: `productKey` keeps a spirit's vintage — named twice, one wine.
@@ -280,7 +280,7 @@ describe('tastingsService — tastings of the wine (FEAT-107)', () => {
     vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', productId: 'p1' } as never);
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ productId: 'p2' } as never);
 
-    await expect(tastingsService.update('t1', 'u1', { itemId: 'b9' })).rejects.toMatchObject({ code: 'ITEM_NOT_IN_PRODUCT' });
+    await expect(tastingsService.update('t1', { itemId: 'b9' })).rejects.toMatchObject({ code: 'ITEM_NOT_IN_PRODUCT' });
     expect(prisma.tastingNote.update).not.toHaveBeenCalled();
   });
 
@@ -288,7 +288,7 @@ describe('tastingsService — tastings of the wine (FEAT-107)', () => {
     vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', productId: 'p1', itemId: null } as never);
     vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue({ productId: 'p1' } as never);
 
-    await tastingsService.update('t1', 'u1', { itemId: 'b1' });
+    await tastingsService.update('t1', { itemId: 'b1' });
 
     expect(vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]).toMatchObject({ data: { itemId: 'b1', productId: 'p1' } });
   });
@@ -298,7 +298,7 @@ describe('tastingsService — tastings of the wine (FEAT-107)', () => {
     vi.mocked(prisma.tastingNote.findMany).mockResolvedValue([] as never);
     vi.mocked(prisma.tastingNote.count).mockResolvedValue(0 as never);
 
-    await tastingsService.list('u1', 1, 20, undefined, ' Talbot ', P1);
+    await tastingsService.list(1, 20, undefined, ' Talbot ', P1);
 
     const args = vi.mocked(prisma.tastingNote.findMany).mock.calls[0]?.[0];
     expect(args?.where).toMatchObject({ productId: P1 });
@@ -317,7 +317,7 @@ describe('tastingsService — tastings of the wine (FEAT-107)', () => {
       { rating: 2, readiness: null, tastedAt: new Date('2026-09-01') },
     ] as never);
 
-    const stats = await tastingsService.itemStats('u1', 'b1');
+    const stats = await tastingsService.itemStats('b1');
 
     expect(vi.mocked(prisma.tastingNote.findMany).mock.calls[0]?.[0]?.where).toEqual({ productId: 'p1' });
     expect(stats).toMatchObject({ count: 2, avgRating: 3, lastRating: 4 });
@@ -330,7 +330,7 @@ describe('tastingsService — tastings of the wine (FEAT-107)', () => {
       { rating: 3, readiness: null, product: { id: 'p1', name: 'A', producer: 'X' } },
     ] as never);
 
-    const stats = await tastingsService.analytics('u1');
+    const stats = await tastingsService.analytics();
 
     expect(vi.mocked(prisma.tastingNote.findMany).mock.calls[0]?.[0]?.where).toEqual({ productId: { not: null } });
     expect(stats.topItems).toEqual([{ id: 'p1', name: 'A', producer: 'X', avgRating: 4, count: 2 }]);
@@ -383,7 +383,7 @@ describe('tastingsService — the bottle tasted, as it was (#837)', () => {
       { productId: 'p1', cellarId: 'cuisine', purchasedAt: BOUGHT, cellar: { name: 'Cuisine' } } as never,
     );
 
-    await tastingsService.update('t1', 'u1', { itemId: 'b2' });
+    await tastingsService.update('t1', { itemId: 'b2' });
 
     expect(vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]).toMatchObject({
       data: { itemId: 'b2', cellarId: 'cuisine', cellarName: 'Cuisine', purchasedAt: BOUGHT, snapshotAt: expect.any(Date) },
@@ -393,7 +393,7 @@ describe('tastingsService — the bottle tasted, as it was (#837)', () => {
   it('keeps what it wrote on any other edit, its own bottle resent included', async () => {
     vi.mocked(prisma.tastingNote.findFirst).mockResolvedValue({ id: 't1', itemId: 'b1', productId: 'p1' } as never);
 
-    await tastingsService.update('t1', 'u1', { itemId: 'b1', rating: 3 });
+    await tastingsService.update('t1', { itemId: 'b1', rating: 3 });
 
     const data = vi.mocked(prisma.tastingNote.update).mock.calls[0]?.[0]?.data as Record<string, unknown>;
     expect(data).not.toHaveProperty('cellarId');

@@ -46,6 +46,8 @@ export interface ConvertToInventoryInput {
   cigarsPerBox?: number | null;
   /** #471 (FEAT-97 c5): "C'est un autre vin" — the wines of the same name the new one is not. */
   distinctFrom?: string[];
+  /** #587: a spirit's ABV; absent or null, unknown. */
+  alcoholDegree?: number | null;
 }
 
 export interface ConvertResult {

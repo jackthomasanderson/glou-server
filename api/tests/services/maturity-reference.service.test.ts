@@ -67,6 +67,17 @@ describe('maturityReferenceService.suggest — FEAT-86 cascade', () => {
     expect(s?.curveShape).toBe('LATE_BELL');
   });
 
+  // #733: the colour criterion compares the stored colour codes (WINE_COLORS).
+  it('at equal priority, a "red" reference wins for a red bottle, not for a white one', async () => {
+    vi.mocked(prisma.maturityReference.findMany).mockResolvedValue([
+      ref({ id: 'catch-all', priority: 10, createdAt: new Date('2026-02-01') }),
+      ref({ id: 'reds', priority: 10, color: 'red', createdAt: new Date('2026-01-01') }),
+    ] as never);
+
+    expect((await maturityReferenceService.suggest({ category: 'wine', color: 'red' }))?.reference.id).toBe('reds');
+    expect((await maturityReferenceService.suggest({ category: 'wine', color: 'white' }))?.reference.id).toBe('catch-all');
+  });
+
   it('returns null when no reference matches the category at all', async () => {
     vi.mocked(prisma.maturityReference.findMany).mockResolvedValue([] as never);
     expect(await maturityReferenceService.suggest({ category: 'wine' })).toBeNull();

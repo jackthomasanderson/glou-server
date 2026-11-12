@@ -7,8 +7,11 @@ import { MaintenanceService } from './services/maintenance.service';
 import { recomputeAlertStatuses } from './services/alert.service';
 import { checkHumidorDrift } from './services/humidor.service';
 import { backupService, BACKUPS_DIR } from './services/backup.service';
+import { BACKUPS_DIR_FIX_HINT } from './lib/pg-dump';
 import { findSecretProblems, describeSecretProblem } from './lib/startup-secrets';
 import { encryptClearTwoFactorSecrets } from './lib/two-factor-secret';
+import { installEarlyExit, installGracefulShutdown } from './lib/graceful-shutdown';
+import { loadGeoDatabase } from './lib/device';
 import { DAILY_ALERTS_CRON, DAILY_ALERTS_HOUR, isAlertsCatchUpWindow } from './lib/alerts-schedule';
 
 // ─── Startup secret guard ────────────────────────────────────────────────────
@@ -32,7 +35,7 @@ function assertSecretsConfigured(): void {
     else console.error(`[startup] FATAL: ${msg}`);
   }
   if (!isDev) {
-    console.error('[startup] Refusing to start with missing or example secrets outside development. Set NODE_ENV=development to bypass locally.');
+    console.error('[startup] Refusing to start with missing, too short or example secrets outside development. Set NODE_ENV=development to bypass locally.');
     process.exit(1);
   }
 }
@@ -71,7 +74,13 @@ function logTimeZone(): void {
 }
 
 async function bootstrap(): Promise<void> {
+  // #673: a stop while the database is still unreachable must not wait for
+  // Docker's SIGKILL (Node is PID 1 and would otherwise ignore SIGTERM).
+  installEarlyExit();
   logTimeZone();
+  // #434: without the database, session locations and the trusted-device
+  // country check are off; say so at boot, not at the first sign-in.
+  loadGeoDatabase();
   await connectWithRetry();
 
   // #613: 2FA secrets stored in the clear before the update (or by a dump
@@ -79,6 +88,11 @@ async function bootstrap(): Promise<void> {
   if ((await encryptClearTwoFactorSecrets()) === null) {
     console.warn('[startup] CONFIG_ENCRYPTION_KEY is not set: two-factor secrets cannot be encrypted');
   }
+
+  // #761: a backup hour saved in UTC by an earlier version becomes an hour of
+  // the instance's time zone, once (the migration flagged it, SQL cannot know TZ).
+  await backupService.convertLegacyUtcBackupHour()
+    .catch((err) => console.error('[startup] Backup hour conversion failed:', err));
 
   // ISSUE_084: a ScanJob left in 'pending'/'processing' by a crash or deploy
   // mid-flight would otherwise poll forever from the client's point of view.
@@ -91,7 +105,7 @@ async function bootstrap(): Promise<void> {
   void inventoryService.purgeTrashed().then(({ count, photoPaths }) => {
     if (count > 0) console.info(`[startup] Purged ${count} permanently deleted items`);
     void inventoryService.deletePhotoFiles(photoPaths);
-  });
+  }).catch((err) => console.error('[startup] Trash purge failed:', err));
 
   // FEAT-39: data retention cleanup (audit logs, expired/revoked sessions,
   // trusted devices and guest shares). Run once immediately on startup so a
@@ -100,7 +114,7 @@ async function bootstrap(): Promise<void> {
   void MaintenanceService.runRetentionCleanup('scheduled').then((run) => {
     if (run.success) console.info('[startup] Retention cleanup completed:', run.counts);
     else console.error('[startup] Retention cleanup failed:', run.error);
-  });
+  }).catch((err) => console.error('[startup] Retention cleanup crashed:', err));
 
   // ISSUE_033: the denormalised `alertStatus` column depends on the current
   // year, so it goes stale on its own every 1st of January. Realign it on
@@ -118,7 +132,7 @@ async function bootstrap(): Promise<void> {
     void MaintenanceService.runRetentionCleanup('scheduled').then((run) => {
       if (run.success) console.info('[cron] Retention cleanup completed:', run.counts);
       else console.error('[cron] Retention cleanup failed:', run.error);
-    });
+    }).catch((err) => console.error('[cron] Retention cleanup crashed:', err));
   });
 
   // #575: the jobs that notify members run in the daytime — at 3 AM, any
@@ -143,8 +157,7 @@ async function bootstrap(): Promise<void> {
   if (!backupService.isBackupsDirWritable()) {
     console.error(
       `[backup] ${BACKUPS_DIR} is not writable by this process (uid ${process.getuid?.() ?? '?'}): `
-      + 'scheduled backups will fail. On the host, next to docker-compose.yml, run: '
-      + 'mkdir -p backups && sudo chown 1001:1001 backups',
+      + `scheduled backups will fail. ${BACKUPS_DIR_FIX_HINT}`,
     );
   }
 
@@ -157,10 +170,11 @@ async function bootstrap(): Promise<void> {
     .catch((err) => console.error('[startup] Backup history resync failed:', err));
 
   // FEAT-18: scheduled database backups (pg_dump). Ticks hourly and re-reads
-  // SystemConfig (backupEnabled/backupHourUtc) on every tick — see
+  // SystemConfig (backupEnabled/backupHour) on every tick — see
   // backupService.runScheduledIfDue — so an admin can enable/disable or
   // change the target hour without restarting the container. It produces a
-  // backup when the current UTC hour matches the configured one — a
+  // backup when the current hour of the instance's time zone (#761) matches
+  // the configured one — a
   // once-a-day job despite the hourly tick — or, as a catch-up, when the last
   // successful backup is more than 25 h old (a run missed while the container
   // was down, or failing runs being retried hourly).
@@ -178,20 +192,9 @@ async function bootstrap(): Promise<void> {
     console.info(`[api] Server listening on port ${PORT} (${process.env.NODE_ENV})`);
   });
 
-  // ISSUE_091: a container stop (image update, `docker compose restart`, a
-  // reboot) sent SIGTERM straight into an unhandled default — the process
-  // was force-killed after Docker's grace period with whatever request was
-  // in flight simply cut off, no response ever sent. `server.close()` stops
-  // accepting new connections and waits for in-flight ones to finish on
-  // their own before this handler continues.
-  const shutdown = (signal: string) => {
-    console.info(`[api] ${signal} received, shutting down gracefully`);
-    server.close(() => {
-      void prisma.$disconnect().finally(() => process.exit(0));
-    });
-  };
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT', () => shutdown('SIGINT'));
+  // ISSUE_091 / #673: finish in-flight requests, then close the database
+  // connections, within Docker's grace period (see lib/graceful-shutdown).
+  installGracefulShutdown(server, () => prisma.$disconnect());
 }
 
 bootstrap().catch((err) => {

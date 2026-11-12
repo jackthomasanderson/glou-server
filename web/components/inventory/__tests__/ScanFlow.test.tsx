@@ -8,38 +8,52 @@ import type { ReactNode } from 'react';
 // error screen offers to enter the item by hand.
 
 let uploadOutcome: { error: string } | { jobId: string } = { error: 'UNEXPECTED_ERROR' };
-let polledJob: { status: 'failed'; errorMessage: string | null } | { status: 'done'; extractedData: Record<string, unknown> } | undefined;
+let polledJob: { status: 'failed'; errorMessage: string | null } | { status: 'done'; extractedData: Record<string, unknown> } | { status: 'pending' | 'processing' } | undefined;
 const invalidateQueries = vi.fn();
 const createItem = vi.fn();
+const addToCollection = vi.fn();
 
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ invalidateQueries }) }));
+const uploaded = vi.fn();
 vi.mock('@/hooks/useScan', () => ({
   SCAN_STATUS_QUERY_KEY: ['scan-status'],
   useUploadScan: () => ({
-    mutate: (_file: File, handlers: { onSuccess: (r: { jobId: string }) => void; onError: (e: Error) => void }) => {
-      if ('error' in uploadOutcome) handlers.onError(new Error(uploadOutcome.error));
-      else handlers.onSuccess({ jobId: uploadOutcome.jobId });
+    mutate: (file: File, handlers: { onSuccess: (r: { jobId: string }) => void; onError: (e: Error) => void }) => {
+      uploaded(file);
+      sendUpload(handlers);
     },
   }),
   useScanJob: (jobId: string | null) => ({ data: jobId ? polledJob : undefined }),
 }));
+function sendUpload(handlers: { onSuccess: (r: { jobId: string }) => void; onError: (e: Error) => void }) {
+  if ('error' in uploadOutcome) handlers.onError(new Error(uploadOutcome.error));
+  else handlers.onSuccess({ jobId: uploadOutcome.jobId });
+}
 vi.mock('@/hooks/useInventory', () => ({
   useInventory: () => ({ data: [] }),
   useCreateInventoryItem: () => ({ mutateAsync: createItem, isPending: false }),
   useUpdateInventoryItem: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [] }) }));
+vi.mock('@/hooks/useCollections', () => ({ useAddItemsToCollection: () => ({ mutateAsync: addToCollection, isPending: false }) }));
 vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
 }));
-// The full add form: a stand-in that submits a fixed item.
+// The full add form: a stand-in that submits a fixed item, with or without
+// collections picked under "More details".
 vi.mock('../InventoryForm', () => ({
-  InventoryForm: ({ open, onSubmit }: { open: boolean; onSubmit: (v: object) => void }) =>
+  InventoryForm: ({ open, onSubmit }: { open: boolean; onSubmit: (v: object, c: string[]) => void }) =>
     open ? (
       <div data-testid="manual-form">
-        <button type="button" onClick={() => onSubmit({ category: 'wine', name: 'Talbot', producer: 'Château Talbot' })}>
+        <button type="button" onClick={() => onSubmit({ category: 'wine', name: 'Talbot', producer: 'Château Talbot' }, [])}>
           submit-manual
+        </button>
+        <button type="button" onClick={() => onSubmit({ category: 'wine', name: 'Talbot', producer: 'Château Talbot' }, ['col-gifts'])}>
+          submit-manual-in-collection
+        </button>
+        <button type="button" onClick={() => onSubmit({ category: 'wine', name: 'Talbot', producer: 'Château Talbot', cellarId: null }, [])}>
+          submit-manual-no-cellar
         </button>
       </div>
     ) : null,
@@ -91,6 +105,7 @@ beforeEach(() => {
   polledJob = undefined;
   sameName = [];
   createItem.mockResolvedValue({ id: 'i1', name: 'Talbot', producer: 'Château Talbot' });
+  addToCollection.mockResolvedValue({});
 });
 
 describe('ScanFlow error message follows the cause (#639)', () => {
@@ -145,6 +160,67 @@ describe('ScanFlow error message follows the cause (#639)', () => {
     polledJob = { status: 'failed', errorMessage: null };
     renderAndSendPhoto();
     expect(screen.getByRole('alert')).toHaveTextContent('scan.errors.failed');
+  });
+});
+
+describe('ScanFlow photo from the camera or the gallery (#808)', () => {
+  function inputs(container: HTMLElement) {
+    return Array.from(container.querySelectorAll('input[type="file"]')) as HTMLInputElement[];
+  }
+
+  it('keeps the camera input and adds a gallery input without `capture`', () => {
+    const view = render(<ScanFlow open onClose={() => {}} t={t} />);
+    const [camera, gallery] = inputs(view.container);
+    expect(camera).toHaveAttribute('capture', 'environment');
+    expect(gallery).toBeDefined();
+    expect(gallery).not.toHaveAttribute('capture');
+    // No HEIC in `accept`: iOS then hands over a JPEG copy of a gallery photo.
+    expect(gallery.getAttribute('accept')).toBe(camera.getAttribute('accept'));
+    expect(gallery.getAttribute('accept')).not.toMatch(/heic|heif/i);
+  });
+
+  it('opens each picker from its own button', () => {
+    const view = render(<ScanFlow open onClose={() => {}} t={t} />);
+    const [camera, gallery] = inputs(view.container);
+    const cameraClick = vi.spyOn(camera, 'click').mockImplementation(() => {});
+    const galleryClick = vi.spyOn(gallery, 'click').mockImplementation(() => {});
+    fireEvent.click(screen.getByRole('button', { name: 'scan.capture.start' }));
+    expect(cameraClick).toHaveBeenCalledTimes(1);
+    expect(galleryClick).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.capture.gallery' }));
+    expect(galleryClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('analyses a photo chosen from the gallery', () => {
+    uploadOutcome = { jobId: 'j1' };
+    polledJob = { status: 'processing' };
+    const view = render(<ScanFlow open onClose={() => {}} t={t} />);
+    const photo = new File(['x'], 'label.jpg', { type: 'image/jpeg' });
+    fireEvent.change(inputs(view.container)[1], { target: { files: [photo] } });
+    expect(uploaded).toHaveBeenCalledWith(photo);
+    expect(screen.getByText('scan.processing')).toBeInTheDocument();
+  });
+
+  it('explains that a HEIC photo is not supported', () => {
+    uploadOutcome = { error: 'HEIC_NOT_SUPPORTED' };
+    renderAndSendPhoto();
+    expect(screen.getByRole('alert')).toHaveTextContent('scan.errors.heic');
+  });
+});
+
+describe('ScanFlow when other scans are waiting (#609)', () => {
+  it('says the scan waits its turn while the job is pending', () => {
+    uploadOutcome = { jobId: 'j1' };
+    polledJob = { status: 'pending' };
+    renderAndSendPhoto();
+    expect(screen.getByText('scan.queued')).toBeInTheDocument();
+  });
+
+  it('says the server is busy when too many scans already wait', () => {
+    uploadOutcome = { error: 'SCAN_BUSY' };
+    renderAndSendPhoto();
+    expect(screen.getByRole('alert')).toHaveTextContent('scan.errors.busy');
+    expect(screen.getByRole('button', { name: 'scan.retry' })).toBeInTheDocument();
   });
 });
 
@@ -233,5 +309,29 @@ describe('ScanFlow — a wine already known (FEAT-97)', () => {
 
     expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
     expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ name: 'Talbot', distinctFrom: ['p1'], scanJobId: 'j1' }));
+  });
+});
+
+// #660, #690: the collections picked under "More details" were dropped by the
+// scan, and its default-cellar rule was its own copy.
+describe('ScanFlow — the full form saves as everywhere else (#690)', () => {
+  it('files the item in the collections picked in the full form', async () => {
+    uploadOutcome = { error: 'SCAN_UNAVAILABLE' };
+    renderAndSendPhoto();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.enterManually' }));
+    fireEvent.click(screen.getByRole('button', { name: 'submit-manual-in-collection' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(addToCollection).toHaveBeenCalledWith({ id: 'col-gifts', itemIds: ['i1'] });
+  });
+
+  it('keeps an explicit "No cellar" from the full form, even in the wizard', async () => {
+    uploadOutcome = { error: 'SCAN_UNAVAILABLE' };
+    renderAndSendPhoto('cellar-1');
+    fireEvent.click(screen.getByRole('button', { name: 'scan.enterManually' }));
+    fireEvent.click(screen.getByRole('button', { name: 'submit-manual-no-cellar' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ cellarId: null }));
   });
 });

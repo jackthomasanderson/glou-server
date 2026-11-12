@@ -2,10 +2,17 @@ import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal
 import { fetchOrNetworkError } from '../network-error';
 import type { UnitWriteResult } from '@shared/product';
 import type { Wire } from '@shared/wire';
+import type { InventoryCategory } from '@shared/inventory';
 import type { InventoryItem, InventoryItemPatch } from './types';
 
 /** D8: what a PATCH of one bottle changed — the bottle carrying the state asked, the others, those removed. */
 export type InventoryUnitWrite = Wire<UnitWriteResult<InventoryItem>>;
+
+/** #962: what a permanent deletion from the trash removed — the lines, and the wines gone with them. */
+export interface TrashDeletion {
+  itemIds: string[];
+  productIds: string[];
+}
 
 // ─── Inventory API client ───────────────────────────────────────────────────────
 
@@ -79,6 +86,18 @@ export const inventoryClient = {
 
   async restore(id: string): Promise<InventoryItem> {
     const { data } = await client.post<InventoryItem>(`/inventory/${id}/restore`);
+    return data;
+  },
+
+  /** #962 (administrators): one line of the trash, deleted for good. */
+  async deleteFromTrash(id: string): Promise<TrashDeletion> {
+    const { data } = await client.delete<TrashDeletion>(`/inventory/trash/${encodeURIComponent(id)}`);
+    return data;
+  },
+
+  /** #962 (administrators): everything in the trash for these categories (a page), deleted for good. */
+  async emptyTrash(categories: readonly InventoryCategory[]): Promise<TrashDeletion> {
+    const { data } = await client.post<TrashDeletion>('/inventory/trash/empty', { categories });
     return data;
   },
 

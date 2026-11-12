@@ -1,8 +1,9 @@
 'use client';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { Button, Spinner } from '@heroui/react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ListChecks } from 'lucide-react';
 import type { MergeOverLimits } from '@shared/review';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { ErrorState } from '@/components/ui/ErrorState';
@@ -28,10 +29,7 @@ export function ReviewScreen() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
-      <header>
-        <h1 className="text-2xl font-bold">{t('review.title')}</h1>
-        <p className="text-sm text-foreground-500 mt-1">{t('review.intro')}</p>
-      </header>
+      <PageHeader icon={ListChecks} title={t('review.title')} subtitle={t('review.intro')} className="mb-0" />
 
       {overLimits && (
         <div role="status" data-testid="review-over-limits" className="flex flex-wrap items-start gap-2 rounded-lg border border-warning-200 bg-warning-50 px-3 py-2 text-sm text-warning-700">

@@ -23,6 +23,12 @@ export interface RegionCategoryStat {
   valuation: number;
 }
 
+/** #961: units in stock of a category that have nothing to place them on the map by. */
+export interface NoLocationStat {
+  category: string;
+  count: number;
+}
+
 export interface MaturityPlanning {
   preserve: { count: number; percent: number };
   atPeak: { count: number; percent: number };
@@ -97,7 +103,14 @@ export interface AnalyticsStats {
   totalActiveItems: number;
   categoryBreakdown: CategoryStat[];
   regionBreakdown: RegionStat[];
+  /**
+   * #961: regions are grouped regardless of case, spaces and accents
+   * (shared/map-location.ts `normalizeRegionName`) and named once; a wine
+   * without a region is placed by its appellation when the map knows it.
+   */
   regionCategoryBreakdown: RegionCategoryStat[];
+  /** #961: units in stock with neither a region nor a placeable appellation, by category. */
+  noLocationBreakdown: NoLocationStat[];
   maturityPlanning: MaturityPlanning;
   gardeHistogram: GardePoint[];
   caveDistribution: CavePoint[];

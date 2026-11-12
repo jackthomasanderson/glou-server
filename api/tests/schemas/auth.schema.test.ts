@@ -73,10 +73,12 @@ describe('loginSchema', () => {
 });
 
 describe('2FA schemas', () => {
-  it('turnOn2faSchema requires exactly a 6-char code', () => {
-    expect(turnOn2faSchema.safeParse({ code: '123456' }).success).toBe(true);
-    expect(turnOn2faSchema.safeParse({ code: '12345' }).success).toBe(false);
-    expect(turnOn2faSchema.safeParse({ code: '1234567' }).success).toBe(false);
+  it('turnOn2faSchema requires the password and exactly a 6-char code (#603)', () => {
+    expect(turnOn2faSchema.safeParse({ password: 'pw', code: '123456' }).success).toBe(true);
+    expect(turnOn2faSchema.safeParse({ code: '123456' }).success).toBe(false);
+    expect(turnOn2faSchema.safeParse({ password: '', code: '123456' }).success).toBe(false);
+    expect(turnOn2faSchema.safeParse({ password: 'pw', code: '12345' }).success).toBe(false);
+    expect(turnOn2faSchema.safeParse({ password: 'pw', code: '1234567' }).success).toBe(false);
   });
 
   // A backup code is 20 hex chars (crypto.randomBytes(10)); the schemas used

@@ -60,11 +60,26 @@ the images) and at the repository linked below.
 
 | Image | Used for | Licence |
 |---|---|---|
-| \`node:24-alpine\` | api and web runtime | Node.js: MIT; Alpine Linux: various open-source licences |
+| \`node:26-alpine\` | api and web runtime | Node.js: MIT; Alpine Linux: various open-source licences |
 | \`postgres:15-alpine\` | database | PostgreSQL Licence |
 | \`ollama/ollama\` | optional label scan (\`scan\` profile) | MIT |
 
 The \`postgresql-client\` and \`openssl\` packages are added to the API image from Alpine.
+
+The api and web images are published for both \`linux/amd64\` and \`linux/arm64\`.
+Packages with a native binary (\`@img/sharp-*\`, including the LGPL-3.0
+\`@img/sharp-libvips-*\`, and \`@next/swc-*\`) come in one variant per architecture
+and C library, under the same licence. The tables below list the x64 variants
+installed where this file is generated; each image ships only the variant of its
+own platform (\`linuxmusl-x64\` or \`linuxmusl-arm64\` on Alpine).
+
+## Bundled data and fonts
+
+| Item | Shipped in | Licence | Source and attribution |
+|---|---|---|---|
+| Inter font | web image (embedded at build time by \`next/font\`) | SIL Open Font License 1.1 | https://github.com/rsms/inter, licence text at https://openfontlicense.org |
+| DB-IP IP to City Lite (\`/app/geo/dbip-city-lite.mmdb\`, downloaded at build time; see \`/app/geo/NOTICE\`) | api image | CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/) | IP Geolocation by DB-IP, https://db-ip.com |
+| Natural Earth country outlines, inside \`world-atlas\` | web image | Public domain | https://www.naturalearthdata.com/ |
 
 `;
 

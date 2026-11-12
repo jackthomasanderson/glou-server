@@ -31,7 +31,7 @@ model User {
   theme        Theme      @default(SYSTEM)
   language     Language   @default(FR)
   tempUnit     TempUnit   @default(CELSIUS)
-  accentColor  String     @default("#6366f1")
+  accentColor  String     @default("#4f46e5")
   dateFormat   DateFormat @default(SYSTEM)
 
   // "Mode expert / collectionneur" (data-model audit) — OFF by default so the
@@ -74,14 +74,12 @@ model User {
   onboardingCompletedAt DateTime?
 
   // Notifications (FEAT-32)
-  notifInApp         Boolean    @default(true)
   notifEmail         Boolean    @default(false)
   notifWebhook       Boolean    @default(false)
   notifCategories    String[]   @default([])
   notifQuietStart    Int?
   notifQuietEnd      Int?
   notifLanguage      Language?
-  webhookUrl         String?
 
   inventory    InventoryItem[]
   products     Product[]
@@ -165,6 +163,7 @@ model Cellar {
   humidorReadings HumidorReading[]
   slots           ItemSlot[]
   tastingNotes    TastingNote[]
+  countSessions   InventoryCountSession[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -532,8 +531,8 @@ model GuestShare {
   inviteeName   String? // Display name of the invited person (FEAT-37), distinct from `label`
   expiresAt     DateTime?
   revokedAt     DateTime?
-  hidePrices    Boolean   @default(false)
-  hideNotes     Boolean   @default(false)
+  hidePrices    Boolean   @default(true) // #611: hidden unless the owner shows them
+  hideNotes     Boolean   @default(true)
   cellarIds     String[]
   // Subset of cellarIds granted read/write access (FEAT-37). Cellars in cellarIds
   // but absent here remain read-only. Never a superset of cellarIds.
@@ -697,11 +696,6 @@ model TrustedDevice {
 
 // ─── FEAT-34/53: System Configuration (singleton) ────────────────────────────
 
-enum AccessMode {
-  direct
-  proxy
-}
-
 model SystemConfig {
   id String @id @default("singleton")
 
@@ -712,17 +706,16 @@ model SystemConfig {
   smtpUser    String?
   smtpPassEnc String? // AES-256-GCM encrypted
   smtpFrom    String?
-  smtpSecure  Boolean @default(true)
+  smtpSecure  Boolean @default(false) // false = STARTTLS (port 587); true = implicit TLS (port 465)
 
   // Gotify/Webhook (FEAT-34/53)
   gotifyEnabled  Boolean @default(false)
   gotifyUrl      String?
   gotifyTokenEnc String? // AES-256-GCM encrypted
 
-  // In-app notifications (FEAT-53)
-  inAppEnabled Boolean @default(true)
-
   // External API integrations (FEAT-34)
+  // #468: no feature reads these two keys and no screen writes them any more;
+  // the columns stay so that a value saved earlier is not dropped silently.
   vivinoKeyEnc     String? // AES-256-GCM encrypted
   whiskybaseKeyEnc String? // AES-256-GCM encrypted
 
@@ -737,22 +730,27 @@ model SystemConfig {
   // the instance falls back to the `APP_URL` environment variable (and then
   // to 'http://localhost:3000') — see systemConfigService.getEffectivePublicUrl.
   publicUrl  String?
-  accessMode AccessMode @default(direct)
 
   // Close registrations by default (ISSUE_001/#73): once the first account
   // (the instance's admin) exists, anonymous registration is refused unless
   // an admin opts back in here.
   registrationOpen Boolean @default(false)
 
-  // Scheduled database backups (FEAT-18). `backupHourUtc` is the UTC hour
-  // (0-23) at which the daily cron attempts a scheduled pg_dump — see
+  // Scheduled database backups (FEAT-18). `backupHour` is the hour (0-23),
+  // in the instance's time zone (`TZ`, like every other scheduled job, #761),
+  // at which the daily cron attempts a scheduled pg_dump — see
   // backupService.runScheduledIfDue, checked on every cron tick (not just
   // at startup) so toggling `backupEnabled` takes effect without a restart.
   // On by default (#233): the docs promise nightly backups, so a fresh install
   // must have them without anyone having to find the switch.
   backupEnabled       Boolean @default(true)
   backupRetentionDays Int     @default(7)
-  backupHourUtc       Int     @default(3)
+  backupHour          Int     @default(3)
+  // #761: true on a row saved before the hour moved to the instance's time
+  // zone, its `backupHour` still a UTC hour. The API converts it once at
+  // startup (backupService.convertLegacyUtcBackupHour): a SQL migration
+  // cannot know the container's `TZ`.
+  backupHourIsUtc     Boolean @default(false)
 
   updatedAt DateTime @updatedAt
   updatedBy String?
@@ -831,7 +829,11 @@ enum InventoryCountSessionStatus {
 model InventoryCountSession {
   id          String                       @id @default(uuid())
   scopeLabel  String // Libellé libre du périmètre (ex: "Cave Principale", "Meuble A", "Bac 3")
-  cellarId    String? // Optionnel : lien vers une Cellar si le périmètre correspond à une cave entière
+  // Optional: the cellar counted when the scope is a whole cellar. #597: a
+  // real relation, so deleting that cellar empties it (SetNull) and the count
+  // goes on as a free-label one, instead of keeping a dead id it can't close.
+  cellarId    String?
+  cellar      Cellar?                      @relation(fields: [cellarId], references: [id], onDelete: SetNull)
   status      InventoryCountSessionStatus
   // ISSUE_098: audit field, not an ownership field — see the matching note
   // on Cellar.userId. A stocktaking session belongs to the shared cellar.
@@ -940,6 +942,8 @@ model InventoryCountEntry {
   newItemName     String?
   newItemCategory BottleCategory?
   newItemQuantity Int?
+  // #587: a spirit's ABV typed with the find; null = unknown.
+  newItemAlcoholDegree Float?
   // #471: units found for a group; null = the whole item (single unit).
   foundQuantity   Int?
 

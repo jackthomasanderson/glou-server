@@ -20,7 +20,7 @@ const addToCollection = vi.fn();
 vi.mock('@/hooks/useInventory', () => ({
   useCreateInventoryItem: () => ({ mutateAsync: createMutateAsync, isPending: false }),
 }));
-vi.mock('@/hooks/useCollections', () => ({ useAddItemsToCollection: () => ({ mutateAsync: addToCollection }) }));
+vi.mock('@/hooks/useCollections', () => ({ useAddItemsToCollection: () => ({ mutateAsync: addToCollection, isPending: false }) }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn() }));
 
 // The real form is heavy; this stand-in submits whatever the test sets, or
@@ -106,5 +106,15 @@ describe('ManualIngestionStep (AUDIT_006, FEAT-97)', () => {
     saveBottle({ ...CHABLIS }, ['col-1']);
 
     await waitFor(() => expect(addToCollection).toHaveBeenCalledWith({ id: 'col-1', itemIds: ['new-3'] }));
+  });
+
+  // #690: the wizard's `??` replaced an explicit "No cellar" by its own cellar.
+  it('keeps an explicit "No cellar" picked in the form', async () => {
+    createMutateAsync.mockResolvedValue({ id: 'new-4', ...CHABLIS });
+    renderStep();
+    saveBottle({ ...CHABLIS, cellarId: null });
+
+    await waitFor(() => expect(onItemAdded).toHaveBeenCalledOnce());
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ cellarId: null }));
   });
 });

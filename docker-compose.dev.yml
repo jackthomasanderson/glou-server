@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:15-alpine@sha256:aae6554de426ae1990f1a939ff183a0299146cf7142a6f4c379c3357af9cc2d8
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-glou}
@@ -47,8 +47,11 @@ services:
       # raise it to run the whole Playwright suite against this stack.
       API_RATE_LIMIT_MAX: ${API_RATE_LIMIT_MAX:-}
       PORT: 3001
+    # Loopback only (#608): this stack runs in development mode, where the
+    # public example secrets of .env.example are accepted with a warning, so
+    # anyone on the same network could forge a token. Same as docker-compose.e2e.yml.
     ports:
-      - "3001:3001"
+      - "127.0.0.1:3001:3001"
     volumes:
       - api_uploads:/app/uploads
       - api_backups:/app/backups
@@ -63,13 +66,13 @@ services:
       NODE_ENV: ${NODE_ENV:-development}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://api:3001}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     logging: *logging
 
   # Optional label scan: docker compose -f docker-compose.dev.yml --profile scan up -d
   ollama:
     profiles: ["scan"]
-    image: ollama/ollama:0.40.6
+    image: ollama/ollama:0.40.16
     restart: unless-stopped
     mem_limit: 4g
     environment:
@@ -90,7 +93,7 @@ services:
 
   ollama-pull:
     profiles: ["scan"]
-    image: ollama/ollama:0.40.6
+    image: ollama/ollama:0.40.16
     restart: "no"
     depends_on:
       ollama:

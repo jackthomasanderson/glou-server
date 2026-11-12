@@ -41,7 +41,7 @@ export function KnownWineBanner({ matches, onAdd, onDistinct, isDisabled = false
       data-testid="known-wine-banner"
       role="status"
       aria-live="polite"
-      className="flex flex-col gap-3 rounded-xl border border-primary-200 bg-primary-50 p-3 dark:border-primary-800 dark:bg-primary-50/10"
+      className="flex flex-col gap-3 rounded-xl border border-primary-200 bg-primary-50 p-3"
     >
       <p className="text-sm font-semibold text-foreground">{t(`knownWine.title${noun}`)}</p>
       <ul className="flex flex-col gap-2">

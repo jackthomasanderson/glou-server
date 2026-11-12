@@ -68,6 +68,7 @@ describe('ThemeWrapper', () => {
     act(() => root.unmount());
     container.remove();
     document.documentElement.style.cssText = '';
+    document.getElementById('accent-color')?.remove();
     document.documentElement.classList.remove('dark');
     document.documentElement.style.colorScheme = '';
     window.localStorage.clear();
@@ -105,26 +106,41 @@ describe('ThemeWrapper', () => {
     expect(container.textContent).toBe('Hello');
   });
 
-  it("sets --heroui-primary from the user's accent color", () => {
-    mockUser = { accentColor: '#ff0000' };
+  // #648: one stylesheet, a light and a dark value per accent preset.
+  const accentCss = () => document.getElementById('accent-color')?.textContent ?? '';
+
+  it("sets the primary colour from the user's accent preset, per theme", () => {
+    mockUser = { accentColor: '#047857' }; // emerald
     mount(<span>content</span>);
-    const value = document.documentElement.style.getPropertyValue('--heroui-primary').trim();
-    expect(value).toBe('0 100% 50%');
+    // emerald-700 in the light theme, emerald-400 in the dark one.
+    expect(accentCss()).toMatch(/:root:not\(\.dark\)\{[^}]*--heroui-primary:163 94% 24%;/);
+    expect(accentCss()).toMatch(/:root\.dark\{[^}]*--heroui-primary:158 64% 52%;/);
+    expect(accentCss()).toMatch(/:root\.dark\{[^}]*--heroui-primary-foreground:222 47% 11%;/);
   });
 
-  it('falls back to the default indigo accent (#6366f1) when the user has none', () => {
+  it('maps an accent stored before #648 to its new preset', () => {
+    mockUser = { accentColor: '#10b981' }; // the old emerald
+    mount(<span>content</span>);
+    expect(accentCss()).toMatch(/:root:not\(\.dark\)\{[^}]*--heroui-primary:163 94% 24%;/);
+  });
+
+  it('falls back to the default indigo accent when the user has none or an unknown one', () => {
     mockUser = null;
     mount(<span>content</span>);
-    const value = document.documentElement.style.getPropertyValue('--heroui-primary').trim();
-    expect(value).toBe('239 84% 67%');
-  });
-
-  it('also derives the primary-50..900 shade scale from the accent color', () => {
+    expect(accentCss()).toMatch(/:root:not\(\.dark\)\{[^}]*--heroui-primary:243 75% 59%;/);
+    act(() => root.unmount());
+    container.remove();
     mockUser = { accentColor: '#ff0000' };
     mount(<span>content</span>);
-    const shade700 = document.documentElement.style.getPropertyValue('--heroui-primary-700').trim();
-    expect(shade700).not.toBe('');
-    expect(shade700.startsWith('0 ')).toBe(true); // same hue, different lightness
+    expect(accentCss()).toMatch(/:root:not\(\.dark\)\{[^}]*--heroui-primary:243 75% 59%;/);
+  });
+
+  it('also sets the primary-50..900 scale of the preset', () => {
+    mockUser = { accentColor: '#4f46e5' };
+    mount(<span>content</span>);
+    for (const stop of ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900']) {
+      expect(accentCss()).toContain(`--heroui-primary-${stop}:`);
+    }
   });
 
   it('adds the dark class to <html> when the user theme is dark', () => {

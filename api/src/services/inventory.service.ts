@@ -1,18 +1,19 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type BottleCategory } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
-import { InventoryPatch, InventoryInput } from '../schemas/inventory.schema';
-import { computeAlertStatus, computeReadiness } from './alert.service';
+import { isRecordNotFound } from '../lib/errors';
+import { InventoryPatch, InventoryInput, InventoryDraft } from '../schemas/inventory.schema';
+import { computeReadiness, familyAlertStatus } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
 import { isGroupableItem, unitKind, type UnitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
-import { TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
+import { INVENTORY_LIST_LIMIT, TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
   compareFamilyIds, isProductField, lockFamilies, lockFamily, nextLocksAndSources, pickProductFields, purchaseDayFromInput,
   toItemView, toUnitView, UNIT_SLOTS_INCLUDE,
-  type FlatItemView,
+  type FlatItemView, type ProductField,
 } from '../lib/product-fields';
 import {
   applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
@@ -63,7 +64,7 @@ export type { FieldSource };
 export type RollbackFieldResult =
   | { status: 'not_found' }
   | { status: 'invalid_value' }
-  | { status: 'success'; item: InventoryItemView; changes: FieldChange[]; joined?: { from: number; to: number } };
+  | { status: 'success'; item: WithReadiness<InventoryItemView>; changes: FieldChange[]; joined?: { from: number; to: number } };
 
 /**
  * Result of `InventoryService.updateItem` (FEAT-16/23 offline sync).
@@ -77,8 +78,11 @@ export type RollbackFieldResult =
  */
 export type UpdateItemResult =
   | {
-      /** D8: the unit that now carries the requested state (a detached sub-record, the unit itself, or the group that absorbed it). */
-      item: InventoryItemView;
+      /**
+       * D8: the unit that now carries the requested state (a detached sub-record, the unit itself, or the group that absorbed it).
+       * #592: with the list's shape (readiness included), as the web puts it in place of the listed item.
+       */
+      item: WithReadiness<InventoryItemView>;
       changes: FieldChange[];
       /** D8: the other units written (the group a copy was detached from). */
       changed: ItemView[];
@@ -98,16 +102,52 @@ export type UpdateItemResult =
       /** FEAT-93: other units of the family that gave up cells with its new category. */
       unitSlotChanges?: UnitSlotChanges[];
     }
-  | { conflict: true; serverItem: InventoryItemView };
+  | { conflict: true; serverItem: WithReadiness<InventoryItemView> };
 
 /** A line of a unit's history; `itemId` is the unit itself. */
 export type InventoryHistoryEntry = ProductHistoryEntry;
+
+/** #962: what a permanent deletion from the trash removed — the lines, and the families gone with them. */
+export interface TrashDeletion {
+  itemIds: string[];
+  productIds: string[];
+  /** The wine deleted ("Producer — Name (vintage)"), for the audit log; none when the trash was emptied. */
+  label?: string;
+}
+
+type TrashLabelSource = { producer: string | null; name: string; vintage: number | null };
+const trashLabel = (family: TrashLabelSource) =>
+  [family.producer, family.name].filter(Boolean).join(' — ') + (family.vintage ? ` (${family.vintage})` : '');
+const TRASH_LABEL_SELECT = { producer: true, name: true, vintage: true } as const;
+
+const retentionCutoff = () => new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
 export interface InventoryWithTraceability {
   item: Record<string, unknown>;
   creator: { id: string; name: string } | null;
   lastEditor: { id: string; name: string } | null;
 }
+
+/**
+ * #629: the bottle the API accepts, checked against the database. The writes
+ * split a patch with `Object.entries` (family fields to the family, the rest
+ * to the unit), so the compiler cannot see a field with no column there:
+ * Prisma would refuse it at the first save. Every key of the Zod schemas
+ * must be a family field (`PRODUCT_FIELDS`, checked against `products`), a
+ * column of the unit (`bottles`), or one of these instructions, taken out
+ * before any write (`updateItem`, `bulkUpdate`, `mapInputToDb`).
+ */
+type PatchInstruction =
+  | 'expectedUpdatedAt' | 'smokeOne' | 'keepTastings' | 'tastingId' | 'isOwned'
+  | 'fromSlotId' | 'fromUnplaced' | 'placeAt';
+type KeysOf<T> = T extends unknown ? keyof T : never;
+type WithoutColumn = Exclude<
+  KeysOf<InventoryPatch | InventoryDraft>,
+  PatchInstruction | ProductField | Prisma.InventoryItemScalarFieldEnum
+>;
+// A field added to the Zod schema without its migration fails `typecheck`
+// here: "Property '<field>' is missing".
+const _everyInputFieldHasAColumn: Record<WithoutColumn, never> = {};
 
 // InventoryItem type inferred from Prisma client
 type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> extends infer T | null ? NonNullable<T> : never;
@@ -176,8 +216,8 @@ export class InventoryService {
    * `truncated` tells the caller the list isn't complete so it isn't
    * mistaken for the full inventory.
    */
-  async listInventory(_userId: string): Promise<{ items: WithReadiness<InventoryItemView>[]; truncated: boolean }> {
-    const limit = 2000;
+  async listInventory(): Promise<{ items: WithReadiness<InventoryItemView>[]; truncated: boolean }> {
+    const limit = INVENTORY_LIST_LIMIT;
     const items = await prisma.inventoryItem.findMany({
       where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
@@ -188,7 +228,7 @@ export class InventoryService {
     return { items: items.slice(0, limit).map((item) => attachReadiness(toItemView(item))), truncated };
   }
 
-  async listTrash(_userId: string): Promise<InventoryItemView[]> {
+  async listTrash(): Promise<InventoryItemView[]> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const items = await prisma.inventoryItem.findMany({
       where: {
@@ -200,7 +240,7 @@ export class InventoryService {
     return items.map(toItemView);
   }
 
-  async getItem(_userId: string, id: string): Promise<InventoryItemView | null> {
+  async getItem(id: string): Promise<InventoryItemView | null> {
     const item = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
@@ -208,7 +248,7 @@ export class InventoryService {
     return item ? toItemView(item) : null;
   }
 
-  async getItemWithTraceability(_userId: string, id: string): Promise<InventoryWithTraceability | null> {
+  async getItemWithTraceability(id: string): Promise<InventoryWithTraceability | null> {
     const item = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
       include: INVENTORY_ITEM_INCLUDE,
@@ -248,7 +288,7 @@ export class InventoryService {
     data: InventoryInput,
     distinctFrom: string[],
     fieldSources?: Partial<Record<string, FieldSource>>,
-  ): Promise<InventoryItemView> {
+  ): Promise<WithReadiness<InventoryItemView>> {
     return prisma.$transaction(async (tx) => {
       const created = await this.createItem(userId, data, tx, fieldSources);
       await rememberDistinct(tx, created.productId, distinctFrom);
@@ -270,20 +310,19 @@ export class InventoryService {
    */
   async createItem(
     userId: string,
-    data: InventoryInput,
+    data: InventoryDraft,
     client: PrismaClientOrTx = prisma,
     fieldSources?: Partial<Record<string, FieldSource>>,
-  ): Promise<InventoryItemView> {
+  ): Promise<WithReadiness<InventoryItemView>> {
     // InventoryInput (a per-category discriminated union with some required
     // fields) is a structural subset of InventoryPatch (the same fields, all
     // optional, flattened across categories) — a single assertion documents
     // that relationship instead of the previous `as unknown as` escape hatch.
     const patch = data as InventoryPatch;
     const dbData = this.mapInputToDb(patch);
-    const alertStatus = computeAlertStatus(
-      patch.peakMaturityFrom ?? undefined,
-      patch.peakMaturityTo ?? undefined,
-    );
+    const alertStatus = familyAlertStatus({
+      category: data.category, peakMaturityFrom: patch.peakMaturityFrom, peakMaturityTo: patch.peakMaturityTo,
+    });
     const extra: Record<string, unknown> = {};
     const unitSources = Object.fromEntries(Object.entries(fieldSources ?? {}).filter(([key]) => !isProductField(key)));
     if (Object.keys(unitSources).length > 0) {
@@ -320,7 +359,8 @@ export class InventoryService {
       } satisfies Prisma.InventoryItemCreateInput,
       include: INVENTORY_ITEM_INCLUDE,
     });
-    return toItemView(created);
+    // #592: the list's shape, readiness included.
+    return attachReadiness(toItemView(created));
   }
 
   /**
@@ -411,7 +451,7 @@ export class InventoryService {
     const isStale = (updatedAt: Date) =>
       expectedUpdatedAt !== undefined && new Date(expectedUpdatedAt).getTime() !== updatedAt.getTime();
     if (isStale(existing.updatedAt)) {
-      return { conflict: true, serverItem: existing };
+      return { conflict: true, serverItem: attachReadiness(existing) };
     }
 
     // `lockedFields` exists to stop a *later automated* update (OCR scan)
@@ -510,8 +550,8 @@ export class InventoryService {
     });
     if (!written) return null;
     if ('conflict' in written) {
-      const server = await this.getItem(userId, id);
-      return server ? { conflict: true, serverItem: server } : null;
+      const server = await this.getItem(id);
+      return server ? { conflict: true, serverItem: attachReadiness(server) } : null;
     }
     const outcome: ApplyStateResult<InventoryItemRow> = written.result;
     const current: StateItem = written.fresh;
@@ -534,7 +574,7 @@ export class InventoryService {
       ...familySlots.filter((unit) => unit.itemId === id).flatMap((unit) => unit.changes),
     ];
     return {
-      item: toItemView(outcome.data),
+      item: attachReadiness(toItemView(outcome.data)),
       changes,
       changed: outcome.changed.map(toUnitView),
       removedIds: outcome.removedIds,
@@ -683,7 +723,7 @@ export class InventoryService {
           const { cellarId, ...others } = changed;
           const group = Object.keys(others).length === 0 ? fresh : await tx.inventoryItem.update({
             where: { id: item.id },
-            data: { ...others, updatedAt: new Date(), updatedBy: userId } as never,
+            data: { ...others, updatedAt: new Date(), updatedBy: userId },
           });
           await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
           updatedCount++;
@@ -707,7 +747,7 @@ export class InventoryService {
             ...changed,
             updatedAt: new Date(),
             updatedBy: userId,
-          } as never,
+          },
         });
         updatedCount++;
       }
@@ -716,7 +756,7 @@ export class InventoryService {
     return updatedCount;
   }
 
-  async softDelete(_userId: string, id: string): Promise<InventoryItemView | null> {
+  async softDelete(id: string): Promise<InventoryItemView | null> {
     const existing = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
@@ -732,11 +772,10 @@ export class InventoryService {
   }
 
   async restore(
-    _userId: string,
     id: string,
     /** FEAT-93: filled with the cells it could not take back (see restoreOnce), for its history. */
     slotChanges: FieldChange[] = [],
-  ): Promise<InventoryItemView | null> {
+  ): Promise<WithReadiness<InventoryItemView> | null> {
     const cutoff = new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     const existing = await prisma.inventoryItem.findFirst({
       where: {
@@ -753,10 +792,12 @@ export class InventoryService {
     // another bottle since: that copy comes back unplaced. #173: the partial
     // unique index is the real guarantee against a cell taken between the
     // check and the write — tried once more, the check then sees it.
-    let restored: { item: InventoryItemView; freed: FieldChange[] };
+    let restored: { item: WithReadiness<InventoryItemView>; freed: FieldChange[] };
     try {
       restored = await this.restoreOnce(existing);
     } catch (err) {
+      // #962: deleted for good from the trash meanwhile — gone, as if never found.
+      if (isRecordNotFound(err)) return null;
       if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err;
       restored = await this.restoreOnce(existing);
     }
@@ -766,7 +807,7 @@ export class InventoryService {
 
   private restoreOnce(
     existing: { productId: string; id: string; product: { deletedAt: Date | null } },
-  ): Promise<{ item: InventoryItemView; freed: FieldChange[] }> {
+  ): Promise<{ item: WithReadiness<InventoryItemView>; freed: FieldChange[] }> {
     const { id } = existing;
     return prisma.$transaction(async (tx) => {
       // The locking rule: the family first, then its unit.
@@ -781,8 +822,11 @@ export class InventoryService {
       // automatic rule (review of #854).
       const unit = await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE });
       const freed = slotsFreed(await fitSlotsTo(tx, id, unit, unitKind(unit.product.category)));
-      if (freed.length === 0) return { item: toItemView(unit), freed };
-      return { item: toItemView(await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE })), freed };
+      // #592: the list's shape, readiness included.
+      const item = freed.length === 0
+        ? unit
+        : await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE });
+      return { item: attachReadiness(toItemView(item)), freed };
     });
   }
 
@@ -814,18 +858,42 @@ export class InventoryService {
       where: { deletedAt: { lt: cutoff } },
       select: { id: true, productId: true },
     });
-    const result = toPurge.length > 0
-      ? await client.inventoryItem.deleteMany({ where: { id: { in: toPurge.map((item) => item.id) } } })
+    // QP7: families trashed themselves, past the retention.
+    const { count, photoPaths } = await this.deleteTrashedRows(client, toPurge, { deletedAt: { lt: cutoff } }, { deletedAt: { lt: cutoff } });
+    return { count, photoPaths };
+  }
+
+  /**
+   * The one way rows leave the trash for good (#962): the automatic purge
+   * above and an administrator's permanent deletion share it. Deletes the
+   * given units, then the families left without any unit that are either
+   * emptied by this deletion (not in the trash themselves, no tasting —
+   * QP1) or match `trashedFamilies` (in the trash themselves, tastings
+   * deleted with them — QP7). Rows only: the returned photo paths are to be
+   * deleted from disk once the caller's transaction has committed (#183).
+   *
+   * `trashed` is repeated in the DELETE itself (review of #962): Postgres
+   * checks it again on the locked row, so a unit restored since it was read
+   * is never deleted.
+   */
+  private async deleteTrashedRows(
+    client: PrismaClientOrTx,
+    units: { id: string; productId: string }[],
+    trashed: Prisma.InventoryItemWhereInput,
+    trashedFamilies: Prisma.ProductWhereInput | null,
+  ): Promise<{ count: number; photoPaths: string[]; productIds: string[] }> {
+    const result = units.length > 0
+      ? await client.inventoryItem.deleteMany({ where: { id: { in: units.map((item) => item.id) }, ...trashed } })
       : { count: 0 };
 
     const purgedFamilies = await client.product.findMany({
       where: {
         items: { none: {} },
         OR: [
-          // QP1: emptied by this purge, not in the trash themselves, no tasting.
-          { id: { in: [...new Set(toPurge.map((item) => item.productId))] }, deletedAt: null, tastingNotes: { none: {} } },
-          // QP7: trashed themselves, past the retention.
-          { deletedAt: { lt: cutoff } },
+          // QP1: emptied by this deletion, not in the trash themselves, no tasting.
+          { id: { in: [...new Set(units.map((item) => item.productId))] }, deletedAt: null, tastingNotes: { none: {} } },
+          // QP7: trashed themselves.
+          ...(trashedFamilies ? [trashedFamilies] : []),
         ],
       },
       select: { id: true, photoUrl: true, otherPhotoUrls: true },
@@ -840,7 +908,88 @@ export class InventoryService {
     const candidates = purgedFamilies.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]).filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX));
     const photos = [...new Set(candidates)];
     const stillReferenced = await this.referencedProductPhotos(client, photos);
-    return { count: result.count, photoPaths: photos.filter((url) => !stillReferenced.has(url)) };
+    return {
+      count: result.count,
+      photoPaths: photos.filter((url) => !stillReferenced.has(url)),
+      productIds: purgedFamilies.map((family) => family.id),
+    };
+  }
+
+  /**
+   * #962: an administrator deletes the trash rows chosen by `select` for
+   * good, in one transaction, then their photos once it has committed.
+   * `select` locks the families concerned before reading (a restore takes
+   * the same lock), and answers null when the entry is not (or no longer)
+   * in the trash.
+   */
+  private async deleteFromTrash(
+    select: (tx: PrismaClientOrTx) => Promise<{ units: { id: string; productId: string }[]; trashedFamilies: Prisma.ProductWhereInput | null; label?: string } | null>,
+  ): Promise<TrashDeletion | null> {
+    const deleted = await prisma.$transaction(async (tx) => {
+      const chosen = await select(tx);
+      if (!chosen) return null;
+      const rows = await this.deleteTrashedRows(tx, chosen.units, { deletedAt: { not: null } }, chosen.trashedFamilies);
+      return { itemIds: chosen.units.map((unit) => unit.id), productIds: rows.productIds, photoPaths: rows.photoPaths, label: chosen.label };
+    }, { timeout: 60000, maxWait: 10000 });
+    if (!deleted) return null;
+    await this.deletePhotoFiles(deleted.photoPaths);
+    const { itemIds, productIds, label } = deleted;
+    return label === undefined ? { itemIds, productIds } : { itemIds, productIds, label };
+  }
+
+  /** #962: one line of the trash (a bottle, a box, cigars), for good. Null when it is not in the trash. */
+  deleteTrashedItem(id: string): Promise<TrashDeletion | null> {
+    return this.deleteFromTrash(async (tx) => {
+      const known = await tx.inventoryItem.findUnique({ where: { id }, select: { productId: true } });
+      if (!known) return null;
+      // The locking rule: the family first, then its unit — read again once
+      // locked, so a restore committed meanwhile is seen (review of #962).
+      await lockFamily(tx, known.productId);
+      const unit = await tx.inventoryItem.findFirst({
+        where: { id, deletedAt: { not: null, gte: retentionCutoff() } },
+        select: { id: true, productId: true, product: { select: TRASH_LABEL_SELECT } },
+      });
+      if (!unit) return null;
+      return { units: [{ id: unit.id, productId: unit.productId }], trashedFamilies: null, label: trashLabel(unit.product) };
+    });
+  }
+
+  /** #962: a wine of the trash with all its bottles in the trash, for good. Null when it is not in the trash. */
+  deleteTrashedProduct(id: string): Promise<TrashDeletion | null> {
+    return this.deleteFromTrash(async (tx) => {
+      await lockFamily(tx, id);
+      const family = await tx.product.findFirst({
+        where: { id, deletedAt: { not: null, gte: retentionCutoff() } },
+        select: { id: true, ...TRASH_LABEL_SELECT },
+      });
+      if (!family) return null;
+      const units = await tx.inventoryItem.findMany({
+        where: { productId: id, deletedAt: { not: null } },
+        select: { id: true, productId: true },
+      });
+      return { units, trashedFamilies: { id, deletedAt: { not: null } }, label: trashLabel(family) };
+    });
+  }
+
+  /** #962: everything in the trash for these categories (a page: wines and bottles, or cigars), for good. */
+  async emptyTrash(categories: BottleCategory[]): Promise<TrashDeletion> {
+    const deleted = await this.deleteFromTrash(async (tx) => {
+      const unitsWhere: Prisma.InventoryItemWhereInput = { deletedAt: { not: null }, product: { category: { in: categories } } };
+      const trashedFamilies: Prisma.ProductWhereInput = { deletedAt: { not: null }, category: { in: categories } };
+      // The families concerned are locked first, in the one order (40P01),
+      // then everything is read again: a restore committed meanwhile is seen.
+      const [unitFamilies, families] = await Promise.all([
+        tx.inventoryItem.findMany({ where: unitsWhere, select: { productId: true } }),
+        tx.product.findMany({ where: trashedFamilies, select: { id: true } }),
+      ]);
+      const locked = new Set([...unitFamilies.map((unit) => unit.productId), ...families.map((family) => family.id)]);
+      await lockFamilies(tx, locked);
+      // Only the families locked: one trashed since the first read waits for the next time.
+      const units = (await tx.inventoryItem.findMany({ where: unitsWhere, select: { id: true, productId: true } }))
+        .filter((unit) => locked.has(unit.productId));
+      return { units, trashedFamilies: { ...trashedFamilies, id: { in: [...locked] } } };
+    });
+    return deleted ?? { itemIds: [], productIds: [] };
   }
 
   /**

@@ -14,7 +14,11 @@ export const metadata: Metadata = {
   // value as NEUTRAL_TAB_TITLE there (a 'use client' module: not importable
   // as a value from this server component).
   title: 'Glou',
-  description: 'Manage your wine, spirits and cigar cellar. Self-hosted, private. · Gérez votre cave à vin, spiritueux et cigares. Application auto-hébergée et privée.',
+  // #428: same reason for the descriptions (here, in each page.tsx and in
+  // public/manifest.json): written once, in the default language (French,
+  // like <html lang>), never the two glued together. Link previews of a
+  // pasted guest link show it.
+  description: 'Gérez votre cave à vin, spiritueux et cigares. Application auto-hébergée et privée.',
   // FEAT-16/23: PWA manifest — see web/public/manifest.json. Icons live in
   // public/icons/; app/icon.png, app/apple-icon.png and app/favicon.ico are
   // picked up by Next's file conventions.
@@ -22,10 +26,9 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Matches the actual primary token used across the app (tailwind.config.ts
-  // / ThemeWrapper.tsx, '#6366f1' for both modes) so the PWA install/OS
-  // chrome tint doesn't contradict the interface it wraps.
-  themeColor: '#6366f1',
+  // The default accent's light-theme value (lib/theme-colors.ts) so the PWA
+  // install/OS chrome tint doesn't contradict the interface it wraps.
+  themeColor: '#4f46e5',
   // Without this, `env(safe-area-inset-*)` always resolves to 0 (ISSUE_401):
   // BottomNav.tsx's bottom inset was inert. Extends content under the system
   // bars, so MainLayout's header picks up the matching top inset below.

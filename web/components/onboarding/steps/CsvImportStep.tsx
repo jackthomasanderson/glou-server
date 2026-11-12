@@ -14,6 +14,8 @@ interface CsvImportStepProps {
   cellarId: string | null;
   onImported: (result: CsvImportResult) => void;
   onBack: () => void;
+  /** The leaving button's label: "Retour" in the wizard, "Annuler" outside it (#641). */
+  backLabel?: string;
 }
 
 /** "6 bouteilles" or "25 cigares": what a line, or a total, stands for. */
@@ -30,7 +32,7 @@ const unitsKey = (kind: CsvImportLine['kind']) => (kind === 'cigar' ? 'onboardin
  * bottles" / "Ignore (already counted)", Ignore chosen; a cellar the file
  * names that does not exist is announced, and created on confirmation.
  */
-export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepProps) {
+export function CsvImportStep({ cellarId, onImported, onBack, backLabel }: CsvImportStepProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const preview = useCsvPreview();
@@ -251,7 +253,7 @@ export function CsvImportStep({ cellarId, onImported, onBack }: CsvImportStepPro
       )}
 
       <div className="flex items-center justify-between mt-2">
-        <Button variant="light" onPress={onBack} isDisabled={confirm.isPending}>{t('onboarding.back')}</Button>
+        <Button variant="light" onPress={onBack} isDisabled={confirm.isPending}>{backLabel ?? t('onboarding.back')}</Button>
         <Button
           color="primary"
           variant="solid"

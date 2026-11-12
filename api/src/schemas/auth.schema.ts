@@ -40,7 +40,10 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 // ─── 2FA ──────────────────────────────────────────────────────────────────────
 
+// #603: the password too, like turning 2FA off — an open session alone could
+// otherwise tie the account to someone else's authenticator app.
 export const turnOn2faSchema = z.object({
+  password: z.string().min(1, 'PASSWORD_REQUIRED'),
   code: z.string().min(6).max(6, 'INVALID_CODE_LENGTH')
 });
 
@@ -82,3 +85,22 @@ export const adminReauthSchema = z.object({
 export type TurnOn2faInput = z.infer<typeof turnOn2faSchema>;
 export type TurnOff2faInput = z.infer<typeof turnOff2faSchema>;
 export type Verify2faInput = z.infer<typeof verify2faSchema>;
+
+// ─── Password reset (#636) ───────────────────────────────────────────────────
+
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().min(1).max(320),
+});
+
+/** A reset link's token: 64 hex characters, bounded loosely to stay a token. */
+const resetTokenField = z.string().min(1).max(256);
+
+export const validateResetTokenSchema = z.object({
+  token: resetTokenField,
+});
+
+export const resetPasswordSchema = z.object({
+  token: resetTokenField,
+  // Same bounds as registration.
+  newPassword: z.string().min(PASSWORD_MIN_LENGTH, 'PASSWORD_TOO_SHORT').max(128, 'PASSWORD_TOO_LONG'),
+});

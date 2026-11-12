@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { InventoryCard } from '../InventoryCard';
 import { describeStock } from '@/lib/products/stock';
 import type { Product } from '@/lib/products/types';
@@ -111,8 +111,63 @@ describe('InventoryCard — one card per wine', () => {
     expect(screen.getByRole('button', { name: 'Mettre à la corbeille' })).toBeInTheDocument();
   });
 
+  // #708: the small box on the photo was the only target, and hard to see.
+  it('in selection mode, a click anywhere on the card selects it, not on its buttons', () => {
+    const onSelectToggle = vi.fn();
+    const onEdit = vi.fn();
+    card(product({ items: [unit()] }), { onView: undefined, onSelectToggle, onEdit });
+    fireEvent.click(screen.getByText('Cuvée X'));
+    expect(onSelectToggle).toHaveBeenCalledTimes(1);
+    expect(onSelectToggle).toHaveBeenCalledWith(expect.objectContaining({ name: 'Cuvée X' }), expect.anything());
+    fireEvent.click(screen.getByRole('button', { name: 'Modifier' }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onSelectToggle).toHaveBeenCalledTimes(1);
+  });
+
   it('in selection mode, the checkbox names the wine', () => {
     card(product({ items: [unit()] }), { onView: undefined, onSelectToggle: vi.fn() });
     expect(screen.getByRole('checkbox', { name: 'Sélectionner Cuvée X 2020' })).toBeInTheDocument();
   });
 });
+
+// #647: the drinking-window status was only the colour of one warning triangle.
+describe('InventoryCard — drinking-window status without colour or hover', () => {
+  const windowButton = () => screen.getByRole('button', { name: /: 2020 – 2030/ });
+  const icon = () => windowButton().querySelector('svg')?.getAttribute('class') ?? '';
+  const shownText = () => windowButton().textContent;
+
+  function withStatus(alertStatus: 'approaching' | 'peak' | 'past' | 'none', alertsPaused = false) {
+    return card(product({ items: [unit()], peakMaturityFrom: 2020, peakMaturityTo: 2030, alertStatus, alertsPaused }));
+  }
+
+  it('each status has its own icon and a short visible label', () => {
+    const seen = (['approaching', 'peak', 'past'] as const).map((status) => {
+      const { unmount } = withStatus(status);
+      // WCAG 2.5.3: the accessible name starts with the visible label.
+      expect(windowButton().getAttribute('aria-label')?.startsWith(shownText() ?? '-')).toBe(true);
+      const result = { icon: icon().match(/lucide-[a-z-]+/g)?.join(' '), text: shownText() };
+      unmount();
+      return result;
+    });
+    expect(seen.map((s) => s.text)).toEqual([
+      'Bientôt prêt : 2020 – 2030',
+      'À boire : 2020 – 2030',
+      'Apogée passé : 2020 – 2030',
+    ]);
+    expect(new Set(seen.map((s) => s.icon)).size).toBe(3);
+  });
+
+  it('without a status, the plain drinking window', () => {
+    withStatus('none');
+    expect(shownText()).toBe('Apogée : 2020 – 2030');
+  });
+
+  it('a paused alert is greyed out and says so to screen readers', () => {
+    withStatus('peak', true);
+    expect(shownText()).toBe('Apogée : 2020 – 2030');
+    expect(icon()).toContain('opacity-60');
+    expect(icon()).toContain('lucide-bell-off');
+    expect(windowButton()).toHaveAccessibleName("Apogée : 2020 – 2030 — À l'apogée — Alerte suspendue");
+  });
+});
+

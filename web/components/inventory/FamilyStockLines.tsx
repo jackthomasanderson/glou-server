@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Chip, Slider, Tooltip } from '@heroui/react';
+import { FILL_LEVELS } from '@/lib/products/fillLevels';
 import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { isProvisional } from '@/lib/offline/optimistic';
 import { isIntactItem } from '@shared/units';
@@ -52,15 +53,10 @@ const join = (parts: string[]) => parts.join(' · ');
 /** A level of 100 % puts an opened bottle back full (§10.4.6). */
 const FULL = 100;
 
-const PRESETS = [
-  { value: FULL, key: 'familyDrawer.lines.levelFull' },
-  { value: 50, key: 'familyDrawer.lines.levelHalf' },
-  { value: 0, key: 'familyDrawer.lines.levelEmpty' },
-] as const;
 
 /**
  * The level of one opened bottle, set on its own line (§10.3): a slider and
- * the Pleine / Moitié / Vide shortcuts. Never disabled while saving (keyboard
+ * the shortcuts of the one fill-level scale (Pleine … Vide, #708). Never disabled while saving (keyboard
  * focus would be lost): a level chosen meanwhile waits and is sent next, the
  * last one only. A refused save puts the slider back on the saved level.
  * `canPutBack={false}` (a guest, decision #471 point 69): no « Pleine », which
@@ -136,7 +132,7 @@ export function OpenedLevel({ item, t, onCommit, canPutBack = true }: {
         <span className="text-sm font-bold tabular-nums w-12 text-right">{t('familyList.stock.level', { level: shown })}</span>
       </div>
       <div className="flex gap-2 mt-1">
-        {PRESETS.filter(({ value }) => canPutBack || value < FULL).map(({ value, key }) => (
+        {FILL_LEVELS.filter(({ value }) => canPutBack || value < FULL).map(({ value, key }) => (
           <Button
             key={value}
             size="sm"
@@ -145,6 +141,7 @@ export function OpenedLevel({ item, t, onCommit, canPutBack = true }: {
             // min-w-0: in a narrow card (the guest's) the shortcuts share the width instead of overflowing it.
             className="flex-1 min-w-0 h-7"
             onPress={() => commit(value)}
+            aria-pressed={shown === value}
           >
             {t(key)}
           </Button>

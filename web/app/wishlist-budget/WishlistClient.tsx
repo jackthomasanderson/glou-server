@@ -1,8 +1,10 @@
 'use client';
 import { Suspense, useState } from 'react';
-import { Tabs, Tab } from '@heroui/react';
+import { Tab } from '@heroui/react';
+import { Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MainLayout } from '@/components/ui/MainLayout';
+import { PageHeader, PageTabs } from '@/components/ui/PageHeader';
 import { WishlistDashboard } from '@/components/wishlist/WishlistDashboard';
 import { BudgetPanel } from '@/components/wishlist/BudgetPanel';
 
@@ -15,18 +17,17 @@ export function WishlistClient() {
   return (
     <MainLayout>
       <div className="max-w-5xl mx-auto px-4 pt-6">
-        <Tabs
-          selectedKey={tab}
-          onSelectionChange={(key) => setTab(key as WishlistTab)}
-          variant="underlined"
-          color="primary"
-          size="md"
-          aria-label={t('wishlist.tabs.ariaLabel')}
-          classNames={{ base: 'w-full min-w-0', tabList: 'w-full overflow-x-auto flex-nowrap' }}
-        >
-          <Tab key="wishlist" title={t('wishlist.tabs.wishlist')} />
-          <Tab key="budget" title={t('wishlist.tabs.budget')} />
-        </Tabs>
+        {/* #701: shared header, the sections' tabs under the page title. */}
+        <PageHeader icon={Wallet} title={t('wishlist.title')} className="mb-0">
+          <PageTabs
+            selectedKey={tab}
+            onSelectionChange={(key) => setTab(key as WishlistTab)}
+            aria-label={t('wishlist.tabs.ariaLabel')}
+          >
+            <Tab key="wishlist" title={t('wishlist.tabs.wishlist')} />
+            <Tab key="budget" title={t('wishlist.tabs.budget')} />
+          </PageTabs>
+        </PageHeader>
       </div>
       <Suspense fallback={null}>
         {tab === 'wishlist' ? <WishlistDashboard /> : <BudgetPanel />}

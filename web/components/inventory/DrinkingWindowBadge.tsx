@@ -1,9 +1,9 @@
 'use client';
 import React from 'react';
-import { Chip, Tooltip } from '@heroui/react';
+import { Chip } from '@heroui/react';
+import { TapTooltip } from '@/components/ui/TapTooltip';
 import { Clock, CheckCircle, AlertTriangle } from 'lucide-react';
-
-type AlertStatus = 'none' | 'approaching' | 'peak' | 'past';
+import type { AlertStatus } from '@/lib/inventory/types';
 
 interface DrinkingWindowBadgeProps {
   alertStatus?: AlertStatus | null;
@@ -12,7 +12,7 @@ interface DrinkingWindowBadgeProps {
   peakMaturityTo?: number | null;
   /** FEAT-86: server-computed readiness percentage for the current year. */
   readiness?: number | null;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
   size?: 'sm' | 'md';
 }
 
@@ -50,7 +50,7 @@ export function DrinkingWindowBadge({
       <p className="text-xs font-semibold">{t(`inventory.alertStatus.${status}`)}</p>
       {windowLabel && <p className="text-xs text-foreground-400">{windowLabel}</p>}
       {!alertsPaused && readiness != null && (
-        <p className="text-xs text-foreground-400">{t('maturity.readiness')}: {readiness}%</p>
+        <p className="text-xs text-foreground-400">{t('maturity.readiness')}: {t('percent', { value: readiness })}</p>
       )}
       {alertsPaused && <p className="text-xs text-foreground-400">{t('alerts.paused')}</p>}
     </div>
@@ -59,16 +59,15 @@ export function DrinkingWindowBadge({
   const srDescription = [
     t(`inventory.alertStatus.${status}`),
     windowLabel,
-    !alertsPaused && readiness != null ? `${t('maturity.readiness')}: ${readiness}%` : null,
+    !alertsPaused && readiness != null ? `${t('maturity.readiness')}: ${t('percent', { value: readiness })}` : null,
     alertsPaused ? t('alerts.paused') : null,
   ].filter(Boolean).join(' — ');
 
   return (
-    <Tooltip content={tooltipContent} delay={500}>
-      <button
-        type="button"
-        className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus"
-      >
+    <TapTooltip
+      content={tooltipContent}
+      className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus"
+    >
         <Chip
           startContent={config.icon}
           size={size}
@@ -80,7 +79,6 @@ export function DrinkingWindowBadge({
           <span aria-hidden="true">{windowLabel || t(`inventory.alertStatus.${status}`)}</span>
           <span className="sr-only">{srDescription}</span>
         </Chip>
-      </button>
-    </Tooltip>
+    </TapTooltip>
   );
 }

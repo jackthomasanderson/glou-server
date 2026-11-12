@@ -17,31 +17,32 @@
 | :--- | :--- | :--- |
 | `DB_PASSWORD` | aucun, **obligatoire** | Mot de passe PostgreSQL. `docker compose up` refuse de démarrer sans lui. |
 | `DB_USER` / `DB_NAME` | `glou` / `glou_db` | Rôle et base PostgreSQL. Lus uniquement à la première création du volume `db`. |
-| `JWT_SECRET` | aucun, **obligatoire** | Signe les jetons de session. L'API quitte au démarrage s'il est vide ou égal au placeholder de `.env.example`. |
+| `JWT_SECRET` | aucun, **obligatoire** | Signe les jetons de session. L'API quitte au démarrage s'il est vide, fait moins de 32 caractères ou est égal au placeholder de `.env.example`. |
 | `CONFIG_ENCRYPTION_KEY` | aucun, **obligatoire** | 64 caractères hexadécimaux. Chiffre en base le mot de passe SMTP, le jeton Gotify et les clés d'intégration. Même vérification au démarrage que `JWT_SECRET`. |
 | `NODE_ENV` | `production` | En `development`, les vérifications de secrets se limitent à un avertissement. |
 | `APP_URL` | `http://localhost:3000` | Adresse publique de l'app web. `https://` marque les cookies de session `Secure` et active HSTS ; `http://` ne fait ni l'un ni l'autre. C'est aussi la valeur de repli des liens générés par l'app (voir [Réseau & URL publique](./16-Configuration-Reseau-URL-Publique.md)). |
 | `CORS_ORIGIN` | `http://localhost:3000` | Origine(s) acceptée(s) par l'API. Généralement identique à `APP_URL`. |
 | `CSRF_TRUSTED_ORIGINS` | vide | Adresses supplémentaires du navigateur autorisées à envoyer des requêtes, séparées par des virgules (par exemple un second nom d'hôte). |
-| `TZ` | `Europe/Paris` | Fuseau horaire de l'instance (nom IANA, ex. `America/Montreal`). La plage silencieuse des membres s'y lit, ainsi que les tâches planifiées : alertes (apogée, cave à cigares) à 10 h, maintenance à 3 h. Également défini dans l'image de l'API, donc une installation dont le `docker-compose.yml` est antérieur à cette variable l'a aussi. Les sauvegardes planifiées gardent leur propre heure, en UTC (*Heure d'exécution (UTC)* dans les réglages d'administration). |
+| `TZ` | `Europe/Paris` | Fuseau horaire de l'instance (nom IANA, ex. `America/Montreal`). La plage silencieuse des membres s'y lit, ainsi que les tâches planifiées : alertes (apogée, cave à cigares) à 10 h, maintenance à 3 h, et la sauvegarde quotidienne à l'heure choisie dans les réglages d'administration (*Heure d'exécution*, qui affiche ce fuseau). Également défini dans l'image de l'API, donc une installation dont le `docker-compose.yml` est antérieur à cette variable l'a aussi. |
 | `COOKIE_SECURE` | vide | `true`/`false` force le drapeau `Secure` des cookies, par exemple quand le TLS est terminé par un proxy alors que `APP_URL` est en `http://`. |
 | `FORCE_HSTS` | vide | `true`/`false` force l'en-tête `Strict-Transport-Security` indépendamment de `APP_URL`. |
 | `NEXT_PUBLIC_API_URL` | `http://api:3001` | Adresse de l'API vue depuis le conteneur web, dans le réseau compose. À laisser telle quelle sous Docker. |
 | `OLLAMA_URL` | `http://ollama:11434` | Modèle de vision utilisé par le [scan d'étiquette](./26-Scan-Etiquette.md) (uniquement avec `--profile scan`). |
-| `OLLAMA_MODEL` | `moondream` | Nom du modèle utilisé pour le scan. |
+| `OLLAMA_MODEL` | `moondream` | Nom du modèle utilisé pour le scan. Seul `moondream` est testé. Un autre modèle implique un nouveau téléchargement de plusieurs Go, et rien ne garantit qu'il suive les consignes du scan ni qu'il renvoie une réponse exploitable : si le scan se dégrade ou cesse de fonctionner, revenez à `moondream`. |
 | `OLLAMA_TIMEOUT_MS` | `600000` | Durée maximale d'attente du modèle par scan, en millisecondes. |
+| `GEO_DB_PATH` | `/app/geo/dbip-city-lite.mmdb` | Avancé. Base de géolocalisation IP (format MMDB) utilisée pour la localisation approximative des sessions et le contrôle du pays des appareils de confiance. L'image de l'API embarque DB-IP IP to City Lite ([DB-IP](https://db-ip.com)) à cet emplacement ; sans fichier lisible, la localisation n'est simplement pas affichée (un avertissement `[geo]` dans les journaux de l'API). |
 | `API_RATE_LIMIT_MAX` | `1000` | Avancé. Requêtes autorisées par adresse IP toutes les 15 minutes sur l'API et les images envoyées ; un entier positif, toute autre valeur est ignorée avec un avertissement dans les journaux de l'API. À relever seulement si beaucoup d'appareils partagent une même adresse et reçoivent `Too many requests`. Les limites de connexion et de réinitialisation du mot de passe ne changent pas. |
 
 > [!NOTE]
 > `PUID`/`PGID` ne sont pas pris en charge : le conteneur API tourne toujours sous l'utilisateur `1001:1001`.
 
-Les réglages qui vivent dans l'application plutôt que dans `.env` (SMTP, notifications, rétention, sauvegardes, URL publique, inscription) se trouvent dans **Administration → Configuration Système**, voir [Installation](./01-Installation.md).
+Les réglages qui vivent dans l'application plutôt que dans `.env` (SMTP, notifications, rétention, sauvegardes, URL publique, inscription) se trouvent dans **Administration → Configuration système**, voir [Installation](./01-Installation.md).
 
 **Le "Pare-feu" (Troubleshooting)** :
 
 | Erreur | Résolution |
 | :--- | :--- |
 | `DB_PASSWORD is not set` | Définissez `DB_PASSWORD` dans `.env`. Il n'y a aucun mot de passe de repli. |
-| L'API affiche `🛑 [startup] FATAL` et quitte | `JWT_SECRET` ou `CONFIG_ENCRYPTION_KEY` est absent, vide, égal au placeholder ou (`CONFIG_ENCRYPTION_KEY`) n'a pas 64 caractères hexadécimaux. |
+| L'API affiche `🛑 [startup] FATAL` et quitte | `JWT_SECRET` ou `CONFIG_ENCRYPTION_KEY` est absent, vide, égal au placeholder, trop court (`JWT_SECRET`, moins de 32 caractères) ou (`CONFIG_ENCRYPTION_KEY`) n'a pas 64 caractères hexadécimaux. |
 | `password authentication failed for user` | `DB_USER`, `DB_PASSWORD` et `DB_NAME` doivent correspondre à ceux de la première création du volume `db`. Changer `DB_PASSWORD` ensuite exige de le changer aussi dans Postgres, voir [Changer les secrets](./29-Rotation-Des-Secrets.md#changer-db_password) ; sinon supprimez le volume `db_data`, ce qui efface toutes les données. |
 | Déconnexion immédiate, ou connexion impossible, en ouvrant Glou par IP | Réglez `APP_URL` sur l'adresse exacte saisie dans le navigateur, puis recréez les conteneurs `api` et `web`. |

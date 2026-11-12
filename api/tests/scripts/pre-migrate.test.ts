@@ -191,6 +191,7 @@ describe('preMigrate', () => {
     expect(errors[0]).toContain('PG_DUMP_FAILED');
     expect(errors[0]).toContain('Nothing was migrated');
     expect(errors[0]).toContain('sudo chown 1001:1001 backups');
+    expect(errors[0]).toContain('Portainer');
   });
 
   it('backups folder not writable: exit 1 before any dump, and says how to fix the folder', async () => {
@@ -204,6 +205,9 @@ describe('preMigrate', () => {
     expect(errors[0]).toMatch(/^\[backup\] /);
     expect(errors[0]).toContain('not writable');
     expect(errors[0]).toContain('mkdir -p backups && sudo chown 1001:1001 backups');
+    // #900: a stack run from Portainer has no Glou folder on the host.
+    expect(errors[0]).toContain('Portainer');
+    expect(errors[0]).toContain('absolute host path');
     expect(errors[0]).toContain('Nothing was migrated');
   });
 
@@ -344,7 +348,13 @@ describe('api/Dockerfile start command', () => {
     const dockerfile = fs.readFileSync(path.resolve(__dirname, '../../Dockerfile'), 'utf8');
     const cmd = dockerfile.split('\n').find((line) => line.startsWith('CMD '));
     expect(cmd).toBeDefined();
-    expect(cmd).toMatch(/node dist\/api\/src\/scripts\/pre-migrate\.js && npx prisma migrate deploy && node dist\/api\/src\/index\.js/);
+    expect(cmd).toMatch(/node dist\/api\/src\/scripts\/pre-migrate\.js && npx prisma migrate deploy && exec node dist\/api\/src\/index\.js/);
+  });
+
+  it('execs the API so Node is PID 1 and receives the stop signal (#673)', () => {
+    const dockerfile = fs.readFileSync(path.resolve(__dirname, '../../Dockerfile'), 'utf8');
+    const cmd = dockerfile.split('\n').find((line) => line.startsWith('CMD '));
+    expect(cmd).toMatch(/&& exec node dist\/api\/src\/index\.js"\]$/);
   });
 
   it('the compiled script path matches the build layout (rootDir "..")', () => {

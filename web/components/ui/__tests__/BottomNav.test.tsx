@@ -1,15 +1,17 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { registerLeaveQuestion } from '@/lib/leaveGuard';
+import { render, screen, fireEvent } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
 // #204 — the active tab differed by colour only, no link carried aria-current,
 // and the root of the bar was a <div> rather than a navigation landmark.
 
 let pathname = '/cellars';
+const push = vi.fn();
 let searchParams = new URLSearchParams();
 vi.mock('next/navigation', () => ({
   usePathname: () => pathname,
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
   useSearchParams: () => searchParams,
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
@@ -19,14 +21,16 @@ vi.mock('next/link', () => ({
     <a href={href} {...rest}>{children}</a>
   ),
 }));
+let isAdmin = false;
+vi.mock('@/hooks/useAuth', () => ({ useMe: () => ({ data: { isAdmin } }) }));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('@heroui/react', () => ({
-  Button: ({ children, 'aria-current': current }: { children?: ReactNode; 'aria-current'?: 'page' }) => (
-    <button type="button" aria-current={current}>{children}</button>
+  Button: ({ children, onPress, 'aria-current': current }: { children?: ReactNode; onPress?: () => void; 'aria-current'?: 'page' }) => (
+    <button type="button" aria-current={current} onClick={onPress}>{children}</button>
   ),
-  Modal: () => null,
-  ModalContent: () => null,
-  ModalBody: () => null,
+  Modal: ({ children, isOpen }: { children?: ReactNode; isOpen?: boolean }) => (isOpen ? <div role="dialog">{children}</div> : null),
+  ModalContent: ({ children }: { children?: ReactNode }) => <>{children}</>,
+  ModalBody: ({ children }: { children?: ReactNode }) => <>{children}</>,
 }));
 
 import { BottomNav } from '../BottomNav';
@@ -67,7 +71,7 @@ describe('BottomNav accessibility (#204)', () => {
   });
 
   it('flags the "More" tab when the current page lives behind it', () => {
-    pathname = '/cellar-journal';
+    pathname = '/tastings';
     searchParams = new URLSearchParams();
     render(<BottomNav />);
     const more = screen.getByRole('button', { name: 'nav.more' });
@@ -95,5 +99,62 @@ describe('BottomNav accessibility (#204)', () => {
     expect(spirits.getAttribute('aria-current')).toBe('page');
     const wines = screen.getByRole('link', { name: 'nav.wines' });
     expect(wines.getAttribute('aria-current')).toBeNull();
+  });
+});
+
+describe('BottomNav "More" sheet and the admin entry (#913)', () => {
+  const openMore = () => fireEvent.click(screen.getByRole('button', { name: 'nav.more' }));
+
+  it('lists Administration for an admin', () => {
+    isAdmin = true;
+    pathname = '/cigars';
+    render(<BottomNav />);
+    openMore();
+    expect(screen.getByRole('button', { name: 'nav.admin' })).toBeTruthy();
+  });
+
+  it('does not list Administration for a member', () => {
+    isAdmin = false;
+    pathname = '/cigars';
+    render(<BottomNav />);
+    openMore();
+    expect(screen.getByRole('button', { name: 'nav.caves' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'nav.admin' })).toBeNull();
+  });
+});
+
+// #759: a page with unsaved changes (the admin settings) is not left from the
+// "More" sheet without the person confirming.
+describe('BottomNav — leaving a page with unsaved changes (#759)', () => {
+  let unregister = () => {};
+  afterEach(() => {
+    unregister();
+    push.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  it('stays when the person declines, goes when they confirm', () => {
+    pathname = '/admin';
+    unregister = registerLeaveQuestion('Leave without saving?');
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<BottomNav />);
+    fireEvent.click(screen.getByRole('button', { name: 'nav.more' }));
+    fireEvent.click(screen.getByRole('button', { name: 'nav.wishlist' }));
+    expect(confirm).toHaveBeenCalledWith('Leave without saving?');
+    expect(push).not.toHaveBeenCalled();
+
+    confirm.mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'nav.wishlist' }));
+    expect(push).toHaveBeenCalledWith('/wishlist-budget');
+  });
+
+  it('asks nothing when no page holds unsaved changes', () => {
+    pathname = '/admin';
+    const confirm = vi.spyOn(window, 'confirm');
+    render(<BottomNav />);
+    fireEvent.click(screen.getByRole('button', { name: 'nav.more' }));
+    fireEvent.click(screen.getByRole('button', { name: 'nav.wishlist' }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(push).toHaveBeenCalledWith('/wishlist-budget');
   });
 });

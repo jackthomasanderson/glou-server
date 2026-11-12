@@ -1,5 +1,6 @@
 'use client';
 import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter, Skeleton } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Monitor, MapPin, ShieldCheck, ShieldOff } from 'lucide-react';
@@ -70,20 +71,20 @@ export function SessionsPanel() {
   const formatDevice = (device: SessionInfo['device']) => formatDeviceLabel(device, t);
 
   return (
-    <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+    <div className="bg-content1 border border-divider rounded-2xl p-6">
       <div className="flex items-center gap-3 mb-5">
         <Monitor size={20} className="text-primary" />
         <h2 className="text-base font-semibold">{t('profile.sessions.title')}</h2>
       </div>
 
       {isLoading && (
-        <div className="flex flex-col gap-3">
+        <LoadingRegion className="flex flex-col gap-3">
           {[0, 1].map((i) => (
             <Skeleton key={i} className="rounded-xl">
               <div className="h-16 rounded-xl bg-default-200" />
             </Skeleton>
           ))}
-        </div>
+        </LoadingRegion>
       )}
 
       {!isLoading && isError && (
@@ -106,7 +107,7 @@ export function SessionsPanel() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-medium truncate">{formatDevice(session.device)}</p>
                   {session.isCurrent && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-white shrink-0">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground shrink-0">
                       {t('profile.sessions.current')}
                     </span>
                   )}
@@ -132,6 +133,12 @@ export function SessionsPanel() {
               )}
             </div>
           ))}
+          {/* #434: the DB-IP Lite licence asks for a link back where locations are shown. */}
+          <p className="text-xs text-foreground-400">
+            <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer" className="hover:underline">
+              {t('profile.sessions.geoCredit')}
+            </a>
+          </p>
         </div>
       )}
 

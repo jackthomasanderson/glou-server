@@ -39,14 +39,7 @@ vi.mock('jsonwebtoken', () => ({
   default: { sign: vi.fn(() => 'signed-token') },
 }));
 
-vi.mock('otplib', () => ({
-  authenticator: {
-    options: {},
-    verify: vi.fn(() => false),
-    generateSecret: vi.fn(),
-    keyuri: vi.fn(),
-  },
-}));
+vi.mock('../../src/lib/totp', () => ({ newTotpSecret: vi.fn(), totpUri: vi.fn(), isCurrentTotp: vi.fn(() => false) }));
 
 vi.mock('../../src/services/notification.service', () => ({
   notificationService: { send: vi.fn().mockResolvedValue(undefined) },
@@ -63,7 +56,7 @@ vi.mock('../../src/services/audit.service', () => ({
 }));
 
 import bcrypt from 'bcryptjs';
-import { authenticator } from 'otplib';
+import { isCurrentTotp } from '../../src/lib/totp';
 import { prisma } from '../../src/lib/prisma';
 import { authService } from '../../src/services/auth.service';
 import { auditLog } from '../../src/services/audit.service';
@@ -151,8 +144,7 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
   beforeEach(() => {
     accounts({ member: userRow(), admin: adminRow() });
     adminSecrets();
-    vi.mocked(authenticator.verify).mockImplementation((({ token, secret }: { token: string; secret: string }) =>
-      token === '654321' && secret === 'ADMIN-SECRET') as never);
+    vi.mocked(isCurrentTotp).mockImplementation((token, secret) => token === '654321' && secret === 'ADMIN-SECRET');
   });
 
   it('with the admin\'s password and code, erases the member\'s 2FA secret, backup codes and failure counter', async () => {
@@ -186,8 +178,9 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
 
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'admin',
+      action: 'ADMIN_PASSWORD_RESET',
       status: 'success',
-      details: { reason: 'admin_password_reset', targetUserId: 'member', twoFactorDisabled: true },
+      details: { targetUserId: 'member', twoFactorDisabled: true },
     }));
     const logged = JSON.stringify(vi.mocked(auditLog).mock.calls);
     expect(logged).not.toContain(tempPassword);
@@ -209,7 +202,7 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
       userId: 'admin',
       status: 'error',
-      details: { reason: 'admin_password_reset', targetUserId: 'member', error },
+      details: { targetUserId: 'member', error },
     }));
     expect(JSON.stringify(vi.mocked(auditLog).mock.calls)).not.toContain(ADMIN_PASSWORD);
   });
@@ -274,7 +267,7 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
 
     expect(memberUpdate()?.data).toMatchObject({ mustChangePassword: true });
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
-      details: { reason: 'admin_password_reset', targetUserId: 'member', twoFactorDisabled: false },
+      details: { targetUserId: 'member', twoFactorDisabled: false },
     }));
   });
 
@@ -287,7 +280,7 @@ describe('adminResetPassword turns two-factor authentication off (#638)', () => 
     expect(update?.data).not.toHaveProperty('twoFactorSecret');
     expect(update?.data).not.toHaveProperty('backupCodes');
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({
-      details: { reason: 'admin_password_reset', targetUserId: 'admin', twoFactorDisabled: false },
+      details: { targetUserId: 'admin', twoFactorDisabled: false },
     }));
   });
 });
@@ -299,7 +292,7 @@ describe('regenerateBackupCodes (#638)', () => {
 
   it('refuses a wrong password, whatever the code', async () => {
     vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
-    vi.mocked(authenticator.verify).mockReturnValue(true);
+    vi.mocked(isCurrentTotp).mockReturnValue(true);
 
     await expect(authService.regenerateBackupCodes('member', 'wrong', '123456')).rejects.toThrow('INVALID_CREDENTIALS');
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
@@ -307,7 +300,7 @@ describe('regenerateBackupCodes (#638)', () => {
 
   it('refuses a wrong authenticator code', async () => {
     vi.mocked(bcrypt.compare).mockResolvedValue(true as never); // password only
-    vi.mocked(authenticator.verify).mockReturnValue(false);
+    vi.mocked(isCurrentTotp).mockReturnValue(false);
 
     await expect(authService.regenerateBackupCodes('member', 'pw', '000000')).rejects.toThrow('INVALID_TOTP_CODE');
     expect(prisma.user.updateMany).not.toHaveBeenCalled();
@@ -329,7 +322,7 @@ describe('regenerateBackupCodes (#638)', () => {
 
   it('with the password and an authenticator code, replaces every old code by ten new hashed ones', async () => {
     vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
-    vi.mocked(authenticator.verify).mockReturnValue(true);
+    vi.mocked(isCurrentTotp).mockReturnValue(true);
 
     const { backupCodes } = await authService.regenerateBackupCodes('member', 'pw', '123456');
 
@@ -348,7 +341,7 @@ describe('regenerateBackupCodes (#638)', () => {
 
   it('is audited and notified, with no code in the audit entry', async () => {
     vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
-    vi.mocked(authenticator.verify).mockReturnValue(true);
+    vi.mocked(isCurrentTotp).mockReturnValue(true);
 
     const { backupCodes } = await authService.regenerateBackupCodes('member', 'pw', '123456', deviceInfo);
 
@@ -361,7 +354,7 @@ describe('regenerateBackupCodes (#638)', () => {
 
   it('refuses when a concurrent request replaced the codes first', async () => {
     vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
-    vi.mocked(authenticator.verify).mockReturnValue(true);
+    vi.mocked(isCurrentTotp).mockReturnValue(true);
     vi.mocked(prisma.user.updateMany).mockResolvedValue({ count: 0 } as never);
 
     await expect(authService.regenerateBackupCodes('member', 'pw', '123456')).rejects.toThrow('INVALID_TOTP_CODE');

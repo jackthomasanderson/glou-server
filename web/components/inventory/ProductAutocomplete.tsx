@@ -1,5 +1,6 @@
 'use client';
 import React, { useId, useRef, useState, useMemo } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Input, Chip } from '@heroui/react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -112,10 +113,14 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, sugge
         data-testid="inventory-name-input"
         fullWidth
         isRequired
+        // #657: the form says what is missing itself; the browser's bubble would vanish first.
+        validationBehavior="aria"
         isInvalid={isInvalid}
         errorMessage={isInvalid ? t('inventory.validation.required') : undefined}
         size="sm"
         label={t('inventory.fields.name')}
+        // #701: like the producer field, an example of what goes here.
+        placeholder={t(`inventory.fields.namePlaceholder.${category}`)}
         value={value}
         {...(suggestions ? {
           role: 'combobox',
@@ -132,7 +137,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, sugge
         onValueChange={(v) => { handleInputChange(v); keys.resetActive(); }}
         autoFocus={autoFocus}
         endContent={
-          loadingExternal ? <Loader2 size={14} className="animate-spin text-foreground-500" /> : undefined
+          loadingExternal ? <LoadingRegion className="flex"><Loader2 size={14} aria-hidden="true" className="animate-spin text-foreground-500" /></LoadingRegion> : undefined
         }
       />
 

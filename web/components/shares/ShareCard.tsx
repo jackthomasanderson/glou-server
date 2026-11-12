@@ -3,8 +3,8 @@ import React from 'react';
 import { Button, Chip } from '@heroui/react';
 import { Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { format, parseISO } from 'date-fns';
 import { GuestShare, getShareStatus } from '@/lib/shares/types';
+import { formatDate } from '@/lib/format';
 
 interface ShareCardProps {
   share: GuestShare;
@@ -23,8 +23,19 @@ const STATUS_COLOR = {
 // hash is persisted server-side (security fix), so it can never be shown
 // again for an existing share in this list.
 export function ShareCard({ share, onRevoke, isRevoking }: ShareCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const status = getShareStatus(share);
+  // #653: in the interface language, month written out ("3 Apr 2026"):
+  // "03/04/2026" reads as March 4 to some English readers.
+  const date = (value: string) => formatDate(value, i18n.language, { dateStyle: 'medium' });
+
+  // #846: the line says what happened to the link, not what would have.
+  const dateLine = (() => {
+    if (share.revokedAt) return t('shares.revokedOn', { date: date(share.revokedAt) });
+    if (!share.expiresAt) return t('shares.noExpiry');
+    if (status === 'expired') return t('shares.expiredOn', { date: date(share.expiresAt) });
+    return t('shares.expiresAt', { date: date(share.expiresAt) });
+  })();
 
   const scopeLabel = (() => {
     if (share.cellarIds.length > 0)
@@ -56,11 +67,7 @@ export function ShareCard({ share, onRevoke, isRevoking }: ShareCardProps) {
 
       {/* Meta */}
       <div className="flex flex-wrap gap-2 text-xs text-foreground-400">
-        {share.expiresAt ? (
-          <span>{t('shares.expiresAt', { date: format(parseISO(share.expiresAt), 'dd/MM/yyyy') })}</span>
-        ) : (
-          <span>{t('shares.noExpiry')}</span>
-        )}
+        <span>{dateLine}</span>
         {share.hidePrices && (
           <span className="text-warning-500">{t('shares.guest.pricesHidden')}</span>
         )}

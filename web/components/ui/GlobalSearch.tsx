@@ -10,6 +10,7 @@ import { useCellars } from '@/hooks/useCellars';
 import type { Product } from '@/lib/products/types';
 import { isGone } from '@/lib/products/filters';
 import { Cellar } from '@/lib/cellars/types';
+import { confirmLeave } from '@/lib/leaveGuard';
 
 function normalize(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -64,6 +65,8 @@ function useSearch() {
 
   const select = useCallback(
     (option: SearchOption, onDone: () => void) => {
+      // #759: unsaved changes (admin settings) are not dropped without a question.
+      if (!confirmLeave()) return;
       setQuery('');
       onDone();
       if (option.kind === 'cellar') {

@@ -1,14 +1,16 @@
 'use client';
 import React, { useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import {
   Button, Chip, Input, ModalContent, ModalHeader, ModalBody, ModalFooter,
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
   Skeleton, Tooltip, ButtonGroup, SelectItem,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Plus, Pencil, Trash2, Wine, Sparkles, GlassWater, Leaf, Clock, CalendarDays, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Clock, CalendarDays, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import { FilterChip } from '@/components/ui/FilterControls';
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
+import { WINE_COLORS } from '@shared/inventory';
 import { useTranslation } from 'react-i18next';
 import {
   useMaturityReferences,
@@ -22,6 +24,9 @@ import {
 import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { CURVE_SHAPES, curveShapeLabelKey, curveShapeDescriptionKey } from '@/lib/maturity-references/curve';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { segmentClass } from '@/components/ui/segmentClass';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
 const CATEGORY_CONFIG = {
   wine:      { hasColor: true,  hasVintage: true,  forceAbsolute: false },
@@ -30,12 +35,6 @@ const CATEGORY_CONFIG = {
   cigar:     { hasColor: false, hasVintage: false, forceAbsolute: true  },
 } as const;
 
-const CATEGORY_ICONS = {
-  wine: <Wine size={14} />,
-  sparkling: <Sparkles size={14} />,
-  spirit: <GlassWater size={14} />,
-  cigar: <Leaf size={14} />,
-};
 
 const EMPTY_FORM: MaturityReferenceInput = {
   name: '',
@@ -57,11 +56,14 @@ function windowLabel(ref: MaturityReference, t: (key: string, options?: Record<s
   return t('admin.maturityRefs.relativeWindow', { from: sign(ref.windowFrom), to: sign(ref.windowTo) });
 }
 
-function criteriaLabel(ref: MaturityReference): string {
+// #733: key of the "any colour" choice; the stored colours are WINE_COLORS.
+const ANY_COLOR = 'any';
+
+function criteriaLabel(ref: MaturityReference, t: (key: string) => string): string {
   const parts: string[] = [];
   if (ref.producer) parts.push(ref.producer);
   if (ref.region) parts.push(ref.region);
-  if (ref.color) parts.push(ref.color);
+  if (ref.color) parts.push(t(`inventory.color.${ref.color}`));
   if (ref.vintageFrom != null && ref.vintageTo != null) parts.push(`${ref.vintageFrom}–${ref.vintageTo}`);
   return parts.join(' · ') || '—';
 }
@@ -167,7 +169,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                       key={cat}
                       radius="sm"
                       size="md"
-                      startContent={CATEGORY_ICONS[cat]}
+                      startContent={<CategoryIcon category={cat} />}
                       selected={form.category === cat}
                       onPress={() => handleCategoryChange(cat)}
                     >
@@ -186,8 +188,9 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                       color={form.mode === 'RELATIVE' ? 'primary' : 'default'}
                       variant={form.mode === 'RELATIVE' ? 'flat' : 'light'}
                       startContent={<Clock size={14} />}
-                      className="flex-1"
+                      className={segmentClass(form.mode === 'RELATIVE', 'flex-1')}
                       onClick={() => setField('mode', 'RELATIVE')}
+                      aria-pressed={form.mode === 'RELATIVE'}
                     >
                       {t('admin.maturityRefs.modes.relative')}
                     </Button>
@@ -195,8 +198,9 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
                       color={form.mode === 'ABSOLUTE' ? 'primary' : 'default'}
                       variant={form.mode === 'ABSOLUTE' ? 'flat' : 'light'}
                       startContent={<CalendarDays size={14} />}
-                      className="flex-1"
+                      className={segmentClass(form.mode === 'ABSOLUTE', 'flex-1')}
                       onClick={() => setField('mode', 'ABSOLUTE')}
+                      aria-pressed={form.mode === 'ABSOLUTE'}
                     >
                       {t('admin.maturityRefs.modes.absolute')}
                     </Button>
@@ -289,13 +293,22 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
               </div>
 
               {cfg.hasColor && (
-                <Input
+                // #733: the colours a bottle stores, so the reference can match it.
+                <SingleSelect
                   label={t('inventory.fields.color')}
-                  value={form.color ?? ''}
-                  onValueChange={(v) => setField('color', v || null)}
                   variant="bordered" size="sm" radius="md" labelPlacement="outside"
-                  placeholder={t('admin.maturityRefs.hints.colorPlaceholder')}
-                />
+                  selectedKeys={[form.color ?? ANY_COLOR]}
+                  onSelectionChange={(keys) => {
+                    const next = String(Array.from(keys)[0] ?? ANY_COLOR);
+                    setField('color', next === ANY_COLOR ? null : next);
+                  }}
+                >
+                  {[ANY_COLOR, ...WINE_COLORS].map((c) => (
+                    <SelectItem key={c}>
+                      {c === ANY_COLOR ? t('admin.maturityRefs.anyColor') : t(`inventory.color.${c}`)}
+                    </SelectItem>
+                  ))}
+                </SingleSelect>
               )}
 
               {cfg.hasVintage && (
@@ -337,6 +350,8 @@ export function MaturityReferencesSection() {
   const { data: refs, isLoading } = useMaturityReferences();
   const { mutate: deleteRef } = useDeleteMaturityReference();
   const { mutate: reorderRefs, isPending: isReordering } = useReorderMaturityReferences();
+  // #698: on a phone the rules are cards, not an 8-column table scrolled sideways.
+  const isMobile = useIsMobile();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<MaturityReference | null>(null);
@@ -359,10 +374,100 @@ export function MaturityReferencesSection() {
     reorderRefs(ids);
   };
 
+  const reorderButtons = (index: number) => (
+    <div className="flex items-center gap-0.5">
+      <Button
+        isIconOnly size="sm" variant="light" radius="full"
+        isDisabled={index === 0 || isReordering}
+        onPress={() => move(index, -1)}
+        aria-label={t('admin.maturityRefs.moveUp')}
+      >
+        <ArrowUp size={13} />
+      </Button>
+      <Button
+        isIconOnly size="sm" variant="light" radius="full"
+        isDisabled={index === (refs?.length ?? 0) - 1 || isReordering}
+        onPress={() => move(index, 1)}
+        aria-label={t('admin.maturityRefs.moveDown')}
+      >
+        <ArrowDown size={13} />
+      </Button>
+    </div>
+  );
+
+  const windowChip = (ref: MaturityReference) => (
+    <Chip
+      size="sm"
+      variant="bordered"
+      color={ref.mode === 'RELATIVE' ? 'primary' : 'default'}
+      radius="sm"
+      className="font-mono text-xs"
+    >
+      {ref.mode === 'RELATIVE' ? '±' : ''}{windowLabel(ref, t)}
+    </Chip>
+  );
+
+  const curveButton = (ref: MaturityReference) => (
+    <Tooltip content={t(curveShapeDescriptionKey(ref.curveShape))} delay={500}>
+      <button
+        type="button"
+        className="flex items-center gap-1.5 text-xs text-foreground-500 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
+        aria-label={`${t(curveShapeLabelKey(ref.curveShape))} — ${t(curveShapeDescriptionKey(ref.curveShape))}`}
+      >
+        <CurveGlyph shape={ref.curveShape} width={30} />
+        <span aria-hidden="true">{t(curveShapeLabelKey(ref.curveShape))}</span>
+      </button>
+    </Tooltip>
+  );
+
+  const rowActions = (ref: MaturityReference) => (
+    <div className="flex justify-end gap-1">
+      <Tooltip content={t('actions.edit')} delay={500}>
+        <Button isIconOnly size="sm" variant="light" onPress={() => openEdit(ref)} aria-label={t('actions.edit')}>
+          <Pencil size={14} />
+        </Button>
+      </Tooltip>
+      <Tooltip content={t('actions.delete')} delay={500}>
+        <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => setDeleteTarget(ref)} aria-label={t('actions.delete')}>
+          <Trash2 size={14} />
+        </Button>
+      </Tooltip>
+    </div>
+  );
+
+  const cards = isLoading
+    ? <LoadingRegion className="flex flex-col gap-2">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}</LoadingRegion>
+    : !refs?.length
+    ? <p className="text-center py-6 text-sm text-foreground-500">{t('admin.maturityRefs.empty')}</p>
+    : (
+      <ul className="flex flex-col gap-2" aria-label={t('admin.maturityRefs.title')}>
+        {refs.map((ref, index) => (
+          <li key={ref.id} className="border border-divider rounded-xl p-3 flex flex-col gap-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-medium text-sm break-words">{ref.name}</p>
+                <p className="text-xs text-foreground-500 break-words">{criteriaLabel(ref, t)}</p>
+              </div>
+              <Chip size="sm" variant="bordered" radius="sm" className="shrink-0">{t(`categories.${ref.category}`)}</Chip>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {windowChip(ref)}
+              {curveButton(ref)}
+              <span className="text-xs text-foreground-500">{t('admin.maturityRefs.bottleCount', { count: ref.bottleCount })}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              {reorderButtons(index)}
+              {rowActions(ref)}
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+
   return (
     <>
-      <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6 overflow-hidden">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-content1 border border-divider rounded-2xl p-4 sm:p-6 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
             <h2 className="text-base font-semibold">{t('admin.maturityRefs.title')}</h2>
             <p className="text-sm text-foreground-500 mt-0.5">{t('admin.maturityRefs.subtitle')}</p>
@@ -372,8 +477,13 @@ export function MaturityReferencesSection() {
           </Button>
         </div>
 
-        <p className="text-xs text-foreground-400 mb-3">{t('admin.maturityRefs.cascadeHint')}</p>
+        {/* #765: the one line that explains the table, at body size and full contrast. */}
+        <p className="flex items-start gap-2 text-sm text-foreground bg-default-100 rounded-xl px-3 py-2 mb-3">
+          <Info size={16} className="shrink-0 mt-0.5" aria-hidden="true" />
+          <span>{t('admin.maturityRefs.cascadeHint')}</span>
+        </p>
 
+        {isMobile ? cards : (
         <Table
           isCompact
           shadow="none"
@@ -396,7 +506,7 @@ export function MaturityReferencesSection() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <TableRow key={i}>
                     {Array.from({ length: 8 }).map((__, c) => (
-                      <TableCell key={c}><Skeleton className="h-4 w-full rounded" /></TableCell>
+                      <TableCell key={c}>{i === 0 && c === 0 && <LoadingRegion />}<Skeleton className="h-4 w-full rounded" /></TableCell>
                     ))}
                   </TableRow>
                 ))
@@ -410,74 +520,22 @@ export function MaturityReferencesSection() {
               )
               : refs?.map((ref, index) => (
                 <TableRow key={ref.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-0.5">
-                      <Button
-                        isIconOnly size="sm" variant="light" radius="full"
-                        isDisabled={index === 0 || isReordering}
-                        onPress={() => move(index, -1)}
-                        aria-label={t('admin.maturityRefs.moveUp')}
-                      >
-                        <ArrowUp size={13} />
-                      </Button>
-                      <Button
-                        isIconOnly size="sm" variant="light" radius="full"
-                        isDisabled={index === (refs?.length ?? 0) - 1 || isReordering}
-                        onPress={() => move(index, 1)}
-                        aria-label={t('admin.maturityRefs.moveDown')}
-                      >
-                        <ArrowDown size={13} />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  <TableCell>{reorderButtons(index)}</TableCell>
                   <TableCell className="font-medium text-sm">{ref.name}</TableCell>
                   <TableCell>
                     <Chip size="sm" variant="bordered" radius="sm">{t(`categories.${ref.category}`)}</Chip>
                   </TableCell>
-                  <TableCell className="text-xs text-foreground-400">{criteriaLabel(ref)}</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="sm"
-                      variant="bordered"
-                      color={ref.mode === 'RELATIVE' ? 'primary' : 'default'}
-                      radius="sm"
-                      className="font-mono text-xs"
-                    >
-                      {ref.mode === 'RELATIVE' ? '±' : ''}{windowLabel(ref, t)}
-                    </Chip>
-                  </TableCell>
-                  <TableCell>
-                    <Tooltip content={t(curveShapeDescriptionKey(ref.curveShape))} delay={500}>
-                      <button
-                        type="button"
-                        className="flex items-center gap-1.5 text-xs text-foreground-500 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
-                        aria-label={`${t(curveShapeLabelKey(ref.curveShape))} — ${t(curveShapeDescriptionKey(ref.curveShape))}`}
-                      >
-                        <CurveGlyph shape={ref.curveShape} width={30} />
-                        <span aria-hidden="true">{t(curveShapeLabelKey(ref.curveShape))}</span>
-                      </button>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell className="text-center text-sm text-foreground-400">{ref.bottleCount}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Tooltip content={t('actions.edit')} delay={500}>
-                        <Button isIconOnly size="sm" variant="light" onPress={() => openEdit(ref)} aria-label={t('actions.edit')}>
-                          <Pencil size={14} />
-                        </Button>
-                      </Tooltip>
-                      <Tooltip content={t('actions.delete')} delay={500}>
-                        <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => setDeleteTarget(ref)} aria-label={t('actions.delete')}>
-                          <Trash2 size={14} />
-                        </Button>
-                      </Tooltip>
-                    </div>
-                  </TableCell>
+                  <TableCell className="text-xs text-foreground-500">{criteriaLabel(ref, t)}</TableCell>
+                  <TableCell>{windowChip(ref)}</TableCell>
+                  <TableCell>{curveButton(ref)}</TableCell>
+                  <TableCell className="text-center text-sm text-foreground-500">{ref.bottleCount}</TableCell>
+                  <TableCell className="text-right">{rowActions(ref)}</TableCell>
                 </TableRow>
               ))
             }</>
           </TableBody>
         </Table>
+        )}
       </div>
 
       <FormDialog

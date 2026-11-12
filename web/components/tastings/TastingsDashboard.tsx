@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { usePageSize } from '@/hooks/usePageSize';
 import { PaginationBar } from '@/components/ui/PaginationBar';
 import { PageSizeToggle } from '@/components/ui/PageSizeToggle';
+import { CreateAction } from '@/components/ui/PageHeader';
 import { ErrorState } from '@/components/ui/ErrorState';
 
 export function TastingsDashboard() {
@@ -63,17 +64,23 @@ export function TastingsDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 pt-6 pb-24 md:pb-6">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-6">
-        <Wine size={22} className="text-primary" />
-        <h1 className="text-xl font-bold">{t('tastings.title')}</h1>
-        <div className="ml-auto flex items-center gap-3">
+      {/* Toolbar — #701: the page title and tabs are in TastingsClient's header;
+          the create button is the empty state's own while there is no note. */}
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <h2 className="sr-only">{t('tastings.title')}</h2>
+        <div className="ml-auto flex flex-wrap items-center gap-3">
           {data && (
             <span className="text-sm text-foreground-500">
               {t('tastings.total', { count: data.total })}
             </span>
           )}
-          <PageSizeToggle value={pageSize} onChange={(s) => { setPageSize(s); setPage(1); }} />
+          {/* #708: nothing to page through, no page size. */}
+          {!!data?.total && (
+            <PageSizeToggle value={pageSize} onChange={(s) => { setPageSize(s); setPage(1); }} />
+          )}
+          {(data?.notes.length ?? 0) > 0 && (
+            <CreateAction label={t('tastings.create')} onPress={() => setFormOpen(true)} />
+          )}
         </div>
       </div>
 
@@ -164,21 +171,6 @@ export function TastingsDashboard() {
             labelItems={t('pagination.items')}
           />
         </>
-      )}
-
-      {/* FAB — only when there are notes */}
-      {(data?.notes.length ?? 0) > 0 && (
-        <Button
-          color="primary"
-          radius="full"
-          size="lg"
-          isIconOnly
-          onPress={() => setFormOpen(true)}
-          aria-label={t('tastings.create')}
-          className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 right-6 z-30 shadow-lg"
-        >
-          <Plus size={24} />
-        </Button>
       )}
 
       {/* Detail drawer */}

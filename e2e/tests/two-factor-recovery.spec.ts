@@ -41,7 +41,7 @@ function totp(base32Secret: string): string {
 
 test('a lost phone is recoverable: new backup codes, then an admin reset turns 2FA off', async ({ page, baseURL }) => {
   const admin = page.request;
-  const me = await okData<{ id: string; isAdmin: boolean }>(await admin.get('/api/auth/me'));
+  const me = await okData<{ id: string; isAdmin: boolean }>(await admin.get('/api/user/me'));
   test.skip(!me.isAdmin, 'needs the suite user to be the instance admin (fresh database)');
 
   const { registrationOpen } = await okData<{ registrationOpen: boolean }>(await admin.get('/api/auth/registration-status'));
@@ -53,7 +53,8 @@ test('a lost phone is recoverable: new backup codes, then an admin reset turns 2
   const password = 'lost-phone-pw-0000';
 
   try {
-    await okData(await admin.put('/api/admin/config/registration', { data: { registrationOpen: true } }));
+    // #893: opening sign-up asks for the admin's password.
+    await okData(await admin.put('/api/admin/config/registration', { data: { registrationOpen: true, password: creds().password } }));
     await okData(await member.post('/api/auth/register', {
       data: { username, email: `${username}@glou.test`, password },
     }));
@@ -65,7 +66,7 @@ test('a lost phone is recoverable: new backup codes, then an admin reset turns 2
     // Turn 2FA on, as the authenticator app would.
     const { secret } = await okData<{ secret: string }>(await member.post('/api/auth/2fa/generate'));
     const { backupCodes: firstCodes } = await okData<{ backupCodes: string[] }>(
-      await member.post('/api/auth/2fa/turn-on', { data: { code: totp(secret) } }),
+      await member.post('/api/auth/2fa/turn-on', { data: { password, code: totp(secret) } }),
     );
     expect(firstCodes).toHaveLength(10);
 

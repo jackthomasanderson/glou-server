@@ -4,6 +4,8 @@ import { notifyError, notifySuccess } from '../lib/toast';
 import { maturityReferenceClient } from '../lib/maturity-references/client';
 import { MaturityReference, MaturityReferenceInput } from '../lib/maturity-references/types';
 import type { PurgeResponse } from '@shared/maintenance';
+import type { AdminGuestShare } from '@shared/shares';
+import { configClient } from '../lib/config/client';
 
 export interface AdminUser {
     id: string;
@@ -58,8 +60,8 @@ export function useUpdateUserRole() {
 
     return useMutation({
         meta: { handlesError: true },
-        // #638: a grant carries the admin's own password (and code), and its
-        // refusals are said by the confirmation dialog; a removal's by the page.
+        // #638, #603: every change carries the admin's own password (and
+        // code); refusals are said by the confirmation dialog.
         mutationFn: async ({ userId, ...body }: { userId: string; isAdmin: boolean; password?: string; code?: string }) => {
             const response = await api.post<AdminUser>(`/admin/users/${userId}/role`, body);
             return response.data;
@@ -76,14 +78,12 @@ export function useUpdateUserStatus() {
     const queryClient = useQueryClient();
 
     return useMutation({
+        // #603: carries the admin's own password (and code); refusals are
+        // said by the caller (useMemberChanges).
         meta: { handlesError: true },
-        mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-            const response = await api.patch<AdminUser>(`/admin/users/${userId}/status`, { isActive });
+        mutationFn: async ({ userId, ...body }: { userId: string; isActive: boolean; password?: string; code?: string }) => {
+            const response = await api.patch<AdminUser>(`/admin/users/${userId}/status`, body);
             return response.data;
-        },
-        onError: (error) => {
-            const code = (error as { response?: { data?: { error?: string } } }).response?.data?.error;
-            notifyError(code === 'CANNOT_DEACTIVATE_LAST_ADMIN' ? 'admin.users.deactivateLastAdmin' : 'toast.admin.statusError');
         },
         onSuccess: () => {
             notifySuccess('toast.admin.statusSuccess');
@@ -110,6 +110,8 @@ export function useResetUserPassword() {
 export interface AuditLogFilters {
     q?: string;
     status?: string;
+    /** #698: action types, any of which matches; sent comma-separated. */
+    actions?: string[];
     from?: string;
     to?: string;
 }
@@ -120,7 +122,8 @@ export function useAdminAuditLogs(page = 1, limit = 50, filters: AuditLogFilters
         queryFn: async (): Promise<AuditLogResponse> => {
             const params = new URLSearchParams({ page: String(page), limit: String(limit) });
             for (const [key, value] of Object.entries(filters)) {
-                if (value) params.set(key, value);
+                const text = Array.isArray(value) ? value.join(',') : value;
+                if (text) params.set(key, text);
             }
             const response = await api.get<AuditLogResponse>(`/admin/audit-logs?${params.toString()}`);
             return response.data;
@@ -219,5 +222,81 @@ export function useReorderMaturityReferences() {
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: key });
         },
+    });
+}
+
+// ─── Backups state (#756) ─────────────────────────────────────────────────────
+
+export const ADMIN_BACKUP_HEALTH_KEY = ['admin_backup_health'];
+
+/** Whether backups run and when one last succeeded: the admin page warns when there is no recovery point. */
+export function useAdminBackupHealth({ enabled = true, staleTime = 30_000 }: { enabled?: boolean; staleTime?: number } = {}) {
+    return useQuery({
+        queryKey: ADMIN_BACKUP_HEALTH_KEY,
+        queryFn: () => configClient.getBackupHealth(),
+        staleTime,
+        enabled,
+    });
+}
+
+// ─── System configuration (#615) ──────────────────────────────────────────────
+
+export const SYSTEM_CONFIG_KEY = ['admin_system_config'];
+export const CONFIG_HISTORY_KEY = ['admin_config_history'];
+export const MAINTENANCE_RUNS_KEY = ['admin_maintenance_runs'];
+export const BACKUP_RUNS_KEY = ['admin_backup_runs'];
+
+/**
+ * The saved configuration. While it cannot be read, the settings screen shows
+ * an error with Retry, never forms filled with made-up defaults (#615).
+ */
+export function useSystemConfig() {
+    return useQuery({
+        queryKey: SYSTEM_CONFIG_KEY,
+        queryFn: () => configClient.getConfig(),
+    });
+}
+
+export function useConfigHistory() {
+    return useQuery({
+        queryKey: CONFIG_HISTORY_KEY,
+        queryFn: () => configClient.getHistory(),
+    });
+}
+
+export function useMaintenanceRuns() {
+    return useQuery({
+        queryKey: MAINTENANCE_RUNS_KEY,
+        queryFn: () => configClient.getMaintenanceRuns(),
+    });
+}
+
+export function useBackupRuns() {
+    return useQuery({
+        queryKey: BACKUP_RUNS_KEY,
+        queryFn: () => configClient.getBackupRuns(),
+    });
+}
+
+// ─── Guest links (#486) ───────────────────────────────────────────────────────
+
+export type { AdminGuestShare };
+
+/** Every member's guest links still in force — never the links themselves. */
+export function useAdminShares() {
+    return useQuery({
+        queryKey: ['admin_shares'],
+        queryFn: async (): Promise<AdminGuestShare[]> => (await api.get<AdminGuestShare[]>('/admin/shares')).data,
+    });
+}
+
+export function useRevokeAdminShare() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        meta: { handlesError: true },
+        mutationFn: async (id: string) => (await api.delete<{ id: string; revokedAt: string }>(`/admin/shares/${id}`)).data,
+        onError: () => notifyError('admin.shares.revokeError'),
+        onSuccess: () => notifySuccess('admin.shares.revoked'),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: ['admin_shares'] }),
     });
 }

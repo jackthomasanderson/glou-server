@@ -45,7 +45,9 @@ export function ConnectivityIndicator() {
 
   const tooltipContent = [label, subtitle, ...syncLines].filter(Boolean).join(' — ');
   const badgeCount = pendingCount + syncingCount + failedCount + conflictCount;
-  const badgeColor = failedCount > 0 || conflictCount > 0 ? 'bg-danger' : 'bg-warning';
+  const badgeColor = failedCount > 0 || conflictCount > 0
+    ? 'bg-danger text-danger-foreground'
+    : 'bg-warning text-warning-foreground';
   const offline = isOnline === false;
 
   return (
@@ -55,7 +57,7 @@ export function ConnectivityIndicator() {
         type="button"
         onClick={() => setPanelOpen(true)}
         aria-label={tooltipContent}
-        className="relative inline-flex items-center gap-1 flex-shrink-0 rounded-full px-1 py-1 text-foreground-500 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="relative inline-flex items-center gap-1 flex-shrink-0 rounded-full px-1 py-1 text-foreground-500 outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         {offline ? (
           <WifiOff size={14} className="text-warning" aria-hidden="true" />
@@ -70,7 +72,7 @@ export function ConnectivityIndicator() {
         {hasPendingWork && (
           <span
             aria-hidden="true"
-            className={`inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-xs font-bold leading-none text-white ${badgeColor} ${
+            className={`inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-xs font-bold leading-none ${badgeColor} ${
               syncingCount > 0 ? 'animate-pulse' : ''
             }`}
           >

@@ -84,7 +84,7 @@ export function SlotPicker({ cellarId, slots, needed, selected, onChange, title,
               }
               const isChosen = selected.includes(slot.id);
               const unavailable = !isChosen && full;
-              const chosenLook = tone === 'danger' ? 'bg-danger border-danger text-white' : 'bg-primary border-primary text-white';
+              const chosenLook = tone === 'danger' ? 'bg-danger border-danger text-danger-foreground' : 'bg-primary border-primary text-primary-foreground';
               return (
                 <button
                   key={key}
@@ -96,7 +96,7 @@ export function SlotPicker({ cellarId, slots, needed, selected, onChange, title,
                   data-testid={`slot-pick-${column}-${row}`}
                   data-tone={tone}
                   onClick={() => toggle(slot.id)}
-                  className={`w-7 h-7 rounded border-2 flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-primary ring-offset-1 transition-colors ${
+                  className={`w-7 h-7 rounded border-2 flex items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-focus ring-offset-1 transition-colors ${
                     isChosen ? chosenLook : 'bg-primary-100 border-primary-500 hover:bg-primary-200 text-primary-700'
                   } ${unavailable ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >

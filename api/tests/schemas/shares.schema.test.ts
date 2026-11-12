@@ -7,8 +7,8 @@ describe('shareCreateSchema', () => {
     expect(res.success).toBe(true);
     if (res.success) {
       expect(res.data).toMatchObject({
-        hidePrices: false,
-        hideNotes: false,
+        hidePrices: true,
+        hideNotes: true,
         cellarIds: ['a'],
         collectionIds: [],
         writeCellarIds: [],
@@ -17,6 +17,18 @@ describe('shareCreateSchema', () => {
       expect(res.data.expiresAt).not.toBeNull();
       expect(new Date(res.data.expiresAt!).getTime()).toBeGreaterThan(Date.now());
     }
+  });
+
+  // #611: the safe default lives on the server, not only in the web form — a
+  // client that omits the two switches must not expose prices or notes.
+  it('hides prices and notes when the fields are omitted, and keeps an explicit false', () => {
+    const omitted = shareCreateSchema.parse({ cellarIds: ['a'] });
+    expect(omitted.hidePrices).toBe(true);
+    expect(omitted.hideNotes).toBe(true);
+
+    const shown = shareCreateSchema.parse({ cellarIds: ['a'], hidePrices: false, hideNotes: false });
+    expect(shown.hidePrices).toBe(false);
+    expect(shown.hideNotes).toBe(false);
   });
 
   // ISSUE_046: cellarIds and collectionIds empty together used to mean "the

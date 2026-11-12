@@ -5,7 +5,8 @@ import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Filter } from 'lucide-react';
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
-import type { InventorySortBy, InventoryOpenedFilter } from '@/lib/products/filters';
+import { NO_CELLAR, isGone, type InventorySortBy, type InventoryOpenedFilter } from '@/lib/products/filters';
+import { isPlacedOnMap } from '@shared/map-location';
 import { WINE_COLORS } from '@shared/inventory';
 import { Cellar } from '@/lib/cellars/types';
 
@@ -39,6 +40,8 @@ export interface InventoryFilterBarProps {
   openedFilter: InventoryOpenedFilter;
   showGone: boolean;
   setShowGone: React.Dispatch<React.SetStateAction<boolean>>;
+  notLocated: boolean;
+  setNotLocated: React.Dispatch<React.SetStateAction<boolean>>;
   setOpenedFilter: React.Dispatch<React.SetStateAction<InventoryOpenedFilter>>;
 
   tagSearchQuery: string;
@@ -82,6 +85,8 @@ export function InventoryFilterBar({
   setOpenedFilter,
   showGone,
   setShowGone,
+  notLocated,
+  setNotLocated,
   tagSearchQuery,
   setTagSearchQuery,
   showAllTags,
@@ -109,6 +114,19 @@ export function InventoryFilterBar({
       .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
   }, [products]);
 
+  // #707: bottles left without a cellar (their cellar deleted) can be filtered.
+  const hasBottleWithoutCellar = useMemo(
+    () => (products ?? []).some((product) => product.items.some((item) => item.cellarId == null)),
+    [products],
+  );
+
+  // #961: wines in stock of this page that the Analytics map cannot place.
+  const hasUnlocated = useMemo(
+    () => (products ?? []).some((product) =>
+      (!lockedCategories || lockedCategories.includes(product.category)) && !isGone(product) && !isPlacedOnMap(product)),
+    [products, lockedCategories],
+  );
+
   const TAG_DISPLAY_LIMIT = 15;
 
   const filteredTagUsage = useMemo(() => {
@@ -124,8 +142,8 @@ export function InventoryFilterBar({
 
   const filterContent = (
     <div className="flex flex-col gap-4">
-      {/* Cellar filter */}
-      {(cellars?.length ?? 0) > 0 && (
+      {/* Cellar filter (#707: "Sans cave" too, even once every cellar is deleted) */}
+      {((cellars?.length ?? 0) > 0 || hasBottleWithoutCellar) && (
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-foreground-500 mb-2">
             {t('inventory.filterByCellar')}
@@ -139,6 +157,11 @@ export function InventoryFilterBar({
                 {cellar.name}
               </FilterChip>
             ))}
+            {hasBottleWithoutCellar && (
+              <FilterChip selected={selectedCellars.includes(NO_CELLAR)} onPress={() => toggleCellar(NO_CELLAR)}>
+                {t('inventory.noCellarFilter')}
+              </FilterChip>
+            )}
           </div>
         </div>
       )}
@@ -170,12 +193,27 @@ export function InventoryFilterBar({
       <div role="group" aria-label={t('familyList.filters.gone')} className="flex flex-col gap-0.5">
         <FilterOption
           selected={showGone}
-          onPress={() => { setOpenedFilter('all'); setShowGone((prev) => !prev); }}
+          onPress={() => { setOpenedFilter('all'); setNotLocated(false); setShowGone((prev) => !prev); }}
           mode="toggle"
         >
           {t('familyList.filters.gone')}
         </FilterOption>
       </div>
+
+      {/* #961: the wines in stock the Analytics map cannot place (region
+          unknown, or neither region nor known appellation), to correct them
+          in a row. Wines in stock only, so never with "Plus en cave". */}
+      {(hasUnlocated || notLocated) && (
+        <div role="group" aria-label={t('inventory.filters.notLocated')} className="flex flex-col gap-0.5">
+          <FilterOption
+            selected={notLocated}
+            onPress={() => { setShowGone(false); setNotLocated((prev) => !prev); }}
+            mode="toggle"
+          >
+            {t('inventory.filters.notLocated')}
+          </FilterOption>
+        </div>
+      )}
 
       {/* Category filter */}
       {!lockedCategories && (

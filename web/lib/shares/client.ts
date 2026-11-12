@@ -42,8 +42,9 @@ export const guestClient = {
   async getInventory(token: string): Promise<unknown[]> {
     const res = await fetch(`/api/guest/${token}/inventory`);
     if (!res.ok) {
+      // #650: the status tells a dead link from a transient failure, as for getMeta.
       const body = await res.json().catch(() => ({ error: 'NETWORK_ERROR' })) as { error: string };
-      throw new Error(body.error ?? `HTTP ${res.status}`);
+      throw new GuestRequestError(body.error ?? `HTTP ${res.status}`, res.status);
     }
     const body = await res.json() as { data: unknown[] };
     return body.data;

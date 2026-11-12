@@ -1,6 +1,7 @@
-import { prisma } from '../lib/prisma';
+import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { encrypt, decrypt, maskSecret } from '../lib/crypto';
 import { SystemConfig } from '@prisma/client';
+import { instanceTimeZone } from '../lib/quiet-hours';
 
 export interface SmtpConfig {
   smtpEnabled: boolean;
@@ -18,17 +19,6 @@ export interface GotifyConfig {
   gotifyToken: string | null; // plaintext (decrypted)
 }
 
-export interface IntegrationsConfig {
-  vivinoKey: string | null; // plaintext
-  whiskybaseKey: string | null; // plaintext
-}
-
-export type NotificationPolicyConfig = {
-  smtpEnabled: boolean;
-  gotifyEnabled: boolean;
-  inAppEnabled: boolean;
-};
-
 export type RetentionConfig = {
   logRetentionDays: number;
   sessionRetentionDays: number;
@@ -40,18 +30,13 @@ export type RetentionConfig = {
 export type BackupConfig = {
   backupEnabled: boolean;
   backupRetentionDays: number;
-  backupHourUtc: number;
+  backupHour: number;
 };
 
 // ─── FEAT-54: Network Configuration & External Access ────────────────────────
 
-export type AccessMode = 'direct' | 'proxy';
-
-const ACCESS_MODES: readonly AccessMode[] = ['direct', 'proxy'];
-
 export type NetworkConfigInput = {
   publicUrl?: string | null;
-  accessMode: AccessMode;
 };
 
 export type NetworkCheckResult = {
@@ -66,6 +51,7 @@ export type RegistrationConfig = {
 };
 
 const DEFAULT_APP_URL = 'http://localhost:3000';
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 /** `publicUrl` if set (non-empty), else `process.env.APP_URL`, else the hardcoded default. */
 function resolveEffectivePublicUrl(publicUrl: string | null): string {
@@ -84,23 +70,42 @@ export type PublicSystemConfig = {
   gotifyEnabled: boolean;
   gotifyUrl: string | null;
   gotifyTokenMasked: string | null;
-  inAppEnabled: boolean;
-  vivinoKeyMasked: string | null;
-  whiskybaseKeyMasked: string | null;
   logRetentionDays: number;
   sessionRetentionDays: number;
   guestShareRetentionDays: number;
   publicUrl: string | null;
-  accessMode: string;
   // Resolved URL actually used by the app (publicUrl, or APP_URL, or the localhost default).
   effectivePublicUrl: string;
   registrationOpen: boolean;
   backupEnabled: boolean;
   backupRetentionDays: number;
-  backupHourUtc: number;
+  /** #761: an hour of `timeZone`. */
+  backupHour: number;
+  /** #761: the instance's time zone (`TZ`), in which every scheduled job runs. */
+  timeZone: string;
   updatedAt: Date | null;
   updatedBy: string | null;
 };
+
+// ─── #760: configuration history ────────────────────────────────────────────
+
+/** What the history shows in place of a secret that is set. */
+const SECRET_MASK = '••••••••';
+
+function maskStored(value: unknown): string | null {
+  return value ? SECRET_MASK : null;
+}
+
+/** Ciphertexts differ on every save: compare what they decrypt to. */
+function sameSecret(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  try {
+    return decrypt(String(a)) === decrypt(String(b));
+  } catch {
+    return false;
+  }
+}
 
 async function getOrCreate(): Promise<SystemConfig> {
   let config = await prisma.systemConfig.findUnique({ where: { id: 'singleton' } });
@@ -108,6 +113,52 @@ async function getOrCreate(): Promise<SystemConfig> {
     config = await prisma.systemConfig.create({ data: { id: 'singleton' } });
   }
   return config;
+}
+
+/**
+ * #760 / #628: records only the settings that actually changed, with their
+ * previous and new values as two JSON objects keyed by field name. Only
+ * columns of the configuration are considered, so a stray key (a step-up
+ * password, say) can never be written. Encrypted secrets (`…Enc`) are never
+ * written: SECRET_MASK when set, null when empty. Nothing is recorded when
+ * the save changed nothing.
+ */
+async function logChange(db: PrismaClientOrTx, userId: string, section: string, old: SystemConfig, next: Record<string, unknown>) {
+  const before: Record<string, unknown> = {};
+  const after: Record<string, unknown> = {};
+  const previous = old as unknown as Record<string, unknown>;
+  for (const [field, value] of Object.entries(next)) {
+    if (field === 'updatedBy' || value === undefined || !Object.hasOwn(previous, field)) continue;
+    const was = previous[field] ?? null;
+    const isSecret = field.endsWith('Enc');
+    if (isSecret ? sameSecret(was, value) : was === (value ?? null)) continue;
+    before[field] = isSecret ? maskStored(was) : was;
+    after[field] = isSecret ? maskStored(value) : value ?? null;
+  }
+  if (Object.keys(after).length === 0) return;
+  await db.configChangeLog.create({
+    data: {
+      userId,
+      fieldName: section,
+      maskedOldVal: JSON.stringify(before),
+      maskedNewVal: JSON.stringify(after),
+    },
+  });
+}
+
+/**
+ * Saves `data` and records the change in one transaction; the row is locked
+ * first, so two admins saving at once each log the value they replaced.
+ * `unlogged`: internal columns written with it, never shown in the history.
+ */
+async function saveAndLog(userId: string, section: string, data: Record<string, unknown>, unlogged: Record<string, unknown> = {}): Promise<void> {
+  await getOrCreate();
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT 1 FROM "SystemConfig" WHERE "id" = 'singleton' FOR UPDATE`;
+    const old = await tx.systemConfig.findUniqueOrThrow({ where: { id: 'singleton' } });
+    await tx.systemConfig.update({ where: { id: 'singleton' }, data: { ...data, ...unlogged, updatedBy: userId } });
+    await logChange(tx, userId, section, old, data);
+  });
 }
 
 export const systemConfigService = {
@@ -124,19 +175,16 @@ export const systemConfigService = {
       gotifyEnabled: cfg.gotifyEnabled,
       gotifyUrl: cfg.gotifyUrl,
       gotifyTokenMasked: maskSecret(cfg.gotifyTokenEnc),
-      inAppEnabled: cfg.inAppEnabled,
-      vivinoKeyMasked: maskSecret(cfg.vivinoKeyEnc),
-      whiskybaseKeyMasked: maskSecret(cfg.whiskybaseKeyEnc),
       logRetentionDays: cfg.logRetentionDays,
       sessionRetentionDays: cfg.sessionRetentionDays,
       guestShareRetentionDays: cfg.guestShareRetentionDays,
       publicUrl: cfg.publicUrl,
-      accessMode: cfg.accessMode,
       effectivePublicUrl: resolveEffectivePublicUrl(cfg.publicUrl),
       registrationOpen: cfg.registrationOpen,
       backupEnabled: cfg.backupEnabled,
       backupRetentionDays: cfg.backupRetentionDays,
-      backupHourUtc: cfg.backupHourUtc,
+      backupHour: cfg.backupHour,
+      timeZone: instanceTimeZone(),
       updatedAt: cfg.updatedAt,
       updatedBy: cfg.updatedBy,
     };
@@ -165,7 +213,6 @@ export const systemConfigService = {
   },
 
   async updateSmtp(data: Partial<SmtpConfig & { smtpPass?: string | null }>, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
     const update: Record<string, unknown> = { updatedBy: userId };
 
     if (data.smtpEnabled !== undefined) update.smtpEnabled = data.smtpEnabled;
@@ -178,13 +225,11 @@ export const systemConfigService = {
       update.smtpPassEnc = data.smtpPass ? encrypt(data.smtpPass) : null;
     }
 
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'smtp', old, update);
+    await saveAndLog(userId, 'smtp', update);
     return this.getPublic();
   },
 
   async updateGotify(data: Partial<GotifyConfig & { gotifyToken?: string | null }>, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
     const update: Record<string, unknown> = { updatedBy: userId };
 
     if (data.gotifyEnabled !== undefined) update.gotifyEnabled = data.gotifyEnabled;
@@ -193,44 +238,19 @@ export const systemConfigService = {
       update.gotifyTokenEnc = data.gotifyToken ? encrypt(data.gotifyToken) : null;
     }
 
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'gotify', old, update);
-    return this.getPublic();
-  },
-
-  async updateNotificationPolicy(data: NotificationPolicyConfig, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    const update = { ...data, updatedBy: userId };
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'notifications', old, data);
-    return this.getPublic();
-  },
-
-  async updateIntegrations(data: Partial<IntegrationsConfig>, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    const update: Record<string, unknown> = { updatedBy: userId };
-
-    if (data.vivinoKey !== undefined) update.vivinoKeyEnc = data.vivinoKey ? encrypt(data.vivinoKey) : null;
-    if (data.whiskybaseKey !== undefined) update.whiskybaseKeyEnc = data.whiskybaseKey ? encrypt(data.whiskybaseKey) : null;
-
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'integrations', old, update);
+    await saveAndLog(userId, 'gotify', update);
     return this.getPublic();
   },
 
   async updateRetention(data: RetentionConfig, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    const update = { ...data, updatedBy: userId };
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'retention', old, data);
+    await saveAndLog(userId, 'retention', data);
     return this.getPublic();
   },
 
   async updateBackupConfig(data: BackupConfig, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    const update = { ...data, updatedBy: userId };
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'backup', old, data);
+    // #761: the hour sent is always local; a flag left on by a failed startup
+    // conversion would make the next startup shift it by the UTC offset.
+    await saveAndLog(userId, 'backup', data, { backupHourIsUtc: false });
     return this.getPublic();
   },
 
@@ -245,6 +265,23 @@ export const systemConfigService = {
     return resolveEffectivePublicUrl(cfg.publicUrl);
   },
 
+  /**
+   * #625: the public URL the browser should encode in bottle QR codes, or
+   * `null` when nothing but a loopback address is configured (the compose
+   * default APP_URL is http://localhost:3000) — the browser then keeps its
+   * own address and warns. Reads without creating the singleton row, since
+   * the public `GET /api/version` serves it.
+   */
+  async getQrPublicUrl(): Promise<string | null> {
+    const cfg = await prisma.systemConfig.findUnique({ where: { id: 'singleton' }, select: { publicUrl: true } });
+    const url = resolveEffectivePublicUrl(cfg?.publicUrl ?? null);
+    try {
+      return LOOPBACK_HOSTS.has(new URL(url).hostname) ? null : url;
+    } catch {
+      return null;
+    }
+  },
+
   async updateNetworkConfig(data: NetworkConfigInput, userId: string): Promise<PublicSystemConfig> {
     if (data.publicUrl) {
       try {
@@ -253,18 +290,13 @@ export const systemConfigService = {
         throw new Error('INVALID_PUBLIC_URL');
       }
     }
-    if (!ACCESS_MODES.includes(data.accessMode)) {
-      throw new Error('INVALID_ACCESS_MODE');
-    }
 
-    const old = await getOrCreate();
-    const update: Record<string, unknown> = { updatedBy: userId, accessMode: data.accessMode };
+    const update: Record<string, unknown> = {};
     if (data.publicUrl !== undefined) {
       update.publicUrl = data.publicUrl && data.publicUrl.trim() !== '' ? data.publicUrl : null;
     }
 
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: update });
-    await this.logChange(userId, 'network', old, update);
+    await saveAndLog(userId, 'network', update);
     return this.getPublic();
   },
 
@@ -292,11 +324,6 @@ export const systemConfigService = {
       warnings.push('NOT_HTTPS_IN_PRODUCTION');
     }
 
-    const isLocalHost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
-    if (cfg.accessMode === 'proxy' && isLocalHost) {
-      warnings.push('PROXY_MODE_LOCALHOST_URL');
-    }
-
     return { ok: true, warnings };
   },
 
@@ -305,23 +332,6 @@ export const systemConfigService = {
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: { user: { select: { username: true } } },
-    });
-  },
-
-  async logChange(userId: string, section: string, _old: SystemConfig, _new: Record<string, unknown>) {
-    await prisma.configChangeLog.create({
-      data: {
-        userId,
-        fieldName: section,
-        maskedOldVal: null,
-        maskedNewVal: JSON.stringify(
-          Object.fromEntries(
-            Object.entries(_new)
-              .filter(([k]) => k !== 'updatedBy')
-              .map(([k, v]) => [k, k.endsWith('Enc') ? '••••••••' : v])
-          )
-        ),
-      },
     });
   },
 
@@ -335,9 +345,7 @@ export const systemConfigService = {
   },
 
   async updateRegistrationConfig(data: RegistrationConfig, userId: string): Promise<PublicSystemConfig> {
-    const old = await getOrCreate();
-    await prisma.systemConfig.update({ where: { id: 'singleton' }, data: { ...data, updatedBy: userId } });
-    await this.logChange(userId, 'registration', old, data);
+    await saveAndLog(userId, 'registration', data);
     return this.getPublic();
   },
 

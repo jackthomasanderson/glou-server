@@ -1,8 +1,16 @@
 import { summarizeStock, unitKind, type StockSummary } from '@shared/units';
+import { isPlacedOnMap } from '@shared/map-location';
+import { alertUrgency } from '@/lib/inventory/types';
 import type { Product } from './types';
 
 export type InventorySortBy = 'default' | 'value' | 'urgency' | 'name';
 export type InventoryOpenedFilter = 'all' | 'full' | 'opened' | 'alerts';
+
+/**
+ * #707: the cellar filter's entry for the bottles without a cellar (a deleted
+ * cellar leaves its bottles there). A real cellar id is never empty.
+ */
+export const NO_CELLAR = '';
 
 /** Everything the filter panel and the search box can narrow the list of wines with. */
 export interface ProductFilterCriteria {
@@ -17,6 +25,8 @@ export interface ProductFilterCriteria {
   openedFilter: InventoryOpenedFilter;
   /** "Plus en cave" (FEAT-101): only the wines without anything left in stock. */
   showGone: boolean;
+  /** #961 "Pas sur la carte": only the wines in stock the Analytics map cannot place. */
+  notLocated?: boolean;
   searchQuery: string;
   sortBy: InventorySortBy;
 }
@@ -99,9 +109,11 @@ export function filterProducts(
   }
   // A wine is in a cellar when some of its bottles in stock are there.
   if (criteria.selectedCellars.length > 0) {
-    keep((p) => p.items.some((item) => criteria.selectedCellars.includes(item.cellarId ?? '')));
+    keep((p) => p.items.some((item) => criteria.selectedCellars.includes(item.cellarId ?? NO_CELLAR)));
   }
   if (criteria.selectedTags.length > 0) keep((p) => criteria.selectedTags.every((tag) => p.tags.includes(tag)));
+  // #961: the same rule as the map (shared/map-location.ts), on the wines in stock.
+  if (criteria.notLocated) keep((p) => !isGone(p) && !isPlacedOnMap(p));
 
   const min = criteria.minValue === '' ? NaN : parseFloat(criteria.minValue);
   const max = criteria.maxValue === '' ? NaN : parseFloat(criteria.maxValue);
@@ -117,9 +129,11 @@ export function filterProducts(
     const today = ctx.today;
     if (today === null) return [];
     // #573: a wine with nothing left is nothing to drink: no alert, no reminder.
+    // #644: as in the bell (#506), only what calls for action now: a wine
+    // "approaching" its window may be years away, it is not an alert yet.
     keep((p) => !isGone(p) && (
       (!!p.reminderDate && p.reminderDate.split('T')[0] <= today) ||
-      (!!p.alertStatus && p.alertStatus !== 'none' && !p.alertsPaused)));
+      ((p.alertStatus === 'peak' || p.alertStatus === 'past') && !p.alertsPaused)));
   }
 
   if (criteria.searchQuery.trim()) keep((p) => matchesSearch(p, criteria.searchQuery, ctx));
@@ -127,11 +141,29 @@ export function filterProducts(
   if (criteria.sortBy === 'value') {
     result = [...result].sort((a, b) => stockSummaryOf(b).value - stockSummaryOf(a).value);
   } else if (criteria.sortBy === 'urgency') {
-    const urgencyOrder: Record<string, number> = { past: 0, approaching: 1, peak: 2, none: 3 };
-    result = [...result].sort((a, b) =>
-      (urgencyOrder[a.alertStatus ?? 'none'] ?? 3) - (urgencyOrder[b.alertStatus ?? 'none'] ?? 3));
+    result = [...result].sort((a, b) => alertUrgency(a.alertStatus) - alertUrgency(b.alertStatus));
   } else if (criteria.sortBy === 'name') {
     result = [...result].sort((a, b) => a.name.localeCompare(b.name));
   }
   return result;
+}
+
+/**
+ * #708: why a chosen collection shows nothing, when the collection itself is
+ * the reason: it holds no wine ('empty'), or only finished ones while neither
+ * "Plus en cave" nor a search shows them ('allGone'). Null otherwise — other
+ * filters may hide its wines, the generic "no result" state applies.
+ */
+export function collectionEmptiness(
+  products: readonly Product[],
+  criteria: ProductFilterCriteria,
+): 'empty' | 'allGone' | null {
+  const id = criteria.selectedCollectionId;
+  if (!id) return null;
+  const locked = criteria.lockedCategories ?? [];
+  const inCollection = products.filter((p) => p.collections.some((c) => c.id === id)
+    && (locked.length === 0 || locked.includes(p.category)));
+  if (inCollection.length === 0) return 'empty';
+  if (!criteria.showGone && criteria.searchQuery.trim() === '' && inCollection.every(isGone)) return 'allGone';
+  return null;
 }

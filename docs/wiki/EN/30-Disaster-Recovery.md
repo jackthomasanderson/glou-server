@@ -15,7 +15,7 @@ Three things are needed to rebuild everything: the **database backup** (`.sql.gz
 If the host disk dies, the backup files die with it unless you copied them elsewhere.
 
 ## Prerequisites (do this *before* you need it)
-1. Backups enabled: Admin → System Configuration → Backups → **Enabled**.
+1. Backups enabled: Admin → System Configuration → Data → **Enabled**.
 2. Regularly copy off the host: the newest file of the `./backups` folder (or **Download** it from the backup history), your `.env`, and the `api_uploads` volume.
    > [!NOTE]
    > If an old `api_backups` volume still exists, it only holds backups from before the 2026.10 upgrade; check the date before restoring one of them.
@@ -24,7 +24,14 @@ If the host disk dies, the backup files die with it unless you copied them elsew
 ## Rebuild on a new host
 1. Install Docker and put your `docker-compose.yml` and **the same `.env`** on the new host (in particular the same `CONFIG_ENCRYPTION_KEY`).
 2. Start the stack: `docker compose up -d`. The API creates an empty database.
-3. Check the backup file is complete. This command prints nothing when the file is fine:
+3. **In the app**, the simplest, when the new host runs the same Glou version as the one that took the backup:
+   - Copy the backup file, keeping its name (`glou-backup-….sql.gz`), into the `./backups` folder next to `docker-compose.yml`, then restart the API: `docker compose restart api`. At startup, the API adds every backup file of that folder to the backup history (a truncated file is left out).
+   - Create the first account: it is the admin of this still empty instance.
+   - Open Admin → System configuration → Data, find the backup in the backup history and choose **Restore**. Glou asks for the password of the account you just created, then takes a backup of the current (empty) database, then restores.
+   - Once restored, sign in with an account of the backup, then go on at step 6 (photos).
+
+   If Glou answers that the backup was taken by another version, use the command line of steps 4 and 5 instead.
+4. **Or from the command line.** Check the backup file is complete. This command prints nothing when the file is fine:
    ```bash
    gunzip -t glou-backup-XXXX.sql.gz
    ```
@@ -37,13 +44,13 @@ If the host disk dies, the backup files die with it unless you copied them elsew
      | docker compose exec -T db psql -U glou -d glou_db -v ON_ERROR_STOP=1 --single-transaction
    ```
    An SQL error in the file aborts the whole restore and rolls back; a truncated file is what the `gunzip -t` check above is for. The `sed` part removes a setting that older backups contain and that PostgreSQL 15 rejects; it changes nothing in newer backups. If you changed `DB_USER` or `DB_NAME` in your `.env`, use those values instead of `glou` and `glou_db`.
-4. Restart the API so it applies any database update the backup predates: `docker compose restart api`.
-5. Restore the photos into the `api_uploads` volume, for example:
+5. Restart the API so it applies any database update the backup predates: `docker compose restart api`.
+6. Restore the photos into the `api_uploads` volume, for example:
    ```bash
    docker run --rm -v <project>_api_uploads:/data -v "$PWD":/backup alpine \
      sh -c 'cd /data && tar xzf /backup/uploads.tar.gz && chown -R 1001:1001 /data'
    ```
-6. Check: sign in, open a cellar, send a test email (Admin → System Configuration → SMTP → test).
+7. Check: sign in, open a cellar, send a test email (Admin → System Configuration → Notifications → Email → Test connection).
 
 ## Back up the photos
 ```bash
@@ -56,6 +63,7 @@ Replace `<project>` with the prefix shown by `docker volume ls` (usually the fol
 
 | Symptom | Cause and fix |
 |---|---|
+| The copied backup is not in the backup history | Restart the API after copying the file (`docker compose restart api`), keep its `glou-backup-` name and `.sql.gz` extension, and make sure the API can read it (`sudo chown 1001:1001 backups/*`). A truncated file is never listed: check it with `gunzip -t`. |
 | `gunzip -t` reports `unexpected end of file` or `not in gzip format` | The file is incomplete: copy it again, or use an older backup. Do not restore it. |
 | The restore stops with `already exists` errors | The schema was not reset: keep the first `printf` line of the command. |
 | The restore stops with `unrecognized configuration parameter "transaction_timeout"` | The `sed '/^SET transaction_timeout/d'` part of the command is missing: copy the whole command again. |

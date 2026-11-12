@@ -14,17 +14,17 @@ export const smtpConfigSchema = z.object({
   smtpSecure: z.boolean().optional(),
 });
 
+// #636: the SMTP test sends to this address, or only opens a connection
+// without one. The admin's step-up fields are read by adminReauthSchema.
+export const smtpTestSchema = z.object({
+  email: z.string().email().optional(),
+});
+
 export const gotifyConfigSchema = z.object({
   gotifyEnabled: z.boolean().optional(),
   gotifyUrl: z.string().url().optional().nullable(),
   gotifyToken: z.string().optional().nullable(),
 });
 
-export const integrationsConfigSchema = z.object({
-  vivinoKey: z.string().optional().nullable(),
-  whiskybaseKey: z.string().optional().nullable(),
-});
-
 export type SmtpConfigInput = z.infer<typeof smtpConfigSchema>;
 export type GotifyConfigInput = z.infer<typeof gotifyConfigSchema>;
-export type IntegrationsConfigInput = z.infer<typeof integrationsConfigSchema>;

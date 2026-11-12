@@ -2,25 +2,28 @@
 
 import { cellarContentsLabel } from '@/lib/cellars/contents';
 import React, { useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Button, Chip, CircularProgress, Tooltip, ButtonGroup, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Card, CardBody } from '@heroui/react';
-import { ArrowLeft, LayoutGrid, List, Map, Warehouse } from 'lucide-react';
+import { LayoutGrid, List, Map, Plus, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/format';
 import { MainLayout } from '@/components/ui/MainLayout';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { useCellar, useCellarGrid } from '@/hooks/useCellars';
-import { useInventory } from '@/hooks/useInventory';
+import { useCreateFromForm } from '@/hooks/useCreateFromForm';
+import { InventoryForm, type InventoryEntry } from '@/components/inventory/InventoryForm';
+import { PRODUCT_LIST_LIMIT } from '@shared/product';
 import { CellarGridPlan } from '@/components/cellars/CellarGridPlan';
 import { HumidorPanel } from '@/components/cellars/HumidorPanel';
 import { FamilyDrawer, type SlotContext } from '@/components/inventory/FamilyDrawer';
 import { AddUnitsAction, cellarPageStart } from '@/components/inventory/AddUnitsDialog';
 import { EditWineDialog } from '@/components/inventory/EditWineDialog';
-import { InventoryItem } from '@/lib/inventory/types';
 import type { GridCell } from '@/lib/cellars/types';
 import type { Product } from '@/lib/products/types';
 import { describeStock, keepNumbersWhole } from '@/lib/products/stock';
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
-import { useProducts } from '@/hooks/useProducts';
+import { useCellarProducts, useProducts, useProductsTruncated } from '@/hooks/useProducts';
+import { segmentClass } from '@/components/ui/segmentClass';
 import { useExpertMode } from '@/hooks/useExpertMode';
 
 type DetailView = 'grid' | 'list' | 'map';
@@ -82,7 +85,6 @@ function WineCard({ product, cellarId, onPress }: { product: Product; cellarId: 
 
 export function CellarDetailClient() {
   const { t, i18n } = useTranslation();
-  const router = useRouter();
   const params = useParams();
   const cellarId = params.id as string;
   const [view, setView] = useState<DetailView>('map');
@@ -95,7 +97,6 @@ export function CellarDetailClient() {
     setSlotContext(null);
     setViewingProductId(productId);
   };
-  const viewItem = (item: InventoryItem) => viewWine(item.productId ?? item.id);
   // The cell the drawer was opened from: the focus comes back to it, even emptied meanwhile.
   const touchedCell = useRef<string | null>(null);
   const openSlot = (cell: GridCell) => {
@@ -117,21 +118,40 @@ export function CellarDetailClient() {
   };
 
   const { data: cellar, isLoading: cellarLoading, isError: cellarError } = useCellar(cellarId);
-  const { data: allInventory } = useInventory();
-  const { data: products } = useProducts();
+  const { data: allProducts } = useProducts();
+  // #475: once the household's list is cut at its cap, the wines of this
+  // cellar are read on their own (scoped server-side), so none goes missing.
+  const householdCut = useProductsTruncated();
+  const { data: cellarList, isError: cellarListError } = useCellarProducts(cellarId, { enabled: householdCut });
+  const products = householdCut && cellarList ? cellarList.data : allProducts;
+  const isIncomplete = householdCut && (cellarListError || cellarList?.truncated === true);
   const { data: gridData, isLoading: gridLoading } = useCellarGrid(cellarId);
   const isExpert = useExpertMode();
 
+  // #707: "Ajouter une bouteille ici" — the add form, this cellar preselected.
+  const [adding, setAdding] = useState(false);
+  // #690: saved as everywhere else — this cellar for an untouched cellar
+  // field, the collections picked in the form.
+  const { create, isPending: isCreating } = useCreateFromForm({ defaultCellarId: cellarId });
+  const handleAdd = async (values: InventoryEntry, collectionIds: string[]) => {
+    // A failure is reported by the mutation's toast; the form stays open with the entry.
+    if (await create(values, collectionIds)) setAdding(false);
+  };
+
   const hasGrid = !!(cellar?.columns && cellar?.rows);
-  const cellarItems = allInventory?.filter((item) => item.cellarId === cellarId && !item.deletedAt) ?? [];
+  // The wines with bottles in stock here: one card each (§10.2).
+  const cellarProducts = (products ?? []).filter((product) => describeStock(product, t, { cellarIds: [cellarId] }).units > 0
+    && product.items.some((item) => item.cellarId === cellarId));
+  // The list view: one row per line of bottles in stock here.
+  const cellarRows = cellarProducts.flatMap((product) => product.items
+    .filter((item) => item.cellarId === cellarId)
+    .map((item) => ({ item, product })));
   // Task 4: humidor monitoring shows for any cellar explicitly typed HUMIDOR,
   // or (data-model constat: no dedicated "cigar cellar" concept pre-existed)
   // any cellar that already holds cigar items, so pre-existing SHELF/VINTAGE
   // cellars used for cigars don't need a data migration to opt in.
-  // The wines with bottles in stock here: one card each (§10.2).
-  const cellarProducts = (products ?? []).filter((product) => describeStock(product, t, { cellarIds: [cellarId] }).units > 0
-    && product.items.some((item) => item.cellarId === cellarId));
-  const isHumidorEligible = cellar?.type === 'HUMIDOR' || cellarItems.some((item) => item.category === 'cigar');
+  const isHumidorEligible = cellar?.type === 'HUMIDOR' || cellarProducts.some((product) => product.category === 'cigar');
+  const cigarCtx = cellar?.type === 'HUMIDOR' ? { context: 'cigar' } : undefined;
 
   if (cellarLoading) {
     return (
@@ -156,24 +176,20 @@ export function CellarDetailClient() {
   return (
     <MainLayout crumb={cellar.name}>
       <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-1">
-          <Tooltip content={t('actions.back')} delay={500}>
-            <Button isIconOnly size="sm" variant="light" radius="full" onPress={() => router.push('/cellars')} aria-label={t('actions.back')}>
-              <ArrowLeft size={16} />
-            </Button>
-          </Tooltip>
-          <Warehouse size={20} className="text-primary" />
-          <h1 className="text-xl font-bold">{cellar.name}</h1>
-          <Chip size="sm" variant="bordered" radius="sm">{t(`cellars.types.${cellar.type}`)}</Chip>
-        </div>
-
-        {cellar.description && (
-          <p className="text-sm text-foreground-500 ml-10 mb-3">{cellar.description}</p>
-        )}
+        {/* Header — #701: shared page header; the breadcrumb leads back to the cellars. */}
+        <PageHeader
+          icon={Warehouse}
+          title={cellar.name}
+          subtitle={
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <Chip size="sm" variant="bordered" radius="sm">{t(`cellars.types.${cellar.type}`)}</Chip>
+              {cellar.description && <p>{cellar.description}</p>}
+            </div>
+          }
+        />
 
         {cellar.stats && (
-          <div className="flex gap-2 flex-wrap mb-4 ml-10">
+          <div className="flex gap-2 flex-wrap mb-4">
             <Chip size="sm" variant="flat">{cellarContentsLabel(cellar.stats, t)}</Chip>
             {cellar.stats.alertCount > 0 && (
               <Chip size="sm" color="warning" variant="flat">{t('cellars.stats.alertCount', { count: cellar.stats.alertCount })}</Chip>
@@ -186,21 +202,28 @@ export function CellarDetailClient() {
 
         <hr className="border-divider mb-6" />
 
+        {/* #475: this cellar's own list could not be read whole. */}
+        {isIncomplete && (
+          <div role="status" className="mb-4 px-4 py-3 rounded-xl text-sm border bg-warning-50 border-warning-200 text-warning-700">
+            {t('inventory.truncated', { limit: PRODUCT_LIST_LIMIT })}
+          </div>
+        )}
+
         {/* View toggle */}
-        <div className="flex justify-between items-center mb-5">
+        <div className="flex justify-between items-center gap-2 mb-5">
           <ButtonGroup size="sm" variant="flat">
             <Tooltip content={t('view.grid')} delay={500}>
               <Button
                 isIconOnly color={view === 'grid' ? 'primary' : 'default'}
                 variant={view === 'grid' ? 'flat' : 'light'}
-                onPress={() => setView('grid')} aria-label={t('view.grid')}
+                onPress={() => setView('grid')} aria-label={t('view.grid')} aria-pressed={view === 'grid'} className={segmentClass(view === 'grid')}
               ><LayoutGrid size={16} /></Button>
             </Tooltip>
             <Tooltip content={t('view.list')} delay={500}>
               <Button
                 isIconOnly color={view === 'list' ? 'primary' : 'default'}
                 variant={view === 'list' ? 'flat' : 'light'}
-                onPress={() => setView('list')} aria-label={t('view.list')}
+                onPress={() => setView('list')} aria-label={t('view.list')} aria-pressed={view === 'list'} className={segmentClass(view === 'list')}
               ><List size={16} /></Button>
             </Tooltip>
             {hasGrid && (
@@ -208,17 +231,20 @@ export function CellarDetailClient() {
                 <Button
                   isIconOnly color={view === 'map' ? 'primary' : 'default'}
                   variant={view === 'map' ? 'flat' : 'light'}
-                  onPress={() => setView('map')} aria-label={t('view.map')}
+                  onPress={() => setView('map')} aria-label={t('view.map')} aria-pressed={view === 'map'} className={segmentClass(view === 'map')}
                 ><Map size={16} /></Button>
               </Tooltip>
             )}
           </ButtonGroup>
+          <Button size="sm" color="primary" variant="flat" startContent={<Plus size={16} />} onPress={() => setAdding(true)}>
+            {t('cellars.addHere', cigarCtx)}
+          </Button>
         </div>
 
         {/* Grid cards */}
         {view === 'grid' && (
           cellarProducts.length === 0 ? (
-            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cellar?.type === 'HUMIDOR' ? { context: 'cigar' } : undefined)}</div>
+            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cigarCtx)}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {cellarProducts.map((product) => (
@@ -230,13 +256,13 @@ export function CellarDetailClient() {
 
         {/* List view */}
         {view === 'list' && (
-          cellarItems.length === 0 ? (
-            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cellar?.type === 'HUMIDOR' ? { context: 'cigar' } : undefined)}</div>
+          cellarRows.length === 0 ? (
+            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cigarCtx)}</div>
           ) : (
             <Table isCompact shadow="none" radius="md" classNames={{ wrapper: 'border border-divider rounded-xl' }} aria-label={t('nav.bottles')}
               onRowAction={(key) => {
-                const found = cellarItems.find((i) => i.id === String(key));
-                if (found) viewItem(found);
+                const found = cellarRows.find((row) => row.item.id === String(key));
+                if (found) viewWine(found.product.id);
               }}
             >
               <TableHeader>
@@ -247,12 +273,12 @@ export function CellarDetailClient() {
                 <TableColumn>{t('cellars.grid.slot')}</TableColumn>
               </TableHeader>
               <TableBody>
-                {cellarItems.map((item) => (
+                {cellarRows.map(({ item, product }) => (
                   <TableRow key={item.id} className="cursor-pointer">
-                    <TableCell className="text-sm font-semibold">{item.name}</TableCell>
-                    <TableCell className="text-sm text-foreground-400">{item.producer}</TableCell>
-                    <TableCell><Chip size="sm" variant="flat">{t(`categories.${item.category}`)}</Chip></TableCell>
-                    <TableCell className="text-sm">{item.vintage ?? '—'}</TableCell>
+                    <TableCell className="text-sm font-semibold">{product.name}</TableCell>
+                    <TableCell className="text-sm text-foreground-400">{product.producer}</TableCell>
+                    <TableCell><Chip size="sm" variant="flat">{t(`categories.${product.category}`)}</Chip></TableCell>
+                    <TableCell className="text-sm">{product.vintage ?? '—'}</TableCell>
                     <TableCell>
                       {/* FEAT-93: every cell its copies occupy. */}
                       {item.slots && item.slots.length > 0 ? (
@@ -273,7 +299,7 @@ export function CellarDetailClient() {
         {/* Map/grid plan */}
         {view === 'map' && !hasGrid && (
           cellarProducts.length === 0 ? (
-            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cellar?.type === 'HUMIDOR' ? { context: 'cigar' } : undefined)}</div>
+            <div className="bg-default-50 border border-divider text-sm text-foreground-500 rounded-xl px-4 py-3">{t('inventory.noBottles', cigarCtx)}</div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {cellarProducts.map((product) => (
@@ -288,7 +314,7 @@ export function CellarDetailClient() {
               <CircularProgress isIndeterminate color="primary" aria-label={t('status.loading')} />
             </div>
           ) : gridData ? (
-            <CellarGridPlan data={gridData} onOpenSlot={openSlot} />
+            <CellarGridPlan data={gridData} onOpenSlot={openSlot} onAddHere={() => setAdding(true)} />
           ) : (
             <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t('status.error')}</div>
           )
@@ -310,6 +336,15 @@ export function CellarDetailClient() {
         onEdit={(product) => { setViewingProductId(null); setEditing(product); }}
         // Recette n°5 of #847: new bottles are offered this cellar (or the touched cell's), not the latest line's.
         primaryAction={(product) => <AddUnitsAction product={product} start={cellarPageStart(cellarId, slotContext)} />}
+      />
+      <InventoryForm
+        open={adding}
+        defaultCellarId={cellarId}
+        defaultCategory={cellar.type === 'HUMIDOR' ? 'cigar' : undefined}
+        onSubmit={(values, collectionIds) => void handleAdd(values, collectionIds)}
+        onClose={() => setAdding(false)}
+        isSubmitting={isCreating}
+        t={t}
       />
       <EditWineDialog
         product={editing}

@@ -2,7 +2,13 @@ import type { CellarStats, GridLine } from '@shared/cellar';
 
 export type { CellarStats };
 
-export type CellarType = 'VINTAGE' | 'COOLER' | 'SHELF' | 'HUMIDOR';
+/**
+ * Every cellar type a member can choose, in display order. The cellars page
+ * and the first-run wizard both read this list, so they cannot drift (#649).
+ */
+export const CELLAR_TYPES = ['VINTAGE', 'COOLER', 'SHELF', 'HUMIDOR'] as const;
+
+export type CellarType = (typeof CELLAR_TYPES)[number];
 
 export interface Cellar {
   id: string;

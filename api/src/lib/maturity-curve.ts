@@ -117,14 +117,3 @@ export function readinessPercent(input: ReadinessInput): number | null {
   const idx = readinessIndex(input);
   return idx == null ? null : Math.round(idx * 100);
 }
-
-/**
- * Weight to give a bottle in a per-year distribution (garde histogram): the
- * readiness index, or a flat `1` when the bottle has a window but no
- * meaningful curve position for that year (keeps totals stable). Years fully
- * outside the lead-in / decay envelope contribute 0.
- */
-export function distributionWeight(input: ReadinessInput): number {
-  const idx = readinessIndex(input);
-  return idx == null ? 0 : idx;
-}

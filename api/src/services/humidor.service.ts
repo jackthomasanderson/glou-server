@@ -125,15 +125,19 @@ async function notifyDrift(
   await notifyAllMembers(
     'temperature',
     (isEn) => (isEn ? `Humidor drift: ${cellar.name}` : `Dérive détectée : ${cellar.name}`),
-    (isEn) => [
+    (isEn) => {
+      // French sets a non-breaking space before "%" (#841).
+      const pct = (n: number | null) => `${n}${isEn ? '' : '\u00A0'}%`;
+      return [
       `<p>${isEn
         ? `The latest hygrometry reading for <strong>${escapeHtml(cellar.name)}</strong> is outside the target range.`
         : `La dernière lecture d'hygrométrie de <strong>${escapeHtml(cellar.name)}</strong> est hors de la plage cible.`}</p>`,
       '<ul>',
-      `<li>${isEn ? 'Reading' : 'Lecture'}: ${reading.humidityPercent}%</li>`,
-      `<li>${isEn ? 'Target range' : 'Plage cible'}: ${cellar.targetHumidityMin}% – ${cellar.targetHumidityMax}%</li>`,
+      `<li>${isEn ? 'Reading' : 'Lecture'}: ${pct(reading.humidityPercent)}</li>`,
+      `<li>${isEn ? 'Target range' : 'Plage cible'}: ${pct(cellar.targetHumidityMin)} – ${pct(cellar.targetHumidityMax)}</li>`,
       '</ul>',
-    ].join(''),
+      ].join('');
+    },
   );
 }
 

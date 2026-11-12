@@ -1,23 +1,21 @@
 'use client';
 import React, { useMemo, useState } from 'react';
+import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Avatar, Button, Card, CardBody, Chip, Input, Skeleton } from '@heroui/react';
 import { Search, Utensils, Wine } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useInventory } from '@/hooks/useInventory';
 import { inStockItems } from '@/lib/inventory/inStock';
-import { InventoryItem } from '@/lib/inventory/types';
+import { alertUrgency, InventoryItem } from '@/lib/inventory/types';
 import { matchDishToPairings, pickBestPairingLabel } from '@/lib/tastings/pairingEngine';
-import { getRecommendations } from '@/lib/tastings/recommendations';
+import { getRecommendations, type PairingKey } from '@/lib/tastings/recommendations';
 import { TastingForm } from './TastingForm';
 import { ErrorState } from '@/components/ui/ErrorState';
 
-// Quick-pick chips: derived from the vocabulary already present in the
-// RECOS food pairing catalog (recommendations.ts). The catalog itself is
-// French-only business data (same convention as ServiceRecommendations.tsx,
-// which never runs pairing labels through i18n), but the search *query* the
-// chip types into the box is picked per active locale (fr/en) so it reads
-// naturally either way — both resolve to the same French keywords via the
-// bilingual synonym dictionary in pairingEngine.ts.
+// Quick-pick chips: derived from the vocabulary of the RECOS food pairing
+// catalog (recommendations.ts). The search *query* the chip types into the
+// box is picked per active locale (fr/en) so it reads naturally either way;
+// the engine scores it against the pairing labels in that same language (#653).
 const QUICK_CHIPS: { i18nKey: string; fr: string; en: string }[] = [
   { i18nKey: 'tastings.pairing.quickChips.meat', fr: 'viande', en: 'meat' },
   { i18nKey: 'tastings.pairing.quickChips.fish', fr: 'poisson', en: 'fish' },
@@ -41,25 +39,6 @@ function getItemSubtype(item: InventoryItem): string | null {
   }
 }
 
-/**
- * Consumption-rotation priority (FEAT-08/FEAT-06 spirit): among bottles that
- * pair equally well with the dish, surface the ones that most need drinking
- * first — past their peak, at their peak, approaching it, then already
- * opened bottles (finish what's started) before anything else.
- */
-function urgencyRank(item: InventoryItem): number {
-  switch (item.alertStatus) {
-    case 'past':
-      return 0;
-    case 'peak':
-      return 1;
-    case 'approaching':
-      return 2;
-    default:
-      return 3;
-  }
-}
-
 interface PairingSuggestion {
   item: InventoryItem;
   score: number;
@@ -79,7 +58,9 @@ export function PairingExplorer() {
     // #849: only a bottle still in the cellar can be served with the dish.
     const inStock = inStockItems(inventory);
 
-    const dishMatches = matchDishToPairings(trimmed);
+    // #653: the pairings are scored, and given as the reason, in the member's language.
+    const label = (key: PairingKey) => t(`tastings.pairings.${key}`);
+    const dishMatches = matchDishToPairings(trimmed, label);
     if (dishMatches.length === 0) return [];
 
     // A bottle can, in theory, satisfy more than one matching combo (e.g. a
@@ -89,7 +70,7 @@ export function PairingExplorer() {
     const byItemId = new Map<string, PairingSuggestion>();
     for (const combo of dishMatches) {
       const reco = getRecommendations(combo.category, combo.subtype);
-      const reasonLabel = reco ? pickBestPairingLabel(trimmed, reco.foodPairings) : null;
+      const reasonLabel = reco ? pickBestPairingLabel(trimmed, reco.foodPairings.map(label)) : null;
 
       for (const item of inStock) {
         if (item.category !== combo.category) continue;
@@ -107,12 +88,15 @@ export function PairingExplorer() {
 
     return Array.from(byItemId.values()).sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      const urgencyDiff = urgencyRank(a.item) - urgencyRank(b.item);
+      // Consumption-rotation priority (FEAT-08): among bottles that pair
+      // equally well, the ones that most need drinking first (#644: the one
+      // urgency order), then opened bottles (finish what's started).
+      const urgencyDiff = alertUrgency(a.item.alertStatus) - alertUrgency(b.item.alertStatus);
       if (urgencyDiff !== 0) return urgencyDiff;
       if (a.item.isOpened !== b.item.isOpened) return a.item.isOpened ? -1 : 1;
       return a.item.name.localeCompare(b.item.name);
     });
-  }, [query, inventory]);
+  }, [query, inventory, t]);
 
   const hasSearched = query.trim().length > 0;
 
@@ -120,7 +104,7 @@ export function PairingExplorer() {
     <div className="max-w-7xl mx-auto px-4 py-6">
       <div className="flex items-center gap-2 mb-4">
         <Utensils size={22} className="text-primary" />
-        <h1 className="text-xl font-bold">{t('tastings.pairing.title')}</h1>
+        <h2 className="text-lg font-bold">{t('tastings.pairing.title')}</h2>
       </div>
 
       {/* Search */}
@@ -168,7 +152,7 @@ export function PairingExplorer() {
 
       {/* Loading */}
       {isLoading && hasSearched ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <LoadingRegion className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i} radius="lg" shadow="sm">
               <CardBody className="gap-2">
@@ -178,7 +162,7 @@ export function PairingExplorer() {
               </CardBody>
             </Card>
           ))}
-        </div>
+        </LoadingRegion>
       ) : !hasSearched ? (
         /* Prompt state */
         <div className="flex flex-col items-center py-16 text-center">

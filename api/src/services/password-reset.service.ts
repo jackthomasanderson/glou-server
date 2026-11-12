@@ -9,6 +9,8 @@ import { isNotifEn } from '../lib/notif-lang';
 import { escapeHtml } from '../lib/html';
 
 const TOKEN_TTL_MINUTES = 15;
+/** #606: a link younger than this is kept, and no new e-mail is sent. */
+const RESEND_COOLDOWN_MS = 2 * 60 * 1000;
 
 export const passwordResetService = {
   async requestReset(email: string): Promise<void> {
@@ -17,6 +19,16 @@ export const passwordResetService = {
     if (!user || !user.isActive) return;
     const isEn = isNotifEn(user);
 
+    // #606: each request used to void the previous link and send another
+    // e-mail, so anyone could flood a mailbox and make the legitimate link
+    // useless. A valid link less than 2 minutes old is kept, quietly.
+    const now = Date.now();
+    const recent = await prisma.passwordResetToken.findFirst({
+      where: { userId: user.id, usedAt: null, expiresAt: { gt: new Date(now) }, createdAt: { gt: new Date(now - RESEND_COOLDOWN_MS) } },
+      select: { id: true },
+    });
+    if (recent) return;
+
     // Invalidate any existing tokens for this user
     await prisma.passwordResetToken.deleteMany({ where: { userId: user.id } });
 
@@ -24,7 +36,7 @@ export const passwordResetService = {
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     const expiresAt = new Date(Date.now() + TOKEN_TTL_MINUTES * 60 * 1000);
 
-    await prisma.passwordResetToken.create({
+    const token = await prisma.passwordResetToken.create({
       data: { userId: user.id, tokenHash, expiresAt },
     });
 
@@ -36,7 +48,14 @@ export const passwordResetService = {
       ? `<p>Hello ${escapeHtml(user.username)},</p><p>Click the link below to reset your password. This link expires in ${TOKEN_TTL_MINUTES} minutes and can only be used once.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>If you did not request this, you can ignore this email.</p>`
       : `<p>Bonjour ${escapeHtml(user.username)},</p><p>Cliquez sur le lien ci-dessous pour réinitialiser votre mot de passe. Ce lien expire dans ${TOKEN_TTL_MINUTES} minutes et ne peut être utilisé qu'une seule fois.</p><p><a href="${resetUrl}">${resetUrl}</a></p><p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>`;
 
-    await emailService.send({ to: user.email, subject, html });
+    try {
+      await emailService.send({ to: user.email, subject, html });
+    } catch (err) {
+      // #606 (review): a link nobody received must not hold back a retry
+      // through the 2-minute rule above.
+      await prisma.passwordResetToken.delete({ where: { id: token.id } }).catch(() => {});
+      throw err;
+    }
   },
 
   async validateToken(rawToken: string): Promise<{ valid: boolean; userId?: string }> {
@@ -84,6 +103,14 @@ export const passwordResetService = {
       status: 'success',
       ip: deviceInfo.ip ?? 'unknown',
       details: { reason: 'password_reset', trustedDevicesRevoked: true },
+    });
+    // #601: the change itself, told apart from a change made in the profile.
+    void auditLog({
+      userId: record.userId,
+      action: 'PASSWORD_CHANGE',
+      status: 'success',
+      ip: deviceInfo.ip ?? 'unknown',
+      details: { via: 'reset_link' },
     });
 
     authService.notifyAccountSecurityEvent(record.userId, 'passwordChanged', deviceInfo);

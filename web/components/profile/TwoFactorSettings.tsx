@@ -2,10 +2,10 @@
 import React, { useState } from 'react';
 import {
   Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter,
-  Divider, CircularProgress,
+  Divider, CircularProgress, Chip,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   useGenerate2fa, useTurnOn2fa, useTurnOff2fa, useBackupCodesCount, useRegenerateBackupCodes, PublicUser, useMe,
@@ -13,6 +13,8 @@ import {
 import { TwoFactorCodeInput } from '@/components/auth/TwoFactorCodeInput';
 import { BackupCodesDialog } from '@/components/profile/BackupCodesDialog';
 import { authErrorMessage } from '@/lib/auth/error-message';
+import { secretBlocks } from '@/lib/auth/group-secret';
+import { copyText } from '@/lib/clipboard';
 
 /** #638: at or below this many codes left, the count is shown as a warning. */
 const LOW_BACKUP_CODES = 2;
@@ -21,6 +23,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
   const [isTurnOnModalOpen, setIsTurnOnModalOpen] = useState(false);
   const [isTurnOffModalOpen, setIsTurnOffModalOpen] = useState(false);
+  const [secretCopy, setSecretCopy] = useState<'idle' | 'copied' | 'failed'>('idle');
   const { refetch: refetchMe } = useMe();
   const [setupData, setSetupData] = useState<{ qrCodeUrl: string; secret: string } | null>(null);
   const [code, setCode] = useState('');
@@ -41,6 +44,11 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const regenerateMutation = useRegenerateBackupCodes();
   const { data: backupCodesLeft } = useBackupCodesCount(user.isTwoFactorEnabled);
 
+  const handleCopySecret = async () => {
+    if (!setupData) return;
+    setSecretCopy((await copyText(setupData.secret)) ? 'copied' : 'failed');
+  };
+
   const handleStartEnable = () => {
     setErrorMsg(null);
     setIsTurnOnModalOpen(true);
@@ -52,7 +60,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
 
   const handleConfirmEnable = () => {
     setErrorMsg(null);
-    turnOnMutation.mutate({ code }, {
+    turnOnMutation.mutate({ password, code }, {
       onSuccess: (res) => {
         handleCloseEnable();
         setBackupCodes({ codes: res.backupCodes, successMessage: t('profile.twoFactor.enableSuccess') });
@@ -65,7 +73,9 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   const handleCloseEnable = () => {
     setIsTurnOnModalOpen(false);
     setSetupData(null);
+    setSecretCopy('idle');
     setCode('');
+    setPassword('');
     setErrorMsg(null);
   };
 
@@ -101,7 +111,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
   };
 
   return (
-    <div className="bg-content1 border border-divider rounded-2xl p-6 mt-6">
+    <div className="bg-content1 border border-divider rounded-2xl p-6">
       <div className="flex items-center gap-3 mb-5">
         <ShieldCheck size={20} className="text-primary" />
         <h2 className="text-base font-semibold">{t('profile.twoFactor.title')}</h2>
@@ -112,15 +122,27 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
           {t('profile.twoFactor.description')}
         </p>
 
-        <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
-          <p className="text-sm font-medium">
-            {t('profile.twoFactor.status')} :{' '}
-            {user.isTwoFactorEnabled ? (
-              <span className="text-success-700 font-bold">{t('profile.twoFactor.enabled')}</span>
-            ) : (
-              <span className="text-foreground-400">{t('profile.twoFactor.disabled')}</span>
+        <div className="flex items-center justify-between gap-3 p-3 bg-default-50 rounded-xl">
+          <div className="flex flex-col gap-1">
+            <div className="text-sm font-medium flex flex-wrap items-center gap-2">
+              {t('profile.twoFactor.status')}
+              {/* #770: colour + icon + text; the -800 shades keep the light-theme text above 4.5:1 on the flat chip. */}
+              {user.isTwoFactorEnabled ? (
+                <Chip size="sm" variant="flat" color="success" startContent={<ShieldCheck size={14} />}
+                  classNames={{ base: 'text-success-800 dark:text-success', content: 'font-semibold' }}>
+                  {t('profile.twoFactor.enabled')}
+                </Chip>
+              ) : (
+                <Chip size="sm" variant="flat" color="warning" startContent={<ShieldAlert size={14} />}
+                  classNames={{ base: 'text-warning-800 dark:text-warning', content: 'font-semibold' }}>
+                  {t('profile.twoFactor.disabled')}
+                </Chip>
+              )}
+            </div>
+            {user.isAdmin && !user.isTwoFactorEnabled && (
+              <p className="text-xs text-foreground-500">{t('profile.twoFactor.adminRecommended')}</p>
             )}
-          </p>
+          </div>
           {!user.isTwoFactorEnabled ? (
             <Button color="primary" variant="solid" size="sm" onPress={handleStartEnable}>
               {t('profile.twoFactor.enable')}
@@ -179,15 +201,45 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                       alt="QR Code 2FA"
                       className="w-48 h-48 rounded-xl border border-divider"
                     />
-                    <p className="text-xs text-foreground-400 text-center">
+                    <p className="text-xs text-foreground-400 text-center max-w-full">
                       {t('profile.twoFactor.orSecret')}{' '}
-                      <code className="font-mono font-bold text-foreground">{setupData.secret}</code>
+                      {/* #950: blocks of 4 with a CSS gap and <wbr/>, no real spaces: it wraps at 320 px and a manual selection still copies the raw secret. */}
+                      <code className="font-mono font-bold text-foreground">
+                        {secretBlocks(setupData.secret).map((block, i) => (
+                          <React.Fragment key={i}>
+                            {i > 0 && <wbr />}
+                            <span className="inline-block mr-1.5">{block}</span>
+                          </React.Fragment>
+                        ))}
+                      </code>
+                    </p>
+                    <Button size="sm" variant="flat" startContent={<Copy size={14} />} onPress={handleCopySecret}>
+                      {t('profile.twoFactor.copySecret')}
+                    </Button>
+                    <p role="status" className="text-xs text-center text-foreground-500">
+                      {secretCopy === 'idle' ? '' : t(secretCopy === 'copied' ? 'profile.twoFactor.secretCopied' : 'profile.twoFactor.copySecretFailed')}
                     </p>
                     <Divider className="w-full" />
                     <p className="text-sm text-center text-foreground-600">
                       {t('profile.twoFactor.step2')}
                     </p>
                     <TwoFactorCodeInput value={code} onValueChange={setCode} isDisabled={turnOnMutation.isPending} />
+                    {/* #603: an open session alone must not tie the account to someone else's app. */}
+                    <p className="text-sm text-center text-foreground-600">
+                      {t('profile.twoFactor.step3')}
+                    </p>
+                    <Input
+                      label={t('profile.passwordLabel')}
+                      type="password"
+                      value={password}
+                      onValueChange={setPassword}
+                      variant="bordered"
+                      size="md"
+                      radius="md"
+                      labelPlacement="outside"
+                      autoComplete="current-password"
+                      isDisabled={turnOnMutation.isPending}
+                    />
                   </div>
                 ) : null}
               </ModalBody>
@@ -199,7 +251,7 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
                   color="primary"
                   variant="solid"
                   onPress={handleConfirmEnable}
-                  isDisabled={code.length < 6 || turnOnMutation.isPending}
+                  isDisabled={!password || code.length < 6 || turnOnMutation.isPending}
                   isLoading={turnOnMutation.isPending}
                 >
                   {t('actions.confirm')}

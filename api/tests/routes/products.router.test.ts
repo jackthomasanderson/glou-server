@@ -8,6 +8,8 @@ vi.mock('../../src/middleware/auth.middleware', () => ({
     req.userId = 'u1';
     next();
   },
+  // #962: the permanent deletion routes are tested in trash-permanent.router.test.ts.
+  adminMiddleware: (_req: express.Request, res: express.Response) => { res.status(403).end(); },
   getClientIp: () => '127.0.0.1',
 }));
 vi.mock('../../src/services/product.service', () => ({
@@ -43,6 +45,22 @@ describe('GET /api/products (D9)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ data: [{ id: 'p1', items: [] }], truncated: false });
+  });
+
+  it('#475: scopes the list to a cellar when asked', async () => {
+    vi.mocked(productService.list).mockResolvedValue({ data: [], truncated: false } as never);
+
+    const res = await request(app).get('/api/products?cellarId=c1');
+
+    expect(res.status).toBe(200);
+    expect(productService.list).toHaveBeenCalledWith({ cellarId: 'c1' });
+  });
+
+  it('#475: refuses an empty cellar filter', async () => {
+    const res = await request(app).get('/api/products?cellarId=');
+
+    expect(res.status).toBe(400);
+    expect(productService.list).not.toHaveBeenCalled();
   });
 
   it('answers a family in the trash list', async () => {

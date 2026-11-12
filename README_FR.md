@@ -40,6 +40,7 @@
 
 **Prérequis :**
 - Docker installé et en cours d'exécution, sur un hôte 64 bits Intel/AMD ou ARM (Raspberry Pi 4/5, NAS ARM…) : les images sont publiées pour `linux/amd64` et `linux/arm64`.
+- Un navigateur récent pour utiliser l'application : Safari et Safari iOS 16.4+, Chrome et Edge 111+, Firefox 128+ (ou plus récent). iOS 15 et antérieurs ne sont pas pris en charge.
 
 **Étape 1 : Configurer**
 ```bash
@@ -70,10 +71,10 @@ Docker télécharge les images pré-construites et démarre la stack. Aucune com
 Rendez-vous sur [http://localhost:3000](http://localhost:3000), cliquez sur **S'inscrire** (sous le formulaire de connexion), puis sur **Créer mon compte**. Le premier compte créé reçoit automatiquement les droits administrateur.
 
 > [!NOTE]
-> Une fois ce premier compte créé, **l'inscription est fermée**. Pour laisser d'autres personnes s'inscrire, un admin active **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration Système → Réseau**, et peut la désactiver ensuite.
+> Une fois ce premier compte créé, **l'inscription est fermée**. Pour laisser d'autres personnes s'inscrire, un admin active **Autoriser l'inscription de nouveaux comptes** dans **Administration → Configuration système → Accès**, et peut la désactiver ensuite.
 
 > [!TIP]
-> Pour mettre à jour vers une nouvelle version : `docker compose pull && docker compose up -d`. Faites d'abord une sauvegarde (**Administration → Configuration Système → Sauvegardes → Sauvegarder maintenant**) ; pour revenir en arrière, voir [Mises à jour et retour arrière](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).
+> Pour mettre à jour vers une nouvelle version : `docker compose pull && docker compose up -d`. Faites d'abord une sauvegarde (**Administration → Configuration système → Données → Sauvegarder maintenant**) ; pour revenir en arrière, voir [Mises à jour et retour arrière](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).
 
 *Pour la configuration avancée, les variables d'environnement et le dépannage, consultez le [Wiki](./docs/wiki/FR/_wiki.md).*
 
@@ -97,12 +98,26 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000), cliquez sur **S'
 Des dizaines de fonctionnalités plus petites sortent régulièrement ; voir les [pull requests fermées](https://github.com/jackthomasanderson/glou-server/pulls?q=is%3Apr+is%3Aclosed) pour l'historique complet.
 
 ### À venir
-- Smart Data Engine : enrichissement automatique via Vivino et Whiskybase, avec cache local. Pas encore construit : les clés d'intégration de l'écran admin ne sont lues par aucun code aujourd'hui.
+- Smart Data Engine : enrichissement automatique via Vivino et Whiskybase, avec cache local. Pas encore construit.
 - Analyses prédictives pour la valorisation de la collection.
 - Intégration IoT avancée pour le suivi en direct de la température et de l'hygrométrie.
 - Application mobile native.
 
+## Licence
+
+À partir de la première version publiée après la v2026.11.2, Glou est sous [licence PolyForm Noncommercial 1.0.0](LICENSE) (texte en anglais). Chaque version publiée est soumise au fichier LICENSE qu'elle contient. La licence couvre le code, la documentation, le wiki, le logo et les icônes propres à Glou ; les composants de tiers gardent leur propre licence (voir [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)).
+
+- **Gratuit** pour un usage personnel et pour tout autre but non commercial, y compris partager une instance avec votre foyer, votre famille ou vos amis, et partager ses frais d'hébergement sans bénéfice. Un club ou une association qui gère la cave commune de ses membres sans rien vendre au public fait un usage non commercial. Revendre à l'occasion des bouteilles de votre propre collection ne rend pas votre usage commercial ; en faire commerce à titre professionnel, si.
+- **Gratuit aussi** pour les organisations caritatives, établissements d'enseignement, organismes publics de recherche, organismes de sécurité publique ou de santé, organismes de protection de l'environnement et institutions publiques, quel que soit leur financement.
+- **Les autres usages professionnels demandent une licence commerciale** : par exemple utiliser Glou pour faire tourner une entreprise (y compris la cave de votre propre boutique, bar ou restaurant, ou des caves que vous gérez pour des clients), vendre l'hébergement de Glou, ou l'inclure dans une offre payante. Écrivez à bl00md3v@gmail.com en indiquant le nom de votre structure, l'usage que vous faites de Glou et le nombre de sites ou d'utilisateurs ; conditions et prix sont fixés au cas par cas.
+- Le nom, le logo et la baseline relèvent de la [politique de marque](TRADEMARKS_FR.md).
+- Toute contribution demande de signer le [contrat de licence de contributeur](CLA.md) (CLA, en anglais).
+
+Le code source de Glou est disponible et vous pouvez le modifier et le redistribuer pour un usage non commercial, mais Glou n'est ni un logiciel libre ni un logiciel open source au sens de l'OSI.
+
+Cette section est un résumé pour faciliter la lecture. Seul le texte de [LICENSE](LICENSE) (en anglais) fait foi ; en cas d'écart, il prévaut.
+
 ## Crédits / Tiers
 
-- Ce produit inclut des données GeoLite créées par MaxMind, disponibles sur [http://maxmind.com/](http://maxmind.com/).
+- [IP Geolocation by DB-IP](https://db-ip.com) : la localisation approximative des sessions utilise la base DB-IP IP to City Lite, sous licence [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.fr).
 - Contours de la carte du monde issus de [Natural Earth](https://www.naturalearthdata.com/) (domaine public), via [world-atlas](https://github.com/topojson/world-atlas).

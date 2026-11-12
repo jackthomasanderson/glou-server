@@ -1,4 +1,5 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import React from 'react';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { product, unit } from '@/lib/products/__tests__/factories';
 import { frenchT } from '@/lib/products/__tests__/i18n';
@@ -17,6 +18,32 @@ vi.mock('@/hooks/useProducts', () => ({
 vi.mock('@/hooks/useInventory', () => ({
   useInventoryTrash: () => ({ data: data.items, isLoading: false, isError: false }),
   useRestoreInventoryItem: () => ({ mutate: restoreItem, isPending: false }),
+}));
+// #962: deleting for good is for administrators, never offline.
+const session = vi.hoisted(() => ({ isAdmin: false, reachable: true as boolean | null }));
+vi.mock('@/hooks/useAuth', () => ({ useMe: () => ({ data: { id: 'u1', isAdmin: session.isAdmin } }) }));
+vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => session.reachable }));
+vi.mock('@/components/ui/ResponsiveModal', () => ({
+  ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: React.ReactNode }) =>
+    isOpen ? <div role="dialog">{children}</div> : null,
+}));
+vi.mock('@heroui/react', async (importActual) => ({
+  ...(await importActual<typeof import('@heroui/react')>()),
+  ModalContent: ({ children }: { children?: React.ReactNode | (() => React.ReactNode) }) => (
+    <>{typeof children === 'function' ? children() : children}</>
+  ),
+  ModalHeader: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ModalBody: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  ModalFooter: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+}));
+vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, o?: Record<string, unknown>) => t(key, o), i18n: { language: 'fr' } }) }));
+const deleteItem = vi.fn();
+const deleteWine = vi.fn();
+const emptyTrash = vi.fn();
+vi.mock('@/hooks/usePermanentDelete', () => ({
+  useDeleteTrashedItem: () => ({ mutate: deleteItem, isPending: false }),
+  useDeleteTrashedProduct: () => ({ mutate: deleteWine, isPending: false }),
+  useEmptyTrash: () => ({ mutate: emptyTrash, isPending: false }),
 }));
 
 import { InventoryTrash } from '../InventoryTrash';
@@ -132,5 +159,85 @@ describe('InventoryTrash headings follow the page', () => {
     render(<InventoryTrash t={t} lockedCategories={['wine', 'sparkling', 'spirit']} />);
     expect(screen.getByRole('region', { name: 'Vins' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Bouteilles' })).toBeInTheDocument();
+  });
+});
+
+// #962 (owner decision): only an administrator deletes for good or empties
+// the trash; the others restore, and are told the trash empties itself.
+describe('InventoryTrash permanent deletion (#962)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    session.isAdmin = true;
+    session.reachable = true;
+    data.wines = [{ ...product({ id: 'w1', producer: 'Domaine A', name: 'Cuvée X', items: [unit({ quantity: 6, deletedAt: when })] }), deletedAt: when }];
+    data.items = [
+      { id: 'boxes', productId: 'c2', deletedAt: when, category: 'cigar', name: 'Corona', producer: 'M', quantity: 2, cigarsPerBox: 25, isOpened: false },
+      { id: 'one', productId: 'w6', deletedAt: when, category: 'wine', name: 'Seule', producer: 'D', quantity: 1, isOpened: false },
+    ];
+  });
+
+  it('a member who is not an administrator only restores, and reads that the trash empties itself', () => {
+    session.isAdmin = false;
+    render(<InventoryTrash t={t} />);
+    expect(screen.queryByRole('button', { name: /Supprimer définitivement/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Vider la corbeille' })).toBeNull();
+    expect(screen.getByText(/supprimé définitivement après 7 jours/)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Restaurer/ })).toHaveLength(3);
+  });
+
+  it('deletes a wine for good after a confirmation naming it, its bottles, and that it cannot be undone', () => {
+    render(<InventoryTrash t={t} />);
+    const wines = screen.getByTestId('trash-wines');
+    fireEvent.click(within(wines).getByRole('button', { name: 'Supprimer définitivement' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent('Supprimer définitivement Domaine A — Cuvée X (2020) et ses 6 bouteilles ?');
+    expect(dialog).toHaveTextContent('irréversible');
+    expect(deleteWine).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Supprimer définitivement' }));
+    expect(deleteWine).toHaveBeenCalledWith('w1', expect.anything());
+  });
+
+  it('deletes one line for good after a confirmation giving its count', () => {
+    render(<InventoryTrash t={t} />);
+    const [, boxes] = screen.getAllByRole('listitem');
+    fireEvent.click(within(boxes).getByRole('button', { name: 'Supprimer définitivement' }));
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveTextContent('Supprimer définitivement 2 boîtes (M — Corona) ?');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Supprimer définitivement' }));
+    expect(deleteItem).toHaveBeenCalledWith('boxes', expect.anything());
+    expect(deleteWine).not.toHaveBeenCalled();
+  });
+
+  it('cancelling deletes nothing', () => {
+    render(<InventoryTrash t={t} />);
+    const [, boxes] = screen.getAllByRole('listitem');
+    fireEvent.click(within(boxes).getByRole('button', { name: 'Supprimer définitivement' }));
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Annuler' }));
+    expect(deleteItem).not.toHaveBeenCalled();
+  });
+
+  it("empties the page's trash after a confirmation giving the count", () => {
+    render(<InventoryTrash t={t} lockedCategories={['wine', 'sparkling', 'spirit']} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Vider la corbeille' }));
+    const dialog = screen.getByRole('dialog');
+    // The wine and the bottle of this page; the cigars are not on it.
+    expect(dialog).toHaveTextContent('Les 2 entrées de cette corbeille seront supprimées définitivement.');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Vider la corbeille' }));
+    expect(emptyTrash).toHaveBeenCalledWith(['wine', 'sparkling', 'spirit'], expect.anything());
+  });
+
+  it('offline, the two actions are disabled with the reason and do nothing', () => {
+    session.reachable = false;
+    render(<InventoryTrash t={t} />);
+    const empty = screen.getByRole('button', { name: 'Vider la corbeille' });
+    expect(empty).toHaveAttribute('aria-disabled', 'true');
+    expect(screen.getAllByText('Disponible au retour de la connexion').length).toBeGreaterThan(0);
+    fireEvent.click(empty);
+    const [first] = screen.getAllByRole('button', { name: 'Supprimer définitivement' });
+    expect(first).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(first);
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(emptyTrash).not.toHaveBeenCalled();
+    expect(deleteWine).not.toHaveBeenCalled();
   });
 });

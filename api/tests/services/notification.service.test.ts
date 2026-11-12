@@ -7,7 +7,7 @@ vi.mock('../../src/services/email.service', () => ({
   emailService: { send: vi.fn().mockResolvedValue(undefined), sendTestEmail: vi.fn() },
 }));
 vi.mock('../../src/services/system-config.service', () => ({
-  systemConfigService: { getPublic: vi.fn().mockResolvedValue({ smtpEnabled: true }) },
+  systemConfigService: { getPublic: vi.fn(), getGotify: vi.fn() },
 }));
 
 const fetchMock = vi.fn();
@@ -15,43 +15,99 @@ vi.stubGlobal('fetch', fetchMock);
 
 import { prisma } from '../../src/lib/prisma';
 import { emailService } from '../../src/services/email.service';
+import { systemConfigService } from '../../src/services/system-config.service';
 import { notificationService } from '../../src/services/notification.service';
 import { hourInTimeZone } from '../../src/lib/quiet-hours';
 
+/** #767: the instance's Gotify server, the only destination (admin URL + app token). */
+const instanceGotify = { gotifyEnabled: true, gotifyUrl: 'https://1.2.3.4', gotifyToken: 'APP-TOKEN' };
+
 const baseUser = {
   id: 'u1',
+  username: 'marie',
   email: 'a@b.com',
   isActive: true,
   notifEmail: false,
-  notifInApp: false,
   notifWebhook: true,
   notifCategories: [],
   notifQuietStart: null,
   notifQuietEnd: null,
-  webhookUrl: 'https://1.2.3.4/hook',
 };
+
+/** The one Gotify call made, as [url, init]. */
+const gotifyCall = () => fetchMock.mock.calls[0] as [string, RequestInit];
 
 beforeEach(() => {
   vi.clearAllMocks();
   fetchMock.mockResolvedValue({ ok: true, status: 200 });
+  vi.mocked(systemConfigService.getPublic).mockResolvedValue({ smtpEnabled: true } as never);
+  vi.mocked(systemConfigService.getGotify).mockResolvedValue({ ...instanceGotify });
 });
 
-describe('notificationService.send — webhook SSRF guard (ISSUE_048)', () => {
-  it('refuses to call a webhook pointed at an internal address', async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser, webhookUrl: 'https://127.0.0.1:8080/hook' } as never);
+describe('notificationService.send — delivered to the instance Gotify server (#767)', () => {
+  it('posts to the instance URL with its app token as X-Gotify-Key', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 'New sign-in', htmlBody: '<p>b</p>' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = gotifyCall();
+    expect(url).toBe('https://1.2.3.4/message');
+    expect(init.headers).toMatchObject({ 'X-Gotify-Key': 'APP-TOKEN' });
+  });
+
+  it('names the member the message is for, since every member shares one Gotify app', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 'New sign-in', htmlBody: '<p>b</p>' });
+
+    expect(JSON.parse(String(gotifyCall()[1].body))).toEqual({ title: '[marie] New sign-in', message: 'b' });
+  });
+
+  it('ignores any address a member saved before (the per-member URL is gone)', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser, webhookUrl: 'https://5.6.7.8/hook' } as never);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b' });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(gotifyCall()[0]).not.toContain('5.6.7.8');
+  });
+
+  it('makes no call when the member has not opted in', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser, notifWebhook: false } as never);
 
     await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b' });
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('calls a webhook pointed at a public address', async () => {
+  it.each([
+    ['the channel is switched off for the instance', { gotifyEnabled: false }],
+    ['the instance has no Gotify URL', { gotifyUrl: null }],
+    ['the instance has no app token', { gotifyToken: null }],
+  ])('makes no call, and logs no failure, when %s', async (_label, patch) => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
+    vi.mocked(systemConfigService.getGotify).mockResolvedValue({ ...instanceGotify, ...patch });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b' });
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toContain('1.2.3.4');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+});
+
+describe('notificationService.send — Gotify SSRF guard (ISSUE_048)', () => {
+  it('refuses to call an instance URL pointed at an internal address', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
+    vi.mocked(systemConfigService.getGotify).mockResolvedValue({ ...instanceGotify, gotifyUrl: 'https://127.0.0.1:8080' });
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await notificationService.send({ userId: 'u1', category: 'security', subject: 's', htmlBody: 'b' });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 });
 
@@ -129,9 +185,36 @@ describe('notificationService.send — quiet hours (#575)', () => {
   });
 });
 
-describe('notificationService.testChannel — webhook (ISSUE_048)', () => {
-  it('rejects an internal webhook URL without ever calling fetch', async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser, webhookUrl: 'https://10.0.0.5/hook' } as never);
+describe('notificationService.testChannel — the profile "Test" button (#767)', () => {
+  it('sends to the instance URL with its app token, naming the member', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
+
+    const res = await notificationService.testChannel('u1', 'webhook');
+
+    expect(res).toEqual({ success: true });
+    const [url, init] = gotifyCall();
+    expect(url).toBe('https://1.2.3.4/message');
+    expect(init.headers).toMatchObject({ 'X-Gotify-Key': 'APP-TOKEN' });
+    expect(JSON.parse(String(init.body)).title).toMatch(/^\[marie\] /);
+  });
+
+  it.each([
+    ['the channel is switched off for the instance', { gotifyEnabled: false }],
+    ['the instance has no Gotify URL', { gotifyUrl: null }],
+    ['the instance has no app token', { gotifyToken: null }],
+  ])('makes no call and answers GOTIFY_NOT_CONFIGURED when %s', async (_label, patch) => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
+    vi.mocked(systemConfigService.getGotify).mockResolvedValue({ ...instanceGotify, ...patch });
+
+    const res = await notificationService.testChannel('u1', 'webhook');
+
+    expect(res).toEqual({ success: false, error: 'GOTIFY_NOT_CONFIGURED' });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects an internal instance URL without ever calling fetch (ISSUE_048)', async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
+    vi.mocked(systemConfigService.getGotify).mockResolvedValue({ ...instanceGotify, gotifyUrl: 'https://10.0.0.5' });
 
     const res = await notificationService.testChannel('u1', 'webhook');
 
@@ -139,7 +222,7 @@ describe('notificationService.testChannel — webhook (ISSUE_048)', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('never leaks the raw HTTP status or network error back to the caller', async () => {
+  it('never leaks the raw HTTP status back to the caller', async () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
     fetchMock.mockResolvedValue({ ok: false, status: 503 });
 
@@ -156,19 +239,11 @@ describe('notificationService.testChannel — webhook (ISSUE_048)', () => {
 
     expect(res).toEqual({ success: false, error: 'DELIVERY_FAILED' });
   });
-
-  it('succeeds on a reachable public webhook', async () => {
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({ ...baseUser } as never);
-
-    const res = await notificationService.testChannel('u1', 'webhook');
-
-    expect(res).toEqual({ success: true });
-  });
 });
 
 // #599: the URL check only covered the first address; fetch then followed up
 // to 20 redirects, a 307 even replaying the POST into the home network.
-describe('webhook redirects (#599)', () => {
+describe('Gotify redirects (#599)', () => {
   /**
    * A public server answering with a 307 to an internal address. Like the
    * real fetch: followed unless `redirect: 'manual'`, then the internal
@@ -200,7 +275,7 @@ describe('webhook redirects (#599)', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ redirect: 'manual' }));
-    expect(consoleError).toHaveBeenCalledWith('[notification] webhook delivery failed:', expect.objectContaining({ message: 'DELIVERY_FAILED' }));
+    expect(consoleError).toHaveBeenCalledWith('[notification] Gotify delivery failed:', 'DELIVERY_FAILED');
     consoleError.mockRestore();
   });
 });

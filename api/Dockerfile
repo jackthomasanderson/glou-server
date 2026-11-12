@@ -1,4 +1,4 @@
-FROM node:24-alpine AS builder
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS builder
 
 # #466: /build/api + /build/shared reproduce the repository layout, so
 # tsconfig's rootDir ".." emits dist/api/src/index.js and dist/shared/.
@@ -23,8 +23,40 @@ COPY src ./src
 COPY --from=shared . /build/shared
 RUN npm run build
 
+# ─── IP geolocation data (#434) ──────────────────────────────────────────────
+# DB-IP "IP to City Lite" (CC BY 4.0, https://db-ip.com), fetched at build time
+# and never committed. GEO_MONTH (YYYY-MM, default: current UTC month) is part
+# of the build cache key, so the publish workflow refreshes the file each month
+# and gives both architectures the same one. Published monthly: falls back to
+# the previous month, and fails the build if neither file is available.
+# GEO_DOWNLOAD=false (e2e, nightly fuzz) skips it: no file, locations are null.
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS geo
+ARG GEO_DOWNLOAD=true
+ARG GEO_MONTH=
+WORKDIR /geo
+RUN set -eu; \
+    if [ "$GEO_DOWNLOAD" = false ]; then echo "DB-IP City Lite download skipped"; exit 0; fi; \
+    month=${GEO_MONTH:-$(date -u +%Y-%m)}; \
+    case "$month" in [0-9][0-9][0-9][0-9]-[0-1][0-9]) ;; *) echo "GEO_MONTH must be YYYY-MM, got '$month'" >&2; exit 1 ;; esac; \
+    y=${month%-*}; m=${month#*-}; m=${m#0}; \
+    if [ "$m" -eq 1 ]; then py=$((y - 1)); pm=12; else py=$y; pm=$((m - 1)); fi; \
+    previous="$py-$(printf %02d "$pm")"; \
+    for try in "$month" "$previous"; do \
+      if wget -q -O dbip.mmdb.gz "https://download.db-ip.com/free/dbip-city-lite-$try.mmdb.gz" && gunzip dbip.mmdb.gz; then \
+        mv dbip.mmdb dbip-city-lite.mmdb; \
+        printf '%s\n' "DB-IP IP to City Lite, $try edition (dbip-city-lite.mmdb)" \
+          "IP Geolocation by DB-IP: https://db-ip.com" \
+          "Licence: Creative Commons Attribution 4.0 International (CC BY 4.0)," \
+          "https://creativecommons.org/licenses/by/4.0/" \
+          "Downloaded unmodified from https://download.db-ip.com/free/dbip-city-lite-$try.mmdb.gz" > NOTICE; \
+        echo "DB-IP City Lite $try"; exit 0; \
+      fi; \
+      rm -f dbip.mmdb.gz dbip.mmdb; \
+    done; \
+    echo "No DB-IP City Lite database for $month or $previous" >&2; exit 1
+
 # ─── Production image ────────────────────────────────────────────────────────
-FROM node:24-alpine AS runner
+FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS runner
 
 # Non-root user
 # postgresql-client: provides pg_dump/pg_restore/psql for the scheduled backup
@@ -68,6 +100,11 @@ COPY --from=builder /build/api/prisma.config.ts ./
 # /app/logs: logs go to stdout (#540).
 RUN mkdir -p /app/uploads/products /app/uploads/avatars /app/backups && chown -R glou:glou /app
 
+# Database + NOTICE (empty with GEO_DOWNLOAD=false). Read-only for the app,
+# copied after the chown so the ~120 MB file is not stored twice. Path read by
+# GEO_DB_PATH's default (src/lib/device.ts).
+COPY --from=geo /geo/ ./geo/
+
 USER glou
 
 EXPOSE 3001
@@ -76,4 +113,6 @@ EXPOSE 3001
 # (glou-backup-before-migration-*.sql.gz in /app/backups) when migrations are
 # pending on an instance in use, and exits non-zero if it cannot: then nothing
 # is migrated and the API does not start.
-CMD ["sh", "-c", "node dist/api/src/scripts/pre-migrate.js && npx prisma migrate deploy && node dist/api/src/index.js"]
+# #673: `exec` makes Node replace the shell as PID 1, so the stop signal
+# Docker sends reaches it and the graceful shutdown (ISSUE_091) runs.
+CMD ["sh", "-c", "node dist/api/src/scripts/pre-migrate.js && npx prisma migrate deploy && exec node dist/api/src/index.js"]

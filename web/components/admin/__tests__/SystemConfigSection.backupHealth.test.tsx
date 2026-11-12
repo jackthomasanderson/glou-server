@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { renderWithQuery, stubFetch, CONFIG, type Answer } from './configTestKit';
 
 // #669 — GET /api/admin/backups/health answered without the `data` envelope the
 // web client unwraps, the resulting error was swallowed, and the "backups folder
@@ -12,6 +13,7 @@ vi.mock('react-i18next', () => ({
 }));
 vi.mock('@/hooks/useHasMounted', () => ({ useHasMounted: () => true }));
 vi.mock('@/hooks/useScan', () => ({ useScanStatus: () => ({ data: undefined }) }));
+vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
 // The admin's own 2FA state, read by the step-up dialog (#890): off here.
 vi.mock('@/hooks/useAuth', () => ({ useMe: () => ({ data: { id: 'a1', isTwoFactorEnabled: false }, refetch: () => {} }) }));
 // Closed modals render nothing, like HeroUI's.
@@ -19,40 +21,13 @@ vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
 }));
-// Every tab's content is rendered at once, so the Backups tab needs no click.
-vi.mock('@heroui/react', () => {
-  const Box = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
-  return {
-    Button: ({ children, onPress }: { children?: ReactNode; onPress?: () => void }) => (
-      <button type="button" onClick={onPress}>{children}</button>
-    ),
-    Input: ({ label }: { label?: string }) => <input aria-label={label} />,
-    Switch: ({ children }: { children?: ReactNode }) => <label>{children}</label>,
-    Chip: Box,
-    Skeleton: Box,
-    Tabs: Box,
-    Tab: ({ title, children }: { title?: ReactNode; children?: ReactNode }) => <section>{title}{children}</section>,
-    Select: ({ label }: { label?: ReactNode }) => <div>{label}</div>,
-    SelectItem: () => null,
-    ModalContent: ({ children }: { children?: ReactNode | ((onClose: () => void) => ReactNode) }) => (
-      <>{typeof children === 'function' ? children(() => {}) : children}</>
-    ),
-    ModalHeader: Box,
-    ModalBody: Box,
-    ModalFooter: Box,
-  };
-});
+vi.mock('@heroui/react', async () => (await import('./configTestKit')).heroUiMock());
 
 import { SystemConfigSection } from '../SystemConfigSection';
 
-/** Answers the health route with `health`, every other admin call with a 500 (ignored by the page). */
-function stubApi(health: { status: number; body: unknown }) {
-  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-    const { status, body } = String(input).endsWith('/api/admin/backups/health')
-      ? health
-      : { status: 500, body: { error: 'INTERNAL_SERVER_ERROR' } };
-    return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
-  }));
+/** Answers the config, and the health route with `health`; every other call with a 500. */
+function stubApi(health: Answer) {
+  stubFetch({ '/admin/config': { status: 200, body: { data: CONFIG } }, '/admin/backups/health': health });
 }
 
 /** Waits for the page to leave its loading skeleton. */
@@ -65,7 +40,7 @@ afterEach(() => {
 describe('SystemConfigSection — backups folder health (#669)', () => {
   it('shows the warning banner when the API cannot write to the backups folder', async () => {
     stubApi({ status: 200, body: { data: { directoryWritable: false } } });
-    render(<SystemConfigSection />);
+    renderWithQuery(<SystemConfigSection />);
 
     const banner = await screen.findByText('adminConfig.backup.dirNotWritable');
     expect(banner.closest('[role="alert"]')).not.toBeNull();
@@ -74,7 +49,7 @@ describe('SystemConfigSection — backups folder health (#669)', () => {
 
   it('shows no banner when the folder is writable', async () => {
     stubApi({ status: 200, body: { data: { directoryWritable: true } } });
-    render(<SystemConfigSection />);
+    renderWithQuery(<SystemConfigSection />);
     await loaded();
     // let the health call settle
     await new Promise((r) => setTimeout(r, 20));
@@ -85,7 +60,7 @@ describe('SystemConfigSection — backups folder health (#669)', () => {
 
   it('says so when the check itself fails, instead of staying silent', async () => {
     stubApi({ status: 500, body: { error: 'INTERNAL_SERVER_ERROR' } });
-    render(<SystemConfigSection />);
+    renderWithQuery(<SystemConfigSection />);
 
     const banner = await screen.findByText('adminConfig.backup.dirCheckFailed');
     expect(banner.closest('[role="alert"]')).not.toBeNull();
@@ -94,8 +69,26 @@ describe('SystemConfigSection — backups folder health (#669)', () => {
 
   it('does not silently ignore an answer without the data envelope (the shape before the fix)', async () => {
     stubApi({ status: 200, body: { directoryWritable: false } });
-    render(<SystemConfigSection />);
+    renderWithQuery(<SystemConfigSection />);
 
     expect(await screen.findByText('adminConfig.backup.dirCheckFailed')).toBeInTheDocument();
+  });
+});
+
+// #756: the Data tab title (backups) carries a marker while backups are off or none succeeded.
+describe('SystemConfigSection — Data tab marker (#756)', () => {
+  it('marks the Data tab when the page reports a backup problem', async () => {
+    stubApi({ status: 200, body: { data: { directoryWritable: true } } });
+    renderWithQuery(<SystemConfigSection hasBackupProblem />);
+    await loaded();
+    const marker = screen.getByRole('img', { name: 'admin.backupWarning.marker' });
+    expect(marker.closest('span')).toHaveTextContent('adminConfig.tabs.data');
+  });
+
+  it('shows no marker otherwise', async () => {
+    stubApi({ status: 200, body: { data: { directoryWritable: true } } });
+    renderWithQuery(<SystemConfigSection />);
+    await loaded();
+    expect(screen.queryByRole('img', { name: 'admin.backupWarning.marker' })).toBeNull();
   });
 });

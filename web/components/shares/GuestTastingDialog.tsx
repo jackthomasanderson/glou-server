@@ -1,8 +1,8 @@
 'use client';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Input, Textarea } from '@heroui/react';
-import { Star } from 'lucide-react';
+import { Input, Textarea } from '@heroui/react';
+import { StarRating } from '@/components/tastings/StarRating';
 import { LineDialogFrame } from '@/components/inventory/StockLineDialogParts';
 import { todayLocalIso } from '@/lib/format';
 import type { GuestTastingPayload } from '@/lib/shares/types';
@@ -57,25 +57,8 @@ export function GuestTastingDialog({ wine, isPending, onConfirm, onClose }: Gues
         onValueChange={setTastedAt}
       />
       <div>
-        <p className="text-xs text-foreground-500 mb-1">{t('tastings.fields.rating')}</p>
-        <div className="flex items-center gap-0.5">
-          {[1, 2, 3, 4, 5].map((star) => (
-            <Button
-              key={star}
-              isIconOnly
-              size="sm"
-              variant="light"
-              color={(rating ?? 0) >= star ? 'warning' : 'default'}
-              radius="full"
-              type="button"
-              aria-pressed={rating === star}
-              onPress={() => setRating((current) => (current === star ? null : star))}
-              aria-label={`${t('tastings.fields.rating')} ${star}`}
-            >
-              <Star size={18} fill={(rating ?? 0) >= star ? 'currentColor' : 'none'} />
-            </Button>
-          ))}
-        </div>
+        <p id="guest-tasting-rating-label" className="text-xs text-foreground-500 mb-1">{t('tastings.fields.rating')}</p>
+        <StarRating labelId="guest-tasting-rating-label" value={rating} onChange={setRating} />
       </div>
       <Textarea
         size="sm"

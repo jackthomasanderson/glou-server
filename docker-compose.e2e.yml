@@ -11,7 +11,7 @@ name: glou-e2e
 
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:15-alpine@sha256:aae6554de426ae1990f1a939ff183a0299146cf7142a6f4c379c3357af9cc2d8
     environment:
       POSTGRES_USER: glou
       POSTGRES_PASSWORD: e2e_db_password
@@ -29,6 +29,10 @@ services:
       context: ./api
       additional_contexts:
         shared: ./shared
+      # #434: no DB-IP download, so e2e and the nightly fuzz do not depend on
+      # db-ip.com; session locations are simply null.
+      args:
+        GEO_DOWNLOAD: 'false'
     depends_on:
       db:
         condition: service_healthy

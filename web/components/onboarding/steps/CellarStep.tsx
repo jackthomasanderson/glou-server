@@ -4,7 +4,7 @@ import { Button, Input, SelectItem } from '@heroui/react';
 import { Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCreateCellar } from '@/hooks/useCellars';
-import { Cellar, CellarType } from '@/lib/cellars/types';
+import { Cellar, CellarType, CELLAR_TYPES } from '@/lib/cellars/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 
 interface CellarStepProps {
@@ -22,6 +22,8 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
   const createCellar = useCreateCellar();
   const [name, setName] = useState('');
   const [type, setType] = useState<CellarType>('VINTAGE');
+  // #657: Create stays clickable; a click with the name empty shows the field in red.
+  const [tried, setTried] = useState(false);
 
   // #685: coming back here after creating the cellar must not create a second
   // one for the whole household.
@@ -42,7 +44,7 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
   }
 
   const handleCreate = () => {
-    if (!name.trim()) return;
+    if (!name.trim()) { setTried(true); return; }
     createCellar.mutate({ name: name.trim(), type }, { onSuccess: (cellar) => onCreated(cellar) });
   };
 
@@ -65,6 +67,9 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
           radius="md"
           labelPlacement="outside"
           isRequired
+          validationBehavior="aria"
+          isInvalid={tried && !name.trim()}
+          errorMessage={t('inventory.validation.required')}
           isDisabled={createCellar.isPending}
         />
         <SingleSelect
@@ -80,9 +85,9 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
           labelPlacement="outside"
           isDisabled={createCellar.isPending}
         >
-          <SelectItem key="VINTAGE">{t('cellars.types.VINTAGE')}</SelectItem>
-          <SelectItem key="COOLER">{t('cellars.types.COOLER')}</SelectItem>
-          <SelectItem key="SHELF">{t('cellars.types.SHELF')}</SelectItem>
+          {CELLAR_TYPES.map((key) => (
+            <SelectItem key={key}>{t(`cellars.types.${key}`)}</SelectItem>
+          ))}
         </SingleSelect>
       </div>
 
@@ -100,7 +105,6 @@ export function CellarStep({ existingCellar, onCreated, onContinue, onSkip, onBa
             color="primary"
             variant="solid"
             onPress={handleCreate}
-            isDisabled={!name.trim()}
             isLoading={createCellar.isPending}
           >
             {t('onboarding.cellar.createCta')}

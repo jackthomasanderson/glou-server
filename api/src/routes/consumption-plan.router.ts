@@ -17,19 +17,12 @@ router.use(authMiddleware);
 
 // ─── GET /api/consumption-plan/suggestions ───────────────────────────────────
 // Shared, non-userId-filtered list — see consumption-plan.service.ts header.
+// #635: a read is not audited (#160) — the log keeps sign-ins and changes only.
 
 router.get('/suggestions', async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
   try {
     const { limit } = suggestionsQuerySchema.parse(req.query);
     const suggestions = await getSuggestions(limit);
-    void auditLog({
-      userId: req.userId,
-      action: 'LIST',
-      status: 'success',
-      ip,
-      details: { scope: 'consumption-plan-suggestions', count: suggestions.length },
-    });
     res.json({ data: suggestions });
   } catch (error) {
     console.error('[consumption-plan] GET /suggestions error:', error);
@@ -37,13 +30,6 @@ router.get('/suggestions', async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
       return;
     }
-    void auditLog({
-      userId: req.userId,
-      action: 'LIST',
-      status: 'error',
-      ip,
-      details: { scope: 'consumption-plan-suggestions', message: String(error) },
-    });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });
@@ -91,20 +77,11 @@ router.patch('/items/:id/postpone', async (req: Request, res: Response): Promise
 // Personal — scoped to req.userId, see consumption-plan.service.ts header.
 
 router.get('/goal', async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
   try {
     const progress = await getGoalProgress(req.userId);
-    void auditLog({ userId: req.userId, action: 'LIST', status: 'success', ip, details: { scope: 'consumption-goal' } });
     res.json({ data: progress });
   } catch (error) {
     console.error('[consumption-plan] GET /goal error:', error);
-    void auditLog({
-      userId: req.userId,
-      action: 'LIST',
-      status: 'error',
-      ip,
-      details: { scope: 'consumption-goal', message: String(error) },
-    });
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
 });

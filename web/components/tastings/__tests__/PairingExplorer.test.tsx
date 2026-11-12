@@ -1,7 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import i18next, { type i18n as I18n } from 'i18next';
 import type { InventoryItem } from '@/lib/inventory/types';
+import en from '../../../public/locales/en/common.json';
+import fr from '../../../public/locales/fr/common.json';
 
 // #703 — bottles store their colour in English ('red', 'white') but the
 // pairing catalog was keyed in French, so no red or white wine was ever
@@ -24,9 +27,20 @@ const inventory = [
   bottle('r5', 'Médoc', 'red', { deletedAt: '2026-10-01T00:00:00.000Z' }),
 ];
 
+// The real bundles: the engine scores the labels the member reads (#653).
+let i18n: I18n;
+let lang = 'fr';
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'fr' } }),
+  useTranslation: () => ({
+    t: (k: string, o?: Record<string, unknown>) => (i18n.t as unknown as (k: string, o?: unknown) => string)(k, { lng: lang, ...o }),
+    i18n: { language: lang },
+  }),
 }));
+beforeAll(async () => {
+  i18n = i18next.createInstance();
+  await i18n.init({ lng: 'fr', resources: { fr: { common: fr }, en: { common: en } }, defaultNS: 'common', interpolation: { escapeValue: false } });
+});
+beforeEach(() => { lang = 'fr'; });
 vi.mock('@/hooks/useInventory', () => ({
   useInventory: () => ({ data: inventory, isLoading: false, isError: false, refetch: vi.fn(), isRefetching: false }),
 }));
@@ -50,7 +64,7 @@ import { PairingExplorer } from '../PairingExplorer';
 
 function search(query: string) {
   render(<PairingExplorer />);
-  fireEvent.change(screen.getByLabelText('tastings.pairing.searchLabel'), { target: { value: query } });
+  fireEvent.change(screen.getByLabelText(lang === 'en' ? en.tastings.pairing.searchLabel : fr.tastings.pairing.searchLabel), { target: { value: query } });
 }
 
 describe('PairingExplorer wine colours (#703)', () => {
@@ -75,5 +89,28 @@ describe('PairingExplorer offers only bottles in stock (#849)', () => {
     for (const gone of ['Margaux', 'Pomerol', 'Médoc']) {
       expect(screen.queryByText(`${gone} — Domaine Test`)).toBeNull();
     }
+  });
+});
+
+// #653: the reason given for a suggestion was a French label in the English interface.
+describe('PairingExplorer in English (#653)', () => {
+  it('explains a suggestion with the English pairing label, whatever the language of the dish', () => {
+    lang = 'en';
+    search('steak');
+    expect(screen.getByText('Pauillac — Domaine Test')).toBeInTheDocument();
+    expect(screen.getAllByText('Pairs with: Grilled red meat').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Viande rouge grillée/)).toBeNull();
+  });
+
+  it('a French dish name still finds the bottle in the English interface', () => {
+    lang = 'en';
+    search('poisson');
+    expect(screen.getByText('Chablis — Domaine Test')).toBeInTheDocument();
+    expect(screen.getAllByText('Pairs with: Fish').length).toBeGreaterThan(0);
+  });
+
+  it('in French, the reason stays in French', () => {
+    search('Viande');
+    expect(screen.getAllByText('Accorde avec : Viande rouge grillée').length).toBeGreaterThan(0);
   });
 });

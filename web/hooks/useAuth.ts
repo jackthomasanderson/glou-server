@@ -7,7 +7,7 @@ import { fetchOrNetworkError } from '@/lib/network-error';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
 import { resetReviewBanner } from '@/lib/review/banner';
-import { postLoginPath } from '@/lib/auth/next-path';
+import { DEFAULT_LANDING, postLoginPath } from '@/lib/auth/next-path';
 import type { ExportCategory, PublicUser as PublicUserContract } from '@shared/auth';
 import type { Wire } from '@shared/wire';
 import type { OnboardingState } from '@shared/onboarding';
@@ -109,7 +109,7 @@ export function useRegister() {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
       resetReviewBanner();
-      router.push('/bottles');
+      router.push(DEFAULT_LANDING);
     },
   });
 }
@@ -296,7 +296,8 @@ export function useGenerate2fa() {
 
 export function useTurnOn2fa() {
   const queryClient = useQueryClient();
-  return useMutation<{ backupCodes: string[] }, Error, { code: string }>({
+  // #603: the password too, checked by the API.
+  return useMutation<{ backupCodes: string[] }, Error, { password: string; code: string }>({
     // Said by TwoFactorSettings.
     meta: { handlesError: true },
     mutationFn: (data) => apiFetch<{ backupCodes: string[] }>('/api/auth/2fa/turn-on', { method: 'POST', body: JSON.stringify(data) }),
@@ -432,8 +433,10 @@ export function useExportData() {
 
 export function useRequestAccountDeletion() {
   const queryClient = useQueryClient();
-  return useMutation<void, Error, void>({
-    mutationFn: () => apiFetch<void>('/api/user/delete-account', { method: 'POST' }),
+  // #603: the password is checked by the API; refusals are said by the dialog.
+  return useMutation<void, Error, { password: string }>({
+    meta: { handlesError: true },
+    mutationFn: (data) => apiFetch<void>('/api/user/delete-account', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
     },

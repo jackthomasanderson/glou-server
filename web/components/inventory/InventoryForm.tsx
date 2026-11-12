@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import {
   ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Chip, Divider, Input, SelectItem,
@@ -8,8 +9,7 @@ import i18n from '@/lib/i18n';
 import { currencySymbol, todayLocalIso } from '@/lib/format';
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { FilterChip } from '@/components/ui/FilterControls';
-import { notifyError } from '@/lib/toast';
-import { X, Save, Sparkles, ChevronDown, ChevronUp, Wine, Leaf, Camera, FlaskConical, GlassWater } from 'lucide-react';
+import { X, Save, ChevronDown, ChevronUp, Camera, FlaskConical } from 'lucide-react';
 import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import type { UnitKind } from '@shared/units';
 import { useCellars } from '@/hooks/useCellars';
@@ -18,12 +18,16 @@ import { Collection } from '@/lib/collections/types';
 import { ProductAutocomplete } from './ProductAutocomplete';
 import { ProductSuggestion } from '@/lib/inventory/productSearch';
 import { ProducerAutocomplete } from './ProducerAutocomplete';
+import { RegionAutocomplete } from './RegionAutocomplete';
+import { FILL_LEVELS } from '@/lib/products/fillLevels';
+import { parseTags } from '@/lib/products/tags';
 import { ImageResult } from './ImagePicker';
 import { ItemImageSection } from './ItemImageSection';
 import { MaturitySuggestionField } from './MaturitySuggestionField';
 import { CollectionSelector } from './CollectionSelector';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import { useValidationNotice } from '@/hooks/useValidationNotice';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { ParsedNumberInput, ParsedInput } from '@/components/ui/ParsedInput';
 import { isFormDirty, haveSameIds } from '@/lib/forms/dirtyState';
@@ -35,8 +39,9 @@ import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import {
   CURVE_SHAPES, DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey,
 } from '@/lib/maturity-references/curve';
-import { SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '@shared/inventory';
+import { MANUFACTURE_YEAR_MIN, SPARKLING_TYPES, SUGAR_LEVELS, VINTAGE_MIN, WINE_COLORS } from '@shared/inventory';
 import { MAX_COPIES } from '@shared/product';
+import { DESCRIPTION_LIMITS } from '@shared/review';
 import { CigarGroupFields } from './CigarGroupFields';
 import { KnownWineBanner } from './KnownWineBanner';
 import { AddUnitsForm } from './AddUnitsDialog';
@@ -48,6 +53,7 @@ import {
 } from '@/lib/products/cigarGroup';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 import { halfFieldColumns, halfFieldSpan, lastFieldDesktopSpan } from '@/lib/inventory/fieldSpan';
+import { CategoryIcon } from '@/components/ui/CategoryIcon';
 
 /**
  * A half-width field of the form's grids: its label, and two columns when that
@@ -122,12 +128,6 @@ const creationDefaults = (): Partial<InventoryItem> => ({
 const storageOf = (values?: Partial<InventoryItem>): CigarStorage =>
   values && 'cigarsPerBox' in values && values.cigarsPerBox === null ? 'singles' : 'boxes';
 
-const CATEGORY_ICONS: Record<InventoryCategory, React.ReactElement> = {
-  wine: <Wine size={14} />,
-  sparkling: <Sparkles size={14} />,
-  spirit: <GlassWater size={14} />,
-  cigar: <Leaf size={14} />,
-};
 
 // #498: one colour per category everywhere (ux-ui.md §4.6).
 const CATEGORY_COLORS = CATEGORY_CHIP_COLOR;
@@ -167,6 +167,8 @@ export function InventoryForm({
   const [peakWindowChecked, setPeakWindowChecked] = useState(false);
   const [selectedCollections, setSelectedCollections] = useState<Collection[]>([]);
   const [showOptionals, setShowOptionals] = useState(false);
+  // #708: a save refused for the tags shows their field, folded in the optionals.
+  const tagsInput = useRef<HTMLInputElement>(null);
   const [prefetchedImages, setPrefetchedImages] = useState<ImageResult[]>([]);
   const [isAutoLoading, setIsAutoLoading] = useState(false);
   // #862: the photo suggested for "category producer name" — the results
@@ -289,8 +291,14 @@ export function InventoryForm({
   const peakWindowReversed = ['wine', 'sparkling'].includes(values.category ?? '')
     && values.peakMaturityFrom != null && values.peakMaturityTo != null
     && values.peakMaturityTo < values.peakMaturityFrom;
+  // #708: as many tags, as long, as the API takes.
+  const invalidTags = (values.tags ?? []).length > DESCRIPTION_LIMITS.tags
+    || (values.tags ?? []).some((tag) => tag.length > DESCRIPTION_LIMITS.tagLength);
   const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity || invalidBottleCount;
-  const canSave = !missingRequired && !peakWindowReversed;
+  const tagLimits = { max: DESCRIPTION_LIMITS.tags, length: DESCRIPTION_LIMITS.tagLength };
+  const canSave = !missingRequired && !peakWindowReversed && !invalidTags;
+  // #657: the message goes once the fields are right or the form is closed.
+  const notifyInvalid = useValidationNotice(canSave || !open);
 
   // ISSUE_119: closing a half-filled form must never discard the entry silently.
   const baselineCollectionIds = initialValues?.collections?.map(c => c.id) ?? [];
@@ -308,7 +316,12 @@ export function InventoryForm({
     if (!canSave) {
       setSubmitAttempted(true);
       setPeakWindowChecked(true);
-      notifyError(missingRequired ? 'inventory.validation.missingFields' : 'inventory.validation.peakWindowOrder');
+      notifyInvalid(missingRequired ? 'inventory.validation.missingFields'
+        : invalidTags ? 'inventory.validation.tags' : 'inventory.validation.peakWindowOrder', tagLimits);
+      if (!missingRequired && invalidTags) {
+        flushSync(() => setShowOptionals(true));
+        tagsInput.current?.focus();
+      }
       return;
     }
     // alertStatus is recomputed server-side from peakMaturity — never send it as-is.
@@ -378,21 +391,23 @@ export function InventoryForm({
           />
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col h-full overflow-hidden">
-            <ModalHeader className="flex items-center justify-between gap-3 pr-4 pb-2 shrink-0">
-              <div className="flex items-center gap-2">
+            {/* #701: the dialog is named by its title alone (an h2), not by
+                the whole header row with the category chip and the buttons. */}
+            <div className="flex items-center justify-between gap-3 pl-6 pr-4 pt-4 pb-2 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
                 <Chip
-                  startContent={CATEGORY_ICONS[category]}
+                  startContent={<CategoryIcon category={category} />}
                   color={CATEGORY_COLORS[category]}
                   size="sm"
                   variant="flat"
                 >
                   {t(`categories.${category}`)}
                 </Chip>
-                <span className="text-base font-semibold">
+                <ModalHeader as="h2" className="p-0 text-base font-semibold">
                   {descriptionOf
                     ? t(category === 'cigar' ? 'familyDrawer.form.titleCigar' : category === 'spirit' ? 'familyDrawer.form.titleSpirit' : 'familyDrawer.form.title')
                     : isEditing ? t('inventory.edit', category === 'cigar' ? { context: 'cigar' } : undefined) : t('inventory.add')}
-                </span>
+                </ModalHeader>
               </div>
               <div className="flex items-center gap-2">
                 {!isEditing && onScanRequested && (
@@ -417,7 +432,7 @@ export function InventoryForm({
                   <X size={16} />
                 </button>
               </div>
-            </ModalHeader>
+            </div>
 
             <ModalBody className="p-0 flex flex-col sm:flex-row items-stretch gap-0 min-h-0 overflow-hidden flex-1">
               {/* Image panel — used to be `hidden sm:block`, i.e. entirely
@@ -459,7 +474,7 @@ export function InventoryForm({
 
                   {/* Section 1: Identity */}
                   <div>
-                    <p className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step1')}</p>
+                    <h3 className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step1')}</h3>
 
                     {/* Category chips */}
                     <div role="group" aria-label={t('inventory.fields.category')} className="flex flex-wrap gap-1.5 mb-4">
@@ -467,7 +482,7 @@ export function InventoryForm({
                         <FilterChip
                           key={cat}
                           size="md"
-                          startContent={CATEGORY_ICONS[cat]}
+                          startContent={<CategoryIcon category={cat} />}
                           color={CATEGORY_COLORS[cat]}
                           selected={category === cat}
                           onPress={() => setValues((prev) => {
@@ -519,6 +534,8 @@ export function InventoryForm({
                         label={t('nav.caves')}
                         variant="bordered"
                         size="sm"
+                        // #701: alone on its row, it takes the row instead of leaving the right half empty.
+                        className="sm:col-span-2"
                         items={[{ id: 'none', name: t('inventory.noCellar') }, ...(cellars ?? [])]}
                         selectedKeys={[values.cellarId === null ? 'none' : (values.cellarId ?? 'none')]}
                         onSelectionChange={(keys) => setField('cellarId', Array.from(keys)[0] === 'none' ? null : Array.from(keys)[0])}
@@ -647,7 +664,7 @@ export function InventoryForm({
 
                   {/* Section 2: Category fields */}
                   <div>
-                    <p className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step2')}</p>
+                    <h3 className="text-xs font-semibold text-foreground-500 mb-3">{t('inventory.step2')}</h3>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
 
                       {/* Wine essential */}
@@ -661,7 +678,7 @@ export function InventoryForm({
                             value={values.vintage}
                             onValueChange={(v) => setField('vintage', v)}
                             description={t('inventory.fields.noVintage')}
-                            min={1800} max={new Date().getFullYear()}
+                            min={VINTAGE_MIN} max={new Date().getFullYear()}
                           />
                           <SingleSelect
                             {...halfField(t('inventory.fields.color'))}
@@ -675,12 +692,11 @@ export function InventoryForm({
                             ))}
                           </SingleSelect>
                           <div className="col-span-2">
-                            <Input
+                            {/* #961: free text with suggestions, placed on the Analytics map. */}
+                            <RegionAutocomplete
                               label={t('inventory.fields.region')}
-                              variant="bordered"
-                              size="sm"
                               value={values.region ?? ''}
-                              onValueChange={(v) => setField('region', v)}
+                              onChange={(v) => setField('region', v)}
                             />
                           </div>
                           <ParsedNumberInput decimal
@@ -704,7 +720,7 @@ export function InventoryForm({
                             value={values.vintage}
                             onValueChange={(v) => setField('vintage', v)}
                             description={t('inventory.fields.noVintage')}
-                            min={1800} max={new Date().getFullYear()}
+                            min={VINTAGE_MIN} max={new Date().getFullYear()}
                           />
                           <SingleSelect
                             {...halfField(t('inventory.fields.sparklingType'))}
@@ -730,6 +746,14 @@ export function InventoryForm({
                               <SelectItem key={s}>{s ? t(`inventory.sugarLevels.${s}`) : <em>—</em>}</SelectItem>
                             ))}
                           </SingleSelect>
+                          <div className="col-span-2">
+                            {/* #961: free text with suggestions, placed on the Analytics map. */}
+                            <RegionAutocomplete
+                              label={t('inventory.fields.region')}
+                              value={values.region ?? ''}
+                              onChange={(v) => setField('region', v)}
+                            />
+                          </div>
                         </>
                       )}
 
@@ -756,6 +780,15 @@ export function InventoryForm({
                               size="sm"
                               value={values.edition ?? ''}
                               onValueChange={(v) => setField('edition', v)}
+                            />
+                          </div>
+                          {/* A whole row: the four short spirit fields keep their two pairs (#867). */}
+                          <div className="col-span-2 sm:col-span-4">
+                            {/* #961: free text with suggestions, placed on the Analytics map. */}
+                            <RegionAutocomplete
+                              label={t('inventory.fields.region')}
+                              value={values.region ?? ''}
+                              onChange={(v) => setField('region', v)}
                             />
                           </div>
                           <div className="col-span-2">
@@ -803,7 +836,7 @@ export function InventoryForm({
                             size="sm"
                             value={values.manufactureYear}
                             onValueChange={(v) => setField('manufactureYear', v)}
-                            min={1900} max={2100}
+                            min={MANUFACTURE_YEAR_MIN} max={new Date().getFullYear()}
                           />
                         </>
                       )}
@@ -912,6 +945,7 @@ export function InventoryForm({
                             <div className="col-span-2">
                               <Input
                                 label={t('inventory.fields.appellation')}
+                                description={t('inventory.fields.appellationHelp')}
                                 variant="bordered"
                                 size="sm"
                                 value={values.appellation ?? ''}
@@ -1047,6 +1081,23 @@ export function InventoryForm({
                           />
                         </div>
 
+                        {/* Tags (#708): the wine's, typed like its grape varieties. */}
+                        <div className="col-span-2 sm:col-span-4">
+                          <ParsedInput
+                            label={t('inventory.fields.tags')}
+                            placeholder={t('inventory.fields.tagsHint')}
+                            variant="bordered"
+                            size="sm"
+                            value={values.tags ?? []}
+                            format={(list) => list.join(', ')}
+                            parse={(text) => parseTags(text, initialValues?.tags)}
+                            inputRef={tagsInput}
+                            onValueChange={(list) => setField('tags', list)}
+                            isInvalid={invalidTags}
+                            errorMessage={t('inventory.validation.tags', tagLimits)}
+                          />
+                        </div>
+
                         {/* Wine/Sparkling optionals */}
                         {isWineOrSparkling && (
                           <>
@@ -1098,7 +1149,7 @@ export function InventoryForm({
                                   size="sm"
                                   value={values.baseYear}
                                   onValueChange={(v) => setField('baseYear', v)}
-                                  min={1800} max={2100}
+                                  min={VINTAGE_MIN} max={new Date().getFullYear()}
                                 />
                                 <Input
                                   {...halfField(t('inventory.fields.disgorgingDate'), t('inventory.fields.baseYear'))}
@@ -1221,14 +1272,14 @@ export function InventoryForm({
                             <div className="col-span-2 sm:col-span-4">
                               <p className="text-xs text-foreground-500 mb-1.5">{t('inventory.fields.fillLevel')}</p>
                               <div role="group" aria-label={t('inventory.fields.fillLevel')} className="flex flex-wrap gap-1.5">
-                                {([100, 75, 50, 25, 0] as const).map((val) => (
+                                {FILL_LEVELS.map(({ value, key }) => (
                                   <FilterChip
-                                    key={val}
+                                    key={value}
                                     color="warning"
-                                    selected={values.fillLevel === val}
-                                    onPress={() => setField('fillLevel', val)}
+                                    selected={values.fillLevel === value}
+                                    onPress={() => setField('fillLevel', value)}
                                   >
-                                    {t(`inventory.fillLevels.${val === 100 ? 'full' : val === 75 ? 'threeQuarters' : val === 50 ? 'half' : val === 25 ? 'quarter' : 'empty'}`)}
+                                    {t(key)}
                                   </FilterChip>
                                 ))}
                               </div>

@@ -113,6 +113,13 @@ describe('InventoryListView fits its width', () => {
     for (const r of screen.getAllByRole('row').slice(1)) expect(r.querySelectorAll('td').length).toBe(headers().length);
   });
 
+  // #708: the category icon's column had a blank header.
+  it('names every column, the category icon\'s included (read by screen readers only)', () => {
+    render(view({ items: [bottle] }));
+    expect(headers().every((text) => !!text?.trim())).toBe(true);
+    expect(headers()[0]).toBe('inventory.fields.category');
+  });
+
   it('keeps them as soon as a wine is on the page', () => {
     render(view({ items: [cigar, bottle] }));
     expect(headers()).toContain('inventory.fields.vintage');

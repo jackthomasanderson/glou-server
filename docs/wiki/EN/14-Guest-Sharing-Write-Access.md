@@ -17,8 +17,8 @@ Send a link to a friend so they can browse selected cellars, and optionally open
 2. Click **New share**, give it a label and (optionally) the guest's name.
 3. Select the scope: check every **cellar** you want to include in the share.
 4. For each checked cellar, turn on **Allow opening, drinking or smoking** if you want this specific guest to be able to open or drink a bottle (or smoke a cigar) there and note tastings. Leave it off for cellars you only want them to browse.
-5. Optionally toggle **Hide prices** and/or **Hide notes** to hide that information from the guest.
-6. Choose an expiration: 1 day, 7 days, 30 days, custom, or unlimited.
+5. Prices and notes are hidden by default: the **Hide prices and values** and **Hide personal notes** switches start on. Turn a switch off to show that information to the guest.
+6. Choose an expiration: 1 day, 7 days, 30 days, custom, or unlimited. With a custom date, the link works until the end of that day, today included.
 7. Click **Create** and copy the generated link to send to your guest.
 
 > [!CAUTION]
