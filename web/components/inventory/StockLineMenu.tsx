@@ -17,6 +17,7 @@ import { RepriceDialog } from './RepriceDialog';
 import { EditLineDialog } from './EditLineDialog';
 import { TrashLineDialog } from './TrashLineDialog';
 import { useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 type DialogAction = 'move' | 'reprice' | 'correct' | 'edit' | 'trash';
 /** On an opened bottle: "Je la finis", "Annuler l'ouverture" (§10.3, §10.4.6). */
@@ -100,7 +101,7 @@ export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
 
   return (
     <>
-      <Dropdown placement="bottom-end">
+      <Dropdown {...ACCESSIBLE_POPOVER} placement="bottom-end">
         <DropdownTrigger>
           <Button isIconOnly size="sm" variant="light" aria-label={t('stockLine.menu')} className="shrink-0 -my-1 -mr-1" data-testid="stock-line-menu">
             <MoreVertical size={16} />

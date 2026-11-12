@@ -13,6 +13,7 @@ import { AlertBottle } from '@/lib/alerts/client';
 import { todayLocalIso } from '@/lib/format';
 import { alertUrgency } from '@/lib/inventory/types';
 import { confirmLeave } from '@/lib/leaveGuard';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'> = {
   past: 'danger',
@@ -82,7 +83,7 @@ export function NotificationBell() {
   // a separate button reachable with Tab) instead of buttons nested inside
   // menu items, which the keyboard could not reach.
   return (
-    <Popover placement="bottom-end" isOpen={isOpen} onOpenChange={setIsOpen}>
+    <Popover {...ACCESSIBLE_POPOVER} placement="bottom-end" isOpen={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger>
         <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')} className="overflow-visible">
           {count > 0 ? (

@@ -33,6 +33,7 @@ import { SLOT_CHANGED, SLOT_CHOICE_REQUIRED, type SlotChoiceFields } from '@shar
 import { WhichCellDialog } from '@/components/inventory/WhichCellDialog';
 import { blankTastingValues } from '@/lib/tastings/formValues';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
@@ -466,6 +467,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                   render={({ field }) => (
                     <Select
                       // select-may-empty: an optional field without a "—" choice: emptying it clears the answer.
+                      popoverProps={ACCESSIBLE_POPOVER}
                       label={t('tastings.fields.readiness')}
                       selectedKeys={field.value ? [field.value] : []}
                       onSelectionChange={(keys) => {
@@ -488,6 +490,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                   render={({ field }) => (
                     <Select
                       // select-may-empty: an optional field without a "—" choice: emptying it clears the answer.
+                      popoverProps={ACCESSIBLE_POPOVER}
                       label={t('tastings.fields.context')}
                       selectedKeys={field.value ? [field.value] : []}
                       onSelectionChange={(keys) => {

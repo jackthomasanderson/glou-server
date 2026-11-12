@@ -12,6 +12,7 @@ import { useAdminAuditLogs, type AuditLogEntry, type AuditLogFilters } from '@/h
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { formatDateTime } from '@/lib/format';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 const PAGE_SIZE = 50;
 
@@ -142,6 +143,7 @@ export function AuditLogSection() {
         />
         <Select
           // select-may-empty: a filter without an "all" choice: emptying it shows every action.
+          popoverProps={ACCESSIBLE_POPOVER}
           size="sm" variant="bordered" selectionMode="multiple"
           label={t('admin.auditLog.filters.actions')}
           selectedKeys={new Set(filters.actions ?? [])}
@@ -151,6 +153,7 @@ export function AuditLogSection() {
         </Select>
         <Select
           // select-may-empty: a filter without an "all" choice: emptying it shows every status.
+          popoverProps={ACCESSIBLE_POPOVER}
           size="sm" variant="bordered"
           label={t('admin.auditLog.columns.status')}
           selectedKeys={filters.status ? [filters.status] : []}

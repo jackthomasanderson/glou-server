@@ -6,6 +6,7 @@ import { InventoryItem } from '@/lib/inventory/types';
 import type { BulkWinesActionName } from './BulkWinesDialog';
 import dynamic from 'next/dynamic';
 import { useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 const BulkActionDialog = dynamic(() => import('./BulkActionDialog').then((m) => m.BulkActionDialog), { ssr: false, loading: () => null });
 
@@ -102,7 +103,7 @@ export function InventoryBulkBar({
         <div className="fixed bottom-[calc(var(--bottom-nav-h)_+_1rem)] md:bottom-6 left-1/2 -translate-x-1/2 z-40 bg-content1 px-5 py-3 rounded-2xl shadow-xl flex gap-6 items-center min-w-[calc(100vw-32px)] sm:min-w-[320px]">
           <span className="font-bold text-primary" aria-live="polite">{t('bulk.selected', { count: selectedCount })}</span>
           {/* Wines with nothing left only: no bottle to change. */}
-          <Dropdown placement="top">
+          <Dropdown {...ACCESSIBLE_POPOVER} placement="top">
             <DropdownTrigger>
               <Button color="primary" isDisabled={selectedIds.size === 0} data-testid="bulk-actions-menu">
                 {t('bulk.title')}

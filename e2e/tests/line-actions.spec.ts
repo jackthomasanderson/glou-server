@@ -52,9 +52,9 @@ async function openDrawer(page: Page, productId: string, name: string): Promise<
 /** Picks an action in the menu of one line of the drawer. */
 async function lineAction(page: Page, line: Locator, action: string): Promise<void> {
   await line.getByRole('button', { name: 'Actions de cette ligne' }).click();
-  // By CSS: like a Select's options (#727), the open menu is drawn but kept
-  // out of the accessibility tree while the drawer is open.
-  await page.locator('[role="menuitem"]').filter({ hasText: action }).click();
+  // By role (#729): the menu opened in the drawer is in the accessibility
+  // tree, as a screen reader reads it.
+  await page.getByRole('menu', { name: 'Actions de cette ligne' }).getByRole('menuitem', { name: action }).click();
 }
 
 const dialogTitled = (page: Page, title: string) =>
