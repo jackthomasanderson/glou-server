@@ -12,7 +12,7 @@ Set how long Glou keeps audit logs, expired sessions and unused guest shares/inv
 ### Configure retention periods
 1. Go to **Admin → System Configuration → Data**.
 2. Set the three fields (in days, 1 to 3650):
-   - **Audit log retention**: default `90`. Applies to the security trail (sign-ins, admin actions, failed or refused requests). The history of each wine and bottle is kept whatever this value, see [What the purge keeps](#what-the-purge-keeps).
+   - **Audit log retention**: default `90`. Applies to the security trail (sign-ins, admin actions, failed or refused requests). The history of each wine and bottle is kept whatever this value (without the IP address), see [What the purge keeps](#what-the-purge-keeps).
    - **Session retention**: default `30`. Applies to expired or revoked sessions and trusted devices.
    - **Guest share / invitation retention**: default `30`. Applies to expired or revoked guest shares.
 3. Click **Save**. A shorter delay than the saved one is confirmed with your password, plus your code if your account has two-factor authentication: it deletes data at the next cleanup, audit log entries included, so a stolen session alone cannot erase the trail. A longer delay needs no confirmation.
@@ -34,6 +34,7 @@ Set how long Glou keeps audit logs, expired sessions and unused guest shares/inv
 ### What the purge keeps
 The audit log also holds the history shown in a wine's drawer: who changed which field, bottles added, moved, repriced or corrected, and the values **Restore** brings back. That history is business data, not a security trace, so the purge never deletes it, whatever **Audit log retention** is set to:
 - kept: every successful entry tied to a wine or a bottle (created, edited, restored, a value restored, a guest's change, bottles added, moved, repriced, a number corrected, wines merged, moved to the trash), including the per-bottle entries of bulk actions and of a closed inventory count;
+- kept without the IP address: past the retention, these entries lose the IP address they were made from (a security trace). A guest's display name stays, as it is shown in the history;
 - purged past the retention: sign-ins and other account events, admin actions, failed or refused requests, and the one-line summary of a bulk edit (each bottle it changed keeps its own entry).
 
 > [!CAUTION]

@@ -953,6 +953,22 @@ describe('InventoryService', () => {
   // #588: the old bulk edit (tags, cellar, level…) writes one history entry
   // per line it changed, and the description once on the wine — never a
   // single summary row that no bottle's history shows.
+  it('bulkUpdate - a change of the description only is told once on the wine, never as empty line entries (#588)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      unitRow({ id: 'b1', cellarId: 'c1' }, { region: 'Bordeaux' }),
+      unitRow({ id: 'b2', cellarId: 'c1' }, { region: 'Bordeaux' }),
+    ] as never);
+    vi.mocked(prisma.inventoryItem.findFirst).mockImplementation((async (args: { where: { id: string } }) =>
+      unitRow({ id: args.where.id, cellarId: 'c1' })) as never);
+    const history: unknown[] = [];
+
+    await service.bulkUpdate('u1', ['b1', 'b2'], { region: 'Médoc' }, history as never);
+
+    expect(history).toEqual([
+      { action: 'UPDATE', productId: 'p1', details: { bulk: true, changes: [expect.objectContaining({ field: 'region', to: 'Médoc' })] } },
+    ]);
+  });
+
   it('bulkUpdate - records each line changed, and the wine once, for their history (#588)', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
       unitRow({ id: 'b1', cellarId: 'c1' }, { region: 'Bordeaux' }),

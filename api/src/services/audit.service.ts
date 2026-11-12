@@ -69,7 +69,8 @@ const BUSINESS_HISTORY: Prisma.AuditLogWhereInput = {
 
 /**
  * Purge audit logs older than N days (default: 90), except the business
- * history of bottles and wines (#588, {@link BUSINESS_HISTORY}).
+ * history of bottles and wines (#588, {@link BUSINESS_HISTORY}), which is
+ * kept without its IP address.
  * Called on startup and by the scheduled/manual retention cleanup (FEAT-39).
  * Accepts an optional Prisma transaction client so it can participate in a
  * larger `$transaction` (see MaintenanceService.runRetentionCleanup).
@@ -79,6 +80,13 @@ export async function purgeOldAuditLogs(
   client: PrismaClientOrTx = prisma,
 ): Promise<number> {
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  // The history is kept, not the IP address it was written from: that is a
+  // security trace, and it goes past the retention like the rest (guests'
+  // included). The history never reads it.
+  await client.auditLog.updateMany({
+    where: { createdAt: { lt: cutoff }, ...BUSINESS_HISTORY, NOT: { ip: '' } },
+    data: { ip: '' },
+  });
   const result = await client.auditLog.deleteMany({
     where: { createdAt: { lt: cutoff }, NOT: BUSINESS_HISTORY },
   });

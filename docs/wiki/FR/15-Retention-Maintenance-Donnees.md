@@ -12,7 +12,7 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 ### Configurer les durées de rétention
 1. Allez dans **Admin → Configuration système → Données**.
 2. Renseignez les trois champs (en jours, 1 à 3650) :
-   - **Rétention des logs d'audit** : défaut `90`. S'applique aux traces de sécurité (connexions, actions d'administration, requêtes en échec ou refusées). L'historique de chaque vin et de chaque bouteille est conservé quelle que soit cette valeur, voir [Ce que la purge conserve](#ce-que-la-purge-conserve).
+   - **Rétention des logs d'audit** : défaut `90`. S'applique aux traces de sécurité (connexions, actions d'administration, requêtes en échec ou refusées). L'historique de chaque vin et de chaque bouteille est conservé quelle que soit cette valeur (sans l'adresse IP), voir [Ce que la purge conserve](#ce-que-la-purge-conserve).
    - **Rétention des sessions** : défaut `30`. S'applique aux sessions expirées/révoquées et aux appareils de confiance.
    - **Rétention des invitations / partages invités** : défaut `30`. S'applique aux partages invités expirés ou révoqués.
 3. Cliquez sur **Enregistrer**. Un délai plus court que celui enregistré se confirme avec votre mot de passe, plus votre code si votre compte a la double authentification : il supprime des données au prochain nettoyage, entrées du journal d'audit comprises, donc une session volée seule ne peut pas effacer les traces. Un délai plus long ne demande aucune confirmation.
@@ -34,6 +34,7 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 ### Ce que la purge conserve
 Le journal d'audit contient aussi l'historique affiché dans le tiroir d'un vin : qui a modifié quel champ, les bouteilles ajoutées, déplacées, changées de prix ou dont le nombre a été corrigé, et les valeurs que **Restaurer** remet. Cet historique est une donnée métier, pas une trace de sécurité : la purge ne le supprime jamais, quelle que soit la **rétention des logs d'audit** :
 - conservé : toute entrée réussie liée à un vin ou à une bouteille (création, modification, restauration, valeur restaurée, changement fait par un invité, bouteilles ajoutées, déplacées, changées de prix, nombre corrigé, vins regroupés, mise à la corbeille), y compris les entrées par bouteille des actions groupées et de la clôture d'un inventaire ;
+- conservé sans l'adresse IP : au-delà de la rétention, ces entrées perdent l'adresse IP d'où elles ont été faites (une trace de sécurité). Le nom affiché d'un invité reste, puisqu'il apparaît dans l'historique ;
 - purgé au-delà de la rétention : connexions et autres événements de compte, actions d'administration, requêtes en échec ou refusées, et la ligne de résumé d'une modification groupée (chaque bouteille modifiée garde sa propre entrée).
 
 > [!CAUTION]

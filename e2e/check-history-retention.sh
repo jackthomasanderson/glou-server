@@ -4,7 +4,8 @@
 # the purge (`purgeOldAuditLogs`, run by the scheduled retention cleanup)
 # used to delete every row older than `logRetentionDays`, history included.
 # Run on a real PostgreSQL, through the API image the E2E stack built: rows
-# a year old, then the purge with a retention of one day.
+# a year old, then the purge with a retention of one day. The kept rows lose
+# their IP address (a security trace, purged like the rest).
 #
 # Usage, with the E2E stack up (docker-compose.e2e.yml):
 #   bash e2e/check-history-retention.sh
@@ -37,7 +38,8 @@ psql_on "$database" </dev/null -c "INSERT INTO \"User\" (\"id\", \"username\", \
   (6, '$marie', NULL,      NULL,    'LOGIN',         'success', '::1', '{}', $old),
   (7, '$marie', '$bottle', '$wine', 'UPDATE',        'error',   '::1', '{}', $old),
   (8, '$marie', NULL,      NULL,    'UPDATE',        'success', '::1', '{\"bulk\":true,\"count\":6}', $old),
-  (9, '$marie', NULL,      NULL,    'LOGIN',         'success', '::1', '{}', now())"
+  (9, '$marie', NULL,      NULL,    'LOGIN',         'success', '::1', '{}', now()),
+  (10, '$marie', '$bottle', '$wine', 'UPDATE',       'success', '::1', '{}', now())"
 echo "::endgroup::"
 
 echo "::group::Retention purge, one day"
@@ -50,10 +52,12 @@ echo "::endgroup::"
 
 # The bottle's and the wine's history stay (1-5); the year-old sign-in, the
 # failed write and the bulk summary row (no bottle, no wine) go; today's
-# sign-in is within the retention.
-kept=$(psql_on "$database" -tA </dev/null -c "SELECT string_agg(\"id\"::text, ',' ORDER BY \"id\") FROM \"audit_logs\"")
-if [ "$purged" != "purged=3" ] || [ "$kept" != "1,2,3,4,5,9" ]; then
-  echo "After the purge: $purged, rows kept $kept (expected purged=3, rows kept 1,2,3,4,5,9)." >&2
+# sign-in and edit are within the retention.
+# Rows kept past the retention have no IP address any more; recent ones keep theirs.
+kept=$(psql_on "$database" -tA </dev/null -c "SELECT string_agg(\"id\"::text || ':' || \"ip\", ',' ORDER BY \"id\") FROM \"audit_logs\"")
+expected='1:,2:,3:,4:,5:,9:::1,10:::1'
+if [ "$purged" != "purged=3" ] || [ "$kept" != "$expected" ]; then
+  echo "After the purge: $purged, rows kept $kept (expected purged=3, rows kept $expected)." >&2
   exit 1
 fi
 

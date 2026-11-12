@@ -764,10 +764,11 @@ export class InventoryService {
           ...(changed.cellarId !== undefined && changed.cellarId !== fresh.cellarId ? await freeSlots(tx, item.id) : []),
           ...await fitSlotsTo(tx, item.id, { ...fresh, ...changed } as typeof fresh, unitKind(familyPatch.category ?? row.product.category)),
         ];
-        history.push({
-          action: 'UPDATE', bottleId: item.id, productId: row.productId,
-          details: { bulk: true, changes: [...fieldChanges(fresh, changed), ...slotsFreed(freed)] },
-        });
+        // Only a line whose own fields or cells changed: a description edit is told once, on the wine.
+        const lineChanges = [...fieldChanges(fresh, changed), ...slotsFreed(freed)];
+        if (lineChanges.length > 0) {
+          history.push({ action: 'UPDATE', bottleId: item.id, productId: row.productId, details: { bulk: true, changes: lineChanges } });
+        }
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
