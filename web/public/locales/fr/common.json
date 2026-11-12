@@ -2071,7 +2071,9 @@
     },
     "categories": {
       "title": "Catégories d'alertes",
-      "lastOne": "Au moins une catégorie reste active. Pour ne plus rien recevoir, désactivez les canaux ci-dessus.",
+      "securityLockedLead": "Toujours activées.",
+      "securityLocked": "Les alertes de sécurité (connexion depuis un nouvel appareil, changement de mot de passe, d'email, de nom d'utilisateur ou de double authentification) vous préviennent quand quelqu'un d'autre utilise votre compte : elles ne peuvent pas être désactivées. Elles partent toujours à l'email de votre compte, même si le canal email est désactivé. Gotify n'en reçoit une copie que si vous l'avez activé.",
+      "securityLockedNoEmail": "Les alertes de sécurité (connexion depuis un nouvel appareil, changement de mot de passe, d'email, de nom d'utilisateur ou de double authentification) vous préviennent quand quelqu'un d'autre utilise votre compte : elles ne peuvent pas être désactivées. Ce serveur ne peut pas envoyer d'email : elles ne vous parviennent que par Gotify, si vous l'activez. Demandez à votre administrateur de configurer l'email.",
       "peak": "Apogée atteint",
       "temperature": "Variations température/hygrométrie",
       "security": "Sécurité du compte",

@@ -37,11 +37,12 @@ async function renderWith(patch: Partial<NotificationPrefs>) {
 beforeEach(() => getNotifPrefs.mockReset());
 
 describe('NotificationPreferences category checkboxes, real HeroUI (#780)', () => {
-  it('the last category on is described by why it cannot be unticked', async () => {
+  it('security alerts are locked on and described by why (#981)', async () => {
     await renderWith({ notifCategories: ['peak'] });
-    const peak = screen.getByRole('checkbox', { name: 'notifications.categories.peak' });
-    expect(peak).toBeDisabled();
-    expect(peak).toHaveAccessibleDescription('notifications.categories.lastOne');
+    const security = screen.getByRole('checkbox', { name: 'notifications.categories.security' });
+    expect(security).toBeChecked();
+    expect(security).toBeDisabled();
+    expect(security).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLocked');
   });
 
   it('the backup category is described by why it matters less without automatic backups', async () => {

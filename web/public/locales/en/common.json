@@ -2069,7 +2069,9 @@
     },
     "categories": {
       "title": "Alert categories",
-      "lastOne": "At least one category stays on. To receive nothing at all, turn off the channels above.",
+      "securityLockedLead": "Always on.",
+      "securityLocked": "Security alerts (sign-in from a new device, change of password, email, username or two-factor authentication) tell you when someone else uses your account, so they cannot be turned off. They always go to your account email, even with the email channel off. Gotify gets a copy only if you turned it on.",
+      "securityLockedNoEmail": "Security alerts (sign-in from a new device, change of password, email, username or two-factor authentication) tell you when someone else uses your account, so they cannot be turned off. This server cannot send email, so they reach you only through Gotify, if you turn it on. Ask your administrator to set up email.",
       "peak": "Peak maturity reached",
       "temperature": "Temperature/humidity variations",
       "security": "Account security",

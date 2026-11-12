@@ -131,14 +131,46 @@ describe('NotificationPreferences categories (#583)', () => {
     expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security'] });
   });
 
-  it('the last category on cannot be unticked, since an empty list means all', async () => {
-    await renderWith(['peak']);
+  it('unticking the last optional category keeps security alerts on', async () => {
+    await renderWith(['peak', 'security']);
 
-    expect(chip('peak')).toBeDisabled();
-    expect(chip('peak')).toHaveAccessibleDescription('notifications.categories.lastOne');
     fireEvent.click(chip('peak'));
 
+    await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['security'] }));
+  });
+});
+
+// #981: security alerts cannot be turned off; the screen says so, next to the
+// box and in its accessible description.
+describe('NotificationPreferences — security alerts are locked on (#981)', () => {
+  it('shows security alerts ticked and locked, even if an earlier save removed them', async () => {
+    await renderWith(['peak']);
+
+    expect(chip('security')).toBeChecked();
+    expect(chip('security')).toBeDisabled();
+    fireEvent.click(chip('security'));
+
     expect(updateNotifPrefs).not.toHaveBeenCalled();
+  });
+
+  it('explains why, on screen and to a screen reader', async () => {
+    await renderWith([]);
+
+    expect(screen.getByText('notifications.categories.securityLocked')).toBeVisible();
+    expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLocked');
+  });
+
+  it('says where they go when the instance cannot send e-mail', async () => {
+    await renderWith([], { policy: { smtpEnabled: false, gotifyEnabled: false } });
+
+    expect(chip('security')).toHaveAccessibleDescription('notifications.categories.securityLockedLead notifications.categories.securityLockedNoEmail');
+  });
+
+  it('describes no other category', async () => {
+    await renderWith([]);
+
+    expect(chip('peak')).not.toHaveAccessibleDescription();
+    expect(chip('peak')).not.toBeDisabled();
   });
 });
 
