@@ -139,7 +139,28 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
 
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
 
-router.post('/login', signInAccountLimiter, async (req: Request, res: Response): Promise<void> => {
+/**
+ * #980: notes the trusted device a sign-in comes from, when its cookie belongs
+ * to the account the identifier names, for the sign-in limiter to skip that
+ * identifier's budget (see signInAccountLimiter). Without a valid cookie
+ * (the only case a stranger can produce) nothing is looked up.
+ */
+async function resolveSignInTrustedDevice(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const identifier = (req.body as { identifier?: unknown } | undefined)?.identifier;
+  const token = readTrustedDeviceCookie(req);
+  if (typeof identifier === 'string' && token) {
+    const deviceId = await authService.signInTrustedDeviceId(identifier, token, getClientIp(req));
+    if (deviceId) res.locals.signInTrustedDeviceId = deviceId;
+  }
+  next();
+}
+
+// #980: one LOGIN_FAILED row per locked identifier and window, under its account.
+const signInLimiter = signInAccountLimiter((identifier, req) => {
+  void authService.auditSignInLocked(identifier, getClientIp(req));
+});
+
+router.post('/login', resolveSignInTrustedDevice, signInLimiter, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = loginSchema.parse(req.body);

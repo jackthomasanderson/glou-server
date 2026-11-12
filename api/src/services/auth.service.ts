@@ -532,6 +532,44 @@ export class AuthService {
     return { user: publicUser, token, rememberMe };
   }
 
+  /**
+   * #980: the trusted device a sign-in comes from, when its cookie may skip
+   * the identifier's sign-in budget: the device belongs to the account the
+   * identifier names (compared exactly as {@link login} does), is neither
+   * revoked nor expired, the account is active, and the connection's country
+   * matches the device's (the same rule that lets the device skip the 2FA
+   * challenge). The account is reached through the device, never looked up by
+   * the identifier, so the answer tells nothing about other identifiers.
+   */
+  async signInTrustedDeviceId(identifier: string, trustedDeviceToken: string, ip: string): Promise<string | null> {
+    const tokenHash = crypto.createHash('sha256').update(trustedDeviceToken).digest('hex');
+    const device = await prisma.trustedDevice.findUnique({
+      where: { tokenHash },
+      select: { id: true, revokedAt: true, expiresAt: true, country: true, user: { select: { username: true, email: true, isActive: true } } },
+    });
+    if (!device || device.revokedAt || device.expiresAt <= new Date() || !device.user.isActive) return null;
+    if (identifier !== device.user.username && identifier !== device.user.email) return null;
+    const currentCountry = countryOfIp(ip);
+    if (device.country && currentCountry && device.country !== currentCountry) return null;
+    return device.id;
+  }
+
+  /**
+   * #980: the identifier's sign-in budget is spent and a sign-in was refused.
+   * Filed under the account it names, if any (an unknown identifier is not
+   * recorded, like a wrong password on it, #601), with the reason only: what
+   * was typed is never kept. The rate limiter calls this once per window.
+   * Never throws.
+   */
+  async auditSignInLocked(identifier: string, ip: string): Promise<void> {
+    try {
+      const user = await prisma.user.findFirst({ where: { OR: [{ username: identifier }, { email: identifier }] }, select: { id: true } });
+      if (user) await auditLog({ userId: user.id, action: 'LOGIN_FAILED', status: 'error', ip, details: { reason: 'sign_in_locked' } });
+    } catch (err) {
+      console.error('[audit] Failed to record a locked sign-in:', err);
+    }
+  }
+
   /** #601: a refused sign-in, with the reason only. */
   private auditLoginFailure(userId: string, deviceInfo: DeviceInfo, reason: 'account_deactivated' | 'wrong_password' | 'wrong_2fa_code'): void {
     void auditLog({ userId, action: 'LOGIN_FAILED', status: 'error', ip: deviceInfo.ip ?? 'unknown', details: { reason } });
