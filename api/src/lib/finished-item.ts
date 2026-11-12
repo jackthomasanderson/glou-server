@@ -59,3 +59,34 @@ export const IN_STOCK_ITEM_FILTER = {
 
 /** In-memory counterpart of {@link FINISHED_ITEM_STATE} (shared/units.ts `isFinishedState`). */
 export const isFinishedItem = isFinishedState;
+
+/**
+ * #589: when a unit was finished, and by whom. `updatedAt`/`updatedBy` are
+ * rewritten by any later edit (a move, a count, a postponed suggestion), so
+ * "consumed over the period" and the personal goal read these instead.
+ */
+export interface FinishedStamp {
+  finishedAt: Date | null;
+  finishedBy: string | null;
+}
+
+/**
+ * The stamp a write leaves on a unit going from `before` (null: a unit
+ * created) to `after`: set once, by the write that finishes it (`actorId`,
+ * at `now`), cleared by the one that puts it back; nothing to write
+ * otherwise, so a later edit of a finished unit never re-dates it. Every
+ * write of a unit's state calls it (stock-state.service.ts `applyState`, a
+ * unit created already finished).
+ */
+export function finishedStamp(
+  before: Parameters<typeof isFinishedState>[0] | null,
+  after: Parameters<typeof isFinishedState>[0],
+  actorId: string,
+  now: Date,
+): Partial<FinishedStamp> {
+  const was = before != null && isFinishedState(before);
+  const is = isFinishedState(after);
+  if (is && !was) return { finishedAt: now, finishedBy: actorId };
+  if (was && !is) return { finishedAt: null, finishedBy: null };
+  return {};
+}

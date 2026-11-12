@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { PrismaClientOrTx } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import {
-  FINISHED_ITEM_STATE, groupKey, isFinishedState, isGroupableItem, isIntactItem, unitKind, type UnitKind,
+  FINISHED_ITEM_STATE, finishedStamp, groupKey, isFinishedState, isGroupableItem, isIntactItem, unitKind, type UnitKind,
 } from '../lib/finished-item';
 import {
   fitSlotsTo, freeSlots, liveSlotsOf, moveSlots, pickSlots, slotChoiceError, slotsFreed, slotsPlaced,
@@ -218,7 +218,8 @@ function writable<T extends { fieldSources?: Prisma.JsonValue }>(row: T): Omit<T
  * unit as read in `tx` once its family is locked. `include` is what the
  * returned rows carry (the caller's view). The changed columns are stamped
  * with `updatedBy` and a new `updatedAt`, so a replayed offline write is
- * stopped by `expectedUpdatedAt`.
+ * stopped by `expectedUpdatedAt`. A unit finished here is stamped with
+ * `finishedAt`/`finishedBy` once; put back, the stamp is cleared (#589).
  */
 export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   tx: PrismaClientOrTx,
@@ -235,6 +236,9 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   const choice = context.slotChoice ?? 'auto';
   const stamp = { updatedAt: now, updatedBy: userId };
   const { outcome, next } = planState(item, write, context.kind, now);
+  // #589: finished now (or put back): when and by whom, on the unit carrying
+  // the state — the copy detached, never its group.
+  Object.assign(next, finishedStamp(item, next, userId, now));
   const state = Object.fromEntries(STATE_FIELDS.map((field) => [field, next[field]])) as Pick<StateItem, StateField>;
   const slotChanges: SlotChange[] = [];
   const done = { state, slotChanges };
@@ -365,8 +369,8 @@ async function slotsJoin(
   return mine.length === 0 || theirs.length === 0;
 }
 
-/** Written by the service itself (locks, sources), not fields a member asked to change. */
-const REATTACH_BOOKKEEPING = new Set(['lockedFields', 'fieldSources', 'updatedBy']);
+/** Written by the service itself (locks, sources, the finish stamp), not fields a member asked to change. */
+const REATTACH_BOOKKEEPING = new Set(['lockedFields', 'fieldSources', 'updatedBy', 'finishedAt', 'finishedBy']);
 
 /** The columns of `next` that differ from `item`: only what really changes is written. */
 function changedColumns(item: StateItem, next: StateItem): Partial<UnitColumns> {

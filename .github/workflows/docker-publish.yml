@@ -208,6 +208,10 @@ jobs:
       - name: Migration bench (avatar addresses)
         run: bash e2e/migration/check-avatar-url-migration.sh
 
+      # #589: the units already finished keep their dating (finishedAt/finishedBy backfill).
+      - name: Migration bench (finished stamp)
+        run: bash e2e/migration/check-finished-at-migration.sh
+
       # Deterministic user-journey specs only. The gremlins fuzz
       # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the
       # `nightly-e2e-fuzz` workflow instead — it's slow and non-deterministic.

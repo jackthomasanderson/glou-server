@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessIndex } from '../lib/maturity-curve';
-import { consumedUnits, itemCostInStock, itemSpend, itemUnits, itemValue } from '../lib/finished-item';
+import { consumedUnits, isFinishedState, itemCostInStock, itemSpend, itemUnits, itemValue } from '../lib/finished-item';
 import { UNIT_COUNT_SELECT } from '../lib/stock-units';
 import { ANALYTICS_PERIOD_SCOPE, type AnalyticsStats, type CavePoint, type MovementStats } from '../../../shared/analytics';
 import { findKnownRegion, mapLocationOf, normalizeRegionName } from '../../../shared/map-location';
@@ -36,11 +36,12 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
     : {};
 
-  // "Consumed" is a state of the item itself, not an audit action, so it is
-  // dated by `updatedAt` (every write stamps it) rather than by the audit
-  // log's `createdAt`. #838: until movements are logged (#848), every cigar
-  // smoked out of a box is dated by the box's last change of any kind.
-  const inPeriod = (date: Date) => (!from || date >= from) && (!to || date <= to);
+  // "Consumed" is a state of the item itself, not an audit action. #589: a
+  // finished unit is dated by `finishedAt`, stamped once by the write that
+  // finished it — never by `updatedAt`, which any later edit (a move, a
+  // count) rewrites. #838: until movements are logged (#848), the cigars
+  // smoked out of a box still opened are dated by the box's last change.
+  const inPeriod = (date: Date | null) => (!from || (date != null && date >= from)) && (!to || (date != null && date <= to));
 
   // ISSUE_035/ISSUE_104: deliberately not spread into the inventory query
   // (ANALYTICS_PERIOD_SCOPE, shared/analytics.ts). Inventory aggregates
@@ -58,6 +59,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
         bottleSize: true,
         cellarId: true,
         updatedAt: true,
+        finishedAt: true,
         product: {
           select: {
             category: true,
@@ -128,7 +130,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     // #838: units consumed (each bottle drunk, each cigar smoked) during the
     // period, read from the item's state like every "consumed" figure
     // (lib/finished-item.ts); a write-off is not consumed.
-    if (inPeriod(item.updatedAt)) consumedCount += consumedUnits(item);
+    if (inPeriod(isFinishedState(item) ? item.finishedAt : item.updatedAt)) consumedCount += consumedUnits(item);
     const units = itemUnits(item);
     if (units === 0) continue;
     const value = itemValue(item);

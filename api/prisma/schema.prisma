@@ -81,7 +81,8 @@ model User {
   notifQuietEnd      Int?
   notifLanguage      Language?
 
-  inventory    InventoryItem[]
+  inventory    InventoryItem[] @relation("ItemCreator")
+  finishedItems InventoryItem[] @relation("ItemFinisher")
   products     Product[]
   auditLogs    AuditLog[]
   cellars      Cellar[]
@@ -294,7 +295,7 @@ model InventoryItem {
   // ISSUE_098: audit field, not an ownership field — see the matching note
   // on Cellar.userId. Deleting a member must never erase shared inventory.
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user   User   @relation("ItemCreator", fields: [userId], references: [id], onDelete: Restrict)
 
   // #471: the family. Restrict: a family is only purged once it has no unit.
   productId String
@@ -337,6 +338,16 @@ model InventoryItem {
 
   // Traceability
   updatedBy    String?   // userId of the last editor (null = no edits yet)
+
+  // #589: when the unit was finished (drunk, smoked) and by whom: stamped
+  // once by the write that finishes it, cleared if it is put back
+  // (lib/finished-item.ts `finishedStamp`). "Consumed over the period" and
+  // the personal consumption goal read these, never `updatedAt`/`updatedBy`,
+  // which any later edit rewrites. SetNull: deleting the member keeps the
+  // consumption, without its author.
+  finishedAt     DateTime?
+  finishedBy     String?
+  finishedByUser User?     @relation("ItemFinisher", fields: [finishedBy], references: [id], onDelete: SetNull)
 
   // Integrity
   lockedFields String[]  @default([]) // User-locked fields, not overwritten by a later automated update (OCR scan)

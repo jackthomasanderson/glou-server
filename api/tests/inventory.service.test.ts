@@ -1800,6 +1800,20 @@ describe('InventoryService', () => {
       expect(created().product.create).not.toHaveProperty('isOwned');
     });
 
+    // #589: a bottle recorded already drunk counts as drunk now, by its author — never re-dated later.
+    it('stamps a bottle created already finished with when and by whom', async () => {
+      await service.createItem('u1', { ...wine, isOpened: true, fillLevel: 0 } as never);
+
+      expect(created()).toMatchObject({ finishedAt: expect.any(Date), finishedByUser: { connect: { id: 'u1' } } });
+    });
+
+    it('leaves an opened or a closed bottle created unstamped', async () => {
+      await service.createItem('u1', { ...wine, isOpened: true, fillLevel: 40 } as never);
+
+      expect(created()).not.toHaveProperty('finishedAt');
+      expect(created()).not.toHaveProperty('finishedByUser');
+    });
+
     it('creates a unit without a cellar', async () => {
       await service.createItem('u1', { ...wine, cellarId: null } as never);
 
