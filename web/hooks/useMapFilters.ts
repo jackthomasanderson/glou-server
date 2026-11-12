@@ -1,24 +1,25 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { InventoryCategory, CATEGORY_VALUES } from '@/lib/inventory/types';
 import { MapFiltersState, DEFAULT_MAP_FILTERS } from '@/lib/analytics/mapFilters';
 import { glouKey, readStorageMigrating, safeRemoveStorage, safeWriteStorage } from '@/lib/safe-storage';
 
 // FEAT-42: persist the map explorer filters across navigation, following the
-// same localStorage pattern as useViewMode/usePageSize.
+// same localStorage pattern as useViewMode/usePageSize — except the category
+// (#961): it is the only filter that hides points on the map, so restoring it
+// silently opened the map on e.g. wines only, cigars hidden without a word.
+// The map always opens on all categories; a category picked during the visit
+// holds until the page is left.
 const STORAGE_KEY = glouKey('analytics-map-filters:v1');
 const LEGACY_STORAGE_KEY = 'analyticsMapFilters:v1';
 
 const VALID_OPENED_STATES = ['all', 'inCellar', 'opened'];
-const VALID_CATEGORIES: InventoryCategory[] = [...CATEGORY_VALUES];
 
 function sanitize(parsed: unknown): MapFiltersState {
   if (!parsed || typeof parsed !== 'object') return DEFAULT_MAP_FILTERS;
   const p = parsed as Partial<MapFiltersState>;
   return {
-    categories: Array.isArray(p.categories)
-      ? p.categories.filter((c): c is InventoryCategory => VALID_CATEGORIES.includes(c as InventoryCategory))
-      : DEFAULT_MAP_FILTERS.categories,
+    // Never restored, even from a value saved before #961.
+    categories: DEFAULT_MAP_FILTERS.categories,
     priceMin: typeof p.priceMin === 'string' ? p.priceMin : DEFAULT_MAP_FILTERS.priceMin,
     priceMax: typeof p.priceMax === 'string' ? p.priceMax : DEFAULT_MAP_FILTERS.priceMax,
     vintageMin: typeof p.vintageMin === 'string' ? p.vintageMin : DEFAULT_MAP_FILTERS.vintageMin,
@@ -47,7 +48,8 @@ export function useMapFilters(): [MapFiltersState, (next: MapFiltersState) => vo
 
   const setFilters = useCallback((next: MapFiltersState) => {
     setFiltersState(next);
-    safeWriteStorage('local', STORAGE_KEY, JSON.stringify(next));
+    // `undefined` drops the category from the saved JSON (see above).
+    safeWriteStorage('local', STORAGE_KEY, JSON.stringify({ ...next, categories: undefined }));
   }, []);
 
   const clearFilters = useCallback(() => {
