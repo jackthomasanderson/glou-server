@@ -86,6 +86,7 @@ npm run typecheck      # the Playwright specs are type-checked too
 - Manual edits win: never let automatic enrichment overwrite a field listed in `locked_fields`.
 - Database writes that touch multiple tables go through a Prisma `$transaction`.
 - Frontend state uses React Query with stale-while-revalidate; invalidate related caches after every successful mutation.
+- Every API call from the web app goes through `web/lib/api.ts` (`request`, `requestJson` or `client`), which sends the session cookie, sets the 15 s deadline and reads the API's error codes. ESLint refuses `fetch` anywhere else.
 - Match the style of the surrounding code (naming, comments, structure).
 
 ### Data model invariants

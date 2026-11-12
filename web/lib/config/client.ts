@@ -1,4 +1,4 @@
-import { client, handleResponse } from '@/lib/api';
+import { client } from '@/lib/api';
 import type { BackupHealth } from '@shared/maintenance';
 import type { NotificationCategory, NotificationChannelPolicy } from '@shared/notifications';
 
@@ -244,16 +244,11 @@ export const configClient = {
 
   /** POST (password and code in the body), returned as a file to save. */
   async downloadBackup(id: string, reauth: AdminReauth): Promise<{ blob: Blob; filename: string }> {
-    const res = await fetch(`/api/admin/backups/${id}/download`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(reauth),
-    });
-    if (!res.ok) await handleResponse(res); // throws Error(<API code>)
-    const disposition = res.headers.get('Content-Disposition') ?? '';
+    // #619: a whole dump over a slow link gets the budget of a restore, not that of a small file.
+    const { blob, headers } = await client.blob(`/admin/backups/${id}/download`, { method: 'POST', body: reauth, timeoutMs: RESTORE_TIMEOUT_MS });
+    const disposition = headers.get('Content-Disposition') ?? '';
     const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? 'glou-backup.sql.gz';
-    return { blob: await res.blob(), filename };
+    return { blob, filename };
   },
 
   async getNotifPrefs(): Promise<NotificationPrefs> {

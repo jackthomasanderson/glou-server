@@ -27,9 +27,6 @@ function wrapper({ children }: { children: React.ReactNode }) {
 beforeEach(() => {
   vi.clearAllMocks();
   post.mockRejectedValue(new Error('INVALID_PASSWORD'));
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: 'INVALID_CREDENTIALS' }), {
-    status: 400, headers: { 'Content-Type': 'application/json' },
-  })));
 });
 
 describe('step-up mutations say their own failure (#638)', () => {
@@ -56,7 +53,7 @@ describe('step-up mutations say their own failure (#638)', () => {
     await act(async () => {
       await result.current.mutateAsync({ password: 'pw', code: '123456' }).catch(() => undefined);
     });
-    expect(fetch).toHaveBeenCalledWith('/api/auth/2fa/backup-codes', expect.objectContaining({ method: 'POST' }));
+    expect(post).toHaveBeenCalledWith('/auth/2fa/backup-codes', { password: 'pw', code: '123456' });
     expect(notifyError).not.toHaveBeenCalled();
   });
 });

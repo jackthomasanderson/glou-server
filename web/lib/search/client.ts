@@ -1,4 +1,4 @@
-import { client, timeoutSignal } from '../api';
+import { client, FILE_TIMEOUT_MS } from '../api';
 
 export interface ImageResult {
   url: string;
@@ -6,12 +6,8 @@ export interface ImageResult {
   title: string;
 }
 
-/**
- * #645: without a deadline a stalled upload never ended and the photo kept
- * its loading overlay. Longer than the usual 15 s (a photo over a slow phone
- * link), shorter than the /api proxy's own timeout (next.config.mjs).
- */
-export const UPLOAD_TIMEOUT_MS = 60_000;
+/** #645: without a deadline a stalled upload never ended and the photo kept its loading overlay. */
+export const UPLOAD_TIMEOUT_MS = FILE_TIMEOUT_MS;
 
 /** #645: a reverse proxy answers these with its own page, not the API's JSON code. */
 const UPLOAD_ERROR_BY_STATUS: Record<number, string> = {
@@ -21,8 +17,6 @@ const UPLOAD_ERROR_BY_STATUS: Record<number, string> = {
 
 // ISSUE_065: centralises the three /api/search/images* calls that three
 // components used to hand-roll with their own fetch and error handling.
-// Upload stays outside lib/api.ts's JSON-only `client` helper, same pattern
-// as lib/scan/client.ts and lib/import/client.ts.
 export const searchClient = {
   /** With a category, the API adds what is searched for ("wine bottle", "cigar"): #862. */
   async searchImages(query: string, category?: string): Promise<ImageResult[]> {
@@ -42,15 +36,11 @@ export const searchClient = {
     const formData = new FormData();
     formData.append('image', file);
 
-    const res = await fetch('/api/search/images/upload', {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
-      signal: timeoutSignal(UPLOAD_TIMEOUT_MS),
+    const { data } = await client.upload<{ path: string }>('/search/images/upload', formData, {
+      timeoutMs: UPLOAD_TIMEOUT_MS,
+      codeByStatus: UPLOAD_ERROR_BY_STATUS,
     });
-    const json = (await res.json().catch(() => ({}))) as { data?: { path: string }; error?: string };
-    if (!res.ok) throw new Error(json.error ?? UPLOAD_ERROR_BY_STATUS[res.status] ?? 'UNEXPECTED_ERROR');
-    if (!json.data?.path) throw new Error('UNEXPECTED_ERROR');
-    return json.data.path;
+    if (!data.path) throw new Error('UNEXPECTED_ERROR');
+    return data.path;
   },
 };

@@ -4,8 +4,7 @@ import { SCAN_UPLOAD_ERROR_CODES, type ScanStatus } from '@shared/scan';
 import { ScanJob } from './types';
 import { HEIC_NOT_SUPPORTED } from './errors';
 
-// ─── FEAT-04: Scan API client — multipart upload bypasses lib/api.ts's ───────
-// JSON-only `client` helper, same pattern as lib/import/client.ts (FEAT-56).
+// ─── FEAT-04: Scan API client ────────────────────────────────────────────────
 
 /** #639: a reverse proxy answers these two with an HTML page, not the API's JSON code. */
 const UPLOAD_ERROR_BY_STATUS: Record<number, string> = {
@@ -38,22 +37,12 @@ export const scanClient = {
     const formData = new FormData();
     formData.append('photo', await downscaleImage(file, SCAN_MAX_SIDE));
 
-    const res = await fetch('/api/scan', {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
-    });
-    const json = (await res.json().catch(() => ({}))) as { data?: { jobId: string }; error?: string };
-    if (!res.ok) throw new Error(json.error ?? UPLOAD_ERROR_BY_STATUS[res.status] ?? 'UNEXPECTED_ERROR');
-    return json.data as { jobId: string };
+    const { data } = await client.upload<{ jobId: string }>('/scan', formData, { codeByStatus: UPLOAD_ERROR_BY_STATUS });
+    return data;
   },
 
   async getJob(jobId: string): Promise<ScanJob> {
-    const res = await fetch(`/api/scan/jobs/${jobId}`, {
-      credentials: 'include',
-    });
-    const json = (await res.json()) as { data?: ScanJob; error?: string };
-    if (!res.ok) throw new Error(json.error ?? 'UNEXPECTED_ERROR');
-    return json.data as ScanJob;
+    const { data } = await client.get<ScanJob>(`/scan/jobs/${jobId}`);
+    return data;
   },
 };

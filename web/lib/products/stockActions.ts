@@ -1,8 +1,7 @@
 import { isIntactItem, type UnitKind } from '@shared/units';
 import type { CorrectionReason, UnitWriteResult } from '@shared/product';
 import type { Wire } from '@shared/wire';
-import { apiErrorFrom, DEFAULT_TIMEOUT_MS, timeoutSignal } from '../api';
-import { fetchOrNetworkError } from '../network-error';
+import { requestJson } from '../api';
 import type { ProductItem } from './types';
 
 /** D8: what a stock action wrote — the line asked for, the others it changed, those it removed. */
@@ -32,15 +31,10 @@ export async function postStockAction(
   body: CorrectBody | MoveBody | RepriceBody,
   expectedUpdatedAt: string,
 ): Promise<StockWrite> {
-  const res = await fetchOrNetworkError(`/api/inventory/${encodeURIComponent(id)}/${action}`, {
+  const result = await requestJson<Partial<StockWrite> & Pick<StockWrite, 'data'>>(`/inventory/${encodeURIComponent(id)}/${action}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ ...body, expectedUpdatedAt }),
-    signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
+    body: { ...body, expectedUpdatedAt },
   });
-  if (!res.ok) throw await apiErrorFrom(res);
-  const result = (await res.json()) as Partial<StockWrite> & Pick<StockWrite, 'data'>;
   return { data: result.data, changed: result.changed ?? [], removedIds: result.removedIds ?? [] };
 }
 
