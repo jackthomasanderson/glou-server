@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import { errorMiddleware } from '../../src/middleware/error.middleware';
 
 vi.mock('../../src/middleware/guest.middleware', () => ({
   guestMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -34,6 +35,8 @@ import { auditLog } from '../../src/services/audit.service';
 const app = express();
 app.use(express.json());
 app.use('/api/guest/:token', guestRouter);
+// #467: the router lets failures reach the error middleware, as in app.ts.
+app.use(errorMiddleware);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -51,6 +54,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId', () => {
       .send({ fillLevel: 50, notes: null });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.details).toEqual(expect.objectContaining({ _errors: expect.any(Array) }));
     expect(inventoryService.updateItem).not.toHaveBeenCalled();
   });
 
@@ -182,6 +186,8 @@ describe('POST /api/guest/:token/tastings', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
+    // #467: one details shape for every route, Zod's format() (an object, not a joined string).
+    expect(res.body.details).toEqual(expect.objectContaining({ _errors: expect.any(Array) }));
     expect(createGuestTasting).not.toHaveBeenCalled();
   });
 

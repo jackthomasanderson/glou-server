@@ -959,7 +959,11 @@ describe('POST /api/admin/backups/:id/restore', () => {
 
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: 'RESTORE_FAILED' });
-    expect(log).toHaveBeenCalledWith('[Admin] Backup restore error:', expect.objectContaining({ message: raw }));
+    // #467: written once by the error middleware, the raw failure as the cause.
+    expect(log).toHaveBeenCalledWith(
+      '[error] %s -> %d %s', expect.any(String), 500, 'RESTORE_FAILED',
+      expect.objectContaining({ cause: expect.objectContaining({ message: raw }) }),
+    );
   });
 
   it('takes no backup at all on a wrong password', async () => {

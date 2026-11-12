@@ -66,7 +66,7 @@ function signedIn(): void {
 let consoleError: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   process.env.JWT_SECRET = JWT_SECRET;
-  for (const fn of [prisma.user.findUnique, prisma.session.findUnique, prisma.session.update]) {
+  for (const fn of [prisma.user.findUnique, prisma.session.findUnique, prisma.session.update, prisma.guestShare.findUnique]) {
     vi.mocked(fn).mockReset().mockImplementation((() => Promise.reject(databaseUnreachable())) as never);
   }
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -153,6 +153,54 @@ describe('database outage behind the admin and guest gates (#467)', () => {
 
   it('a guest link answers 503, not 500 INTERNAL_SERVER_ERROR', async () => {
     const res = await request(app).get('/api/guest/some-guest-token');
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: 'DATABASE_UNAVAILABLE' });
+  });
+});
+
+// #467 part 2: the inventory, guest-link and administration routes.
+describe('database outage on the inventory, guest and admin routes (#467)', () => {
+  it.each([
+    ['get', '/api/inventory'],
+    ['get', '/api/inventory/export.csv'],
+    ['get', '/api/inventory/trash'],
+    ['get', '/api/inventory/i1'],
+    ['get', '/api/inventory/i1/history'],
+    ['post', '/api/inventory', { category: 'wine', name: 'Margaux', producer: 'Château', vintage: 2020 }],
+    ['patch', '/api/inventory/i1', { notes: 'x' }],
+    ['delete', '/api/inventory/i1'],
+    ['post', '/api/inventory/i1/restore'],
+  ] as const)('%s %s answers 503 DATABASE_UNAVAILABLE', async (method, path, body?: object) => {
+    signedIn();
+    const res = await send(method, path, body);
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: 'DATABASE_UNAVAILABLE' });
+  });
+
+  it.each([
+    ['get', '/api/admin/users'],
+    ['get', '/api/admin/shares'],
+    ['delete', '/api/admin/shares/s1'],
+    ['get', '/api/admin/audit-logs'],
+    ['get', '/api/admin/maintenance/runs'],
+    ['get', '/api/admin/backups/runs'],
+  ] as const)('admin %s %s answers 503 DATABASE_UNAVAILABLE', async (method, path) => {
+    signedIn();
+    // The admin check passes too; the route's own read is the call that fails.
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ isAdmin: true } as never);
+    const res = await send(method, path);
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: 'DATABASE_UNAVAILABLE' });
+  });
+
+  it.each(['', '/inventory', '/inventory/i1'])('guest link GET %s answers 503 DATABASE_UNAVAILABLE', async (path) => {
+    // The link itself is valid; reading what it opens is the call that fails.
+    vi.mocked(prisma.guestShare.findUnique).mockResolvedValueOnce({
+      id: 'g1', userId: 'u1', revokedAt: null, expiresAt: null, cellarIds: ['c1'], writeCellarIds: [], collectionIds: [],
+      hidePrices: false, hideNotes: false,
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ isActive: true } as never);
+    const res = await request(app).get(`/api/guest/some-guest-token${path}`);
     expect(res.status).toBe(503);
     expect(res.body).toEqual({ error: 'DATABASE_UNAVAILABLE' });
   });

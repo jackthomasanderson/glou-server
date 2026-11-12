@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import { errorMiddleware } from '../../src/middleware/error.middleware';
 
 vi.mock('../../src/middleware/auth.middleware', () => ({
   authMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -27,6 +28,8 @@ import { AppError } from '../../src/lib/errors';
 const app = express();
 app.use(express.json());
 app.use('/api/inventory', inventoryRouter);
+// #467: the router lets failures reach the error middleware, as in app.ts.
+app.use(errorMiddleware);
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -34,6 +37,16 @@ const wine = { category: 'wine', name: 'Cuvée X', producer: 'Domaine Y', vintag
 
 // #471 (FEAT-97): the duplicate refusal (409 DUPLICATE_CANDIDATE) is gone —
 // "Vous avez déjà ce vin" is asked while typing; a creation creates a wine.
+// #467: a refused body has the details shape of every other route (Zod's format()).
+describe('POST /api/inventory validation (#467)', () => {
+  it('answers 400 VALIDATION_ERROR with the shared details shape', async () => {
+    const res = await request(app).post('/api/inventory').send({ category: 'wine' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.details).toEqual(expect.objectContaining({ _errors: expect.any(Array) }));
+  });
+});
+
 describe('POST /api/inventory (FEAT-97)', () => {
   it('creates the wine even when one of the same name exists, without looking for it', async () => {
     vi.mocked(inventoryService.createItem).mockResolvedValue({ id: 'b2', productId: 'p2' } as never);
