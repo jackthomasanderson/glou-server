@@ -55,7 +55,7 @@ describe('vocabulary (FEAT-112)', () => {
     expect(fr.analytics.categories.active).toBe('En stock');
     expect(en.analytics.categories.active).toBe('In stock');
     for (const bundle of [fr, en]) {
-      expect(bundle.analytics.maturity.countLabel_other).toBe('{{count}} ({{percent}}%)');
+      expect(bundle.analytics.maturity.countLabel_other).toBe(bundle === fr ? '{{count}} ({{percent}} %)' : '{{count}} ({{percent}}%)');
       expect(JSON.stringify(bundle.analytics.map.list)).not.toMatch(/bouteille|bottle/i);
     }
   });

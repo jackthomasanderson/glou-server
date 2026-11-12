@@ -618,7 +618,7 @@
     },
     "humidor": {
       "title": "Suivi de l'hygrométrie",
-      "targetRangeHint": "Plage cible d'hygrométrie (ex : 68-72%) utilisée pour détecter une dérive.",
+      "targetRangeHint": "Plage cible d'hygrométrie (ex : 68-72 %) utilisée pour détecter une dérive.",
       "targetHumidityMin": "Humidité min. (%)",
       "targetHumidityMax": "Humidité max. (%)",
       "status": {
@@ -627,7 +627,7 @@
         "unconfigured": "Non configuré"
       },
       "noTargetHint": "Aucune plage cible configurée — modifiez la cave pour en définir une et activer les alertes de dérive.",
-      "latestReading": "Dernière lecture : {{humidity}}% le {{date}}",
+      "latestReading": "Dernière lecture : {{humidity}} % le {{date}}",
       "empty": "Aucune lecture enregistrée pour le moment.",
       "humidityPercent": "Humidité (%)",
       "temperatureCelsius": "Température (°C)",
@@ -1765,10 +1765,10 @@
       "atPeak": "À l'apogée (À consommer en priorité)",
       "pastPeak": "Apogée dépassé (À consommer d'urgence)",
       "noWindow": "Sans fenêtre de maturité renseignée",
-      "countLabel_one": "{{count}} ({{percent}}%)",
-      "countLabel_other": "{{count}} ({{percent}}%)",
+      "countLabel_one": "{{count}} ({{percent}} %)",
+      "countLabel_other": "{{count}} ({{percent}} %)",
       "humidorTip": "Conseil de l'Humidor",
-      "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70%. Évitez les chocs thermiques pour préserver la souplesse de la cape."
+      "humidorTipText": "Les cigares cubains bénéficient d'une hygrométrie stable de 70 %. Évitez les chocs thermiques pour préserver la souplesse de la cape."
     },
     "tastingInsights": {
       "title": "Statistiques de dégustation",
@@ -2607,7 +2607,7 @@
     },
     "progress": {
       "remaining": "Restant",
-      "label": "{{spent}} dépensés sur {{amount}} ({{percent}}%)"
+      "label": "{{spent}} dépensés sur {{amount}} ({{percent}} %)"
     }
   },
   "offline": {

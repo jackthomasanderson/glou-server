@@ -69,6 +69,27 @@ describe('humidorService.recordReading', () => {
     );
   });
 
+  // #841: French sets a non-breaking space before "%"; English stays glued.
+  it('writes the drift e-mail percentages with a non-breaking space in French only', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue({
+      id: 'c1', name: 'Humidor', targetHumidityMin: 62, targetHumidityMax: 72,
+    } as never);
+    vi.mocked(prisma.humidorReading.create).mockResolvedValue({ humidityPercent: 80 } as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([
+      { id: 'u1', language: 'FR', notifLanguage: null },
+      { id: 'u2', language: 'EN', notifLanguage: null },
+    ] as never);
+    await humidorService.recordReading('u1', { cellarId: 'c1', humidityPercent: 80, source: 'manual' });
+    await new Promise((r) => setImmediate(r));
+    const body = (id: string) => (vi.mocked(notificationService.send).mock.calls
+      .map((c) => c[0] as { userId: string; htmlBody: string }).find((c) => c.userId === id))!.htmlBody;
+    expect(body('u1')).toContain('80\u00A0%');
+    expect(body('u1')).toContain('62\u00A0% – 72\u00A0%');
+    expect(body('u1')).not.toMatch(/\d%/);
+    expect(body('u2')).toContain('80%');
+    expect(body('u2')).toContain('62% – 72%');
+  });
+
   it('defaults recordedAt to now and temperature to null', async () => {
     vi.mocked(prisma.cellar.findFirst).mockResolvedValue({
       id: 'c1', name: 'H', targetHumidityMin: null, targetHumidityMax: null,
