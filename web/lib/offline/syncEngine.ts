@@ -382,8 +382,9 @@ async function sendChange(mutation: QueuedMutation): Promise<PatchOutcome> {
     return { kind: 'error', message: body?.error ?? 'CONFLICT', code: body?.error ?? 'CONFLICT' };
   }
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string; details?: unknown } | null;
-    const reason = (typeof body?.details === 'string' ? body.details : undefined) ?? body?.error ?? `HTTP ${res.status}`;
+    // The stable code only: since #467 no route sends a readable `details`.
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    const reason = body?.error ?? `HTTP ${res.status}`;
     // An expired session (401) or one waiting for its second factor (403
     // `2FA_REQUIRED`, api/src/middleware/auth.middleware.ts): nothing wrong
     // with the change, it goes through once the member has signed in again,

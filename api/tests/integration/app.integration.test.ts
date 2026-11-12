@@ -959,7 +959,44 @@ describe('POST /api/admin/backups/:id/restore', () => {
 
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: 'RESTORE_FAILED' });
-    expect(log).toHaveBeenCalledWith('[Admin] Backup restore error:', expect.objectContaining({ message: raw }));
+    // #467: written once by the error middleware, the raw failure as the cause.
+    expect(log).toHaveBeenCalledWith(
+      '[error] %s -> %d %s', expect.any(String), 500, 'RESTORE_FAILED',
+      expect.objectContaining({ cause: expect.objectContaining({ message: raw }) }),
+    );
+  });
+
+  // #467 review: whatever else stops the restore (a corrupt or truncated
+  // dump, psql missing or too slow, an unreadable file), the dialog gets the
+  // #748 code; the detail goes to the server log only.
+  it.each([
+    'GUNZIP_FAILED: incorrect header check',
+    'PSQL_RESTORE_TIMEOUT after 600000 ms',
+    'spawn psql ENOENT',
+    'EACCES: permission denied, open \'/app/backups/x.sql.gz\'',
+    'INVALID_PATH',
+  ])('answers RESTORE_FAILED, never the raw text, when the restore fails with "%s"', async (raw) => {
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error(raw)));
+    spies.push(vi.spyOn(console, 'error').mockImplementation(() => {}));
+
+    const res = await restore();
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'RESTORE_FAILED' });
+  });
+
+  it('answers 503 DATABASE_UNAVAILABLE when the database goes away during the restore', async () => {
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Can't reach database server", { code: 'P1001', clientVersion: '7.0.0' }),
+    ));
+    spies.push(vi.spyOn(console, 'error').mockImplementation(() => {}));
+
+    const res = await restore();
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: 'DATABASE_UNAVAILABLE' });
   });
 
   it('takes no backup at all on a wrong password', async () => {

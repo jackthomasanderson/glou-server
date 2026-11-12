@@ -2,9 +2,11 @@ import { Router, Request, Response } from 'express';
 import { z, ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { AppError, badRequest, conflict, isRecordNotFound, notFound } from '../lib/errors';
 import { routeParam } from '../lib/http';
 import { assertUrlAllowed } from '../lib/ssrf';
 import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { isDatabaseUnavailable } from '../middleware/error.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
 import { paginationQuerySchema } from '../schemas/pagination.schema';
 import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenceReorderSchema } from '../schemas/maturity-reference.schema';
@@ -117,34 +119,33 @@ const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit:
 adminRouter.use(authMiddleware);
 adminRouter.use(adminMiddleware);
 
+// #467: the error middleware answers every failure (a ZodError: 400
+// VALIDATION_ERROR; a database outage: 503). A catch below only maps a
+// business refusal to its code, then rethrows anything else.
+
 /**
  * @route   GET /api/admin/users
  * @desc    Get all users listing
  * @access  Admin Private
  */
 adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => {
-    try {
-        const users = await prisma.user.findMany({
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                displayName: true,
-                isAdmin: true,
-                isActive: true,
-                // #638: the reset dialog asks for the admin's password when on.
-                isTwoFactorEnabled: true,
-                // #661: a deletion asked by the member or scheduled by an admin.
-                deletionRequestedAt: true,
-                createdAt: true,
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-        res.json({ data: users });
-    } catch (error) {
-        console.error('[Admin] Error fetching users:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-    }
+    const users = await prisma.user.findMany({
+        select: {
+            id: true,
+            username: true,
+            email: true,
+            displayName: true,
+            isAdmin: true,
+            isActive: true,
+            // #638: the reset dialog asks for the admin's password when on.
+            isTwoFactorEnabled: true,
+            // #661: a deletion asked by the member or scheduled by an admin.
+            deletionRequestedAt: true,
+            createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+    });
+    res.json({ data: users });
 });
 
 /**
@@ -211,12 +212,11 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
             res.status(409).json({ error: 'CANNOT_REMOVE_LAST_ADMIN' });
             return;
         }
-        console.error('[Admin] Error updating user role:', error);
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (isRecordNotFound(error)) {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+        throw error;
     }
 });
 
@@ -297,12 +297,11 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
             res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
             return;
         }
-        console.error('[Admin] Error updating user status:', error);
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (isRecordNotFound(error)) {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+        throw error;
     }
 });
 
@@ -339,8 +338,7 @@ adminRouter.post('/users/:userId/reset-password', resetPasswordLimiter, async (r
             res.status(409).json({ error: 'TARGET_CHANGED' });
             return;
         }
-        console.error('[Admin] Error resetting user password:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+        throw error;
     }
 });
 
@@ -393,12 +391,11 @@ adminRouter.post('/users/:userId/delete', stepUpLimiter, async (req: Request, re
             res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
             return;
         }
-        console.error('[Admin] Error deleting member:', error);
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (isRecordNotFound(error)) {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+        throw error;
     }
 });
 
@@ -447,12 +444,11 @@ adminRouter.put('/users/:userId/deletion', stepUpLimiter, async (req: Request, r
             res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
             return;
         }
-        console.error('[Admin] Error scheduling member deletion:', error);
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (isRecordNotFound(error)) {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+        throw error;
     }
 });
 
@@ -465,21 +461,16 @@ adminRouter.put('/users/:userId/deletion', stepUpLimiter, async (req: Request, r
  */
 adminRouter.post('/users/:userId/export', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
     const userId = routeParam(req.params.userId);
-    try {
-        const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
-        if (!target) {
-            res.status(404).json({ error: 'USER_NOT_FOUND' });
-            return;
-        }
-        const audit: StepUpAudit = { action: 'ADMIN_MEMBER_EXPORT', details: { targetUserId: userId } };
-        if (!(await stepUp(req, res, audit))) return;
-        const data = await authService.exportUserData(userId);
-        auditSuccess(req, audit);
-        res.json({ data });
-    } catch (error) {
-        console.error('[Admin] Error exporting member data:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!target) {
+        res.status(404).json({ error: 'USER_NOT_FOUND' });
+        return;
     }
+    const audit: StepUpAudit = { action: 'ADMIN_MEMBER_EXPORT', details: { targetUserId: userId } };
+    if (!(await stepUp(req, res, audit))) return;
+    const data = await authService.exportUserData(userId);
+    auditSuccess(req, audit);
+    res.json({ data });
 });
 
 /**
@@ -489,12 +480,7 @@ adminRouter.post('/users/:userId/export', stepUpLimiter, async (req: Request, re
  * @access  Admin Private
  */
 adminRouter.get('/shares', async (_req: Request, res: Response): Promise<void> => {
-    try {
-        res.json({ data: await sharesService.listActiveForAdmin() });
-    } catch (error) {
-        console.error('[Admin] Error listing guest links:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-    }
+    res.json({ data: await sharesService.listActiveForAdmin() });
 });
 
 /**
@@ -505,26 +491,21 @@ adminRouter.get('/shares', async (_req: Request, res: Response): Promise<void> =
  */
 adminRouter.delete('/shares/:id', async (req: Request, res: Response): Promise<void> => {
     const id = routeParam(req.params.id);
-    try {
-        const result = await sharesService.revokeAsAdmin(id);
-        if (!result) {
-            res.status(404).json({ error: 'SHARE_NOT_FOUND' });
-            return;
-        }
-        if (result.revoked) {
-            void auditLog({
-                userId: req.userId,
-                action: 'ADMIN_SHARE_REVOKE',
-                status: 'success',
-                ip: getClientIp(req),
-                details: { shareId: id, ownerId: result.ownerId },
-            });
-        }
-        res.json({ data: { id, revokedAt: result.revokedAt } });
-    } catch (error) {
-        console.error('[Admin] Error revoking guest link:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    const result = await sharesService.revokeAsAdmin(id);
+    if (!result) {
+        res.status(404).json({ error: 'SHARE_NOT_FOUND' });
+        return;
     }
+    if (result.revoked) {
+        void auditLog({
+            userId: req.userId,
+            action: 'ADMIN_SHARE_REVOKE',
+            status: 'success',
+            ip: getClientIp(req),
+            details: { shareId: id, ownerId: result.ownerId },
+        });
+    }
+    res.json({ data: { id, revokedAt: result.revokedAt } });
 });
 
 /**
@@ -565,32 +546,27 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
         }
     }
 
-    try {
-        const [logs, total] = await Promise.all([
-            prisma.auditLog.findMany({
-                where,
-                skip,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    user: {
-                        select: { username: true, displayName: true },
-                    },
+    const [logs, total] = await Promise.all([
+        prisma.auditLog.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: {
+                    select: { username: true, displayName: true },
                 },
-            }),
-            prisma.auditLog.count({ where }),
-        ]);
-
-        res.json({
-            data: {
-                items: logs,
-                meta: { page, limit, total, pages: Math.ceil(total / limit) },
             },
-        });
-    } catch (error) {
-        console.error('[Admin] Error fetching audit logs:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-    }
+        }),
+        prisma.auditLog.count({ where }),
+    ]);
+
+    res.json({
+        data: {
+            items: logs,
+            meta: { page, limit, total, pages: Math.ceil(total / limit) },
+        },
+    });
 });
 
 /**
@@ -606,30 +582,23 @@ adminRouter.post('/maintenance/purge', stepUpLimiter, async (req: Request, res: 
     }
     const ip = getClientIp(req);
 
-    try {
-        // #489: re-authenticate (#890: with the admin's code too), take a
-        // backup first (abort if it fails), and leave a trace of who purged,
-        // written after the purge since the purge wipes the audit log itself.
-        if (!(await stepUp(req, res, { action: 'PURGE', details: {} }))) return;
-        const backup = await backupService.runBackup('manual', req.userId);
-        if (!backup.success) {
-            res.status(500).json({ error: 'BACKUP_BEFORE_PURGE_FAILED' });
-            return;
-        }
-        const result = await MaintenanceService.purgeAllData();
-        await auditLog({
-            userId: req.userId,
-            action: 'PURGE',
-            status: 'success',
-            ip,
-            details: { counts: result.counts, backupRunId: backup.id },
-        });
-        const body: PurgeResponse = { ...result, backupRunId: backup.id };
-        res.json({ data: body });
-    } catch (error) {
-        console.error('[Admin] Maintenance purge error:', error);
-        res.status(500).json({ error: 'PURGE_FAILED' });
-    }
+    // #489: re-authenticate (#890: with the admin's code too), take a
+    // backup first (abort if it fails), and leave a trace of who purged,
+    // written after the purge since the purge wipes the audit log itself.
+    if (!(await stepUp(req, res, { action: 'PURGE', details: {} }))) return;
+    const backup = await backupService.runBackup('manual', req.userId);
+    // The run's own failure is in the backup history (#467: a stable code here).
+    if (!backup.success) throw new AppError(500, 'BACKUP_BEFORE_PURGE_FAILED');
+    const result = await MaintenanceService.purgeAllData();
+    await auditLog({
+        userId: req.userId,
+        action: 'PURGE',
+        status: 'success',
+        ip,
+        details: { counts: result.counts, backupRunId: backup.id },
+    });
+    const body: PurgeResponse = { ...result, backupRunId: backup.id };
+    res.json({ data: body });
 });
 
 /**
@@ -638,21 +607,12 @@ adminRouter.post('/maintenance/purge', stepUpLimiter, async (req: Request, res: 
  * @access  Admin Private
  */
 adminRouter.get('/maintenance/runs', async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { limit } = maintenanceRunsQuerySchema.parse(req.query);
-        const runs = await prisma.maintenanceRun.findMany({
-            take: limit ?? 50,
-            orderBy: { runAt: 'desc' },
-        });
-        res.json({ data: runs });
-    } catch (error) {
-        if (error instanceof ZodError) {
-            res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
-            return;
-        }
-        console.error('[Admin] Error fetching maintenance runs:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-    }
+    const { limit } = maintenanceRunsQuerySchema.parse(req.query);
+    const runs = await prisma.maintenanceRun.findMany({
+        take: limit ?? 50,
+        orderBy: { runAt: 'desc' },
+    });
+    res.json({ data: runs });
 });
 
 /**
@@ -661,13 +621,8 @@ adminRouter.get('/maintenance/runs', async (req: Request, res: Response): Promis
  * @access  Admin Private
  */
 adminRouter.post('/maintenance/run', async (req: Request, res: Response): Promise<void> => {
-    try {
-        const run = await MaintenanceService.runRetentionCleanup('manual', req.userId);
-        res.json({ data: run });
-    } catch (error) {
-        console.error('[Admin] Manual retention cleanup error:', error);
-        res.status(500).json({ error: 'RETENTION_CLEANUP_FAILED' });
-    }
+    const run = await MaintenanceService.runRetentionCleanup('manual', req.userId);
+    res.json({ data: run });
 });
 
 // ─── Maturity References ──────────────────────────────────────────────────────
@@ -717,57 +672,39 @@ adminRouter.get('/config', async (_req: Request, res: Response): Promise<void> =
 // decide where reset links and security alerts go, and the public URL is the
 // host of every reset link: each asks for the step-up (stepUp above).
 adminRouter.put('/config/smtp', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = smtpConfigSchema.parse(req.body);
-    const audit = configAudit('CONFIG_UPDATE', 'smtp');
-    if (!(await stepUp(req, res, audit))) return;
-    const config = await systemConfigService.updateSmtp(parsed, req.userId);
-    auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/smtp error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = smtpConfigSchema.parse(req.body);
+  const audit = configAudit('CONFIG_UPDATE', 'smtp');
+  if (!(await stepUp(req, res, audit))) return;
+  const config = await systemConfigService.updateSmtp(parsed, req.userId);
+  auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.put('/config/gotify', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = gotifyConfigSchema.parse(req.body);
-    // #767: every member's Gotify notification goes to this server: it
-    // cannot be on without its URL and app token.
-    if (await gotifyService.wouldBeOnWithoutServer(parsed)) {
-      res.status(400).json({ error: 'GOTIFY_INCOMPLETE' });
-      return;
-    }
-    // ISSUE_048: this address is fetched server-side on every test and every
-    // delivery: only a public HTTPS address, checked at save time and again
-    // before each call.
-    if (parsed.gotifyUrl) {
-      try {
-        await assertUrlAllowed(parsed.gotifyUrl);
-      } catch (err) {
-        console.error('[admin] PUT /config/gotify error:', err);
-        res.status(400).json({ error: 'INVALID_URL' });
-        return;
-      }
-    }
-    const audit = configAudit('CONFIG_UPDATE', 'gotify');
-    if (!(await stepUp(req, res, audit))) return;
-    const config = await systemConfigService.updateGotify(parsed, req.userId);
-    auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/gotify error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  const parsed = gotifyConfigSchema.parse(req.body);
+  // #767: every member's Gotify notification goes to this server: it
+  // cannot be on without its URL and app token.
+  if (await gotifyService.wouldBeOnWithoutServer(parsed)) {
+    res.status(400).json({ error: 'GOTIFY_INCOMPLETE' });
+    return;
   }
+  // ISSUE_048: this address is fetched server-side on every test and every
+  // delivery: only a public HTTPS address, checked at save time and again
+  // before each call.
+  if (parsed.gotifyUrl) {
+    try {
+      await assertUrlAllowed(parsed.gotifyUrl);
+    } catch (err) {
+      console.error('[admin] PUT /config/gotify error:', err);
+      res.status(400).json({ error: 'INVALID_URL' });
+      return;
+    }
+  }
+  const audit = configAudit('CONFIG_UPDATE', 'gotify');
+  if (!(await stepUp(req, res, audit))) return;
+  const config = await systemConfigService.updateGotify(parsed, req.userId);
+  auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 // #893: shortening a retention window erases rows at the next cleanup (the
@@ -777,39 +714,21 @@ adminRouter.put('/config/gotify', stepUpLimiter, async (req: Request, res: Respo
 // step-up. "Run cleanup now" and "Run now" (backup) do not: the first only
 // applies a retention that is itself gated, the second only adds a file.
 adminRouter.put('/config/retention', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = retentionConfigSchema.parse(req.body);
-    const { allowed, audit } = await stepUpIfWeakening(req, res, 'retention', (current) => lowersRetention(current, parsed));
-    if (!allowed) return;
-    const config = await systemConfigService.updateRetention(parsed, req.userId);
-    if (audit) auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/retention error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = retentionConfigSchema.parse(req.body);
+  const { allowed, audit } = await stepUpIfWeakening(req, res, 'retention', (current) => lowersRetention(current, parsed));
+  if (!allowed) return;
+  const config = await systemConfigService.updateRetention(parsed, req.userId);
+  if (audit) auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.put('/config/backup', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = backupConfigSchema.parse(req.body);
-    const { allowed, audit } = await stepUpIfWeakening(req, res, 'backup', (current) => weakensBackups(current, parsed));
-    if (!allowed) return;
-    const config = await systemConfigService.updateBackupConfig(parsed, req.userId);
-    if (audit) auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/backup error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = backupConfigSchema.parse(req.body);
+  const { allowed, audit } = await stepUpIfWeakening(req, res, 'backup', (current) => weakensBackups(current, parsed));
+  if (!allowed) return;
+  const config = await systemConfigService.updateBackupConfig(parsed, req.userId);
+  if (audit) auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.post('/config/test/smtp', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
@@ -820,92 +739,59 @@ adminRouter.post('/config/test/smtp', stepUpLimiter, async (req: Request, res: R
     return;
   }
   const { email } = parsed.data;
-  try {
-    const audit = configAudit('CONFIG_TEST', 'smtp');
-    if (!(await stepUp(req, res, audit))) return;
-    auditSuccess(req, audit);
-    let result: { success: boolean; error?: string };
-    if (email) {
-      result = await emailService.sendTestEmail(email);
-    } else {
-      result = await emailService.testConnection();
-    }
-    res.json({ data: result });
-  } catch (err) {
-    console.error('[admin] POST /config/test/smtp error:', err);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  const audit = configAudit('CONFIG_TEST', 'smtp');
+  if (!(await stepUp(req, res, audit))) return;
+  auditSuccess(req, audit);
+  let result: { success: boolean; error?: string };
+  if (email) {
+    result = await emailService.sendTestEmail(email);
+  } else {
+    result = await emailService.testConnection();
   }
+  res.json({ data: result });
 });
 
 adminRouter.post('/config/test/gotify', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const audit = configAudit('CONFIG_TEST', 'gotify');
-    if (!(await stepUp(req, res, audit))) return;
-    auditSuccess(req, audit);
-    // #767: the same delivery as members' notifications (instance URL, app
-    // token as X-Gotify-Key, SSRF check, no redirect followed).
-    const result = await gotifyService.post(
-      'Glou — Test',
-      'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
-    );
-    if (!result.success && result.error !== 'DELIVERY_FAILED') {
-      res.status(400).json({ error: result.error });
-      return;
-    }
-    res.json({ data: result });
-  } catch (err) {
-    console.error('[admin] POST /config/test/gotify error:', err);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  const audit = configAudit('CONFIG_TEST', 'gotify');
+  if (!(await stepUp(req, res, audit))) return;
+  auditSuccess(req, audit);
+  // #767: the same delivery as members' notifications (instance URL, app
+  // token as X-Gotify-Key, SSRF check, no redirect followed).
+  const result = await gotifyService.post(
+    'Glou — Test',
+    'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
+  );
+  if (!result.success && result.error !== 'DELIVERY_FAILED') {
+    res.status(400).json({ error: result.error });
+    return;
   }
+  res.json({ data: result });
 });
 
 // ─── Network Configuration & External Access (FEAT-54) ──────────────────────
 
 adminRouter.put('/config/network', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = networkConfigSchema.parse(req.body);
-    const audit = configAudit('CONFIG_UPDATE', 'network');
-    if (!(await stepUp(req, res, audit))) return;
-    const config = await systemConfigService.updateNetworkConfig(parsed, req.userId);
-    auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/network error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = networkConfigSchema.parse(req.body);
+  const audit = configAudit('CONFIG_UPDATE', 'network');
+  if (!(await stepUp(req, res, audit))) return;
+  const config = await systemConfigService.updateNetworkConfig(parsed, req.userId);
+  auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.post('/config/network/check', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await systemConfigService.checkNetworkConsistency();
-    res.json({ data: result });
-  } catch (err) {
-    console.error('[admin] POST /config/network/check error:', err);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const result = await systemConfigService.checkNetworkConsistency();
+  res.json({ data: result });
 });
 
 // #893: opening sign-up asks for the step-up (see /config/retention), closing it does not.
 adminRouter.put('/config/registration', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = registrationConfigSchema.parse(req.body);
-    const { allowed, audit } = await stepUpIfWeakening(req, res, 'registration', (current) => opensRegistration(current, parsed));
-    if (!allowed) return;
-    const config = await systemConfigService.updateRegistrationConfig(parsed, req.userId);
-    if (audit) auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/registration error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = registrationConfigSchema.parse(req.body);
+  const { allowed, audit } = await stepUpIfWeakening(req, res, 'registration', (current) => opensRegistration(current, parsed));
+  if (!allowed) return;
+  const config = await systemConfigService.updateRegistrationConfig(parsed, req.userId);
+  if (audit) auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.get('/config/history', async (_req: Request, res: Response): Promise<void> => {
@@ -921,21 +807,12 @@ adminRouter.get('/config/history', async (_req: Request, res: Response): Promise
  * @access  Admin Private
  */
 adminRouter.get('/backups/runs', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { limit } = backupRunsQuerySchema.parse(req.query);
-    const runs = await prisma.backupRun.findMany({
-      take: limit ?? 50,
-      orderBy: { runAt: 'desc' },
-    });
-    res.json({ data: runs });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
-      return;
-    }
-    console.error('[Admin] Error fetching backup runs:', error);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const { limit } = backupRunsQuerySchema.parse(req.query);
+  const runs = await prisma.backupRun.findMany({
+    take: limit ?? 50,
+    orderBy: { runAt: 'desc' },
+  });
+  res.json({ data: runs });
 });
 
 /**
@@ -962,13 +839,8 @@ adminRouter.get('/backups/health', async (_req: Request, res: Response): Promise
  * @access  Admin Private
  */
 adminRouter.post('/backups/run', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const run = await backupService.runBackup('manual', req.userId);
-    res.json({ data: run });
-  } catch (error) {
-    console.error('[Admin] Manual backup error:', error);
-    res.status(500).json({ error: 'BACKUP_FAILED' });
-  }
+  const run = await backupService.runBackup('manual', req.userId);
+  res.json({ data: run });
 });
 
 /**
@@ -996,24 +868,20 @@ adminRouter.post('/backups/:id/restore', stepUpLimiter, async (req: Request, res
     const { safetyBackupRunId } = await backupService.restoreBackup(run.filePath, req.userId, getClientIp(req));
     res.json({ data: { ok: true, safetyBackupRunId } });
   } catch (error) {
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'CONFIRMATION_REQUIRED', details: error.issues });
-      return;
-    }
+    if (error instanceof ZodError) throw badRequest('CONFIRMATION_REQUIRED');
     const msg = error instanceof Error ? error.message : '';
     // #471 (lot Z): a backup of another version of Glou is refused, nothing restored.
-    if (msg === 'BACKUP_FROM_OLDER_VERSION' || msg === 'BACKUP_FROM_NEWER_VERSION') {
-      res.status(409).json({ error: msg });
-      return;
-    }
+    if (msg === 'BACKUP_FROM_OLDER_VERSION') throw conflict('BACKUP_FROM_OLDER_VERSION');
+    if (msg === 'BACKUP_FROM_NEWER_VERSION') throw conflict('BACKUP_FROM_NEWER_VERSION');
     // #748: the file was deleted from the backups folder; same code as a download.
-    if (msg === 'BACKUP_FILE_NOT_FOUND') {
-      res.status(404).json({ error: 'BACKUP_FILE_MISSING' });
-      return;
-    }
-    // #748: stable codes only; the raw failure (psql's stderr) stays in the log.
-    console.error('[Admin] Backup restore error:', error);
-    res.status(500).json({ error: msg === 'BACKUP_BEFORE_RESTORE_FAILED' ? msg : 'RESTORE_FAILED' });
+    if (msg === 'BACKUP_FILE_NOT_FOUND') throw notFound('BACKUP_FILE_MISSING');
+    // A database outage stays a 503: retry once it is back.
+    if (isDatabaseUnavailable(error)) throw error;
+    // #748, #467: stable codes only. Any other failure (psql's stderr, a
+    // corrupt dump, psql missing or too slow, an unreadable file) is the
+    // cause, written to the log by the error middleware, never sent.
+    if (msg === 'BACKUP_BEFORE_RESTORE_FAILED') throw new AppError(500, msg, { cause: error });
+    throw new AppError(500, 'RESTORE_FAILED', { cause: error });
   }
 });
 
@@ -1037,13 +905,10 @@ adminRouter.post('/backups/:id/download', stepUpLimiter, async (req: Request, re
       if (err) console.error('[Admin] Backup download stream error:', err);
     });
   } catch (error) {
-    console.error('[Admin] Backup download error:', error);
-    const msg = error instanceof Error ? error.message : 'DOWNLOAD_FAILED';
-    if (msg === 'BACKUP_NOT_FOUND' || msg === 'BACKUP_FILE_MISSING') {
-      res.status(404).json({ error: msg });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    const msg = error instanceof Error ? error.message : '';
+    if (msg === 'BACKUP_NOT_FOUND') throw notFound('BACKUP_NOT_FOUND');
+    if (msg === 'BACKUP_FILE_MISSING') throw notFound('BACKUP_FILE_MISSING');
+    throw error;
   }
 });
 

@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { ZodError } from 'zod';
 import { guestMiddleware } from '../middleware/guest.middleware';
 import { routeParam } from '../lib/http';
-import { AppError } from '../lib/errors';
+import { AppError, notFound } from '../lib/errors';
 import type { UnitWriteResult } from '../../../shared/product';
 import { sharesService } from '../services/shares.service';
 import { guestInventoryUpdateSchema } from '../schemas/inventory.schema';
@@ -48,14 +48,7 @@ router.use(guestMiddleware);
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
   const share = _req.guestShare!;
   // #471 (FEAT-109): the share's cellars by name, for the guest's lines.
-  let cellars: Array<{ id: string; name: string }>;
-  try {
-    cellars = await sharesService.getCellarsForShare(share);
-  } catch (error) {
-    console.error('[guest] cellars error:', error);
-    res.status(500).json({ error: 'FAILED_TO_FETCH_SHARE' });
-    return;
-  }
+  const cellars = await sharesService.getCellarsForShare(share);
   res.json({
     data: {
       id: share.id,
@@ -75,14 +68,8 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 // List inventory items within the share scope
 
 router.get('/inventory', async (req: Request, res: Response): Promise<void> => {
-  const share = req.guestShare!;
-  try {
-    const items = await sharesService.getInventoryForShare(share);
-    res.json({ data: items });
-  } catch (error) {
-    console.error('[guest] inventory error:', error);
-    res.status(500).json({ error: 'FAILED_TO_FETCH_INVENTORY' });
-  }
+  const items = await sharesService.getInventoryForShare(req.guestShare!);
+  res.json({ data: items });
 });
 
 // ─── GET /api/guest/:token/inventory/:itemId ─────────────────────────────────
@@ -90,18 +77,9 @@ router.get('/inventory', async (req: Request, res: Response): Promise<void> => {
 
 router.get('/inventory/:itemId', async (req: Request, res: Response): Promise<void> => {
   const share = req.guestShare!;
-  const itemId = routeParam(req.params.itemId);
-  try {
-    const item = await sharesService.getItemForShare(share, itemId);
-    if (!item) {
-      res.status(404).json({ error: 'ITEM_NOT_FOUND' });
-      return;
-    }
-    res.json({ data: item });
-  } catch (error) {
-    console.error('[guest] item detail error:', error);
-    res.status(500).json({ error: 'FAILED_TO_FETCH_ITEM' });
-  }
+  const item = await sharesService.getItemForShare(share, routeParam(req.params.itemId));
+  if (!item) throw notFound('ITEM_NOT_FOUND');
+  res.json({ data: item });
 });
 
 // ─── PATCH /api/guest/:token/inventory/:itemId ───────────────────────────────
@@ -251,10 +229,7 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
         bottleId: itemId,
         details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, reason: error.code },
       });
-      res.status(error.status).json({ error: error.code, details: error.details });
-      return;
-    }
-    if (error instanceof ZodError) {
+    } else if (error instanceof ZodError) {
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({
         userId: share.userId,
@@ -264,19 +239,10 @@ router.patch('/inventory/:itemId', async (req: Request, res: Response): Promise<
         bottleId: itemId,
         details: { via: 'guest_share', shareId: share.id, issues },
       });
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
-      return;
     }
-    console.error('[guest] update error:', error);
-    void auditLog({
-      userId: share.userId,
-      action: 'GUEST_UPDATE',
-      status: 'error',
-      ip,
-      bottleId: itemId,
-      details: { via: 'guest_share', shareId: share.id, message: String(error) },
-    });
-    res.status(500).json({ error: 'FAILED_TO_UPDATE_ITEM' });
+    // #467: the error middleware answers: the AppError's own status, 400
+    // VALIDATION_ERROR, or 503/500 for a failure of ours.
+    throw error;
   }
 });
 
@@ -295,8 +261,7 @@ router.post('/tastings', async (req: Request, res: Response): Promise<void> => {
       userId: share.userId, action: 'GUEST_TASTING', status: 'validation_error', ip,
       details: { via: 'guest_share', shareId: share.id, issues },
     });
-    res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
-    return;
+    throw parsed.error;
   }
   try {
     const note = await createGuestTasting(share, parsed.data);
@@ -313,11 +278,8 @@ router.post('/tastings', async (req: Request, res: Response): Promise<void> => {
         userId: share.userId, action: 'GUEST_TASTING', status: 'error', ip,
         details: { via: 'guest_share', shareId: share.id, inviteeName: share.inviteeName, reason: error.code, productId: parsed.data.productId },
       });
-      res.status(error.status).json({ error: error.code });
-      return;
     }
-    console.error('[guest] tasting error:', error);
-    res.status(500).json({ error: 'FAILED_TO_CREATE_TASTING' });
+    throw error;
   }
 });
 
