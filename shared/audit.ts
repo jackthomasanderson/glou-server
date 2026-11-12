@@ -21,6 +21,8 @@ export const AUDIT_ACTIONS = [
   // #601: the events that change who can get in.
   'LOGIN_FAILED', 'PASSWORD_CHANGE', 'EMAIL_CHANGE', 'TWO_FACTOR_ON', 'TWO_FACTOR_OFF', 'ADMIN_PASSWORD_RESET',
   'SHARE_CREATE', 'SHARE_REVOKE',
+  // #962: an administrator deletes an entry of the trash, or empties it, for good.
+  'TRASH_DELETE',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Added
+- Administrators can now **delete permanently** an entry of the trash (a wine with its bottles, or a single bottle, box or line of cigars) and **empty the trash** of the page they are on (wines and bottles, or cigars), each behind a confirmation that names what goes or gives the count and says it cannot be undone. It works like the automatic clean-up after 7 days: the photos nobody uses any more are deleted from disk, and a wine's tastings go with it. Each deletion is written to the audit log (who, what, how many). Other members keep **Restore** only and are told that the trash empties itself after 7 days. Both actions are unavailable offline and are never queued (#962).
+
 ### Removed
 - The unused admin API route `PUT /api/admin/config/notifications` is gone: the email and Gotify cards save their switch through `/config/smtp` and `/config/gotify`. Old "notifications" entries still show in the configuration history (#929).
 - The admin "Access mode" setting (direct or behind a reverse proxy) is gone: it was saved and shown back but changed nothing, only feeding a warning in the network check. The "Check configuration" button still checks the public URL and HTTPS in production (#617).

@@ -18,6 +18,7 @@ vi.mock('../src/lib/prisma', () => ({
     },
     product: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -1460,7 +1461,8 @@ describe('InventoryService', () => {
       const result = await service.purgeTrashed();
 
       expect(result).toEqual({ count: 1, photoPaths: ['/uploads/products/a.jpg'] });
-      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['a'] } } });
+      // Review of #962: the DELETE repeats the retention condition.
+      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['a'] }, deletedAt: { lt: expect.any(Date) } } });
       expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]!.select).toEqual({ id: true, productId: true });
     });
 
@@ -1558,6 +1560,133 @@ describe('InventoryService', () => {
 
       expect(result).toEqual({ count: 0, photoPaths: [] });
       expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // #962: an administrator deletes an entry of the trash for good, or empties
+  // the trash of a page — the same rows and photos as the automatic purge.
+  describe('permanent deletion from the trash (#962)', () => {
+    beforeEach(() => fsUnlink.mockReset());
+
+    /** The lock query's family id, in the order taken. */
+    const locks = () => vi.mocked(prisma.$queryRaw).mock.calls.map((call) => call[1]);
+
+    it('deletes one trashed line, its emptied family without tastings, and the photos', async () => {
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValueOnce({ productId: 'p1' } as never);
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce({ id: 'b1', productId: 'p1', product: { producer: 'Domaine A', name: 'Cuvée B', vintage: 2015 } } as never);
+      vi.mocked(prisma.product.findMany)
+        .mockResolvedValueOnce([{ id: 'p1', photoUrl: '/uploads/products/p1.jpg', otherPhotoUrls: [] }] as never)
+        .mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 1 } as never);
+
+      const result = await service.deleteTrashedItem('b1');
+
+      // Locked first, then read again: a restore committed meanwhile is seen.
+      expect(locks()).toEqual(['p1']);
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.findFirst).mock.invocationCallOrder[0]);
+      const where = vi.mocked(prisma.inventoryItem.findFirst).mock.calls[0][0]!.where as Record<string, unknown>;
+      expect(where).toMatchObject({ id: 'b1', deletedAt: { not: null, gte: expect.any(Date) } });
+      // The DELETE itself refuses a live row (checked again by Postgres on the locked row).
+      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['b1'] }, deletedAt: { not: null } } });
+      // Same family rule as the purge: emptied, not trashed itself, no tasting.
+      const familyWhere = vi.mocked(prisma.product.findMany).mock.calls[0][0]!.where as Record<string, unknown>;
+      expect(familyWhere.OR).toEqual([{ id: { in: ['p1'] }, deletedAt: null, tastingNotes: { none: {} } }]);
+      expect(prisma.product.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['p1'] } } });
+      expect(fsUnlink).toHaveBeenCalledWith(expect.stringContaining('/uploads/products/p1.jpg'));
+      expect(result).toEqual({ itemIds: ['b1'], productIds: ['p1'], label: 'Domaine A — Cuvée B (2015)' });
+    });
+
+    it('a line restored while waiting for the lock is not deleted (null → 404)', async () => {
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValueOnce({ productId: 'p1' } as never);
+      // Read again once locked: no longer in the trash.
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(null);
+
+      expect(await service.deleteTrashedItem('b1')).toBeNull();
+      expect(locks()).toEqual(['p1']);
+      expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.product.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('refuses a line that does not exist', async () => {
+      vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValueOnce(null);
+
+      expect(await service.deleteTrashedItem('b1')).toBeNull();
+      expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('deletes a trashed wine with all its trashed bottles and its tastings', async () => {
+      vi.mocked(prisma.product.findFirst).mockResolvedValueOnce({ id: 'p1', producer: null, name: 'Cuvée B', vintage: null } as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([{ id: 'a', productId: 'p1' }, { id: 'b', productId: 'p1' }] as never);
+      vi.mocked(prisma.product.findMany)
+        .mockResolvedValueOnce([{ id: 'p1', photoUrl: null, otherPhotoUrls: ['/uploads/products/old.jpg'] }] as never)
+        .mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 2 } as never);
+
+      const result = await service.deleteTrashedProduct('p1');
+
+      expect(locks()).toEqual(['p1']);
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+        .toBeLessThan(vi.mocked(prisma.product.findFirst).mock.invocationCallOrder[0]);
+      expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.where)
+        .toMatchObject({ id: 'p1', deletedAt: { not: null, gte: expect.any(Date) } });
+      expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]!.where)
+        .toEqual({ productId: 'p1', deletedAt: { not: null } });
+      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['a', 'b'] }, deletedAt: { not: null } } });
+      const familyWhere = vi.mocked(prisma.product.findMany).mock.calls[0][0]!.where as Record<string, unknown>;
+      expect(familyWhere.OR).toEqual([
+        { id: { in: ['p1'] }, deletedAt: null, tastingNotes: { none: {} } },
+        { id: 'p1', deletedAt: { not: null } },
+      ]);
+      expect(prisma.tastingNote.deleteMany).toHaveBeenCalledWith({ where: { productId: { in: ['p1'] } } });
+      expect(fsUnlink).toHaveBeenCalledWith(expect.stringContaining('/uploads/products/old.jpg'));
+      expect(result).toEqual({ itemIds: ['a', 'b'], productIds: ['p1'], label: 'Cuvée B' });
+    });
+
+    it('a wine restored while waiting for the lock is not deleted (null → 404)', async () => {
+      vi.mocked(prisma.product.findFirst).mockResolvedValueOnce(null);
+
+      expect(await service.deleteTrashedProduct('p1')).toBeNull();
+      expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
+      expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.product.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("empties only the trashed rows of the page's categories, families locked first in order", async () => {
+      const unitsWhere = { deletedAt: { not: null }, product: { category: { in: ['cigar'] } } };
+      vi.mocked(prisma.inventoryItem.findMany)
+        .mockResolvedValueOnce([{ productId: 'pz' }, { productId: 'pc' }] as never) // before the locks
+        .mockResolvedValueOnce([{ id: 'c1', productId: 'pc' }, { id: 'late', productId: 'px' }] as never); // read again
+      vi.mocked(prisma.product.findMany)
+        .mockResolvedValueOnce([{ id: 'pa' }] as never) // trashed families, before the locks
+        .mockResolvedValueOnce([{ id: 'pc', photoUrl: null, otherPhotoUrls: [] }] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 1 } as never);
+
+      const result = await service.emptyTrash(['cigar']);
+
+      expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]!.where).toEqual(unitsWhere);
+      expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[1][0]!.where).toEqual(unitsWhere);
+      expect(locks()).toEqual(['pa', 'pc', 'pz']);
+      expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder.at(-1))
+        .toBeLessThan(vi.mocked(prisma.inventoryItem.findMany).mock.invocationCallOrder[1]);
+      // A line trashed after the first read, in a family not locked, waits for the next time.
+      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['c1'] }, deletedAt: { not: null } } });
+      const familyWhere = vi.mocked(prisma.product.findMany).mock.calls[1][0]!.where as Record<string, unknown>;
+      expect(familyWhere.OR).toEqual([
+        { id: { in: ['pc'] }, deletedAt: null, tastingNotes: { none: {} } },
+        { deletedAt: { not: null }, category: { in: ['cigar'] }, id: { in: ['pz', 'pc', 'pa'] } },
+      ]);
+      expect(result).toEqual({ itemIds: ['c1'], productIds: ['pc'] });
+    });
+
+    // A restore that loses the race: the row was deleted for good first.
+    it('restore answers null (404) when the line was deleted for good meanwhile', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(unitRow({ deletedAt: new Date() }) as never);
+      vi.mocked(prisma.inventoryItem.update).mockRejectedValueOnce(
+        new Prisma.PrismaClientKnownRequestError('gone', { code: 'P2025', clientVersion: 'test' }),
+      );
+
+      expect(await service.restore('b1')).toBeNull();
     });
   });
 

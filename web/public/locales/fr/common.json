@@ -511,6 +511,12 @@
       "restoreError": "Impossible de restaurer ce vin",
       "restoreError_spirit": "Impossible de restaurer ce spiritueux",
       "restoreError_cigar": "Impossible de restaurer ce cigare"
+    },
+    "trash": {
+      "deleteSuccess": "Supprimé définitivement",
+      "deleteError": "Impossible de supprimer définitivement",
+      "emptySuccess": "Corbeille vidée",
+      "emptyError": "Impossible de vider la corbeille"
     }
   },
   "auth": {
@@ -1088,7 +1094,8 @@
         "TWO_FACTOR_OFF": "Double authentification désactivée",
         "ADMIN_PASSWORD_RESET": "Mot de passe réinitialisé par un administrateur",
         "SHARE_CREATE": "Lien invité créé",
-        "SHARE_REVOKE": "Lien invité révoqué"
+        "SHARE_REVOKE": "Lien invité révoqué",
+        "TRASH_DELETE": "Supprimé définitivement de la corbeille"
       },
       "statuses": {
         "success": "Réussi",
@@ -2931,7 +2938,23 @@
       "lineCount_box_other": "{{count}} boîtes",
       "lineCount_cigar_one": "{{count}} cigare",
       "lineCount_cigar_other": "{{count}} cigares",
-      "restore": "Restaurer"
+      "restore": "Restaurer",
+      "deleteForever": "Supprimer définitivement",
+      "deleteForeverTitle": "Supprimer définitivement ?",
+      "deleteForeverConfirm": "Supprimer définitivement {{name}} ?",
+      "deleteForeverConfirmBottles_one": "Supprimer définitivement {{name}} et sa bouteille ?",
+      "deleteForeverConfirmBottles_other": "Supprimer définitivement {{name}} et ses {{count}} bouteilles ?",
+      "deleteForeverConfirmCigars_one": "Supprimer définitivement {{name}} et son cigare ?",
+      "deleteForeverConfirmCigars_other": "Supprimer définitivement {{name}} et ses {{count}} cigares ?",
+      "deleteForeverLine": "Supprimer définitivement {{what}} ({{name}}) ?",
+      "deleteForeverWineNote": "Ses photos et ses dégustations seront effacées aussi. Cette action est irréversible.",
+      "irreversible": "Cette action est irréversible.",
+      "empty": "Vider la corbeille",
+      "emptyTitle": "Vider la corbeille ?",
+      "emptyConfirm_one": "L'entrée de cette corbeille sera supprimée définitivement.",
+      "emptyConfirm_other": "Les {{count}} entrées de cette corbeille seront supprimées définitivement.",
+      "autoDelete_one": "La corbeille se vide d'elle-même : ce qui y est mis est supprimé définitivement après {{count}} jour.",
+      "autoDelete_other": "La corbeille se vide d'elle-même : ce qui y est mis est supprimé définitivement après {{count}} jours."
     },
     "selectWine": "Sélectionner {{name}}",
     "bulkSummary": "{{wines}}, {{bottles}}",

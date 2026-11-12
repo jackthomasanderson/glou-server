@@ -414,3 +414,8 @@ export const rollbackFieldSchema = z.object({
 });
 
 export type RollbackFieldInput = z.infer<typeof rollbackFieldSchema>;
+
+/** #962: the categories of the trash page an administrator empties (wines and bottles, or cigars). */
+export const emptyTrashSchema = z.object({
+  categories: z.array(categorySchema).min(1),
+});

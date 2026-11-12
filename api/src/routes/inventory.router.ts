@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { ZodError } from 'zod';
-import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema } from '../schemas/inventory.schema';
+import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema, emptyTrashSchema } from '../schemas/inventory.schema';
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
 import { distinctFromSchema } from '../schemas/product.schema';
 import { inventoryService } from '../services/inventory.service';
@@ -8,9 +8,10 @@ import { inventoryExportService } from '../services/inventory-export.service';
 import { scanService } from '../services/scan.service';
 import type { UnitSlotChanges } from '../services/product.service';
 import { auditLog } from '../services/audit.service';
-import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { adminMiddleware, authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { logTrashDeletion } from '../lib/trash-audit';
 import { routeParam } from '../lib/http';
-import { AppError } from '../lib/errors';
+import { AppError, notFound } from '../lib/errors';
 import type { FieldChange, UnitWriteResult } from '../../../shared/product';
 
 const router = Router();
@@ -65,6 +66,28 @@ router.get('/trash', async (_req: Request, res: Response): Promise<void> => {
     console.error('[inventory] GET /trash error:', error);
     res.status(500).json({ error: 'UNEXPECTED_ERROR' });
   }
+});
+
+// ─── DELETE /api/inventory/trash/:id ─────────────────────────────────────────
+// #962: one line of the trash, for good. Administrators only (owner decision);
+// errors bubble to the error middleware.
+
+router.delete('/trash/:id', adminMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const id = routeParam(req.params.id);
+  const deleted = await inventoryService.deleteTrashedItem(id);
+  logTrashDeletion(req, 'item', deleted, deleted ? {} : { itemId: id });
+  if (!deleted) throw notFound('ITEM_NOT_IN_TRASH');
+  res.json({ data: { itemIds: deleted.itemIds, productIds: deleted.productIds } });
+});
+
+// ─── POST /api/inventory/trash/empty ─────────────────────────────────────────
+// #962: everything in the trash of a page (its categories), for good. Administrators only.
+
+router.post('/trash/empty', adminMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const { categories } = emptyTrashSchema.parse(req.body);
+  const deleted = await inventoryService.emptyTrash(categories);
+  logTrashDeletion(req, 'empty', deleted, { categories });
+  res.json({ data: { itemIds: deleted.itemIds, productIds: deleted.productIds } });
 });
 
 // ─── GET /api/inventory/:id ──────────────────────────────────────────────────
