@@ -160,7 +160,7 @@ export const sharesService = {
    * only moment it's ever available. Callers (the router) must surface it
    * to the user immediately; it cannot be retrieved again afterwards.
    */
-  async create(userId: string, data: ShareCreateInput) {
+  async create(userId: string, data: Omit<ShareCreateInput, 'password'>) {
     // ISSUE_046: the schema can only check shape, not that these ids are
     // real — without this, a typo'd or stale id would silently create a
     // share that exposes nothing, which looks like success to the creator.

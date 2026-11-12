@@ -86,6 +86,11 @@ function packTrustedDeviceToken(rawToken: string): string {
 }
 
 function readTrustedDeviceCookie(req: Request): string | undefined {
+  return readTrustedDevice(req)?.token;
+}
+
+/** The raw device token in a valid trusted-device cookie, and when that cookie expires (#766). */
+function readTrustedDevice(req: Request): { token: string; expiresAt?: Date } | undefined {
   const wrapped = (req.cookies as Record<string, string | undefined>)?.[TRUSTED_DEVICE_COOKIE_NAME];
   if (!wrapped) return undefined;
   const secret = process.env.JWT_SECRET;
@@ -93,8 +98,8 @@ function readTrustedDeviceCookie(req: Request): string | undefined {
   try {
     const payload = jwt.verify(wrapped, secret);
     if (typeof payload === 'object' && payload !== null) {
-      const tdt = (payload as { tdt?: unknown }).tdt;
-      if (typeof tdt === 'string') return tdt;
+      const { tdt, exp } = payload as { tdt?: unknown; exp?: unknown };
+      if (typeof tdt === 'string') return { token: tdt, expiresAt: typeof exp === 'number' ? new Date(exp * 1000) : undefined };
     }
     return undefined;
   } catch {
@@ -342,6 +347,16 @@ router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Respons
     }
     next(error);
   }
+});
+
+// ─── GET /api/auth/trust-device ────────────────────────────────────────────────
+// #766: whether this device skips the 2FA code, and until when — the cookie is
+// httpOnly, so the page cannot tell by itself.
+
+router.get('/trust-device', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const device = readTrustedDevice(req);
+  const trustedUntil = await authService.trustedDeviceUntil(req.userId, device?.token, device?.expiresAt);
+  res.json({ data: { trustedUntil } });
 });
 
 // ─── POST /api/auth/trust-device ───────────────────────────────────────────────

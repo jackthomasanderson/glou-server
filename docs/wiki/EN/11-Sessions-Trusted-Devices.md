@@ -5,7 +5,7 @@ List the devices connected to your account, disconnect any of them remotely, and
 
 ## Prerequisites
 * Logged into your account.
-* Two-Factor Authentication enabled (see [01-Authentication.md](./01-Authentication.md)) for the "trust" feature to have any effect. Trusting a device only skips the 2FA re-prompt, it does not replace your password.
+* Two-Factor Authentication enabled (see [01-Authentication.md](./01-Authentication.md)): without it there is no code to skip, and the **Trusted device** block is not shown. Trusting a device only skips the 2FA re-prompt, it does not replace your password.
 
 > [!TIP]
 > Lost the phone that gives you your 2FA codes? See [Lost phone with 2FA on](./32-Lost-Phone-2FA.md).
@@ -22,9 +22,9 @@ List the devices connected to your account, disconnect any of them remotely, and
 > Revoking a session invalidates the server-side token immediately, but a browser that already has the page open may still show stale data until it makes its next request. If you suspect your account is compromised, also change your password (see [01-Authentication.md](./01-Authentication.md)).
 
 ### Trust the current device
-1. From the same **Active Sessions** panel, click **Trust this device** on your current session.
-2. For the next **30 days**, this device skips the 2FA prompt on login (your password is still required).
-3. To undo it, click **Stop trusting** on the same session. You will be asked for 2FA again on your next login from that device.
+1. In **Profile**, card **Sign-in and security**, the **Trusted device** block (below two-factor authentication) says whether the device you are using is trusted, and until when.
+2. If it is not, click **Trust this device**, then confirm with your password and a two-factor code. For the next **30 days**, this device skips the 2FA prompt on login (your password is still required).
+3. If it is, the block shows "trusted until …" and a single button, **Remove trust**. You will be asked for 2FA again on your next login from that device.
 
 > [!TIP]
 > Trust is revoked if the system detects you are connecting from a different country than when you trusted the device. You will be asked for 2FA again: this is expected behavior.

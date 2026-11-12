@@ -5,7 +5,7 @@ Listez les appareils connectés à votre compte, déconnectez-en un à distance,
 
 ## Prérequis
 * Être connecté à votre compte.
-* Avoir la Double Authentification (2FA) activée (voir [01-Authentification.md](./01-Authentification.md)) pour que la fonction "confiance" ait un effet. Elle ne fait que sauter la relance 2FA, elle ne remplace pas votre mot de passe.
+* Avoir la Double Authentification (2FA) activée (voir [01-Authentification.md](./01-Authentification.md)) : sans elle, il n'y a pas de code à sauter et le bloc « Appareil de confiance » n'apparaît pas. La confiance ne fait que sauter la relance 2FA, elle ne remplace pas votre mot de passe.
 
 > [!TIP]
 > Vous avez perdu le téléphone qui vous donne vos codes 2FA ? Voir [Téléphone perdu avec la 2FA](./32-Telephone-Perdu-2FA.md).
@@ -22,9 +22,9 @@ Listez les appareils connectés à votre compte, déconnectez-en un à distance,
 > Révoquer une session invalide immédiatement le jeton côté serveur, mais un navigateur qui a déjà la page ouverte peut continuer d'afficher des données obsolètes jusqu'à sa prochaine requête. Si vous suspectez une compromission de votre compte, changez aussi votre mot de passe (voir [01-Authentification.md](./01-Authentification.md)).
 
 ### Faire confiance à l'appareil actuel
-1. Depuis le même panneau **Sessions actives**, cliquez sur **Faire confiance à cet appareil** sur votre session en cours.
-2. Pendant les **30 jours** suivants, cet appareil n'exigera plus le code 2FA à la connexion (votre mot de passe reste requis).
-3. Pour annuler, cliquez sur **Ne plus faire confiance** sur cette même session. Le code 2FA vous sera redemandé à la prochaine connexion depuis cet appareil.
+1. Dans **Profil**, carte **Connexion et sécurité**, le bloc **Appareil de confiance** (sous la double authentification) dit si l'appareil que vous utilisez est de confiance, et jusqu'à quand.
+2. S'il ne l'est pas, cliquez sur **Faire confiance à cet appareil**, puis confirmez avec votre mot de passe et un code de double authentification. Pendant les **30 jours** suivants, cet appareil n'exigera plus le code 2FA à la connexion (votre mot de passe reste requis).
+3. S'il l'est, le bloc affiche « de confiance jusqu'au … » et un seul bouton, **Ne plus faire confiance**. Le code 2FA vous sera redemandé à la prochaine connexion depuis cet appareil.
 
 > [!TIP]
 > La confiance est révoquée si le système détecte une connexion depuis un pays différent de celui enregistré lors de l'activation de la confiance. Le code 2FA vous sera alors redemandé : comportement attendu.

@@ -3,16 +3,29 @@ import React, { useState } from 'react';
 import { Button, Input, ModalContent, ModalHeader, ModalBody, ModalFooter, SelectItem } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Lock } from 'lucide-react';
-import { PublicUser, useUpdateEmail, useUpdatePassword, useUpdatePreferences, useSetPin, useRemovePin } from '@/hooks/useAuth';
+import { PublicUser, useUpdateEmail, useUpdateUsername, useUpdatePassword, useUpdatePreferences, useSetPin, useRemovePin } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
-import { PASSWORD_MIN_LENGTH } from '@shared/auth';
+import { PASSWORD_MIN_LENGTH, TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
+import { authErrorMessage } from '@/lib/auth/error-message';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
+import { TrustedDeviceSettings } from '@/components/profile/TrustedDeviceSettings';
 
+/** Same rule as the API (updateUsernameSchema). */
+const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,30}$/;
+
+/**
+ * #766: one card for signing in and protecting the account — username,
+ * e-mail, password, two-factor, trusted device — then the app lock.
+ */
 export function AccountSecurity({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
 
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
+  const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
+  const [username, setUsername] = useState(user.username);
+  const [usernamePassword, setUsernamePassword] = useState('');
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isRemovePinModalOpen, setIsRemovePinModalOpen] = useState(false);
@@ -27,6 +40,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const updateEmail = useUpdateEmail();
+  const updateUsername = useUpdateUsername();
   const updatePassword = useUpdatePassword();
   const updatePreferences = useUpdatePreferences();
   const setPinMutation = useSetPin();
@@ -90,6 +104,39 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       },
     });
   };
+
+  // #769, #911: the username is used to sign in — said in the dialog, and
+  // confirmed with the password like the e-mail.
+  const handleOpenUsername = () => {
+    setUsername(user.username);
+    setUsernamePassword('');
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setIsUsernameModalOpen(true);
+  };
+
+  const usernameErrors: Record<string, string> = {
+    USERNAME_ALREADY_TAKEN: 'auth.errors.USERNAME_ALREADY_TAKEN',
+    INVALID_CREDENTIALS: 'profile.passwordError',
+    VALIDATION_ERROR: 'profile.usernameInvalid',
+  };
+
+  const handleConfirmUsername = () => {
+    setErrorMsg(null);
+    updateUsername.mutate({ username: username.trim(), currentPassword: usernamePassword }, {
+      onSuccess: () => {
+        setIsUsernameModalOpen(false);
+        setUsernamePassword('');
+        setSuccessMsg(t('profile.usernameSuccess'));
+        setTimeout(() => setSuccessMsg(null), 3000);
+      },
+      onError: (err: Error) => setErrorMsg(err.message === TOO_MANY_REQUESTS_ERROR
+        ? authErrorMessage(t, err)
+        : t(usernameErrors[err.message] ?? 'status.error')),
+    });
+  };
+
+  const usernameIsValid = USERNAME_PATTERN.test(username.trim());
 
   const handleOpenEmail = () => {
     setEmail(user.email);
@@ -156,6 +203,13 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       )}
 
       <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3 p-3 bg-default-50 rounded-xl">
+          <div className="min-w-0">
+            <p className="text-xs text-foreground-500">{t('profile.usernameLabel')}</p>
+            <p className="text-sm font-medium break-all">{user.username}</p>
+          </div>
+          <Button size="sm" variant="bordered" color="primary" onPress={handleOpenUsername}>{t('actions.edit')}</Button>
+        </div>
         <div className="flex items-center justify-between p-3 bg-default-50 rounded-xl">
           <div>
             <p className="text-xs text-foreground-500">{t('profile.emailLabel')}</p>
@@ -170,7 +224,15 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
           </div>
           <Button size="sm" variant="bordered" color="primary" onPress={handleOpenPassword}>{t('actions.edit')}</Button>
         </div>
+      </div>
 
+      <div className="flex flex-col gap-5 mt-5 pt-5 border-t border-divider">
+        <TwoFactorSettings user={user} />
+        <TrustedDeviceSettings user={user} />
+      </div>
+
+      <h3 className="text-sm font-semibold mt-5 pt-5 mb-3 border-t border-divider">{t('profile.appLockHeading')}</h3>
+      <div className="flex flex-col gap-3">
         {/* FEAT-30: Auto-lock delay */}
         <div className="flex items-center justify-between gap-4 p-3 bg-default-50 rounded-xl">
           <div>
@@ -259,6 +321,60 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
                   onPress={handleConfirmEmail}
                   isDisabled={!email || email === user.email || !emailPassword || updateEmail.isPending}
                   isLoading={updateEmail.isPending}
+                >
+                  {t('actions.confirm')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </ResponsiveModal>
+
+      {/* Username Modal (#769, #911) */}
+      <ResponsiveModal isOpen={isUsernameModalOpen} onClose={() => setIsUsernameModalOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>{t('profile.changeUsername')}</ModalHeader>
+              <ModalBody className="flex flex-col gap-3">
+                {errorMsg && (
+                  <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-lg px-4 py-3 mb-2">{errorMsg}</div>
+                )}
+                <p className="text-sm text-foreground-500">{t('profile.usernamePasswordHint')}</p>
+                <Input
+                  label={t('auth.username')}
+                  value={username}
+                  onValueChange={setUsername}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                  autoComplete="username"
+                  maxLength={30}
+                  isInvalid={!!username && !usernameIsValid}
+                  errorMessage={t('profile.usernameInvalid')}
+                  autoFocus
+                />
+                <Input
+                  label={t('profile.currentPassword')}
+                  type="password"
+                  value={usernamePassword}
+                  onValueChange={setUsernamePassword}
+                  variant="bordered"
+                  size="md"
+                  radius="md"
+                  labelPlacement="outside"
+                  autoComplete="current-password"
+                />
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
+                <Button
+                  color="primary"
+                  variant="solid"
+                  onPress={handleConfirmUsername}
+                  isDisabled={!usernameIsValid || username.trim() === user.username || !usernamePassword || updateUsername.isPending}
+                  isLoading={updateUsername.isPending}
                 >
                   {t('actions.confirm')}
                 </Button>

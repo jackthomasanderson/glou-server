@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext, type APIResponse, type Browser } from '@playwright/test';
+import { creds } from './_helpers';
 
 /**
  * #471 (lot O, FEAT-109, ux-ui.md §10.9): a guest on a cellar shared with
@@ -59,7 +60,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
     }));
 
     const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
-      data: { label: `E2E O ${stamp()}`, inviteeName: 'Marie', cellarIds: [garage, kitchen], writeCellarIds: [garage], collectionIds: [] },
+      data: { label: `E2E O ${stamp()}`, inviteeName: 'Marie', cellarIds: [garage, kitchen], writeCellarIds: [garage], password: creds().password, collectionIds: [] },
     }));
     shares.push(share.id);
 
@@ -99,7 +100,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
 
       // « Annuler » is the guest's own, just made: never from another link.
       const other = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
-        data: { label: `E2E O other ${stamp()}`, cellarIds: [garage], writeCellarIds: [garage], collectionIds: [] },
+        data: { label: `E2E O other ${stamp()}`, cellarIds: [garage], writeCellarIds: [garage], password: creds().password, collectionIds: [] },
       }));
       shares.push(other.id);
       const foreignUndo = await guest.request.patch(`/api/guest/${other.token}/inventory/${opened[0].id}`, { data: { undo: true } });
@@ -156,7 +157,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
     }));
     families.push(bottle.productId);
     const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
-      data: { label: `E2E O last ${stamp()}`, inviteeName: 'Paul', cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
+      data: { label: `E2E O last ${stamp()}`, inviteeName: 'Paul', cellarIds: [cellar], writeCellarIds: [cellar], password: creds().password, collectionIds: [] },
     }));
     shares.push(share.id);
 
@@ -199,7 +200,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
     families.push(bottle.productId);
     await okData(await api.patch(`/api/inventory/${bottle.id}`, { data: { isOpened: true, fillLevel: 40, openedAt: new Date().toISOString() } }));
     const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
-      data: { label: `E2E RB opened ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
+      data: { label: `E2E RB opened ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], password: creds().password, collectionIds: [] },
     }));
     shares.push(share.id);
 
@@ -238,7 +239,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
       }));
       families.push(group.productId);
       const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
-        data: { label: `E2E O undo ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
+        data: { label: `E2E O undo ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], password: creds().password, collectionIds: [] },
       }));
       shares.push(share.id);
 
@@ -270,7 +271,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
     families.push(bottle.productId);
     expect((await api.post(`/api/inventory/${bottle.id}/slots`, { data: { column: 2, row: 3 } })).status()).toBe(201);
     const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
-      data: { label: `E2E O slot ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
+      data: { label: `E2E O slot ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], password: creds().password, collectionIds: [] },
     }));
     shares.push(share.id);
 
@@ -304,7 +305,7 @@ test.describe('guests: one copy at a time (#471, FEAT-109)', () => {
     families.push(bottle.productId);
     expect((await api.post(`/api/inventory/${bottle.id}/slots`, { data: { column: 3, row: 1 } })).status()).toBe(201);
     const share = await okData<{ id: string; token: string }>(await api.post('/api/shares', {
-      data: { label: `E2E O slot back ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], collectionIds: [] },
+      data: { label: `E2E O slot back ${stamp()}`, cellarIds: [cellar], writeCellarIds: [cellar], password: creds().password, collectionIds: [] },
     }));
     shares.push(share.id);
 

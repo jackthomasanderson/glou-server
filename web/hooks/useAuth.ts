@@ -20,6 +20,8 @@ const ME_KEY = qk.auth.me;
 // FEAT-90: "Later" belongs to one sign-in, so a new sign-in drops the cached state.
 const ONBOARDING_STATE_KEY = qk.auth.onboarding;
 const SESSIONS_KEY = qk.auth.sessions;
+// #766: whether this device skips the 2FA code.
+const TRUSTED_DEVICE_KEY = qk.auth.trustedDevice;
 // #638: how many 2FA backup codes are left.
 const BACKUP_CODES_KEY = qk.auth.backupCodes;
 
@@ -166,7 +168,7 @@ export function useLogout() {
 
 export function useUpdateProfile() {
   const queryClient = useQueryClient();
-  return useMutation<PublicUser, Error, { username?: string; displayName?: string | null; appName?: string | null; appSlogan?: string | null }>({
+  return useMutation<PublicUser, Error, { displayName?: string | null; appName?: string | null; appSlogan?: string | null }>({
     meta: { handlesError: true },
     mutationFn: async (data) =>
       (await client.patch<PublicUser>('/user/profile', data)).data,
@@ -227,14 +229,36 @@ export function useUpdateEmail() {
   });
 }
 
+// ─── useUpdateUsername ───────────────────────────────────────────────────────
+
+// #911: the username is a sign-in identifier: the password is asked for, like
+// for the e-mail.
+export function useUpdateUsername() {
+  const queryClient = useQueryClient();
+  return useMutation<PublicUser, Error, { username: string; currentPassword: string }>({
+    // Said by the form (AccountSecurity).
+    meta: { handlesError: true },
+    mutationFn: async (data) =>
+      (await client.patch<PublicUser>('/user/username', data)).data,
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
+    },
+  });
+}
+
 // ─── useUpdatePassword ───────────────────────────────────────────────────────
 
 export function useUpdatePassword() {
+  const queryClient = useQueryClient();
   return useMutation<{ success: boolean }, Error, { currentPassword: string; newPassword: string }>({
     // Said by the form (AccountSecurity, ForcedPasswordChange).
     meta: { handlesError: true },
     mutationFn: async (data) =>
       (await client.patch<{ success: boolean }>('/user/password', data)).data,
+    // #766: the server revoked every trusted device.
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TRUSTED_DEVICE_KEY });
+    },
   });
 }
 
@@ -285,6 +309,8 @@ export function useTurnOn2fa() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
       queryClient.invalidateQueries({ queryKey: BACKUP_CODES_KEY });
+      // #766: devices trusted before are revoked by the server.
+      queryClient.invalidateQueries({ queryKey: TRUSTED_DEVICE_KEY });
     },
   });
 }
@@ -298,6 +324,8 @@ export function useTurnOff2fa() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ME_KEY });
       queryClient.invalidateQueries({ queryKey: BACKUP_CODES_KEY });
+      // #766: turning 2FA off revokes the trusted devices: nothing cached may come back.
+      queryClient.removeQueries({ queryKey: TRUSTED_DEVICE_KEY });
     },
   });
 }
@@ -361,17 +389,27 @@ export function useRevokeSession() {
   });
 }
 
+// #766: whether this device skips the 2FA code, and until when (ISO date or
+// null) — the trusted-device cookie is httpOnly. Asked only with 2FA on.
+export function useTrustedDevice(enabled: boolean) {
+  return useQuery<{ trustedUntil: string | null }>({
+    queryKey: TRUSTED_DEVICE_KEY,
+    queryFn: async () => (await client.get<{ trustedUntil: string | null }>('/auth/trust-device')).data,
+    enabled,
+  });
+}
+
 // ISSUE_045: a trusted device is a lasting (30-day, self-renewing) 2FA
 // bypass — minting one now re-confirms identity (password, plus a TOTP/
 // backup code when 2FA is enabled) the same way turning 2FA off does.
 export function useTrustDevice() {
   const queryClient = useQueryClient();
   return useMutation<{ ok: boolean }, Error, { password: string; code?: string }>({
-    // Said by SessionsPanel.
+    // Said by TrustedDeviceSettings.
     meta: { handlesError: true },
     mutationFn: async (body) => (await client.post<{ ok: boolean }>('/auth/trust-device', body)).data,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
+      queryClient.invalidateQueries({ queryKey: TRUSTED_DEVICE_KEY });
     },
   });
 }
@@ -379,11 +417,11 @@ export function useTrustDevice() {
 export function useUntrustDevice() {
   const queryClient = useQueryClient();
   return useMutation<{ ok: boolean }, Error, void>({
-    // Said by SessionsPanel.
+    // Said by TrustedDeviceSettings.
     meta: { handlesError: true },
     mutationFn: async () => (await client.delete<{ ok: boolean }>('/auth/trust-device')).data,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
+      queryClient.invalidateQueries({ queryKey: TRUSTED_DEVICE_KEY });
     },
   });
 }

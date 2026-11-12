@@ -10,6 +10,14 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Changed
+- **Profile → Sign-in and security** is now one card: username, e-mail, password, two-factor authentication and the trusted device, then the app lock (auto-lock and PIN); active sessions stay in their own card below. "Trust this device" only shows when two-factor authentication is on, says whether this device is trusted and until when, and offers the one button that matches; the server refuses to trust a device when two-factor is off (#766).
+- The pencil beside your name no longer changes your **username**: it is now in **Sign-in and security**, labelled as the name you sign in with, and asks for your password. The name others see is the **display name** field ("added by"); the custom app name and slogan moved to **Display preferences**, marked as seen by you only. A refused change now gives its real reason instead of an image upload error, and the profile form no longer opens empty when you come back to it from another page (#769).
+
+### Security
+- Changing your username and creating a guest link that lets the guest open, drink or smoke now ask for your password: an open session alone is no longer enough. Read-only links stay one click. A username change is written to the audit log and you receive a security alert, like for an e-mail change (#911).
+- Turning two-factor authentication on now revokes devices trusted before, so a device trusted while it was off cannot skip the code (#766).
+
 ### Fixed
 - Moving, editing or counting a bottle already drunk no longer counts it again as drunk that day, by whoever touched it. Glou now remembers when each bottle or box was finished and by whom, and **Analytics → Consumed** and the personal consumption goal use that date and that member. Bottles finished before this update keep the date they show today (#589).
 - When the server cannot be reached and no answer ever comes (a cellar with poor Wi-Fi, a hotel network behind a sign-in page), the app no longer waits forever: opening the app, signing in, the two-factor code, guest links, photo and file uploads, exports and backup downloads now give up after a set delay (15 seconds, one minute for files) and say the server cannot be reached. A proxy error page now gives the same message everywhere (#619).

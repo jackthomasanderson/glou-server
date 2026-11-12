@@ -6,7 +6,7 @@ import { notificationCategoriesFor } from '../../../shared/notifications';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { avatarUpload } from '../middleware/upload.middleware';
-import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema, deleteAccountSchema } from '../schemas/user.schema';
+import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updateUsernameSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema, deleteAccountSchema } from '../schemas/user.schema';
 import { accountRequestLimit, passwordCheckLimiter } from '../lib/rate-limit';
 import { prisma } from '../lib/prisma';
 import { channelPolicy, notificationService } from '../services/notification.service';
@@ -36,7 +36,7 @@ router.get('/backup-codes', authMiddleware, async (req: Request, res: Response) 
 
 /**
  * PATCH /api/user/profile
- * Update display name, avatar, app name, app slogan
+ * Update display name, app name, app slogan (the username: PATCH /api/user/username)
  */
 router.patch('/profile', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -100,6 +100,38 @@ router.patch('/email', authMiddleware, passwordCheckLimiter, async (req: Request
     }
     if (err instanceof Error && err.message === 'EMAIL_ALREADY_TAKEN') {
       res.status(409).json({ error: 'EMAIL_ALREADY_TAKEN' });
+      return;
+    }
+    next(err);
+  }
+});
+
+/**
+ * PATCH /api/user/username
+ * #911: the username is a sign-in identifier: changing it asks for the
+ * password, with the same per-account limit as the e-mail change.
+ */
+router.patch('/username', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { username, currentPassword } = updateUsernameSchema.parse(req.body);
+    const deviceInfo = { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
+    const user = await authService.updateUsername(req.userId, username, currentPassword, deviceInfo);
+    res.json({ data: user });
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
+      return;
+    }
+    if (err instanceof Error && err.message === 'REAUTH_REQUIRED') {
+      res.status(403).json({ error: 'REAUTH_REQUIRED' });
+      return;
+    }
+    if (err instanceof Error && err.message === 'INVALID_CREDENTIALS') {
+      res.status(401).json({ error: 'INVALID_CREDENTIALS' });
+      return;
+    }
+    if (err instanceof Error && err.message === 'USERNAME_ALREADY_TAKEN') {
+      res.status(409).json({ error: 'USERNAME_ALREADY_TAKEN' });
       return;
     }
     next(err);

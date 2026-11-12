@@ -839,14 +839,19 @@
       "data": "Données"
     },
     "personalInfo": "Informations personnelles",
+    "displayNameHint": "Visible par les autres membres (« ajouté par »)",
     "preferences": "Préférences d'affichage",
     "appName": "Nom personnalisé de l'application",
     "appNamePlaceholder": "Ex: Ma Cave Privée",
     "appSlogan": "Slogan personnalisé de l'application",
     "appSloganPlaceholder": "Votre devise...",
+    "appDisplayHint": "Visible par vous uniquement, dans le menu",
+    "appDisplaySave": "Enregistrer le nom et le slogan",
     "reviewOnboarding": "Revoir le guide de démarrage",
-    "security": "Sécurité du compte",
+    "security": "Connexion et sécurité",
+    "appLockHeading": "Verrouillage de l'app",
     "changeEmail": "Changer l'adresse email",
+    "changeUsername": "Changer le nom d'utilisateur",
     "changePassword": "Changer le mot de passe",
     "currentPassword": "Mot de passe actuel",
     "newPassword": "Nouveau mot de passe",
@@ -895,6 +900,7 @@
     "passwordSuccess": "Mot de passe mis à jour",
     "passwordError": "Mot de passe actuel incorrect",
     "emailLabel": "Adresse email",
+    "usernameLabel": "Nom d'utilisateur (sert à la connexion)",
     "passwordLabel": "Mot de passe",
     "avatarHint": "Touchez la photo pour la changer (ou glissez une image dessus)",
     "autoLockDelay": "Verrouillage automatique",
@@ -916,7 +922,7 @@
     "pinRemoveSuccess": "Code PIN supprimé",
     "pinError": "Impossible de mettre à jour le code PIN",
     "twoFactor": {
-      "title": "Sécurité et authentification",
+      "title": "Double authentification",
       "description": "Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application lors de la connexion.",
       "status": "Statut 2FA :",
       "enabled": "Activé",
@@ -969,14 +975,20 @@
       "loadError": "Impossible de charger vos sessions actives.",
       "empty": "Aucune session active.",
       "trustDescription": "Faites confiance à cet appareil pour ne plus avoir à saisir de code de double authentification pendant 30 jours. Cette confiance est automatiquement révoquée en cas de connexion suspecte.",
+      "trustHeading": "Appareil de confiance",
+      "trustedUntil": "Cet appareil est de confiance jusqu'au {{date}} : le code de double authentification n'y est pas demandé.",
+      "trustLoadError": "Impossible de savoir si cet appareil est de confiance.",
       "trustDevice": "Faire confiance à cet appareil",
-      "trustConfirmHint": "Confirmez votre mot de passe pour faire confiance à cet appareil pendant 30 jours.",
+      "trustConfirmHint": "Confirmez avec votre mot de passe et un code de double authentification pour faire confiance à cet appareil pendant 30 jours.",
       "untrustDevice": "Ne plus faire confiance",
       "trustSuccess": "Cet appareil est désormais de confiance.",
       "untrustSuccess": "La confiance accordée à cet appareil a été révoquée.",
       "trustError": "Une erreur est survenue lors de la mise à jour de la confiance."
     },
-    "emailPasswordHint": "Confirmez avec le mot de passe de votre compte. Une alerte sera envoyée à l'ancienne adresse."
+    "emailPasswordHint": "Confirmez avec le mot de passe de votre compte. Une alerte sera envoyée à l'ancienne adresse.",
+    "usernamePasswordHint": "Ce nom sert à vous connecter : ensuite, connectez-vous avec le nouveau. Confirmez avec le mot de passe de votre compte.",
+    "usernameSuccess": "Nom d'utilisateur modifié. Connectez-vous désormais avec ce nom.",
+    "usernameInvalid": "De 3 à 30 caractères : lettres, chiffres, - et _."
   },
   "admin": {
     "title": "Administration",
@@ -1090,6 +1102,7 @@
         "LOGIN_FAILED": "Connexion refusée",
         "PASSWORD_CHANGE": "Mot de passe modifié",
         "EMAIL_CHANGE": "Adresse e-mail modifiée",
+        "USERNAME_CHANGE": "Nom d'utilisateur modifié",
         "TWO_FACTOR_ON": "Double authentification activée",
         "TWO_FACTOR_OFF": "Double authentification désactivée",
         "ADMIN_PASSWORD_RESET": "Mot de passe réinitialisé par un administrateur",
@@ -1918,7 +1931,9 @@
         "custom": "Date personnalisée",
         "unlimited": "Illimité"
       },
-      "allowWrite": "Autoriser à ouvrir, boire ou fumer"
+      "allowWrite": "Autoriser à ouvrir, boire ou fumer",
+      "writePassword": "Votre mot de passe",
+      "writePasswordHint": "Un lien qui permet d'ouvrir, boire ou fumer reste valable même après votre déconnexion : confirmez avec le mot de passe de votre compte."
     },
     "errors": {
       "load": "Impossible de charger les partages."

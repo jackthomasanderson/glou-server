@@ -55,6 +55,10 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
   const [selectedCellarIds, setSelectedCellarIds] = useState<string[]>([]);
   const [writeCellarIds, setWriteCellarIds] = useState<string[]>([]);
   const [selectedCollectionIds, setSelectedCollectionIds] = useState<string[]>([]);
+  // #911: a link with write access outlives the session: the account password
+  // is asked for, and sent only for such a link.
+  const [password, setPassword] = useState('');
+  const grantsWrite = scopeMode === 'cellars' && writeCellarIds.length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +71,7 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
       cellarIds: scopeMode === 'cellars' ? selectedCellarIds : [],
       writeCellarIds: scopeMode === 'cellars' ? writeCellarIds : [],
       collectionIds: scopeMode === 'collections' ? selectedCollectionIds : [],
+      ...(grantsWrite ? { password } : {}),
     };
     await onSubmit(values);
   };
@@ -226,6 +231,22 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
         )}
       </div>
 
+      {grantsWrite && (
+        <Input
+          type="password"
+          label={t('shares.fields.writePassword')}
+          description={t('shares.fields.writePasswordHint')}
+          value={password}
+          onValueChange={setPassword}
+          autoComplete="current-password"
+          isRequired
+          variant="bordered"
+          size="sm"
+          radius="md"
+          labelPlacement="outside"
+        />
+      )}
+
       {/* Privacy toggles */}
       <div className="flex flex-col gap-3">
         <Switch isSelected={hidePrices} onValueChange={setHidePrices} size="sm">
@@ -250,7 +271,8 @@ export function ShareForm({ onSubmit, onCancel, isLoading }: ShareFormProps) {
             isLoading ||
             (scopeMode === 'cellars' && selectedCellarIds.length === 0) ||
             (scopeMode === 'collections' && selectedCollectionIds.length === 0) ||
-            (duration === 'custom' && !customDate)
+            (duration === 'custom' && !customDate) ||
+            (grantsWrite && !password)
           }
         >
           {t('actions.save')}

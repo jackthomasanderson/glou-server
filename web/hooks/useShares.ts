@@ -2,6 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sharesClient } from '@/lib/shares/client';
 import { notifyError } from '@/lib/toast';
+import { minutesToWait } from '@/lib/auth/error-message';
+import { TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
 import { CreatedGuestShare, GuestShare, ShareFormValues } from '@/lib/shares/types';
 import { qk } from '@/lib/queryKeys';
 
@@ -25,7 +27,12 @@ export function useCreateShare() {
         old ? [created, ...old] : [created],
       );
     },
-    onError: () => notifyError('toast.share.createError'),
+    // #911: a read/write link asks for the password; a wrong one, or a spent
+    // password budget, is said as such.
+    onError: (err) => {
+      if (err.message === TOO_MANY_REQUESTS_ERROR) notifyError('auth.errors.TOO_MANY_REQUESTS', { count: minutesToWait(err) });
+      else notifyError(err.message === 'INVALID_CREDENTIALS' ? 'profile.passwordError' : 'toast.share.createError', undefined);
+    },
     onSettled: () => void queryClient.invalidateQueries({ queryKey: SHARES_KEY }),
   });
 }

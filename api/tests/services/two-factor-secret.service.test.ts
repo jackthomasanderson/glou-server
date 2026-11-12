@@ -71,6 +71,8 @@ const secretWrites = () => (vi.mocked(prisma.user.updateMany).mock.calls as unkn
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Turning 2FA on revokes devices trusted before (#766).
+  vi.mocked(prisma.trustedDevice.updateMany).mockResolvedValue({ count: 0 } as never);
   process.env.JWT_SECRET = 'test-secret';
   process.env.CONFIG_ENCRYPTION_KEY = 'cd'.repeat(32);
   vi.mocked(prisma.user.update).mockResolvedValue(userRow() as never);

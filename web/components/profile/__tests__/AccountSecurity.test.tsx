@@ -14,8 +14,10 @@ const translate = (k: string, o?: Record<string, unknown>) =>
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: translate }) }));
 vi.mock('@/hooks/useAuth', () => {
   const m = () => ({ mutate: vi.fn(), isPending: false });
-  return { useUpdateEmail: m, useUpdatePassword: m, useUpdatePreferences: m, useSetPin: m, useRemovePin: m };
+  return { useUpdateEmail: m, useUpdateUsername: m, useUpdatePassword: m, useUpdatePreferences: m, useSetPin: m, useRemovePin: m };
 });
+vi.mock('@/components/profile/TwoFactorSettings', () => ({ TwoFactorSettings: () => null }));
+vi.mock('@/components/profile/TrustedDeviceSettings', () => ({ TrustedDeviceSettings: () => null }));
 vi.mock('@/components/ui/ResponsiveModal', () => ({ ResponsiveModal: () => null }));
 vi.mock('@/components/ui/SingleSelect', () => ({ SingleSelect: () => <div /> }));
 vi.mock('@/components/auth/PasswordStrengthMeter', () => ({ PasswordStrengthMeter: () => null }));
@@ -32,7 +34,7 @@ beforeAll(async () => {
 
 import { AccountSecurity } from '../AccountSecurity';
 
-const user = { id: 'u1', email: 'a@example.com', hasPin: false, autoLockDelayMin: null } as unknown as PublicUser;
+const user = { id: 'u1', username: 'alex84', email: 'a@example.com', hasPin: false, autoLockDelayMin: null } as unknown as PublicUser;
 
 describe('AccountSecurity auto-lock and PIN rows (#777)', () => {
   it('shows the auto-lock title more prominently than its description', () => {

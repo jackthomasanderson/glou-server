@@ -34,6 +34,8 @@ export interface ShareFormValues {
   cellarIds: string[];
   writeCellarIds: string[];
   collectionIds: string[];
+  /** #911: the account password, sent only when writeCellarIds is not empty. */
+  password?: string;
 }
 
 export interface GuestShareMeta {

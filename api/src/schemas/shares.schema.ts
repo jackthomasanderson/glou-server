@@ -28,6 +28,9 @@ export const shareCreateSchema = z
     collectionIds: z.array(z.string()).default([]),
     // Subset of cellarIds granted read/write access (FEAT-37).
     writeCellarIds: z.array(z.string()).default([]),
+    // #911: the account password, asked only when writeCellarIds is not empty
+    // (a read/write link outlives the session). Never stored.
+    password: z.string().min(1).max(1024).optional(),
   })
   .refine((data) => data.writeCellarIds.every((id) => data.cellarIds.includes(id)), {
     message: 'writeCellarIds must be a subset of cellarIds',
