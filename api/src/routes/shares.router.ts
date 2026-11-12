@@ -6,6 +6,7 @@ import { sharesService } from '../services/shares.service';
 import { shareCreateSchema } from '../schemas/shares.schema';
 import { authService } from '../services/auth.service';
 import { passwordCheckLimiter } from '../lib/rate-limit';
+import { notFound } from '../lib/errors';
 
 const router = Router();
 router.use(authMiddleware);
@@ -76,8 +77,7 @@ router.post('/', writeLinkLimiter, async (req: Request, res: Response): Promise<
       res.status(400).json({ error: 'INVALID_COLLECTION_IDS' });
       return;
     }
-    console.error('[shares] create error:', error);
-    res.status(500).json({ error: 'FAILED_TO_CREATE_SHARE' });
+    throw error;
   }
 });
 
@@ -85,14 +85,8 @@ router.post('/', writeLinkLimiter, async (req: Request, res: Response): Promise<
 // List all shares for the authenticated user (active, expired, revoked)
 
 router.get('/', async (req: Request, res: Response): Promise<void> => {
-  const userId = req.userId!;
-  try {
-    const shares = await sharesService.listByUser(userId);
-    res.json({ data: shares });
-  } catch (error) {
-    console.error('[shares] list error:', error);
-    res.status(500).json({ error: 'FAILED_TO_FETCH_SHARES' });
-  }
+  const shares = await sharesService.listByUser(req.userId!);
+  res.json({ data: shares });
 });
 
 // ─── DELETE /api/shares/:id ─────────────────────────────────────────────────
@@ -101,18 +95,10 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   const userId = req.userId!;
   const id = routeParam(req.params.id);
-  try {
-    const share = await sharesService.revoke(id, userId);
-    if (!share) {
-      res.status(404).json({ error: 'SHARE_NOT_FOUND' });
-      return;
-    }
-    void auditLog({ userId, action: 'SHARE_REVOKE', status: 'success', ip: getClientIp(req), details: { shareId: share.id } });
-    res.json({ data: share });
-  } catch (error) {
-    console.error('[shares] revoke error:', error);
-    res.status(500).json({ error: 'FAILED_TO_REVOKE_SHARE' });
-  }
+  const share = await sharesService.revoke(id, userId);
+  if (!share) throw notFound('SHARE_NOT_FOUND');
+  void auditLog({ userId, action: 'SHARE_REVOKE', status: 'success', ip: getClientIp(req), details: { shareId: share.id } });
+  res.json({ data: share });
 });
 
 export default router;

@@ -4,6 +4,7 @@ import { humidorService } from '../services/humidor.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { auditLog } from '../services/audit.service';
+import { notFound } from '../lib/errors';
 
 const router = Router();
 
@@ -28,24 +29,16 @@ router.post('/readings', async (req: Request, res: Response) => {
     return;
   }
 
-  try {
-    const result = await humidorService.recordReading(userId, validation.data);
-    if (!result) {
-      res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
-      return;
-    }
-    await auditLog({
-      userId,
-      ip: getClientIp(req),
-      action: 'HUMIDOR_READING_CREATE',
-      status: 'success',
-      details: { cellarId: validation.data.cellarId, drift: result.drift },
-    });
-    res.status(201).json({ data: result });
-  } catch (err: unknown) {
-    console.error('[humidor] POST /readings error:', err);
-    res.status(500).json({ error: 'FAILED_TO_RECORD_READING' });
-  }
+  const result = await humidorService.recordReading(userId, validation.data);
+  if (!result) throw notFound('CELLAR_NOT_FOUND');
+  await auditLog({
+    userId,
+    ip: getClientIp(req),
+    action: 'HUMIDOR_READING_CREATE',
+    status: 'success',
+    details: { cellarId: validation.data.cellarId, drift: result.drift },
+  });
+  res.status(201).json({ data: result });
 });
 
 /**
@@ -61,17 +54,9 @@ router.get('/cellars/:cellarId/readings', async (req: Request, res: Response) =>
     return;
   }
 
-  try {
-    const data = await humidorService.getHistory(cellarId, query.data.limit);
-    if (!data) {
-      res.status(404).json({ error: 'CELLAR_NOT_FOUND' });
-      return;
-    }
-    res.json({ data });
-  } catch (err: unknown) {
-    console.error('[humidor] GET /cellars/:cellarId/readings error:', err);
-    res.status(500).json({ error: 'FAILED_TO_FETCH_HISTORY' });
-  }
+  const data = await humidorService.getHistory(cellarId, query.data.limit);
+  if (!data) throw notFound('CELLAR_NOT_FOUND');
+  res.json({ data });
 });
 
 export default router;

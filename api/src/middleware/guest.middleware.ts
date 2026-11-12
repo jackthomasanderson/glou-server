@@ -29,23 +29,20 @@ export async function guestMiddleware(
     return;
   }
 
-  try {
-    const share = await sharesService.findByToken(token);
+  // #467: a database failure is not a dead link: Express 5 forwards the
+  // rejection to the error middleware, which answers 503 during an outage.
+  const share = await sharesService.findByToken(token);
 
-    if (!share) {
-      res.status(404).json({ error: 'SHARE_NOT_FOUND' });
-      return;
-    }
-
-    if (!sharesService.isShareValid(share) || !(await sharesService.isCreatorActive(share.userId))) {
-      res.status(403).json({ error: 'SHARE_EXPIRED_OR_REVOKED' });
-      return;
-    }
-
-    req.guestShare = share;
-    next();
-  } catch (error) {
-    console.error('[guestMiddleware] Error validating token:', error);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  if (!share) {
+    res.status(404).json({ error: 'SHARE_NOT_FOUND' });
+    return;
   }
+
+  if (!sharesService.isShareValid(share) || !(await sharesService.isCreatorActive(share.userId))) {
+    res.status(403).json({ error: 'SHARE_EXPIRED_OR_REVOKED' });
+    return;
+  }
+
+  req.guestShare = share;
+  next();
 }

@@ -85,6 +85,7 @@ npm run typecheck      # the Playwright specs are type-checked too
 - Validation with Zod for every API input and output.
 - Manual edits win: never let automatic enrichment overwrite a field listed in `locked_fields`.
 - Database writes that touch multiple tables go through a Prisma `$transaction`.
+- API routes never answer a 500 themselves: let errors reach the error middleware (`api/src/middleware/error.middleware.ts`), which answers 503 `DATABASE_UNAVAILABLE` during a database outage and 400 `VALIDATION_ERROR` for a Zod error. Keep a `catch` only to map a business refusal (`notFound`, `conflict`, `badRequest` from `api/src/lib/errors.ts`), and never send an exception's message to the client.
 - Frontend state uses React Query with stale-while-revalidate; invalidate related caches after every successful mutation.
 - Every API call from the web app goes through `web/lib/api.ts` (`request`, `requestJson` or `client`), which sends the session cookie, sets the 15 s deadline and reads the API's error codes. ESLint refuses `fetch` anywhere else.
 - Match the style of the surrounding code (naming, comments, structure).

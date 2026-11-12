@@ -34,6 +34,7 @@ vi.mock('../../src/services/inventory-count.service', () => ({
 import { consumptionPlanRouter } from '../../src/routes/consumption-plan.router';
 import { inventoryCountRouter } from '../../src/routes/inventory-count.router';
 import { auditLog } from '../../src/services/audit.service';
+import { errorMiddleware } from '../../src/middleware/error.middleware';
 import { getSuggestions, getGoalProgress } from '../../src/services/consumption-plan.service';
 import { getActiveSession, getSessionReport } from '../../src/services/inventory-count.service';
 
@@ -41,6 +42,8 @@ const app = express();
 app.use(express.json());
 app.use('/api/consumption-plan', consumptionPlanRouter);
 app.use('/api/inventory-count', inventoryCountRouter);
+// #467: the routers let failures reach the error middleware, as in app.ts.
+app.use(errorMiddleware);
 
 beforeEach(() => {
   vi.clearAllMocks();

@@ -3,49 +3,31 @@ import { bulkPresetService } from '../services/bulk-preset.service';
 import { bulkPresetCreateSchema } from '../schemas/bulk-preset.schema';
 import { authMiddleware } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
-import { ZodError } from 'zod';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authMiddleware);
 
+// #467: errors (a ZodError included: 400 VALIDATION_ERROR) go to the error middleware.
+
 // GET /api/bulk-presets
 router.get('/', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const presets = await bulkPresetService.listPresets(req.userId);
-    res.json({ data: presets });
-  } catch (error) {
-    console.error('[bulk-presets] GET / error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const presets = await bulkPresetService.listPresets(req.userId);
+  res.json({ data: presets });
 });
 
 // POST /api/bulk-presets
 router.post('/', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const data = bulkPresetCreateSchema.parse(req.body);
-    const preset = await bulkPresetService.createPreset(req.userId, data);
-    res.status(201).json({ data: preset });
-  } catch (error) {
-    console.error('[bulk-presets] POST / error:', error);
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
-      return;
-    }
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const data = bulkPresetCreateSchema.parse(req.body);
+  const preset = await bulkPresetService.createPreset(req.userId, data);
+  res.status(201).json({ data: preset });
 });
 
 // DELETE /api/bulk-presets/:id
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
-  try {
-    await bulkPresetService.deletePreset(req.userId, routeParam(req.params.id));
-    res.status(204).end();
-  } catch (error) {
-    console.error('[bulk-presets] DELETE /:id error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  await bulkPresetService.deletePreset(req.userId, routeParam(req.params.id));
+  res.status(204).end();
 });
 
 export default router;
