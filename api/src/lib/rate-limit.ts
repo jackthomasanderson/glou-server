@@ -99,6 +99,40 @@ export const unlockAccountLimiter = accountRateLimit(PASSWORD_CHECK_MAX, 'unlock
 export const SIGN_IN_FAILURES_MAX = 10;
 
 /**
+ * #980: the trusted device a sign-in comes from, as resolved by the route
+ * before the limiters run (`res.locals.signInTrustedDeviceId`): set only when
+ * the request carries a valid trusted-device cookie of the account the
+ * identifier names.
+ */
+function signInTrustedDevice(res: Response): string | undefined {
+  const id: unknown = res.locals.signInTrustedDeviceId;
+  return typeof id === 'string' && id ? id : undefined;
+}
+
+function signInIdentifier(req: Request): string | undefined {
+  const identifier = (req.body as { identifier?: unknown } | undefined)?.identifier;
+  return typeof identifier === 'string' ? identifier : undefined;
+}
+
+/**
+ * #980: calls `onLocked` once per budget window and key, however many
+ * requests the window refuses, so a stranger renewing a lock writes one audit
+ * row every window rather than one per guess.
+ */
+function oncePerWindow(windowMs: number, onLocked: (req: Request) => void): (req: Request, key: string) => void {
+  const reported = new Map<string, number>();
+  return (req, key) => {
+    const now = Date.now();
+    const windowEnd = (req as Request & { rateLimit?: { resetTime?: Date } }).rateLimit?.resetTime?.getTime()
+      ?? (Math.floor(now / windowMs) + 1) * windowMs;
+    for (const [k, end] of reported) if (end <= now) reported.delete(k);
+    if (reported.get(key) === windowEnd) return;
+    reported.set(key, windowEnd);
+    onLocked(req);
+  };
+}
+
+/**
  * #914: wrong passwords at sign-in, counted per identifier typed (username or
  * e-mail, exactly as the account lookup compares it) whatever the address
  * they come from, so forging X-Forwarded-For no longer buys fresh guesses.
@@ -113,25 +147,58 @@ export const SIGN_IN_FAILURES_MAX = 10;
  * - Its own budget: an anonymous stranger spending it cannot keep the member
  *   from the password checks of their open session ({@link passwordCheckLimiter}).
  * - Fixed window: the refusal lifts at the end of the window, never for good.
+ *
+ * #980: a stranger who knows a username could renew that lock every window
+ * and keep the member out for good. So:
+ * - A sign-in from a trusted device of that very account (see
+ *   {@link signInTrustedDevice}) skips the identifier's budget: the cookie
+ *   proves a past sign-in on that device, which a stranger does not have.
+ *   Its wrong passwords are counted on a budget of that device instead, so a
+ *   stolen cookie buys no more guesses than the identifier gives; only the
+ *   cookie's holder can spend it. The per-address limiter still applies.
+ * - The first refusal of each window is reported through `onLocked`, for the
+ *   route to file under the account (one row per window, not per guess).
  */
-export const signInAccountLimiter: RequestHandler[] = [
-  rememberErrorCode,
-  rateLimit({
-    windowMs: AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000,
-    max: SIGN_IN_FAILURES_MAX,
-    // No RateLimit-* headers: they would tell anyone how many recent wrong
-    // passwords an identifier has, and overwrite the per-address ones.
-    standardHeaders: false,
-    legacyHeaders: false,
-    skipSuccessfulRequests: true,
-    requestWasSuccessful: (_req, res) => !WRONG_SECRET_CODES.has(String(res.locals.errorCode)),
-    // A malformed body is refused by the route's validation; nothing to count.
-    skip: (req) => typeof (req.body as { identifier?: unknown } | undefined)?.identifier !== 'string',
-    // Hashed so the store keeps a fixed-size key, whatever was typed.
-    keyGenerator: (req) => `sign-in:${crypto.createHash('sha256').update((req.body as { identifier: string }).identifier).digest('hex')}`,
-    handler: sendTooManyRequests,
-  }),
-];
+export function signInAccountLimiter(onLocked: (identifier: string, req: Request) => void): RequestHandler[] {
+  const windowMs = AUTH_RATE_LIMIT_WINDOW_MINUTES * 60 * 1000;
+  // Hashed so the store keeps a fixed-size key, whatever was typed.
+  const identifierKey = (req: Request) => `sign-in:${crypto.createHash('sha256').update(signInIdentifier(req) ?? '').digest('hex')}`;
+  const reportLock = oncePerWindow(windowMs, (req) => onLocked(signInIdentifier(req) ?? '', req));
+  const countsAsGuess = (_req: Request, res: Response) => !WRONG_SECRET_CODES.has(String(res.locals.errorCode));
+  return [
+    rememberErrorCode,
+    rateLimit({
+      windowMs,
+      max: SIGN_IN_FAILURES_MAX,
+      // No RateLimit-* headers: they would tell anyone how many recent wrong
+      // passwords an identifier has, and overwrite the per-address ones.
+      standardHeaders: false,
+      legacyHeaders: false,
+      skipSuccessfulRequests: true,
+      requestWasSuccessful: countsAsGuess,
+      // A malformed body is refused by the route's validation; nothing to count.
+      // #980: a trusted device of the account has its own budget below.
+      skip: (req, res) => signInIdentifier(req) === undefined || signInTrustedDevice(res) !== undefined,
+      keyGenerator: identifierKey,
+      handler: (req, res, next, options) => {
+        reportLock(req, identifierKey(req));
+        sendTooManyRequests(req, res, next, options);
+      },
+    }),
+    // #980: wrong passwords sent with a trusted-device cookie, per device.
+    rateLimit({
+      windowMs,
+      max: SIGN_IN_FAILURES_MAX,
+      standardHeaders: false,
+      legacyHeaders: false,
+      skipSuccessfulRequests: true,
+      requestWasSuccessful: countsAsGuess,
+      skip: (_req, res) => signInTrustedDevice(res) === undefined,
+      keyGenerator: (_req, res) => `sign-in-device:${signInTrustedDevice(res)}`,
+      handler: sendTooManyRequests,
+    }),
+  ];
+}
 
 /**
  * `max` requests per signed-in account over the auth window, whatever their

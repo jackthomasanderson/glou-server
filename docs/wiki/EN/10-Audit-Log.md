@@ -68,7 +68,7 @@ What changes who can get in, and how. No entry holds a password, a code or a sec
 
 | Code | Trigger | Entry filed under |
 | :--- | :--- | :--- |
-| `LOGIN_FAILED` | Sign-in refused: wrong password, wrong two-factor code, or deactivated account (`details.reason`). An unknown identifier is not recorded: what was typed is never kept. | The account targeted |
+| `LOGIN_FAILED` | Sign-in refused: wrong password, wrong two-factor code, deactivated account, or sign-in locked after too many wrong passwords for that username or e-mail (`details.reason`: `sign_in_locked`, recorded once per 15-minute lock, not once per attempt). An unknown identifier is not recorded: what was typed is never kept. | The account targeted |
 | `PASSWORD_CHANGE` | Password changed from the profile, or through a "forgot password" link (`details.via`) | The member |
 | `EMAIL_CHANGE` | E-mail address changed (previous and new address in `details`) | The member |
 | `TWO_FACTOR_ON` / `TWO_FACTOR_OFF` | Two-factor authentication turned on / off by the member | The member |

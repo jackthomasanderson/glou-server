@@ -68,7 +68,7 @@ Ce qui change qui peut entrer, et comment. Aucune entrée ne contient de mot de 
 
 | Code | Déclencheur | Auteur de l'entrée |
 | :--- | :--- | :--- |
-| `LOGIN_FAILED` | Connexion refusée : mauvais mot de passe, mauvais code de double authentification, ou compte désactivé (`details.reason`). Un identifiant inconnu n'est pas enregistré : ce qui a été tapé n'est jamais conservé. | Le compte visé |
+| `LOGIN_FAILED` | Connexion refusée : mauvais mot de passe, mauvais code de double authentification, compte désactivé, ou connexion bloquée après trop de mauvais mots de passe pour ce nom d'utilisateur ou cet e-mail (`details.reason` : `sign_in_locked`, enregistré une fois par blocage de 15 minutes, pas à chaque tentative). Un identifiant inconnu n'est pas enregistré : ce qui a été tapé n'est jamais conservé. | Le compte visé |
 | `PASSWORD_CHANGE` | Mot de passe changé depuis le profil, ou par un lien « mot de passe oublié » (`details.via`) | Le membre |
 | `EMAIL_CHANGE` | Adresse e-mail changée (ancienne et nouvelle adresse dans `details`) | Le membre |
 | `TWO_FACTOR_ON` / `TWO_FACTOR_OFF` | Double authentification activée / désactivée par le membre | Le membre |
