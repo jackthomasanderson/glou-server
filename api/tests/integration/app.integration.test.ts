@@ -573,6 +573,8 @@ describe('POST /api/admin/users/:id/role', () => {
       args.where.id === 'm1' ? { id: 'm1', isActive: true, isAdmin: false } : { id: args.where.id, isActive: true, isAdmin: true }) as never);
     (prisma.user as unknown as { update: ReturnType<typeof vi.fn> }).update = vi.fn().mockResolvedValue({ id: 'm1', isAdmin: true });
     (prisma as unknown as { $transaction: unknown }).$transaction = vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+    // Another active admin stays (the last-admin checks, review of #975).
+    (prisma.user as unknown as { count: unknown }).count = vi.fn().mockResolvedValue(1);
   });
   const post = (body: Record<string, unknown>) => request(app)
     .post('/api/admin/users/m1/role')
@@ -636,7 +638,8 @@ describe('POST /api/admin/users/:id/role', () => {
     vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
       ({ id: args.where.id, isActive: true, isAdmin: true })) as never);
     const p = prisma as unknown as Record<string, unknown> & { user: Record<string, ReturnType<typeof vi.fn>> };
-    p.user.count = vi.fn().mockResolvedValue(0);
+    // One other admin before the step-up; none once the admin rows are locked.
+    p.user.count = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0);
     vi.mocked(prisma.$queryRaw).mockClear();
     const spy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
 
@@ -644,7 +647,7 @@ describe('POST /api/admin/users/:id/role', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('CANNOT_REMOVE_LAST_ADMIN');
-    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]).toBeLessThan(p.user.count.mock.invocationCallOrder[0]);
+    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]).toBeLessThan(p.user.count.mock.invocationCallOrder[1]);
     expect(prisma.user.update).not.toHaveBeenCalled();
     spy.mockRestore();
   });

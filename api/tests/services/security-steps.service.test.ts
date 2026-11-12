@@ -21,6 +21,7 @@ vi.mock('../../src/lib/prisma', () => ({
     session: { create: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     trustedDevice: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -95,6 +96,7 @@ async function flush(): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(prisma.$transaction).mockImplementation(((fn: (tx: unknown) => unknown) => fn(prisma)) as never);
   process.env.JWT_SECRET = 'test-secret';
   process.env.CONFIG_ENCRYPTION_KEY = 'cd'.repeat(32);
   vi.mocked(prisma.user.findUnique).mockResolvedValue({ language: 'EN', notifLanguage: null } as never);

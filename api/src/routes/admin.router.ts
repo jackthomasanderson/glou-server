@@ -29,7 +29,7 @@ import { lowersRetention, opensRegistration, weakensBackups } from '../../../sha
 import { sharesService } from '../services/shares.service';
 import { deleteMemberForGood } from '../services/account-deletion.service';
 import { scanService } from '../services/scan.service';
-import { countOtherAdminsLocked } from '../lib/last-admin';
+import { countOtherAdmins, countOtherAdminsLocked } from '../lib/last-admin';
 
 const adminRouter = Router();
 
@@ -179,6 +179,11 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
             res.status(409).json({ error: isAdmin ? 'ALREADY_ADMIN' : 'NOT_ADMIN' });
             return;
         }
+        // Checked again in the transaction below; here so a refusal spends no backup code.
+        if (!isAdmin && (await countOtherAdmins(prisma, userId)) === 0) {
+            res.status(409).json({ error: 'CANNOT_REMOVE_LAST_ADMIN' });
+            return;
+        }
         // #638: granting the role hands the session holder a second admin
         // account. #603: removing it is gated too — a stolen session could
         // otherwise demote the other admins and stay the only one.
@@ -244,15 +249,11 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        // Prevent deactivating the last active admin
-        if (!isActive && target.isAdmin) {
-            const activeAdminCount = await prisma.user.count({
-                where: { isAdmin: true, isActive: true },
-            });
-            if (activeAdminCount <= 1) {
-                res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
-                return;
-            }
+        // Prevent deactivating the last active admin (admins already leaving
+        // do not count, as in the transaction below).
+        if (!isActive && target.isAdmin && (await countOtherAdmins(prisma, userId)) === 0) {
+            res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
+            return;
         }
 
         // #603: checked after the refusals above, so they spend no backup
@@ -359,14 +360,9 @@ async function refuseMemberDeletion(req: Request, res: Response, userId: string)
         res.status(404).json({ error: 'USER_NOT_FOUND' });
         return null;
     }
-    if (target.isAdmin) {
-        const otherAdmins = await prisma.user.count({
-            where: { isAdmin: true, isActive: true, deletionRequestedAt: null, id: { not: userId } },
-        });
-        if (otherAdmins === 0) {
-            res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
-            return null;
-        }
+    if (target.isAdmin && (await countOtherAdmins(prisma, userId)) === 0) {
+        res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+        return null;
     }
     return target;
 }
@@ -432,14 +428,25 @@ adminRouter.put('/users/:userId/deletion', stepUpLimiter, async (req: Request, r
         }
         const audit: StepUpAudit = { action: 'ADMIN_DELETION_SCHEDULE', details: { targetUserId: userId, scheduled } };
         if (!(await stepUp(req, res, audit))) return;
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: { deletionRequestedAt: scheduled ? new Date() : null },
-            select: { id: true, deletionRequestedAt: true },
+        const user = await prisma.$transaction(async (tx) => {
+            // Counted again, admin rows locked: two admins scheduling each
+            // other's deletion at once cannot both be marked as leaving.
+            if (scheduled && target.isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) {
+                throw new Error('CANNOT_DELETE_LAST_ADMIN');
+            }
+            return tx.user.update({
+                where: { id: userId },
+                data: { deletionRequestedAt: scheduled ? new Date() : null },
+                select: { id: true, deletionRequestedAt: true },
+            });
         });
         auditSuccess(req, audit);
         res.json({ data: user });
     } catch (error) {
+        if (error instanceof Error && error.message === 'CANNOT_DELETE_LAST_ADMIN') {
+            res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+            return;
+        }
         console.error('[Admin] Error scheduling member deletion:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });

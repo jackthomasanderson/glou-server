@@ -22,6 +22,7 @@ import { openTwoFactorSecret } from '../lib/two-factor-secret';
 import { newTotpSecret, totpUri, isCurrentTotp } from '../lib/totp';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
 import { deletePersonalData } from './account-deletion.service';
+import { countOtherAdmins, countOtherAdminsLocked } from '../lib/last-admin';
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -1170,18 +1171,17 @@ export class AuthService {
       select: { passwordHash: true, isAdmin: true, username: true },
     });
     if (!password || !(await bcrypt.compare(password, account.passwordHash))) throw new Error('INVALID_CREDENTIALS');
-    if (account.isAdmin) {
-      // Admins already leaving do not count: two admins asking at once would
-      // otherwise each see the other one stay.
-      const otherAdmins = await prisma.user.count({
-        where: { isAdmin: true, isActive: true, deletionRequestedAt: null, id: { not: userId } },
-      });
-      if (otherAdmins === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
-    }
+    if (account.isAdmin && (await countOtherAdmins(prisma, userId)) === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { deletionRequestedAt: new Date() },
+    await prisma.$transaction(async (tx) => {
+      // Admins already leaving do not count: two admins asking at once would
+      // otherwise each see the other one stay. Counted again here, admin rows
+      // locked, so both requests cannot pass together.
+      if (account.isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
+      await tx.user.update({
+        where: { id: userId },
+        data: { deletionRequestedAt: new Date() },
+      });
     });
     void notifyAdminsOfAccountDeletion({ kind: 'requested', username: account.username, requesterId: userId });
     this.notifySecurityEvent(userId, 'accountDeletionRequested', deviceInfo);

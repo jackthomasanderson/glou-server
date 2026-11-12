@@ -6,6 +6,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     user: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
+    // The request is written in a transaction (the last-admin check, review of #975).
+    $transaction: vi.fn(),
   },
 }));
 
@@ -27,6 +29,7 @@ async function flush(): Promise<void> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(prisma.$transaction).mockImplementation(((fn: (tx: unknown) => unknown) => fn(prisma)) as never);
   vi.mocked(prisma.user.findMany).mockResolvedValue([
     { id: 'admin1', language: 'EN', notifLanguage: null },
   ] as never);

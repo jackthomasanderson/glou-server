@@ -13,6 +13,7 @@ import bcrypt from 'bcryptjs';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     user: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), count: vi.fn(), update: vi.fn() },
+    $transaction: vi.fn(),
     session: { findUnique: vi.fn(), update: vi.fn() },
     auditLog: { create: vi.fn() },
     $queryRaw: vi.fn(),
@@ -65,6 +66,7 @@ beforeEach(() => {
   vi.mocked(prisma.user.count).mockResolvedValue(1);
   vi.mocked(prisma.user.update).mockImplementation((async ({ where, data }: { where: { id: string }; data: object }) => ({ ...accounts[where.id], ...data })) as never);
   vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+  vi.mocked(prisma.$transaction).mockImplementation((async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma)) as never);
   vi.mocked(deleteMemberForGood).mockResolvedValue({ username: 'marie', avatarPaths: ['/uploads/avatars/m.png'], scanImagePaths: ['/app/uploads/scans/s.jpg'] });
   spies.push(
     vi.spyOn(authService, 'exportUserData').mockResolvedValue({ profile: { id: 'm1' } }),
@@ -186,6 +188,17 @@ describe('PUT /api/admin/users/:userId/deletion (#661)', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('DELETION_ALREADY_SCHEDULED');
+    expect(prisma.user.update).not.toHaveBeenCalled();
+  });
+
+  // Second review of #975: two admins scheduling each other's deletion at once.
+  it('counts the other admins again once the admin rows are locked', async () => {
+    vi.mocked(prisma.user.count).mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+
+    const res = await as('put', '/api/admin/users/a2/deletion', { scheduled: true, password: ADMIN_PASSWORD });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CANNOT_DELETE_LAST_ADMIN');
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 

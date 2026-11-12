@@ -88,6 +88,8 @@ describe('deleteMemberForGood (#695)', () => {
     await expect(deleteMemberForGood('a2', 'a1')).rejects.toThrow('CANNOT_DELETE_LAST_ADMIN');
 
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
+    // Self-serialising, without blocking the other admins' inserts that reference their row.
+    expect((db.$queryRaw.mock.calls[0][0] as string[]).join('?')).toContain('FOR NO KEY UPDATE');
     expect(db.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(db.user.count.mock.invocationCallOrder[0]);
     expect(db.user.count).toHaveBeenCalledWith({
       where: { isAdmin: true, isActive: true, deletionRequestedAt: null, id: { not: 'a2' } },
@@ -102,5 +104,13 @@ describe('deleteMemberForGood (#695)', () => {
     await deleteMemberForGood('a2', 'a1');
 
     expect(db.user.delete).toHaveBeenCalledWith({ where: { id: 'a2' } });
+  });
+
+  // Second review of #975: a member with a long history (hundreds of
+  // thousands of audit rows) went over the default 5 s and stayed undeletable.
+  it('gives the transaction the same time as the maintenance run', async () => {
+    await deleteMemberForGood('m1', 'a1');
+
+    expect(vi.mocked(prisma.$transaction).mock.calls[0][1]).toEqual({ timeout: 60000, maxWait: 10000 });
   });
 });

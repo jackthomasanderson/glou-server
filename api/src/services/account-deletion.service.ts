@@ -84,5 +84,7 @@ export async function deleteMemberForGood(
       avatarPaths: member.avatarUrl ? [member.avatarUrl] : [],
       scanImagePaths,
     };
-  });
+    // A long history (hundreds of thousands of audit rows to rename) needs
+    // more than the default 5 s, like the maintenance run.
+  }, { timeout: 60000, maxWait: 10000 });
 }
