@@ -133,7 +133,7 @@ export function useScheduleMemberDeletion() {
         meta: { handlesError: true },
         mutationFn: async ({ userId, ...body }) => (await api.put(`/admin/users/${userId}/deletion`, body)).data,
         onSuccess: () => {
-            void queryClient.invalidateQueries({ queryKey: ['admin_users'] });
+            void queryClient.invalidateQueries({ queryKey: qk.admin.users });
         },
     });
 }
