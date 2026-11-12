@@ -9,7 +9,7 @@ import {
 import { isIntactItem, unitKind } from '@shared/units';
 import { useCellars, useRemoveSlot } from '@/hooks/useCellars';
 import { notifyError } from '@/lib/toast';
-import { useProductDetail } from '@/hooks/useProducts';
+import { useProductDetail, useProductMovements } from '@/hooks/useProducts';
 import { qk } from '@/lib/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
@@ -36,6 +36,7 @@ import { FamilyStockLines } from './FamilyStockLines';
 import { useSyncQueue } from '@/hooks/useOfflineSync';
 import { isProvisional } from '@/lib/offline/optimistic';
 import { FamilyHistory } from './FamilyHistory';
+import { FamilyMovements } from './FamilyMovements';
 import { StockLineMenu } from './StockLineMenu';
 import { StockMoveActions } from './StockMoveActions';
 import { usePutBackOpened } from './PutBackOpened';
@@ -146,6 +147,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const lang = i18n.language;
   const hasMounted = useHasMounted();
   const { data: product, isLoading, isError, error: queryError, refetch, isRefetching } = useProductDetail(productId);
+  // #848 (FEAT-110): its movement journal, shown above the field history.
+  const movements = useProductMovements(productId);
   const { data: cellars } = useCellars();
   const updateItem = useUpdateInventoryItem();
   const queryClient = useQueryClient();
@@ -457,7 +460,13 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           )}
         </section>
 
-        {/* 6. History of the wine and of its bottles */}
+        {/* 6. History: the movements of its bottles first (#848), then the changes of its fields */}
+        <FamilyMovements
+          movements={movements.data}
+          isError={movements.isError}
+          nounOf={historyNounOf(p.items, p.history, kind)}
+          kind={kind}
+        />
         <FamilyHistory
           productId={p.id}
           productUpdatedAt={p.updatedAt}

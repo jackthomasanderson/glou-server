@@ -36,6 +36,11 @@ export const qk = {
     detail: (id: string | null) => ['inventory', 'product', id],
     trash: ['inventory', 'products-trash'],
   },
+  /** #848 (FEAT-110): a wine's movement journal (its drawer's "Movements"). */
+  movements: {
+    all: ['stock-movements'],
+    ofProduct: (id: string | null) => ['stock-movements', id],
+  },
   /** #471 (FEAT-102): what is left to review after the update ("À regrouper ?"). */
   review: ['inventory', 'review'],
   cellars: {
@@ -129,6 +134,7 @@ const DERIVED_FROM_STOCK: readonly QueryKey[] = [
   qk.budget.all, // spending of the envelopes
   qk.collections, // what each collection holds
   qk.inventoryCount.all, // a count in progress compares with the stock
+  qk.movements.all, // #848: every stock change writes a wine's movement journal
 ];
 
 export interface InventoryChange {

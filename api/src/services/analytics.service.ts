@@ -47,7 +47,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // (ANALYTICS_PERIOD_SCOPE, shared/analytics.ts). Inventory aggregates
   // describe the cellar as it stands right now — a bottle bought in 2019 is
   // still in the cellar today, so leaving it out of the valuation would mislead.
-  const [items, cellars, auditMovements] = await Promise.all([
+  const [items, cellars, journal] = await Promise.all([
     prisma.inventoryItem.findMany({
       // FEAT-87: analytics describe what the instance holds; a non-owned
       // reference is a wine without bottles (#471), out of every figure here.
@@ -77,14 +77,13 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     prisma.cellar.findMany({
       select: { id: true, name: true, type: true },
     }),
-    prisma.auditLog.groupBy({
-      by: ['action'],
-      where: {
-        action: { in: ['CREATE', 'DELETE', 'RESTORE'] },
-        status: 'success',
-        ...dateFilter,
-      },
-      _count: { action: true },
+    // #848 (FEAT-110): bottles added, trashed and restored are read from the
+    // movement journal — never purged, and counted in bottles (cigars), not in
+    // lines. Its first line per wine (INITIAL) is no movement.
+    prisma.stockMovement.groupBy({
+      by: ['kind'],
+      where: { kind: { in: ['ADDED', 'TRASHED', 'RESTORED'] }, ...dateFilter },
+      _sum: { delta: true },
     }),
   ]);
 
@@ -228,11 +227,12 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // The maturity buckets split the units in stock, so they add up to 100 %.
   const pct = (n: number) => (inStockUnits > 0 ? Math.round((n / inStockUnits) * 100) : 0);
 
+  const unitsOf = (kind: 'ADDED' | 'TRASHED' | 'RESTORED') => Math.abs(journal.find(r => r.kind === kind)?._sum.delta ?? 0);
   const movements: MovementStats = {
-    added: auditMovements.find(r => r.action === 'CREATE')?._count.action ?? 0,
+    added: unitsOf('ADDED'),
     consumed: consumedCount,
-    deleted: auditMovements.find(r => r.action === 'DELETE')?._count.action ?? 0,
-    restored: auditMovements.find(r => r.action === 'RESTORE')?._count.action ?? 0,
+    deleted: unitsOf('TRASHED'),
+    restored: unitsOf('RESTORED'),
   };
 
   // Build garde histogram sorted by year

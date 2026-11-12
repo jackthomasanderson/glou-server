@@ -12,6 +12,7 @@ import { MAX_COPIES, type MoveUnitsInput, type RepriceUnitsInput } from '../sche
 import { findGroupFor, keepFoundQuantities, lockedListedFamily } from './stock.service';
 import { absorbGroups } from './review.service';
 import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/product';
+import { recordMovements } from './stock-movement.service';
 
 // #471 (FEAT-98, decision points 12, 53 and 57; design.md "Détachement côté
 // API"): move part of a group to another cellar, or change the price of part
@@ -252,6 +253,13 @@ export async function splitLockedGroup(
     if (twoCells || await sharesAnInventorySession(tx, group.id, target.id)) target = null;
   }
   if (target && (target.quantity ?? 1) + count > MAX_COPIES) throw badRequest('QUANTITY_TOO_LARGE');
+  // #848: "2 bouteilles déplacées vers Cuisine", "prix de 2 bouteilles 20 € → 25 €" (point 57).
+  await recordMovements(tx, { userId }, [{
+    productId: group.productId, itemId: group.id, kind: change.field === 'cellarId' ? 'MOVED' : 'PRICE_CHANGED', delta: 0, count,
+    details: change.field === 'cellarId'
+      ? { cellarId: group.cellarId, fromCellarId: group.cellarId, toCellarId: change.to }
+      : { cellarId: group.cellarId, fromPrice: group.purchasePrice, toPrice: change.to },
+  }]);
 
   // FEAT-93: the cells of the copies taken. Moved to another cellar, every
   // one of them is freed (a place in the old cellar's plan, and the slot's

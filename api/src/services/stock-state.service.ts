@@ -15,6 +15,9 @@ import { lockFamily } from '../lib/product-fields';
 import { followDetach, moveCountEntry } from '../lib/count-entries';
 import { moveHistoryOnto } from '../lib/audit-history';
 import { TASTINGS_ON_ITEM } from '../../../shared/product';
+import {
+  alignedLine, foldByLine, lineMovements, recordMovements, stateMovement, type MovementActor, type MovementDraft,
+} from './stock-movement.service';
 
 // #471 (FEAT-103/106, design.md "Détacher / Rattacher", "Détachement côté
 // API"): the one place where an individual state is written on a unit.
@@ -229,6 +232,14 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     userId: string; kind: UnitKind; include: I; now?: Date;
     /** Which copy leaves a group holding cells (FEAT-93); the automatic rule when absent. */
     slotChoice?: SlotChoice;
+    /** #848: a guest's write, told as the guest's in the movement journal (`userId` is then the share's member). */
+    guest?: MovementActor['guest'];
+    /**
+     * #848: the movements are added here instead of written, for a caller
+     * that writes several copies of a line at once and tells them as one
+     * ({@link foldByLine}) — in the same transaction.
+     */
+    collect?: MovementDraft[];
   },
 ): Promise<ApplyStateResult<R>> {
   const now = context.now ?? new Date();
@@ -236,6 +247,20 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
   const choice = context.slotChoice ?? 'auto';
   const stamp = { updatedAt: now, updatedBy: userId };
   const { outcome, next } = planState(item, write, context.kind, now);
+  // #848: what this write tells the wine's movement journal, written with it.
+  const actor: MovementActor = { userId, ...(context.guest ? { guest: context.guest } : {}) };
+  // The unit as read, before any write of this call (an in-memory row may be updated in place).
+  const before: StateItem = { ...item };
+  const journal = async (drafts: MovementDraft[]) => {
+    if (context.collect) context.collect.push(...drafts);
+    else await recordMovements(tx, actor, drafts);
+  };
+  const copyMovement = (itemId: string, before: StateItem, after: StateItem): MovementDraft[] => {
+    const movement = stateMovement(before, after);
+    return movement ? [{ productId: item.productId, itemId, ...movement, details: { cellarId: after.cellarId } }] : [];
+  };
+  const lineDrafts = (itemId: string, before: StateItem, after: StateItem): MovementDraft[] =>
+    lineMovements(before, after).map((movement) => ({ productId: item.productId, itemId, ...movement }));
   // #589: finished now (or put back): when and by whom, on the unit carrying
   // the state — the copy detached, never its group.
   Object.assign(next, finishedStamp(item, next, userId, now));
@@ -310,6 +335,11 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     });
     // The opened copy now holds the cell it was taken from.
     if (taken && !isFinishedState(next)) slotChanges.push(...slotsPlaced([taken]));
+    // One copy of the group took the state; what else the patch wrote went to the group.
+    await journal([
+      ...lineDrafts(item.id, before, { ...next, isOpened: before.isOpened, fillLevel: before.fillLevel, cigarsLeft: before.cigarsLeft }),
+      ...copyMovement(subId, alignedLine({ ...before, quantity: 1 }, { ...next, quantity: 1 }), { ...next, quantity: 1 }),
+    ]);
     return {
       outcome, ...done, data: created as R, changed: [group as R], removedIds: [],
       groupChange: { itemId: item.id, from, to: from - 1, ...(groupSlots.length > 0 ? { slotChanges: groupSlots } : {}) },
@@ -323,12 +353,17 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
       && isGroupableItem(parent)
       && groupKey(parent, context.kind) === groupKey(next, context.kind)
       && await slotsJoin(tx, item.id, parent.id, context.kind, next);
-    if (fits) return { ...(await absorb<I, R>(tx, item, next, parent, write.keepTastings, { include, stamp })), ...done };
+    if (fits) {
+      const absorbed = await absorb<I, R>(tx, item, next, parent, write.keepTastings, { include, stamp });
+      await journal(copyMovement(parent.id, alignedLine(before, next), { ...next, cellarId: parent.cellarId }));
+      return { ...absorbed, ...done };
+    }
     const regrouped = await tx.inventoryItem.update({
       where: { id: item.id },
       data: { ...writable(changedColumns(item, next)), parentItemId: null, ...stamp },
       include,
     });
+    await journal([...lineDrafts(item.id, before, next), ...copyMovement(item.id, alignedLine(before, next), next)]);
     return { outcome: 'regrouped', ...done, data: regrouped as R, changed: [], removedIds: [] };
   }
 
@@ -341,6 +376,7 @@ export async function applyState<I extends Prisma.InventoryItemInclude, R>(
     data: { ...writable(changedColumns(item, next)), ...(outcome === 'regrouped' ? { parentItemId: null } : {}), ...stamp },
     include,
   });
+  await journal([...lineDrafts(item.id, before, next), ...copyMovement(item.id, alignedLine(before, next), next)]);
   return { outcome, ...done, data: updated as R, changed: [], removedIds: [] };
 }
 
@@ -460,17 +496,23 @@ export async function finishUnits(
   if (!first) return [];
   await lockFamily(tx, first.productId);
   const finished: string[] = [];
+  // #848: the copies finished together are told as one movement of the line.
+  const movements: MovementDraft[] = [];
   for (let i = 0; i < count; i++) {
     const item = await tx.inventoryItem.findFirst({ where: { id: itemId, deletedAt: null }, include: { product: { select: { category: true } } } });
     if (!item || item.writtenOffAt != null || isFinishedState(item)) break;
     const { product, ...row } = item;
     const result = await applyState<{ product: { select: { category: true } } }, { id: string }>(
       tx, row as StateItem, { state: { ...FINISHED_ITEM_STATE } },
-      { userId: context.userId, kind: unitKind(product.category), include: { product: { select: { category: true } } }, now: context.now },
+      {
+        userId: context.userId, kind: unitKind(product.category), include: { product: { select: { category: true } } }, now: context.now,
+        collect: movements,
+      },
     );
     finished.push(result.data.id);
     // The cells freed: the group's on a detach, the unit's own when it is the last copy.
     context.slotChanges?.push(...(result.groupChange?.slotChanges ?? []), ...result.slotChanges);
   }
+  await recordMovements(tx, { userId: context.userId }, foldByLine(movements.map((movement) => ({ ...movement, itemId }))));
   return finished;
 }

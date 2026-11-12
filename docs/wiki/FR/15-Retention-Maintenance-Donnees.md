@@ -35,6 +35,7 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 Le journal d'audit contient aussi l'historique affiché dans le tiroir d'un vin : qui a modifié quel champ, les bouteilles ajoutées, déplacées, changées de prix ou dont le nombre a été corrigé, et les valeurs que **Restaurer** remet. Cet historique est une donnée métier, pas une trace de sécurité : la purge ne le supprime jamais, quelle que soit la **rétention des logs d'audit** :
 - conservé : toute entrée réussie liée à un vin ou à une bouteille (création, modification, restauration, valeur restaurée, changement fait par un invité, bouteilles ajoutées, déplacées, changées de prix, nombre corrigé, vins regroupés, mise à la corbeille), y compris les entrées par bouteille des actions groupées et de la clôture d'un inventaire ;
 - conservé sans l'adresse IP : au-delà de la rétention, ces entrées perdent l'adresse IP d'où elles ont été faites (une trace de sécurité). Le nom affiché d'un invité reste, puisqu'il apparaît dans l'historique ;
+- le journal des **Mouvements** de chaque vin (bouteilles ajoutées, ouvertes, bues, déplacées, changées de prix, corrigées) n'est jamais purgé non plus, et ne contient aucune adresse IP ;
 - purgé au-delà de la rétention : connexions et autres événements de compte, actions d'administration, requêtes en échec ou refusées, et la ligne de résumé d'une modification groupée (chaque bouteille modifiée garde sa propre entrée).
 
 > [!CAUTION]

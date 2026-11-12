@@ -4,6 +4,7 @@ vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     product: { findFirst: vi.fn(), findUnique: vi.fn() },
     cellar: { findUnique: vi.fn() },
+    stockMovement: { createMany: vi.fn(async () => ({ count: 0 })) },
     inventoryItem: { findMany: vi.fn(), findFirst: vi.fn(), findUniqueOrThrow: vi.fn(), create: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
     itemSlot: {},
     inventoryCountEntry: { findMany: vi.fn() },
@@ -161,6 +162,16 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
       { itemId: 'g1', toItemId: lineId, changes: [{ field: 'quantity', from: 6, to: 4 }] },
       { itemId: lineId, fromItemId: 'g1', changes: [{ field: 'quantity', from: null, to: 2 }, { field: 'cellarId', from: 'garage', to: 'kitchen' }] },
     ]);
+  });
+
+  it('#848: "2 bouteilles déplacées vers Cuisine" in the wine\'s journal, once', async () => {
+    await stockSplitService.moveUnits('u2', 'g1', { count: 2, cellarId: 'kitchen' });
+
+    expect(prisma.stockMovement.createMany).toHaveBeenCalledTimes(1);
+    expect(prisma.stockMovement.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({
+      productId: 'p1', itemId: 'g1', kind: 'MOVED', delta: 0, count: 2, userId: 'u2',
+      details: { cellarId: 'garage', fromCellarId: 'garage', toCellarId: 'kitchen' },
+    })] });
   });
 
   it('leaves the cells of placed copies and the sub-records with the group of origin (unplaced copies move first)', async () => {
@@ -523,6 +534,14 @@ describe('stockSplitService.moveUnits (FEAT-98 c1-c4)', () => {
 });
 
 describe('stockSplitService.repriceUnits (FEAT-98 c5)', () => {
+  it('#848 (point 57): "prix de 2 bouteilles 20 € → 25 €" in the wine\'s journal', async () => {
+    await stockSplitService.repriceUnits('u2', 'g1', { count: 2, purchasePrice: 25 });
+
+    expect(prisma.stockMovement.createMany).toHaveBeenCalledWith({ data: [expect.objectContaining({
+      kind: 'PRICE_CHANGED', delta: 0, count: 2, details: { cellarId: 'garage', fromPrice: 20, toPrice: 25 },
+    })] });
+  });
+
   it('c5: 2 of a ×6 at 20 € to 25 € leave ×4 at 20 € and ×2 at 25 € in the same cellar; spending 120 € → 130 €', async () => {
     expect(totals()).toEqual({ units: 6, value: 120, spend: 120 });
 

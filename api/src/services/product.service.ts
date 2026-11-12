@@ -7,6 +7,8 @@ import {
   type ProductField, type ProductWrite, type UnitRow,
 } from '../lib/product-fields';
 import { fitSlotsTo, reviveSlots, slotsFreed, trashSlots } from '../lib/slots';
+import { UNIT_COUNT_SELECT } from '../lib/stock-units';
+import { recordMovements, trashMovements } from './stock-movement.service';
 import { peakWindowSchema } from '../schemas/inventory.schema';
 import type { ProductMatchQuery, ProductPatch } from '../schemas/product.schema';
 import { computeReadiness, familyAlertStatus } from './alert.service';
@@ -364,14 +366,16 @@ export const productService = {
    * same `deletedAt`, in one transaction — that timestamp is what a restore
    * brings back. The way to remove a wine known without bottle (FEAT-101 c5).
    */
-  async trash(id: string): Promise<{ deletedAt: Date; itemIds: string[] } | null> {
+  async trash(id: string, userId: string): Promise<{ deletedAt: Date; itemIds: string[] } | null> {
     return prisma.$transaction(async (tx) => {
       await lockFamily(tx, id);
       // D10: a family computed as trashed (every unit in the trash) is not listed — 404 too.
       const current = await tx.product.findFirst({ where: { id, ...LISTED_PRODUCT_FILTER }, select: { id: true } });
       if (!current) return null;
       const deletedAt = new Date();
-      const units = await tx.inventoryItem.findMany({ where: { productId: id, deletedAt: null }, select: { id: true } });
+      const units = await tx.inventoryItem.findMany({ where: { productId: id, deletedAt: null }, select: { id: true, cellarId: true, ...UNIT_COUNT_SELECT } });
+      // #848: what it held leaves the stock, in its journal.
+      await recordMovements(tx, { userId }, trashMovements('TRASHED', id, units));
       // FEAT-93 (#174): their cells go to the trash with them.
       await trashSlots(tx, units.map((unit) => unit.id), deletedAt);
       await tx.inventoryItem.updateMany({ where: { productId: id, deletedAt: null }, data: { deletedAt } });
@@ -388,21 +392,22 @@ export const productService = {
    */
   async restore(
     id: string,
+    userId: string,
     /** FEAT-93: filled with the cells a unit could not take back (see restoreOnce), for its history. */
     slotChanges: UnitSlotChanges[] = [],
   ): Promise<ProductView | null> {
     try {
-      return await this.restoreOnce(id, slotChanges);
+      return await this.restoreOnce(id, userId, slotChanges);
     } catch (err) {
       // #173: the database's partial unique index is the real guarantee
       // against a cell taken between the check and the write — tried once
       // more, the check then sees it and the copy comes back unplaced.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return this.restoreOnce(id, slotChanges);
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') return this.restoreOnce(id, userId, slotChanges);
       throw err;
     }
   },
 
-  async restoreOnce(id: string, slotChanges: UnitSlotChanges[] = []): Promise<ProductView | null> {
+  async restoreOnce(id: string, userId: string, slotChanges: UnitSlotChanges[] = []): Promise<ProductView | null> {
     const freed: UnitSlotChanges[] = [];
     const restored = await prisma.$transaction(async (tx) => {
       await lockFamily(tx, id);
@@ -410,8 +415,10 @@ export const productService = {
       if (!current?.deletedAt) return false;
       const units = await tx.inventoryItem.findMany({
         where: { productId: id, deletedAt: current.deletedAt },
-        select: { id: true },
+        select: { id: true, cellarId: true, ...UNIT_COUNT_SELECT },
       });
+      // #848: back in stock, in its journal.
+      await recordMovements(tx, { userId }, trashMovements('RESTORED', id, units));
       const ids = units.map((unit) => unit.id);
       await tx.inventoryItem.updateMany({ where: { id: { in: ids } }, data: { deletedAt: null } });
       await reviveSlots(tx, ids);

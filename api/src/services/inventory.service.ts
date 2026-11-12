@@ -7,7 +7,7 @@ import { InventoryPatch, InventoryInput, InventoryDraft } from '../schemas/inven
 import { computeReadiness, familyAlertStatus } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
-import { finishedStamp, isGroupableItem, unitKind, type UnitKind } from '../lib/finished-item';
+import { finishedStamp, isGroupableItem, itemUnits, unitKind, type UnitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { INVENTORY_LIST_LIMIT, TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
@@ -19,6 +19,7 @@ import {
   applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
 } from './stock-state.service';
 import { writeFamilyDescription, type UnitSlotChanges } from './product.service';
+import { lineMovements, recordMovements, stateMovement, trashMovements, type MovementActor, type MovementDraft } from './stock-movement.service';
 import { rememberDistinct } from './review.service';
 import { GROUP_KEY_FIELDS, joinIdenticalGroup, splitLockedGroup } from './stock-split.service';
 import {
@@ -354,20 +355,26 @@ export class InventoryService {
     const { finishedAt, finishedBy } = finishedStamp(
       null, { isOpened: dbData.isOpened === true, fillLevel: (dbData.fillLevel as number | null | undefined) ?? null }, userId, new Date(),
     );
-    const created = await client.inventoryItem.create({
-      data: {
-        id: uuidv4(),
-        ...itemData,
-        purchasedAt: purchaseDayFromInput(data.purchasedAt),
-        ...extra,
-        ...(finishedBy ? { finishedAt, finishedByUser: { connect: { id: finishedBy } } } : {}),
-        ...(unitLocks.length > 0 ? { lockedFields: unitLocks } : {}),
-        user: { connect: { id: userId } },
-        ...(cellarId ? { cellar: { connect: { id: cellarId } } } : {}),
-        product: { create: product },
-      } satisfies Prisma.InventoryItemCreateInput,
-      include: INVENTORY_ITEM_INCLUDE,
-    });
+    // #848: the bottles added are told in the new wine's journal, in the same transaction.
+    const write = async (tx: PrismaClientOrTx) => {
+      const row = await tx.inventoryItem.create({
+        data: {
+          id: uuidv4(),
+          ...itemData,
+          purchasedAt: purchaseDayFromInput(data.purchasedAt),
+          ...extra,
+          ...(finishedBy ? { finishedAt, finishedByUser: { connect: { id: finishedBy } } } : {}),
+          ...(unitLocks.length > 0 ? { lockedFields: unitLocks } : {}),
+          user: { connect: { id: userId } },
+          ...(cellarId ? { cellar: { connect: { id: cellarId } } } : {}),
+          product: { create: product },
+        } satisfies Prisma.InventoryItemCreateInput,
+        include: INVENTORY_ITEM_INCLUDE,
+      });
+      await recordMovements(tx, { userId }, addedMovements(row));
+      return row;
+    };
+    const created = client === prisma ? await prisma.$transaction(write) : await write(client);
     // #592: the list's shape, readiness included.
     return attachReadiness(toItemView(created));
   }
@@ -417,6 +424,8 @@ export class InventoryService {
        * no plan in sight, decision #471 point 75).
        */
       slotChoice?: 'ask' | 'auto';
+      /** #848: a guest's write (FEAT-37): the movement journal names the guest, not the member who shared the cellar. */
+      guest?: MovementActor['guest'];
     },
   ): Promise<UpdateItemResult | null> {
     const { fieldSources, isManualEdit = true, bypassFieldLock = false } = options ?? {};
@@ -526,7 +535,7 @@ export class InventoryService {
       // The unit is always stamped: the flat record it stands for changed.
       let result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
         tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
-        { userId, kind, include: INVENTORY_ITEM_INCLUDE, slotChoice },
+        { userId, kind, include: INVENTORY_ITEM_INCLUDE, slotChoice, guest: options?.guest },
       );
       // "Annuler" of a line finished in place: the copy put back takes its
       // cell again if nobody took it since (FEAT-93 lot S2), before a join
@@ -743,6 +752,9 @@ export class InventoryService {
           });
           if (Object.keys(others).length > 0) {
             history.push({ action: 'UPDATE', bottleId: item.id, productId: row.productId, details: { bulk: true, changes: fieldChanges(fresh, others) } });
+            // #848: its new price or number, in the wine's journal (the move is told by splitLockedGroup).
+            await recordMovements(tx, { userId }, lineMovements(fresh, { ...fresh, ...others } as typeof fresh)
+              .map((movement) => ({ productId: row.productId, itemId: item.id, ...movement })));
           }
           const split = await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
           // As the bulk move does (bulk-stock.service.ts): each line the move wrote.
@@ -771,6 +783,9 @@ export class InventoryService {
         if (lineChanges.length > 0) {
           history.push({ action: 'UPDATE', bottleId: item.id, productId: row.productId, details: { bulk: true, changes: lineChanges } });
         }
+        // #848: a line moved, repriced or recounted, in the wine's journal.
+        await recordMovements(tx, { userId }, lineMovements(fresh, { ...fresh, ...changed } as typeof fresh)
+          .map((movement) => ({ productId: row.productId, itemId: item.id, ...movement })));
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
@@ -786,7 +801,7 @@ export class InventoryService {
     return updatedCount;
   }
 
-  async softDelete(id: string): Promise<InventoryItemView | null> {
+  async softDelete(id: string, userId: string): Promise<InventoryItemView | null> {
     const existing = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
@@ -796,6 +811,8 @@ export class InventoryService {
     const deletedAt = new Date();
     const trashed = await prisma.$transaction(async (tx) => {
       await trashSlots(tx, [id], deletedAt);
+      // #848: the bottles it held leave the stock, in the wine's journal.
+      await recordMovements(tx, { userId }, trashMovements('TRASHED', existing.productId, [existing]));
       return tx.inventoryItem.update({ where: { id }, data: { deletedAt }, include: INVENTORY_ITEM_INCLUDE });
     });
     return toItemView(trashed);
@@ -803,6 +820,7 @@ export class InventoryService {
 
   async restore(
     id: string,
+    userId: string,
     /** FEAT-93: filled with the cells it could not take back (see restoreOnce), for its history. */
     slotChanges: FieldChange[] = [],
   ): Promise<WithReadiness<InventoryItemView> | null> {
@@ -824,12 +842,12 @@ export class InventoryService {
     // check and the write — tried once more, the check then sees it.
     let restored: { item: WithReadiness<InventoryItemView>; freed: FieldChange[] };
     try {
-      restored = await this.restoreOnce(existing);
+      restored = await this.restoreOnce(existing, userId);
     } catch (err) {
       // #962: deleted for good from the trash meanwhile — gone, as if never found.
       if (isRecordNotFound(err)) return null;
       if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err;
-      restored = await this.restoreOnce(existing);
+      restored = await this.restoreOnce(existing, userId);
     }
     slotChanges.push(...restored.freed);
     return restored.item;
@@ -837,6 +855,7 @@ export class InventoryService {
 
   private restoreOnce(
     existing: { productId: string; id: string; product: { deletedAt: Date | null } },
+    userId: string,
   ): Promise<{ item: WithReadiness<InventoryItemView>; freed: FieldChange[] }> {
     const { id } = existing;
     return prisma.$transaction(async (tx) => {
@@ -852,6 +871,8 @@ export class InventoryService {
       // automatic rule (review of #854).
       const unit = await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE });
       const freed = slotsFreed(await fitSlotsTo(tx, id, unit, unitKind(unit.product.category)));
+      // #848: back in stock, in the wine's journal.
+      await recordMovements(tx, { userId }, trashMovements('RESTORED', unit.productId, [unit]));
       // #592: the list's shape, readiness included.
       const item = freed.length === 0
         ? unit
@@ -1123,6 +1144,18 @@ export class InventoryService {
   private getField(item: object, key: string): unknown {
     return (item as Record<string, unknown>)[key];
   }
+}
+
+/**
+ * #848: the movements of a line just created — its copies added, then the
+ * state it was recorded in (a bottle entered already opened or drunk).
+ */
+export function addedMovements(row: StateItem): MovementDraft[] {
+  const intact = { ...row, isOpened: false, fillLevel: null, cigarsLeft: null };
+  const base = { productId: row.productId, itemId: row.id, details: { cellarId: row.cellarId } };
+  const added: MovementDraft = { ...base, kind: 'ADDED', delta: itemUnits(intact), count: row.quantity ?? 1 };
+  const state = stateMovement(intact, row);
+  return [added, ...(state ? [{ ...base, ...state }] : [])];
 }
 
 /** #588: one entry of the bulk edit's history — on a line (`bottleId`), or on the wine for its description. */

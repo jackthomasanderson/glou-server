@@ -18,6 +18,12 @@ Every field of a wine's description can show where its value came from. Every ch
 > [!TIP]
 > In practice, only **CSV import** badges appear: the OCR and enrichment pipelines exist in the data model but are not yet wired to a live source. You may only ever see the CSV badge or no badge at all.
 
+### See the movements of its bottles
+1. In the same drawer, the **Movements** section lists, newest first, every change of the number of bottles (cigars) of the wine or of their price: who made it (a member, or a guest by their name), when, what happened, on which cellar, and the difference ("+6", "−1"). For example "6 bottles added · Garage +6", "2 bottles moved to Kitchen", "1 bottle opened · Kitchen", "Number corrected: 4 → 3 (broken, given away or lost) −1", "Price of 2 bottles: €20 → €25", "Bottle put back with the others", "1 bottle moved to the trash".
+2. Every way of changing the stock is recorded: the form, a label scan, a CSV import, the wishlist, a stock count, the consumption plan, a tasting, a QR/NFC label, a change made offline (once, when it is sent), a guest, the bulk actions and the trash.
+3. The journal started at the update that brought it, with one line per wine: "Update: 9 in the cellar". Nothing before it is rebuilt; the history of earlier changes stays in the **History** section below. A member whose account was deleted is shown as "Deleted member".
+4. Ten movements are shown, **Show all** lists the others. The movements are never deleted by the audit-log clean-up.
+
 ### View the change history
 1. In the same drawer, open the **History** section (only shown once at least one change has been recorded).
 2. It lists the most recent changes (up to 10), each with who made the change, a description of what changed, and the date. It mixes changes to the wine's **description** and the movements of its bottles: "Bottles added", "Number corrected: 6 → 4" (with its reason), "2 bottles moved to Kitchen", "Price of 2 bottles: €20 → €25", "Wines merged", "Number checked".

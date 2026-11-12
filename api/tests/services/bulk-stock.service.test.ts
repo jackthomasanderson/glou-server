@@ -47,6 +47,8 @@ vi.mock('../../src/lib/prisma', () => {
       })),
     },
     cellar: { findUnique: vi.fn(async ({ where }: { where: { id: string } }) => (db.cellars.has(where.id) ? { id: where.id } : null)) },
+    // #848: the movement journal, written with each change.
+    stockMovement: { createMany: vi.fn(async () => ({ count: 0 })) },
     inventoryItem: {
       findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
         live().filter((row) => matches(row, where)).sort(byCreation).map((row) => ({ ...row }))),
@@ -88,6 +90,7 @@ vi.mock('../../src/lib/prisma', () => {
   return { prisma: tx };
 });
 
+import { prisma } from '../../src/lib/prisma';
 import { bulkStockService } from '../../src/services/bulk-stock.service';
 import { AppError } from '../../src/lib/errors';
 import { itemSpend, itemUnits } from '../../src/lib/finished-item';
@@ -261,6 +264,11 @@ describe('bulkStockService.trash (FEAT-111 c2, c4)', () => {
       expect.objectContaining({ column: 1, row: 1, deletedAt: outcome.deletedAt }),
     ]);
     expect(outcome.entries.map((entry) => [entry.action, entry.bottleId])).toContainEqual(['DELETE', 'c-group']);
+    // #848: each line holding bottles leaves the stock in its wine's journal; the finished one held none.
+    const journal = vi.mocked(prisma.stockMovement.createMany).mock.calls.flatMap((call) => (call[0] as { data: Array<{ kind: string; itemId: string; delta: number }> }).data);
+    expect(journal.every((line) => line.kind === 'TRASHED' && line.delta < 0)).toBe(true);
+    expect(journal.reduce((sum, line) => sum - line.delta, 0)).toBe(14);
+    expect(journal.map((line) => line.itemId)).not.toContain('a-drunk');
     const locks = db.order.filter((step) => step.startsWith('lock:'));
     expect(locks).toEqual([`lock:${P1}`, `lock:${P2}`, `lock:${P3}`]);
   });
@@ -281,6 +289,16 @@ describe('bulkStockService.drink (FEAT-111 c3)', () => {
       bottleId: 'two',
       details: expect.objectContaining({ changes: [{ field: 'quantity', from: 2, to: 1 }, { field: 'slot', from: { column: 2, row: 1 }, to: null }] }),
     }));
+  });
+
+  // Review of #982 (remark 6): FEAT-110 tells "the line concerned and the difference" — one line, not N.
+  it('#848: 3 bottles of one line drunk are one movement "3 bouteilles bues", −3', async () => {
+    seed([unit({ id: 'six', productId: P1, quantity: 6 })], [family(P1)]);
+
+    await bulkStockService.drink('u1', { items: [{ productId: P1, count: 3 }] });
+
+    const journal = vi.mocked(prisma.stockMovement.createMany).mock.calls.flatMap((call) => (call[0] as { data: Array<Record<string, unknown>> }).data);
+    expect(journal).toEqual([expect.objectContaining({ productId: P1, itemId: 'six', kind: 'CONSUMED', delta: -3, count: 3, userId: 'u1' })]);
   });
 
   it('c3: 1 of a wine of 6 leaves 5, the wine of one bottle has none left', async () => {

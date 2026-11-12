@@ -22,6 +22,9 @@ test('analytics page renders KPIs, the world map and the garde histogram', async
   await expect(page.getByTestId('kpi-cigar-humidor')).toContainText(String(stats.cigarCount));
   await expect(page.getByTestId('kpi-urgent-degustation')).toContainText(String(stats.urgentDegustationCount));
 
+  // #848: the movement counters say they start at the update that brought the journal.
+  await expect(page.getByTestId('movements-journal-start')).toContainText('journal des mouvements');
+
   // The garde histogram actually rendered its bars, not just "some SVGs
   // exist" (which the sidebar icons alone satisfy).
   if ((stats.gardeHistogram?.length ?? 0) > 0) {

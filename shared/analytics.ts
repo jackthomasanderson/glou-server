@@ -53,6 +53,7 @@ export interface CavePoint {
 }
 
 export interface MovementStats {
+  /** #848: bottles (cigars) added during the period, from the movement journal. */
   added: number;
   /**
    * #838: units consumed during the period — each bottle drunk, each cigar
@@ -60,8 +61,9 @@ export interface MovementStats {
    * Not written-off units, not items moved to the trash.
    */
   consumed: number;
-  /** Items moved to the trash during the period. */
+  /** #848: bottles (cigars) moved to the trash during the period, from the movement journal. */
   deleted: number;
+  /** #848: bottles (cigars) restored from the trash during the period, from the movement journal. */
   restored: number;
 }
 

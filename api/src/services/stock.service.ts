@@ -10,6 +10,8 @@ import { LISTED_PRODUCT_FILTER } from './product.service';
 import type { FieldChange, ItemView, UnitWriteResult } from '../../../shared/product';
 import type { GroupKeyFields } from '../../../shared/units';
 import { placesAgree, placesEqual } from '../../../shared/review';
+import { itemUnits } from '../lib/finished-item';
+import { recordMovements, stateMovement } from './stock-movement.service';
 
 /** A unit row as the extended client reads it at the top level (money columns as numbers). */
 type UnitRecord = NonNullable<Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>>>;
@@ -152,6 +154,11 @@ export async function addCopies(
         ...(extra?.location && lacks(group.location) ? { location: extra.location } : {}),
       },
     });
+    // #848: the copies added, in the wine's journal.
+    await recordMovements(tx, { userId }, [{
+      productId: product.id, itemId: group.id, kind: 'ADDED', count,
+      delta: itemUnits({ ...group, quantity: count }), details: { cellarId: group.cellarId },
+    }]);
     return { unit, from, to: from + count };
   }
   const unit = await tx.inventoryItem.create({
@@ -165,6 +172,14 @@ export async function addCopies(
       ...(fieldSources && Object.keys(fieldSources).length > 0 ? { fieldSources } : {}),
     } as Prisma.InventoryItemUncheckedCreateInput,
   });
+  // #848: the copies added, then the state of an opened one (the import of an exported opened bottle).
+  const intact = { ...unit, isOpened: false, fillLevel: null, cigarsLeft: null };
+  const base = { productId: product.id, itemId: unit.id, details: { cellarId: unit.cellarId } };
+  const opening = stateMovement(intact, unit);
+  await recordMovements(tx, { userId }, [
+    { ...base, kind: 'ADDED', count, delta: itemUnits(intact) },
+    ...(opening ? [{ ...base, ...opening }] : []),
+  ]);
   return { unit, from: null, to: count };
 }
 
@@ -295,11 +310,18 @@ export async function correctQuantityIn(
   const from = group.quantity ?? 1;
   if (input.quantity >= from) throw badRequest('QUANTITY_NOT_LOWER');
   const settled = { needsReview: false, updatedBy: userId };
+  // #848: "Nombre corrigé : 6 → 5 (cassée, offerte ou perdue)", in the wine's journal.
+  const journal = () => recordMovements(tx, { userId }, [{
+    productId: group.productId, itemId, kind: 'CORRECTED', count: from - input.quantity,
+    delta: itemUnits({ ...group, quantity: input.quantity }) - itemUnits(group),
+    details: { cellarId: group.cellarId, from, to: input.quantity, reason: input.reason },
+  }]);
 
   if (input.reason === 'input_error') {
     if (input.quantity < 1) throw badRequest('QUANTITY_BELOW_ONE');
     const freed = await fitTo(input.quantity);
     const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled }, include: UNIT_SLOTS });
+    await journal();
     return {
       result: { data: toUnitView(corrected), changed: [], removedIds: [] },
       productId: group.productId,
@@ -320,6 +342,7 @@ export async function correctQuantityIn(
     // to it, so that putting one back cannot bring it into stock again.
     // In SQL, so that their `updatedAt` (a pending offline edit) stays.
     await tx.$executeRaw`UPDATE "bottles" SET "parentItemId" = NULL WHERE "parentItemId" = ${itemId}`;
+    await journal();
     return {
       result: { data: toUnitView(marked), changed: [], removedIds: [] },
       productId: group.productId,
@@ -331,6 +354,7 @@ export async function correctQuantityIn(
   const freed = await fitTo(input.quantity);
   const corrected = await tx.inventoryItem.update({ where: { id: itemId }, data: { quantity: input.quantity, ...settled }, include: UNIT_SLOTS });
   const writeOff = await tx.inventoryItem.create({ data: writeOffOf(group, userId, from - input.quantity, writtenOffAt), include: UNIT_SLOTS });
+  await journal();
   return {
     result: { data: toUnitView(writeOff), changed: [toUnitView(corrected)], removedIds: [] },
     productId: group.productId,

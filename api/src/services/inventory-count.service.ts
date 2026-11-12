@@ -5,6 +5,7 @@ import { inventoryService } from './inventory.service';
 import { InventoryDraft } from '../schemas/inventory.schema';
 import { IN_STOCK_ITEM_FILTER, isFinishedState, isIntactItem } from '../lib/finished-item';
 import { freeSlots, slotsFreed, type SlotChange } from '../lib/slots';
+import { recordMovements } from './stock-movement.service';
 import { lockFamilies } from '../lib/product-fields';
 import { moveCountEntry } from '../lib/count-entries';
 import { finishUnits } from './stock-state.service';
@@ -818,6 +819,13 @@ async function applyCorrectionsInternal(
         updatedBy: actingUserId,
       },
     });
+    // #848: and in its wine's journal.
+    if (moves) {
+      await recordMovements(tx, { userId: actingUserId }, [{
+        productId: item.productId, itemId: item.id, kind: 'MOVED', delta: 0, count: item.isOpened ? 1 : item.quantity ?? 1,
+        details: { cellarId: item.cellarId, fromCellarId: item.cellarId, toCellarId: session.cellarId },
+      }]);
+    }
     // #588: told in the bottle's history, as every other correction of the closure.
     if (moves) history.push({
       action: 'UPDATE',

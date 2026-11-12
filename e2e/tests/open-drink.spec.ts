@@ -32,10 +32,11 @@ const unitsOf = async (api: APIRequestContext, productId: string) =>
 
 /**
  * The message of a gesture ("1 bouteille ouverte · Annuler"), not the drawer's
- * history, which says the same words since recette #847.
+ * history, which says the same words since recette #847, nor its movement
+ * journal (#848).
  */
 const message = (page: Page, text: string) =>
-  page.getByText(text).and(page.locator(':not([data-testid="family-history"] *)'));
+  page.getByText(text).and(page.locator(':not([data-testid="family-history"] *):not([data-testid="family-movements"] *)'));
 
 /** The drawer of a wine, opened from its link. */
 async function openDrawer(page: Page, productId: string, name: string): Promise<Locator> {

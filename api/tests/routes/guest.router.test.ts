@@ -57,7 +57,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId', () => {
   it('writes the state of the bottle', async () => {
     const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 50 });
     expect(res.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { isOpened: true, fillLevel: 50 }, { guard: expect.any(Function), slotChoice: 'auto' });
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { isOpened: true, fillLevel: 50 }, { guard: expect.any(Function), slotChoice: 'auto', guest: { name: 'Marie' } });
   });
 
   it('answers with the share-redacted item, not the full updated row (#483)', async () => {
@@ -246,7 +246,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     expect((await request(app).patch('/api/guest/tok/inventory/i1').send({ undo: true })).status).toBe(200);
     expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'i1',
       { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, placeAt: { column: 2, row: 3 } },
-      { guard: expect.any(Function), slotChoice: 'auto' });
+      { guard: expect.any(Function), slotChoice: 'auto', guest: { name: 'Marie' } });
   });
 
   it('a bottle opened from a group takes its cell with it: no cell recorded (it comes back with the bottle)', async () => {
@@ -306,7 +306,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     const undone = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
 
     expect(undone.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'sub', { isOpened: true, fillLevel: 60, openedAt: new Date(OPENED_AT), cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto' });
+    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'sub', { isOpened: true, fillLevel: 60, openedAt: new Date(OPENED_AT), cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto', guest: { name: 'Marie' } });
   });
 
   it('still refuses a level on a group of more than one, and closing the opened bottle', async () => {
@@ -335,7 +335,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     const res = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
 
     expect(res.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'sub', { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto' });
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'sub', { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto', guest: { name: 'Marie' } });
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ details: expect.objectContaining({ undoOf: STAMP }) }));
   });
 

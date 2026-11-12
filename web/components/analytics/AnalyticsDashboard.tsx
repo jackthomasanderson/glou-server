@@ -670,8 +670,12 @@ export function AnalyticsDashboard() {
               <SelectItem key="all">{t('analytics.period.all')}</SelectItem>
             </SingleSelect>
           </div>
-          <p className="text-xs text-foreground-500 mt-1 mb-4">
+          <p className="text-xs text-foreground-500 mt-1">
             {t('analytics.movements.scopeHint')}
+          </p>
+          {/* #848: these counters read the movement journal, which has no past before the update. */}
+          <p data-testid="movements-journal-start" className="text-xs text-foreground-500 mb-4">
+            {t('analytics.movements.journalStart')}
           </p>
           {isLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
