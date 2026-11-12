@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma, type BottleCategory } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
@@ -105,6 +105,21 @@ export type UpdateItemResult =
 
 /** A line of a unit's history; `itemId` is the unit itself. */
 export type InventoryHistoryEntry = ProductHistoryEntry;
+
+/** #962: what a permanent deletion from the trash removed — the lines, and the families gone with them. */
+export interface TrashDeletion {
+  itemIds: string[];
+  productIds: string[];
+  /** The wine deleted ("Producer — Name (vintage)"), for the audit log; none when the trash was emptied. */
+  label?: string;
+}
+
+type TrashLabelSource = { producer: string | null; name: string; vintage: number | null };
+const trashLabel = (family: TrashLabelSource) =>
+  [family.producer, family.name].filter(Boolean).join(' — ') + (family.vintage ? ` (${family.vintage})` : '');
+const TRASH_LABEL_SELECT = { producer: true, name: true, vintage: true } as const;
+
+const retentionCutoff = () => new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
 export interface InventoryWithTraceability {
   item: Record<string, unknown>;
@@ -840,18 +855,37 @@ export class InventoryService {
       where: { deletedAt: { lt: cutoff } },
       select: { id: true, productId: true },
     });
-    const result = toPurge.length > 0
-      ? await client.inventoryItem.deleteMany({ where: { id: { in: toPurge.map((item) => item.id) } } })
+    // QP7: families trashed themselves, past the retention.
+    const { count, photoPaths } = await this.deleteTrashedRows(client, toPurge, { deletedAt: { lt: cutoff } });
+    return { count, photoPaths };
+  }
+
+  /**
+   * The one way rows leave the trash for good (#962): the automatic purge
+   * above and an administrator's permanent deletion share it. Deletes the
+   * given units, then the families left without any unit that are either
+   * emptied by this deletion (not in the trash themselves, no tasting —
+   * QP1) or match `trashedFamilies` (in the trash themselves, tastings
+   * deleted with them — QP7). Rows only: the returned photo paths are to be
+   * deleted from disk once the caller's transaction has committed (#183).
+   */
+  private async deleteTrashedRows(
+    client: PrismaClientOrTx,
+    units: { id: string; productId: string }[],
+    trashedFamilies: Prisma.ProductWhereInput | null,
+  ): Promise<{ count: number; photoPaths: string[]; productIds: string[] }> {
+    const result = units.length > 0
+      ? await client.inventoryItem.deleteMany({ where: { id: { in: units.map((item) => item.id) } } })
       : { count: 0 };
 
     const purgedFamilies = await client.product.findMany({
       where: {
         items: { none: {} },
         OR: [
-          // QP1: emptied by this purge, not in the trash themselves, no tasting.
-          { id: { in: [...new Set(toPurge.map((item) => item.productId))] }, deletedAt: null, tastingNotes: { none: {} } },
-          // QP7: trashed themselves, past the retention.
-          { deletedAt: { lt: cutoff } },
+          // QP1: emptied by this deletion, not in the trash themselves, no tasting.
+          { id: { in: [...new Set(units.map((item) => item.productId))] }, deletedAt: null, tastingNotes: { none: {} } },
+          // QP7: trashed themselves.
+          ...(trashedFamilies ? [trashedFamilies] : []),
         ],
       },
       select: { id: true, photoUrl: true, otherPhotoUrls: true },
@@ -866,7 +900,74 @@ export class InventoryService {
     const candidates = purgedFamilies.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]).filter((url): url is string => !!url && url.startsWith(LOCAL_PRODUCT_PHOTO_PREFIX));
     const photos = [...new Set(candidates)];
     const stillReferenced = await this.referencedProductPhotos(client, photos);
-    return { count: result.count, photoPaths: photos.filter((url) => !stillReferenced.has(url)) };
+    return {
+      count: result.count,
+      photoPaths: photos.filter((url) => !stillReferenced.has(url)),
+      productIds: purgedFamilies.map((family) => family.id),
+    };
+  }
+
+  /**
+   * #962: an administrator deletes the trash rows chosen by `select` for
+   * good, in one transaction, then their photos once it has committed.
+   * `select` answers null when the entry is not (or no longer) in the trash.
+   */
+  private async deleteFromTrash(
+    select: (tx: PrismaClientOrTx) => Promise<{ units: { id: string; productId: string }[]; trashedFamilies: Prisma.ProductWhereInput | null; label?: string } | null>,
+  ): Promise<TrashDeletion | null> {
+    const deleted = await prisma.$transaction(async (tx) => {
+      const chosen = await select(tx);
+      if (!chosen) return null;
+      const rows = await this.deleteTrashedRows(tx, chosen.units, chosen.trashedFamilies);
+      return { itemIds: chosen.units.map((unit) => unit.id), productIds: rows.productIds, photoPaths: rows.photoPaths, label: chosen.label };
+    }, { timeout: 60000, maxWait: 10000 });
+    if (!deleted) return null;
+    await this.deletePhotoFiles(deleted.photoPaths);
+    const { itemIds, productIds, label } = deleted;
+    return label === undefined ? { itemIds, productIds } : { itemIds, productIds, label };
+  }
+
+  /** #962: one line of the trash (a bottle, a box, cigars), for good. Null when it is not in the trash. */
+  deleteTrashedItem(id: string): Promise<TrashDeletion | null> {
+    return this.deleteFromTrash(async (tx) => {
+      const unit = await tx.inventoryItem.findFirst({
+        where: { id, deletedAt: { not: null, gte: retentionCutoff() } },
+        select: { id: true, productId: true, product: { select: TRASH_LABEL_SELECT } },
+      });
+      if (!unit) return null;
+      // The locking rule: the family first, then its unit (a restore racing this one).
+      await lockFamily(tx, unit.productId);
+      return { units: [{ id: unit.id, productId: unit.productId }], trashedFamilies: null, label: trashLabel(unit.product) };
+    });
+  }
+
+  /** #962: a wine of the trash with all its bottles in the trash, for good. Null when it is not in the trash. */
+  deleteTrashedProduct(id: string): Promise<TrashDeletion | null> {
+    return this.deleteFromTrash(async (tx) => {
+      const family = await tx.product.findFirst({
+        where: { id, deletedAt: { not: null, gte: retentionCutoff() } },
+        select: { id: true, ...TRASH_LABEL_SELECT },
+      });
+      if (!family) return null;
+      await lockFamily(tx, id);
+      const units = await tx.inventoryItem.findMany({
+        where: { productId: id, deletedAt: { not: null } },
+        select: { id: true, productId: true },
+      });
+      return { units, trashedFamilies: { id, deletedAt: { not: null } }, label: trashLabel(family) };
+    });
+  }
+
+  /** #962: everything in the trash for these categories (a page: wines and bottles, or cigars), for good. */
+  async emptyTrash(categories: BottleCategory[]): Promise<TrashDeletion> {
+    const deleted = await this.deleteFromTrash(async (tx) => {
+      const units = await tx.inventoryItem.findMany({
+        where: { deletedAt: { not: null }, product: { category: { in: categories } } },
+        select: { id: true, productId: true },
+      });
+      return { units, trashedFamilies: { deletedAt: { not: null }, category: { in: categories } } };
+    });
+    return deleted ?? { itemIds: [], productIds: [] };
   }
 
   /**

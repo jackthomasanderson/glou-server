@@ -3,6 +3,7 @@ import { fetchOrNetworkError } from '../network-error';
 import type { BulkStockResult, BulkWinesAction, ProductDescription, UnitWriteResult } from '@shared/product';
 import type { InventoryCategory } from '@shared/inventory';
 import type { Wire } from '@shared/wire';
+import type { TrashDeletion } from '../inventory/client';
 import type { Product, ProductDetailView, ProductItem, ProductListResponse, TrashedProduct } from './types';
 
 /**
@@ -136,6 +137,12 @@ export const productsClient = {
   /** Brings back the wine and the bottles trashed together with it. */
   async restore(id: string): Promise<Product> {
     const { data } = await client.post<Product>(`/products/${encodeURIComponent(id)}/restore`);
+    return data;
+  },
+
+  /** #962 (administrators): a wine of the trash with its bottles, deleted for good. */
+  async deleteFromTrash(id: string): Promise<TrashDeletion> {
+    const { data } = await client.delete<TrashDeletion>(`/products/trash/${encodeURIComponent(id)}`);
     return data;
   },
 

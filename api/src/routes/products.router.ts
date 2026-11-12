@@ -5,7 +5,8 @@ import { isRestorableDescriptionField } from '../../../shared/product';
 import { productService, type UnitSlotChanges } from '../services/product.service';
 import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
-import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { adminMiddleware, authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { logTrashDeletion } from '../lib/trash-audit';
 import { routeParam } from '../lib/http';
 import { badRequest, notFound } from '../lib/errors';
 
@@ -26,6 +27,15 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
 // GET /api/products/trash — families in the trash, with the units trashed together with them.
 router.get('/trash', async (_req: Request, res: Response): Promise<void> => {
   res.json({ data: await productService.listTrash() });
+});
+
+// DELETE /api/products/trash/:id — #962: a wine of the trash with its bottles, for good. Administrators only.
+router.delete('/trash/:id', adminMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const id = routeParam(req.params.id);
+  const deleted = await inventoryService.deleteTrashedProduct(id);
+  logTrashDeletion(req, 'product', deleted, deleted ? {} : { productId: id });
+  if (!deleted) throw notFound('PRODUCT_NOT_IN_TRASH');
+  res.json({ data: { itemIds: deleted.itemIds, productIds: deleted.productIds } });
 });
 
 // GET /api/products/match — FEAT-97: the families of the wine being typed ("Vous avez déjà ce vin").

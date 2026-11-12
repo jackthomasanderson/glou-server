@@ -18,6 +18,7 @@ vi.mock('../src/lib/prisma', () => ({
     },
     product: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -1558,6 +1559,89 @@ describe('InventoryService', () => {
 
       expect(result).toEqual({ count: 0, photoPaths: [] });
       expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // #962: an administrator deletes an entry of the trash for good, or empties
+  // the trash of a page — the same rows and photos as the automatic purge.
+  describe('permanent deletion from the trash (#962)', () => {
+    beforeEach(() => fsUnlink.mockReset());
+
+    it('deletes one trashed line, its emptied family without tastings, and the photos', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce({ id: 'b1', productId: 'p1', product: { producer: 'Domaine A', name: 'Cuvée B', vintage: 2015 } } as never);
+      vi.mocked(prisma.product.findMany)
+        .mockResolvedValueOnce([{ id: 'p1', photoUrl: '/uploads/products/p1.jpg', otherPhotoUrls: [] }] as never)
+        .mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 1 } as never);
+
+      const result = await service.deleteTrashedItem('b1');
+
+      const where = vi.mocked(prisma.inventoryItem.findFirst).mock.calls[0][0]!.where as Record<string, unknown>;
+      expect(where).toMatchObject({ id: 'b1', deletedAt: { not: null, gte: expect.any(Date) } });
+      expect(prisma.inventoryItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['b1'] } } });
+      // Same family rule as the purge: emptied, not trashed itself, no tasting.
+      const familyWhere = vi.mocked(prisma.product.findMany).mock.calls[0][0]!.where as Record<string, unknown>;
+      expect(familyWhere.OR).toEqual([{ id: { in: ['p1'] }, deletedAt: null, tastingNotes: { none: {} } }]);
+      expect(prisma.product.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['p1'] } } });
+      expect(fsUnlink).toHaveBeenCalledWith(expect.stringContaining('/uploads/products/p1.jpg'));
+      expect(result).toEqual({ itemIds: ['b1'], productIds: ['p1'], label: 'Domaine A — Cuvée B (2015)' });
+    });
+
+    it('refuses a line that is not in the trash (null, nothing deleted)', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(null);
+
+      expect(await service.deleteTrashedItem('b1')).toBeNull();
+      expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.product.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('deletes a trashed wine with all its trashed bottles and its tastings', async () => {
+      vi.mocked(prisma.product.findFirst).mockResolvedValueOnce({ id: 'p1', producer: null, name: 'Cuvée B', vintage: null } as never);
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([{ id: 'a', productId: 'p1' }, { id: 'b', productId: 'p1' }] as never);
+      vi.mocked(prisma.product.findMany)
+        .mockResolvedValueOnce([{ id: 'p1', photoUrl: null, otherPhotoUrls: ['/uploads/products/old.jpg'] }] as never)
+        .mockResolvedValueOnce([] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 2 } as never);
+
+      const result = await service.deleteTrashedProduct('p1');
+
+      expect(vi.mocked(prisma.product.findFirst).mock.calls[0][0]!.where)
+        .toMatchObject({ id: 'p1', deletedAt: { not: null, gte: expect.any(Date) } });
+      expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]!.where)
+        .toEqual({ productId: 'p1', deletedAt: { not: null } });
+      const familyWhere = vi.mocked(prisma.product.findMany).mock.calls[0][0]!.where as Record<string, unknown>;
+      expect(familyWhere.OR).toEqual([
+        { id: { in: ['p1'] }, deletedAt: null, tastingNotes: { none: {} } },
+        { id: 'p1', deletedAt: { not: null } },
+      ]);
+      expect(prisma.tastingNote.deleteMany).toHaveBeenCalledWith({ where: { productId: { in: ['p1'] } } });
+      expect(fsUnlink).toHaveBeenCalledWith(expect.stringContaining('/uploads/products/old.jpg'));
+      expect(result).toEqual({ itemIds: ['a', 'b'], productIds: ['p1'], label: 'Cuvée B' });
+    });
+
+    it('refuses a wine that is not in the trash', async () => {
+      vi.mocked(prisma.product.findFirst).mockResolvedValueOnce(null);
+
+      expect(await service.deleteTrashedProduct('p1')).toBeNull();
+      expect(prisma.inventoryItem.deleteMany).not.toHaveBeenCalled();
+      expect(prisma.product.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("empties only the trashed rows of the page's categories", async () => {
+      vi.mocked(prisma.inventoryItem.findMany).mockResolvedValueOnce([{ id: 'c1', productId: 'pc' }] as never);
+      vi.mocked(prisma.product.findMany).mockResolvedValueOnce([{ id: 'pc', photoUrl: null, otherPhotoUrls: [] }] as never);
+      vi.mocked(prisma.inventoryItem.deleteMany).mockResolvedValue({ count: 1 } as never);
+
+      const result = await service.emptyTrash(['cigar']);
+
+      expect(vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0]!.where)
+        .toEqual({ deletedAt: { not: null }, product: { category: { in: ['cigar'] } } });
+      const familyWhere = vi.mocked(prisma.product.findMany).mock.calls[0][0]!.where as Record<string, unknown>;
+      expect(familyWhere.OR).toEqual([
+        { id: { in: ['pc'] }, deletedAt: null, tastingNotes: { none: {} } },
+        { deletedAt: { not: null }, category: { in: ['cigar'] } },
+      ]);
+      expect(result).toEqual({ itemIds: ['c1'], productIds: ['pc'] });
     });
   });
 

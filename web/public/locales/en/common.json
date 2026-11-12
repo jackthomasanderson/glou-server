@@ -511,6 +511,12 @@
       "restoreError": "Could not restore this wine",
       "restoreError_spirit": "Could not restore this spirit",
       "restoreError_cigar": "Could not restore this cigar"
+    },
+    "trash": {
+      "deleteSuccess": "Deleted permanently",
+      "deleteError": "Could not delete permanently",
+      "emptySuccess": "Trash emptied",
+      "emptyError": "Could not empty the trash"
     }
   },
   "auth": {
@@ -1086,7 +1092,8 @@
         "TWO_FACTOR_OFF": "Two-factor authentication disabled",
         "ADMIN_PASSWORD_RESET": "Password reset by an administrator",
         "SHARE_CREATE": "Guest link created",
-        "SHARE_REVOKE": "Guest link revoked"
+        "SHARE_REVOKE": "Guest link revoked",
+        "TRASH_DELETE": "Deleted permanently from the trash"
       },
       "statuses": {
         "success": "Succeeded",
@@ -2929,7 +2936,23 @@
       "lineCount_box_other": "{{count}} boxes",
       "lineCount_cigar_one": "{{count}} cigar",
       "lineCount_cigar_other": "{{count}} cigars",
-      "restore": "Restore"
+      "restore": "Restore",
+      "deleteForever": "Delete permanently",
+      "deleteForeverTitle": "Delete permanently?",
+      "deleteForeverConfirm": "Delete {{name}} permanently?",
+      "deleteForeverConfirmBottles_one": "Delete {{name}} and its bottle permanently?",
+      "deleteForeverConfirmBottles_other": "Delete {{name}} and its {{count}} bottles permanently?",
+      "deleteForeverConfirmCigars_one": "Delete {{name}} and its cigar permanently?",
+      "deleteForeverConfirmCigars_other": "Delete {{name}} and its {{count}} cigars permanently?",
+      "deleteForeverLine": "Delete {{what}} of {{name}} permanently?",
+      "deleteForeverWineNote": "Its photos and tastings will be erased too. This cannot be undone.",
+      "irreversible": "This cannot be undone.",
+      "empty": "Empty the trash",
+      "emptyTitle": "Empty the trash?",
+      "emptyConfirm_one": "The entry in this trash will be deleted permanently.",
+      "emptyConfirm_other": "The {{count}} entries in this trash will be deleted permanently.",
+      "autoDelete_one": "The trash empties itself: anything put in it is deleted permanently after {{count}} day.",
+      "autoDelete_other": "The trash empties itself: anything put in it is deleted permanently after {{count}} days."
     },
     "selectWine": "Select {{name}}",
     "bulkSummary": "{{wines}}, {{bottles}}",
