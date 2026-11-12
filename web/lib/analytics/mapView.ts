@@ -52,7 +52,8 @@ function constrain(center: [number, number], zoom: number, projector: MapProject
   return { center: lngLat ?? WORLD_VIEW.center, zoom };
 }
 
-function constrainView(view: MapView, projector: MapProjector): MapView {
+/** The same view, pulled back inside the world when it shows past its edge (e.g. after a resize). */
+export function constrainView(view: MapView, projector: MapProjector): MapView {
   const projected = projector.project(view.center);
   if (!projected) return WORLD_VIEW;
   return constrain(projected, view.zoom, projector);
@@ -132,6 +133,60 @@ export function clusterMarkers<T extends ClusterItem>(items: T[], zoom: number):
     }
   }
   return clusters;
+}
+
+/** Room left between two spread markers, in pixels. */
+const SPREAD_GAP_PX = 2;
+
+/** A marker drawn on its own, moved by (dx, dy) screen pixels from its place when spread. */
+export interface LaidOutMarker<T extends ClusterItem> {
+  item: T;
+  dx: number;
+  dy: number;
+}
+
+/**
+ * Overlapping markers spread on a circle around their centre, in the order
+ * they sit around it, each far enough from its neighbours to be hovered and
+ * selected on its own: what the map shows where zooming cannot part them.
+ */
+function spread<T extends ClusterItem>(members: T[], zoom: number): LaidOutMarker<T>[] {
+  const cx = members.reduce((sum, m) => sum + m.x, 0) / members.length;
+  const cy = members.reduce((sum, m) => sum + m.y, 0) / members.length;
+  const largest = Math.max(...members.map((m) => markerRadius(m.count)));
+  const ring = (largest + SPREAD_GAP_PX / 2) / Math.sin(Math.PI / members.length);
+  const ordered = members.map((item, index) => ({ item, index, angle: Math.atan2(item.y - cy, item.x - cx) }))
+    // Markers at the very same point share one angle: their order breaks the tie.
+    .sort((a, b) => a.angle - b.angle || a.index - b.index);
+  return ordered.map(({ item }, i) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * i) / members.length;
+    return {
+      item,
+      dx: (cx - item.x) * zoom + ring * Math.cos(angle),
+      dy: (cy - item.y) * zoom + ring * Math.sin(angle),
+    };
+  });
+}
+
+/**
+ * What the map draws at this zoom: below the maximum, overlapping markers form
+ * groups (selecting one zooms in to part them); at the maximum zoom, where
+ * zooming cannot part them any more, there is no group: overlapping markers
+ * are spread around their centre, so every region stays selectable.
+ */
+export function layoutMarkers<T extends ClusterItem>(items: T[], zoom: number): {
+  groups: MarkerCluster<T>[];
+  markers: LaidOutMarker<T>[];
+} {
+  const atMaximum = zoom >= MAP_MAX_ZOOM - 1e-6;
+  const groups: MarkerCluster<T>[] = [];
+  const markers: LaidOutMarker<T>[] = [];
+  for (const cluster of clusterMarkers(items, zoom)) {
+    if (cluster.members.length === 1) markers.push({ item: cluster.members[0], dx: 0, dy: 0 });
+    else if (atMaximum) markers.push(...spread(cluster.members, zoom));
+    else groups.push(cluster);
+  }
+  return { groups, markers };
 }
 
 /** The colour carrying the most bottles (first met on a tie): a group's colour in the current view. */

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Button, Chip } from '@heroui/react';
 import { Filter, MapPin, X } from 'lucide-react';
@@ -113,18 +113,25 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
     setIsPanelOpen(false);
   }, []);
   const showPanel = isFullscreen && isPanelOpen && selectedRegion !== null;
+  // Closing the list gives the focus back to the region list, the keyboard way
+  // to choose a region (a marker on the map cannot take the focus).
+  const regionSelectRef = useRef<HTMLDivElement>(null);
+  const closePanel = useCallback(() => {
+    setIsPanelOpen(false);
+    regionSelectRef.current?.querySelector<HTMLElement>('[data-slot="trigger"], button')?.focus();
+  }, []);
 
   // Escape closes, in order, the wine drawer (it does so itself), the list, then full screen.
   useEffect(() => {
     if (!isFullscreen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape' || event.defaultPrevented || viewingProduct) return;
-      if (showPanel) setIsPanelOpen(false);
+      if (showPanel) closePanel();
       else setIsFullscreen(false);
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [isFullscreen, showPanel, viewingProduct]);
+  }, [isFullscreen, showPanel, viewingProduct, closePanel]);
 
   // Nothing scrolls behind the full-screen map.
   useEffect(() => {
@@ -176,6 +183,36 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
   };
 
   const regionList = <MapAssetList products={filteredProducts} onSelect={setViewingProduct} t={t} />;
+
+  // In full screen, the list under the map shows over it, inside the map's
+  // frame so the region list and the view-type switch above stay in reach: a
+  // side panel on a computer (on the left, clear of the zoom controls and of
+  // the wine drawer), a bottom sheet on a phone.
+  const regionPanel = showPanel ? (
+    <section
+      aria-label={`${t('analytics.map.list.title')} — ${selectedRegion}`}
+      className="absolute z-20 inset-x-0 bottom-0 max-h-[60%] rounded-t-2xl border-t md:inset-y-0 md:left-0 md:right-auto md:w-[380px] md:max-w-[50%] md:max-h-none md:rounded-none md:border-t-0 md:border-r border-divider bg-content1 shadow-xl flex flex-col"
+    >
+      <div className="flex items-start justify-between gap-2 px-4 pt-3 pb-2">
+        <div className="min-w-0">
+          <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">{t('analytics.map.list.title')}</p>
+          <p className="text-sm font-semibold truncate">{selectedRegion}</p>
+          <p className="text-xs text-foreground-500">{t('analytics.map.list.itemCount', { count: filteredProducts.length })}</p>
+        </div>
+        <Button
+          isIconOnly
+          size="sm"
+          variant="light"
+          aria-label={t('analytics.map.fullscreen.closeList')}
+          title={t('analytics.map.fullscreen.closeList')}
+          onPress={closePanel}
+        >
+          <X size={16} />
+        </Button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3">{regionList}</div>
+    </section>
+  ) : null;
 
   return (
     <div className="flex gap-5 items-start">
@@ -239,13 +276,14 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
           onKeyDown={isFullscreen ? keepFocusInside : undefined}
         >
           {isFullscreen && (
-            <MapRegionSelect
-              regions={availableRegions}
-              selectedRegion={selectedRegion}
-              onRegionChange={handleRegionPick}
-              t={t}
-              className="max-w-xs"
-            />
+            <div ref={regionSelectRef} className="max-w-xs">
+              <MapRegionSelect
+                regions={availableRegions}
+                selectedRegion={selectedRegion}
+                onRegionChange={handleRegionPick}
+                t={t}
+              />
+            </div>
           )}
           <WorldHeatmap
             regionCategoryBreakdown={filteredRegionCategoryBreakdown}
@@ -255,36 +293,9 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
             focusRequest={focusRequest}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
+            mapOverlay={regionPanel}
             t={t}
           />
-          {/* The list under the map, over it: a side panel on a computer (on
-              the left, clear of the zoom controls and of the wine drawer), a
-              bottom sheet on a phone. */}
-          {showPanel && (
-            <section
-              aria-label={`${t('analytics.map.list.title')} — ${selectedRegion}`}
-              className="absolute z-20 inset-x-0 bottom-0 max-h-[60%] rounded-t-2xl border-t md:inset-y-0 md:left-0 md:right-auto md:w-[380px] md:max-h-none md:rounded-none md:border-t-0 md:border-r border-divider bg-content1 shadow-xl flex flex-col"
-            >
-              <div className="flex items-start justify-between gap-2 px-4 pt-3 pb-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">{t('analytics.map.list.title')}</p>
-                  <p className="text-sm font-semibold truncate">{selectedRegion}</p>
-                  <p className="text-xs text-foreground-500">{t('analytics.map.list.itemCount', { count: filteredProducts.length })}</p>
-                </div>
-                <Button
-                  isIconOnly
-                  size="sm"
-                  variant="light"
-                  aria-label={t('analytics.map.fullscreen.closeList')}
-                  title={t('analytics.map.fullscreen.closeList')}
-                  onPress={() => setIsPanelOpen(false)}
-                >
-                  <X size={16} />
-                </Button>
-              </div>
-              <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3">{regionList}</div>
-            </section>
-          )}
         </div>
 
         {selectedRegion && (

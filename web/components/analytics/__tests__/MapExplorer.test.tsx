@@ -15,6 +15,7 @@ vi.mock('next/dynamic', () => ({
     onToggleFullscreen?: () => void;
     onRegionClick?: (region: string) => void;
     focusRequest?: { region: string; nonce: number } | null;
+    mapOverlay?: ReactNode;
   }) {
     return (
       <div data-testid="map-stand-in" data-fullscreen={String(!!props.isFullscreen)}>
@@ -23,6 +24,8 @@ vi.mock('next/dynamic', () => ({
         </button>
         <button type="button" onClick={() => props.onRegionClick?.('Bordeaux')}>marker Bordeaux</button>
         <button type="button" onClick={() => props.onRegionClick?.('Beaujolais')}>marker Beaujolais</button>
+        <button type="button">view type switch</button>
+        <div data-testid="map-area">{props.mapOverlay}</div>
         <span data-testid="focus-request">{props.focusRequest ? `${props.focusRequest.region}#${props.focusRequest.nonce}` : 'none'}</span>
       </div>
     );
@@ -163,6 +166,39 @@ describe('MapExplorer full screen (FEAT-114)', () => {
     fireEvent.click(screen.getByText('full screen'));
     fireEvent.click(within(fullScreen()!).getByText('choose Beaujolais'));
     expect(within(panel()!).getByText('Morgon Beaujolais')).toBeInTheDocument();
+  });
+});
+
+// Review of #993: the panel covered the region list and the view-type switch,
+// and closing it dropped the focus on the page body.
+describe('MapExplorer full-screen panel placement and focus', () => {
+  it('opens the list inside the map area, clear of the region list and the view-type switch', () => {
+    mount();
+    fireEvent.click(screen.getByText('full screen'));
+    fireEvent.click(screen.getByText('marker Bordeaux'));
+    const mapArea = screen.getByTestId('map-area');
+    expect(mapArea).toContainElement(panel());
+    expect(mapArea).not.toContainElement(within(fullScreen()!).getByTestId('region-select'));
+    expect(mapArea).not.toContainElement(screen.getByText('view type switch'));
+  });
+
+  it('gives the focus back to the region list when the list is closed with its control', () => {
+    mount();
+    fireEvent.click(screen.getByText('full screen'));
+    fireEvent.click(screen.getByText('marker Bordeaux'));
+    const close = screen.getByRole('button', { name: 'analytics.map.fullscreen.closeList' });
+    close.focus();
+    fireEvent.click(close);
+    expect(within(fullScreen()!).getByTestId('region-select')).toContainElement(document.activeElement as HTMLElement);
+  });
+
+  it('gives the focus back to the region list when the list is closed with Escape', () => {
+    mount();
+    fireEvent.click(screen.getByText('full screen'));
+    fireEvent.click(screen.getByText('marker Bordeaux'));
+    escape();
+    expect(panel()).not.toBeInTheDocument();
+    expect(within(fullScreen()!).getByTestId('region-select')).toContainElement(document.activeElement as HTMLElement);
   });
 });
 

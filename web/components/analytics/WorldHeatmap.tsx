@@ -14,7 +14,7 @@ import type { NoLocationStat, RegionCategoryStat } from '@/lib/analytics/types';
 import { CATEGORY_HEX, CATEGORY_ORDER } from '@/lib/analytics/categoryColors';
 import {
   MAP_MAX_ZOOM, MAP_MIN_ZOOM, WORLD_VIEW,
-  acceptsMapGesture, clusterMarkers, fitView, focusView, majorityColor, markerRadius, stepZoom, worldScale,
+  acceptsMapGesture, constrainView, fitView, focusView, layoutMarkers, majorityColor, markerRadius, stepZoom, worldScale,
   type GestureEvent, type LngLat, type MapProjector, type MapView, type MarkerCluster,
 } from '@/lib/analytics/mapView';
 import { InventoryCategory } from '@/lib/inventory/types';
@@ -219,35 +219,42 @@ function MarkerLayer({ markers, onHover, onRegionClick, onClusterClick }: {
     const xy = projection([m.lng, m.lat]);
     return xy ? [{ ...m, x: xy[0], y: xy[1] }] : [];
   }), [markers, projection]);
-  const clusters = clusterMarkers(placed, k);
+  const { groups, markers: singles } = layoutMarkers(placed, k);
 
   return (
     <>
-      {clusters.map((cluster) => {
+      {singles.map(({ item: marker, dx, dy }) => {
+        const isSpread = dx !== 0 || dy !== 0;
+        return (
+          <Marker
+            key={marker.region}
+            coordinates={[marker.lng, marker.lat]}
+            data-testid="map-marker"
+            data-region={marker.region}
+            onMouseEnter={(e) => onHover({ marker, x: e.clientX, y: e.clientY })}
+            onMouseMove={(e) => onHover({ marker, x: e.clientX, y: e.clientY })}
+            onMouseLeave={() => onHover(null)}
+            onClick={() => onRegionClick?.(marker.region)}
+            style={{ cursor: onRegionClick ? 'pointer' : 'default' }}
+          >
+            {/* Spread at the maximum zoom: a thin line ties the marker to its place. */}
+            {isSpread && (
+              <line x1={0} y1={0} x2={dx / k} y2={dy / k} stroke={marker.color} strokeOpacity={0.6} strokeWidth={1 / k} />
+            )}
+            <circle
+              cx={dx / k}
+              cy={dy / k}
+              r={markerRadius(marker.count) / k}
+              fill={marker.color}
+              fillOpacity={marker.fillOpacity}
+              stroke="#ffffff"
+              strokeWidth={1.2 / k}
+            />
+          </Marker>
+        );
+      })}
+      {groups.map((cluster) => {
         const lead = cluster.members[0];
-        if (cluster.members.length === 1) {
-          return (
-            <Marker
-              key={lead.region}
-              coordinates={[lead.lng, lead.lat]}
-              data-testid="map-marker"
-              data-region={lead.region}
-              onMouseEnter={(e) => onHover({ marker: lead, x: e.clientX, y: e.clientY })}
-              onMouseMove={(e) => onHover({ marker: lead, x: e.clientX, y: e.clientY })}
-              onMouseLeave={() => onHover(null)}
-              onClick={() => onRegionClick?.(lead.region)}
-              style={{ cursor: onRegionClick ? 'pointer' : 'default' }}
-            >
-              <circle
-                r={markerRadius(lead.count) / k}
-                fill={lead.color}
-                fillOpacity={lead.fillOpacity}
-                stroke="#ffffff"
-                strokeWidth={1.2 / k}
-              />
-            </Marker>
-          );
-        }
         const color = majorityColor(cluster.members.flatMap((m) => m.split)) ?? lead.color;
         const r = markerRadius(cluster.count);
         return (
@@ -328,13 +335,15 @@ interface WorldHeatmapProps {
   /** FEAT-114: whether the map fills the window, and the control that switches it. */
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
+  /** FEAT-114: drawn over the map, inside its frame (the region list in full screen). */
+  mapOverlay?: React.ReactNode;
   t: (key: string, opts?: Record<string, unknown>) => string;
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function WorldHeatmap({
-  regionCategoryBreakdown, noLocationBreakdown, onlyCategory, onRegionClick, focusRequest, isFullscreen = false, onToggleFullscreen, t,
+  regionCategoryBreakdown, noLocationBreakdown, onlyCategory, onRegionClick, focusRequest, isFullscreen = false, onToggleFullscreen, mapOverlay, t,
 }: WorldHeatmapProps) {
   const [mode, setMode] = useState<MapDisplayMode>('markers');
   const [heatmapType, setHeatmapType] = useState<HeatmapType>('dominant');
@@ -437,6 +446,13 @@ export function WorldHeatmap({
     setIsFramed(true);
     setView(fitView(markerPoints, projector));
   }
+  // A new size (full screen, a phone turned) can leave the view past the
+  // world's edge for the new frame: pulled back now, not by a jump on the next drag.
+  const [clampedFor, setClampedFor] = useState<MapProjector | null>(null);
+  if (isFramed && projector && clampedFor !== projector) {
+    setClampedFor(projector);
+    if (clampedFor) setView(constrainView(view, projector));
+  }
   const [handledFocus, setHandledFocus] = useState<number | null>(null);
   if (focusRequest && projector && isFramed && handledFocus !== focusRequest.nonce) {
     setHandledFocus(focusRequest.nonce);
@@ -467,7 +483,11 @@ export function WorldHeatmap({
   useEffect(() => {
     const el = mapRef.current;
     if (!el) return;
-    const keepOnMap = (event: WheelEvent) => event.preventDefault();
+    const keepOnMap = (event: WheelEvent) => {
+      // The overlay (the region list) scrolls with the wheel like any list.
+      if (event.target instanceof Element && event.target.closest('[data-map-overlay]')) return;
+      event.preventDefault();
+    };
     el.addEventListener('wheel', keepOnMap, { passive: false });
     return () => el.removeEventListener('wheel', keepOnMap);
   }, []);
@@ -609,6 +629,8 @@ export function WorldHeatmap({
             <LocateFixed size={16} />
           </Button>
         </div>
+
+        {mapOverlay && <div data-map-overlay className="contents">{mapOverlay}</div>}
 
         {/* #961: nothing placed — say what places a bottle. */}
         {markers.length === 0 && (

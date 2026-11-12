@@ -175,6 +175,12 @@ test('the world map zooms, recenters and shows full screen without losing its zo
     const [lng, lat] = (await centerOf())!.split(',').map(Number);
     expect(Math.abs(lng - 4.65)).toBeLessThan(1);
     expect(Math.abs(lat - 46.12)).toBeLessThan(1);
+    // At the maximum zoom nothing stays grouped: Bourgogne and Beaujolais are two markers.
+    while (await zoomIn.isEnabled()) await zoomIn.click();
+    await expect(map).toHaveAttribute('data-zoom', '8');
+    await expect(map.getByTestId('map-cluster')).toHaveCount(0);
+    await expect(map.locator('[data-region="Bourgogne"]')).toHaveCount(1);
+    await expect(map.locator('[data-region="Beaujolais"]')).toHaveCount(1);
     const focused = { zoom: await zoomOf(), center: await centerOf() };
 
     // Full screen: same zoom, controls in it.
@@ -189,6 +195,13 @@ test('the world map zooms, recenters and shows full screen without losing its zo
     await fullScreen.locator('button[data-slot="trigger"]', { hasText: 'Région' }).click();
     await page.getByRole('option', { name: 'Bourgogne', exact: true }).click();
     const list = fullScreen.getByRole('region', { name: /Bourgogne/ });
+    await expect(list).toBeVisible();
+    // The region list and the view-type switch stay usable with the list open
+    // (a click on a covered control fails Playwright's actionability check).
+    await fullScreen.getByRole('button', { name: 'Carte de chaleur par type' }).click();
+    await fullScreen.getByRole('button', { name: 'Marqueurs' }).click();
+    await fullScreen.locator('button[data-slot="trigger"]', { hasText: 'Région' }).click();
+    await page.getByRole('option', { name: 'Bourgogne', exact: true }).click();
     await expect(list).toBeVisible();
     await list.getByText(`E2E 989 Volnay ${tag}`).click();
     const drawer = page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });

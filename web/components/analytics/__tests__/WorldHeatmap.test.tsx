@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import type { ComponentProps, ReactNode } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ThemeModeProvider } from '@/hooks/useThemeMode';
@@ -353,5 +353,87 @@ describe('WorldHeatmap zoom and full screen (FEAT-114)', () => {
     await act(async () => {});
     // fireEvent returns false when the event's default action was prevented.
     expect(fireEvent.wheel(map(), { deltaY: 100 })).toBe(false);
+  });
+});
+
+// ─── Review of #993 ──────────────────────────────────────────────────────────
+
+/** Gives the map a measured size, and lets a test resize it as ResizeObserver would. */
+function sizeTheMap(width: number, height: number) {
+  const size = { width, height };
+  let notify: (() => void) | null = null;
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+    const isMap = this.getAttribute('data-testid') === 'world-map';
+    return { x: 0, y: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}), width: isMap ? size.width : 0, height: isMap ? size.height : 0 } as DOMRect;
+  });
+  vi.stubGlobal('ResizeObserver', class {
+    constructor(callback: () => void) { notify = callback; }
+    observe() {}
+    disconnect() {}
+  });
+  return (next: { width: number; height: number }) => {
+    Object.assign(size, next);
+    act(() => notify?.());
+  };
+}
+
+describe('WorldHeatmap at the maximum zoom (review of #993)', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('on a phone, parts Bourgogne and Beaujolais (10+ bottles each) into two selectable markers', async () => {
+    sizeTheMap(358, 380);
+    const onRegionClick = vi.fn();
+    const { container } = mountMap({ regionCategoryBreakdown: [wine('Bourgogne', 12), wine('Beaujolais', 10), wine('Napa Valley', 3)], onRegionClick });
+    await mapReady(container);
+    // Grouped at the opening zoom; selecting the group reaches the maximum zoom.
+    fireEvent.click(container.querySelector('[data-testid="map-cluster"]')!);
+    await waitFor(() => expect(zoomOf()).toBe(8));
+    expect(container.querySelector('[data-testid="map-cluster"]')).toBeNull();
+
+    fireEvent.mouseEnter(container.querySelector('[data-region="Bourgogne"]')!);
+    expect(screen.getByText('Bourgogne')).toBeInTheDocument();
+    fireEvent.click(container.querySelector('[data-region="Beaujolais"]')!);
+    expect(onRegionClick).toHaveBeenCalledWith('Beaujolais');
+    fireEvent.click(container.querySelector('[data-region="Bourgogne"]')!);
+    expect(onRegionClick).toHaveBeenCalledWith('Bourgogne');
+  });
+
+  it('parts two names placed at the very same point', async () => {
+    sizeTheMap(358, 380);
+    const onRegionClick = vi.fn();
+    const { container } = mountMap({ regionCategoryBreakdown: [wine('Bourgogne', 4), wine('Burgundy', 4)], onRegionClick });
+    await mapReady(container);
+    await waitFor(() => expect(zoomOf()).toBe(8));
+    expect(container.querySelectorAll('[data-testid="map-marker"]')).toHaveLength(2);
+    fireEvent.click(container.querySelector('[data-region="Burgundy"]')!);
+    expect(onRegionClick).toHaveBeenCalledWith('Burgundy');
+  });
+
+  it('keeps the view inside the world when the map changes size', async () => {
+    const resize = sizeTheMap(800, 380);
+    const { container, rerenderMap } = mountMap({ regionCategoryBreakdown: [wine('Hawkes Bay'), wine('Bordeaux')] });
+    await mapReady(container);
+    rerenderMap({ focusRequest: { region: 'Hawkes Bay', nonce: 1 } });
+    await waitFor(() => expect(zoomOf()).toBe(6));
+    // Zoom 3 on New Zealand fits the 800 px frame, not the narrower one.
+    fireEvent.click(control('zoomOut'));
+    expect(zoomOf()).toBe(3);
+    const [lngBefore] = centerOf()!.split(',').map(Number);
+    expect(lngBefore).toBeCloseTo(176.87, 1);
+    resize({ width: 358, height: 380 });
+    await waitFor(() => expect(Number(centerOf()!.split(',')[0])).toBeLessThan(lngBefore - 0.5));
+  });
+});
+
+describe('WorldHeatmap overlay (review of #993)', () => {
+  it('draws the overlay inside the map, where the wheel scrolls it instead of zooming', async () => {
+    mountMap({ regionCategoryBreakdown: [wine('Bordeaux')], mapOverlay: <section aria-label="list">rows</section> });
+    await act(async () => {});
+    const overlay = screen.getByRole('region', { name: 'list' });
+    expect(map()).toContainElement(overlay);
+    expect(fireEvent.wheel(overlay, { deltaY: 100 })).toBe(true);
   });
 });

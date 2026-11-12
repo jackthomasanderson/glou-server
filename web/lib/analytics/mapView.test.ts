@@ -7,6 +7,8 @@ import {
   REGION_FOCUS_ZOOM,
   acceptsMapGesture,
   clusterMarkers,
+  constrainView,
+  layoutMarkers,
   fitView,
   focusView,
   majorityColor,
@@ -229,5 +231,60 @@ describe('worldScale', () => {
       expect(5.43 * scale).toBeLessThanOrEqual(w);
       expect(2.64 * scale).toBeLessThanOrEqual(h);
     }
+  });
+});
+
+// Review of #993: on a phone the whole world is ~360 px wide, so even at the
+// maximum zoom Bourgogne and Beaujolais are ~8 px apart, closer than their
+// markers. At the maximum zoom nothing is grouped any more: overlapping
+// markers are spread around their centre, each one its own marker.
+describe('layoutMarkers (groups below the maximum zoom, spread at it)', () => {
+  const PHONE_PX_PER_DEGREE = (worldScale(358, 380) * Math.PI) / 180;
+  const at = (id: string, [lng, lat]: LngLat, count: number) => ({ id, x: lng * PHONE_PX_PER_DEGREE, y: -lat * PHONE_PX_PER_DEGREE, count });
+  const burgundy = [at('Bourgogne', BOURGOGNE, 12), at('Beaujolais', BEAUJOLAIS, 10), at('Rome', ROME, 3)];
+  const screen = (m: { item: { x: number; y: number }; dx: number; dy: number }, zoom: number) =>
+    [m.item.x * zoom + m.dx, m.item.y * zoom + m.dy];
+
+  it('groups Bourgogne and Beaujolais below the maximum zoom on a phone', () => {
+    const layout = layoutMarkers(burgundy, 4);
+    expect(layout.groups.map((g) => g.members.map((m) => m.id).sort())).toEqual([['Beaujolais', 'Bourgogne']]);
+    expect(layout.markers.map((m) => m.item.id)).toEqual(['Rome']);
+  });
+
+  it('draws them as two markers that do not overlap at the maximum zoom on a phone, 10+ bottles each', () => {
+    const layout = layoutMarkers(burgundy, MAP_MAX_ZOOM);
+    expect(layout.groups).toEqual([]);
+    expect(layout.markers.map((m) => m.item.id).sort()).toEqual(['Beaujolais', 'Bourgogne', 'Rome']);
+    const [a, b] = ['Bourgogne', 'Beaujolais'].map((id) => layout.markers.find((m) => m.item.id === id)!);
+    const [ax, ay] = screen(a, MAP_MAX_ZOOM);
+    const [bx, by] = screen(b, MAP_MAX_ZOOM);
+    expect(Math.hypot(ax - bx, ay - by)).toBeGreaterThanOrEqual(markerRadius(12) + markerRadius(10));
+  });
+
+  it('spreads two names placed at the very same point (Bourgogne and Burgundy)', () => {
+    const same = [at('Bourgogne', BOURGOGNE, 4), at('Burgundy', BOURGOGNE, 4)];
+    const layout = layoutMarkers(same, MAP_MAX_ZOOM);
+    expect(layout.markers).toHaveLength(2);
+    const [[ax, ay], [bx, by]] = layout.markers.map((m) => screen(m, MAP_MAX_ZOOM));
+    expect(Math.hypot(ax - bx, ay - by)).toBeGreaterThanOrEqual(2 * markerRadius(4));
+  });
+
+  it('leaves a lone marker where it is', () => {
+    const layout = layoutMarkers([at('Rome', ROME, 3)], MAP_MAX_ZOOM);
+    expect(layout.markers).toEqual([{ item: expect.objectContaining({ id: 'Rome' }), dx: 0, dy: 0 }]);
+  });
+});
+
+describe('constrainView (after the map changes size)', () => {
+  it('pulls back a view that would show past the edge of the world', () => {
+    const view = constrainView({ center: [175, 15], zoom: 2 }, projector);
+    const [x] = projector.project(view.center)!;
+    expect(x).toBeCloseTo(W - W / 4, 6);
+  });
+
+  it('leaves a view that fits unchanged', () => {
+    const view = constrainView({ center: BOURGOGNE, zoom: 4 }, projector);
+    expect(view.center[0]).toBeCloseTo(BOURGOGNE[0], 6);
+    expect(view.center[1]).toBeCloseTo(BOURGOGNE[1], 6);
   });
 });
