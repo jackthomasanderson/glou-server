@@ -436,6 +436,8 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@index([productId])
+  // #588: a bottle's history, newest first (the drawer, "Restore this value").
+  @@index([bottleId, createdAt])
   @@map("audit_logs")
 }
 

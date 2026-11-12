@@ -661,8 +661,12 @@ export class InventoryService {
     userId: string,
     ids: string[],
     patch: InventoryPatch,
-    /** FEAT-93: filled with the cells each unit gave up, for its history. */
-    slotChanges: UnitSlotChanges[] = [],
+    /**
+     * #588: filled with one history entry per line changed (its fields, the
+     * cells it gave up — FEAT-93) and one per wine whose description changed,
+     * logged by the route once the transaction went through.
+     */
+    history: BulkEditEntry[] = [],
   ): Promise<number> {
     const rows = await prisma.inventoryItem.findMany({
       where: { id: { in: ids }, deletedAt: null },
@@ -706,8 +710,11 @@ export class InventoryService {
               unitPatch: { ids, columns: unitPatch },
             })
             : null;
-          slotChanges.push(...(family?.unitSlotChanges ?? []));
           const changed = (family?.changes.length ?? 0) > 0;
+          if (changed) history.push({ action: 'UPDATE', productId: row.productId, details: { bulk: true, changes: family!.changes } });
+          for (const unit of family?.unitSlotChanges ?? []) {
+            history.push({ action: 'UPDATE', bottleId: unit.itemId, productId: row.productId, details: { bulk: true, changes: unit.changes } });
+          }
           familyChanged.set(row.productId, changed);
         }
         const changedEntries = Object.entries(unitPatch).filter(
@@ -732,7 +739,17 @@ export class InventoryService {
             where: { id: item.id },
             data: { ...others, updatedAt: new Date(), updatedBy: userId },
           });
-          await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
+          if (Object.keys(others).length > 0) {
+            history.push({ action: 'UPDATE', bottleId: item.id, productId: row.productId, details: { bulk: true, changes: fieldChanges(fresh, others) } });
+          }
+          const split = await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
+          // As the bulk move does (bulk-stock.service.ts): each line the move wrote.
+          for (const { itemId, ...entry } of split.entries) {
+            history.push({
+              action: 'MOVE_UNITS', bottleId: itemId, productId: row.productId,
+              details: { count: split.count, cellarId: { from: split.change.from, to: split.change.to }, ...entry, bulk: true },
+            });
+          }
           updatedCount++;
           continue;
         }
@@ -747,7 +764,10 @@ export class InventoryService {
           ...(changed.cellarId !== undefined && changed.cellarId !== fresh.cellarId ? await freeSlots(tx, item.id) : []),
           ...await fitSlotsTo(tx, item.id, { ...fresh, ...changed } as typeof fresh, unitKind(familyPatch.category ?? row.product.category)),
         ];
-        if (freed.length > 0) slotChanges.push({ itemId: item.id, changes: slotsFreed(freed) });
+        history.push({
+          action: 'UPDATE', bottleId: item.id, productId: row.productId,
+          details: { bulk: true, changes: [...fieldChanges(fresh, changed), ...slotsFreed(freed)] },
+        });
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
@@ -1100,6 +1120,21 @@ export class InventoryService {
   private getField(item: object, key: string): unknown {
     return (item as Record<string, unknown>)[key];
   }
+}
+
+/** #588: one entry of the bulk edit's history — on a line (`bottleId`), or on the wine for its description. */
+export interface BulkEditEntry {
+  action: 'UPDATE' | 'MOVE_UNITS';
+  bottleId?: string;
+  productId: string;
+  details: { bulk: true; changes?: FieldChange[] } & Record<string, unknown>;
+}
+
+/** The columns of `patch` that differ from `row`, as the history shows them. */
+function fieldChanges(row: Record<string, unknown>, patch: Record<string, unknown>): FieldChange[] {
+  return Object.entries(patch)
+    .filter(([field, value]) => JSON.stringify(row[field] ?? null) !== JSON.stringify(value ?? null))
+    .map(([field, value]) => ({ field, from: row[field] ?? null, to: value }));
 }
 
 /**

@@ -3,10 +3,9 @@ import { ZodError } from 'zod';
 import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema, emptyTrashSchema } from '../schemas/inventory.schema';
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
 import { distinctFromSchema } from '../schemas/product.schema';
-import { inventoryService } from '../services/inventory.service';
+import { inventoryService, type BulkEditEntry } from '../services/inventory.service';
 import { inventoryExportService } from '../services/inventory-export.service';
 import { scanService } from '../services/scan.service';
-import type { UnitSlotChanges } from '../services/product.service';
 import { auditLog } from '../services/audit.service';
 import { adminMiddleware, authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { logTrashDeletion } from '../lib/trash-audit';
@@ -131,13 +130,11 @@ router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const { ids, patch: validatedPatch } = bulkUpdateSchema.parse(req.body);
-    const slotChanges: UnitSlotChanges[] = [];
-    const count = await inventoryService.bulkUpdate(req.userId, ids, validatedPatch, slotChanges);
+    const history: BulkEditEntry[] = [];
+    const count = await inventoryService.bulkUpdate(req.userId, ids, validatedPatch, history);
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, details: { count, bulk: true } });
-    // FEAT-93: each bottle that gave up cells says which, in its own history.
-    for (const { itemId, changes } of slotChanges) {
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: itemId, details: { changes, bulk: true } });
-    }
+    // #588: each line changed, and each wine whose description changed, in its own history.
+    for (const entry of history) void auditLog({ userId: req.userId, status: 'success', ip, ...entry });
     res.json({ data: { updatedCount: count } });
   } catch (error) {
     if (error instanceof AppError) {

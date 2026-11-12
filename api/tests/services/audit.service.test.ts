@@ -117,6 +117,26 @@ describe('purgeOldAuditLogs', () => {
     expect(count).toBe(1);
     expect(prisma.auditLog.deleteMany).not.toHaveBeenCalled();
   });
+
+  it('keeps the business history of bottles and wines, whatever the retention (#588)', async () => {
+    vi.mocked(prisma.auditLog.deleteMany).mockResolvedValue({ count: 0 } as never);
+
+    await purgeOldAuditLogs(1);
+
+    const { where } = vi.mocked(prisma.auditLog.deleteMany).mock.calls[0]![0] as {
+      where: { createdAt: unknown; NOT: { status: string; action: { in: string[] }; OR: unknown[] } };
+    };
+    expect(where.NOT.status).toBe('success');
+    expect(where.NOT.OR).toEqual([{ bottleId: { not: null } }, { productId: { not: null } }]);
+    // Decision of 2026-11-12: field edits, restores and guest moves, and the
+    // per-line entries of bulk actions (moves, trash) — every action the
+    // drawer's history reads.
+    expect(where.NOT.action.in).toEqual(expect.arrayContaining([
+      'CREATE', 'UPDATE', 'RESTORE', 'RESTORE_FIELD', 'GUEST_UPDATE', 'MOVE_UNITS', 'DELETE',
+    ]));
+    // A sign-in or an admin action is a security trace: still purged.
+    expect(where.NOT.action.in).not.toContain('LOGIN');
+  });
 });
 
 describe('readFieldHistory', () => {

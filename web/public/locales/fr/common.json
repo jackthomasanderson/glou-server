@@ -2252,7 +2252,7 @@
         "guestShareRetentionDays": "Partages invités expirés (jours)"
       },
       "hints": {
-        "logRetentionDays": "Durée de conservation des entrées du journal d'audit avant suppression définitive.",
+        "logRetentionDays": "Durée de conservation des entrées du journal d'audit avant suppression définitive. L'historique de chaque vin et de chaque bouteille est toujours conservé.",
         "sessionRetentionDays": "Délai après expiration ou révocation avant suppression définitive des sessions et appareils de confiance.",
         "guestShareRetentionDays": "Délai après expiration ou révocation avant suppression définitive des partages invités."
       },

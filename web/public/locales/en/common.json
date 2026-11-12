@@ -2250,7 +2250,7 @@
         "guestShareRetentionDays": "Expired guest shares (days)"
       },
       "hints": {
-        "logRetentionDays": "How long audit log entries are kept before permanent deletion.",
+        "logRetentionDays": "How long audit log entries are kept before permanent deletion. The history of each wine and bottle is always kept.",
         "sessionRetentionDays": "Delay after expiration or revocation before sessions and trusted devices are permanently deleted.",
         "guestShareRetentionDays": "Delay after expiration or revocation before guest shares are permanently deleted."
       },

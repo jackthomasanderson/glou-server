@@ -49,7 +49,27 @@ export async function auditLog(entry: AuditEntry): Promise<void> {
 }
 
 /**
- * Purge audit logs older than N days (default: 90).
+ * The actions that make up the field history of a unit or a family (FEAT-05),
+ * #471: copies added and numbers corrected included (FEAT-92 c3), merges
+ * and guessed numbers confirmed too (FEAT-102), part of a group moved or
+ * repriced as well (FEAT-98, point 57).
+ */
+const FIELD_HISTORY_ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'RESTORE_FIELD', 'GUEST_UPDATE', 'ADD_UNITS', 'CORRECT_QUANTITY', 'MERGE_PRODUCTS', 'REVIEW_OK', 'MOVE_UNITS', 'REPRICE_UNITS'];
+
+/**
+ * #588: the rows of a bottle's or a wine's history — what the drawer shows
+ * and what "Restore this value" reads. Business history, not a security
+ * trace: the retention setting never purges them.
+ */
+const BUSINESS_HISTORY: Prisma.AuditLogWhereInput = {
+  status: 'success',
+  action: { in: FIELD_HISTORY_ACTIONS },
+  OR: [{ bottleId: { not: null } }, { productId: { not: null } }],
+};
+
+/**
+ * Purge audit logs older than N days (default: 90), except the business
+ * history of bottles and wines (#588, {@link BUSINESS_HISTORY}).
  * Called on startup and by the scheduled/manual retention cleanup (FEAT-39).
  * Accepts an optional Prisma transaction client so it can participate in a
  * larger `$transaction` (see MaintenanceService.runRetentionCleanup).
@@ -60,18 +80,10 @@ export async function purgeOldAuditLogs(
 ): Promise<number> {
   const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const result = await client.auditLog.deleteMany({
-    where: { createdAt: { lt: cutoff } },
+    where: { createdAt: { lt: cutoff }, NOT: BUSINESS_HISTORY },
   });
   return result.count;
 }
-
-/**
- * The actions that make up the field history of a unit or a family (FEAT-05),
- * #471: copies added and numbers corrected included (FEAT-92 c3), merges
- * and guessed numbers confirmed too (FEAT-102), part of a group moved or
- * repriced as well (FEAT-98, point 57).
- */
-const FIELD_HISTORY_ACTIONS = ['CREATE', 'UPDATE', 'DELETE', 'RESTORE', 'RESTORE_FIELD', 'GUEST_UPDATE', 'ADD_UNITS', 'CORRECT_QUANTITY', 'MERGE_PRODUCTS', 'REVIEW_OK', 'MOVE_UNITS', 'REPRICE_UNITS'];
 
 const isCorrectionReason = (value: unknown): value is CorrectionReason =>
   (CORRECTION_REASONS as readonly unknown[]).includes(value);

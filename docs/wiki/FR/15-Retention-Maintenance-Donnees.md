@@ -12,7 +12,7 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 ### Configurer les durées de rétention
 1. Allez dans **Admin → Configuration système → Données**.
 2. Renseignez les trois champs (en jours, 1 à 3650) :
-   - **Rétention des logs d'audit** : défaut `90`.
+   - **Rétention des logs d'audit** : défaut `90`. S'applique aux traces de sécurité (connexions, actions d'administration, requêtes en échec ou refusées). L'historique de chaque vin et de chaque bouteille est conservé quelle que soit cette valeur, voir [Ce que la purge conserve](#ce-que-la-purge-conserve).
    - **Rétention des sessions** : défaut `30`. S'applique aux sessions expirées/révoquées et aux appareils de confiance.
    - **Rétention des invitations / partages invités** : défaut `30`. S'applique aux partages invités expirés ou révoqués.
 3. Cliquez sur **Enregistrer**. Un délai plus court que celui enregistré se confirme avec votre mot de passe, plus votre code si votre compte a la double authentification : il supprime des données au prochain nettoyage, entrées du journal d'audit comprises, donc une session volée seule ne peut pas effacer les traces. Un délai plus long ne demande aucune confirmation.
@@ -31,6 +31,11 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 > [!TIP]
 > La tâche automatique s'exécute chaque jour à 03h00 dans le fuseau horaire de l'instance (`TZ`, voir [Configuration](./02-Configuration.md)) et aussi une fois à chaque démarrage du serveur : un redéploiement ou un redémarrage de conteneur ne laisse donc pas de données obsolètes jusqu'à 24h.
 
+### Ce que la purge conserve
+Le journal d'audit contient aussi l'historique affiché dans le tiroir d'un vin : qui a modifié quel champ, les bouteilles ajoutées, déplacées, changées de prix ou dont le nombre a été corrigé, et les valeurs que **Restaurer** remet. Cet historique est une donnée métier, pas une trace de sécurité : la purge ne le supprime jamais, quelle que soit la **rétention des logs d'audit** :
+- conservé : toute entrée réussie liée à un vin ou à une bouteille (création, modification, restauration, valeur restaurée, changement fait par un invité, bouteilles ajoutées, déplacées, changées de prix, nombre corrigé, vins regroupés, mise à la corbeille), y compris les entrées par bouteille des actions groupées et de la clôture d'un inventaire ;
+- purgé au-delà de la rétention : connexions et autres événements de compte, actions d'administration, requêtes en échec ou refusées, et la ligne de résumé d'une modification groupée (chaque bouteille modifiée garde sa propre entrée).
+
 > [!CAUTION]
 > Cet onglet ne supprime que des données **déjà expirées ou révoquées** (vieux logs, sessions mortes, invitations mortes). Elle n'a aucun rapport avec la carte **Supprimer toutes les données** en bas du même onglet, qui efface toutes les données métier (caves, bouteilles, dégustations) après saisie d'un mot de confirmation.
 
@@ -39,6 +44,6 @@ Définissez combien de temps Glou conserve les logs d'audit, les sessions expir�
 | Erreur / Comportement | Solution |
 | :--- | :--- |
 | **Une exécution affiche un échec** | Ouvrez l'entrée pour lire le message d'erreur enregistré. La tâche ne fait jamais planter le serveur en cas d'échec : elle enregistre `success: false` et réessaie à la prochaine exécution planifiée. |
-| **Mes logs d'audit ont disparu plus tôt que prévu** | Vérifiez la **rétention des logs d'audit** : les logs plus anciens que cette valeur sont supprimés définitivement à chaque exécution (planifiée ou manuelle), pas archivés ailleurs. |
+| **Mes logs d'audit ont disparu plus tôt que prévu** | Vérifiez la **rétention des logs d'audit** : les logs plus anciens que cette valeur sont supprimés définitivement à chaque exécution (planifiée ou manuelle), pas archivés ailleurs. L'historique des vins et des bouteilles n'est pas concerné (voir [Ce que la purge conserve](#ce-que-la-purge-conserve)). |
 | **Exécuter maintenant affiche "0 supprimé"** | Rien n'avait encore dépassé sa fenêtre de rétention. C'est normal sur une instance récente ou juste après une exécution précédente. |
 | **J'ai baissé une valeur de rétention mais les anciennes données sont toujours là** | Le changement ne s'applique qu'à la prochaine exécution (planifiée ou manuelle). Cliquez sur **Exécuter maintenant** pour l'appliquer immédiatement. |
