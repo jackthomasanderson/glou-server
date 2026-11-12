@@ -54,11 +54,15 @@ const userRow = (name: string) => ({
   createdAt: new Date(), deletionRequestedAt: null, pinHash: null, autoLockDelayMin: null, onboardingCompletedAt: new Date(),
   mustChangePassword: false, backupCodes: [], twoFactorFailedAttempts: 0, twoFactorLockedUntil: null, notifLanguage: null,
 });
-const KNOWN = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'gina', 'hank', 'ivan', 'jade', 'kim', 'liam', 'mona', 'ned', 'olga', 'pia', 'quinn', 'rex'];
+const KNOWN = ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'gina', 'hank', 'ivan', 'jade', 'kim', 'liam', 'mona', 'ned', 'olga', 'pia', 'quinn', 'rex',
+  'sam', 'tina', 'uma', 'vic', 'walt', 'xena', 'yann', 'zoe', 'abel', 'beth', 'cleo'];
 // #980: these accounts have two-factor authentication on. A trusted device
 // only exists on such an account (trusting needs 2FA, turning it off revokes them).
 const WITH_2FA = new Set(['jade', 'kim', 'liam', 'mona', 'olga', 'pia']);
-const accountRow = (name: string) => ({ ...userRow(name), isTwoFactorEnabled: WITH_2FA.has(name) });
+// #988: per-test changes to an account (a new password, 2FA turned on, deactivated).
+type AccountChange = Partial<Omit<ReturnType<typeof userRow>, 'twoFactorSecret' | 'backupCodes'>> & { twoFactorSecret?: string | null; backupCodes?: string[] };
+const changed = new Map<string, AccountChange>();
+const accountRow = (name: string) => ({ ...userRow(name), isTwoFactorEnabled: WITH_2FA.has(name), ...changed.get(name) });
 
 // #980: trusted devices, by the raw token their cookie carries.
 interface DeviceRow { id: string; userId: string; tokenHash: string; revokedAt: Date | null; expiresAt: Date; country: string | null }
@@ -99,8 +103,12 @@ beforeEach(() => {
     const name = KNOWN.find((n) => wanted.includes(n) || wanted.includes(`${n}@example.com`) || args.where.id === `id-${n}`);
     return name ? accountRow(name) : null;
   }) as never);
-  vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) => userRow(args.where.id.replace(/^id-/, ''))) as never);
-  vi.mocked(prisma.user.findUniqueOrThrow).mockImplementation((async (args: { where: { id: string } }) => userRow(args.where.id.replace(/^id-/, ''))) as never);
+  changed.clear();
+  vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) => {
+    const name = args.where.id.replace(/^id-/, '');
+    return KNOWN.includes(name) ? accountRow(name) : null;
+  }) as never);
+  vi.mocked(prisma.user.findUniqueOrThrow).mockImplementation((async (args: { where: { id: string } }) => accountRow(args.where.id.replace(/^id-/, ''))) as never);
   vi.mocked(prisma.user.update).mockImplementation((async (args: { where: { id: string } }) => userRow(args.where.id.replace(/^id-/, ''))) as never);
   vi.mocked(prisma.session.findUnique).mockResolvedValue({ revokedAt: null, expiresAt: new Date(Date.now() + 3_600_000) } as never);
   vi.mocked(prisma.session.update).mockResolvedValue({} as never);
@@ -306,5 +314,157 @@ describe('audit of a locked sign-in identifier (#980)', () => {
     expect((await signIn('no-such-member', 'x')).status).toBe(429);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(lockAudits()).toHaveLength(0);
+  });
+});
+
+// #988: a member without 2FA had no trusted device, so a stranger renewing
+// the lock kept them out for good. A successful sign-in now leaves a signed
+// "known browser" cookie, bound to the account and to its current password.
+const KNOWN_BROWSER = 'glou_known_browser';
+const setCookies = (res: request.Response): string[] => {
+  const raw = res.headers['set-cookie'] as unknown;
+  return Array.isArray(raw) ? (raw as string[]) : typeof raw === 'string' ? [raw] : [];
+};
+const knownBrowserSetCookie = (res: request.Response) => setCookies(res).find((c) => c.startsWith(`${KNOWN_BROWSER}=`));
+const knownBrowserOf = (res: request.Response): string => {
+  const header = knownBrowserSetCookie(res);
+  if (!header) throw new Error('no known-browser cookie set');
+  return header.slice(KNOWN_BROWSER.length + 1).split(';')[0];
+};
+/** Signs in for real (2FA off) and returns the known-browser cookie the answer sets. */
+async function signedInBefore(identifier: string): Promise<string> {
+  const res = await signIn(identifier, PASSWORD);
+  expect(res.status).toBe(200);
+  return knownBrowserOf(res);
+}
+const signInFromBrowser = (identifier: string, password: string, cookie: string, ip = nextIp()) =>
+  request(app).post('/api/auth/login').set('Sec-Fetch-Site', 'same-origin').set('X-Forwarded-For', ip)
+    .set('Cookie', `${KNOWN_BROWSER}=${cookie}`).send({ identifier, password });
+
+describe('POST /api/auth/login from a known browser (#988)', () => {
+  it('sets a signed, HttpOnly, SameSite cookie on a successful sign-in, and none on a refusal', async () => {
+    const ok = await signIn('sam', PASSWORD);
+    expect(ok.status).toBe(200);
+    const header = knownBrowserSetCookie(ok);
+    expect(header).toBeDefined();
+    expect(header).toMatch(/HttpOnly/i);
+    expect(header).toMatch(/SameSite=Strict/i);
+    expect(header).toMatch(/Path=\/api\/auth/);
+    expect(header).toMatch(/Max-Age=2592000/);
+
+    const refused = await signIn('sam', 'not-it');
+    expect(refused.status).toBe(401);
+    expect(knownBrowserSetCookie(refused)).toBeUndefined();
+  });
+
+  it('lets a member without 2FA sign in from a browser they used before while a stranger keeps the lock', async () => {
+    const cookie = await signedInBefore('tina');
+    await wrongGuesses('tina', SIGN_IN_FAILURES_MAX);
+    expect((await signIn('tina', PASSWORD)).status).toBe(429);
+
+    const before = sessionsCreated();
+    const res = await signInFromBrowser('tina', PASSWORD, cookie);
+    expect(res.status).toBe(200);
+    expect(sessionsCreated()).toBe(before + 1);
+    // Still locked for anyone without the cookie.
+    expect((await signIn('tina', PASSWORD)).status).toBe(429);
+  });
+
+  it('works with the e-mail too, whichever identifier the earlier sign-in used', async () => {
+    const cookie = await signedInBefore('uma');
+    await wrongGuesses('uma@example.com', SIGN_IN_FAILURES_MAX);
+    expect((await signInFromBrowser('uma@example.com', PASSWORD, cookie)).status).toBe(200);
+  });
+
+  it('still checks the password, and counts wrong ones against that browser', async () => {
+    const cookie = await signedInBefore('vic');
+    await wrongGuesses('vic', SIGN_IN_FAILURES_MAX);
+    const before = sessionsCreated();
+    for (let i = 0; i < SIGN_IN_FAILURES_MAX; i++) {
+      const res = await signInFromBrowser('vic', `guess-${i}`, cookie);
+      expect(res.status).toBe(401);
+      expect(res.body).toEqual({ error: 'INVALID_CREDENTIALS' });
+    }
+    const res = await signInFromBrowser('vic', PASSWORD, cookie);
+    expect(res.status).toBe(429);
+    expect(res.body).toEqual({ error: 'TOO_MANY_REQUESTS', retryAfter: expect.any(Number) });
+    expect(sessionsCreated()).toBe(before);
+  });
+
+  it('does not open the lock with the cookie of another account', async () => {
+    const someoneElses = await signedInBefore('walt');
+    await wrongGuesses('xena', SIGN_IN_FAILURES_MAX);
+    expect((await signInFromBrowser('xena', PASSWORD, someoneElses)).status).toBe(429);
+  });
+
+  it('does not open the lock with a cookie from before a password change (self-service or admin reset)', async () => {
+    const cookie = await signedInBefore('yann');
+    // Both flows write a new password hash; the cookie was bound to the old one.
+    changed.set('yann', { passwordHash: await bcrypt.hash(PASSWORD, 4) });
+    await wrongGuesses('yann', SIGN_IN_FAILURES_MAX);
+    expect((await signInFromBrowser('yann', PASSWORD, cookie)).status).toBe(429);
+  });
+
+  it('does not open the lock with a forged cookie, a session token or a trusted-device token', async () => {
+    const real = await signedInBefore('abel');
+    const forged = jwt.sign(jwt.decode(real) as object, 'another-secret');
+    const session = jwt.sign({ userId: 'id-abel', email: 'abel@example.com', username: 'abel', scope: 'full', sessionId: 's1' }, JWT_SECRET);
+    const device = trustDevice('abel');
+    await wrongGuesses('abel', SIGN_IN_FAILURES_MAX);
+    for (const cookie of [forged, session, device, 'not-a-jwt']) {
+      expect((await signInFromBrowser('abel', PASSWORD, cookie)).status).toBe(429);
+    }
+  });
+
+  it('does not open the lock once the cookie has expired, or for a deactivated account', async () => {
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+    const cookie = await signedInBefore('beth');
+    vi.setSystemTime(Date.now() + 31 * 24 * 60 * 60 * 1000);
+    await wrongGuesses('beth', SIGN_IN_FAILURES_MAX);
+    expect((await signInFromBrowser('beth', PASSWORD, cookie)).status).toBe(429);
+
+    const fresh = await signedInBefore('sam');
+    changed.set('sam', { isActive: false });
+    await wrongGuesses('sam', SIGN_IN_FAILURES_MAX);
+    expect((await signInFromBrowser('sam', PASSWORD, fresh)).status).toBe(429);
+  });
+
+  it('never skips the two-factor code', async () => {
+    const cookie = await signedInBefore('zoe');
+    changed.set('zoe', { isTwoFactorEnabled: true, twoFactorSecret: 'JBSWY3DPEHPK3PXP' });
+    await wrongGuesses('zoe', SIGN_IN_FAILURES_MAX);
+    const before = sessionsCreated();
+    const res = await signInFromBrowser('zoe', PASSWORD, cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.data.requires2fa).toBe(true);
+    expect(sessionsCreated()).toBe(before);
+  });
+
+  it('is set once the two-factor code is checked, not at the password step', async () => {
+    const backupCode = 'ABCDEFGHIJ0123456789';
+    changed.set('walt', { isTwoFactorEnabled: true, backupCodes: [await bcrypt.hash(backupCode, 4)] });
+    const pending = await signIn('walt', PASSWORD);
+    expect(pending.body.data.requires2fa).toBe(true);
+    expect(knownBrowserSetCookie(pending)).toBeUndefined();
+
+    const pendingToken = setCookies(pending).find((c) => c.startsWith('glou_token='))!.split(';')[0];
+    const verified = await request(app).post('/api/auth/2fa/verify-login').set('Sec-Fetch-Site', 'same-origin')
+      .set('X-Forwarded-For', nextIp()).set('Cookie', pendingToken).send({ code: backupCode });
+    expect(verified.status).toBe(200);
+    const cookie = knownBrowserOf(verified);
+
+    await wrongGuesses('walt', SIGN_IN_FAILURES_MAX);
+    const res = await signInFromBrowser('walt', PASSWORD, cookie);
+    expect(res.status).toBe(200);
+    expect(res.body.data.requires2fa).toBe(true);
+  });
+
+  it('keeps the per-address limit', async () => {
+    const cookie = await signedInBefore('cleo');
+    const ip = nextIp();
+    const answers = [];
+    for (let i = 0; i < 21; i++) answers.push((await signInFromBrowser('cleo', PASSWORD, cookie, ip)).status);
+    expect(answers.slice(0, 20).every((s) => s === 200)).toBe(true);
+    expect(answers[20]).toBe(429);
   });
 });

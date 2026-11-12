@@ -29,6 +29,15 @@ List the devices connected to your account, disconnect any of them remotely, and
 > [!TIP]
 > Trust is revoked if the system detects you are connecting from a different country than when you trusted the device. You will be asked for 2FA again: this is expected behavior.
 
+### Sign-in locked after wrong passwords
+After **10 wrong passwords in 15 minutes** for one username or e-mail, sign-in with that username or e-mail is refused until the 15 minutes are over, from any address and even with the right password ("Too many attempts"). Your username and your e-mail each have their own count. Open sessions are not affected.
+
+Someone who knows your username or e-mail could renew this lock every 15 minutes. The lock does not apply to you, as long as you type the right password, when you sign in:
+* from a **browser where you already signed in** to this account (with or without 2FA). Every successful sign-in leaves a "known browser" mark in that browser, valid **30 days** from your last sign-in there. It never skips the 2FA code: with 2FA on, the code is still asked. The mark stops working as soon as your password changes (by you, through a reset link, or by an administrator's reset), and is kept when you sign out;
+* from a **trusted device** (2FA accounts, see above).
+
+Wrong passwords typed from such a browser or device are limited too: 10 per 15 minutes for that browser or device. A browser where you never signed in (a new one, a private window, cleared cookies) is not covered: wait for the end of the 15 minutes. Each lock is written in the audit log under your account (`sign_in_locked`), once per 15 minutes.
+
 ## The Firewall (Troubleshooting)
 
 | Error / Behavior | Fix |
@@ -36,4 +45,5 @@ List the devices connected to your account, disconnect any of them remotely, and
 | **My session list only shows a few entries, I expected to see old logins too** | Only active (non-expired, non-revoked) sessions are listed. There is no history of past sessions. |
 | **"Trust this device" doesn't stop the 2FA prompt** | Trust only applies to the device/browser combination you clicked it on. A different browser or a private/incognito window is treated as a new, untrusted device. |
 | **I was suddenly asked for 2FA again after trusting my device** | Your connection was detected from a different country than when trust was granted, or the 30-day trust period expired. Re-authenticate normally; you can trust the device again afterwards. |
+| **"Too many attempts" at sign-in although my password is right** | Your username or e-mail received 10 wrong passwords in the last 15 minutes, maybe from someone else. Sign in from a browser where you already signed in, or a trusted device, or wait 15 minutes (see *Sign-in locked after wrong passwords*). Telling an administrator lets them check the audit log. |
 | **The device name shown is generic (e.g. "Unknown browser")** | The label is derived from the browser's user-agent string. Some browsers or privacy extensions send a minimal user-agent, which limits identification detail. |

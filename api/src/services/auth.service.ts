@@ -76,7 +76,7 @@ export interface DeviceInfo {
 export const ALL_EXPORT_CATEGORIES: readonly ExportCategory[] = EXPORT_CATEGORIES;
 
 export type LoginResult =
-  | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never; viaTrustedDevice?: boolean }
+  | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never; viaTrustedDevice?: boolean; knownBrowserToken?: string }
   | { user: PublicUser; token: string; rememberMe: boolean; requires2fa: true };
 
 export interface SessionSummary {
@@ -145,6 +145,31 @@ const PUBLIC_USER_SELECT = {
   mustChangePassword: true,
   isTwoFactorEnabled: true,
 } satisfies Record<keyof RawUserForPublic, true>;
+
+// ─── Known browser (#988) ────────────────────────────────────────────────────
+// A browser where the account completed a sign-in. Stateless: a JWT naming a
+// random browser id, the account, and a fingerprint of the account's current
+// password hash. Every way of changing a password (self-service, e-mail reset
+// link, admin reset) writes a new hash, so every cookie issued before it stops
+// verifying, with no table to keep and nothing to forget to revoke. Its claim
+// names (`kb*`) differ from a session token's (`userId`) and a trusted
+// device's (`tdt`), so none can stand for another.
+export const KNOWN_BROWSER_TTL_MS = SESSION_DURATION_MS;
+
+/** HMAC of the password hash: reveals nothing about it, changes with it. */
+function passwordFingerprint(passwordHash: string, secret: string): string {
+  return crypto.createHmac('sha256', secret).update(`known-browser:${passwordHash}`).digest('base64url');
+}
+
+function knownBrowserToken(user: { id: string; passwordHash: string }): string | undefined {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return undefined;
+  return jwt.sign(
+    { kb: crypto.randomBytes(16).toString('base64url'), kbu: user.id, kbp: passwordFingerprint(user.passwordHash, secret) },
+    secret,
+    { algorithm: 'HS256', expiresIn: Math.floor(KNOWN_BROWSER_TTL_MS / 1000) },
+  );
+}
 
 function signToken(payload: AuthPayload, expiresIn: SignOptions['expiresIn'] = JWT_EXPIRES_IN): string {
   const secret = process.env.JWT_SECRET;
@@ -513,7 +538,7 @@ export class AuthService {
             const session = await this.createSession(user.id, deviceInfo, rememberMe);
             const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
             if (!isKnownDevice) this.notifySecurityEvent(user.id, 'newDevice', deviceInfo);
-            return { user: publicUser, token, rememberMe, viaTrustedDevice: true };
+            return { user: publicUser, token, rememberMe, viaTrustedDevice: true, knownBrowserToken: knownBrowserToken(user) };
           }
         }
       }
@@ -529,7 +554,7 @@ export class AuthService {
     const session = await this.createSession(user.id, deviceInfo, rememberMe);
     const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
     if (!isKnownDevice) this.notifySecurityEvent(user.id, 'newDevice', deviceInfo);
-    return { user: publicUser, token, rememberMe };
+    return { user: publicUser, token, rememberMe, knownBrowserToken: knownBrowserToken(user) };
   }
 
   /**
@@ -552,6 +577,40 @@ export class AuthService {
     const currentCountry = countryOfIp(ip);
     if (device.country && currentCountry && device.country !== currentCountry) return null;
     return device.id;
+  }
+
+  /**
+   * #988: the id of the known browser a sign-in comes from, when its cookie
+   * may skip the identifier's sign-in budget: the cookie verifies, names an
+   * active account the identifier names (username or e-mail, compared exactly
+   * as {@link login} does), and was issued under the account's current
+   * password. Like {@link signInTrustedDeviceId}, the account is reached
+   * through the cookie, never looked up by the identifier. It never touches
+   * 2FA: {@link login} does not read it.
+   */
+  async signInKnownBrowserId(identifier: string, cookie: string): Promise<string | null> {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return null;
+    let claims: { kb?: unknown; kbu?: unknown; kbp?: unknown };
+    try {
+      const payload: unknown = jwt.verify(cookie, secret, { algorithms: ['HS256'] });
+      if (typeof payload !== 'object' || payload === null) return null;
+      claims = payload as typeof claims;
+    } catch {
+      return null;
+    }
+    const { kb, kbu, kbp } = claims;
+    if (typeof kb !== 'string' || !kb || typeof kbu !== 'string' || typeof kbp !== 'string') return null;
+    const user = await prisma.user.findUnique({
+      where: { id: kbu },
+      select: { username: true, email: true, isActive: true, passwordHash: true },
+    });
+    if (!user || !user.isActive) return null;
+    if (identifier !== user.username && identifier !== user.email) return null;
+    const expected = Buffer.from(passwordFingerprint(user.passwordHash, secret));
+    const given = Buffer.from(kbp);
+    if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) return null;
+    return kb;
   }
 
   /**
@@ -1412,7 +1471,7 @@ export class AuthService {
     rememberMe: boolean,
     deviceInfo: DeviceInfo,
     trustDevice = false,
-  ): Promise<{ user: PublicUser; token: string; rememberMe: boolean; trustedDeviceToken?: string }> {
+  ): Promise<{ user: PublicUser; token: string; rememberMe: boolean; trustedDeviceToken?: string; knownBrowserToken?: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
 
@@ -1467,7 +1526,7 @@ export class AuthService {
       trustedDeviceToken = await this.createTrustedDevice(user.id, deviceInfo);
     }
 
-    return { user: publicUser, token, rememberMe, trustedDeviceToken };
+    return { user: publicUser, token, rememberMe, trustedDeviceToken, knownBrowserToken: knownBrowserToken(user) };
   }
 
   // ─── Sessions & Trusted Devices (FEAT-25) ──────────────────────────────────
