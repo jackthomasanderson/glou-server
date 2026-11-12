@@ -2,6 +2,7 @@ import { Prisma, type BottleCategory } from '@prisma/client';
 import fs from 'fs/promises';
 import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
+import { isRecordNotFound } from '../lib/errors';
 import { InventoryPatch, InventoryInput, InventoryDraft } from '../schemas/inventory.schema';
 import { computeReadiness, familyAlertStatus } from './alert.service';
 import { readFieldHistory } from './audit.service';
@@ -795,6 +796,8 @@ export class InventoryService {
     try {
       restored = await this.restoreOnce(existing);
     } catch (err) {
+      // #962: deleted for good from the trash meanwhile — gone, as if never found.
+      if (isRecordNotFound(err)) return null;
       if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err;
       restored = await this.restoreOnce(existing);
     }
@@ -856,7 +859,7 @@ export class InventoryService {
       select: { id: true, productId: true },
     });
     // QP7: families trashed themselves, past the retention.
-    const { count, photoPaths } = await this.deleteTrashedRows(client, toPurge, { deletedAt: { lt: cutoff } });
+    const { count, photoPaths } = await this.deleteTrashedRows(client, toPurge, { deletedAt: { lt: cutoff } }, { deletedAt: { lt: cutoff } });
     return { count, photoPaths };
   }
 
@@ -868,14 +871,19 @@ export class InventoryService {
    * QP1) or match `trashedFamilies` (in the trash themselves, tastings
    * deleted with them — QP7). Rows only: the returned photo paths are to be
    * deleted from disk once the caller's transaction has committed (#183).
+   *
+   * `trashed` is repeated in the DELETE itself (review of #962): Postgres
+   * checks it again on the locked row, so a unit restored since it was read
+   * is never deleted.
    */
   private async deleteTrashedRows(
     client: PrismaClientOrTx,
     units: { id: string; productId: string }[],
+    trashed: Prisma.InventoryItemWhereInput,
     trashedFamilies: Prisma.ProductWhereInput | null,
   ): Promise<{ count: number; photoPaths: string[]; productIds: string[] }> {
     const result = units.length > 0
-      ? await client.inventoryItem.deleteMany({ where: { id: { in: units.map((item) => item.id) } } })
+      ? await client.inventoryItem.deleteMany({ where: { id: { in: units.map((item) => item.id) }, ...trashed } })
       : { count: 0 };
 
     const purgedFamilies = await client.product.findMany({
@@ -910,7 +918,9 @@ export class InventoryService {
   /**
    * #962: an administrator deletes the trash rows chosen by `select` for
    * good, in one transaction, then their photos once it has committed.
-   * `select` answers null when the entry is not (or no longer) in the trash.
+   * `select` locks the families concerned before reading (a restore takes
+   * the same lock), and answers null when the entry is not (or no longer)
+   * in the trash.
    */
   private async deleteFromTrash(
     select: (tx: PrismaClientOrTx) => Promise<{ units: { id: string; productId: string }[]; trashedFamilies: Prisma.ProductWhereInput | null; label?: string } | null>,
@@ -918,7 +928,7 @@ export class InventoryService {
     const deleted = await prisma.$transaction(async (tx) => {
       const chosen = await select(tx);
       if (!chosen) return null;
-      const rows = await this.deleteTrashedRows(tx, chosen.units, chosen.trashedFamilies);
+      const rows = await this.deleteTrashedRows(tx, chosen.units, { deletedAt: { not: null } }, chosen.trashedFamilies);
       return { itemIds: chosen.units.map((unit) => unit.id), productIds: rows.productIds, photoPaths: rows.photoPaths, label: chosen.label };
     }, { timeout: 60000, maxWait: 10000 });
     if (!deleted) return null;
@@ -930,13 +940,16 @@ export class InventoryService {
   /** #962: one line of the trash (a bottle, a box, cigars), for good. Null when it is not in the trash. */
   deleteTrashedItem(id: string): Promise<TrashDeletion | null> {
     return this.deleteFromTrash(async (tx) => {
+      const known = await tx.inventoryItem.findUnique({ where: { id }, select: { productId: true } });
+      if (!known) return null;
+      // The locking rule: the family first, then its unit — read again once
+      // locked, so a restore committed meanwhile is seen (review of #962).
+      await lockFamily(tx, known.productId);
       const unit = await tx.inventoryItem.findFirst({
         where: { id, deletedAt: { not: null, gte: retentionCutoff() } },
         select: { id: true, productId: true, product: { select: TRASH_LABEL_SELECT } },
       });
       if (!unit) return null;
-      // The locking rule: the family first, then its unit (a restore racing this one).
-      await lockFamily(tx, unit.productId);
       return { units: [{ id: unit.id, productId: unit.productId }], trashedFamilies: null, label: trashLabel(unit.product) };
     });
   }
@@ -944,12 +957,12 @@ export class InventoryService {
   /** #962: a wine of the trash with all its bottles in the trash, for good. Null when it is not in the trash. */
   deleteTrashedProduct(id: string): Promise<TrashDeletion | null> {
     return this.deleteFromTrash(async (tx) => {
+      await lockFamily(tx, id);
       const family = await tx.product.findFirst({
         where: { id, deletedAt: { not: null, gte: retentionCutoff() } },
         select: { id: true, ...TRASH_LABEL_SELECT },
       });
       if (!family) return null;
-      await lockFamily(tx, id);
       const units = await tx.inventoryItem.findMany({
         where: { productId: id, deletedAt: { not: null } },
         select: { id: true, productId: true },
@@ -961,11 +974,20 @@ export class InventoryService {
   /** #962: everything in the trash for these categories (a page: wines and bottles, or cigars), for good. */
   async emptyTrash(categories: BottleCategory[]): Promise<TrashDeletion> {
     const deleted = await this.deleteFromTrash(async (tx) => {
-      const units = await tx.inventoryItem.findMany({
-        where: { deletedAt: { not: null }, product: { category: { in: categories } } },
-        select: { id: true, productId: true },
-      });
-      return { units, trashedFamilies: { deletedAt: { not: null }, category: { in: categories } } };
+      const unitsWhere: Prisma.InventoryItemWhereInput = { deletedAt: { not: null }, product: { category: { in: categories } } };
+      const trashedFamilies: Prisma.ProductWhereInput = { deletedAt: { not: null }, category: { in: categories } };
+      // The families concerned are locked first, in the one order (40P01),
+      // then everything is read again: a restore committed meanwhile is seen.
+      const [unitFamilies, families] = await Promise.all([
+        tx.inventoryItem.findMany({ where: unitsWhere, select: { productId: true } }),
+        tx.product.findMany({ where: trashedFamilies, select: { id: true } }),
+      ]);
+      const locked = new Set([...unitFamilies.map((unit) => unit.productId), ...families.map((family) => family.id)]);
+      await lockFamilies(tx, locked);
+      // Only the families locked: one trashed since the first read waits for the next time.
+      const units = (await tx.inventoryItem.findMany({ where: unitsWhere, select: { id: true, productId: true } }))
+        .filter((unit) => locked.has(unit.productId));
+      return { units, trashedFamilies: { ...trashedFamilies, id: { in: [...locked] } } };
     });
     return deleted ?? { itemIds: [], productIds: [] };
   }

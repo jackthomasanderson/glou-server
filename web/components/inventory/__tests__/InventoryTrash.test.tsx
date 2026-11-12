@@ -202,7 +202,7 @@ describe('InventoryTrash permanent deletion (#962)', () => {
     const [, boxes] = screen.getAllByRole('listitem');
     fireEvent.click(within(boxes).getByRole('button', { name: 'Supprimer définitivement' }));
     const dialog = screen.getByRole('dialog');
-    expect(dialog).toHaveTextContent('Supprimer définitivement 2 boîtes de M — Corona ?');
+    expect(dialog).toHaveTextContent('Supprimer définitivement 2 boîtes (M — Corona) ?');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Supprimer définitivement' }));
     expect(deleteItem).toHaveBeenCalledWith('boxes', expect.anything());
     expect(deleteWine).not.toHaveBeenCalled();

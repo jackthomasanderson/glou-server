@@ -95,7 +95,7 @@ test.describe('#962 — delete for good from the trash', () => {
 
     await entry.getByRole('button', { name: 'Supprimer définitivement' }).click();
     const confirm = page.getByRole('dialog').filter({ hasText: 'Supprimer définitivement ?' });
-    await expect(confirm).toContainText(`Supprimer définitivement 1 bouteille de E2E Domaine — ${name} ?`);
+    await expect(confirm).toContainText(`Supprimer définitivement 1 bouteille (E2E Domaine — ${name}) ?`);
     await expect(confirm).toContainText('Cette action est irréversible.');
     await confirm.getByRole('button', { name: 'Supprimer définitivement' }).click();
     await expect(confirm).toBeHidden();

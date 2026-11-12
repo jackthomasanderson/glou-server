@@ -2946,7 +2946,7 @@
       "deleteForeverConfirmBottles_other": "Supprimer définitivement {{name}} et ses {{count}} bouteilles ?",
       "deleteForeverConfirmCigars_one": "Supprimer définitivement {{name}} et son cigare ?",
       "deleteForeverConfirmCigars_other": "Supprimer définitivement {{name}} et ses {{count}} cigares ?",
-      "deleteForeverLine": "Supprimer définitivement {{what}} de {{name}} ?",
+      "deleteForeverLine": "Supprimer définitivement {{what}} ({{name}}) ?",
       "deleteForeverWineNote": "Ses photos et ses dégustations seront effacées aussi. Cette action est irréversible.",
       "irreversible": "Cette action est irréversible.",
       "empty": "Vider la corbeille",

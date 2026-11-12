@@ -133,6 +133,17 @@ describe('POST /api/inventory/trash/empty (#962)', () => {
     }));
   });
 
+  it('an emptied trash of many rows logs the counts and categories, not every id', async () => {
+    asAdmin(true);
+    const itemIds = Array.from({ length: 30 }, (_, i) => `i${i}`);
+    vi.mocked(inventoryService.emptyTrash).mockResolvedValue({ itemIds, productIds: ['p1', 'p2'] });
+
+    const res = await request(app).post('/api/inventory/trash/empty').send({ categories: ['wine', 'spirit'] });
+
+    expect(res.status).toBe(200);
+    expect(vi.mocked(auditLog).mock.calls[0][0].details).toEqual({ scope: 'empty', categories: ['wine', 'spirit'], lines: 30, wines: 2 });
+  });
+
   it('refuses a request without a valid category', async () => {
     asAdmin(true);
 
