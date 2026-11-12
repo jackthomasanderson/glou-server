@@ -25,7 +25,7 @@ async function unitsInStock(category: Prisma.EnumBottleCategoryFilter | BottleCa
  * The numbers the sidebar badges show (#212). The sidebar used to download the
  * full inventory, cellar, collection, wishlist and count-session lists on
  * every page just to write a number on a badge. Inventory and cellars are
- * instance-wide, collections and the wishlist belong to the user.
+ * instance-wide, and so are collections (#476); the wishlist belongs to the user.
  */
 export const statsService = {
   async getSidebarCounts(userId: string): Promise<SidebarCounts> {
@@ -38,7 +38,7 @@ export const statsService = {
       unitsInStock({ in: [...BOTTLE_CATEGORIES] }),
       unitsInStock('cigar'),
       prisma.cellar.count(),
-      prisma.collection.count({ where: { userId } }),
+      prisma.collection.count(),
       prisma.inventoryCountSession.findFirst({
         where: { status: { in: ['active', 'paused'] } },
         select: { id: true },

@@ -418,8 +418,12 @@ model ItemSlot {
 
 model AuditLog {
   id        Int      @id @default(autoincrement())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // #695: emptied when an administrator deletes the member for good; the
+  // row stays, as the record of what they did, and `actorName` keeps the
+  // name it is shown under.
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorName String?
   bottleId  String?
   bottle    InventoryItem?  @relation(fields: [bottleId], references: [id], onDelete: SetNull)
   // #471: the family the change belongs to (description changes are logged
@@ -523,8 +527,11 @@ model Collection {
   name      String
   color     String          @default("#6366f1")
   icon      String?
-  userId    String
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // #476: collections are shared by the household like the rest of the
+  // inventory. `userId` is who created it (audit only, never an access
+  // filter); the collection outlives its author's account.
+  userId    String?
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   products  Product[]       @relation("CollectionProducts")
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
@@ -814,8 +821,11 @@ model BackupRun {
 
 model ConfigChangeLog {
   id           Int      @id @default(autoincrement())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // #695: like AuditLog, detached when the admin who made the change is
+  // deleted, with the name kept in `actorName`.
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorName    String?
   fieldName    String
   maskedOldVal String?
   maskedNewVal String?
@@ -912,8 +922,11 @@ model WishlistItem {
 
 model BudgetEnvelope {
   id          String   @id @default(uuid())
+  // ISSUE_142: household-wide, `userId` is who created it (audit only).
+  // #695: Restrict like the rest of the shared data — an envelope never goes
+  // with its author's account (account-deletion.service re-attributes it).
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   periodStart DateTime
   periodEnd   DateTime
   amount      Decimal  @db.Decimal(12, 2)

@@ -644,7 +644,9 @@ describe('GET /api/admin/audit-logs filters', () => {
     expect(res.status).toBe(200);
     const where = vi.mocked(prisma.auditLog.findMany).mock.calls[0][0]?.where as Record<string, any>;
     expect(where.status).toBe('error');
-    expect(where.OR).toHaveLength(4);
+    // #695: a member deleted for good is found by the name kept on the row.
+    expect(where.OR).toHaveLength(5);
+    expect(where.OR).toContainEqual({ actorName: { contains: 'login', mode: 'insensitive' } });
     expect(where.createdAt.gte).toEqual(new Date('2026-10-01'));
     expect(where.createdAt.lte).toEqual(new Date('2026-10-02T23:59:59.999Z'));
     expect(vi.mocked(prisma.auditLog.count).mock.calls[0][0]).toEqual({ where });
@@ -670,7 +672,7 @@ describe('GET /api/admin/audit-logs filters', () => {
     expect(res.status).toBe(200);
     const where = vi.mocked(prisma.auditLog.findMany).mock.calls[0][0]?.where as Record<string, any>;
     expect(where.action).toEqual({ in: ['LOGIN', 'LOGIN_2FA'] });
-    expect(where.OR).toHaveLength(4);
+    expect(where.OR).toHaveLength(5);
   });
 
   it('rejects an unknown action type', async () => {

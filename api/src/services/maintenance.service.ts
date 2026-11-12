@@ -151,6 +151,8 @@ export class MaintenanceService {
                 const deletionCutoff = new Date(now.getTime() - ACCOUNT_DELETION_GRACE_DAYS * DAY_MS);
                 const accountDeletions = await authService.purgeDueAccountDeletions(deletionCutoff, tx);
                 avatarFilesToDelete = accountDeletions.avatarPaths;
+                // #661: the deleted members' scan photos go with the others.
+                scanFilesToDelete = [...scanFilesToDelete, ...accountDeletions.scanImagePaths];
                 deletedAccountsCount = accountDeletions.count;
 
                 const counts: RetentionCounts = {

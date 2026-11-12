@@ -155,7 +155,7 @@ export interface InventoryHistoryEntry {
   id: number;
   action: string;
   status: string;
-  actorId: string;
+  actorId: string | null;
   actorName: string;
   /** Set when the change came through a guest share link (#483). */
   viaGuest?: boolean;
