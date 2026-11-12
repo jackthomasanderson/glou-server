@@ -314,7 +314,11 @@ export function useUpdateInventoryItem() {
       // version so the bottle opens with it next time.
       notifyError('toast.updateConflict', ...unitCtx(cachedCategory(queryClient, id)));
     },
-    onSettled: (_item, error) => {
+    onSettled: (item, error) => {
+      // FEAT-108: queued without network — nothing changed on the server yet, and
+      // reading the bell, plan or analytics now would only fail. The replay
+      // refreshes everything once the change went through.
+      if (item && queuedMutationOf(item)) return;
       // #621: the drawer (its history), cellars, counters, bell, plan… follow.
       // The two lists were written in place above (#462) — unless the change
       // was refused as made meanwhile: they are then read again too.

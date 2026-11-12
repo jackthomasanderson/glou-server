@@ -19,7 +19,7 @@ vi.mock('@/lib/offline/syncEngine', () => ({
   enqueueMutation: vi.fn(),
   shownAfter: <T,>(item: T) => item,
   markQueuedResult: <T,>(result: T) => result,
-  queuedMutationOf: () => undefined,
+  queuedMutationOf: (result: { queued?: string }) => result?.queued,
 }));
 vi.mock('@/lib/offline/db', () => ({
   mirrorInventoryToCache: vi.fn(),
@@ -96,5 +96,19 @@ describe('a change of a bottle refreshes what is derived from the stock (#621)',
     });
     // The list holds the new state at once (written in place, not read again).
     expect(qc.getQueryData<{ id: string; quantity: number }[]>(['inventory'])?.find((i) => i.id === 'g')?.quantity).toBe(2);
+  });
+
+  it('queued offline, it reads nothing again: the bell and the plan keep what they show until the replay', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    for (const key of [['alerts'], ['consumption-plan', 'goal'], ['analytics', undefined, undefined], ['budget', 'envelopes'], ['stats', 'counts']]) {
+      qc.setQueryData(key, []);
+    }
+    const { result } = renderHook(() => useUpdateInventoryItem(), { wrapper: wrapperOf(qc) });
+    // The answer of a change put in the offline queue (markQueuedResult).
+    update.mockResolvedValue({ data: { ...flatRow({ fillLevel: 0 }), queued: 'q1' }, changed: [], removedIds: [] });
+    await result.current.mutateAsync({ id: 'g', patch: { isOpened: true, fillLevel: 0 } });
+    for (const key of [['alerts'], ['consumption-plan', 'goal'], ['analytics', undefined, undefined], ['budget', 'envelopes'], ['stats', 'counts']]) {
+      expect(qc.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(false);
+    }
   });
 });

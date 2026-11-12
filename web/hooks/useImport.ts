@@ -3,7 +3,7 @@ import { useIsMutating, useMutation, useQueryClient } from '@tanstack/react-quer
 import { importClient } from '@/lib/import/client';
 import { CsvImportChoice, CsvImportPreview, CsvImportResult, CsvImportRow } from '@/lib/import/types';
 import { notifyError } from '@/lib/toast';
-import { invalidateAfterInventoryChange } from '@/lib/queryKeys';
+import { invalidateAfterInventoryChange, mutationKeys } from '@/lib/queryKeys';
 
 /** Refusals of the confirmation that get their own message. */
 const EXPLAINED_CONFIRM_ERRORS = new Set(['LINE_TOO_LARGE', 'QUANTITY_TOO_LARGE']);
@@ -18,7 +18,7 @@ export function useCsvPreview() {
   });
 }
 
-const CSV_CONFIRM_KEY = ['import', 'csv-confirm'];
+const CSV_CONFIRM_KEY = mutationKeys.csvConfirm;
 
 export function useCsvConfirm() {
   const queryClient = useQueryClient();

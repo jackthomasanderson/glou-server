@@ -71,6 +71,11 @@ const eslintConfig = [
           selector: "CallExpression[callee.property.name=/^(get|set)QueryData$|^getQueryState$/] > ArrayExpression:first-child",
           message: 'Use a key from @/lib/queryKeys (qk.…) instead of a literal array (#621).',
         },
+        {
+          // A key kept in a constant first (`const FOO_KEY = ['foo']`), query or mutation key alike.
+          selector: 'VariableDeclarator[id.name=/(_KEY|Key)$/] > ArrayExpression',
+          message: 'Declare the key in @/lib/queryKeys (qk.… or mutationKeys.…) instead of a literal array (#621).',
+        },
       ],
     },
   },

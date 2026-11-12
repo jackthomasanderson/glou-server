@@ -74,7 +74,11 @@ function useStockAction<TBody extends CorrectBody | MoveBody | RepriceBody>(acti
     // The drawer (its history; after a refusal, the line the dialog sends from
     // next), the flat list, cellars, counters, spending… follow. The wines were
     // written above.
-    onSettled: (_write, error) => invalidateAfterInventoryChange(queryClient, { alreadyWritten: error ? [] : [qk.products.list] }),
+    onSettled: (write, error) => {
+      // Queued without network (a correction): the replay refreshes everything once sent.
+      if (write && queuedMutationOf(write)) return;
+      invalidateAfterInventoryChange(queryClient, { alreadyWritten: error ? [] : [qk.products.list] });
+    },
   });
 }
 

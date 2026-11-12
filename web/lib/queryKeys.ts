@@ -110,6 +110,11 @@ export const qk = {
   notificationPrefs: ['notification_prefs'],
 } as const;
 
+/** Mutation keys (`useIsMutating`), kept here for the same reason. */
+export const mutationKeys = {
+  csvConfirm: ['import', 'csv-confirm'],
+} as const;
+
 /**
  * Everything derived from the stock outside the `inventory` prefix: a bottle
  * added, changed, moved, opened, drunk or deleted changes what these show.
