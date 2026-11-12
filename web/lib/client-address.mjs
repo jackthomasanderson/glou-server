@@ -40,7 +40,7 @@ export function trustedProxyHops(value, warn = console.warn) {
   const text = value?.trim() ?? '';
   if (text === '') return DEFAULT_TRUSTED_PROXY_HOPS;
   if (/^\d+$/.test(text)) return Number(text);
-  warn(`[client-address] TRUSTED_PROXY_HOPS="${value}" is not a whole number of reverse proxies (0, 1, 2…): using ${DEFAULT_TRUSTED_PROXY_HOPS}.`);
+  warn(`[client-address] TRUSTED_PROXY_HOPS is not a whole number of reverse proxies (0, 1, 2…): using ${DEFAULT_TRUSTED_PROXY_HOPS}.`);
   return DEFAULT_TRUSTED_PROXY_HOPS;
 }
 
