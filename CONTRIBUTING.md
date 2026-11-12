@@ -56,7 +56,7 @@ Glou uses Calendar Versioning: `YYYY.MM[.PATCH]` (e.g. `2026.10.0`), not semver 
 On every promotion of `dev` to `main` (a maintainer action):
 
 1. Bump both `package.json` files to the current `YYYY.MM.0`, or increment `PATCH` if a release already happened this calendar month.
-2. Move `CHANGELOG.md`'s "Unreleased" section under a new `## vYYYY.MM[.PATCH] - YYYY-MM-DD` heading.
+2. Move `CHANGELOG.md`'s "Unreleased" section under a new `## vYYYY.MM[.PATCH] - YYYY-MM-DD` heading, and the `## Upcoming` / `## À venir` notes of `api/release-notes/RELEASE_NOTES.en.md` and `.fr.md` under a new `## vYYYY.MM[.PATCH]` heading in both files, leaving both upcoming sections empty.
 3. Tag `main` at that commit: `git tag vYYYY.MM[.PATCH] && git push origin vYYYY.MM[.PATCH]`.
 4. CI (`docker-publish.yml`) publishes that same version as an additional image tag on `main`, next to `latest`.
 
@@ -105,6 +105,10 @@ These rules hold across the whole codebase; a change that breaks one is a bug, n
 ### Internationalisation
 
 Every user-facing string needs a structured i18n key with **both** a French and an English value. Keep the FR/EN JSON files in sync; the JSON must stay valid.
+
+### Release notes
+
+A change users will notice adds, next to its `CHANGELOG.md` entry, one plain-text line under `## Upcoming` in `api/release-notes/RELEASE_NOTES.en.md` and the same line under `## À venir` in `RELEASE_NOTES.fr.md`, in the same section (Points of attention, Security, New, Improved, Fixed, Removed). Administrators read them in the **What's New?** window after an update, so write for them, shorter than the changelog; points of attention only say what is left to do *after* the update. `npm test` in `api/` fails if the two files do not have the same releases, sections and number of notes.
 
 ### Tests
 

@@ -56,7 +56,7 @@ Glou utilise le Calendar Versioning : `YYYY.MM[.PATCH]` (ex. `2026.10.0`), pas l
 À chaque promotion de `dev` vers `main` (action du mainteneur) :
 
 1. Incrémentez les deux `package.json` vers `YYYY.MM.0` courant, ou incrémentez `PATCH` si une version est déjà sortie ce mois-ci.
-2. Déplacez la section « Unreleased » de `CHANGELOG.md` sous un nouveau titre `## vYYYY.MM[.PATCH] - YYYY-MM-DD`.
+2. Déplacez la section « Unreleased » de `CHANGELOG.md` sous un nouveau titre `## vYYYY.MM[.PATCH] - YYYY-MM-DD`, et les notes `## Upcoming` / `## À venir` de `api/release-notes/RELEASE_NOTES.en.md` et `.fr.md` sous un nouveau titre `## vYYYY.MM[.PATCH]` dans les deux fichiers, en laissant les deux sections à venir vides.
 3. Taguez `main` à ce commit : `git tag vYYYY.MM[.PATCH] && git push origin vYYYY.MM[.PATCH]`.
 4. La CI (`docker-publish.yml`) publie cette même version comme tag d'image supplémentaire sur `main`, en plus de `latest`.
 
@@ -103,6 +103,10 @@ Ces règles valent pour tout le code ; un changement qui en casse une est un bug
 ### Internationalisation
 
 Chaque texte visible par l'utilisateur nécessite une clé i18n structurée avec **à la fois** une valeur française et une valeur anglaise. Gardez les fichiers JSON FR/EN synchronisés ; le JSON doit rester valide.
+
+### Notes de version
+
+Un changement visible des utilisateurs ajoute, à côté de son entrée au `CHANGELOG.md`, une ligne de texte simple sous `## Upcoming` dans `api/release-notes/RELEASE_NOTES.en.md` et la même sous `## À venir` dans `RELEASE_NOTES.fr.md`, dans la même rubrique (Points d'attention, Sécurité, Nouveautés, Améliorations, Corrections, Retiré). Les administrateurs les lisent dans la fenêtre **Quoi de neuf ?** après une mise à jour : écrivez pour eux, plus court que le journal des modifications ; les points d'attention disent seulement ce qu'il reste à faire *après* la mise à jour. `npm test` dans `api/` échoue si les deux fichiers n'ont pas les mêmes versions, rubriques et nombres de notes.
 
 ### Tests
 

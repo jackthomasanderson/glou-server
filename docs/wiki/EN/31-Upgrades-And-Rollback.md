@@ -29,6 +29,7 @@ Glou applies its database migrations automatically when the API starts, and **mi
    Keep the two `…@sha256:…` lines.
 2. Pull and recreate: `docker compose pull && docker compose up -d`.
 3. Watch the API log: `docker compose logs -f api`. When the update brings migrations, you should see `[backup] Backup taken before migrating: /app/backups/glou-backup-before-migration-….sql.gz`, then the migrations apply, then `Server listening`. Without migrations: `[backup] No pending migration: no backup needed.`
+4. Open Glou as an administrator: the **What's New?** window lists what the update changes and, first, its **points of attention**, what is left to do now. It shows once per administrator, whatever the device; **What's New?** in Administration → System Configuration → System (beside the version) and at the bottom of the sidebar opens it again. It starts with the version that brought it; for older ones, read `CHANGELOG.md`.
 
 ## The update that groups your bottles into lines
 An update can transform your data. The one that introduces **lines of identical bottles** (one wine = one card, "×6") does it **once**, the first time the API starts, after the automatic backup. It is applied entirely or not at all, and before finishing it checks that your totals (number of bottles and cigars, value, spending, tastings, history, cellar-plan slots, collections, counts) are identical to the ones before: at the slightest difference it cancels itself and the API does not start (see Troubleshooting). It takes a few seconds for a few thousand bottles.
