@@ -478,8 +478,8 @@ describe('consumption goals', () => {
         deletedAt: null,
         isOpened: true,
         fillLevel: 0,
-        updatedBy: 'u1',
-        updatedAt: { gte: goal.periodStart, lte: goal.periodEnd },
+        finishedBy: 'u1',
+        finishedAt: { gte: goal.periodStart, lte: goal.periodEnd },
       },
     });
   });
@@ -530,5 +530,21 @@ describe('consumption suggestions (FEAT-87, #471)', () => {
       where: Record<string, unknown>;
     };
     expect(call.where).toMatchObject({ isOpened: true, fillLevel: 0 });
+  });
+
+  // #589: whoever last edited a finished bottle (a move, a tag, a count) is
+  // not who drank it, and its last edit is not when.
+  it('counts the bottles the member finished in the period, never those they only edited', async () => {
+    vi.mocked(prisma.consumptionGoal.findFirst).mockResolvedValue({
+      id: 'g1', userId: 'u1', targetValue: 4, periodStart: new Date('2026-03-01'), periodEnd: new Date('2026-03-31'),
+    } as never);
+    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(1 as never);
+
+    await getGoalProgress('u1');
+
+    const { where } = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
+    expect(where).toMatchObject({ finishedBy: 'u1', finishedAt: { gte: new Date('2026-03-01'), lte: new Date('2026-03-31') } });
+    expect(where).not.toHaveProperty('updatedBy');
+    expect(where).not.toHaveProperty('updatedAt');
   });
 });

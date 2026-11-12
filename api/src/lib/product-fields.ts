@@ -129,8 +129,12 @@ export interface ItemWithProduct {
   product: Pick<Product, ProductField | 'lockedFields' | 'fieldSources'>;
 }
 
-/** The flat record `/api/inventory*` keeps serving: a unit with its family's description. */
-export type FlatItemView<I extends ItemWithProduct> = Omit<I, 'product' | ProductField | 'fieldSources' | 'purchasedAt'>
+/**
+ * The flat record `/api/inventory*` keeps serving: a unit with its family's
+ * description. #589: without the finish stamp (`finishedAt`/`finishedBy`),
+ * which only dates the consumption figures — as in the unit view (ItemView).
+ */
+export type FlatItemView<I extends ItemWithProduct> = Omit<I, 'product' | ProductField | 'fieldSources' | 'purchasedAt' | 'finishedAt' | 'finishedBy'>
   & Pick<I['product'], ProductField>
   & { fieldSources: Record<string, string> | null }
   // D6: the purchase day goes out as `YYYY-MM-DD`.
@@ -148,7 +152,7 @@ export const fieldSourcesOf = (value: Prisma.JsonValue): Record<string, string> 
  * the rest on the unit.
  */
 export function toItemView<I extends ItemWithProduct>(item: I): FlatItemView<I> {
-  const { product, ...unit } = item;
+  const { product, finishedAt: _at, finishedBy: _by, ...unit } = item as I & { finishedAt?: unknown; finishedBy?: unknown };
   const description = Object.fromEntries(PRODUCT_FIELDS.map((field) => [field, product[field]]));
   const unitLocks = unit.lockedFields.filter((field) => !isProductField(field));
   const unitSources = Object.entries(fieldSourcesOf(unit.fieldSources)).filter(([field]) => !isProductField(field));

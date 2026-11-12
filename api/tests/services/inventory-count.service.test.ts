@@ -74,6 +74,9 @@ describe('applyCorrections', () => {
       data: {
         isOpened: true,
         fillLevel: 0,
+        // #589: the member closing the count is who finished it, now.
+        finishedAt: expect.any(Date),
+        finishedBy: 'u1',
         updatedAt: expect.any(Date),
         updatedBy: 'u1',
       },

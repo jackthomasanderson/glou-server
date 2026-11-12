@@ -65,9 +65,10 @@ describe('shared/product.ts matches the Prisma schema (#471)', () => {
     expectTypeOf<ProductCollection>().toEqualTypeOf<Pick<Collection, 'id' | 'name' | 'color' | 'icon'>>();
   });
 
-  it('serves a unit with its own columns only: no description (mirror), no locks, no FEAT-87 flag', () => {
+  it('serves a unit with its own columns only: no description (mirror), no locks, no FEAT-87 flag, no finish stamp', () => {
+    // #589: `finishedAt`/`finishedBy` date the consumption figures (analytics, goal); no screen shows them.
     expectTypeOf<Omit<ItemView, Converted | 'slots'>>()
-      .toEqualTypeOf<Omit<InventoryItem, ProductField | 'lockedFields' | 'isOwned' | Converted>>();
+      .toEqualTypeOf<Omit<InventoryItem, ProductField | 'lockedFields' | 'isOwned' | 'finishedAt' | 'finishedBy' | Converted>>();
     // FEAT-93: its live cells, as item_slots holds them.
     expectTypeOf<ItemView['slots'][number]>().toEqualTypeOf<Pick<ItemSlot, 'id' | 'column' | 'row'>>();
     expectTypeOf<ItemView['purchasedAt']>().toEqualTypeOf<string | null>();
@@ -93,6 +94,8 @@ describe('shared/product.ts lists every field the history can name', () => {
   const NEVER_TOLD = new Set([
     'id', 'userId', 'productId', 'updatedBy', 'fieldSources', 'deletedAt', 'createdAt', 'updatedAt', 'otherPhotoUrls',
     'smokeOne', 'keepTastings', 'tastingId', 'fromSlotId', 'fromUnplaced', 'placeAt', 'expectedUpdatedAt',
+    // #589: stamped with the state that finishes the unit, which the history tells.
+    'finishedAt', 'finishedBy',
   ]);
   const recorded = [
     ...Object.values(Prisma.InventoryItemScalarFieldEnum),

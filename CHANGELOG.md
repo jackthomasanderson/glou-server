@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Fixed
+- Moving, editing or counting a bottle already drunk no longer counts it again as drunk that day, by whoever touched it. Glou now remembers when each bottle or box was finished and by whom, and **Analytics → Consumed** and the personal consumption goal use that date and that member. Bottles finished before this update keep the date they show today (#589).
+
 ## v2026.11.3 - 2026-11-12
 
 > **Before you update:**

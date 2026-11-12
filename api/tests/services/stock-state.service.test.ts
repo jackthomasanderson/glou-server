@@ -25,7 +25,7 @@ function unit(fields: Partial<StateItem> & { id: string; category?: string }): R
     needsReview: false, category: 'wine', location: null,
     purchasePrice: 20, estimatedValue: null, purchasePlace: null, bottleSize: '75cl', quantity: 1,
     isOpened: false, fillLevel: null, openedAt: null, lockedFields: [], fieldSources: null,
-    deletedAt: null, createdAt: DAY, updatedAt: DAY, updatedBy: null,
+    deletedAt: null, createdAt: DAY, updatedAt: DAY, updatedBy: null, finishedAt: null, finishedBy: null,
     ...fields,
   };
 }
@@ -1012,5 +1012,84 @@ describe('applyState — the explicit choice of a cell (FEAT-93, lot S2)', () =>
 
     expect(db.cells('g')).toBe('1:1');
     expect(result.groupChange?.slotChanges).toEqual([{ field: 'slot', from: { column: 2, row: 1 }, to: null }]);
+  });
+});
+
+// #589: when a unit was finished, and by whom, is stamped once, on the write
+// that finishes it — never re-dated by a later edit, which only moves
+// `updatedAt`/`updatedBy`. "Consumed over the period" and the personal goal
+// read the stamp.
+describe('finishedAt / finishedBy (#589)', () => {
+  const MARCH = new Date('2026-03-10T20:00:00.000Z');
+  const APRIL = new Date('2026-04-12T09:00:00.000Z');
+  const as = (db: ReturnType<typeof fakeDb>, id: string, write: StateWrite, userId: string, now: Date, kind: 'bottle' | 'cigar' = 'bottle') =>
+    applyState<typeof INCLUDE, Row>(db.tx, db.get(id) as unknown as StateItem, write, { userId, kind, include: INCLUDE, now });
+
+  it('drinking one bottle of a group stamps the finished copy, never the group', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })]);
+
+    const drunk = await as(db, 'g', { state: { isOpened: true, fillLevel: 0 } }, 'marie', MARCH);
+
+    expect(db.get(drunk.data.id)).toMatchObject({ finishedAt: MARCH, finishedBy: 'marie' });
+    expect(db.get('g')).toMatchObject({ finishedAt: null, finishedBy: null });
+  });
+
+  it('finishing the only bottle of a line stamps the line itself', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 1, isOpened: true, fillLevel: 40, openedAt: DAY })]);
+
+    await as(db, 'g', { state: { fillLevel: 0 } }, 'marie', MARCH);
+
+    expect(db.get('g')).toMatchObject({ finishedAt: MARCH, finishedBy: 'marie' });
+  });
+
+  it('a finished bottle edited or moved a month later by someone else keeps when and by whom it was finished', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })]);
+    const drunk = await as(db, 'g', { state: { isOpened: true, fillLevel: 0 } }, 'marie', MARCH);
+
+    await as(db, drunk.data.id, { unit: { location: 'B2', cellarId: 'c2' } }, 'paul', APRIL);
+    // The same state sent again (an offline replay, a tasting saying "finished") is no new finish.
+    await as(db, drunk.data.id, { state: { isOpened: true, fillLevel: 0 } }, 'paul', APRIL);
+
+    expect(db.get(drunk.data.id)).toMatchObject({
+      location: 'B2', cellarId: 'c2', updatedAt: APRIL, updatedBy: 'paul',
+      finishedAt: MARCH, finishedBy: 'marie',
+    });
+  });
+
+  it('a finished bottle put back opened is no longer finished: the stamp is cleared', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 1 })]);
+    await as(db, 'g', { state: { isOpened: true, fillLevel: 0 } }, 'marie', MARCH);
+
+    await as(db, 'g', { state: { fillLevel: 30 } }, 'paul', APRIL);
+
+    expect(db.get('g')).toMatchObject({ fillLevel: 30, finishedAt: null, finishedBy: null });
+  });
+
+  it('a bottle finished, put back intact as a line of its own, carries no stamp', async () => {
+    const db = fakeDb([unit({ id: 'old', isOpened: true, fillLevel: 0, finishedAt: MARCH, finishedBy: 'marie' })]);
+
+    const result = await as(db, 'old', { state: { isOpened: false, fillLevel: 100 } }, 'paul', APRIL);
+
+    expect(result.outcome).toBe('regrouped');
+    expect(db.get('old')).toMatchObject({ isOpened: false, finishedAt: null, finishedBy: null });
+  });
+
+  it('the last cigar smoked stamps the box, the ones before do not', async () => {
+    const db = fakeDb([unit({ id: 'b', category: 'cigar', bottleSize: null, cigarsPerBox: 2, quantity: 1 })]);
+
+    await as(db, 'b', { smokeOne: true }, 'marie', MARCH, 'cigar');
+    expect(db.get('b')).toMatchObject({ cigarsLeft: 1, finishedAt: null, finishedBy: null });
+
+    await as(db, 'b', { smokeOne: true }, 'paul', APRIL, 'cigar');
+    expect(db.get('b')).toMatchObject({ fillLevel: 0, finishedAt: APRIL, finishedBy: 'paul' });
+  });
+
+  it('copies finished by a count closure (mark_consumed) are stamped for the member closing it', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })]);
+
+    const finished = await finishUnits(db.tx, 'g', 3, { userId: 'marie', now: MARCH });
+
+    expect(finished).toHaveLength(3);
+    for (const id of finished) expect(db.get(id)).toMatchObject({ finishedAt: MARCH, finishedBy: 'marie' });
   });
 });

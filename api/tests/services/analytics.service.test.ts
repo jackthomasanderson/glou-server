@@ -24,6 +24,7 @@ type ItemRow = {
   bottleSize: string | null;
   cellarId: string | null;
   updatedAt: Date;
+  finishedAt: Date | null;
   product: {
     category: string;
     region: string | null;
@@ -52,6 +53,7 @@ function item(overrides: Partial<Flat> = {}): ItemRow {
     bottleSize: '75cl',
     cellarId: null,
     updatedAt: new Date(),
+    finishedAt: null,
     category: 'wine',
     region: 'Bordeaux',
     appellation: null,
@@ -161,7 +163,7 @@ describe('getAnalytics — aggregation invariants', () => {
     await getAnalytics(from, to);
     const call = vi.mocked(prisma.auditLog.groupBy).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
     expect(call.where.createdAt).toEqual({ gte: from, lte: to });
-    // The consumed counter is dated by the item's own updatedAt stamp (#838
+    // The consumed counter is dated by the item's own finishedAt stamp (#589
     // case below); the inventory aggregate query itself stays unfiltered (beyond
     // the owned-items scope FEAT-87 applies everywhere in this function).
     const findCall = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as {
@@ -501,10 +503,13 @@ describe('getAnalytics — consumed units and the capital gain (#838)', () => {
     expect(stats.movements.consumed).toBe(2);
   });
 
-  it('dates consumed units by their last write, within the period only', async () => {
+  // #589: a finished unit is dated by when it was finished, never by its
+  // last write (a move, a count, an edit months later). An opened box's
+  // cigars are still dated by its last write until movements are logged (#848).
+  it('dates finished units by when they were finished, within the period only', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
-      item({ isOpened: true, fillLevel: 0, updatedAt: new Date('2026-03-10') }),
-      item({ isOpened: true, fillLevel: 0, updatedAt: new Date('2025-12-31') }),
+      item({ isOpened: true, fillLevel: 0, finishedAt: new Date('2026-03-10'), updatedAt: new Date('2026-11-02') }),
+      item({ isOpened: true, fillLevel: 0, finishedAt: new Date('2025-12-31'), updatedAt: new Date('2026-05-02') }),
       item({ category: 'cigar', isOpened: true, cigarsPerBox: 20, cigarsLeft: 15, updatedAt: new Date('2026-04-01') }),
       item({ quantity: 6, purchasePrice: 10, updatedAt: new Date('2024-01-01') }),
     ] as never);
@@ -514,6 +519,27 @@ describe('getAnalytics — consumed units and the capital gain (#838)', () => {
     expect(stats.movements.consumed).toBe(6);
     // The rest of the page still describes the cellar as it stands.
     expect(stats.totalActiveItems).toBe(6 + 15);
+  });
+
+  it('a bottle finished in March and moved in November counts in March, not in November (#589)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ isOpened: true, fillLevel: 0, finishedAt: new Date('2026-03-10'), updatedAt: new Date('2026-11-02') }),
+    ] as never);
+
+    const march = await getAnalytics(new Date('2026-03-01'), new Date('2026-03-31'));
+    const november = await getAnalytics(new Date('2026-11-01'), new Date('2026-11-30'));
+
+    expect(march.movements.consumed).toBe(1);
+    expect(november.movements.consumed).toBe(0);
+  });
+
+  it('reads when each unit was finished', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([] as never);
+
+    await getAnalytics();
+
+    const call = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { select: Record<string, unknown> };
+    expect(call.select).toMatchObject({ finishedAt: true });
   });
 
   it('compares value and cost of the bottles in stock: drinking a bottle that kept its price leaves the gain at 0', async () => {

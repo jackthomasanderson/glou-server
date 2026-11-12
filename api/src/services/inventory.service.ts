@@ -7,7 +7,7 @@ import { InventoryPatch, InventoryInput, InventoryDraft } from '../schemas/inven
 import { computeReadiness, familyAlertStatus } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
-import { isGroupableItem, unitKind, type UnitKind } from '../lib/finished-item';
+import { finishedStamp, isGroupableItem, unitKind, type UnitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { INVENTORY_LIST_LIMIT, TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
@@ -163,6 +163,8 @@ type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> 
 const RESTORABLE_UNIT_FIELDS: ReadonlySet<string> = new Set(
   Object.values(Prisma.InventoryItemScalarFieldEnum).filter((field) => ![
     'id', 'userId', 'productId', 'createdAt', 'updatedAt', 'deletedAt', 'updatedBy', 'lockedFields', 'fieldSources',
+    // #589: stamped by the write that finishes the unit, never restored on their own.
+    'finishedAt', 'finishedBy',
   ].includes(field)),
 );
 
@@ -346,12 +348,17 @@ export class InventoryService {
       lockedFields: (data.lockedFields ?? []).filter(isProductField),
       ...(Object.keys(productSources).length > 0 ? { fieldSources: productSources } : {}),
     };
+    // #589: a bottle recorded already drunk (or a box already smoked) is finished now, by its author.
+    const { finishedAt, finishedBy } = finishedStamp(
+      null, { isOpened: dbData.isOpened === true, fillLevel: (dbData.fillLevel as number | null | undefined) ?? null }, userId, new Date(),
+    );
     const created = await client.inventoryItem.create({
       data: {
         id: uuidv4(),
         ...itemData,
         purchasedAt: purchaseDayFromInput(data.purchasedAt),
         ...extra,
+        ...(finishedBy ? { finishedAt, finishedByUser: { connect: { id: finishedBy } } } : {}),
         ...(unitLocks.length > 0 ? { lockedFields: unitLocks } : {}),
         user: { connect: { id: userId } },
         ...(cellarId ? { cellar: { connect: { id: cellarId } } } : {}),

@@ -169,6 +169,17 @@ describe('toItemView (#471: the flat record of /api/inventory)', () => {
     expect(view).not.toHaveProperty('product');
   });
 
+  // #589: the finish stamp dates the consumption figures only; no reader of /api/inventory gets it.
+  it('leaves out the finish stamp, like the unit view of /api/products', () => {
+    const view = toItemView({
+      id: 'b1', finishedAt: new Date('2026-03-10'), finishedBy: 'u1', lockedFields: [], fieldSources: null, product: product as never,
+    });
+
+    expect(view).toMatchObject({ id: 'b1' });
+    expect(view).not.toHaveProperty('finishedAt');
+    expect(view).not.toHaveProperty('finishedBy');
+  });
+
   it('has no field sources when neither side has any', () => {
     const view = toItemView({ lockedFields: [], fieldSources: null, product: { ...product, fieldSources: null } as never });
     expect(view.fieldSources).toBeNull();
