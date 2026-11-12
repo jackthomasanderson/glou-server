@@ -224,6 +224,19 @@ export const sharesService = {
       select: { id: true, username: true, displayName: true, isActive: true },
     });
     const ownerById = new Map(owners.map((o) => [o.id, o]));
+    // What each link opens, by name (recette v2026.11.3): only the id and name,
+    // in the link's own order; a cellar or collection deleted since is left out.
+    const nameSelect = { id: true, name: true } as const;
+    const [cellars, collections] = await Promise.all([
+      prisma.cellar.findMany({ where: { id: { in: [...new Set(shares.flatMap((s) => s.cellarIds))] } }, select: nameSelect }),
+      prisma.collection.findMany({ where: { id: { in: [...new Set(shares.flatMap((s) => s.collectionIds))] } }, select: nameSelect }),
+    ]);
+    const byIds = (rows: { id: string; name: string }[]) => {
+      const byId = new Map(rows.map((row) => [row.id, row]));
+      return (ids: string[]) => ids.flatMap((id) => byId.get(id) ?? []);
+    };
+    const cellarsOf = byIds(cellars);
+    const collectionsOf = byIds(collections);
     // Field by field, so nothing else of the row can ever reach the admin.
     return shares.map((share) => ({
       id: share.id,
@@ -235,6 +248,8 @@ export const sharesService = {
       cellarCount: share.cellarIds.length,
       writeCellarCount: share.writeCellarIds.length,
       collectionCount: share.collectionIds.length,
+      cellars: cellarsOf(share.cellarIds),
+      collections: collectionsOf(share.collectionIds),
       createdAt: share.createdAt,
       owner: ownerById.get(share.userId) ?? { id: share.userId, username: null, displayName: null, isActive: false },
     }));

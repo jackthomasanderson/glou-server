@@ -25,12 +25,23 @@ export function AdminSharesSection() {
   const ownerName = (share: AdminGuestShare) => share.owner.displayName || share.owner.username || '—';
   const date = (value: string | Date) => (hasMounted ? formatDate(value, i18n.language) : '');
 
-  const scope = (share: AdminGuestShare) => {
+  // What a link opens, by name (recette v2026.11.3): a long name is cut, whole
+  // on hover; one deleted since the link was made is only counted.
+  const opened = (labelKey: string, items: AdminGuestShare['cellars'], count: number) => {
+    if (count === 0) return null;
+    const gone = count - items.length;
     const parts = [
-      share.cellarCount > 0 && t('shares.cellarCount', { count: share.cellarCount }),
-      share.collectionCount > 0 && t('shares.collectionCount', { count: share.collectionCount }),
-    ].filter(Boolean);
-    return parts.length > 0 ? parts.join(' · ') : t('shares.allCellars');
+      ...items.map((item) => (
+        <span key={item.id} title={item.name} className="inline-block max-w-[14rem] truncate align-bottom text-foreground-700">{item.name}</span>
+      )),
+      ...(gone > 0 ? [<span key="gone">{t('admin.shares.deleted', { count: gone })}</span>] : []),
+    ];
+    return (
+      <p className="text-xs text-foreground-500 break-words">
+        {t(labelKey)}{' '}
+        {parts.map((part, i) => <React.Fragment key={part.key}>{i > 0 && ', '}{part}</React.Fragment>)}
+      </p>
+    );
   };
 
   const confirmRevoke = () => {
@@ -67,8 +78,14 @@ export function AdminSharesSection() {
                   <p className="text-sm text-warning-700 mt-1">{t('admin.shares.ownerDeactivated')}</p>
                 )}
               </div>
+              <div className="min-w-0">
+                {opened('admin.shares.cellars', share.cellars, share.cellarCount)}
+                {opened('admin.shares.collections', share.collections, share.collectionCount)}
+                {share.cellarCount === 0 && share.collectionCount === 0 && (
+                  <p className="text-xs text-foreground-500">{t('shares.allCellars')}</p>
+                )}
+              </div>
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground-500">
-                <span>{scope(share)}</span>
                 {share.writeCellarCount > 0 && (
                   <span className="text-warning-700">{t('shares.writeAccessCount', { count: share.writeCellarCount })}</span>
                 )}
