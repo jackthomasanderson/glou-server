@@ -74,6 +74,8 @@ export function useLogin() {
       }
       queryClient.setQueryData<PublicUser | null>(ME_KEY, data);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
+      // FEAT-115 (#990): a sign-in is a new visit; another administrator may have signed in on this tab.
+      queryClient.removeQueries({ queryKey: qk.admin.releaseNotes });
       clearQuickLock();
       // #471 (QP5): "Plus tard" on the review banner lasts until the next sign-in.
       resetReviewBanner();
@@ -99,6 +101,8 @@ export function useRegister() {
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
+      // FEAT-115 (#990): a sign-in is a new visit; another administrator may have signed in on this tab.
+      queryClient.removeQueries({ queryKey: qk.admin.releaseNotes });
       resetReviewBanner();
       router.push(DEFAULT_LANDING);
     },
@@ -362,6 +366,8 @@ export function useVerify2faLogin() {
     onSuccess: (user) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, user);
       queryClient.removeQueries({ queryKey: ONBOARDING_STATE_KEY });
+      // FEAT-115 (#990): a sign-in is a new visit; another administrator may have signed in on this tab.
+      queryClient.removeQueries({ queryKey: qk.admin.releaseNotes });
       clearQuickLock();
       // #471 (QP5): "Plus tard" on the review banner lasts until the next sign-in.
       resetReviewBanner();
