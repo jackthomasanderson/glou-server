@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { UnitKind } from '@shared/units';
 import { SLOT_CHANGED, SLOT_CHOICE_REQUIRED, type SlotChoiceFields } from '@shared/product';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
-import { productDetailKey } from '@/hooks/useProducts';
+import { qk } from '@/lib/queryKeys';
 import { notifyError, notifyUndoable } from '@/lib/toast';
 import { discardQueuedMutation, queuedMutationOf } from '@/lib/offline/syncEngine';
 import { isProvisional } from '@/lib/offline/optimistic';
@@ -66,14 +66,8 @@ export function useStockMove() {
 
   /** The line as the drawer knows it now (its level set since, its version). */
   const latest = useCallback((item: Pick<ProductItem, 'id' | 'productId'>): ProductItem | undefined =>
-    queryClient.getQueryData<ProductDetailView>(productDetailKey(item.productId))?.items.find((unit) => unit.id === item.id),
+    queryClient.getQueryData<ProductDetailView>(qk.products.detail(item.productId))?.items.find((unit) => unit.id === item.id),
   [queryClient]);
-
-  const settle = useCallback((productId: string) => {
-    // Its history ("a ouvert 1 bouteille") and the spending pages follow.
-    void queryClient.invalidateQueries({ queryKey: productDetailKey(productId) });
-    void queryClient.invalidateQueries({ queryKey: ['budget'] });
-  }, [queryClient]);
 
   /**
    * Puts the copy `written` (its id, its version) back as it was: intact when
@@ -97,10 +91,9 @@ export function useStockMove() {
       });
     } catch {
       // Refused (a tasting noted on it meanwhile, a conflict, its slot taken since): told by the mutation.
-    } finally {
-      settle(item.productId);
+      // Its history ("a ouvert 1 bouteille") and what derives from the stock follow the mutation (#621).
     }
-  }, [latest, mutateAsync, settle]);
+  }, [latest, mutateAsync]);
 
   const run = useCallback(async (item: ProductItem, move: StockMove, kind: UnitKind, options: MoveOptions = {}): Promise<boolean> => {
     // FEAT-108: a copy shown before the server took it off its group has no id there yet.
@@ -123,11 +116,9 @@ export function useStockMove() {
       if (error instanceof Error && error.message === SLOT_CHANGED) notifyError('stockLine.errors.slotChanged');
       if (ask && options.onAskCell) options.onAskCell(ask);
       else if (error instanceof Error && error.message === SLOT_CHOICE_REQUIRED) notifyError('stockLine.errors.slotChoice');
-      // Otherwise told by the mutation; the drawer is read again so the next try starts from the line as it is.
-      settle(item.productId);
+      // Otherwise told by the mutation, which reads the drawer again (#621): the next try starts from the line as it is.
       return false;
     }
-    settle(item.productId);
     const message = `openDrink.done.${move}`;
     // Without network the write waits in the offline queue (FEAT-108),
     // already shown ("en attente"): "Annuler" drops it from the queue and
@@ -147,7 +138,7 @@ export function useStockMove() {
     // that cell, if nobody took it since (`placeAt`, else it comes back unplaced).
     notifyUndoable(message, undefined, () => { void undo(written, before, kind, cellGivenBack(before, written, options.choice, kind)); });
     return true;
-  }, [latest, mutateAsync, queryClient, settle, undo]);
+  }, [latest, mutateAsync, queryClient, undo]);
 
   return { run, isPending: update.isPending };
 }

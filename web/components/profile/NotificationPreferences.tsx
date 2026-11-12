@@ -15,10 +15,11 @@ import { SingleSelect } from '@/components/ui/SingleSelect';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { isNetworkFailure } from '@/lib/auth/error-message';
 import { notifyError, notifySuccess } from '@/lib/toast';
+import { qk } from '@/lib/queryKeys';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-const NOTIF_PREFS_KEY = ['notification_prefs'];
+const NOTIF_PREFS_KEY = qk.notificationPrefs;
 
 /** The refusals of a channel test said in words (#767); anything else is "unexpected". */
 const TEST_ERRORS = new Set(['DELIVERY_FAILED', 'GOTIFY_NOT_CONFIGURED', 'INVALID_URL', 'SMTP_NOT_CONFIGURED']);

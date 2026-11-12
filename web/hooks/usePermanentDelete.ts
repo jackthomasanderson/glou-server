@@ -3,6 +3,7 @@ import { inventoryClient, type TrashDeletion } from '@/lib/inventory/client';
 import { productsClient } from '@/lib/products/client';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import type { InventoryCategory } from '@shared/inventory';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 
 /**
  * #962: an administrator deletes an entry of the trash for good, or empties
@@ -10,8 +11,8 @@ import type { InventoryCategory } from '@shared/inventory';
  * once instead of waiting, paused, for the connection — a permanent deletion
  * is never queued (the buttons are disabled offline anyway).
  */
-const TRASH_KEY = ['inventory', 'trash'];
-const PRODUCTS_TRASH_KEY = ['inventory', 'products-trash'];
+const TRASH_KEY = qk.inventory.trash;
+const PRODUCTS_TRASH_KEY = qk.products.trash;
 
 /** What was deleted leaves both lists of the trash at once, then everything under `inventory` is read again. */
 function dropDeleted(queryClient: QueryClient, { itemIds, productIds }: TrashDeletion) {
@@ -32,7 +33,7 @@ function usePermanentDelete<V>(mutationFn: (variables: V) => Promise<TrashDeleti
       notifySuccess(success, undefined);
     },
     onError: () => notifyError(error, undefined),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['inventory'] }),
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
 

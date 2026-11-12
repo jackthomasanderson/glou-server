@@ -9,15 +9,9 @@ import { BULK_WINES_ERRORS, type BulkStockResult, type BulkWinesAction, type Pro
 import { getAllQueuedMutations, getCachedInventory, type QueuedMutation } from '@/lib/offline/db';
 import { overlayChanges, unitInStock, type UnitLike } from '@/lib/offline/optimistic';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 
-/**
- * #471 (D9): the list of wines. Under the `inventory` prefix on purpose: every
- * change to a bottle that refreshes the flat list (`['inventory']`) refreshes
- * the wines too.
- */
-export const PRODUCTS_KEY = ['inventory', 'products'];
-const PRODUCTS_TRUNCATED_KEY = ['inventory-meta', 'products-truncated'];
+const PRODUCTS_KEY = qk.products.list;
 
 /**
  * #585: a bottle change still waiting in the offline queue stays on screen.
@@ -64,7 +58,7 @@ function unitFieldsOf(m: QueuedMutation): Record<string, unknown> {
 /** #475: true when the list only holds the 2,000 most recent wines. */
 export function useProductsTruncated(): boolean {
   const { data } = useQuery<boolean>({
-    queryKey: PRODUCTS_TRUNCATED_KEY,
+    queryKey: qk.products.truncated,
     queryFn: () => false,
     enabled: false,
     staleTime: Infinity,
@@ -84,7 +78,7 @@ export function useProducts(options?: { enabled?: boolean }) {
     queryFn: async () => {
       try {
         const { data, truncated } = await productsClient.list();
-        queryClient.setQueryData(PRODUCTS_TRUNCATED_KEY, truncated);
+        queryClient.setQueryData(qk.products.truncated, truncated);
         return await overlayQueuedUnitChanges(data);
       } catch (error) {
         const cached = await getCachedInventory().catch(() => []);
@@ -107,7 +101,7 @@ export function useProducts(options?: { enabled?: boolean }) {
  */
 export function useCellarProducts(cellarId: string, options?: { enabled?: boolean }) {
   return useQuery<ProductListResponse>({
-    queryKey: ['inventory', 'cellar-products', cellarId],
+    queryKey: qk.products.ofCellar(cellarId),
     queryFn: async () => {
       const list = await productsClient.list({ cellarId });
       return { ...list, data: await overlayQueuedUnitChanges(list.data) };
@@ -119,14 +113,11 @@ export function useCellarProducts(cellarId: string, options?: { enabled?: boolea
   });
 }
 
-/** Cache key of a wine's detail; under `inventory`, so a bottle change refreshes it too. */
-export const productDetailKey = (id: string | null) => ['inventory', 'product', id];
-
 /** A wine's detail: its drawer, and the tastings the trash confirmation warns about. */
 export function useProductDetail(id: string | null) {
   const queryClient = useQueryClient();
   return useQuery<ProductDetailView>({
-    queryKey: productDetailKey(id),
+    queryKey: qk.products.detail(id),
     queryFn: async () => {
       try {
         const detail = await productsClient.get(id as string);
@@ -152,7 +143,7 @@ export function useProductDetail(id: string | null) {
  * as its card shows it, else rebuilt from the offline copy.
  */
 async function knownWine(queryClient: ReturnType<typeof useQueryClient>, id: string): Promise<ProductDetailView | undefined> {
-  const shown = queryClient.getQueryData<ProductDetailView>(productDetailKey(id));
+  const shown = queryClient.getQueryData<ProductDetailView>(qk.products.detail(id));
   if (shown) return shown;
   const product = queryClient.getQueryData<Product[]>(PRODUCTS_KEY)?.find((p) => p.id === id)
     ?? productsFromFlatItems(await getCachedInventory().catch(() => [])).find((p) => p.id === id);
@@ -167,14 +158,14 @@ function productCtx(queryClient: ReturnType<typeof useQueryClient>, id: string, 
   // A wine in the trash has left the list: its category is read from the trash too.
   const category = known
     ?? queryClient.getQueryData<Product[]>(PRODUCTS_KEY)?.find((product) => product.id === id)?.category
-    ?? queryClient.getQueryData<TrashedProduct[]>(['inventory', 'products-trash'])?.find((product) => product.id === id)?.category;
+    ?? queryClient.getQueryData<TrashedProduct[]>(qk.products.trash)?.find((product) => product.id === id)?.category;
   return category === 'cigar' || category === 'spirit' ? { context: category } : undefined;
 }
 
 /** Wines in the trash (D10), refreshed with every bottle change (`inventory` prefix). */
 export function useProductsTrash() {
   return useQuery<TrashedProduct[]>({
-    queryKey: ['inventory', 'products-trash'],
+    queryKey: qk.products.trash,
     queryFn: productsClient.listTrash,
     staleTime: 1000 * 60,
   });
@@ -190,11 +181,7 @@ export function useTrashProduct() {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => old?.filter((product) => product.id !== id));
     },
     onError: (_error, id) => notifyError('toast.product.deleteError', productCtx(queryClient, id)),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-    },
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
 
@@ -205,11 +192,7 @@ export function useRestoreProduct() {
     mutationFn: productsClient.restore,
     onSuccess: (product) => notifySuccess('toast.product.restoreSuccess', productCtx(queryClient, product.id, product.category)),
     onError: (_error, id) => notifyError('toast.product.restoreError', productCtx(queryClient, id)),
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-    },
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
 
@@ -227,14 +210,7 @@ export function useBulkWines() {
     // over the maximum, a cellar deleted meanwhile); any other one is generic.
     onError: (error) => notifyError((BULK_WINES_ERRORS as readonly string[]).includes(error.message)
       ? `bulkWines.errors.${error.message}` : 'bulkWines.error'),
-    onSettled: () => {
-      // The wines, their drawers, the flat list and the trash all live under `inventory`.
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['budget'] });
-      void queryClient.invalidateQueries({ queryKey: ['alerts'] });
-    },
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
 
@@ -269,12 +245,9 @@ export function useUpdateProduct() {
       }
       notifyError(error.message === 'VALIDATION_ERROR' ? 'familyDrawer.form.rejected' : 'familyDrawer.form.error', context);
     },
-    onSettled: (_saved, _error, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: productDetailKey(id) });
-      // The flat bottles carry the description too (transitional copy).
-      void queryClient.invalidateQueries({ queryKey: ['inventory'], exact: true });
-      void queryClient.invalidateQueries({ queryKey: ['alerts'] });
-    },
+    // Its drawer (history), the flat bottles (they carry the description too),
+    // reminders in the bell and badges, regions in the analytics… follow.
+    onSettled: (_saved, error) => invalidateAfterInventoryChange(queryClient, { alreadyWritten: error ? [] : [PRODUCTS_KEY] }),
   });
 }
 
@@ -306,7 +279,7 @@ export function useAddUnits() {
     onSuccess: (write, { product, input }) => {
       const written = [write.data, ...write.changed];
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withUnitChanges(old, written, write.removedIds));
-      queryClient.setQueryData<ProductDetailView>(productDetailKey(product.id), (old) =>
+      queryClient.setQueryData<ProductDetailView>(qk.products.detail(product.id), (old) =>
         detailWithUnitWrite(old, null, written, write.removedIds));
       // FEAT-95: cigars are counted in cigars, 3 boxes of 25 being 75.
       if (product.category === 'cigar') {
@@ -324,12 +297,7 @@ export function useAddUnits() {
       }
       notifyError(`${ADD_UNITS_REFUSALS[error.message] ?? 'addUnits.errors.failed'}${of}`);
     },
-    onSettled: (_write, _error, { product }) => {
-      // The drawer's history, the flat bottles, the cellars and the menu counts.
-      void queryClient.invalidateQueries({ queryKey: productDetailKey(product.id) });
-      void queryClient.invalidateQueries({ queryKey: ['inventory'], exact: true });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-    },
+    // The drawer's history, the flat bottles, the cellars, counters, spending… follow.
+    onSettled: (_write, error) => invalidateAfterInventoryChange(queryClient, { alreadyWritten: error ? [] : [PRODUCTS_KEY] }),
   });
 }

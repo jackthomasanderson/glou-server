@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { sharesClient } from '@/lib/shares/client';
 import { notifyError } from '@/lib/toast';
 import { CreatedGuestShare, GuestShare, ShareFormValues } from '@/lib/shares/types';
+import { qk } from '@/lib/queryKeys';
 
-export const SHARES_KEY = ['shares'];
+const SHARES_KEY = qk.shares;
 
 export function useShares() {
   return useQuery<GuestShare[]>({

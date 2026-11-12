@@ -2,10 +2,8 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@heroui/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { isIntactItem } from '@shared/units';
-import { REVIEW_KEY, useConfirmCount } from '@/hooks/useReview';
-import { productDetailKey } from '@/hooks/useProducts';
+import { useConfirmCount } from '@/hooks/useReview';
 import { notifySuccess } from '@/lib/toast';
 import type { LineContext } from '@/lib/products/lines';
 import type { ProductItem } from '@/lib/products/types';
@@ -20,15 +18,11 @@ import { TrashLineDialog } from './TrashLineDialog';
  */
 export function ReviewLineActions({ item, ctx }: { item: ProductItem; ctx: LineContext }) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const confirmCount = useConfirmCount();
   const [dialog, setDialog] = useState<'correct' | 'trash' | null>(null);
-  const close = () => {
-    setDialog(null);
-    // A corrected number is settled (the API clears the mark): the drawer and the review list are read again.
-    void queryClient.invalidateQueries({ queryKey: productDetailKey(item.productId) });
-    void queryClient.invalidateQueries({ queryKey: REVIEW_KEY });
-  };
+  // A corrected number is settled (the API clears the mark): the drawer and the
+  // review list are read again by the correction itself (#621).
+  const close = () => setDialog(null);
 
   return (
     <div className="flex flex-wrap gap-2 mt-1" data-testid="review-line-actions">

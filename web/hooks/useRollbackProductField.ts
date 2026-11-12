@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { productsClient } from '@/lib/products/client';
 import type { Product } from '@/lib/products/types';
-import { PRODUCTS_KEY, productDetailKey } from '@/hooks/useProducts';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 
 export interface RollbackProductFieldVariables {
   id: string;
@@ -25,14 +25,10 @@ export function useRollbackProductField() {
     meta: { handlesError: true },
     mutationFn: ({ id, field, toValue, expectedUpdatedAt }) => productsClient.rollback(id, field, toValue, expectedUpdatedAt),
     onSuccess: (saved) => {
-      queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) =>
+      queryClient.setQueryData<Product[]>(qk.products.list, (old) =>
         old?.map((product) => (product.id === saved.id ? saved : product)));
     },
-    onSettled: (_saved, _error, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: productDetailKey(id) });
-      // The flat bottles carry the description too (transitional copy).
-      void queryClient.invalidateQueries({ queryKey: ['inventory'], exact: true });
-      void queryClient.invalidateQueries({ queryKey: ['alerts'] });
-    },
+    // Its drawer (history), the flat bottles (they carry the description too), the bell… follow.
+    onSettled: (_saved, error) => invalidateAfterInventoryChange(queryClient, { alreadyWritten: error ? [] : [qk.products.list] }),
   });
 }

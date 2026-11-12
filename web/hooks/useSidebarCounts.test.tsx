@@ -2,7 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useSidebarCounts, useSidebarCountsSync, SIDEBAR_COUNTS_KEY } from './useSidebarCounts';
+import { useSidebarCounts } from './useSidebarCounts';
+import { invalidateAfterInventoryChange } from '@/lib/queryKeys';
 
 const get = vi.fn();
 vi.mock('@/lib/api', () => ({ client: { get: (...a: unknown[]) => get(...a) } }));
@@ -14,7 +15,7 @@ function setup() {
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <QueryClientProvider client={qc}>{children}</QueryClientProvider>
   );
-  return { qc, ...renderHook(() => { useSidebarCountsSync(); return useSidebarCounts(); }, { wrapper }) };
+  return { qc, ...renderHook(() => useSidebarCounts(), { wrapper }) };
 }
 
 afterEach(() => get.mockReset());
@@ -28,13 +29,14 @@ describe('useSidebarCounts (#212)', () => {
     expect(get).toHaveBeenCalledWith('/stats/counts', { signal: expect.any(AbortSignal) });
   });
 
-  it('refetches when an inventory query is invalidated', async () => {
+  it('a stock change fetches the counts again, once (#621, #632)', async () => {
     get.mockResolvedValue({ data: counts });
     const { qc, result } = setup();
     await waitFor(() => expect(result.current.data).toBeDefined());
-    qc.setQueryData(['inventory'], []);
-    await qc.invalidateQueries({ queryKey: ['inventory'] });
+    invalidateAfterInventoryChange(qc);
     await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 30));
+    expect(get).toHaveBeenCalledTimes(2);
   });
 
   it('ignores unrelated invalidations', async () => {
@@ -43,51 +45,6 @@ describe('useSidebarCounts (#212)', () => {
     await waitFor(() => expect(result.current.data).toBeDefined());
     qc.setQueryData(['tastings'], []);
     await qc.invalidateQueries({ queryKey: ['tastings'] });
-    expect(get).toHaveBeenCalledTimes(1);
-    expect(qc.getQueryState(SIDEBAR_COUNTS_KEY)?.isInvalidated).toBe(false);
-  });
-
-  it('merges many invalidations of one edit into a single counts fetch', async () => {
-    get.mockResolvedValue({ data: counts });
-    const { qc, result } = setup();
-    await waitFor(() => expect(result.current.data).toBeDefined());
-    for (const key of [['inventory'], ['cellars'], ['cellars', 'a'], ['cellars', 'b', 'layout'], ['collections']]) {
-      qc.setQueryData(key, []);
-    }
-    await qc.invalidateQueries({ queryKey: ['inventory'] });
-    await qc.invalidateQueries({ queryKey: ['cellars'] });
-    await qc.invalidateQueries({ queryKey: ['collections'] });
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
-    await new Promise((r) => setTimeout(r, 30));
-    expect(get).toHaveBeenCalledTimes(2);
-  });
-
- it.each([['root first', false], ['counts first', true]])(
-    'watched root + counts invalidated in the same tick gives one fetch (%s)',
-    async (_name, countsFirst) => {
-      get.mockResolvedValue({ data: counts });
-      const { qc, result } = setup();
-      await waitFor(() => expect(result.current.data).toBeDefined());
-      qc.setQueryData(['cellars'], []);
-      const root = () => qc.invalidateQueries({ queryKey: ['cellars'] });
-      const direct = () => qc.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-      await Promise.all(countsFirst ? [direct(), root()] : [root(), direct()]);
-      await new Promise((r) => setTimeout(r, 30));
-      expect(get).toHaveBeenCalledTimes(2);
-    },
-  );
-
-  it('is not subscribed by the plain query hook (two consumers, one subscription)', async () => {
-    get.mockResolvedValue({ data: counts });
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-    );
-    const { result } = renderHook(() => { useSidebarCounts(); return useSidebarCounts(); }, { wrapper });
-    await waitFor(() => expect(result.current.data).toBeDefined());
-    qc.setQueryData(['inventory'], []);
-    await qc.invalidateQueries({ queryKey: ['inventory'] });
-    await new Promise((r) => setTimeout(r, 30));
     expect(get).toHaveBeenCalledTimes(1);
   });
 });

@@ -9,7 +9,8 @@ import {
 import { isIntactItem, unitKind } from '@shared/units';
 import { useCellars, useRemoveSlot } from '@/hooks/useCellars';
 import { notifyError } from '@/lib/toast';
-import { productDetailKey, useProductDetail } from '@/hooks/useProducts';
+import { useProductDetail } from '@/hooks/useProducts';
+import { qk } from '@/lib/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useToggleAlertPause } from '@/hooks/useAlerts';
@@ -181,7 +182,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const cell = slotContext && heldSlot ? { ...slotContext, slotId: heldSlot.id } : null;
   // FEAT-108 (plan §4): the gestures of the plan wait for the network.
   const offline = useOfflineBlocked();
-  const removeSlot = useRemoveSlot(slotLine?.cellarId ?? '');
+  const removeSlot = useRemoveSlot();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const removeFromCell = async (slotId: string) => {
     try {
@@ -225,7 +226,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   // The version sent is read from the cache when the level is sent: a level
   // chosen while the previous one was saving goes after it, from its answer.
   const handleLevel = useCallback(async (item: ProductItem, level: number) => {
-    const current = queryClient.getQueryData<ProductDetailView>(productDetailKey(item.productId))
+    const current = queryClient.getQueryData<ProductDetailView>(qk.products.detail(item.productId))
       ?.items.find((unit) => unit.id === item.id) ?? item;
     // Never a level on a line of more than one bottle: it would open one more.
     if (!hasOwnLevel(current)) throw new Error('NOT_ONE_BOTTLE');

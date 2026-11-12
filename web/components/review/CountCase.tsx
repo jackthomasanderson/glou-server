@@ -2,12 +2,11 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@heroui/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { unitKind } from '@shared/units';
 import { CorrectQuantityDialog } from '@/components/inventory/CorrectQuantityDialog';
 import { TrashLineDialog } from '@/components/inventory/TrashLineDialog';
 import { useCellars } from '@/hooks/useCellars';
-import { REVIEW_KEY, useConfirmCount } from '@/hooks/useReview';
+import { useConfirmCount } from '@/hooks/useReview';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { formatPurchaseDay, lineParts, type LineContext } from '@/lib/products/lines';
 import { wineName } from '@/lib/products/stock';
@@ -25,7 +24,6 @@ import { notifySuccess } from '@/lib/toast';
 export function CountCase({ count }: { count: ReviewCount }) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
-  const queryClient = useQueryClient();
   const confirmCount = useConfirmCount();
   const { data: cellars } = useCellars();
   const [dialog, setDialog] = useState<'correct' | 'trash' | null>(null);
@@ -44,11 +42,9 @@ export function CountCase({ count }: { count: ReviewCount }) {
   }), [product.category, t, cellarName, lang, name]);
   const split = countSplit(count);
 
-  const closeDialog = () => {
-    setDialog(null);
-    // A corrected number is settled (the API clears the mark): the list is read again.
-    void queryClient.invalidateQueries({ queryKey: REVIEW_KEY });
-  };
+  // A corrected number is settled (the API clears the mark): the list is read
+  // again by the correction itself (#621).
+  const closeDialog = () => setDialog(null);
 
   return (
     <article

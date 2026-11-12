@@ -6,6 +6,7 @@ import { MaturityReference, MaturityReferenceInput } from '../lib/maturity-refer
 import type { PurgeResponse } from '@shared/maintenance';
 import type { AdminGuestShare } from '@shared/shares';
 import { configClient } from '../lib/config/client';
+import { qk } from '../lib/queryKeys';
 
 export interface AdminUser {
     id: string;
@@ -46,7 +47,7 @@ export interface AuditLogResponse {
 // Fetch all users
 export function useAdminUsers() {
     return useQuery({
-        queryKey: ['admin_users'],
+        queryKey: qk.admin.users,
         queryFn: async (): Promise<AdminUser[]> => {
             const response = await api.get<AdminUser[]>('/admin/users');
             return response.data;
@@ -68,7 +69,7 @@ export function useUpdateUserRole() {
         },
         onSuccess: () => {
             notifySuccess('toast.admin.roleSuccess');
-            queryClient.invalidateQueries({ queryKey: ['admin_users'] });
+            queryClient.invalidateQueries({ queryKey: qk.admin.users });
         },
     });
 }
@@ -87,7 +88,7 @@ export function useUpdateUserStatus() {
         },
         onSuccess: () => {
             notifySuccess('toast.admin.statusSuccess');
-            queryClient.invalidateQueries({ queryKey: ['admin_users'] });
+            queryClient.invalidateQueries({ queryKey: qk.admin.users });
         },
     });
 }
@@ -118,7 +119,7 @@ export interface AuditLogFilters {
 
 export function useAdminAuditLogs(page = 1, limit = 50, filters: AuditLogFilters = {}) {
     return useQuery({
-        queryKey: ['admin_audit_logs', page, limit, filters],
+        queryKey: qk.admin.auditLogs(page, limit, filters),
         queryFn: async (): Promise<AuditLogResponse> => {
             const params = new URLSearchParams({ page: String(page), limit: String(limit) });
             for (const [key, value] of Object.entries(filters)) {
@@ -157,7 +158,7 @@ export type { MaturityReference, MaturityReferenceInput };
 
 export function useMaturityReferences() {
     return useQuery({
-        queryKey: ['admin_maturity_references'],
+        queryKey: qk.admin.maturityReferences,
         queryFn: () => maturityReferenceClient.list(),
         staleTime: 60_000,
     });
@@ -168,7 +169,7 @@ export function useCreateMaturityReference() {
     return useMutation({
         mutationFn: (input: MaturityReferenceInput) => maturityReferenceClient.create(input),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin_maturity_references'] });
+            queryClient.invalidateQueries({ queryKey: qk.admin.maturityReferences });
         },
     });
 }
@@ -179,7 +180,7 @@ export function useUpdateMaturityReference() {
         mutationFn: ({ id, patch }: { id: string; patch: Partial<MaturityReferenceInput> }) =>
             maturityReferenceClient.update(id, patch),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin_maturity_references'] });
+            queryClient.invalidateQueries({ queryKey: qk.admin.maturityReferences });
         },
     });
 }
@@ -189,7 +190,7 @@ export function useDeleteMaturityReference() {
     return useMutation({
         mutationFn: (id: string) => maturityReferenceClient.delete(id),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['admin_maturity_references'] });
+            queryClient.invalidateQueries({ queryKey: qk.admin.maturityReferences });
         },
     });
 }
@@ -198,7 +199,7 @@ export function useDeleteMaturityReference() {
 // the table reorders instantly, rolling back to the server list on failure.
 export function useReorderMaturityReferences() {
     const queryClient = useQueryClient();
-    const key = ['admin_maturity_references'];
+    const key = qk.admin.maturityReferences;
     return useMutation({
         mutationFn: (ids: string[]) => maturityReferenceClient.reorder(ids),
         onMutate: async (ids: string[]) => {
@@ -227,7 +228,7 @@ export function useReorderMaturityReferences() {
 
 // ─── Backups state (#756) ─────────────────────────────────────────────────────
 
-export const ADMIN_BACKUP_HEALTH_KEY = ['admin_backup_health'];
+export const ADMIN_BACKUP_HEALTH_KEY = qk.admin.backupHealth;
 
 /** Whether backups run and when one last succeeded: the admin page warns when there is no recovery point. */
 export function useAdminBackupHealth({ enabled = true, staleTime = 30_000 }: { enabled?: boolean; staleTime?: number } = {}) {
@@ -241,10 +242,10 @@ export function useAdminBackupHealth({ enabled = true, staleTime = 30_000 }: { e
 
 // ─── System configuration (#615) ──────────────────────────────────────────────
 
-export const SYSTEM_CONFIG_KEY = ['admin_system_config'];
-export const CONFIG_HISTORY_KEY = ['admin_config_history'];
-export const MAINTENANCE_RUNS_KEY = ['admin_maintenance_runs'];
-export const BACKUP_RUNS_KEY = ['admin_backup_runs'];
+export const SYSTEM_CONFIG_KEY = qk.admin.systemConfig;
+export const CONFIG_HISTORY_KEY = qk.admin.configHistory;
+export const MAINTENANCE_RUNS_KEY = qk.admin.maintenanceRuns;
+export const BACKUP_RUNS_KEY = qk.admin.backupRuns;
 
 /**
  * The saved configuration. While it cannot be read, the settings screen shows
@@ -285,7 +286,7 @@ export type { AdminGuestShare };
 /** Every member's guest links still in force — never the links themselves. */
 export function useAdminShares() {
     return useQuery({
-        queryKey: ['admin_shares'],
+        queryKey: qk.admin.shares,
         queryFn: async (): Promise<AdminGuestShare[]> => (await api.get<AdminGuestShare[]>('/admin/shares')).data,
     });
 }
@@ -297,6 +298,6 @@ export function useRevokeAdminShare() {
         mutationFn: async (id: string) => (await api.delete<{ id: string; revokedAt: string }>(`/admin/shares/${id}`)).data,
         onError: () => notifyError('admin.shares.revokeError'),
         onSuccess: () => notifySuccess('admin.shares.revoked'),
-        onSettled: () => queryClient.invalidateQueries({ queryKey: ['admin_shares'] }),
+        onSettled: () => queryClient.invalidateQueries({ queryKey: qk.admin.shares }),
     });
 }

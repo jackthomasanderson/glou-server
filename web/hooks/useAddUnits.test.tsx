@@ -2,10 +2,14 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PRODUCTS_KEY, productDetailKey, useAddUnits } from './useProducts';
+import { useAddUnits } from './useProducts';
+import { qk } from '@/lib/queryKeys';
 import type { Product, ProductDetailView } from '@/lib/products/types';
 import { product, unit } from '@/lib/products/__tests__/factories';
 import { NetworkError } from '@/lib/network-error';
+
+const PRODUCTS_KEY = qk.products.list;
+const productDetailKey = qk.products.detail;
 
 const addUnits = vi.fn();
 vi.mock('@/lib/products/client', () => ({ productsClient: { addUnits: (...a: unknown[]) => addUnits(...a) } }));

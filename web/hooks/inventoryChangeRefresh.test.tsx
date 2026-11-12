@@ -41,7 +41,9 @@ const counts = vi.fn();
 vi.mock('@/lib/api', () => ({ client: { get: (url: string) => counts(url) } }));
 
 function wrapperOf(qc: QueryClient) {
-  return ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  return function Wrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  };
 }
 
 const group = unit({ id: 'g', productId: 'p1', quantity: 3 });

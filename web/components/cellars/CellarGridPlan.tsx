@@ -35,6 +35,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { GridItem, GridCell, CellarGridData } from '@/lib/cellars/types';
 import { useAssignSlot } from '@/hooks/useCellars';
+import { invalidateAfterInventoryChange } from '@/lib/queryKeys';
 import { useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { client } from '@/lib/api';
 import { notifyError } from '@/lib/toast';
@@ -379,7 +380,6 @@ interface AssignDialogProps {
   targetCol: number;
   targetRow: number;
   unassignedItems: GridItem[];
-  cellarId: string;
   onClose: () => void;
   wording: GridWording;
   /** #707: the cellar holds nothing at all — said so, rather than "all already placed". */
@@ -388,9 +388,9 @@ interface AssignDialogProps {
   onAddHere?: () => void;
 }
 
-function AssignDialog({ open, targetCol, targetRow, unassignedItems, cellarId, onClose, wording, isCellarEmpty, onAddHere }: AssignDialogProps) {
+function AssignDialog({ open, targetCol, targetRow, unassignedItems, onClose, wording, isCellarEmpty, onAddHere }: AssignDialogProps) {
   const { t, i18n } = useTranslation();
-  const assignSlot = useAssignSlot(cellarId);
+  const assignSlot = useAssignSlot();
   const [error, setError] = useState<string | null>(null);
 
   const handleAssign = async (item: GridItem) => {
@@ -666,10 +666,8 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
     [localItems]
   );
 
-  const invalidateGrid = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['cellars', cellar.id, 'grid'] });
-    queryClient.invalidateQueries({ queryKey: ['inventory'] });
-  }, [queryClient, cellar.id]);
+  // A move on the plan changes where bottles are: every screen derived from the stock follows (#621).
+  const invalidateGrid = useCallback(() => invalidateAfterInventoryChange(queryClient), [queryClient]);
 
   // ─── DnD sensors ─────────────────────────────────────────────────────────
 
@@ -914,7 +912,6 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
         targetCol={assignTarget?.col ?? 0}
         targetRow={assignTarget?.row ?? 0}
         unassignedItems={unassignedItems}
-        cellarId={cellar.id}
         onClose={() => setAssignTarget(null)}
         wording={wording}
         isCellarEmpty={localItems.length === 0}

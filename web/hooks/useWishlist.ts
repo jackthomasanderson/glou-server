@@ -2,12 +2,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { wishlistClient } from '@/lib/wishlist/client';
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 import {
   WishlistItem, WishlistCreateInput, WishlistPatchInput, ConvertToInventoryInput, ConvertResult,
 } from '@/lib/wishlist/types';
 
-export const WISHLIST_KEY = ['wishlist'];
+const WISHLIST_KEY = qk.wishlist;
+
+/** The wishlist and its badge in the menu (items at or under their ceiling price). */
+function refreshWishlist(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: WISHLIST_KEY });
+  void queryClient.invalidateQueries({ queryKey: qk.sidebarCounts });
+}
 
 export function useWishlist() {
   return useQuery<WishlistItem[]>({
@@ -27,7 +33,7 @@ export function useCreateWishlistItem() {
       notifySuccess('toast.wishlist.createSuccess');
     },
     onError: () => notifyError('toast.wishlist.createError'),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: WISHLIST_KEY }),
+    onSettled: () => refreshWishlist(queryClient),
   });
 }
 
@@ -38,7 +44,7 @@ export function useUpdateWishlistItem() {
     mutationFn: ({ id, data }) => wishlistClient.update(id, data),
     onSuccess: () => notifySuccess('toast.wishlist.updateSuccess'),
     onError: () => notifyError('toast.wishlist.updateError'),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: WISHLIST_KEY }),
+    onSettled: () => refreshWishlist(queryClient),
   });
 }
 
@@ -52,7 +58,7 @@ export function useDeleteWishlistItem() {
       notifySuccess('toast.wishlist.deleteSuccess');
     },
     onError: () => notifyError('toast.wishlist.deleteError'),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: WISHLIST_KEY }),
+    onSettled: () => refreshWishlist(queryClient),
   });
 }
 
@@ -63,7 +69,7 @@ export function useRecordPriceSeen() {
     mutationFn: ({ id, price }) => wishlistClient.recordPriceSeen(id, price),
     onSuccess: () => notifySuccess('toast.wishlist.priceSuccess'),
     onError: () => notifyError('toast.wishlist.priceError'),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: WISHLIST_KEY }),
+    onSettled: () => refreshWishlist(queryClient),
   });
 }
 
@@ -76,11 +82,8 @@ export function useConvertToInventory() {
     onError: () => notifyError('toast.wishlist.convertError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: WISHLIST_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
-      void queryClient.invalidateQueries({ queryKey: ['budget'] });
-      // #471: the bottles bought count in the menu and in their cellar.
-      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      // #471: the bottles bought join the stock (list, cellar, counters, spending…).
+      invalidateAfterInventoryChange(queryClient);
     },
   });
 }

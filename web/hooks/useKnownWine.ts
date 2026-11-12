@@ -5,6 +5,7 @@ import { productKey } from '@shared/units';
 import type { InventoryCategory } from '@shared/inventory';
 import { productsClient, type KnownWineQuery } from '@/lib/products/client';
 import type { Product } from '@/lib/products/types';
+import { qk } from '@/lib/queryKeys';
 
 /** Typing pauses this long before the wine typed is looked up. */
 export const KNOWN_WINE_DELAY_MS = 350;
@@ -54,7 +55,7 @@ export function useKnownWine(fields: KnownWineFields, enabled = true): Product[]
   const current = settled !== null && settled.key === key ? settled : null;
   const { data } = useQuery({
     // Under `inventory`: a bottle added or a wine created refreshes it too.
-    queryKey: ['inventory', 'known-wine', current?.key],
+    queryKey: qk.inventory.knownWine(current?.key),
     queryFn: () => productsClient.match(current!.query),
     enabled: current !== null,
     staleTime: 30_000,
