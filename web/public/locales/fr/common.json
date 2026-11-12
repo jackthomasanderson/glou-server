@@ -1765,7 +1765,24 @@
         "itemCount_one": "{{count}} résultat",
         "itemCount_other": "{{count}} résultats"
       },
-      "regionSelected": "Région sélectionnée : {{region}}"
+      "regionSelected": "Région sélectionnée : {{region}}",
+      "controls": {
+        "label": "Commandes de la carte",
+        "zoomIn": "Agrandir la carte",
+        "zoomOut": "Réduire la carte",
+        "recenter": "Recentrer sur ma cave",
+        "fullscreen": "Afficher la carte en plein écran",
+        "exitFullscreen": "Quitter le plein écran"
+      },
+      "cluster": {
+        "regions_one": "{{count}} région",
+        "regions_other": "{{count}} régions regroupées",
+        "hint": "Sélectionner pour agrandir ces régions"
+      },
+      "fullscreen": {
+        "label": "Carte du monde en plein écran",
+        "closeList": "Fermer la liste"
+      }
     },
     "categories": {
       "title": "Répartition des catégories",
