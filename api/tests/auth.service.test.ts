@@ -312,8 +312,10 @@ describe('AuthService', () => {
       backupCodes: [] as string[],
     };
 
+    const mockUser2fa = { ...mockUserNo2fa, isTwoFactorEnabled: true, twoFactorSecret: 'SECRET' };
+
     it('rejects a wrong password without creating a trusted device', async () => {
-      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUserNo2fa as never);
+      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUser2fa as never);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
       await expect(
@@ -322,15 +324,15 @@ describe('AuthService', () => {
       expect(prisma.trustedDevice.create).not.toHaveBeenCalled();
     });
 
-    it('creates a trusted device once the password is confirmed (no 2FA on the account)', async () => {
+    // #766: with 2FA off there is no code to skip.
+    it('refuses when 2FA is off, even with the right password', async () => {
       vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUserNo2fa as never);
       vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
-      vi.mocked(prisma.trustedDevice.create).mockResolvedValue({} as never);
 
-      const result = await authService.trustCurrentDevice('u1', deviceInfo, 'correct-password');
-
-      expect(result.token).toBeTruthy();
-      expect(prisma.trustedDevice.create).toHaveBeenCalledTimes(1);
+      await expect(
+        authService.trustCurrentDevice('u1', deviceInfo, 'correct-password'),
+      ).rejects.toThrow('TWO_FACTOR_DISABLED');
+      expect(prisma.trustedDevice.create).not.toHaveBeenCalled();
     });
 
     it('requires a valid TOTP code when 2FA is enabled, even with the right password', async () => {

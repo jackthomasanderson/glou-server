@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
+import { creds } from './_helpers';
 
 /**
  * #492: every defect AUDIT_004 found sat in a journey no test exercised.
@@ -36,7 +37,7 @@ test('a write-enabled guest cannot erase or read hidden notes and prices', async
   });
   const created = await api.post('/api/shares', {
     data: {
-      label: `E2E write ${stamp()}`, cellarIds: [cellarId], writeCellarIds: [cellarId],
+      label: `E2E write ${stamp()}`, cellarIds: [cellarId], writeCellarIds: [cellarId], password: creds().password,
       collectionIds: [], hidePrices: true, hideNotes: true,
     },
   });

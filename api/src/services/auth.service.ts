@@ -8,7 +8,7 @@ import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
 import { UpdateProfileInput, UpdatePreferencesInput, UPLOADED_AVATAR_PATH } from '../schemas/user.schema';
-import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
+import { Prisma, Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
@@ -159,6 +159,7 @@ export type SecurityEventKey =
   | 'twoFactorDisabled'
   | 'sessionRevoked'
   | 'emailChanged'
+  | 'usernameChanged'
   | 'twoFactorLocked'
   | 'backupCodesRegenerated'
   | 'accountDeletionRequested';
@@ -184,6 +185,10 @@ const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subj
   emailChanged: (isEn) => isEn
     ? { subject: 'Glou — Your account email was changed', intro: 'The email address of your account was just changed. This message was sent to the previous address.' }
     : { subject: 'Glou — Adresse e-mail modifiée', intro: 'L’adresse e-mail de votre compte vient d’être modifiée. Ce message est envoyé à l’ancienne adresse.' },
+  // #911 (review) — the username is a sign-in identifier too.
+  usernameChanged: (isEn) => isEn
+    ? { subject: 'Glou — Your username was changed', intro: 'The username you sign in with was just changed. Sign in with the new one from now on.' }
+    : { subject: 'Glou — Nom d’utilisateur modifié', intro: 'Le nom d’utilisateur qui vous sert à vous connecter vient d’être modifié. Connectez-vous désormais avec le nouveau.' },
   // ISSUE_043 — repeated wrong 2FA codes on an account.
   twoFactorLocked: (isEn) => isEn
     ? { subject: 'Glou — Two-factor verification temporarily locked', intro: 'Too many incorrect two-factor codes were submitted on your account, so the verification step has been temporarily locked.' }
@@ -544,14 +549,6 @@ export class AuthService {
    * avatar routes, never from the request body (#880).
    */
   async updateProfile(userId: string, data: UpdateProfileInput & { avatarUrl?: string | null }): Promise<PublicUser> {
-    if (data.username) {
-      const existing = await prisma.user.findFirst({
-        where: { username: data.username, NOT: { id: userId } },
-        select: { id: true },
-      });
-      if (existing) throw new Error('USERNAME_ALREADY_TAKEN');
-    }
-
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -575,6 +572,49 @@ export class AuthService {
     if (user.avatarUrl) await this.deleteAvatarFile(user.avatarUrl, [userId]);
 
     return this.updateProfile(userId, { avatarUrl: null });
+  }
+
+  /**
+   * #911: re-confirms the account password before an action that changes a
+   * sign-in identifier or opens the cellar beyond the session (a read/write
+   * guest link). An open session alone is not enough. Throws REAUTH_REQUIRED
+   * (no password sent) or INVALID_CREDENTIALS (wrong password), like the
+   * e-mail change.
+   */
+  async confirmPassword(userId: string, password: string | undefined): Promise<void> {
+    if (!password) throw new Error('REAUTH_REQUIRED');
+    const { passwordHash } = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { passwordHash: true } });
+    if (!(await bcrypt.compare(password, passwordHash))) throw new Error('INVALID_CREDENTIALS');
+  }
+
+  /**
+   * #769, #911: the username is also a sign-in identifier, so changing it
+   * asks for the password and is audited with both names.
+   */
+  async updateUsername(userId: string, username: string, currentPassword: string | undefined, deviceInfo: DeviceInfo): Promise<PublicUser> {
+    await this.confirmPassword(userId, currentPassword);
+
+    const existing = await prisma.user.findFirst({
+      where: { username, NOT: { id: userId } },
+      select: { id: true },
+    });
+    if (existing) throw new Error('USERNAME_ALREADY_TAKEN');
+
+    const { username: previousUsername } = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true } });
+    let user;
+    try {
+      user = await prisma.user.update({ where: { id: userId }, data: { username }, select: PUBLIC_USER_SELECT });
+    } catch (err) {
+      // Taken by someone else between the check above and this write.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') throw new Error('USERNAME_ALREADY_TAKEN');
+      throw err;
+    }
+
+    if (previousUsername !== user.username) {
+      this.notifySecurityEvent(userId, 'usernameChanged', deviceInfo);
+      this.auditSecurityChange(userId, 'USERNAME_CHANGE', deviceInfo, { previousUsername, newUsername: user.username });
+    }
+    return this.toPublicUser(user);
   }
 
   /**
@@ -858,6 +898,9 @@ export class AuthService {
         backupCodes: hashedBackupCodes,
       },
     });
+    // #766 (review): a device trusted while 2FA was off (allowed before) must
+    // not skip the code it never had to give.
+    await this.revokeAllTrustedDevices(userId);
 
     this.notifySecurityEvent(userId, 'twoFactorEnabled', deviceInfo);
     this.auditSecurityChange(userId, 'TWO_FACTOR_ON', deviceInfo);
@@ -1428,11 +1471,14 @@ export class AuthService {
    */
   async trustCurrentDevice(userId: string, deviceInfo: DeviceInfo, password: string, code?: string): Promise<{ token: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    // #766: without 2FA there is no code to skip; a device trusted now would
+    // only start to matter, unnoticed, the day 2FA is turned on.
+    if (!user.isTwoFactorEnabled) throw new Error('TWO_FACTOR_DISABLED');
 
     const validPwd = await bcrypt.compare(password, user.passwordHash);
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
-    if (user.isTwoFactorEnabled && !(await this.matchesSecondFactor(user, code))) {
+    if (!(await this.matchesSecondFactor(user, code))) {
       throw new Error('INVALID_CODE');
     }
 
@@ -1441,12 +1487,29 @@ export class AuthService {
   }
 
   /**
+   * #766: until when the device holding `trustedDeviceToken` skips the 2FA
+   * code for `userId`, or null when it does not (no cookie, revoked, expired,
+   * another account's). `cookieExpiresAt` is the cookie's own end: the
+   * browser drops it then, whatever the row says.
+   */
+  async trustedDeviceUntil(userId: string, trustedDeviceToken: string | undefined, cookieExpiresAt?: Date): Promise<Date | null> {
+    if (!trustedDeviceToken) return null;
+    const tokenHash = crypto.createHash('sha256').update(trustedDeviceToken).digest('hex');
+    const device = await prisma.trustedDevice.findUnique({ where: { tokenHash } });
+    const now = new Date();
+    if (!device || device.userId !== userId || device.revokedAt || device.expiresAt <= now) return null;
+    return cookieExpiresAt && cookieExpiresAt < device.expiresAt ? cookieExpiresAt : device.expiresAt;
+  }
+
+  /**
    * Revoke the TrustedDevice matching the given raw token, if it belongs to `userId`.
    */
   async untrustCurrentDevice(userId: string, trustedDeviceToken: string): Promise<void> {
     const tokenHash = crypto.createHash('sha256').update(trustedDeviceToken).digest('hex');
     const device = await prisma.trustedDevice.findUnique({ where: { tokenHash } });
-    if (!device || device.userId !== userId) throw new Error('NOT_FOUND');
+    // #766 (review): nothing of this account's to revoke (deleted meanwhile,
+    // another account's cookie): stopping trust is already true.
+    if (!device || device.userId !== userId) return;
 
     await prisma.trustedDevice.update({
       where: { id: device.id },
