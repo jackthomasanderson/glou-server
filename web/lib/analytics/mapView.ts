@@ -145,3 +145,41 @@ export function majorityColor(split: { color: string; count: number }[]): string
   }
   return best;
 }
+
+/**
+ * The projection's scale at which the whole world fits a map of this size
+ * (the zoom-1 view): 140 was the map's scale in its former fixed 800 × 450
+ * frame, kept as the reference so the world view looks as it did.
+ */
+export function worldScale(width: number, height: number): number {
+  return 140 * Math.min(width / 800, height / 450);
+}
+
+/** The few fields of a pointer, wheel or touch event that decide who handles it. */
+export interface GestureEvent {
+  type: string;
+  button?: number;
+  ctrlKey?: boolean;
+  touches?: { length: number };
+}
+
+/**
+ * Which gestures move the map (the zoomable group's event filter): the wheel
+ * and touchpad always zoom it, the main mouse button drags it; on a touch
+ * screen one finger scrolls the page and two fingers pinch or drag the map,
+ * except in full screen where one finger is enough. Double click and double
+ * tap never zoom (out of FEAT-114's scope).
+ */
+export function acceptsMapGesture(event: GestureEvent, isFullscreen: boolean): boolean {
+  switch (event.type) {
+    case 'wheel':
+      return true;
+    case 'dblclick':
+    case 'touchend':
+      return false;
+    case 'touchstart':
+      return isFullscreen || (event.touches?.length ?? 0) >= 2;
+    default:
+      return !event.button;
+  }
+}

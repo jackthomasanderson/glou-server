@@ -5,12 +5,14 @@ import {
   WORLD_VIEW,
   FRAME_MARGIN_PX,
   REGION_FOCUS_ZOOM,
+  acceptsMapGesture,
   clusterMarkers,
   fitView,
   focusView,
   majorityColor,
   markerRadius,
   stepZoom,
+  worldScale,
   type LngLat,
   type MapProjector,
 } from './mapView';
@@ -188,5 +190,44 @@ describe('majorityColor (a group takes the colour with the most bottles)', () =>
 
   it('breaks a tie by the first colour met', () => {
     expect(majorityColor([{ color: '#a', count: 2 }, { color: '#b', count: 2 }])).toBe('#a');
+  });
+});
+
+describe('acceptsMapGesture (who moves the map, who scrolls the page)', () => {
+  const touch = (type: string, fingers: number) => ({ type, touches: { length: fingers } });
+
+  it('zooms with the wheel or the touchpad, pinch included', () => {
+    expect(acceptsMapGesture({ type: 'wheel' }, false)).toBe(true);
+    expect(acceptsMapGesture({ type: 'wheel', ctrlKey: true }, false)).toBe(true);
+  });
+
+  it('drags with the main mouse button only', () => {
+    expect(acceptsMapGesture({ type: 'mousedown', button: 0 }, false)).toBe(true);
+    expect(acceptsMapGesture({ type: 'mousedown', button: 2 }, false)).toBe(false);
+  });
+
+  it('leaves one finger to the page and takes two fingers on the page', () => {
+    expect(acceptsMapGesture(touch('touchstart', 1), false)).toBe(false);
+    expect(acceptsMapGesture(touch('touchstart', 2), false)).toBe(true);
+  });
+
+  it('takes one finger in full screen, where there is no page to scroll', () => {
+    expect(acceptsMapGesture(touch('touchstart', 1), true)).toBe(true);
+  });
+
+  it('never zooms on a double click or a double tap (out of scope)', () => {
+    expect(acceptsMapGesture({ type: 'dblclick', button: 0 }, false)).toBe(false);
+    expect(acceptsMapGesture(touch('touchend', 0), true)).toBe(false);
+  });
+});
+
+describe('worldScale', () => {
+  it('fits the whole world in the map, whatever its shape', () => {
+    // Equal Earth spans about 5.43 × scale wide and 2.64 × scale tall.
+    for (const [w, h] of [[800, 380], [360, 380], [1400, 900], [390, 760]]) {
+      const scale = worldScale(w, h);
+      expect(5.43 * scale).toBeLessThanOrEqual(w);
+      expect(2.64 * scale).toBeLessThanOrEqual(h);
+    }
   });
 });
