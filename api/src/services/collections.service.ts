@@ -25,10 +25,15 @@ function toCollectionView({ products, ...collection }: CollectionRow) {
 
 export type CollectionView = ReturnType<typeof toCollectionView>;
 
+/**
+ * #476: collections are shared by the household like the rest of the
+ * inventory (design.md: `userId` is an audit field, never an access filter).
+ * Any member sees, fills, renames and deletes any collection; `userId` only
+ * says who created it.
+ */
 export const collectionsService = {
-  async list(userId: string): Promise<CollectionView[]> {
+  async list(): Promise<CollectionView[]> {
     const rows = await prisma.collection.findMany({
-      where: { userId },
       include: MEMBERS_INCLUDE,
       orderBy: { createdAt: 'asc' },
     });
@@ -39,14 +44,14 @@ export const collectionsService = {
     return toCollectionView(await prisma.collection.create({ data: { ...data, userId }, include: MEMBERS_INCLUDE }));
   },
 
-  async update(id: string, userId: string, data: CollectionPatchInput): Promise<CollectionView | null> {
-    const existing = await prisma.collection.findFirst({ where: { id, userId } });
+  async update(id: string, data: CollectionPatchInput): Promise<CollectionView | null> {
+    const existing = await prisma.collection.findFirst({ where: { id } });
     if (!existing) return null;
     return toCollectionView(await prisma.collection.update({ where: { id }, data, include: MEMBERS_INCLUDE }));
   },
 
-  async delete(id: string, userId: string) {
-    const existing = await prisma.collection.findFirst({ where: { id, userId } });
+  async delete(id: string) {
+    const existing = await prisma.collection.findFirst({ where: { id } });
     if (!existing) return null;
     // Its membership rows go with it (ON DELETE CASCADE on the join tables).
     return prisma.collection.delete({ where: { id } });
@@ -54,18 +59,14 @@ export const collectionsService = {
 
   /**
    * Adds families to a collection, named directly (`productIds`) or through
-   * one of their units (`itemIds`, the readers not migrated yet). The
-   * Collection itself is owned by `userId` (collections are per-user
-   * groupings), but the families come from the shared instance inventory
-   * (design.md: userId on the inventory is an audit field, not an access
-   * filter). Unknown or trashed ids are ignored.
+   * one of their units (`itemIds`, the readers not migrated yet). Unknown or
+   * trashed ids are ignored.
    */
   async addProducts(
     id: string,
-    userId: string,
     members: { itemIds?: string[]; productIds?: string[] },
   ): Promise<CollectionView | null> {
-    const existing = await prisma.collection.findFirst({ where: { id, userId } });
+    const existing = await prisma.collection.findFirst({ where: { id } });
     if (!existing) return null;
     const [units, families] = await Promise.all([
       members.itemIds?.length
@@ -83,8 +84,8 @@ export const collectionsService = {
     }));
   },
 
-  async removeProduct(id: string, userId: string, productId: string): Promise<CollectionView | null> {
-    const existing = await prisma.collection.findFirst({ where: { id, userId } });
+  async removeProduct(id: string, productId: string): Promise<CollectionView | null> {
+    const existing = await prisma.collection.findFirst({ where: { id } });
     if (!existing) return null;
     return toCollectionView(await prisma.collection.update({
       where: { id },
@@ -94,11 +95,11 @@ export const collectionsService = {
   },
 
   /** Takes a unit's family out of the collection (the readers not migrated yet name a unit). */
-  async removeItem(id: string, userId: string, itemId: string): Promise<CollectionView | null> {
-    const existing = await prisma.collection.findFirst({ where: { id, userId } });
+  async removeItem(id: string, itemId: string): Promise<CollectionView | null> {
+    const existing = await prisma.collection.findFirst({ where: { id } });
     if (!existing) return null;
     const unit = await prisma.inventoryItem.findUnique({ where: { id: itemId }, select: { productId: true } });
     if (!unit) return toCollectionView(await prisma.collection.findFirstOrThrow({ where: { id }, include: MEMBERS_INCLUDE }));
-    return this.removeProduct(id, userId, unit.productId);
+    return this.removeProduct(id, unit.productId);
   },
 };

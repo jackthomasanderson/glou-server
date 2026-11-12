@@ -15,7 +15,7 @@ Envoyez un lien à un ami pour qu'il consulte des caves sélectionnées, et éve
 ### Créer un partage avec accès en écriture sur certaines caves
 1. Allez dans **Profil** et ouvrez la section **Partages Invités**.
 2. Cliquez sur **Nouveau partage**, donnez-lui un libellé et (optionnellement) le nom de l'invité.
-3. Sélectionnez le périmètre : cochez chaque **cave** à inclure dans le partage.
+3. Sélectionnez le périmètre : cochez chaque **cave** à inclure dans le partage. Un partage peut aussi ouvrir des **collections** : elles sont communes au foyer, donc un lien limité à une collection suit ce que n'importe quel membre y ajoute ou en retire.
 4. Pour chaque cave cochée, activez l'interrupteur **Autoriser à ouvrir, boire ou fumer** si vous voulez que cet invité puisse y ouvrir ou boire une bouteille (ou fumer un cigare) et y noter des dégustations. Laissez-le désactivé pour les caves que vous voulez seulement lui laisser consulter. Dès qu'une cave l'autorise, le formulaire demande **votre mot de passe** : un tel lien reste valable après votre déconnexion, une session ouverte seule ne suffit donc pas à le créer.
 5. Les prix et les notes sont masqués par défaut : les interrupteurs **Masquer les prix et valeurs** et **Masquer les notes personnelles** sont déjà activés. Désactivez un interrupteur pour montrer ces informations à l'invité.
 6. Choisissez une expiration : 1 jour, 7 jours, 30 jours, personnalisée, ou illimitée. Avec une date personnalisée, le lien fonctionne jusqu'à la fin de ce jour-là, aujourd'hui compris.

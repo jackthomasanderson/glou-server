@@ -15,7 +15,9 @@ let i18n: I18n;
 let isMobile = false;
 let health: { directoryWritable: boolean; backupEnabled: boolean; lastSuccessAt: string | null; lastRunFailed?: boolean; overdue?: boolean } | undefined;
 let systemConfig: { registrationOpen: boolean } | undefined;
-const users: AdminUser[] = [
+const memberChanges = { removeAdmin: vi.fn(), toggleStatus: vi.fn(), deleteMember: vi.fn(), toggleDeletion: vi.fn(), exportData: vi.fn(), dialog: null };
+let users: AdminUser[] = [];
+const USERS: AdminUser[] = [
   { id: 'a1', username: 'admin', email: 'admin@example.com', displayName: null, isAdmin: true, isActive: true, isTwoFactorEnabled: false, createdAt: '2026-01-01T00:00:00.000Z' },
   { id: 'u2', username: 'bob', email: 'bob@example.com', displayName: null, isAdmin: false, isActive: false, isTwoFactorEnabled: false, createdAt: '2026-02-01T00:00:00.000Z' },
 ];
@@ -38,6 +40,7 @@ vi.mock('@/hooks/useAdmin', () => ({
   useAdminBackupHealth: () => ({ data: health, refetch: vi.fn() }),
   useSystemConfig: () => ({ data: systemConfig }),
 }));
+vi.mock('@/components/admin/MemberChanges', () => ({ useMemberChanges: () => memberChanges }));
 vi.mock('@/components/ui/MainLayout', () => ({ MainLayout: ({ children }: { children?: ReactNode }) => <main>{children}</main> }));
 vi.mock('@/components/ui/ResponsiveModal', () => ({ ResponsiveModal: () => null }));
 vi.mock('@/components/admin/GrantAdminDialog', () => ({ GrantAdminDialog: () => null }));
@@ -63,6 +66,8 @@ beforeAll(async () => {
   await i18n.init({ lng: 'en', resources: { en: { common: en } }, defaultNS: 'common', interpolation: { escapeValue: false } });
 });
 beforeEach(() => {
+  vi.clearAllMocks();
+  users = USERS.map((u) => ({ ...u }));
   isMobile = false;
   health = { directoryWritable: true, backupEnabled: true, lastSuccessAt: '2026-11-08T03:00:00.000Z' };
   systemConfig = { registrationOpen: false };
@@ -127,6 +132,41 @@ describe('AdminClient (#698, #756)', () => {
     expect(bob).toHaveTextContent('bob@example.com');
     expect(bob).toHaveTextContent('Disabled');
     expect(within(bob).getByRole('button', { name: /Activate/ })).toBeInTheDocument();
+  });
+
+  // #695, #661: a member's account can be deleted now or in 30 days, and their
+  // data exported — never the admin's own account from here.
+  it('offers to export, schedule the deletion of, and delete a member, not the admin themselves', () => {
+    render(<AdminClient />);
+    const bob = screen.getByRole('row', { name: /bob/ });
+    fireEvent.click(within(bob).getByRole('button', { name: 'Export their data' }));
+    fireEvent.click(within(bob).getByRole('button', { name: 'Schedule account deletion' }));
+    fireEvent.click(within(bob).getByRole('button', { name: 'Delete account now' }));
+    expect(memberChanges.exportData).toHaveBeenCalledWith(users[1]);
+    expect(memberChanges.toggleDeletion).toHaveBeenCalledWith(users[1]);
+    expect(memberChanges.deleteMember).toHaveBeenCalledWith(users[1]);
+
+    const me = screen.getByRole('row', { name: /admin@example\.com/ });
+    expect(within(me).getByRole('button', { name: 'Your own account is deleted from your profile (Data & Privacy)' })).toBeDisabled();
+  });
+
+  it('says when a member\'s deletion is scheduled, and offers to cancel it', () => {
+    users[1].deletionRequestedAt = '2026-11-01T12:00:00.000Z';
+    render(<AdminClient />);
+    const bob = screen.getByRole('row', { name: /bob/ });
+    expect(within(bob).getByText(/^Deletion on /)).toBeInTheDocument();
+    fireEvent.click(within(bob).getByRole('button', { name: 'Cancel scheduled deletion' }));
+    expect(memberChanges.toggleDeletion).toHaveBeenCalledWith(users[1]);
+  });
+
+  it('offers the same on a phone', () => {
+    isMobile = true;
+    render(<AdminClient />);
+    const bob = screen.getAllByRole('listitem')[1];
+    fireEvent.click(within(bob).getByRole('button', { name: /Delete account now/ }));
+    expect(memberChanges.deleteMember).toHaveBeenCalledWith(users[1]);
+    expect(within(bob).getByRole('button', { name: /Export their data/ })).toBeInTheDocument();
+    expect(within(bob).getByRole('button', { name: /Schedule account deletion/ })).toBeInTheDocument();
   });
 
   // #671: the banner shown on every other page links here, to the Data tab.

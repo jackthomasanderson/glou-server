@@ -8,8 +8,9 @@ import {
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import {
   ShieldCheck, UserX, UserCheck, KeyRound, Copy, Check, UserPlus,
-  Users, Link2, Hourglass, Settings, ScrollText, type LucideIcon,
+  Users, Link2, Hourglass, Settings, ScrollText, Download, CalendarClock, CalendarX2, Trash2, type LucideIcon,
 } from 'lucide-react';
+import { ACCOUNT_DELETION_GRACE_DAYS } from '@shared/auth';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
 import {
@@ -117,6 +118,29 @@ export function AdminClient() {
       {t(u.isActive ? 'admin.users.statusEnabled' : 'admin.users.statusDisabled')}
     </Chip>
   );
+  // #661: when a scheduled deletion (the member's or an admin's) is carried out.
+  const deletionChip = (u: AdminUser) => u.deletionRequestedAt && (
+    <Chip size="sm" variant="flat" radius="sm" color="warning">
+      {t('admin.users.deletionScheduledOn', {
+        date: hasMounted ? formatDate(new Date(new Date(u.deletionRequestedAt).getTime() + ACCOUNT_DELETION_GRACE_DAYS * 86_400_000).toISOString(), i18n.language) : '',
+      })}
+    </Chip>
+  );
+  // #695, #661: export, schedule (or cancel) the deletion, delete now. The
+  // admin's own account is deleted from their profile, not from here.
+  const lifecycleActions = (u: AdminUser) => {
+    const isMe = u.id === user?.id;
+    const scheduleLabel = t(u.deletionRequestedAt ? 'admin.users.cancelDeletion' : 'admin.users.scheduleDeletion');
+    const deleteLabel = t(isMe ? 'admin.users.deleteSelf' : 'admin.users.deleteMember');
+    return [
+      { key: 'export', label: t('admin.users.exportData'), icon: <Download size={16} />, onPress: () => memberChanges.exportData(u), isDisabled: false },
+      ...(isMe ? [] : [{
+        key: 'schedule', label: scheduleLabel, icon: u.deletionRequestedAt ? <CalendarX2 size={16} /> : <CalendarClock size={16} />,
+        onPress: () => memberChanges.toggleDeletion(u), isDisabled: false,
+      }]),
+      { key: 'delete', label: deleteLabel, icon: <Trash2 size={16} />, onPress: () => memberChanges.deleteMember(u), isDisabled: isMe, danger: true },
+    ];
+  };
   const statusActionLabel = (u: AdminUser) =>
     u.id === user?.id ? t('admin.users.deactivateSelf') : t(u.isActive ? 'admin.users.deactivate' : 'admin.users.activate');
   const roleSwitch = (u: AdminUser, withLabel: boolean) => (
@@ -198,7 +222,10 @@ export function AdminClient() {
                     </p>
                     <p className="text-sm text-foreground-500 break-all">{u.email}</p>
                   </div>
-                  {statusChip(u)}
+                  <div className="flex flex-col items-end gap-1">
+                    {statusChip(u)}
+                    {deletionChip(u)}
+                  </div>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   {roleSwitch(u, true)}
@@ -217,6 +244,16 @@ export function AdminClient() {
                   <Button size="md" variant="flat" startContent={<KeyRound size={16} />} onPress={() => handleResetPassword(u)}>
                     {t('admin.users.resetPassword')}
                   </Button>
+                  {lifecycleActions(u).filter((action) => !action.isDisabled).map((action) => (
+                    <Button
+                      key={action.key} size="md" variant="flat"
+                      color={action.danger ? 'danger' : 'default'}
+                      startContent={action.icon}
+                      onPress={action.onPress}
+                    >
+                      {action.label}
+                    </Button>
+                  ))}
                 </div>
               </li>
             ))}
@@ -252,7 +289,12 @@ export function AdminClient() {
                     </div>
                   </TableCell>
                   <TableCell className="text-center">{roleSwitch(u, false)}</TableCell>
-                  <TableCell className="text-center">{statusChip(u)}</TableCell>
+                  <TableCell className="text-center">
+                    <div className="flex flex-col items-center gap-1">
+                      {statusChip(u)}
+                      {deletionChip(u)}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm text-foreground-500">
                     {hasMounted ? formatDate(u.createdAt, i18n.language) : ''}
                   </TableCell>
@@ -278,6 +320,19 @@ export function AdminClient() {
                           <KeyRound size={16} />
                         </Button>
                       </Tooltip>
+                      {lifecycleActions(u).map((action) => (
+                        <Tooltip key={action.key} content={action.label} delay={500}>
+                          <Button
+                            isIconOnly size="sm" variant="light"
+                            color={action.danger ? 'danger' : 'default'}
+                            onPress={action.onPress}
+                            isDisabled={action.isDisabled}
+                            aria-label={action.label}
+                          >
+                            {action.icon}
+                          </Button>
+                        </Tooltip>
+                      ))}
                     </div>
                   </TableCell>
                 </TableRow>

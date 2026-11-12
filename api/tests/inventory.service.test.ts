@@ -32,6 +32,7 @@ vi.mock('../src/lib/prisma', () => ({
     inventoryCountSession: { findFirst: vi.fn() },
     // FEAT-93: the cells of the plan, a fakeSlots() set in beforeEach.
     itemSlot: {},
+    user: { findMany: vi.fn() },
     $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -1949,3 +1950,18 @@ describe('localPhotoPath', () => {
     expect(localPhotoPath(null)).toBeNull();
   });
 });
+
+// Review of #975: `updatedBy` is a plain column (no foreign key). Once its
+// author was deleted for good (#695), the id itself was handed out as their name.
+describe('getItemWithTraceability — an editor deleted since (#695)', () => {
+  it('gives no name rather than the raw id; the creator is named as before', async () => {
+    vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValue(unitRow({ userId: 'u1', updatedBy: 'gone-uuid' }) as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u1', displayName: 'Marie', username: 'marie' }] as never);
+
+    const result = await new InventoryService().getItemWithTraceability('b1');
+
+    expect(result?.creator).toEqual({ id: 'u1', name: 'Marie' });
+    expect(result?.lastEditor).toEqual({ id: 'gone-uuid', name: null });
+  });
+});
+

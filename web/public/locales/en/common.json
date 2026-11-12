@@ -495,7 +495,13 @@
       "statusSuccess": "Member status updated",
       "roleError": "Could not change the member's role",
       "statusError": "Could not change the member's status",
-      "resetPasswordError": "Could not reset the member's password"
+      "resetPasswordError": "Could not reset the member's password",
+      "deleteSuccess": "Account deleted",
+      "deleteError": "Could not delete the account",
+      "deletionScheduled": "Account deletion scheduled",
+      "deletionCancelled": "Scheduled deletion cancelled",
+      "deletionError": "Could not change the account's scheduled deletion",
+      "exportError": "Could not export the member's data"
     },
     "onboarding": {
       "completeError": "Could not complete the setup",
@@ -1027,7 +1033,19 @@
       "resetPasswordResultTitle": "Temporary password for {{username}}",
       "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login.",
       "statusEnabled": "Enabled",
-      "statusDisabled": "Disabled"
+      "statusDisabled": "Disabled",
+      "deleteMember": "Delete account now",
+      "deleteSelf": "Your own account is deleted from your profile (Data & Privacy)",
+      "deleteConfirm": "Delete {{username}}'s account for good, now? What they added to the shared cellar (cellars, wines and bottles, tastings, counts, humidor readings, budgets) will be attributed to you, and their collections stay for everyone. Their personal data is deleted: wishlist, consumption goals, saved presets, scan history, sessions and guest links. The activity log keeps their past actions under their name. This cannot be undone.",
+      "deleteLastAdmin": "This is the last administrator: make another member an administrator first.",
+      "scheduleDeletion": "Schedule account deletion",
+      "scheduleDeletionConfirm": "Schedule the deletion of {{username}}'s account? It is carried out in 30 days, like a deletion they ask for themselves: their personal data (wishlist, consumption goals, saved presets, scan history, sessions, guest links) is deleted; the bottles, tastings and collections they added stay for the household, without their name. You can cancel until then.",
+      "cancelDeletion": "Cancel scheduled deletion",
+      "cancelDeletionConfirm": "Cancel the scheduled deletion of {{username}}'s account?",
+      "deletionScheduledOn": "Deletion on {{date}}",
+      "exportData": "Export their data",
+      "exportConfirm": "Download {{username}}'s data as a JSON file, the one they get from their profile? It holds personal data: keep it safe and hand it to them only.",
+      "removeLastAdmin": "This is the last administrator: make another member an administrator first."
     },
     "auditLog": {
       "filters": {
@@ -1106,7 +1124,10 @@
         "ADMIN_PASSWORD_RESET": "Password reset by an administrator",
         "SHARE_CREATE": "Guest link created",
         "SHARE_REVOKE": "Guest link revoked",
-        "TRASH_DELETE": "Deleted permanently from the trash"
+        "TRASH_DELETE": "Deleted permanently from the trash",
+        "ADMIN_MEMBER_DELETE": "Member deleted by an admin",
+        "ADMIN_DELETION_SCHEDULE": "Account deletion scheduled or cancelled by an admin",
+        "ADMIN_MEMBER_EXPORT": "Member data exported by an admin"
       },
       "statuses": {
         "success": "Succeeded",
@@ -1864,10 +1885,10 @@
       "configHistory": "Configuration history"
     },
     "deleteTitle": "Delete my account",
-    "deleteDescription": "Your account will be deleted automatically 30 days after your request; administrators are informed. You can cancel until then. Export your data first if you want to keep your tastings.",
+    "deleteDescription": "Your account will be deleted automatically 30 days after your request; administrators are informed. You can cancel until then. Deleted: your sign-in details, profile, wishlist, consumption goals, saved presets, scan history, sessions and guest links. Kept for the household, without your name: the cellars and bottles you added, your tastings, counts, budgets and collections. Export your data first if you want a copy.",
     "deleteButton": "Delete account",
     "deleteModalTitle": "Confirm deletion",
-    "deleteModalBody": "Your account will be deleted automatically in 30 days. You can cancel until then; after that, deletion is irreversible. Remember to export your data.",
+    "deleteModalBody": "Your account will be deleted automatically in 30 days. You can cancel until then; after that, deletion is irreversible. Your personal data is deleted; the bottles, tastings and collections you added stay in the shared cellar, without your name. Remember to export your data.",
     "deleteModalHint": "Type \"{{keyword}}\" to confirm:",
     "deleteKeyword": "DELETE",
     "deleteConfirm": "Confirm deletion",

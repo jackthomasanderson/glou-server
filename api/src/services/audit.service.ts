@@ -110,7 +110,7 @@ export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promis
     orderBy: { createdAt: 'desc' },
   })));
 
-  const uniqueUserIds = [...new Set(logs.map((l) => l.userId))];
+  const uniqueUserIds = [...new Set(logs.flatMap((l) => (l.userId ? [l.userId] : [])))];
   const users = await prisma.user.findMany({
     where: { id: { in: uniqueUserIds } },
     select: { id: true, displayName: true, username: true },
@@ -129,7 +129,8 @@ export async function readFieldHistory(where: Prisma.AuditLogWhereInput): Promis
       action: log.action,
       status: log.status,
       actorId: log.userId,
-      actorName: guestName ?? userMap.get(log.userId) ?? log.userId,
+      // #695: a member deleted for good keeps the name stored on the row.
+      actorName: guestName ?? (log.userId ? userMap.get(log.userId) : undefined) ?? log.actorName ?? log.userId ?? '',
       ...(viaGuest ? { viaGuest: true } : {}),
       itemId: log.bottleId,
       changes: details?.['changes'] as FieldChange[] | null ?? null,

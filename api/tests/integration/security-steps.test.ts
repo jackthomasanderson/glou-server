@@ -150,6 +150,16 @@ describe('POST /api/user/delete-account (#603)', () => {
     expect(scheduled()).toBe(false);
   });
 
+  // Second review of #975: two admins asking at once each saw the other stay.
+  it('counts the other admins again once the admin rows are locked', async () => {
+    accounts.d2 = account('d2', { isAdmin: true });
+    vi.mocked(prisma.user.count).mockResolvedValueOnce(1 as never).mockResolvedValueOnce(0 as never);
+    const res = await call('post', '/api/user/delete-account', 'd2', { password: PASSWORD });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CANNOT_DELETE_LAST_ADMIN');
+    expect(scheduled()).toBe(false);
+  });
+
   it('schedules the deletion with the password, and tells the owner', async () => {
     const res = await call('post', '/api/user/delete-account', 'd3', { password: PASSWORD });
     expect(res.status).toBe(200);
@@ -216,10 +226,23 @@ describe('member role and status changes need the admin\'s step-up (#603)', () =
   });
 
   it('still refuses deactivating the last active admin before the step-up', async () => {
-    vi.mocked(prisma.user.count).mockResolvedValue(1 as never);
+    // Second review of #975: the other admins, already leaving ones left out.
+    vi.mocked(prisma.user.count).mockResolvedValue(0 as never);
     const res = await call('patch', '/api/admin/users/other/status', 'admin1', { isActive: false });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('CANNOT_DEACTIVATE_LAST_ADMIN');
+    expect(prisma.user.count).toHaveBeenCalledWith({
+      where: { isAdmin: true, isActive: true, deletionRequestedAt: null, id: { not: 'other' } },
+    });
+    expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'admin1' } }));
+  });
+
+  it('refuses removing the role of the last other admin before the step-up', async () => {
+    vi.mocked(prisma.user.count).mockResolvedValue(0 as never);
+    const res = await call('post', '/api/admin/users/other/role', 'admin1', { isAdmin: false, password: PASSWORD });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CANNOT_REMOVE_LAST_ADMIN');
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
 

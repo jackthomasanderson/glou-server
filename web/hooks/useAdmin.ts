@@ -17,13 +17,17 @@ export interface AdminUser {
     isActive: boolean;
     /** #638: resetting such a member's password asks for the admin's own password. */
     isTwoFactorEnabled: boolean;
+    /** #661: when the member, or an admin, asked for the account's deletion. */
+    deletionRequestedAt?: string | null;
     createdAt: string;
 }
 
 export interface AuditLogEntry {
     id: number;
-    userId: string;
-    user: { username: string; displayName: string | null };
+    /** #695: null once the member was deleted for good; `actorName` keeps their name. */
+    userId: string | null;
+    user: { username: string; displayName: string | null } | null;
+    actorName?: string | null;
     bottleId: string | null;
     action: string;
     status: string;
@@ -103,6 +107,50 @@ export function useResetUserPassword() {
         mutationFn: async ({ userId, ...reauth }) => {
             const response = await api.post<{ tempPassword: string }>(`/admin/users/${userId}/reset-password`, reauth);
             return response.data;
+        },
+    });
+}
+
+// #695: deletes a member for good, with the admin's own password (and code);
+// refusals are said by the caller (useMemberChanges).
+export function useDeleteMember() {
+    const queryClient = useQueryClient();
+    return useMutation<{ id: string }, Error, { userId: string; password?: string; code?: string }>({
+        meta: { handlesError: true },
+        mutationFn: async ({ userId, ...reauth }) => (await api.post<{ id: string }>(`/admin/users/${userId}/delete`, reauth)).data,
+        onSuccess: () => {
+            // What they created is now the admin's, everywhere.
+            void queryClient.invalidateQueries();
+        },
+    });
+}
+
+// #661: schedules (or cancels) a member's account deletion, carried out after
+// the same 30 days as their own request.
+export function useScheduleMemberDeletion() {
+    const queryClient = useQueryClient();
+    return useMutation<unknown, Error, { userId: string; scheduled: boolean; password?: string; code?: string }>({
+        meta: { handlesError: true },
+        mutationFn: async ({ userId, ...body }) => (await api.put(`/admin/users/${userId}/deletion`, body)).data,
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: qk.admin.users });
+        },
+    });
+}
+
+// #661: a member's data export (the one they get from their profile), saved
+// as a JSON file, for a member who can no longer sign in.
+export function useExportMemberData() {
+    return useMutation<void, Error, { userId: string; username: string; password?: string; code?: string }>({
+        meta: { handlesError: true },
+        mutationFn: async ({ userId, username, ...reauth }) => {
+            const { data } = await api.post<unknown>(`/admin/users/${userId}/export`, reauth);
+            const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `glou-export-${username}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
         },
     });
 }

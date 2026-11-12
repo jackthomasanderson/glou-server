@@ -21,6 +21,8 @@ import { encrypt } from '../lib/crypto';
 import { openTwoFactorSecret } from '../lib/two-factor-secret';
 import { newTotpSecret, totpUri, isCurrentTotp } from '../lib/totp';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
+import { deletePersonalData } from './account-deletion.service';
+import { countOtherAdmins, countOtherAdminsLocked } from '../lib/last-admin';
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -1169,18 +1171,17 @@ export class AuthService {
       select: { passwordHash: true, isAdmin: true, username: true },
     });
     if (!password || !(await bcrypt.compare(password, account.passwordHash))) throw new Error('INVALID_CREDENTIALS');
-    if (account.isAdmin) {
-      // Admins already leaving do not count: two admins asking at once would
-      // otherwise each see the other one stay.
-      const otherAdmins = await prisma.user.count({
-        where: { isAdmin: true, isActive: true, deletionRequestedAt: null, id: { not: userId } },
-      });
-      if (otherAdmins === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
-    }
+    if (account.isAdmin && (await countOtherAdmins(prisma, userId)) === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { deletionRequestedAt: new Date() },
+    await prisma.$transaction(async (tx) => {
+      // Admins already leaving do not count: two admins asking at once would
+      // otherwise each see the other one stay. Counted again here, admin rows
+      // locked, so both requests cannot pass together.
+      if (account.isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
+      await tx.user.update({
+        where: { id: userId },
+        data: { deletionRequestedAt: new Date() },
+      });
     });
     void notifyAdminsOfAccountDeletion({ kind: 'requested', username: account.username, requesterId: userId });
     this.notifySecurityEvent(userId, 'accountDeletionRequested', deviceInfo);
@@ -1213,28 +1214,34 @@ export class AuthService {
    * identity. Anonymizing in place keeps every such reference valid while
    * removing the PII GDPR Art. 17 actually targets (email, username,
    * password hash, 2FA secret, avatar...) and deactivating the
-   * account (`isActive: false`) so it can no longer sign in. Sessions,
-   * trusted devices and guest shares created by the account are removed
-   * outright — nothing legitimately needs them to survive.
+   * account (`isActive: false`) so it can no longer sign in.
    *
-   * Rows only: the avatar file (if any) is deleted by the caller after this
+   * #661: the member's personal data (wishlist, budgets, goals, presets,
+   * scans, sessions, devices, guest links...) is deleted outright, the same
+   * as when an admin deletes the account for good (deletePersonalData). A
+   * member deactivated after asking is processed too.
+   *
+   * Rows only: the avatar and scan files are deleted by the caller after this
    * transaction commits, same two-phase contract as
    * `inventoryService.purgeTrashed`'s photo paths.
    */
   async purgeDueAccountDeletions(
     cutoff: Date,
     client: PrismaClientOrTx = prisma,
-  ): Promise<{ count: number; avatarPaths: string[] }> {
+  ): Promise<{ count: number; avatarPaths: string[]; scanImagePaths: string[] }> {
     const due = await client.user.findMany({
-      where: { deletionRequestedAt: { not: null, lt: cutoff }, isActive: true },
+      where: { deletionRequestedAt: { not: null, lt: cutoff } },
       select: { id: true, avatarUrl: true },
     });
-    if (due.length === 0) return { count: 0, avatarPaths: [] };
+    if (due.length === 0) return { count: 0, avatarPaths: [], scanImagePaths: [] };
 
     const ids = due.map((u) => u.id);
-    await client.session.deleteMany({ where: { userId: { in: ids } } });
-    await client.trustedDevice.deleteMany({ where: { userId: { in: ids } } });
-    await client.guestShare.deleteMany({ where: { userId: { in: ids } } });
+    const { scanImagePaths } = await deletePersonalData(ids, client);
+    // Their history rows stay (business history is kept for good): no IP
+    // address of theirs survives in them, and no name — they read as the
+    // anonymised account below. Only an admin's hard delete keeps the name (#695).
+    await client.auditLog.updateMany({ where: { userId: { in: ids } }, data: { ip: '', actorName: null } });
+    await client.configChangeLog.updateMany({ where: { userId: { in: ids } }, data: { actorName: null } });
 
     for (const user of due) {
       // A valid bcrypt hash of a random, never-recorded value — not just an
@@ -1250,6 +1257,8 @@ export class AuthService {
           passwordHash: unusablePasswordHash,
           displayName: null,
           avatarUrl: null,
+          appName: null,
+          appSlogan: null,
           notifWebhook: false,
           isTwoFactorEnabled: false,
           twoFactorSecret: null,
@@ -1267,7 +1276,7 @@ export class AuthService {
     const avatarPaths = due
       .map((u) => u.avatarUrl)
       .filter((url): url is string => !!url);
-    return { count: due.length, avatarPaths };
+    return { count: due.length, avatarPaths, scanImagePaths };
   }
 
   /** Deletes the purged accounts' avatar files from disk. Never throws: one bad path must not block the rest. */

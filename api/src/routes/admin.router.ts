@@ -12,7 +12,7 @@ import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/re
 import { networkConfigSchema } from '../schemas/network-config.schema';
 import { registrationConfigSchema } from '../schemas/registration-config.schema';
 import { smtpConfigSchema, smtpTestSchema, gotifyConfigSchema } from '../schemas/system-config.schema';
-import { memberRoleSchema, memberStatusSchema } from '../schemas/admin-user.schema';
+import { memberRoleSchema, memberStatusSchema, memberDeletionSchema } from '../schemas/admin-user.schema';
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema, purgeSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
@@ -27,6 +27,9 @@ import type { BackupHealth, PurgeResponse } from '../../../shared/maintenance';
 import { AUDIT_ACTIONS, AUDIT_STATUSES } from '../../../shared/audit';
 import { lowersRetention, opensRegistration, weakensBackups } from '../../../shared/admin-config';
 import { sharesService } from '../services/shares.service';
+import { deleteMemberForGood } from '../services/account-deletion.service';
+import { scanService } from '../services/scan.service';
+import { countOtherAdmins, countOtherAdminsLocked } from '../lib/last-admin';
 
 const adminRouter = Router();
 
@@ -131,6 +134,8 @@ adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => 
                 isActive: true,
                 // #638: the reset dialog asks for the admin's password when on.
                 isTwoFactorEnabled: true,
+                // #661: a deletion asked by the member or scheduled by an admin.
+                deletionRequestedAt: true,
                 createdAt: true,
             },
             orderBy: { createdAt: 'desc' },
@@ -174,25 +179,38 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
             res.status(409).json({ error: isAdmin ? 'ALREADY_ADMIN' : 'NOT_ADMIN' });
             return;
         }
+        // Checked again in the transaction below; here so a refusal spends no backup code.
+        if (!isAdmin && (await countOtherAdmins(prisma, userId)) === 0) {
+            res.status(409).json({ error: 'CANNOT_REMOVE_LAST_ADMIN' });
+            return;
+        }
         // #638: granting the role hands the session holder a second admin
         // account. #603: removing it is gated too — a stolen session could
         // otherwise demote the other admins and stay the only one.
         const audit: StepUpAudit = { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: userId, isAdmin } };
         if (!(await stepUp(req, res, audit))) return;
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: { isAdmin },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                isAdmin: true,
-                isActive: true,
-            },
+        const user = await prisma.$transaction(async (tx) => {
+            // Review of #975: two admins demoting each other at once would leave none.
+            if (!isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) throw new Error('CANNOT_REMOVE_LAST_ADMIN');
+            return tx.user.update({
+                where: { id: userId },
+                data: { isAdmin },
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    isAdmin: true,
+                    isActive: true,
+                },
+            });
         });
         auditSuccess(req, audit);
         res.json({ data: user });
     } catch (error: unknown) {
+        if (error instanceof Error && error.message === 'CANNOT_REMOVE_LAST_ADMIN') {
+            res.status(409).json({ error: 'CANNOT_REMOVE_LAST_ADMIN' });
+            return;
+        }
         console.error('[Admin] Error updating user role:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
@@ -231,15 +249,11 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        // Prevent deactivating the last active admin
-        if (!isActive && target.isAdmin) {
-            const activeAdminCount = await prisma.user.count({
-                where: { isAdmin: true, isActive: true },
-            });
-            if (activeAdminCount <= 1) {
-                res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
-                return;
-            }
+        // Prevent deactivating the last active admin (admins already leaving
+        // do not count, as in the transaction below).
+        if (!isActive && target.isAdmin && (await countOtherAdmins(prisma, userId)) === 0) {
+            res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
+            return;
         }
 
         // #603: checked after the refusals above, so they spend no backup
@@ -252,6 +266,11 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
         // reactivating the account never wakes up a stolen session, a trusted
         // device or a guest link (same revocation as adminResetPassword).
         const user = await prisma.$transaction(async (tx) => {
+            // Review of #975: counted again with the admin rows locked, so two
+            // admins deactivating each other at once cannot both pass.
+            if (!isActive && target.isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) {
+                throw new Error('CANNOT_DEACTIVATE_LAST_ADMIN');
+            }
             const updated = await tx.user.update({
                 where: { id: userId },
                 data: { isActive },
@@ -274,6 +293,10 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
         auditSuccess(req, audit);
         res.json({ data: user });
     } catch (error) {
+        if (error instanceof Error && error.message === 'CANNOT_DEACTIVATE_LAST_ADMIN') {
+            res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
+            return;
+        }
         console.error('[Admin] Error updating user status:', error);
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
@@ -317,6 +340,144 @@ adminRouter.post('/users/:userId/reset-password', resetPasswordLimiter, async (r
             return;
         }
         console.error('[Admin] Error resetting user password:', error);
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+/**
+ * #695, #661: why a member's account may not be deleted, checked before the
+ * step-up so a refusal spends no backup code: the admin's own account (their
+ * profile has its own path), an unknown one, or the last admin — admins
+ * already leaving do not count, as for a member's own request (#603).
+ */
+async function refuseMemberDeletion(req: Request, res: Response, userId: string) {
+    if (userId === req.userId) {
+        res.status(400).json({ error: 'CANNOT_DELETE_SELF' });
+        return null;
+    }
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true, deletionRequestedAt: true } });
+    if (!target) {
+        res.status(404).json({ error: 'USER_NOT_FOUND' });
+        return null;
+    }
+    if (target.isAdmin && (await countOtherAdmins(prisma, userId)) === 0) {
+        res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+        return null;
+    }
+    return target;
+}
+
+/**
+ * @route   POST /api/admin/users/:userId/delete
+ * @desc    #695 — deletes a member's account for good, after the admin's
+ *          password (and code). What they created in the shared inventory
+ *          is attributed to the admin, their history stays under their name,
+ *          their personal data goes (account-deletion.service). Audited.
+ * @access  Admin Private
+ */
+adminRouter.post('/users/:userId/delete', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
+    const userId = routeParam(req.params.userId);
+    try {
+        if (!(await refuseMemberDeletion(req, res, userId))) return;
+        const audit: StepUpAudit = { action: 'ADMIN_MEMBER_DELETE', details: { targetUserId: userId } };
+        if (!(await stepUp(req, res, audit))) return;
+        const deleted = await deleteMemberForGood(userId, req.userId);
+        // The rows are committed: now the files they pointed at can go.
+        await scanService.deleteScanFiles(deleted.scanImagePaths);
+        await authService.deleteAvatarFiles(deleted.avatarPaths);
+        // The account is gone: its name is kept in the entry.
+        auditSuccess(req, { action: audit.action, details: { ...audit.details, username: deleted.username } });
+        res.json({ data: { id: userId } });
+    } catch (error) {
+        if (error instanceof Error && error.message === 'CANNOT_DELETE_LAST_ADMIN') {
+            res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+            return;
+        }
+        console.error('[Admin] Error deleting member:', error);
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+            res.status(404).json({ error: 'USER_NOT_FOUND' });
+            return;
+        }
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+/**
+ * @route   PUT /api/admin/users/:userId/deletion
+ * @desc    #661 — schedules a member's account deletion (`scheduled: true`),
+ *          carried out after the same 30 days as their own request, or
+ *          cancels it. For a member who left and can no longer sign in.
+ *          Asks for the admin's password (and code). Audited.
+ * @access  Admin Private
+ */
+adminRouter.put('/users/:userId/deletion', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
+    const userId = routeParam(req.params.userId);
+    const parsed = memberDeletionSchema.safeParse(req.body);
+    if (!parsed.success) {
+        res.status(400).json({ error: 'INVALID_INPUT' });
+        return;
+    }
+    const { scheduled } = parsed.data;
+    try {
+        const target = await refuseMemberDeletion(req, res, userId);
+        if (!target) return;
+        if (scheduled && target.deletionRequestedAt) {
+            // Asking again must not push the date back.
+            res.status(409).json({ error: 'DELETION_ALREADY_SCHEDULED' });
+            return;
+        }
+        const audit: StepUpAudit = { action: 'ADMIN_DELETION_SCHEDULE', details: { targetUserId: userId, scheduled } };
+        if (!(await stepUp(req, res, audit))) return;
+        const user = await prisma.$transaction(async (tx) => {
+            // Counted again, admin rows locked: two admins scheduling each
+            // other's deletion at once cannot both be marked as leaving.
+            if (scheduled && target.isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) {
+                throw new Error('CANNOT_DELETE_LAST_ADMIN');
+            }
+            return tx.user.update({
+                where: { id: userId },
+                data: { deletionRequestedAt: scheduled ? new Date() : null },
+                select: { id: true, deletionRequestedAt: true },
+            });
+        });
+        auditSuccess(req, audit);
+        res.json({ data: user });
+    } catch (error) {
+        if (error instanceof Error && error.message === 'CANNOT_DELETE_LAST_ADMIN') {
+            res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+            return;
+        }
+        console.error('[Admin] Error scheduling member deletion:', error);
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+            res.status(404).json({ error: 'USER_NOT_FOUND' });
+            return;
+        }
+        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    }
+});
+
+/**
+ * @route   POST /api/admin/users/:userId/export
+ * @desc    #661 — a member's full data export (the one they get from their
+ *          profile), for a member who left and can no longer sign in. Asks
+ *          for the admin's password (and code). Audited.
+ * @access  Admin Private
+ */
+adminRouter.post('/users/:userId/export', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
+    const userId = routeParam(req.params.userId);
+    try {
+        const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+        if (!target) {
+            res.status(404).json({ error: 'USER_NOT_FOUND' });
+            return;
+        }
+        const audit: StepUpAudit = { action: 'ADMIN_MEMBER_EXPORT', details: { targetUserId: userId } };
+        if (!(await stepUp(req, res, audit))) return;
+        const data = await authService.exportUserData(userId);
+        auditSuccess(req, audit);
+        res.json({ data });
+    } catch (error) {
+        console.error('[Admin] Error exporting member data:', error);
         res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
     }
 });
@@ -387,6 +548,8 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
             { ip: { contains: q } },
             { user: { username: { contains: q, mode: 'insensitive' } } },
             { user: { displayName: { contains: q, mode: 'insensitive' } } },
+            // #695: a member deleted for good, under the name kept on the row.
+            { actorName: { contains: q, mode: 'insensitive' } },
         ];
     }
     if (status) where.status = status;

@@ -76,4 +76,13 @@ describe('AuditLogSection (#698)', () => {
     expect(items[0]).toHaveTextContent('alice');
     expect(items[0]).toHaveTextContent('10.0.0.1');
   });
+
+  // #695: a member deleted for good: their entries stay, under the name kept on them.
+  it('names a member deleted since by the name kept on the entry', () => {
+    response.items = [
+      { id: 3, userId: null, user: null, actorName: 'marie', bottleId: null, action: 'LOGIN', status: 'success', ip: '10.0.0.2', details: null, createdAt: '2026-11-08T08:00:00.000Z' },
+    ];
+    render(<AuditLogSection />);
+    expect(within(screen.getByRole('grid')).getByText('marie')).toBeInTheDocument();
+  });
 });

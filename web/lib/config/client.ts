@@ -142,7 +142,9 @@ export interface ConfigHistoryEntry {
   maskedOldVal: string | null;
   maskedNewVal: string | null;
   createdAt: string;
-  user?: { username: string };
+  /** #695: null once the admin was deleted for good; `actorName` keeps their name. */
+  user?: { username: string } | null;
+  actorName?: string | null;
 }
 
 export const configClient = {

@@ -10,3 +10,8 @@ export const memberRoleSchema = z.object({
 export const memberStatusSchema = z.object({
   isActive: z.boolean(),
 });
+
+// #661: an admin schedules a member's account deletion (true) or cancels it.
+export const memberDeletionSchema = z.object({
+  scheduled: z.boolean(),
+});
