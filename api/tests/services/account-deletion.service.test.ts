@@ -18,6 +18,8 @@ vi.mock('../../src/lib/prisma', () => ({
     scanJob: { findMany: vi.fn(), deleteMany: vi.fn() },
     passwordResetToken: { deleteMany: vi.fn() },
     collection: { deleteMany: vi.fn() },
+    auditLog: { updateMany: vi.fn() },
+    configChangeLog: { updateMany: vi.fn() },
   },
 }));
 
@@ -118,6 +120,21 @@ describe('authService.purgeDueAccountDeletions', () => {
     expect(data.passwordHash).not.toBe('');
 
     expect(result).toEqual({ count: 1, avatarPaths: ['/uploads/avatars/u1.png'], scanImagePaths: [] });
+  });
+
+  // Review of #978/#975: business-history rows are kept for good; the
+  // member's IP addresses must not outlive the erasure in them, and their
+  // name stays the anonymised one (no actorName on this path, unlike #695).
+  it('blanks the IP of the member\'s history rows and keeps no name on them, in the same transaction', async () => {
+    vi.mocked(prisma.user.findMany).mockResolvedValue([{ id: 'u4', avatarUrl: null }] as never);
+    vi.mocked(prisma.user.update).mockResolvedValue({} as never);
+    const tx = prisma;
+
+    await authService.purgeDueAccountDeletions(CUTOFF, tx);
+
+    expect(prisma.auditLog.updateMany).toHaveBeenCalledWith({ where: { userId: { in: ['u4'] } }, data: { ip: '', actorName: null } });
+    expect(prisma.configChangeLog.updateMany).toHaveBeenCalledWith({ where: { userId: { in: ['u4'] } }, data: { actorName: null } });
+    expect(vi.mocked(prisma.user.update).mock.calls[0][0].data).toMatchObject({ username: 'deleted-u4' });
   });
 
   it('leaves accounts with no avatar out of the returned avatarPaths', async () => {

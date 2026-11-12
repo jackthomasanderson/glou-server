@@ -1235,7 +1235,13 @@ export class AuthService {
     });
     if (due.length === 0) return { count: 0, avatarPaths: [], scanImagePaths: [] };
 
-    const { scanImagePaths } = await deletePersonalData(due.map((u) => u.id), client);
+    const ids = due.map((u) => u.id);
+    const { scanImagePaths } = await deletePersonalData(ids, client);
+    // Their history rows stay (business history is kept for good): no IP
+    // address of theirs survives in them, and no name — they read as the
+    // anonymised account below. Only an admin's hard delete keeps the name (#695).
+    await client.auditLog.updateMany({ where: { userId: { in: ids } }, data: { ip: '', actorName: null } });
+    await client.configChangeLog.updateMany({ where: { userId: { in: ids } }, data: { actorName: null } });
 
     for (const user of due) {
       // A valid bcrypt hash of a random, never-recorded value — not just an
