@@ -48,14 +48,13 @@ test('emptying the vintage, colour and reminder date of a wine clears them', asy
     const colour = dialog.locator('button[data-slot="trigger"]', { hasText: 'Couleur' });
     await expect(colour).toContainText('Rouge');
     await colour.press('Enter');
-    // By CSS: the open list is drawn but absent from the accessibility tree
-    // inside the form window, so getByRole never finds its options.
-    const options = page.locator('[role="option"]');
-    await expect(options.filter({ hasText: 'Rouge' })).toBeFocused();
+    // By role (#729): the open list inside the form window is in the
+    // accessibility tree, as a screen reader reads it.
+    await expect(page.getByRole('option', { name: 'Rouge', exact: true })).toBeFocused();
     await page.keyboard.press('Home');
-    await expect(options.filter({ hasText: '—' })).toBeFocused();
+    await expect(page.getByRole('option', { name: '—', exact: true })).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(options).toHaveCount(0);
+    await expect(page.locator('[role="option"]')).toHaveCount(0);
     await expect(colour).not.toContainText('Rouge');
 
     await dialog.getByRole('button', { name: 'Afficher les compléments' }).click();

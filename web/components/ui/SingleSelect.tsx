@@ -1,6 +1,7 @@
 'use client';
 import { useRef } from 'react';
 import { Select, type SelectProps, type SharedSelection } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from './accessiblePopover';
 
 type Keys = SelectProps['selectedKeys'];
 
@@ -21,7 +22,7 @@ function firstKey(keys: Keys | SharedSelection | undefined): string | undefined 
  * so `allowDuplicateSelectionEvents` makes it one — but not for the page: the
  * same choice again is not passed on (no saving of an unchanged preference).
  */
-export function SingleSelect<T extends object>({ onSelectionChange, selectedKeys, defaultSelectedKeys, ...props }: SelectProps<T>) {
+export function SingleSelect<T extends object>({ onSelectionChange, selectedKeys, defaultSelectedKeys, popoverProps, ...props }: SelectProps<T>) {
   const chosen = useRef(firstKey(defaultSelectedKeys));
   const handle = (keys: SharedSelection) => {
     const key = firstKey(keys);
@@ -38,6 +39,8 @@ export function SingleSelect<T extends object>({ onSelectionChange, selectedKeys
       disallowEmptySelection
       {...{ allowDuplicateSelectionEvents: true }}
       onSelectionChange={handle}
+      // #729: the list stays readable by screen readers inside a dialog.
+      popoverProps={{ ...ACCESSIBLE_POPOVER, ...popoverProps }}
     />
   );
 }

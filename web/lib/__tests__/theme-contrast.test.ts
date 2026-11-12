@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { semanticColors } from '@heroui/react';
 import { ACCENT_PRESETS, THEME_COLORS, type AccentPreset } from '@/lib/theme-colors';
 
@@ -104,5 +106,25 @@ describe('theme contrast (#648)', () => {
   it('measures a known pair like the WCAG formula', () => {
     expect(contrast('#000000', '#ffffff')).toBeCloseTo(21, 5);
     expect(contrast('#767676', '#ffffff')).toBeCloseTo(4.54, 2);
+  });
+});
+
+// #771: only foreground-400 and darker are checked above (and readable). The
+// paler shades stay HeroUI's zinc (foreground-300 is #D4D4D8 in the light
+// theme, 1.5:1 on white): HeroUI uses them for disabled table rows, the app
+// never for text.
+describe('secondary text shades (#771)', () => {
+  const root = join(__dirname, '..', '..');
+  const sourceFiles = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return entry.name === '__tests__' ? [] : sourceFiles(path);
+    return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [path] : [];
+  });
+
+  it('never writes text in a foreground shade paler than 400', () => {
+    const offenders = ['app', 'components'].flatMap((dir) => sourceFiles(join(root, dir))).flatMap((file) =>
+      readFileSync(file, 'utf8').split('\n').flatMap((line, i) =>
+        /(?:^|[\s'"`:])text-foreground-[1-3]00(?![\w/])/.test(line) ? [`${relative(root, file)}:${i + 1}`] : []));
+    expect(offenders).toEqual([]);
   });
 });

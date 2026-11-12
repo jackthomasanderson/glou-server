@@ -125,7 +125,7 @@ export function RetentionCard({ config }: { config: SystemConfigPublic }) {
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(run.runAt, i18n.language) : ''}</p>
-                    {run.durationMs != null && <p className="text-xs text-foreground-300">{run.durationMs} ms</p>}
+                    {run.durationMs != null && <p className="text-xs text-foreground-400">{run.durationMs} ms</p>}
                   </div>
                 </div>
               ))}

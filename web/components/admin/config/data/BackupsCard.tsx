@@ -232,7 +232,7 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
                   </div>
                   <div className="text-right shrink-0 flex flex-col items-end gap-1">
                     <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(run.runAt, i18n.language) : ''}</p>
-                    {run.durationMs != null && <p className="text-xs text-foreground-300">{run.durationMs} ms</p>}
+                    {run.durationMs != null && <p className="text-xs text-foreground-400">{run.durationMs} ms</p>}
                     {run.success && (
                       <div className="flex gap-1 mt-1">
                         <Button size="sm" variant="light" isIconOnly aria-label={t('adminConfig.backup.history.download')} onPress={() => stepUp.ask(t('adminConfig.backup.download.body'), (reauth) => download(run, reauth))}>

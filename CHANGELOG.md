@@ -13,6 +13,8 @@ Entries start with the pull request that introduced them where there is one.
 ### Fixed
 - Moving, editing or counting a bottle already drunk no longer counts it again as drunk that day, by whoever touched it. Glou now remembers when each bottle or box was finished and by whom, and **Analytics → Consumed** and the personal consumption goal use that date and that member. Bottles finished before this update keep the date they show today (#589).
 - When the server cannot be reached and no answer ever comes (a cellar with poor Wi-Fi, a hotel network behind a sign-in page), the app no longer waits forever: opening the app, signing in, the two-factor code, guest links, photo and file uploads, exports and backup downloads now give up after a set delay (15 seconds, one minute for files) and say the server cannot be reached. A proxy error page now gives the same message everywhere (#619).
+- Screen readers can now reach the open list of a drop-down menu inside a form window (colour, type, cellar, dosage…) and the actions menu of a line in a wine's drawer (correct the number, edit, move, change the price, trash): both were drawn on screen but hidden from assistive technologies (#729).
+- The duration of a backup or clean-up run in Administration is no longer written in a pale grey that was hard to read; all secondary text now reaches the minimum contrast in both themes (#771).
 
 ## v2026.11.3 - 2026-11-12
 
