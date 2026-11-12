@@ -67,6 +67,13 @@ describe('ConfigHistoryCard (#760)', () => {
     expect(screen.queryByText(/registrationOpen|backupHour|\{/)).toBeNull();
   });
 
+  // #695: an admin deleted for good: the entry stays, under the name kept on it.
+  it('names an admin deleted since by the name kept on the entry', () => {
+    entries = [{ ...entry('registration', { registrationOpen: false }, { registrationOpen: true }, 1), user: null, actorName: 'Paul D.' }];
+    render(<ConfigHistoryCard />);
+    expect(screen.getByText('By Paul D.')).toBeInTheDocument();
+  });
+
   // #761: entries saved before the hour moved to the instance's time zone held a UTC hour.
   it('says an older backup hour was a UTC hour', () => {
     entries = [entry('backup', { backupHourUtc: 3 }, { backupHourUtc: 4 }, 1)];

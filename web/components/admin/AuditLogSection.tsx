@@ -51,7 +51,8 @@ export function AuditLogSection() {
   );
 
   const when = (entry: AuditLogEntry) => (hasMounted ? formatDateTime(entry.createdAt, i18n.language) : '');
-  const who = (entry: AuditLogEntry) => entry.user?.username || '—';
+  // #695: a member deleted for good is named by the name kept on the entry.
+  const who = (entry: AuditLogEntry) => entry.user?.username || entry.actorName || '—';
   const statusChip = (entry: AuditLogEntry) => (
     <Chip size="sm" color={entry.status === 'success' ? 'success' : 'danger'} variant="flat" radius="sm">{statusLabel(entry.status)}</Chip>
   );

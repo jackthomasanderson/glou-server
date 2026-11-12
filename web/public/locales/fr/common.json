@@ -495,7 +495,13 @@
       "statusSuccess": "Statut du membre mis à jour",
       "roleError": "Impossible de modifier le rôle du membre",
       "statusError": "Impossible de modifier le statut du membre",
-      "resetPasswordError": "Impossible de réinitialiser le mot de passe du membre"
+      "resetPasswordError": "Impossible de réinitialiser le mot de passe du membre",
+      "deleteSuccess": "Compte supprimé",
+      "deleteError": "Impossible de supprimer le compte",
+      "deletionScheduled": "Suppression du compte programmée",
+      "deletionCancelled": "Suppression programmée annulée",
+      "deletionError": "Impossible de modifier la suppression programmée du compte",
+      "exportError": "Impossible d'exporter les données du membre"
     },
     "onboarding": {
       "completeError": "Impossible de terminer la configuration",
@@ -1029,7 +1035,18 @@
       "resetPasswordResultTitle": "Mot de passe temporaire pour {{username}}",
       "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion.",
       "statusEnabled": "Activé",
-      "statusDisabled": "Désactivé"
+      "statusDisabled": "Désactivé",
+      "deleteMember": "Supprimer le compte maintenant",
+      "deleteSelf": "Votre propre compte se supprime depuis votre profil (Données & Confidentialité)",
+      "deleteConfirm": "Supprimer définitivement le compte de {{username}}, maintenant ? Ce qu'il a ajouté à la cave commune (caves, vins et bouteilles, dégustations, comptages, relevés d'humidor, budgets) vous sera attribué, et ses collections restent pour tous. Ses données personnelles sont supprimées : liste de souhaits, objectifs de consommation, préréglages, historique des scans, sessions et liens invités. Le journal d'activité garde ses actions passées sous son nom. Cette action est irréversible.",
+      "deleteLastAdmin": "C'est le dernier administrateur : donnez d'abord les droits d'administrateur à un autre membre.",
+      "scheduleDeletion": "Programmer la suppression du compte",
+      "scheduleDeletionConfirm": "Programmer la suppression du compte de {{username}} ? Elle a lieu dans 30 jours, comme une suppression qu'il demande lui-même : ses données personnelles (liste de souhaits, objectifs de consommation, préréglages, historique des scans, sessions, liens invités) sont supprimées ; les bouteilles, dégustations et collections qu'il a ajoutées restent pour le foyer, sans son nom. Vous pouvez annuler d'ici là.",
+      "cancelDeletion": "Annuler la suppression programmée",
+      "cancelDeletionConfirm": "Annuler la suppression programmée du compte de {{username}} ?",
+      "deletionScheduledOn": "Supprimé le {{date}}",
+      "exportData": "Exporter ses données",
+      "exportConfirm": "Télécharger les données de {{username}} en fichier JSON, celui qu'il obtient depuis son profil ? Il contient des données personnelles : conservez-le en lieu sûr et ne le remettez qu'à lui."
     },
     "auditLog": {
       "filters": {
@@ -1108,7 +1125,10 @@
         "ADMIN_PASSWORD_RESET": "Mot de passe réinitialisé par un administrateur",
         "SHARE_CREATE": "Lien invité créé",
         "SHARE_REVOKE": "Lien invité révoqué",
-        "TRASH_DELETE": "Supprimé définitivement de la corbeille"
+        "TRASH_DELETE": "Supprimé définitivement de la corbeille",
+        "ADMIN_MEMBER_DELETE": "Membre supprimé par un administrateur",
+        "ADMIN_DELETION_SCHEDULE": "Suppression de compte programmée ou annulée par un administrateur",
+        "ADMIN_MEMBER_EXPORT": "Données d'un membre exportées par un administrateur"
       },
       "statuses": {
         "success": "Réussi",
@@ -1866,10 +1886,10 @@
       "configHistory": "Historique de configuration"
     },
     "deleteTitle": "Supprimer mon compte",
-    "deleteDescription": "Votre compte sera supprimé automatiquement 30 jours après votre demande ; les administrateurs en sont informés. Vous pouvez annuler d'ici là. Exportez vos données avant si vous voulez garder vos dégustations.",
+    "deleteDescription": "Votre compte sera supprimé automatiquement 30 jours après votre demande ; les administrateurs en sont informés. Vous pouvez annuler d'ici là. Supprimé : vos identifiants, votre profil, votre liste de souhaits, vos objectifs de consommation, vos préréglages, l'historique de vos scans, vos sessions et vos liens invités. Conservé pour le foyer, sans votre nom : les caves et bouteilles que vous avez ajoutées, vos dégustations, comptages, budgets et collections. Exportez vos données avant si vous voulez en garder une copie.",
     "deleteButton": "Supprimer le compte",
     "deleteModalTitle": "Confirmer la suppression",
-    "deleteModalBody": "Votre compte sera supprimé automatiquement dans 30 jours. Vous pouvez annuler d'ici là ; ensuite, la suppression est irréversible. Pensez à exporter vos données.",
+    "deleteModalBody": "Votre compte sera supprimé automatiquement dans 30 jours. Vous pouvez annuler d'ici là ; ensuite, la suppression est irréversible. Vos données personnelles sont supprimées ; les bouteilles, dégustations et collections que vous avez ajoutées restent dans la cave commune, sans votre nom. Pensez à exporter vos données.",
     "deleteModalHint": "Saisissez « {{keyword}} » pour confirmer :",
     "deleteKeyword": "SUPPRIMER",
     "deleteConfirm": "Confirmer la suppression",
