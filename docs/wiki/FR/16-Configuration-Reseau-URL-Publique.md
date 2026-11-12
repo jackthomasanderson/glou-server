@@ -23,6 +23,8 @@ Indiquez à Glou l'adresse utilisée pour joindre votre instance depuis l'extér
 
 > [!TIP]
 > L'URL publique ne configure ni le `trust proxy` d'Express ni aucun comportement serveur lié au proxy. Si votre reverse proxy doit transmettre des en-têtes spécifiques, configurez-le au niveau du proxy/déploiement.
+>
+> L'API fait confiance à un seul relais : elle lit l'adresse du client dans la dernière entrée de `X-Forwarded-For`, ajoutée par ce qui lui transmet la requête. Laissez le port de l'API (3001) non publié, comme dans le `docker-compose.yml` par défaut, pour qu'elle ne soit joignable qu'à travers le conteneur `web`. Jointe directement, un client pourrait choisir sa propre adresse dans cet en-tête et obtenir un nouveau quota de connexion par adresse à chaque requête (les mauvais mots de passe restent limités par compte).
 
 ### Autoriser ou fermer l'inscription de nouveaux comptes
 L'inscription est **fermée par défaut** : dès que le premier compte (l'admin de l'instance) existe, `POST /api/auth/register` répond `REGISTRATION_CLOSED` et la page de connexion masque le lien d'inscription.

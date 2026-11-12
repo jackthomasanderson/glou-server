@@ -23,6 +23,8 @@ Tell Glou the address people use to reach your instance from outside, so the lin
 
 > [!TIP]
 > The public URL does not configure Express's `trust proxy` setting or any other server-side proxy behavior. If your reverse proxy needs specific headers forwarded, configure that at the proxy/deployment level.
+>
+> The API trusts exactly one forwarding hop: it reads the client address from the last `X-Forwarded-For` entry, added by whatever relays the request to it. Keep the API port (3001) unpublished, as in the default `docker-compose.yml`, so it is only reached through the `web` container. Reached directly, a client could pick its own address in that header and get a fresh per-address sign-in budget with every request (wrong passwords are still limited per account).
 
 ### Allow or close new registrations
 Registration is **closed by default**: once the first account (the instance admin) exists, `POST /api/auth/register` answers `REGISTRATION_CLOSED` and the login page hides the sign-up link.
