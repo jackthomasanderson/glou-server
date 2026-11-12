@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { Chip } from '@heroui/react';
-import { Filter, MapPin } from 'lucide-react';
+import { Button, Chip } from '@heroui/react';
+import { Filter, MapPin, X } from 'lucide-react';
 import { useProducts } from '@/hooks/useProducts';
 import { useTastings } from '@/hooks/useTastings';
 import { useMapFilters } from '@/hooks/useMapFilters';
@@ -13,6 +13,7 @@ import type { NoLocationStat, RegionCategoryStat } from '@/lib/analytics/types';
 import { productMatchesMapFilters, hasActiveMapFilters } from '@/lib/analytics/mapFilters';
 import { MapFiltersPanel } from './MapFiltersPanel';
 import { MapAssetList } from './MapAssetList';
+import { MapRegionSelect } from './MapRegionSelect';
 import { FamilyDrawer } from '@/components/inventory/FamilyDrawer';
 
 // World map loaded client-side only (react-simple-maps' d3-zoom dependency touches `window`)
@@ -43,6 +44,8 @@ const WorldHeatmap = dynamic(
 // a documented approximation, surfaced via a tooltip in MapFiltersPanel.
 const RATING_SAMPLE_SIZE = 50;
 
+const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
 interface MapExplorerProps {
   regionCategoryBreakdown: RegionCategoryStat[];
   /** #961: units in stock with nothing to place them on the map by. */
@@ -58,6 +61,11 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
   // #471: a row opens the drawer of its wine.
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  // FEAT-114: the map over the whole window, with the selected region's list over it.
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  // A region chosen in the region list moves the map (a marker click does not).
+  const [focusRequest, setFocusRequest] = useState<{ region: string; nonce: number } | null>(null);
 
   const ratingByProductId = useMemo(() => {
     const sums = new Map<string, { total: number; count: number }>();
@@ -90,7 +98,41 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
     return products.filter((product) => productMatchesMapFilters(product, filters, ratingByProductId, selectedRegion));
   }, [products, filters, ratingByProductId, selectedRegion]);
 
-  const handleRegionClick = useCallback((region: string) => setSelectedRegion(region), []);
+  const handleRegionClick = useCallback((region: string) => {
+    setSelectedRegion(region);
+    setIsPanelOpen(true);
+  }, []);
+  const handleRegionPick = useCallback((region: string | null) => {
+    setSelectedRegion(region);
+    if (!region) return;
+    setIsPanelOpen(true);
+    setFocusRequest((previous) => ({ region, nonce: (previous?.nonce ?? 0) + 1 }));
+  }, []);
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((previous) => !previous);
+    setIsPanelOpen(false);
+  }, []);
+  const showPanel = isFullscreen && isPanelOpen && selectedRegion !== null;
+
+  // Escape closes, in order, the wine drawer (it does so itself), the list, then full screen.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || viewingProduct) return;
+      if (showPanel) setIsPanelOpen(false);
+      else setIsFullscreen(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [isFullscreen, showPanel, viewingProduct]);
+
+  // Nothing scrolls behind the full-screen map.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [isFullscreen]);
   const handleClearRegion = useCallback(() => setSelectedRegion(null), []);
   const handleClearAll = useCallback(() => {
     clearFilters();
@@ -113,9 +155,27 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
       t={t}
       regions={availableRegions}
       selectedRegion={selectedRegion}
-      onRegionChange={setSelectedRegion}
+      onRegionChange={handleRegionPick}
     />
   );
+
+  // A modal dialog keeps Tab inside it: the page behind is covered.
+  const keepFocusInside = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>(FOCUSABLE))
+      .filter((el) => !el.hasAttribute('disabled'));
+    if (focusable.length === 0) return;
+    const [first, last] = [focusable[0], focusable[focusable.length - 1]];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  const regionList = <MapAssetList products={filteredProducts} onSelect={setViewingProduct} t={t} />;
 
   return (
     <div className="flex gap-5 items-start">
@@ -169,13 +229,63 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
           </div>
         )}
 
-        <WorldHeatmap
-          regionCategoryBreakdown={filteredRegionCategoryBreakdown}
-          noLocationBreakdown={filteredNoLocationBreakdown}
-          onlyCategory={filters.categories.length === 1 ? filters.categories[0] : null}
-          onRegionClick={handleRegionClick}
-          t={t}
-        />
+        {/* FEAT-114: the same element inline and full screen (fixed over the
+            page, not the browser's Fullscreen API), so the map keeps its zoom. */}
+        <div
+          className={isFullscreen ? 'fixed inset-0 z-40 bg-background flex flex-col gap-3 p-3 md:p-4' : undefined}
+          role={isFullscreen ? 'dialog' : undefined}
+          aria-modal={isFullscreen || undefined}
+          aria-label={isFullscreen ? t('analytics.map.fullscreen.label') : undefined}
+          onKeyDown={isFullscreen ? keepFocusInside : undefined}
+        >
+          {isFullscreen && (
+            <MapRegionSelect
+              regions={availableRegions}
+              selectedRegion={selectedRegion}
+              onRegionChange={handleRegionPick}
+              t={t}
+              className="max-w-xs"
+            />
+          )}
+          <WorldHeatmap
+            regionCategoryBreakdown={filteredRegionCategoryBreakdown}
+            noLocationBreakdown={filteredNoLocationBreakdown}
+            onlyCategory={filters.categories.length === 1 ? filters.categories[0] : null}
+            onRegionClick={handleRegionClick}
+            focusRequest={focusRequest}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+            t={t}
+          />
+          {/* The list under the map, over it: a side panel on a computer (on
+              the left, clear of the zoom controls and of the wine drawer), a
+              bottom sheet on a phone. */}
+          {showPanel && (
+            <section
+              aria-label={`${t('analytics.map.list.title')} — ${selectedRegion}`}
+              className="absolute z-20 inset-x-0 bottom-0 max-h-[60%] rounded-t-2xl border-t md:inset-y-0 md:left-0 md:right-auto md:w-[380px] md:max-h-none md:rounded-none md:border-t-0 md:border-r border-divider bg-content1 shadow-xl flex flex-col"
+            >
+              <div className="flex items-start justify-between gap-2 px-4 pt-3 pb-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-foreground-500">{t('analytics.map.list.title')}</p>
+                  <p className="text-sm font-semibold truncate">{selectedRegion}</p>
+                  <p className="text-xs text-foreground-500">{t('analytics.map.list.itemCount', { count: filteredProducts.length })}</p>
+                </div>
+                <Button
+                  isIconOnly
+                  size="sm"
+                  variant="light"
+                  aria-label={t('analytics.map.fullscreen.closeList')}
+                  title={t('analytics.map.fullscreen.closeList')}
+                  onPress={() => setIsPanelOpen(false)}
+                >
+                  <X size={16} />
+                </Button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3">{regionList}</div>
+            </section>
+          )}
+        </div>
 
         {selectedRegion && (
           <Chip
@@ -198,7 +308,7 @@ export function MapExplorer({ regionCategoryBreakdown, noLocationBreakdown, t }:
               {t('analytics.map.list.itemCount', { count: filteredProducts.length })}
             </span>
           </div>
-          <MapAssetList products={filteredProducts} onSelect={setViewingProduct} t={t} />
+          {regionList}
         </div>
       </div>
 

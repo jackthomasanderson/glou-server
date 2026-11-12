@@ -428,22 +428,21 @@ export function WorldHeatmap({
   const [view, setView] = useState<MapView>(WORLD_VIEW);
   const markerPoints = useMemo(() => markers.map((m): LngLat => [m.lng, m.lat]), [markers]);
 
-  // The page opens framed on the cellar's regions (the whole world when none is placed).
-  const framed = useRef(false);
-  useEffect(() => {
-    if (framed.current || !projector) return;
-    framed.current = true;
+  // The page opens framed on the cellar's regions (the whole world when none
+  // is placed), once the projection is known; a region chosen in the region
+  // list then centres the map on it. Both adjust the view while rendering
+  // (React's pattern for state that follows a prop), not in an effect.
+  const [isFramed, setIsFramed] = useState(false);
+  if (!isFramed && projector) {
+    setIsFramed(true);
     setView(fitView(markerPoints, projector));
-  }, [projector, markerPoints]);
-
-  // A region chosen in the region list: centre on it and enlarge it.
-  const lastFocus = useRef<number | null>(null);
-  useEffect(() => {
-    if (!focusRequest || !projector || lastFocus.current === focusRequest.nonce) return;
-    lastFocus.current = focusRequest.nonce;
+  }
+  const [handledFocus, setHandledFocus] = useState<number | null>(null);
+  if (focusRequest && projector && isFramed && handledFocus !== focusRequest.nonce) {
+    setHandledFocus(focusRequest.nonce);
     const place = findKnownRegion(focusRequest.region);
-    if (place) setView((current) => focusView([place.lng, place.lat], current, projector));
-  }, [focusRequest, projector]);
+    if (place) setView(focusView([place.lng, place.lat], view, projector));
+  }
 
   const zoomBy = (direction: 1 | -1) => {
     if (projector) setView((current) => stepZoom(current, direction, projector));

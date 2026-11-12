@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
-import { Tooltip, Button, SelectItem, Input } from '@heroui/react';
+import { Tooltip, Button, Input } from '@heroui/react';
 import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Star, Info } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
 import { MAP_OPENED_STATE_LABELS, MapFiltersState, MapOpenedState } from '@/lib/analytics/mapFilters';
 import { CATEGORY_ORDER } from '@/lib/analytics/categoryColors';
-import { SingleSelect } from '@/components/ui/SingleSelect';
+import { MapRegionSelect } from './MapRegionSelect';
 
 // FEAT-42: filter controls for the map explorer sidebar. Renders only the
 // inner content (no wrapper/sticky box) so the parent can place it either in
@@ -26,7 +26,6 @@ interface MapFiltersPanelProps {
 
 const OPENED_STATES = Object.keys(MAP_OPENED_STATE_LABELS) as MapOpenedState[];
 const RATINGS = [0, 1, 2, 3, 4, 5];
-const ALL_REGIONS_KEY = '__all__';
 
 export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion, onRegionChange }: MapFiltersPanelProps) {
   const toggleCategory = (cat: InventoryCategory) => {
@@ -42,23 +41,7 @@ export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion,
     <div className="flex flex-col gap-4">
       {/* Region (keyboard equivalent to clicking a marker on the map, #378) */}
       <div>
-        <SingleSelect
-          size="sm"
-          radius="md"
-          variant="bordered"
-          label={t('analytics.map.filters.region')}
-          selectedKeys={[selectedRegion ?? ALL_REGIONS_KEY]}
-          onSelectionChange={(keys) => {
-            const next = Array.from(keys)[0] as string | undefined;
-            onRegionChange(next && next !== ALL_REGIONS_KEY ? next : null);
-          }}
-          aria-label={t('analytics.map.filters.region')}
-        >
-          {[
-            <SelectItem key={ALL_REGIONS_KEY}>{t('analytics.map.filters.regionAny')}</SelectItem>,
-            ...regions.map((region) => <SelectItem key={region}>{region}</SelectItem>),
-          ]}
-        </SingleSelect>
+        <MapRegionSelect regions={regions} selectedRegion={selectedRegion} onRegionChange={onRegionChange} t={t} />
       </div>
 
       {/* Type filter (multi-select) */}
