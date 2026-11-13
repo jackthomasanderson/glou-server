@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { Card, CardBody, CardFooter, Chip, Button, Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Collection } from '@/lib/collections/types';
 import { useTranslation } from 'react-i18next';
@@ -54,7 +55,7 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
         </Chip>
       </CardBody>
       <CardFooter className="relative z-10 pt-0 justify-end gap-1">
-        <Tooltip delay={500} content={t('actions.edit')}>
+        <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('actions.edit')}>
           <Button
             isIconOnly
             size="sm"
@@ -67,7 +68,7 @@ export function CollectionCard({ collection, onEdit, onDelete, onClick }: Collec
             <Pencil size={16} />
           </Button>
         </Tooltip>
-        <Tooltip delay={500} content={t('actions.delete')}>
+        <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('actions.delete')}>
           <Button
             isIconOnly
             size="sm"

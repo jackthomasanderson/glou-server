@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-// #729: a HeroUI Select, Dropdown or Popover opened inside a dialog is hidden
-// from screen readers unless it carries ACCESSIBLE_POPOVER (see
+// #729: a HeroUI Select, Dropdown, Popover or Tooltip (#976) opened inside a
+// dialog is hidden from screen readers unless it carries ACCESSIBLE_POPOVER (see
 // components/ui/accessiblePopover.ts; overlayInDialog.test.tsx shows why).
 // A SingleSelect sets it itself. An Autocomplete needs nothing: react-aria's
 // combobox keeps its own list visible.
@@ -35,7 +35,7 @@ function openingTags(code: string, name: string): Array<{ line: number; tag: str
 }
 
 const files = ['app', 'components'].flatMap((dir) => sources(join(root, dir)));
-const tags = ['Select', 'Dropdown', 'Popover'].flatMap((name) => files.flatMap((file) =>
+const tags = ['Select', 'Dropdown', 'Popover', 'Tooltip'].flatMap((name) => files.flatMap((file) =>
   openingTags(readFileSync(file, 'utf8'), name).map(({ line, tag }) => ({ where: `${relative(root, file)}:${line}`, tag }))));
 
 describe('lists and menus readable by screen readers inside a dialog (#729)', () => {

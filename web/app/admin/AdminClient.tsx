@@ -5,6 +5,7 @@ import {
   Button, CircularProgress, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
   Switch, Skeleton, Chip, Tooltip,
 } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import {
   ShieldCheck, UserX, UserCheck, KeyRound, UserPlus,
   Users, Link2, Hourglass, Settings, ScrollText, Download, CalendarClock, CalendarX2, Trash2, type LucideIcon,
@@ -143,7 +144,7 @@ export function AdminClient() {
   const statusActionLabel = (u: AdminUser) =>
     u.id === user?.id ? t('admin.users.deactivateSelf') : t(u.isActive ? 'admin.users.deactivate' : 'admin.users.activate');
   const roleSwitch = (u: AdminUser, withLabel: boolean) => (
-    <Tooltip delay={500} content={u.id === user?.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user?.id}>
+    <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={u.id === user?.id ? t('admin.users.deactivateSelf') : ''} isDisabled={u.id !== user?.id}>
       <Switch
         isSelected={u.isAdmin}
         onValueChange={(checked) => handleRoleToggle(u, checked)}
@@ -299,7 +300,7 @@ export function AdminClient() {
                   </TableCell>
                   <TableCell className="text-center">
                     <div className="flex items-center justify-center gap-1">
-                      <Tooltip content={statusActionLabel(u)} delay={500}>
+                      <Tooltip {...ACCESSIBLE_POPOVER} content={statusActionLabel(u)} delay={500}>
                         <Button
                           isIconOnly size="sm" variant="light"
                           color={u.isActive ? 'danger' : 'success'}
@@ -310,7 +311,7 @@ export function AdminClient() {
                           {u.isActive ? <UserX size={16} /> : <UserCheck size={16} />}
                         </Button>
                       </Tooltip>
-                      <Tooltip content={t('admin.users.resetPassword')} delay={500}>
+                      <Tooltip {...ACCESSIBLE_POPOVER} content={t('admin.users.resetPassword')} delay={500}>
                         <Button
                           isIconOnly size="sm" variant="light"
                           onPress={() => handleResetPassword(u)}
@@ -320,7 +321,7 @@ export function AdminClient() {
                         </Button>
                       </Tooltip>
                       {lifecycleActions(u).map((action) => (
-                        <Tooltip key={action.key} content={action.label} delay={500}>
+                        <Tooltip {...ACCESSIBLE_POPOVER} key={action.key} content={action.label} delay={500}>
                           <Button
                             isIconOnly size="sm" variant="light"
                             color={action.danger ? 'danger' : 'default'}

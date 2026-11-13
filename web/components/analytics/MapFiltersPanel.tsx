@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Tooltip, Button, Input } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { FilterChip, FilterOption } from '@/components/ui/FilterControls';
 import { Star, Info } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
@@ -127,7 +128,7 @@ export function MapFiltersPanel({ filters, onChange, t, regions, selectedRegion,
           <p className="text-xs font-bold uppercase tracking-widest text-foreground-500">
             {t('analytics.map.filters.rating')}
           </p>
-          <Tooltip content={t('analytics.map.filters.ratingHint')} delay={500} placement="top">
+          <Tooltip {...ACCESSIBLE_POPOVER} content={t('analytics.map.filters.ratingHint')} delay={500} placement="top">
             <Button
               isIconOnly
               variant="light"

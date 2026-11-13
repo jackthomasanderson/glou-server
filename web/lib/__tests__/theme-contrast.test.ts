@@ -63,6 +63,14 @@ function pairs(theme: Theme, accent: AccentPreset): Pair[] {
   const c = themeColors(theme, accent);
   const surfaces = { background: c.background.DEFAULT, content1: c.content1.DEFAULT };
   const list: Pair[] = [];
+  // #976: the raised surfaces. content2 (ux-ui.md §2.1, hovered cards, code
+  // and table headers) carries main and secondary text. content3 (HeroUI's
+  // skeletons and pressed states) carries main text only: secondary text on
+  // it is 4.04:1 in the dark theme, and the scan below keeps it off.
+  for (const shade of ['DEFAULT', '400', '500']) {
+    list.push({ name: `text-foreground-${shade} on content2`, text: c.foreground[shade], background: c.content2.DEFAULT });
+  }
+  list.push({ name: 'text-foreground on content3', text: c.foreground.DEFAULT, background: c.content3.DEFAULT });
   for (const [surfaceName, surface] of Object.entries(surfaces)) {
     for (const shade of ['DEFAULT', '400', '500']) {
       list.push({ name: `text-foreground-${shade} on ${surfaceName}`, text: c.foreground[shade], background: surface });
@@ -112,8 +120,10 @@ describe('theme contrast (#648)', () => {
 // #771: only foreground-400 and darker are checked above (and readable). The
 // paler shades stay HeroUI's zinc (foreground-300 is #D4D4D8 in the light
 // theme, 1.5:1 on white): HeroUI uses them for disabled table rows, the app
-// never for text.
-describe('secondary text shades (#771)', () => {
+// never for text. #976: the same pale greys under other names
+// (default-300/400, zinc-400) too, except on an icon (a component given a
+// `size`, like lucide's), and no secondary text on content3.
+describe('secondary text shades (#771, #976)', () => {
   const root = join(__dirname, '..', '..');
   const sourceFiles = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
@@ -121,10 +131,24 @@ describe('secondary text shades (#771)', () => {
     return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [path] : [];
   });
 
+  const lines = () => ['app', 'components'].flatMap((dir) => sourceFiles(join(root, dir))).flatMap((file) =>
+    readFileSync(file, 'utf8').split('\n').map((line, i) => ({ where: `${relative(root, file)}:${i + 1}`, line })));
+  const ICON = /<[A-Z]\w*\b[^>]*\bsize=/;
+
   it('never writes text in a foreground shade paler than 400', () => {
-    const offenders = ['app', 'components'].flatMap((dir) => sourceFiles(join(root, dir))).flatMap((file) =>
-      readFileSync(file, 'utf8').split('\n').flatMap((line, i) =>
-        /(?:^|[\s'"`:])text-foreground-[1-3]00(?![\w/])/.test(line) ? [`${relative(root, file)}:${i + 1}`] : []));
-    expect(offenders).toEqual([]);
+    const offenders = lines().filter(({ line }) => /(?:^|[\s'"`:])text-foreground-[1-3]00(?![\w/])/.test(line));
+    expect(offenders.map(({ where }) => where)).toEqual([]);
+  });
+
+  it('never writes text in the other pale greys (default-300/400, zinc-400), icons apart', () => {
+    const offenders = lines().filter(({ line }) =>
+      /(?:^|[\s'"`:])text-(?:default-[34]00|zinc-400)(?![\w/])/.test(line) && !ICON.test(line));
+    expect(offenders.map(({ where }) => where)).toEqual([]);
+  });
+
+  it('puts no secondary text on content3', () => {
+    const offenders = lines().filter(({ line }) =>
+      /(?:^|[\s'"`:])bg-content3(?![\w/])/.test(line) && /(?:^|[\s'"`:])text-foreground-[45]00(?![\w/])/.test(line));
+    expect(offenders.map(({ where }) => where)).toEqual([]);
   });
 });

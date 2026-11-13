@@ -2,6 +2,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Chip, Drawer, DrawerContent, Spinner, Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import {
   X, Pencil, Flame, Thermometer, Droplets, Wine, BookMarked, Leaf, QrCode,
   TrendingUp, Bell, BellOff, Star, Grape, LayoutGrid,
@@ -497,7 +498,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {product && (
-                    <Tooltip delay={500} content={t('qr.title')} size="sm" placement="bottom">
+                    <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('qr.title')} size="sm" placement="bottom">
                       <button onClick={() => setQrOpen(true)} className="p-1 rounded-lg hover:bg-default-100 transition-colors" aria-label={t('qr.title')}>
                         <QrCode size={16} />
                       </button>

@@ -2,6 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Input, Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { Camera, Link2, Trash2, Check, X, Loader2, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ImagePickerButton, ImageResult } from './ImagePicker';
@@ -152,7 +153,7 @@ export function ItemImageSection({
         )}
 
         {hasPhoto && !saving && !isAutoLoading && (
-          <Tooltip content={t('itemImage.remove')} delay={500}>
+          <Tooltip {...ACCESSIBLE_POPOVER} content={t('itemImage.remove')} delay={500}>
             <Button
               isIconOnly
               size="sm"
@@ -189,13 +190,13 @@ export function ItemImageSection({
                 {t('itemImage.suggestion.use')}
               </Button>
               {offered.hasMore && (
-                <Tooltip content={t('itemImage.suggestion.another')} delay={500}>
+                <Tooltip {...ACCESSIBLE_POPOVER} content={t('itemImage.suggestion.another')} delay={500}>
                   <Button isIconOnly size="sm" variant="light" onPress={offered.onNext} aria-label={t('itemImage.suggestion.another')}>
                     <RefreshCw size={14} />
                   </Button>
                 </Tooltip>
               )}
-              <Tooltip content={t('itemImage.suggestion.dismiss')} delay={500}>
+              <Tooltip {...ACCESSIBLE_POPOVER} content={t('itemImage.suggestion.dismiss')} delay={500}>
                 <Button isIconOnly size="sm" variant="light" onPress={offered.onDismiss} aria-label={t('itemImage.suggestion.dismiss')}>
                   <X size={14} />
                 </Button>
@@ -253,7 +254,7 @@ export function ItemImageSection({
             preloadedResults={preloadedResults}
             onSelect={onPhotoChange}
           />
-          <Tooltip content={t('itemImage.pasteUrl')} delay={500}>
+          <Tooltip {...ACCESSIBLE_POPOVER} content={t('itemImage.pasteUrl')} delay={500}>
             <Button
               isIconOnly
               size="sm"
@@ -264,7 +265,7 @@ export function ItemImageSection({
               <Link2 size={16} />
             </Button>
           </Tooltip>
-          <Tooltip content={t('itemImage.upload')} delay={500}>
+          <Tooltip {...ACCESSIBLE_POPOVER} content={t('itemImage.upload')} delay={500}>
             <Button
               isIconOnly
               size="sm"

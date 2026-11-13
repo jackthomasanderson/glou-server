@@ -6,6 +6,7 @@ import {
   Table, TableHeader, TableColumn, TableBody, TableRow, TableCell,
   Skeleton, Tooltip, ButtonGroup, SelectItem,
 } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Plus, Pencil, Trash2, Clock, CalendarDays, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import { FilterChip } from '@/components/ui/FilterControls';
@@ -408,7 +409,7 @@ export function MaturityReferencesSection() {
   );
 
   const curveButton = (ref: MaturityReference) => (
-    <Tooltip content={t(curveShapeDescriptionKey(ref.curveShape))} delay={500}>
+    <Tooltip {...ACCESSIBLE_POPOVER} content={t(curveShapeDescriptionKey(ref.curveShape))} delay={500}>
       <button
         type="button"
         className="flex items-center gap-1.5 text-xs text-foreground-500 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-focus"
@@ -422,12 +423,12 @@ export function MaturityReferencesSection() {
 
   const rowActions = (ref: MaturityReference) => (
     <div className="flex justify-end gap-1">
-      <Tooltip content={t('actions.edit')} delay={500}>
+      <Tooltip {...ACCESSIBLE_POPOVER} content={t('actions.edit')} delay={500}>
         <Button isIconOnly size="sm" variant="light" onPress={() => openEdit(ref)} aria-label={t('actions.edit')}>
           <Pencil size={14} />
         </Button>
       </Tooltip>
-      <Tooltip content={t('actions.delete')} delay={500}>
+      <Tooltip {...ACCESSIBLE_POPOVER} content={t('actions.delete')} delay={500}>
         <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => setDeleteTarget(ref)} aria-label={t('actions.delete')}>
           <Trash2 size={14} />
         </Button>

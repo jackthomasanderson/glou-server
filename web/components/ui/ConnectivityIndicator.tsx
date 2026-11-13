@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { Tooltip, ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from './accessiblePopover';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { WifiOff } from 'lucide-react';
 import { useConnectivity } from '@/hooks/useConnectivity';
@@ -52,7 +53,7 @@ export function ConnectivityIndicator() {
 
   return (
     <span className="inline-flex items-center flex-shrink-0">
-    <Tooltip content={tooltipContent} color="foreground" delay={500}>
+    <Tooltip {...ACCESSIBLE_POPOVER} content={tooltipContent} color="foreground" delay={500}>
       <button
         type="button"
         onClick={() => setPanelOpen(true)}

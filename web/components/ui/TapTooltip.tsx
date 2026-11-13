@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from './accessiblePopover';
 
 interface TapTooltipProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'content'> {
   content: React.ReactNode;
@@ -16,7 +17,7 @@ interface TapTooltipProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElem
 export function TapTooltip({ content, onClick, onBlur, children, ...buttonProps }: TapTooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
   return (
-    <Tooltip content={content} delay={500} isOpen={isOpen} onOpenChange={setIsOpen}>
+    <Tooltip {...ACCESSIBLE_POPOVER} content={content} delay={500} isOpen={isOpen} onOpenChange={setIsOpen}>
       <button
         type="button"
         {...buttonProps}

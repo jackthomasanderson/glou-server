@@ -23,6 +23,7 @@ import {
   ModalBody,
   ModalFooter,
 } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import {
   Plus,
   Pencil,
@@ -451,7 +452,7 @@ export const CellarDashboard: React.FC = () => {
 
                 {/* Actions */}
                 <div className="relative z-10 flex gap-1 mt-2 pt-2 border-t border-default-100">
-                  <Tooltip delay={500} content={t('actions.edit')}>
+                  <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('actions.edit')}>
                     <Button
                       isIconOnly
                       size="sm"
@@ -462,7 +463,7 @@ export const CellarDashboard: React.FC = () => {
                       <Pencil size={14} />
                     </Button>
                   </Tooltip>
-                  <Tooltip delay={500} content={t('actions.delete')}>
+                  <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('actions.delete')}>
                     <Button
                       isIconOnly
                       size="sm"
@@ -510,7 +511,7 @@ export const CellarDashboard: React.FC = () => {
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold">{cellar.name}</span>
                     {cellar.columns && cellar.rows && (
-                      <Tooltip delay={500} content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
+                      <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}>
                         <button
                           type="button"
                           aria-label={t('cellars.grid.configured', { cols: cellar.columns, rows: cellar.rows })}
@@ -550,7 +551,7 @@ export const CellarDashboard: React.FC = () => {
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="flex gap-1 justify-end">
-                    <Tooltip delay={500} content={t('actions.edit')}>
+                    <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('actions.edit')}>
                       <Button
                         isIconOnly
                         size="sm"
@@ -561,7 +562,7 @@ export const CellarDashboard: React.FC = () => {
                         <Pencil size={14} />
                       </Button>
                     </Tooltip>
-                    <Tooltip delay={500} content={t('actions.delete')}>
+                    <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('actions.delete')}>
                       <Button
                         isIconOnly
                         size="sm"

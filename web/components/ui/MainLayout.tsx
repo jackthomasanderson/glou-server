@@ -3,6 +3,7 @@ import React, { Suspense, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button, Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from './accessiblePopover';
 import { Search, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
@@ -108,7 +109,7 @@ function QuickLockButton() {
   const { t } = useTranslation();
   const { lockNow } = useAutoLock();
   return (
-    <Tooltip content={t('lock.buttonLabel')} placement="bottom" delay={500}>
+    <Tooltip {...ACCESSIBLE_POPOVER} content={t('lock.buttonLabel')} placement="bottom" delay={500}>
       <Button
         isIconOnly
         size="sm"

@@ -3,6 +3,7 @@ import React from 'react';
 import {
   TableRow, TableCell, Chip, Tooltip, Skeleton, Button,
 } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { Pencil, Trash2, Clock } from 'lucide-react';
 import { InventoryCategory } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
@@ -66,7 +67,7 @@ export function InventoryListRow({
       {/* An array, so a page of cigars leaves two cells out (HeroUI rows take cells only). */}
       {[
         <TableCell key="icon" className="w-10 pr-0">
-          <Tooltip content={categoryLabel} delay={500}>
+          <Tooltip {...ACCESSIBLE_POPOVER} content={categoryLabel} delay={500}>
             <Chip
               startContent={<CategoryIcon category={item.category} />}
               color={CATEGORY_CHIP_COLOR[item.category]}
@@ -158,7 +159,7 @@ export function InventoryListRow({
           onClick={(e) => e.stopPropagation()}
         >
           {onEdit && (
-            <Tooltip content={t('actions.edit')} delay={500}>
+            <Tooltip {...ACCESSIBLE_POPOVER} content={t('actions.edit')} delay={500}>
               <Button
                 isIconOnly
                 size="sm"
@@ -172,7 +173,7 @@ export function InventoryListRow({
               </Button>
             </Tooltip>
           )}
-          <Tooltip content={t('familyList.trash.action')} delay={500}>
+          <Tooltip {...ACCESSIBLE_POPOVER} content={t('familyList.trash.action')} delay={500}>
             <Button
               isIconOnly
               size="sm"

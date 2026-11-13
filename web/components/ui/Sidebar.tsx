@@ -3,6 +3,7 @@ import React, { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from './accessiblePopover';
 import {
   Wine, Sparkles, GlassWater, Leaf, Warehouse, Library, Martini, BarChart3,
   ChevronLeft, ChevronRight, ShieldCheck, ClipboardCheck, Wallet, LogOut, Megaphone,
@@ -86,6 +87,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         </div>
 
         <Tooltip
+          {...ACCESSIBLE_POPOVER}
           content={expanded ? t('nav.collapse') : t('nav.expand')}
           placement="right"
           delay={500}
@@ -165,7 +167,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
 
           if (!expanded) {
             return (
-              <Tooltip key={link.href} content={link.label} placement="right" delay={500}>
+              <Tooltip {...ACCESSIBLE_POPOVER} key={link.href} content={link.label} placement="right" delay={500}>
                 {btn}
               </Tooltip>
             );
@@ -206,7 +208,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
               </Button>
             );
             if (!expanded) {
-              return <Tooltip content={t('nav.admin')} placement="right" delay={500}>{btn}</Tooltip>;
+              return <Tooltip {...ACCESSIBLE_POPOVER} content={t('nav.admin')} placement="right" delay={500}>{btn}</Tooltip>;
             }
             return btn;
           })()}
@@ -219,7 +221,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
           {expanded && whatsNew.version && (
             <span className="text-xs text-foreground-500 font-mono truncate">{whatsNew.version}</span>
           )}
-          <Tooltip content={t('whatsNew.open')} placement="right" delay={500} isDisabled={expanded}>
+          <Tooltip {...ACCESSIBLE_POPOVER} content={t('whatsNew.open')} placement="right" delay={500} isDisabled={expanded}>
             <Button
               size="sm"
               variant="light"
@@ -246,6 +248,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         <ThemeToggle />
 
         <Tooltip
+          {...ACCESSIBLE_POPOVER}
           content={`${user?.username ?? ''} · ${user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}`}
           placement="right"
           delay={500}
@@ -279,7 +282,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
           </>
         )}
 
-        <Tooltip content={t('auth.logout')} placement="right" delay={500}>
+        <Tooltip {...ACCESSIBLE_POPOVER} content={t('auth.logout')} placement="right" delay={500}>
           <Button
             isIconOnly
             size="sm"
