@@ -72,7 +72,7 @@
     "wine": "Wine",
     "sparkling": "Sparkling",
     "spirit": "Spirit",
-    "cigar": "Cigar / Box"
+    "cigar": "Cigar"
   },
   "categoriesPlural": {
     "wine": "wines",
@@ -882,7 +882,6 @@
       "description": "Shows advanced fields (structured tasting grid, spirit cask/batch, humidor monitoring) in the forms."
     },
     "accentColor": "Accent Color",
-    "preferencesHint": "Theme and language changes apply instantly and are saved to your account.",
     "colors": {
       "indigo": "Indigo",
       "rose": "Rose",
@@ -1003,7 +1002,10 @@
     "emailPasswordHint": "Confirm with your account password. An alert will be sent to the previous address.",
     "usernamePasswordHint": "This name is used to sign in: afterwards, sign in with the new one. Confirm with your account password.",
     "usernameSuccess": "Username changed. Sign in with this name from now on.",
-    "usernameInvalid": "3 to 30 characters: letters, digits, - and _."
+    "usernameInvalid": "3 to 30 characters: letters, digits, - and _.",
+    "saveModeHint": "Settings are saved as soon as you change them, except text fields: their button says what it saves.",
+    "displayNameSave": "Save display name",
+    "leaveConfirm": "A name or slogan is not saved. Leave the page and lose it?"
   },
   "admin": {
     "title": "Administration",
@@ -1800,10 +1802,6 @@
     "categories": {
       "title": "Category breakdown",
       "active": "In stock",
-      "wine": "Wines",
-      "sparkling": "Bubbles & Champagnes",
-      "spirit": "Fine Spirits",
-      "cigar": "Prestige Cigars",
       "unit": {
         "bottle_one": "bottle",
         "bottle_other": "bottles",
@@ -2647,12 +2645,6 @@
       "active": "Active",
       "acquired": "Acquired",
       "cancelled": "Cancelled"
-    },
-    "categories": {
-      "wine": "Wine",
-      "sparkling": "Sparkling",
-      "spirit": "Spirit",
-      "cigar": "Cigar"
     },
     "priceSeen": {
       "title": "Record an observed price",

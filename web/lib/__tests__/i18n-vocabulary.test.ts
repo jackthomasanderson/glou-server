@@ -60,3 +60,22 @@ describe('vocabulary (FEAT-112)', () => {
     }
   });
 });
+
+// #959: a category is named by `categories.*` only, the same word on every page.
+describe('category names (#959)', () => {
+  const CATEGORIES = ['wine', 'sparkling', 'spirit', 'cigar'] as const;
+
+  it('no other set of translation keys names the four categories', () => {
+    for (const bundle of [fr, en]) {
+      const categoryKeys = leaves(bundle)
+        .map(([key]) => key)
+        .filter((key) => CATEGORIES.some((c) => key.endsWith(`categories.${c}`)) && !key.startsWith('categories.'));
+      expect(categoryKeys).toEqual([]);
+    }
+  });
+
+  it('names a category, not its packaging', () => {
+    expect(fr.categories).toEqual({ wine: 'Vin', sparkling: 'Bulles', spirit: 'Spiritueux', cigar: 'Cigare' });
+    expect(en.categories).toEqual({ wine: 'Wine', sparkling: 'Sparkling', spirit: 'Spirit', cigar: 'Cigar' });
+  });
+});

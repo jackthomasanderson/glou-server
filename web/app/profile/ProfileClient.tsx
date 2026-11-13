@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { MainLayout } from '@/components/ui/MainLayout';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { useMe, useLogout, useUpdateProfile, useUpdatePreferences } from '@/hooks/useAuth';
+import { useLeaveGuard } from '@/hooks/useLeaveGuard';
 import { notifySuccess } from '@/lib/toast';
 import { useTranslation } from 'react-i18next';
 import { AccountSecurity } from '@/components/profile/AccountSecurity';
@@ -84,6 +85,14 @@ export function ProfileClient() {
       });
     }
   }
+
+  // #768: the text fields are the only settings waiting for a button; each
+  // button is enabled once its own fields differ from what is saved, and the
+  // page asks before it is left with such a change.
+  const differs = (typed: string, saved: string | null | undefined) => typed.trim() !== (saved ?? '').trim();
+  const displayNameChanged = !!user && differs(profileData.displayName, user.displayName);
+  const appDisplayChanged = !!user && (differs(profileData.appName, user.appName) || differs(profileData.appSlogan, user.appSlogan));
+  useLeaveGuard(displayNameChanged || appDisplayChanged, t('profile.leaveConfirm'));
 
   // #769: the display name is how the other members see you; the app name
   // and slogan are display settings of your own, saved from the preferences card.
@@ -213,6 +222,7 @@ export function ProfileClient() {
     <MainLayout>
       <div className="max-w-3xl mx-auto px-4 py-8">
         <PageHeader icon={User} title={t('profile.title')} className="mb-4" />
+        <p className="text-sm text-foreground-500 mb-4">{t('profile.saveModeHint')}</p>
 
         {/* #513: ten stacked sections on a phone — a row of anchors gets to
             the right one directly. (The former Wishlist & Budget shortcut is
@@ -263,10 +273,10 @@ export function ProfileClient() {
               />
               <Button
                 type="submit" color="primary" variant="solid" size="md" radius="md" fullWidth
-                isLoading={updateProfile.isPending} isDisabled={updateProfile.isPending}
+                isLoading={updateProfile.isPending} isDisabled={!displayNameChanged || updateProfile.isPending}
                 className="mt-1"
               >
-                {t('actions.save')}
+                {t('profile.displayNameSave')}
               </Button>
             </form>
 
@@ -397,17 +407,11 @@ export function ProfileClient() {
               />
               <Button
                 type="submit" color="primary" variant="bordered" size="sm" radius="md"
-                isLoading={updateAppDisplay.isPending} isDisabled={updateAppDisplay.isPending}
+                isLoading={updateAppDisplay.isPending} isDisabled={!appDisplayChanged || updateAppDisplay.isPending}
               >
                 {t('profile.appDisplaySave')}
               </Button>
             </form>
-
-            <div className="mt-6 p-3 bg-default-50 rounded-xl">
-              <p className="text-xs text-foreground-400">
-                {t('profile.preferencesHint')}
-              </p>
-            </div>
           </div>
         </div>
 

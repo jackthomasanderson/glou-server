@@ -16,6 +16,7 @@ vi.mock('@/hooks/useAuth', () => {
   const m = () => ({ mutate: vi.fn(), isPending: false });
   return { useUpdateEmail: m, useUpdateUsername: m, useUpdatePassword: m, useUpdatePreferences: m, useSetPin: m, useRemovePin: m };
 });
+vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
 vi.mock('@/components/profile/TwoFactorSettings', () => ({ TwoFactorSettings: () => null }));
 vi.mock('@/components/profile/TrustedDeviceSettings', () => ({ TrustedDeviceSettings: () => null }));
 vi.mock('@/components/ui/ResponsiveModal', () => ({ ResponsiveModal: () => null }));

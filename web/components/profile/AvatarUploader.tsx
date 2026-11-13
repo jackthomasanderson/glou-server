@@ -9,6 +9,7 @@ import { Camera, Trash2 } from 'lucide-react';
 import { useUploadAvatar, useDeleteAvatar, PublicUser } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { downscaleImage } from '@/lib/image-resize';
+import { notifySuccess } from '@/lib/toast';
 
 export function AvatarUploader({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
@@ -17,8 +18,6 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  // A failure is said by the hook (#887): only the success is shown here.
-  const [success, setSuccess] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,16 +27,15 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
   const handleUpload = async (original: File) => {
     // #494: an avatar is shown at 96 px at most.
     const file = await downscaleImage(original, 512);
-    setSuccess(null);
     uploadAvatar.mutate(file, {
-      onSuccess: () => setSuccess(t('profile.avatarSuccess')),
+      // #768: confirmed like every other save of the profile page; a failure is said by the hook (#887).
+      onSuccess: () => notifySuccess('profile.avatarSuccess'),
     });
   };
 
   const handleDelete = () => {
-    setSuccess(null);
     deleteAvatar.mutate(undefined, {
-      onSuccess: () => setSuccess(t('profile.deleteAvatarSuccess')),
+      onSuccess: () => notifySuccess('profile.deleteAvatarSuccess'),
       onSettled: () => setConfirmingDelete(false),
     });
   };
@@ -115,12 +113,6 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
       <p className="text-xs text-foreground-400 mt-2 text-center" style={{ whiteSpace: 'pre-line' }}>
         {t('profile.avatarHint')}
       </p>
-
-      {success && (
-        <div role="status" className="mt-3 text-sm px-4 py-2 rounded-lg bg-success-50 text-success-700 border border-success-200">
-          {success}
-        </div>
-      )}
 
       <input
         type="file"

@@ -9,6 +9,7 @@ import { PasswordStrengthMeter } from '@/components/auth/PasswordStrengthMeter';
 import { PASSWORD_MIN_LENGTH, TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
 import { authErrorMessage } from '@/lib/auth/error-message';
 import { SingleSelect } from '@/components/ui/SingleSelect';
+import { notifySuccess } from '@/lib/toast';
 import { TwoFactorSettings } from '@/components/profile/TwoFactorSettings';
 import { TrustedDeviceSettings } from '@/components/profile/TrustedDeviceSettings';
 
@@ -37,7 +38,6 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
   const [pinValue, setPinValue] = useState('');
   const [removePinPassword, setRemovePinPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const updateEmail = useUpdateEmail();
   const updateUsername = useUpdateUsername();
@@ -51,19 +51,13 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
 
   const handleAutoLockChange = (key: string) => {
     const autoLockDelayMin = !key || key === 'never' ? null : (Number(key) as 5 | 15 | 30);
-    updatePreferences.mutate({ autoLockDelayMin }, {
-      onSuccess: () => {
-        setSuccessMsg(t('profile.saveSuccess'));
-        setTimeout(() => setSuccessMsg(null), 3000);
-      },
-    });
+    updatePreferences.mutate({ autoLockDelayMin }, { onSuccess: () => notifySuccess('profile.saveSuccess') });
   };
 
   const handleOpenPin = () => {
     setPinPassword('');
     setPinValue('');
     setErrorMsg(null);
-    setSuccessMsg(null);
     setIsPinModalOpen(true);
   };
 
@@ -74,8 +68,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
         setIsPinModalOpen(false);
         setPinPassword('');
         setPinValue('');
-        setSuccessMsg(t('profile.pinSuccess'));
-        setTimeout(() => setSuccessMsg(null), 3000);
+        notifySuccess('profile.pinSuccess');
       },
       onError: (err: Error) => {
         setErrorMsg(err.message === 'INVALID_CREDENTIALS' ? t('profile.passwordError') : t('profile.pinError'));
@@ -86,7 +79,6 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
   const handleOpenRemovePin = () => {
     setRemovePinPassword('');
     setErrorMsg(null);
-    setSuccessMsg(null);
     setIsRemovePinModalOpen(true);
   };
 
@@ -96,8 +88,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       onSuccess: () => {
         setIsRemovePinModalOpen(false);
         setRemovePinPassword('');
-        setSuccessMsg(t('profile.pinRemoveSuccess'));
-        setTimeout(() => setSuccessMsg(null), 3000);
+        notifySuccess('profile.pinRemoveSuccess');
       },
       onError: (err: Error) => {
         setErrorMsg(err.message === 'INVALID_CREDENTIALS' ? t('profile.passwordError') : t('profile.pinError'));
@@ -111,7 +102,6 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
     setUsername(user.username);
     setUsernamePassword('');
     setErrorMsg(null);
-    setSuccessMsg(null);
     setIsUsernameModalOpen(true);
   };
 
@@ -127,8 +117,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       onSuccess: () => {
         setIsUsernameModalOpen(false);
         setUsernamePassword('');
-        setSuccessMsg(t('profile.usernameSuccess'));
-        setTimeout(() => setSuccessMsg(null), 3000);
+        notifySuccess('profile.usernameSuccess');
       },
       onError: (err: Error) => setErrorMsg(err.message === TOO_MANY_REQUESTS_ERROR
         ? authErrorMessage(t, err)
@@ -142,7 +131,6 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
     setEmail(user.email);
     setEmailPassword('');
     setErrorMsg(null);
-    setSuccessMsg(null);
     setIsEmailModalOpen(true);
   };
 
@@ -152,8 +140,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
       onSuccess: () => {
         setIsEmailModalOpen(false);
         setEmailPassword('');
-        setSuccessMsg(t('profile.emailSuccess'));
-        setTimeout(() => setSuccessMsg(null), 3000);
+        notifySuccess('profile.emailSuccess');
       },
       onError: (err: Error) => {
         if (err.message === 'EMAIL_ALREADY_TAKEN') {
@@ -169,7 +156,6 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
     setCurrentPassword('');
     setNewPassword('');
     setErrorMsg(null);
-    setSuccessMsg(null);
     setIsPasswordModalOpen(true);
   };
 
@@ -180,8 +166,7 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
         setIsPasswordModalOpen(false);
         setCurrentPassword('');
         setNewPassword('');
-        setSuccessMsg(t('profile.passwordSuccess'));
-        setTimeout(() => setSuccessMsg(null), 3000);
+        notifySuccess('profile.passwordSuccess');
       },
       onError: (err: Error) => {
         setErrorMsg(err.message === 'INVALID_CREDENTIALS' ? t('profile.passwordError') : t('status.error'));
@@ -195,12 +180,6 @@ export function AccountSecurity({ user }: { user: PublicUser }) {
         <Lock size={20} className="text-primary" />
         <h2 className="text-base font-semibold">{t('profile.security')}</h2>
       </div>
-
-      {successMsg && (
-        <div className="bg-success-50 border border-success-200 text-success-700 text-sm rounded-lg px-4 py-3 mb-4">
-          {successMsg}
-        </div>
-      )}
 
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 p-3 bg-default-50 rounded-xl">

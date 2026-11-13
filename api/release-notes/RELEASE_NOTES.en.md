@@ -16,6 +16,8 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - Wrong two-factor codes typed when turning two-factor off, generating backup codes, trusting a device or confirming an administrator action now count toward the same 5-attempt lock as at sign-in.
 
 ### Improved
+- The category names are the same on every page: the wishlist and the Analytics category breakdown use the app's own words, and the cigar category is just "Cigar".
+- Profile: one sentence says which settings save on their own; the text-field buttons say what they save, stay greyed out until something changed, and leaving with an unsaved change asks first. Every save confirms with the same message.
 - Profile → Active sessions: the location is labelled as approximate, each session shows when it signed in, and one button signs out every other session.
 - Wishlist: an observed price at or below a wish's ceiling is now marked in the list, and no longer sends a message about the price you just typed. The "Price opportunities" alert category is gone from the notification settings.
 - The old free-text collection label of a wine, which no screen showed any more, becomes real collections: you may find new collections named after those labels. The Collection column of the CSV export and import now lists a wine's collections.
@@ -35,6 +37,8 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - A failed avatar change, or a failed change of a wine's collections, is now said even after leaving the page; copying a member's temporary password works over plain HTTP.
 - Screen readers now reach a tooltip opened inside a window or a drawer.
 - Typing right after closing a window or a drawer no longer loses the first keys.
+- Decimal numbers use the comma in French: liquid stock, average ratings, humidor humidity and temperatures, serving temperatures and backup sizes.
+- After confirming you leave a page with unsaved changes, Back and Forward no longer stop on a step that does nothing; signing out from the lock screen asks first, and More > Administration while already there asks nothing.
 
 ## v2026.11.4
 

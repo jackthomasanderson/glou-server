@@ -26,6 +26,9 @@ vi.mock('@/hooks/useAuth', () => ({
   useUpdatePreferences: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn() }));
+// #768: whether the page asks before it is left.
+const leaveGuard = vi.fn();
+vi.mock('@/hooks/useLeaveGuard', () => ({ useLeaveGuard: (active: boolean, message: string) => leaveGuard(active, message) }));
 vi.mock('@/components/ui/MainLayout', () => ({ MainLayout: ({ children }: { children?: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/components/ui/PageHeader', () => ({ PageHeader: () => null }));
 vi.mock('@/components/ui/SingleSelect', () => ({ SingleSelect: () => null }));
@@ -38,8 +41,8 @@ vi.mock('@/components/shares/SharesDashboard', () => ({ SharesDashboard: () => n
 vi.mock('@/components/profile/NotificationPreferences', () => ({ NotificationPreferences: () => null }));
 vi.mock('@/components/profile/AppVersion', () => ({ AppVersion: () => null }));
 vi.mock('@heroui/react', () => ({
-  Button: ({ children, onPress, type, isLoading }: { children?: ReactNode; onPress?: () => void; type?: 'submit' | 'button'; isLoading?: boolean }) => (
-    <button type={type ?? 'button'} onClick={onPress} data-loading={isLoading ? 'true' : undefined}>{children}</button>
+  Button: ({ children, onPress, type, isLoading, isDisabled }: { children?: ReactNode; onPress?: () => void; type?: 'submit' | 'button'; isLoading?: boolean; isDisabled?: boolean }) => (
+    <button type={type ?? 'button'} onClick={onPress} disabled={isDisabled} data-loading={isLoading ? 'true' : undefined}>{children}</button>
   ),
   Input: ({ label, description, value, onValueChange }: {
     label?: string; description?: string; value?: string; onValueChange?: (v: string) => void;
@@ -62,6 +65,7 @@ const section = (id: string) => document.getElementById(id) as HTMLElement;
 describe('ProfileClient identity and display settings (#769)', () => {
   beforeEach(() => {
     updateProfile.mockReset();
+    leaveGuard.mockReset();
     hookCall = 0;
     pendingCalls = [];
     mockUser = { ...mockUser, theme: 'SYSTEM', appName: 'Ma cave' };
@@ -80,7 +84,7 @@ describe('ProfileClient identity and display settings (#769)', () => {
   it('each save button spins for its own form only (review)', () => {
     pendingCalls = [0];
     render(<ProfileClient />);
-    expect(within(section('account')).getByRole('button', { name: 'actions.save' }).dataset.loading).toBe('true');
+    expect(within(section('account')).getByRole('button', { name: 'profile.displayNameSave' }).dataset.loading).toBe('true');
     expect(within(section('preferences')).getByRole('button', { name: 'profile.appDisplaySave' }).dataset.loading).toBeUndefined();
   });
 
@@ -95,8 +99,9 @@ describe('ProfileClient identity and display settings (#769)', () => {
 
   it('saving personal details sends the display name only', () => {
     render(<ProfileClient />);
-    fireEvent.submit(within(section('account')).getByRole('button', { name: 'actions.save' }).closest('form')!);
-    expect(updateProfile).toHaveBeenCalledWith({ displayName: 'Alex' }, expect.anything());
+    fireEvent.change(within(section('account')).getByLabelText('auth.displayName'), { target: { value: 'Alexandra' } });
+    fireEvent.submit(within(section('account')).getByRole('button', { name: 'profile.displayNameSave' }).closest('form')!);
+    expect(updateProfile).toHaveBeenCalledWith({ displayName: 'Alexandra' }, expect.anything());
   });
 
   it('the app name and slogan are display preferences, seen by the member only', () => {
@@ -116,5 +121,34 @@ describe('ProfileClient identity and display settings (#769)', () => {
     expect(security.getByText('security-card')).toBeInTheDocument();
     expect(security.getByText('sessions-card')).toBeInTheDocument();
     expect(security.queryByText('two-factor-card')).toBeNull();
+  });
+
+  // #768: what each button saves, and when there is nothing to save.
+  it('names what each text button saves and disables it while nothing changed', () => {
+    render(<ProfileClient />);
+    const nameSave = within(section('account')).getByRole('button', { name: 'profile.displayNameSave' });
+    const appSave = within(section('preferences')).getByRole('button', { name: 'profile.appDisplaySave' });
+    expect(nameSave).toBeDisabled();
+    expect(appSave).toBeDisabled();
+    fireEvent.change(within(section('account')).getByLabelText('auth.displayName'), { target: { value: 'Alexandra' } });
+    expect(nameSave).toBeEnabled();
+    expect(appSave).toBeDisabled();
+    fireEvent.change(within(section('preferences')).getByLabelText('profile.appSlogan'), { target: { value: 'Tchin' } });
+    expect(appSave).toBeEnabled();
+  });
+
+  it('says once, for the whole page, which settings save on their own', () => {
+    render(<ProfileClient />);
+    expect(screen.getAllByText('profile.saveModeHint')).toHaveLength(1);
+    expect(screen.queryByText('profile.preferencesHint')).toBeNull();
+  });
+
+  it('asks before the page is left with a text field not saved', () => {
+    render(<ProfileClient />);
+    expect(leaveGuard).toHaveBeenLastCalledWith(false, 'profile.leaveConfirm');
+    fireEvent.change(within(section('preferences')).getByLabelText('profile.appName'), { target: { value: 'Cave' } });
+    expect(leaveGuard).toHaveBeenLastCalledWith(true, 'profile.leaveConfirm');
+    fireEvent.change(within(section('preferences')).getByLabelText('profile.appName'), { target: { value: 'Ma cave' } });
+    expect(leaveGuard).toHaveBeenLastCalledWith(false, 'profile.leaveConfirm');
   });
 });

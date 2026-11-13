@@ -275,7 +275,7 @@ export function WishlistDashboard() {
                   </p>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <Chip size="sm" variant="flat" color="default" startContent={<Tag size={12} />}>
-                      {t(`wishlist.categories.${item.category}`)}
+                      {t(`categories.${item.category}`)}
                     </Chip>
                     <Chip size="sm" variant="flat" color={STATUS_COLOR[item.status]}>
                       {t(`wishlist.status.${item.status}`)}
@@ -359,7 +359,7 @@ export function WishlistDashboard() {
                   onSelectionChange={(keys) => setForm((f) => ({ ...f, category: Array.from(keys)[0] as WishlistCategory }))}
                   variant="bordered" size="md" labelPlacement="outside"
                 >
-                  {CATEGORIES.map((c) => <SelectItem key={c}>{t(`wishlist.categories.${c}`)}</SelectItem>)}
+                  {CATEGORIES.map((c) => <SelectItem key={c}>{t(`categories.${c}`)}</SelectItem>)}
                 </SingleSelect>
                 <div className="grid grid-cols-2 gap-4">
                   <ParsedNumberInput

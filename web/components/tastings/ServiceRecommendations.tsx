@@ -12,7 +12,7 @@ interface ServiceRecommendationsProps {
 }
 
 export function ServiceRecommendations({ item }: ServiceRecommendationsProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const subtype = item.color ?? item.spiritType ?? item.sparklingType ?? null;
   const reco = getRecommendations(item.category, subtype);
   if (!reco) return null;
@@ -27,7 +27,7 @@ export function ServiceRecommendations({ item }: ServiceRecommendationsProps) {
         <div className="flex items-center gap-2">
           <Thermometer size={16} className="text-foreground-500 shrink-0" />
           <span className="text-sm">
-            {formatTemperatureRange(reco.tempMin, reco.tempMax)}
+            {formatTemperatureRange(reco.tempMin, reco.tempMax, i18n.language)}
           </span>
         </div>
 

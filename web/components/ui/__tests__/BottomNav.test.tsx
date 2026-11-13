@@ -148,6 +148,21 @@ describe('BottomNav — leaving a page with unsaved changes (#759)', () => {
     expect(push).toHaveBeenCalledWith('/wishlist-budget');
   });
 
+  // #920: the page does not change, so there is nothing to ask.
+  it('More → Administration on /admin asks nothing and stays', () => {
+    pathname = '/admin';
+    isAdmin = true;
+    unregister = registerLeaveQuestion('Leave without saving?');
+    const confirm = vi.spyOn(window, 'confirm');
+    render(<BottomNav />);
+    fireEvent.click(screen.getByRole('button', { name: 'nav.more' }));
+    fireEvent.click(screen.getByRole('button', { name: 'nav.admin' }));
+    expect(confirm).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    isAdmin = false;
+  });
+
   it('asks nothing when no page holds unsaved changes', () => {
     pathname = '/admin';
     const confirm = vi.spyOn(window, 'confirm');

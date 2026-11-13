@@ -54,11 +54,17 @@ describe('profile format preferences (#405)', () => {
   afterEach(() => setFormatPreferences({ tempUnit: 'CELSIUS', dateFormat: 'SYSTEM' }));
 
   it('shows temperatures in Celsius by default and in Fahrenheit on request', () => {
-    expect(formatTemperature(18)).toBe('18°C');
-    expect(formatTemperatureRange(16, 18)).toBe('16–18°C');
+    expect(formatTemperature(18, 'fr')).toBe('18°C');
+    expect(formatTemperatureRange(16, 18, 'fr')).toBe('16–18°C');
     setFormatPreferences({ tempUnit: 'FAHRENHEIT' });
-    expect(formatTemperature(18)).toBe('64°F');
-    expect(formatTemperatureRange(16, 18)).toBe('61–64°F');
+    expect(formatTemperature(18, 'fr')).toBe('64°F');
+    expect(formatTemperatureRange(16, 18, 'fr')).toBe('61–64°F');
+  });
+
+  it('writes a decimal temperature with the decimal separator of the language (#700)', () => {
+    expect(formatTemperature(17.5, 'fr')).toBe('17,5°C');
+    expect(formatTemperature(17.5, 'en')).toBe('17.5°C');
+    expect(formatTemperatureRange(6.5, 8.5, 'fr')).toBe('6,5–8,5°C');
   });
 
   it('forces the 12 or 24 hour clock in date-times when the member chose one', () => {

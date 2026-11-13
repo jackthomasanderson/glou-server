@@ -30,19 +30,22 @@ export function setFormatPreferences(next: Partial<FormatPreferences>): void {
   preferences = { ...preferences, ...next };
 }
 
-/** A Celsius reading in the member's chosen unit, e.g. "18°C" or "64°F". */
-export function formatTemperature(celsius: number): string {
-  if (preferences.tempUnit === 'FAHRENHEIT') return `${Math.round((celsius * 9) / 5 + 32)}°F`;
-  return `${celsius}°C`;
+const toFahrenheit = (celsius: number) => Math.round((celsius * 9) / 5 + 32);
+/** A Celsius value with the language's decimal separator ("17,5" in French, #700). */
+const celsiusNumber = (celsius: number, lang: string | undefined) => formatNumber(celsius, lang, { maximumFractionDigits: 1 });
+
+/** A Celsius reading in the member's chosen unit, e.g. "17,5°C" or "64°F". */
+export function formatTemperature(celsius: number, lang: string | undefined): string {
+  if (preferences.tempUnit === 'FAHRENHEIT') return `${formatNumber(toFahrenheit(celsius), lang)}°F`;
+  return `${celsiusNumber(celsius, lang)}°C`;
 }
 
 /** A min–max range in the member's chosen unit, e.g. "16–18°C". */
-export function formatTemperatureRange(minCelsius: number, maxCelsius: number): string {
+export function formatTemperatureRange(minCelsius: number, maxCelsius: number, lang: string | undefined): string {
   if (preferences.tempUnit === 'FAHRENHEIT') {
-    const f = (c: number) => Math.round((c * 9) / 5 + 32);
-    return `${f(minCelsius)}–${f(maxCelsius)}°F`;
+    return `${formatNumber(toFahrenheit(minCelsius), lang)}–${formatNumber(toFahrenheit(maxCelsius), lang)}°F`;
   }
-  return `${minCelsius}–${maxCelsius}°C`;
+  return `${celsiusNumber(minCelsius, lang)}–${celsiusNumber(maxCelsius, lang)}°C`;
 }
 
 const toLocale = (lang: string | undefined): 'fr-FR' | 'en-GB' =>

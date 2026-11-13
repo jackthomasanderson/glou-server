@@ -20,6 +20,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!isLoading && user === null) {
       // #507: come back to the requested page (QR code, link) after sign-in,
       // hash included (#602).
+      // #920: no "leave without saving?" question here: the session has
+      // ended, so unsaved changes could not be saved any more. `replace`
+      // also drops the extra history entry of a guarded page.
       const { pathname, search, hash } = window.location;
       router.replace(loginPathFor(pathname + search + hash));
     }

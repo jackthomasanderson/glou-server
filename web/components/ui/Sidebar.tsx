@@ -14,7 +14,7 @@ import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
 import { safeWriteStorage, glouKey, readStorageMigrating } from '@/lib/safe-storage';
-import { confirmLeave } from '@/lib/leaveGuard';
+import { leaveThen } from '@/lib/leaveGuard';
 import { useWhatsNew } from '@/components/whats-new/WhatsNewProvider';
 
 export const SIDEBAR_WIDTH = 220;
@@ -290,7 +290,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
             radius="full"
             aria-label={t('auth.logout')}
             isLoading={logout.isPending}
-            onPress={() => { if (confirmLeave()) logout.mutate(); }}
+            onPress={() => { leaveThen(() => logout.mutate()); }}
           >
             <LogOut size={16} />
           </Button>

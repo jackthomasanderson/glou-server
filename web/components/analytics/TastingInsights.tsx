@@ -5,6 +5,7 @@ import { Star, Wine, TrendingUp, TrendingDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTastingAnalytics } from '@/hooks/useTastings';
 import { TastingReadiness, TastingItemRank } from '@/lib/tastings/types';
+import { formatNumber } from '@/lib/format';
 
 const READINESS_ORDER: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
 const READINESS_COLOR: Record<TastingReadiness, string> = {
@@ -15,6 +16,7 @@ const READINESS_COLOR: Record<TastingReadiness, string> = {
 };
 
 function StarRating({ value }: { value: number }) {
+  const { i18n } = useTranslation();
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
@@ -25,7 +27,7 @@ function StarRating({ value }: { value: number }) {
           fill={value >= s ? 'currentColor' : 'none'}
         />
       ))}
-      <span className="text-xs font-bold ml-1">{value}</span>
+      <span className="text-xs font-bold ml-1">{formatNumber(value, i18n.language, { maximumFractionDigits: 1 })}</span>
     </div>
   );
 }

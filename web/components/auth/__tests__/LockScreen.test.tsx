@@ -11,9 +11,10 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 const refetchMe = vi.fn();
+const logout = vi.fn();
 vi.mock('@/hooks/useAuth', () => ({
   useMe: () => ({ data: { username: 'alice', hasPin: false, avatarUrl: null }, refetch: refetchMe }),
-  useLogout: () => ({ mutate: vi.fn(), isPending: false }),
+  useLogout: () => ({ mutate: logout, isPending: false }),
 }));
 vi.mock('@heroui/react', async () => {
   const { forwardRef } = await import('react');
@@ -34,6 +35,7 @@ vi.mock('@heroui/react', async () => {
 });
 
 import { LockScreen } from '../LockScreen';
+import { registerLeaveQuestion } from '@/lib/leaveGuard';
 
 describe('LockScreen semantics (#200)', () => {
   it('is a labelled modal dialog', () => {
@@ -97,5 +99,27 @@ describe('LockScreen failed unlock (#582)', () => {
     submitPassword(unlock);
     await waitFor(() => expect(unlock).toHaveBeenCalled());
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+});
+
+// #920: signing out from the lock screen drops unsaved changes like the
+// sidebar's sign-out: it asks the same question.
+describe('LockScreen sign-out with unsaved changes (#920)', () => {
+  it('asks first, and signs out only once confirmed', () => {
+    logout.mockReset();
+    const unregister = registerLeaveQuestion('Leave without saving?');
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    try {
+      render(<LockScreen unlock={vi.fn()} isUnlocking={false} />);
+      fireEvent.click(screen.getByRole('button', { name: 'lock.backToLogin' }));
+      expect(confirm).toHaveBeenCalledWith('Leave without saving?');
+      expect(logout).not.toHaveBeenCalled();
+      confirm.mockReturnValue(true);
+      fireEvent.click(screen.getByRole('button', { name: 'lock.backToLogin' }));
+      expect(logout).toHaveBeenCalledTimes(1);
+    } finally {
+      unregister();
+      confirm.mockRestore();
+    }
   });
 });

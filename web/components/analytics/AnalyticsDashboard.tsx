@@ -325,7 +325,7 @@ export function CategoryBreakdown({
                   {/* The count under the name: the narrow column is the name's alone, broken between words. */}
                   <div className="flex-1 min-w-0">
                     <p className="text-xs break-words" data-testid="analytics-category-name">
-                      {t(`analytics.categories.${item.category}`)}
+                      {t(`categories.${item.category}`)}
                     </p>
                     <p className="text-xs font-semibold text-foreground-500 whitespace-nowrap">
                       {item.count} {unit}
@@ -618,7 +618,7 @@ export function AnalyticsDashboard() {
             <StatCard
               testId="kpi-liquid-stock"
               label={t('analytics.stats.liquidStock')}
-              value={`${data?.totalLiquidLiters ?? 0} L`}
+              value={`${fmtNum(data?.totalLiquidLiters ?? 0)} L`}
               hint={t('analytics.stats.liquidStockHint')}
               icon={<Droplets size={20} color="#0891B2" />}
               iconBg="rgba(8,145,178,0.1)"

@@ -10,7 +10,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useMe } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
-import { confirmLeave } from '@/lib/leaveGuard';
+import { leaveThen } from '@/lib/leaveGuard';
 
 export function BottomNav() {
   const { t } = useTranslation();
@@ -48,10 +48,14 @@ export function BottomNav() {
   const isMoreActive = moreLinks.some((link) => pathname.startsWith(link.href));
 
   const goTo = (href: string) => {
+    // #920: the page already shown: nothing is left, nothing to ask.
+    if (href === pathname) {
+      setMoreOpen(false);
+      return;
+    }
     // #759: unsaved changes (admin settings) are not dropped without a question.
-    if (!confirmLeave()) return;
+    if (!leaveThen(() => router.push(href))) return;
     setMoreOpen(false);
-    router.push(href);
   };
 
   if (!hasMounted) return null;

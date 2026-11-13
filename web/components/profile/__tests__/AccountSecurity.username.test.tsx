@@ -17,6 +17,7 @@ vi.mock('@/hooks/useAuth', () => {
     useUpdateUsername: () => ({ mutate: usernameMutate, isPending: false }),
   };
 });
+vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
 vi.mock('@/components/profile/TwoFactorSettings', () => ({ TwoFactorSettings: () => <section>two-factor-part</section> }));
 vi.mock('@/components/profile/TrustedDeviceSettings', () => ({ TrustedDeviceSettings: () => <section>trusted-device-part</section> }));
 vi.mock('@/components/ui/SingleSelect', () => ({ SingleSelect: () => <div /> }));
