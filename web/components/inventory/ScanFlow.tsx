@@ -15,6 +15,9 @@ import { qk } from '@/lib/queryKeys';
 import { scanErrorCause, type ScanErrorCause } from '@/lib/scan/errors';
 import { getDefaultCellarForCategory, setDefaultCellarForCategory } from '@/lib/scan/defaultLocations';
 import { FilterChip } from '@/components/ui/FilterControls';
+import { searchClient } from '@/lib/search/client';
+import { downscaleImage } from '@/lib/image-resize';
+import { notifyError } from '@/lib/toast';
 import { InventoryForm, type InventoryEntry } from './InventoryForm';
 import { KnownWineBanner } from './KnownWineBanner';
 import { AddUnitsModal } from './AddUnitsDialog';
@@ -91,6 +94,10 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const [joining, setJoining] = useState<Product | null>(null);
   const [distinctFrom, setDistinctFrom] = useState<string[]>([]);
   const [cart, setCart] = useState<CartEntry[]>([]);
+  // #660: the label photo, kept for the new record unless unticked.
+  const [labelPhoto, setLabelPhoto] = useState<File | null>(null);
+  const [usePhoto, setUsePhoto] = useState(true);
+  const [savingPhoto, setSavingPhoto] = useState(false);
 
   const jobQuery = useScanJob(jobId);
 
@@ -110,6 +117,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
       setDistinctFrom([]);
       setCart([]);
       setServiceUnavailable(false);
+      setLabelPhoto(null);
     }
   }
 
@@ -145,6 +153,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
         cellarId,
       });
       setSaveAsDefault(false);
+      setUsePhoto(true);
       setNothingRecognised(!extracted.name?.trim() && !extracted.producer?.trim());
       setPhase('review');
     } else if (jobQuery.data?.status === 'failed') {
@@ -159,6 +168,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   }, [serviceGone, queryClient]);
 
   const resetToCapture = () => {
+    setLabelPhoto(null);
     setReviewValues(null);
     setDistinctFrom([]);
     setJobId(null);
@@ -166,6 +176,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   };
 
   const handleFileSelected = (file: File) => {
+    setLabelPhoto(file);
     setPhase('uploading');
     uploadScan.mutate(file, {
       onSuccess: ({ jobId: newJobId }) => {
@@ -186,12 +197,15 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   // is sent and no field is tagged as read from the label. `reviewValues` is
   // either empty here or what the user typed before a failed save: kept.
   const openManualEntry = () => {
+    // Nothing was read from it, and no box offered to keep it: not used.
+    setLabelPhoto(null);
     setJobId(null);
     setNothingRecognised(false);
     setFullFormOpen(true);
   };
 
   const afterCommit = () => {
+    setLabelPhoto(null);
     if (!serviceUnavailable) {
       resetToCapture();
       return;
@@ -222,11 +236,32 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     afterCommit();
   };
 
+  /**
+   * #660: the label photo as the new record's photo, when ticked and no other
+   * photo was chosen in the full form. Only a new wine gets it: bottles added
+   * to a known wine go through the reduced form, which never touches its photo.
+   * A photo that cannot be saved does not stop the wine being added
+   * (`photoLost`: said once the wine is added).
+   */
+  const withLabelPhoto = async (values: InventoryEntry): Promise<{ entry: InventoryEntry; photoLost: boolean }> => {
+    if (!labelPhoto || !usePhoto || values.photoUrl) return { entry: values, photoLost: false };
+    setSavingPhoto(true);
+    try {
+      return { entry: { ...values, photoUrl: await searchClient.uploadImage(await downscaleImage(labelPhoto)) }, photoLost: false };
+    } catch {
+      return { entry: values, photoLost: true };
+    } finally {
+      setSavingPhoto(false);
+    }
+  };
+
   const commitItem = async (values: InventoryEntry, collectionIds: string[] = []) => {
     setReviewValues(values);
+    const { entry, photoLost } = await withLabelPhoto(values);
     // `scanJobId` lets the server tag the fields the label really filled (FEAT-05).
-    const created = await create({ ...values, scanJobId: jobId ?? undefined }, collectionIds);
+    const created = await create({ ...entry, scanJobId: jobId ?? undefined }, collectionIds);
     if (!created) return; // Reported by the mutation's onError toast.
+    if (photoLost) notifyError('scan.review.photoNotSaved');
     pushCartEntry(created, 'created');
     afterCommit();
   };
@@ -495,12 +530,18 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       </Checkbox>
                     )}
 
+                    {labelPhoto && (
+                      <Checkbox isSelected={usePhoto} onValueChange={setUsePhoto} size="sm">
+                        {t('scan.review.usePhoto')}
+                      </Checkbox>
+                    )}
+
                     <div className="flex flex-col gap-2 mt-2">
                       <Button
                         color="primary"
                         fullWidth
-                        isLoading={isSubmitting}
-                        isDisabled={!canConfirm || isSubmitting}
+                        isLoading={isSubmitting || savingPhoto}
+                        isDisabled={!canConfirm || isSubmitting || savingPhoto}
                         onPress={handleReviewConfirm}
                       >
                         {t('scan.review.confirm')}
@@ -510,7 +551,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                           {t('scan.review.missingFields', { fields: missingFields.join(', ') })}
                         </p>
                       )}
-                      <Button variant="light" fullWidth isDisabled={isSubmitting} onPress={() => setFullFormOpen(true)}>
+                      <Button variant="light" fullWidth isDisabled={isSubmitting || savingPhoto} onPress={() => setFullFormOpen(true)}>
                         {t('scan.review.moreDetails')}
                       </Button>
                     </div>
@@ -550,7 +591,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
           pushCartEntry(product, 'added');
           afterCommit();
         }}
-        isSubmitting={isSubmitting}
+        isSubmitting={isSubmitting || savingPhoto}
         t={t}
       />
 

@@ -2761,6 +2761,8 @@
       "title": "Review the detected information",
       "confirm": "Confirm and add",
       "moreDetails": "More details",
+      "usePhoto": "Use this photo for the record",
+      "photoNotSaved": "The label photo could not be saved: the record was added without a photo.",
       "setDefaultLocation": "Always store scanned {{category}} here",
       "setDefaultLocation_sparkling": "Always store scanned {{category}} here"
     },

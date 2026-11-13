@@ -23,6 +23,7 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - In a wine's drawer, Full on a bottle just opened no longer looks already selected: pressing it puts the bottle back with the others.
 - Trash: each line says how many it holds, one bottle included, and which line it was (cellar and price); trashing a line of several says how to remove only some of them.
 - Analytics: Global valuation says No price entered instead of 0 € when no bottle has a price, and how many have none when some are missing.
+- Scan: a bottle added by scanning now keeps the label photo as its photo, unless you untick Use this photo for the record.
 
 ## v2026.11.4
 

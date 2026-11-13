@@ -25,6 +25,7 @@ Entries start with the pull request that introduced them where there is one.
 - A bottle just opened (at 100 %) no longer shows **Full** as already selected in the wine's drawer: Full is shown as the action it is, and pressing it puts the bottle back with the others, with **Undo** (#845).
 - Trash: every trashed line now says how many it holds, a single bottle included, and which line it was (cellar and price, as in the wine's drawer); a trashed wine reads "6 bottles · …" instead of "with 6 bottles"; and moving a line of several to the trash says how to remove only some of them (**Correct the number**) (#844).
 - Analytics: the **Global valuation** card no longer shows a bare 0 € when your bottles have no price: it reads **No price entered** when none has a purchase price or an estimated value, and says how many have no price when only some are missing (#702).
+- Scan: a bottle added by scanning now keeps the label photo as its photo; untick **Use this photo for the record** on the review card to add it without. Bottles added to a wine you already have never change that wine's photo. The collections picked under **More details** were already kept since #690 (#660).
 
 ## v2026.11.4 - 2026-11-13
 

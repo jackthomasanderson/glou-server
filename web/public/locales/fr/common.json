@@ -2763,6 +2763,8 @@
       "title": "Vérifiez les informations détectées",
       "confirm": "Confirmer et ajouter",
       "moreDetails": "Plus de détails",
+      "usePhoto": "Utiliser cette photo pour la fiche",
+      "photoNotSaved": "La photo de l'étiquette n'a pas pu être enregistrée : la fiche a été ajoutée sans photo.",
       "setDefaultLocation": "Toujours ranger les {{category}} scannés ici",
       "setDefaultLocation_sparkling": "Toujours ranger les {{category}} scannées ici"
     },
