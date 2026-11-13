@@ -16,6 +16,9 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - Avec STARTTLS, la connexion au serveur de messagerie doit désormais être chiffrée : le mot de passe SMTP ne peut plus circuler en clair. Un troisième choix, « Sans chiffrement (relais local de confiance) », sert pour un relais sur votre propre réseau.
 - Les codes de double authentification erronés saisis pour désactiver la double authentification, générer des codes de secours, faire confiance à un appareil ou confirmer une action d'administration comptent désormais dans le même blocage après 5 essais qu'à la connexion.
 
+### Améliorations
+- Profil → Sessions actives : la localisation est indiquée comme approximative, chaque session montre quand elle s'est connectée, et un seul bouton déconnecte toutes les autres sessions.
+
 ## v2026.11.4
 
 ### Points d'attention

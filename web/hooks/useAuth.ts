@@ -395,6 +395,17 @@ export function useRevokeSession() {
   });
 }
 
+// #773: signs out every session but this one; answers how many were signed out.
+export function useRevokeOtherSessions() {
+  const queryClient = useQueryClient();
+  return useMutation<{ revoked: number }, Error, void>({
+    mutationFn: async () => (await client.delete<{ revoked: number }>('/auth/sessions')).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
+    },
+  });
+}
+
 // #766: whether this device skips the 2FA code, and until when (ISO date or
 // null) — the trusted-device cookie is httpOnly. Asked only with 2FA on.
 export function useTrustedDevice(enabled: boolean) {

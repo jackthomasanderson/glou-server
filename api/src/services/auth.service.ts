@@ -187,6 +187,7 @@ export type SecurityEventKey =
   | 'twoFactorEnabled'
   | 'twoFactorDisabled'
   | 'sessionRevoked'
+  | 'otherSessionsRevoked'
   | 'emailChanged'
   | 'usernameChanged'
   | 'twoFactorLocked'
@@ -209,6 +210,10 @@ const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subj
   sessionRevoked: (isEn) => isEn
     ? { subject: 'Glou — A session was signed out', intro: 'A session on your account was signed out.' }
     : { subject: 'Glou — Session déconnectée', intro: 'Une session de votre compte a été déconnectée.' },
+  // #773 — "sign out all other sessions": the device below is the one that asked.
+  otherSessionsRevoked: (isEn) => isEn
+    ? { subject: 'Glou — Other sessions signed out', intro: 'All your other sessions were signed out from the device below, which stays signed in.' }
+    : { subject: 'Glou — Autres sessions déconnectées', intro: 'Toutes vos autres sessions ont été déconnectées depuis l’appareil ci-dessous, qui reste connecté.' },
   // ISSUE_042 — sent to the PREVIOUS address, which is the only one the
   // legitimate owner still controls once the change went through.
   emailChanged: (isEn) => isEn
@@ -324,14 +329,15 @@ export class AuthService {
    * Called after a password change or a 2FA disable so a stolen session
    * cookie does not survive the credential rotation (mirrors the manual
    * revoke path used by `DELETE /api/auth/sessions/:id`, FEAT-25). Records a
-   * single `SESSION_REVOKE` AuditLog entry covering the whole batch.
+   * single `SESSION_REVOKE` AuditLog entry covering the whole batch, and
+   * returns how many sessions were signed out.
    */
-  private async revokeOtherSessions(userId: string, currentSessionId: string, ip: string): Promise<void> {
+  private async revokeOtherSessions(userId: string, currentSessionId: string, ip: string, reason = 'bulk_revoke_on_credential_change'): Promise<number> {
     const sessions = await prisma.session.findMany({
       where: { userId, revokedAt: null, NOT: { id: currentSessionId } },
       select: { id: true },
     });
-    if (sessions.length === 0) return;
+    if (sessions.length === 0) return 0;
 
     await prisma.session.updateMany({
       where: { id: { in: sessions.map((s) => s.id) } },
@@ -344,11 +350,12 @@ export class AuthService {
       status: 'success',
       ip,
       details: {
-        reason: 'bulk_revoke_on_credential_change',
+        reason,
         revokedSessionIds: sessions.map((s) => s.id),
         excludedSessionId: currentSessionId,
       },
     });
+    return sessions.length;
   }
 
   /**
@@ -1606,6 +1613,17 @@ export class AuthService {
     // closed session's own device/IP as "device concerné" (we don't track
     // who issued the revocation, hence no "closed by" detail here).
     this.notifySecurityEvent(userId, 'sessionRevoked', { userAgent: session.userAgent, ip: session.ip });
+  }
+
+  /**
+   * #773: "sign out all other sessions", one action instead of one per
+   * session. The current session stays; the owner is told once, with the
+   * device that asked (a stolen session doing this must not go unnoticed).
+   */
+  async revokeAllOtherSessions(userId: string, currentSessionId: string, deviceInfo: DeviceInfo): Promise<number> {
+    const revoked = await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown', 'sign_out_other_sessions');
+    if (revoked > 0) this.notifySecurityEvent(userId, 'otherSessionsRevoked', deviceInfo);
+    return revoked;
   }
 
   /**

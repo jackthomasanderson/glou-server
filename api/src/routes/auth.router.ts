@@ -376,6 +376,14 @@ router.get('/sessions', authMiddleware, async (req: Request, res: Response): Pro
   res.json({ data: sessions });
 });
 
+// ─── DELETE /api/auth/sessions ─────────────────────────────────────────────────
+// #773: signs out every session of the caller except the current one.
+
+router.delete('/sessions', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const revoked = await authService.revokeAllOtherSessions(req.userId, req.sessionId, readDeviceInfo(req));
+  res.json({ data: { revoked } });
+});
+
 // ─── DELETE /api/auth/sessions/:id ─────────────────────────────────────────────
 
 router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {

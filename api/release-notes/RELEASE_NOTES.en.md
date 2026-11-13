@@ -15,6 +15,9 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - With STARTTLS, the connection to the mail server must now be encrypted, so the SMTP password can no longer leak in clear text. A third choice, "No encryption (trusted local relay)", is for a relay on your own network.
 - Wrong two-factor codes typed when turning two-factor off, generating backup codes, trusting a device or confirming an administrator action now count toward the same 5-attempt lock as at sign-in.
 
+### Improved
+- Profile → Active sessions: the location is labelled as approximate, each session shows when it signed in, and one button signs out every other session.
+
 ## v2026.11.4
 
 ### Points of attention
