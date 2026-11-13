@@ -10,6 +10,14 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+## v2026.11.4 - 2026-11-13
+
+> **Before you update:**
+> - **Reverse proxy:** the web container now works out each visitor's address itself and trusts one reverse proxy in front of it by default. If Glou is reached directly, without a reverse proxy, set `TRUSTED_PROXY_HOPS=0` in `.env`. If your compose file overrides the `command:` of the `web` service, remove that override or start it with `node --import ./client-address-hook.mjs server.js` (#979).
+> - **Database:** 7 migrations run at start-up, after the automatic backup `./backups/glou-backup-before-migration-<date>.sql.gz` (going back = restoring it with the previous image, wiki 31).
+> - **Guest links:** links with no expiry date, or opening every cellar, now expire 30 days after this update (#614).
+> - **Security alerts** can no longer be turned off and always reach the account e-mail when SMTP is set (#981).
+
 ### Added
 - **What's New?** After an update, an administrator opening Glou sees once a window that explains what changed, in the interface language: the points of attention (what is left to do after the update) first, then security, new, improved, fixed and removed. Several missed versions show together, newest first, with their points of attention grouped at the top. Closing the window, whichever way, hides it on every device of that administrator, and other administrators still get theirs; members never see it. It opens after the sign-in, the unlock and any other window, never without the server, and not on a new install or after an update without notes. A beta image also shows the upcoming notes, and opens again when a new one is added. **What's New?** in Administration → System Configuration → System (beside the version) and at the bottom of the sidebar reopens it at any time. The notes ship with Glou in English and French (`api/release-notes/`), and start with this version (#990).
 - Analytics: the **world map** can now be zoomed and moved. Use **+** and **−**, the mouse wheel or the touchpad on a computer, two fingers on a phone (one finger still scrolls the page), and drag it once enlarged. It opens framed on the regions of your cellar, **Recenter** brings it back there, and choosing a region in the region list centres the map on it. Regions too close to tell apart at the current zoom are grouped into one marker showing their total; hover it to see each region (and its country), select it to zoom in until they separate; at the closest zoom, regions at almost the same place are spread apart so each one can be selected. **Full screen** shows the map over the whole window, on every device: selecting a region there opens its list over the map, and Escape closes the wine, then the list, then full screen (#989).

@@ -8,6 +8,8 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 
 ## Upcoming
 
+## v2026.11.4
+
 ### Points of attention
 - Guest links with no expiry date, or opening every cellar for more than 30 days, now expire 30 days after this update. Make a new link limited to the right cellars or collections for a guest who still needs one.
 - If the web app is reached directly, without a reverse proxy in front of it, set TRUSTED_PROXY_HOPS=0 in .env and restart. If your compose file overrides the command of the web service, remove that override.
@@ -23,6 +25,7 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - This "What's New?" window: after each update, administrators see what changed. It opens again from Administration and from the bottom of the sidebar.
 - A wine's drawer shows its stock movements: who added, opened, drank, moved, repriced or corrected its bottles, and when.
 - Administration → Member Management: delete a member's account now, export a member's data, and schedule or cancel the deletion of an account, also for a deactivated member.
+- Analytics: the world map can be zoomed, moved and shown full screen; nearby regions come apart when you zoom in.
 
 ### Improved
 - Collections are shared by the household: every member sees and fills every collection, and a collection stays when its author leaves.
