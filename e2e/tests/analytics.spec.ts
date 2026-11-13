@@ -20,7 +20,7 @@ test('analytics page renders KPIs, the world map and the garde histogram', async
   // #702: with no price at all, the valuation says so instead of 0 €.
   const nothingPriced = stats.totalActiveItems > 0 && stats.unpricedUnits >= stats.totalActiveItems;
   await expect(page.getByTestId('kpi-total-valuation')).toContainText(nothingPriced ? 'Prix non renseigné' : String(stats.totalValuation));
-  await expect(page.getByTestId('kpi-liquid-stock')).toContainText(String(stats.totalLiquidLiters));
+  await expect(page.getByTestId('kpi-liquid-stock')).toContainText(stats.totalLiquidLiters.toLocaleString('fr-FR'));
   await expect(page.getByTestId('kpi-cigar-humidor')).toContainText(String(stats.cigarCount));
   await expect(page.getByTestId('kpi-urgent-degustation')).toContainText(String(stats.urgentDegustationCount));
 
