@@ -7,7 +7,7 @@ import { qk } from '@/lib/queryKeys';
 // web/lib/humidor/client.ts wrapper — this domain is small enough that a
 // dedicated client module would just be indirection).
 
-export type HumidorReadingSource = 'manual' | 'sensor';
+export type HumidorReadingSource = 'manual';
 export type HumidorDriftStatus = 'in_range' | 'out_of_range' | 'unconfigured';
 
 export interface HumidorReading {

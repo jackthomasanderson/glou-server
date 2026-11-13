@@ -11,8 +11,6 @@ export interface ProductDescription {
   category: InventoryCategory;
   name: string;
   producer: string;
-  /** Legacy free-text label, distinct from the collections. */
-  collection: string | null;
   tags: string[];
   photoUrl: string | null;
   /** Photos of merged records that were not kept as `photoUrl`. */
@@ -70,7 +68,7 @@ export interface ProductDescription {
  * and the web; an API test checks it against the description patch schema.
  */
 export const RESTORABLE_DESCRIPTION_FIELDS = [
-  'category', 'name', 'producer', 'collection', 'tags', 'photoUrl', 'notes',
+  'category', 'name', 'producer', 'tags', 'photoUrl', 'notes',
   'vintage', 'color', 'region', 'grapeVarieties', 'alcoholDegree', 'needsAeration', 'serviceTemp',
   'lotNumber', 'batchDate', 'appellation', 'classification',
   'sparklingType', 'sugarLevel', 'disgorgingDate', 'baseYear',

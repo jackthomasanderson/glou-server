@@ -46,7 +46,7 @@ export class InventoryExportService {
   async exportCsv(lang: CsvExportLang): Promise<CsvExport> {
     const units = await prisma.inventoryItem.findMany({
       where: { ...IN_STOCK_ITEM_FILTER, product: LISTED_PRODUCT_FILTER },
-      include: { product: true, cellar: { select: { name: true } } },
+      include: { product: { include: { collections: { select: { name: true } } } }, cellar: { select: { name: true } } },
     });
     const lines = units
       .map((unit) => {
@@ -79,6 +79,7 @@ export class InventoryExportService {
           estimatedValue: unit.estimatedValue ?? null,
           needsReview: unit.needsReview ? CSV_OPENED_VALUE[lang] : null,
           ...Object.fromEntries(CSV_FAMILY_COLUMNS.map((column) => [column, familyCell(product[column], lang)])),
+          collection: familyCell(product.collections.map((c) => c.name).sort((a, b) => a.localeCompare(b)), lang),
         } as Record<CsvExportColumn, Cell>;
         return { row, opened, unit };
       })

@@ -37,7 +37,6 @@ export interface ConsumptionSuggestion {
   vintage: number | null;
   photoUrl: string | null;
   cellarId: string | null;
-  collection: string | null;
   alertStatus: string | null;
   /** #471 (FEAT-105 c3): an opened bottle (box) of the wine, suggested first: "Finir l'entamée (60 %)". */
   isOpened: boolean;
@@ -64,7 +63,6 @@ const SUGGESTION_SELECT = {
       category: true,
       vintage: true,
       photoUrl: true,
-      collection: true,
       peakMaturityFrom: true,
       peakMaturityTo: true,
       curveShape: true,
@@ -103,7 +101,6 @@ function toSuggestion(item: SourceItem, reason: SuggestionReason): ConsumptionSu
     vintage: product.vintage,
     photoUrl: product.photoUrl,
     cellarId: item.cellarId,
-    collection: product.collection,
     // Computed on read, never read back from the denormalised column: that
     // column is only refreshed on edit and on the daily maintenance pass, so
     // it can lag behind the current year (ISSUE_033).

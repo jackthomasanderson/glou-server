@@ -26,7 +26,7 @@ export function product(over: Partial<Product> = {}): Product {
     id: 'p1', userId: 'user', updatedBy: null, lockedFields: [], fieldSources: null, deletedAt: null,
     createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
     readiness: null, lastActivityAt: null, collections: [], items: [unit()],
-    category: 'wine', name: 'Cuvée X', producer: 'Domaine', collection: null, tags: [],
+    category: 'wine', name: 'Cuvée X', producer: 'Domaine', tags: [],
     photoUrl: null, otherPhotoUrls: [], notes: null,
     vintage: 2020, color: null, region: null, grapeVarieties: [], alcoholDegree: null, needsAeration: null,
     serviceTemp: null, lotNumber: null, batchDate: null, appellation: null, classification: null,

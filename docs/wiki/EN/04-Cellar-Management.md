@@ -90,7 +90,7 @@ Correcting a number with the reason "Input error" sends nothing to the trash: th
 > If the latest reading falls outside the target range, a notification is sent under the "Temperature/humidity variations" category (configurable in Profile > Notifications), in addition to the "Out of range" badge on the panel.
 
 > [!CAUTION]
-> **No physical sensor is supported.** There is currently no MQTT integration, webhook, or connected probe: every reading must be entered manually, one at a time, by a user. A reading's technical `source` field can be `manual` (every reading created from the UI today) or `sensor` (reserved for a future hardware bridge, not built). Automatic readings from a humidor probe do not exist in the application.
+> **No physical sensor is supported.** There is currently no MQTT integration, webhook, or connected probe: every reading must be entered manually, one at a time, by a user. Automatic readings from a humidor probe do not exist in the application.
 
 ## Troubleshooting
 

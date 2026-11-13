@@ -50,7 +50,7 @@ vi.mock('@heroui/react', () => {
 
 import { NotificationPreferences, sameClock } from '../NotificationPreferences';
 
-const ALL = ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'];
+const ALL = ['peak', 'temperature', 'security', 'backup', 'members'];
 
 function prefs(patch: Partial<NotificationPrefs> = {}): NotificationPrefs {
   return {
@@ -61,7 +61,7 @@ function prefs(patch: Partial<NotificationPrefs> = {}): NotificationPrefs {
     notifQuietEnd: null,
     notifLanguage: null,
     policy: { smtpEnabled: true, gotifyEnabled: false },
-    categories: ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'],
+    categories: ['peak', 'temperature', 'security', 'backup', 'members'],
     automaticBackups: true,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     ...patch,
@@ -104,15 +104,15 @@ describe('NotificationPreferences categories (#583)', () => {
     fireEvent.click(chip('backup'));
 
     await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledTimes(1));
-    expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security', 'wishlist', 'members'] });
+    expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security', 'members'] });
     expect(chip('backup')).not.toBeChecked();
-    for (const cat of ['peak', 'temperature', 'security', 'wishlist', 'members']) {
+    for (const cat of ['peak', 'temperature', 'security', 'members']) {
       expect(chip(cat)).toBeChecked();
     }
   });
 
   it('ticking every category again saves an empty list', async () => {
-    await renderWith(['peak', 'temperature', 'security', 'wishlist', 'members']);
+    await renderWith(['peak', 'temperature', 'security', 'members']);
     expect(chip('backup')).not.toBeChecked();
 
     fireEvent.click(chip('backup'));
@@ -123,9 +123,9 @@ describe('NotificationPreferences categories (#583)', () => {
   });
 
   it('unticks a second category without re-enabling anything', async () => {
-    await renderWith(['peak', 'temperature', 'security', 'wishlist']);
+    await renderWith(['peak', 'temperature', 'security', 'members']);
 
-    fireEvent.click(chip('wishlist'));
+    fireEvent.click(chip('members'));
 
     await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledTimes(1));
     expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: ['peak', 'temperature', 'security'] });
@@ -188,16 +188,16 @@ describe('NotificationPreferences — security alerts are locked on (#981)', () 
 
 describe('NotificationPreferences — categories by role (#780)', () => {
   it('does not show backup failures to a member', async () => {
-    await renderWith([], { categories: ['peak', 'temperature', 'security', 'wishlist'], automaticBackups: undefined });
+    await renderWith([], { categories: ['peak', 'temperature', 'security'], automaticBackups: undefined });
 
     expect(screen.queryByRole('checkbox', { name: 'notifications.categories.backup' })).not.toBeInTheDocument();
-    for (const cat of ['peak', 'temperature', 'security', 'wishlist']) expect(chip(cat)).toBeChecked();
+    for (const cat of ['peak', 'temperature', 'security']) expect(chip(cat)).toBeChecked();
   });
 
   it('a member ticking every category they can see saves an empty list', async () => {
-    await renderWith(['peak', 'temperature', 'security'], { categories: ['peak', 'temperature', 'security', 'wishlist'] });
+    await renderWith(['peak', 'security'], { categories: ['peak', 'temperature', 'security'] });
 
-    fireEvent.click(chip('wishlist'));
+    fireEvent.click(chip('temperature'));
 
     await waitFor(() => expect(updateNotifPrefs).toHaveBeenCalledWith({ notifCategories: [] }));
   });
@@ -224,7 +224,7 @@ describe('NotificationPreferences quiet hours (#575, #772)', () => {
   });
 
   it('does not tell a member about backup failures', async () => {
-    await renderWith([], { categories: ['peak', 'temperature', 'security', 'wishlist'] });
+    await renderWith([], { categories: ['peak', 'temperature', 'security'] });
     expect(screen.getByText('notifications.quietHours.details')).toBeInTheDocument();
     expect(screen.queryByText('notifications.quietHours.detailsAdmin')).not.toBeInTheDocument();
   });

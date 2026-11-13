@@ -38,7 +38,7 @@ Sans cela, quelqu'un qui vole une session ouverte pourrait d'abord couper ces al
 | Non configuré ou désactivé | — | Activé | Une copie Gotify seulement. |
 | Non configuré ou désactivé | — | Désactivé, ou Gotify non configuré | Rien ne peut être envoyé : demandez à votre administrateur de configurer l'email. Les administrateurs voient toujours les connexions et les changements de compte dans le [journal d'audit](./10-Audit-Actions.md). |
 
-Votre interrupteur email ne règle que les autres catégories (apogée, température, liste de souhaits, sauvegardes). Désactiver Gotify n'arrête que la copie Gotify.
+Votre interrupteur email ne règle que les autres catégories (apogée, température, sauvegardes). Désactiver Gotify n'arrête que la copie Gotify.
 
 > [!CAUTION]
 > Les notifications de sécurité ignorent toujours vos heures silencieuses configurées : elles ne sont jamais retardées ni abandonnées la nuit.

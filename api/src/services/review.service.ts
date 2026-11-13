@@ -88,18 +88,10 @@ function mergedFamily(walk: Product[], choices: MergeRequest['choices'] = {}): P
   const newest = [...walk].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime() || byAge(a, b));
   const photo = newest.find((family) => hasText(family.photoUrl))?.photoUrl ?? null;
   const photos = newest.flatMap((family) => [family.photoUrl, ...family.otherPhotoUrls]).filter(hasText);
-  // Identical notes are kept once, dated by the oldest family holding them;
-  // identical labels (case and spaces aside) keep their first spelling.
+  // Identical notes are kept once, dated by the oldest family holding them.
   const notes = firstOf(walk.filter((f) => hasText(f.notes)).map((f) => [f.notes!.trim(), f] as const));
-  const labels = firstOf(walk.filter((f) => hasText(f.collection)).map((f) => [f.collection!.trim().toLowerCase(), f.collection!.trim()] as const))
-    .map(([, label]) => label);
-  // The legacy label holds what fits in the form's limit (the first always
-  // stays); when some do not fit, every label goes to the notes, dated today,
-  // so none is lost — as the transformation does.
-  const kept = labels.reduce((n, _label, i) => (i === 0 || labels.slice(0, i + 1).join(' / ').length <= DESCRIPTION_LIMITS.collection ? i + 1 : n), 0);
   const noteParts = notes.length === 1 ? [notes[0][0]]
     : notes.map(([text, family]) => `${dayOf(family.createdAt)}\n${text}`);
-  if (labels.length > kept) noteParts.push(`${dayOf(new Date())}\nLibellés d'origine : ${labels.join(' / ')}`);
   const dates = (pick: (family: Product) => Date | null) => walk.map(pick).filter((d): d is Date => d !== null);
   const earliest = (values: Date[]) => (values.length > 0 ? new Date(Math.min(...values.map((d) => d.getTime()))) : null);
 
@@ -114,7 +106,6 @@ function mergedFamily(walk: Product[], choices: MergeRequest['choices'] = {}): P
 
   return {
     ...data,
-    collection: kept > 0 ? labels.slice(0, kept).join(' / ') : null,
     tags: [...new Set(walk.flatMap((family) => family.tags))],
     photoUrl: photo,
     otherPhotoUrls: [...new Set(photos)].filter((url) => url !== photo),
@@ -136,7 +127,7 @@ function mergedFamily(walk: Product[], choices: MergeRequest['choices'] = {}): P
 
 /** What the history of the surviving family records of a merge (FEAT-05). */
 const MERGE_HISTORY_FIELDS: readonly string[] = [
-  ...REVIEW_FIELDS, 'collection', 'tags', 'photoUrl', 'notes', 'alertsPaused', 'consumptionPostponedUntil', 'reminderDate', 'curveShape',
+  ...REVIEW_FIELDS, 'tags', 'photoUrl', 'notes', 'alertsPaused', 'consumptionPostponedUntil', 'reminderDate', 'curveShape',
 ];
 
 /** The fields whose value moves on the surviving family. */

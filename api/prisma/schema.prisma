@@ -195,8 +195,6 @@ model Product {
   category       BottleCategory
   name           String
   producer       String
-  // Legacy free-text label, distinct from the Collection model.
-  collection     String?
   tags           String[]       @default([])
   photoUrl       String?
   // Photos of the merged records that were not kept as `photoUrl`; still
@@ -1094,13 +1092,10 @@ model ScanJob {
 // forcing a migration of pre-existing SHELF/VINTAGE cellars used for cigars
 // today).
 //
-// Ingestion is generic on purpose (`source: manual | sensor`): only the
-// manual entry path (web UI) is actually built here — `sensor` is reserved
-// for a future physical bridge posting to the same POST /api/humidor/readings
-// endpoint, not built in this pass (see feature note, out of scope).
+// Readings are entered by hand (web UI). #468: the unused `sensor` source
+// was removed, climate sensors being dropped (#747).
 enum HumidorReadingSource {
   manual
-  sensor
 }
 
 model HumidorReading {
@@ -1109,9 +1104,7 @@ model HumidorReading {
   cellar   Cellar @relation(fields: [cellarId], references: [id], onDelete: Cascade)
 
   // Who recorded this reading — audit-only (same invariant as everywhere
-  // else on shared-inventory-adjacent models), NOT an access filter. For a
-  // 'sensor' source this is still whichever authenticated user's session
-  // posted it (no separate device/API-key auth was built for this pass).
+  // else on shared-inventory-adjacent models), NOT an access filter.
   // ISSUE_098: deleting that member must never take the reading history
   // down with them, so the FK refuses the delete instead of cascading.
   userId String

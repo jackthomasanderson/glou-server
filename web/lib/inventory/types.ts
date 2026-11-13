@@ -34,7 +34,6 @@ export interface InventoryItem {
   name: string;
   producer: string;
   location?: string | null;
-  collection?: string | null;
   tags: string[];
   photoUrl?: string | null;
   notes?: string | null;

@@ -12,7 +12,7 @@ import type { Product } from './types';
  * never written by the form.
  */
 const DESCRIPTION_KEYS: Record<keyof ProductDescription, true> = {
-  category: true, name: true, producer: true, collection: true, tags: true, photoUrl: true, otherPhotoUrls: true, notes: true,
+  category: true, name: true, producer: true, tags: true, photoUrl: true, otherPhotoUrls: true, notes: true,
   vintage: true, color: true, region: true, grapeVarieties: true, alcoholDegree: true, needsAeration: true, serviceTemp: true,
   lotNumber: true, batchDate: true, appellation: true, classification: true, sparklingType: true, sugarLevel: true,
   disgorgingDate: true, baseYear: true,

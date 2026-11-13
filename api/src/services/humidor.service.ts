@@ -4,11 +4,9 @@ import { escapeHtml } from '../lib/html';
 import { RecordHumidorReadingInput } from '../schemas/humidor.schema';
 
 // ─── Task 4: Humidor Hygrometric Monitoring ──────────────────────────────────
-// Ingestion (manual today, 'sensor'-ready for a future bridge — not built
-// here) + history + a drift check reusing the existing notification system
-// exactly like FEAT-20's wishlist price-opportunity alert
-// (wishlist.service.ts#recordPriceSeen / notifyOpportunity): fire-and-forget,
-// a notification failure must never fail the reading write itself. Reuses
+// Manual ingestion + history + a drift check reusing the existing
+// notification system: fire-and-forget, a notification failure must never
+// fail the reading write itself. Reuses
 // the pre-existing `temperature` notification category ("Variations
 // température/hygrométrie" in the FEAT-32 preferences UI).
 //

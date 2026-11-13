@@ -9,16 +9,13 @@ import { notFound } from '../lib/errors';
 const router = Router();
 
 // Fully protected route — same as every other router in this app (see
-// cellars.router.ts). No separate device/API-key auth was built for a
-// future physical sensor bridge in this pass (see humidor.service.ts note).
+// cellars.router.ts).
 router.use(authMiddleware);
 
 /**
  * POST /api/humidor/readings
  * Record a humidity/temperature reading for a cellar (Task 4 — humidor
- * monitoring). Accepts a manual entry from the UI today; `source: 'sensor'`
- * is reserved for a future physical bridge/integration (not built here) that
- * would POST to this same generic endpoint.
+ * monitoring), entered by hand from the UI.
  */
 router.post('/readings', async (req: Request, res: Response) => {
   const userId = req.userId!;

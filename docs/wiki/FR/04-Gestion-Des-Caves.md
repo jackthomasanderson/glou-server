@@ -90,7 +90,7 @@ Corriger un nombre avec le motif « Erreur de saisie » n'envoie rien à la corb
 > Si le dernier relevé sort de la plage cible, une notification est envoyée dans la catégorie "Variations température/hygrométrie" (réglable dans Profil > Notifications), en plus du badge "Hors plage" sur le panneau.
 
 > [!CAUTION]
-> **Aucun capteur physique n'est supporté.** Il n'existe à ce jour aucune intégration MQTT, webhook ou sonde connectée : chaque relevé doit être saisi manuellement, un par un, par un utilisateur. Le champ technique `source` d'un relevé peut valoir `manual` (tous les relevés créés depuis l'interface) ou `sensor` (réservé à un futur pont matériel, non développé). Le relevé automatique par sonde d'humidor n'existe pas dans l'application.
+> **Aucun capteur physique n'est supporté.** Il n'existe à ce jour aucune intégration MQTT, webhook ou sonde connectée : chaque relevé doit être saisi manuellement, un par un, par un utilisateur. Le relevé automatique par sonde d'humidor n'existe pas dans l'application.
 
 ## Dépannage (Troubleshooting)
 

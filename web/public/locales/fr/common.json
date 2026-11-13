@@ -640,8 +640,7 @@
       "temperatureCelsius": "Température (°C)",
       "addReading": "Ajouter une lecture",
       "source": {
-        "manual": "Manuel",
-        "sensor": "Capteur"
+        "manual": "Manuel"
       }
     },
     "deleteTitle": "Supprimer la cave",
@@ -2106,7 +2105,6 @@
       "peak": "Apogée atteint",
       "temperature": "Variations température/hygrométrie",
       "security": "Sécurité du compte",
-      "wishlist": "Opportunités tarifaires (liste de souhaits)",
       "backup": "Échec des sauvegardes",
       "members": "Comptes des membres (demandes de suppression et suppressions)",
       "backupAutomaticOff": "Les sauvegardes automatiques sont désactivées : seule une sauvegarde manuelle, ou la copie prise avant une restauration, peut encore échouer et vous alerter."
@@ -2639,7 +2637,7 @@
       "vintage": "Millésime",
       "targetQuantity": "Quantité cible",
       "maxPrice": "Prix plafond",
-      "maxPriceHint": "Vous serez notifié si un prix observé est inférieur ou égal à ce plafond.",
+      "maxPriceHint": "Un prix observé inférieur ou égal à ce plafond est signalé dans la liste.",
       "notes": "Notes"
     },
     "status": {
@@ -2658,7 +2656,8 @@
       "description": "Saisissez le prix constaté pour « {{name}} ». Aucune source de prix externe n'est connectée : cette saisie est manuelle.",
       "price": "Prix observé",
       "submit": "Enregistrer le prix",
-      "lastSeen": "Dernier prix vu : {{price}} le {{date}}"
+      "lastSeen": "Dernier prix vu : {{price}} le {{date}}",
+      "underCeiling": "Dans votre plafond"
     },
     "convert": {
       "action": "Basculer vers l'inventaire",

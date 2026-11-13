@@ -42,6 +42,12 @@ describe('recordHumidorReadingSchema', () => {
   it('requires a non-empty cellarId', () => {
     expect(recordHumidorReadingSchema.safeParse({ cellarId: '', humidityPercent: 68 }).success).toBe(false);
   });
+
+  // #468: no sensor bridge exists (climate sensors dropped in #747), so a
+  // reading can only be a manual one.
+  it("refuses the 'sensor' source nothing ingests", () => {
+    expect(recordHumidorReadingSchema.safeParse({ cellarId: 'c1', humidityPercent: 68, source: 'sensor' }).success).toBe(false);
+  });
 });
 
 describe('networkConfigSchema', () => {

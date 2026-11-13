@@ -230,7 +230,7 @@ describe('GET /user/notifications — categories and time zone (#772, #780)', ()
 
     const { data } = (await get()).body;
 
-    expect(data.categories).toEqual(['peak', 'temperature', 'security', 'wishlist', 'backup', 'members']);
+    expect(data.categories).toEqual(['peak', 'temperature', 'security', 'backup', 'members']);
     expect(data.automaticBackups).toBe(false);
   });
 
@@ -239,7 +239,7 @@ describe('GET /user/notifications — categories and time zone (#772, #780)', ()
 
     const { data } = (await get()).body;
 
-    expect(data.categories).toEqual(['peak', 'temperature', 'security', 'wishlist']);
+    expect(data.categories).toEqual(['peak', 'temperature', 'security']);
     expect(data).not.toHaveProperty('automaticBackups');
   });
 });
@@ -303,10 +303,10 @@ describe('PATCH /user/notifications — security alerts cannot be turned off (#9
   it('keeps security alerts when a session cookie sends a list without them', async () => {
     isAdmin = false;
 
-    const res = await withCookieOnly({ notifCategories: ['peak', 'wishlist'] });
+    const res = await withCookieOnly({ notifCategories: ['peak', 'temperature'] });
 
     expect(res.status).toBe(200);
-    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak', 'wishlist', 'security'] } });
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak', 'temperature', 'security'] } });
   });
 
   it('keeps security alerts for an admin too', async () => {

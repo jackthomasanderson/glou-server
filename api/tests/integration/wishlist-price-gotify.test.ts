@@ -2,11 +2,11 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
 
-// #767 (review): since every member's Gotify notification lands in the
-// administrator's shared Gotify app, the "price seen" action must not let a
-// member push one message per call. A price only notifies when it crosses
-// the ceiling, and the action itself is limited per account. The real
-// wishlist and notification services run; the database and fetch are stubs.
+// #767 (review): every member's Gotify notification lands in the
+// administrator's shared Gotify app. #468: a price the member typed in
+// themselves sends no message at all, and the action stays limited per
+// account. The real wishlist and notification services run; the database
+// and fetch are stubs.
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
@@ -74,21 +74,14 @@ const priceSeen = (userId: string, price: number) =>
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
 describe('price seen and the shared Gotify app (#767)', () => {
-  it('two prices in a row under the ceiling send one Gotify message', async () => {
+  it('a price at or below the ceiling sends no message (#468)', async () => {
     expect((await priceSeen('u1', 90)).status).toBe(200);
-    expect((await priceSeen('u1', 80)).status).toBe(200);
+    expect((await priceSeen('u1', 120)).status).toBe(200);
+    expect((await priceSeen('u1', 100)).status).toBe(200);
     await settle();
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
-
-  it('a price that goes back above the ceiling, then under, notifies again', async () => {
-    await priceSeen('u1', 90);
-    await priceSeen('u1', 120);
-    await priceSeen('u1', 95);
-    await settle();
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(wish.lastSeenPrice).toBe(100);
   });
 
   it('limits the action per account', async () => {
@@ -97,18 +90,5 @@ describe('price seen and the shared Gotify app (#767)', () => {
 
     expect(last).toBe(429);
     expect((await priceSeen('u3', 150)).status).toBe(200);
-  });
-});
-
-describe('price seen, with prices stored as decimals', () => {
-  it('compares 9 and 10 as numbers, not as text', async () => {
-    // Prisma returns Decimal columns as objects whose value reads as a string.
-    const dec = (n: number) => ({ valueOf: () => String(n), toString: () => String(n), toJSON: () => String(n) });
-    wish = { ...wish, maxPrice: dec(10) as never, lastSeenPrice: dec(9) as never };
-
-    await priceSeen('u4', 8);
-    await settle();
-
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -26,7 +26,7 @@ function unit(product: Record<string, unknown>, fields: Record<string, unknown> 
     estimatedValue: null, needsReview: false,
     product: {
       category: 'wine', name: 'Cuvée', producer: 'Domaine', vintage: 2015, region: null, alcoholDegree: null, format: null,
-      tags: [], grapeVarieties: [], ...product,
+      tags: [], grapeVarieties: [], collections: [], ...product,
     },
     ...fields,
   };
@@ -160,7 +160,7 @@ describe('InventoryExportService.exportCsv', () => {
     units.push(
       unit({
         name: 'Talbot', color: 'red', appellation: 'Saint-Julien', classification: '4e cru', grapeVarieties: ['Cabernet', 'Merlot'],
-        tags: ['fête', 'a|b'], notes: 'Ligne un\nligne "deux", fin', collection: 'Médoc', serviceTemp: '16°C', lotNumber: 'L1',
+        tags: ['fête', 'a|b'], notes: 'Ligne un\nligne "deux", fin', collections: [{ name: 'Noël' }, { name: 'Médoc' }], serviceTemp: '16°C', lotNumber: 'L1',
         peakMaturityFrom: 2025, peakMaturityTo: 2040, needsAeration: true, batchDate: new Date('2021-05-01T00:00:00Z'),
       }, { quantity: 1 }),
       unit({ category: 'sparkling', name: 'Brut', sparklingType: 'champagne', sugarLevel: 'brut', baseYear: 2018, disgorgingDate: new Date('2023-01-02T00:00:00Z') }),
@@ -178,7 +178,7 @@ describe('InventoryExportService.exportCsv', () => {
       const row = (name: string) => lines.find((l) => l.row.name === name)!.row;
       expect(row('Talbot')).toMatchObject({
         color: 'red', appellation: 'Saint-Julien', classification: '4e cru', grapeVarieties: ['Cabernet', 'Merlot'],
-        collection: 'Médoc', serviceTemp: '16°C', lotNumber: 'L1', peakMaturityFrom: 2025, peakMaturityTo: 2040,
+        collection: ['Médoc', 'Noël'], serviceTemp: '16°C', lotNumber: 'L1', peakMaturityFrom: 2025, peakMaturityTo: 2040,
         needsAeration: true, batchDate: '2021-05-01', notes: 'Ligne un\nligne "deux", fin',
       });
       // A "|" inside a tag splits it on the way back: lists cannot hold their own separator.

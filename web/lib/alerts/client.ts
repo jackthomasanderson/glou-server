@@ -11,7 +11,6 @@ export interface AlertBottle {
   alertStatus?: string | null;
   alertsPaused?: boolean;
   cellarId?: string | null;
-  collection?: string | null;
   photoUrl?: string | null;
 }
 

@@ -19,7 +19,11 @@ export interface CsvFamilyFields {
   /** `|`-separated in the file. */
   tags?: string[];
   notes?: string;
-  collection?: string;
+  /**
+   * #468: names of the collections the family goes in, `|`-separated in the
+   * file. Not a column of the family: the import links the collections.
+   */
+  collection?: string[];
   serviceTemp?: string;
   lotNumber?: string;
   peakMaturityFrom?: number;
@@ -92,9 +96,9 @@ export interface CsvImportRow extends CsvFamilyFields {
   needsReview?: boolean;
 }
 
-/** The description columns of a family, in the export's order. */
+/** The description columns of a family (its own columns), in the export's order. */
 export const CSV_FAMILY_COLUMNS = [
-  'color', 'appellation', 'classification', 'grapeVarieties', 'tags', 'notes', 'collection', 'serviceTemp', 'lotNumber',
+  'color', 'appellation', 'classification', 'grapeVarieties', 'tags', 'notes', 'serviceTemp', 'lotNumber',
   'peakMaturityFrom', 'peakMaturityTo', 'needsAeration', 'sparklingType', 'sugarLevel', 'baseYear', 'batchDate',
   'disgorgingDate', 'spiritType', 'edition', 'declaredAge', 'caskType', 'additions', 'aromaticProfile', 'isSingleCask',
   'caskNumber', 'caskProof', 'manufactureYear', 'leafOrigin', 'factoryCode', 'recommendedHumidity', 'humidificationSystem',
@@ -110,6 +114,7 @@ export const CSV_EXPORT_COLUMNS = [
   'cellar', 'purchasedAt', 'bottleSize', 'format', 'cigarsPerBox', 'opened', 'fillLevel', 'cigarsLeft',
   'openedAt', 'purchasePlace', 'location', 'estimatedValue', 'needsReview',
   ...CSV_FAMILY_COLUMNS,
+  'collection',
 ] as const;
 
 export type CsvExportColumn = (typeof CSV_EXPORT_COLUMNS)[number];

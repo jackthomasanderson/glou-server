@@ -291,6 +291,10 @@ export function WishlistDashboard() {
                         })}
                       </span>
                     )}
+                    {/* #468: the member typed this price, so it is marked here, never sent to them. */}
+                    {item.maxPrice != null && item.lastSeenPrice != null && Number(item.lastSeenPrice) <= Number(item.maxPrice) && (
+                      <Chip size="sm" variant="flat" color="success">{t('wishlist.priceSeen.underCeiling')}</Chip>
+                    )}
                   </div>
                 </div>
                 {item.status === 'active' && (

@@ -121,7 +121,6 @@ export async function getAlerts() {
       peakMaturityTo: true,
       curveShape: true,
       alertsPaused: true,
-      collection: true,
       photoUrl: true,
       items: {
         where: IN_STOCK_ITEM_FILTER,
