@@ -27,6 +27,7 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - Analytics: Global valuation says No price entered instead of 0 € when no bottle has a price, and how many have none when some are missing.
 - Scan: a bottle added by scanning now keeps the label photo as its photo, unless you untick Use this photo for the record.
 - Cellar names are saved without spaces before or after them, and a name made only of spaces is refused.
+- Making a cellar's grid smaller while bottles or cigars are placed in the rows or columns it removes is refused, naming the slots to empty first; they used to disappear from the plan.
 
 ## v2026.11.4
 

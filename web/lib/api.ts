@@ -1,5 +1,5 @@
 import { TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
-import { SLOT_CHANGED, SLOT_CHOICE_REQUIRED, SLOTS_TO_FREE_REQUIRED } from '@shared/product';
+import { SLOT_CHANGED, SLOT_CHOICE_REQUIRED, SLOTS_OUTSIDE_GRID, SLOTS_TO_FREE_REQUIRED } from '@shared/product';
 import { NetworkError } from './network-error';
 
 type ApiErrorBody = { error?: unknown; retryAfter?: unknown; details?: unknown };
@@ -24,9 +24,10 @@ function retryAfterHeader(res: Response): number | undefined {
 /**
  * FEAT-93: refusals whose details are the question to ask back — the cells
  * of the line ("De quelle case ?", "Quelles cases libérer ?"). Any other
- * code's details stay debug data, never kept.
+ * code's details stay debug data, never kept. #852: the cells a smaller
+ * grid would leave outside, to empty first.
  */
-const QUESTION_CODES: ReadonlySet<string> = new Set([SLOT_CHOICE_REQUIRED, SLOT_CHANGED, SLOTS_TO_FREE_REQUIRED]);
+const QUESTION_CODES: ReadonlySet<string> = new Set([SLOT_CHOICE_REQUIRED, SLOT_CHANGED, SLOTS_TO_FREE_REQUIRED, SLOTS_OUTSIDE_GRID]);
 
 /**
  * Reads a non-OK response into an ApiError. `codeByStatus`: what a status

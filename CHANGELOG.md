@@ -29,6 +29,7 @@ Entries start with the pull request that introduced them where there is one.
 - Analytics: the **Global valuation** card no longer shows a bare 0 € when your bottles have no price: it reads **No price entered** when none has a purchase price or an estimated value, and says how many have no price when only some are missing (#702).
 - Scan: a bottle added by scanning now keeps the label photo as its photo; untick **Use this photo for the record** on the review card to add it without. Bottles added to a wine you already have never change that wine's photo. The collections picked under **More details** were already kept since #690 (#660).
 - Cellar names are now saved without the spaces typed before or after them, and a name made only of spaces is refused. Existing names are trimmed once by this update (#869).
+- Making a cellar's grid smaller, or removing it, while bottles or cigars are placed in the rows or columns it takes away is now refused, with a message naming those slots to empty first. They used to stay placed on no slot of the plan, out of sight (#852).
 
 ### Removed
 - Humidor readings: the API no longer accepts the `sensor` reading source, reserved for a sensor bridge that was never built; every reading is a manual one, and the database migration turns any reading stored with it into a manual one (#468).

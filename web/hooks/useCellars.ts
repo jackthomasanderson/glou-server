@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { client } from '@/lib/api';
+import { ApiError, client } from '@/lib/api';
+import i18n from '@/lib/i18n';
 import { notifyError, notifySuccess } from '@/lib/toast';
+import { SLOTS_OUTSIDE_GRID, type SlotsOutsideGridDetails } from '@shared/product';
 import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 
 import { Cellar, CellarGridData, CreateCellarInput, UpdateCellarInput } from '@/lib/cellars/types';
@@ -84,7 +86,17 @@ export function useUpdateCellar() {
       void queryClient.invalidateQueries({ queryKey: qk.sidebarCounts });
       notifySuccess('toast.cellar.updateSuccess');
     },
-    onError: () => notifyError('toast.cellar.updateError'),
+    onError: (error) => {
+      // #852: a smaller grid would hide the bottles placed in the cells it
+      // removes — the API names those cells, to empty or move first.
+      if (error instanceof ApiError && error.message === SLOTS_OUTSIDE_GRID) {
+        const { slots } = error.details as SlotsOutsideGridDetails;
+        const cells = slots.map(({ column, row, name }) => i18n.t('cellars.grid.cellOutside', { col: column, row, name }));
+        notifyError('toast.cellar.slotsOutsideGrid', { count: slots.length, cells: cells.join(', ') });
+        return;
+      }
+      notifyError('toast.cellar.updateError');
+    },
   });
 }
 

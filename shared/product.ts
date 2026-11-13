@@ -135,6 +135,16 @@ export interface SlotsToFreeDetails {
 }
 
 /**
+ * #852: 409 of a cellar edit that makes its grid smaller (or removes it)
+ * while copies are placed in the cells it takes away: those cells, with the
+ * wine (or cigar) in each, to empty or move first.
+ */
+export const SLOTS_OUTSIDE_GRID = 'SLOTS_OUTSIDE_GRID';
+export interface SlotsOutsideGridDetails {
+  slots: Array<SlotCell & { name: string }>;
+}
+
+/**
  * A unit of a family: a group of identical intact copies, a sub-record with a
  * state of its own (opened, finished), or a write-off. No description field
  * at all (D9) and no `lockedFields` (D1: automated enrichment only writes

@@ -450,6 +450,8 @@
       "deleteSuccess": "Cave supprimée",
       "createError": "Impossible de créer la cave",
       "updateError": "Impossible de mettre à jour la cave",
+      "slotsOutsideGrid_one": "La nouvelle grille cacherait une case occupée : {{cells}}. Videz-la ou déplacez son contenu d'abord.",
+      "slotsOutsideGrid_other": "La nouvelle grille cacherait {{count}} cases occupées : {{cells}}. Videz-les ou déplacez leur contenu d'abord.",
       "deleteError": "Impossible de supprimer la cave"
     },
     "tasting": {
@@ -660,6 +662,7 @@
       "cigarsCount_other": "{{count}} cigares"
     },
     "grid": {
+      "cellOutside": "colonne {{col}}, rangée {{row}} ({{name}})",
       "showConfig": "Configurer le plan de cave (optionnel)",
       "hideConfig": "Masquer la configuration du plan",
       "configHint": "Définissez les dimensions physiques de votre cave pour afficher un plan visuel.",

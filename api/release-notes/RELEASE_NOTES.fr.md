@@ -28,6 +28,7 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - Analyses : la valorisation globale affiche « Prix non renseigné » au lieu de 0 € quand aucune bouteille n'a de prix, et combien n'en ont pas quand il en manque.
 - Scan : une bouteille ajoutée par scan garde désormais la photo de l'étiquette comme photo, sauf si vous décochez « Utiliser cette photo pour la fiche ».
 - Les noms de cave sont enregistrés sans espaces avant ou après, et un nom fait seulement d'espaces est refusé.
+- Réduire la grille d'une cave alors que des bouteilles ou des cigares sont placés dans les rangées ou colonnes retirées est refusé, avec les cases à vider d'abord ; ils disparaissaient du plan.
 
 ## v2026.11.4
 

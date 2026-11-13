@@ -10,7 +10,8 @@ vi.mock('../../src/lib/prisma', () => ({
       aggregate: vi.fn(),
       count: vi.fn(),
     },
-    cellar: { findMany: vi.fn(), findFirst: vi.fn(), delete: vi.fn() },
+    cellar: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
+    itemSlot: { findMany: vi.fn() },
     guestShare: { findMany: vi.fn(), update: vi.fn() },
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -261,5 +262,58 @@ describe('CellarService.deleteCellar — guest shares (#597)', () => {
     expect(await CellarService.deleteCellar('nope')).toBeNull();
     expect(prisma.guestShare.update).not.toHaveBeenCalled();
     expect(prisma.cellar.delete).not.toHaveBeenCalled();
+  });
+});
+
+// #852: a smaller grid (or none) would hide the bottles placed in the cells
+// it removes. The change is refused, naming the cells to empty first.
+describe('CellarService.updateCellar — placed bottles outside a smaller grid (#852)', () => {
+  const cellar = { id: 'c1', name: 'Cave', columns: 6, rows: 5 };
+
+  it('refuses fewer rows while a bottle sits in a removed row, and names its cell', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cellar as never);
+    vi.mocked(prisma.itemSlot.findMany).mockResolvedValue([
+      { column: 2, row: 5, item: { product: { name: 'Chablis' } } },
+    ] as never);
+
+    await expect(CellarService.updateCellar('c1', { rows: 4 })).rejects.toMatchObject({
+      status: 409,
+      code: 'SLOTS_OUTSIDE_GRID',
+      details: { slots: [{ column: 2, row: 5, name: 'Chablis' }] },
+    });
+    expect(prisma.itemSlot.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { cellarId: 'c1', deletedAt: null, OR: [{ column: { gt: 6 } }, { row: { gt: 4 } }] },
+    }));
+    expect(prisma.cellar.update).not.toHaveBeenCalled();
+  });
+
+  it('refuses removing the grid while a bottle is placed on it', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cellar as never);
+    vi.mocked(prisma.itemSlot.findMany).mockResolvedValue([
+      { column: 1, row: 1, item: { product: { name: 'Chablis' } } },
+    ] as never);
+
+    await expect(CellarService.updateCellar('c1', { columns: null, rows: null })).rejects.toMatchObject({
+      code: 'SLOTS_OUTSIDE_GRID',
+    });
+    expect(prisma.itemSlot.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { cellarId: 'c1', deletedAt: null },
+    }));
+  });
+
+  it('shrinks the grid when the removed cells are empty', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cellar as never);
+    vi.mocked(prisma.itemSlot.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.cellar.update).mockResolvedValue({ ...cellar, columns: 4 } as never);
+
+    await expect(CellarService.updateCellar('c1', { columns: 4 })).resolves.toMatchObject({ columns: 4 });
+  });
+
+  it('does not look at the slots when the grid size is unchanged or larger', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cellar as never);
+    vi.mocked(prisma.cellar.update).mockResolvedValue(cellar as never);
+
+    await CellarService.updateCellar('c1', { name: 'Cave du bas', columns: 6, rows: 8 });
+    expect(prisma.itemSlot.findMany).not.toHaveBeenCalled();
   });
 });
