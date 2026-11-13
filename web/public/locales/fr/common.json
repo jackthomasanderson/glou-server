@@ -983,7 +983,7 @@
       "revokeConfirmBody": "L'appareil concerné sera immédiatement déconnecté de votre compte.",
       "revokeOthers": "Déconnecter les autres sessions",
       "revokeOthersConfirmTitle": "Déconnecter toutes les autres sessions ?",
-      "revokeOthersConfirmBody": "Tous les autres appareils connectés à votre compte seront immédiatement déconnectés. Cet appareil reste connecté.",
+      "revokeOthersConfirmBody": "Tous les autres appareils connectés à votre compte seront immédiatement déconnectés, et les appareils de confiance autres que celui-ci redemanderont le code de double authentification. Cet appareil reste connecté. Si un appareil a été perdu ou volé, changez aussi votre mot de passe.",
       "revokeOthersSuccess": "Vos autres sessions ont été déconnectées.",
       "revokeOthersError": "Impossible de déconnecter vos autres sessions. Réessayez.",
       "loadError": "Impossible de charger vos sessions actives.",

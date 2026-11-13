@@ -212,8 +212,8 @@ const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subj
     : { subject: 'Glou — Session déconnectée', intro: 'Une session de votre compte a été déconnectée.' },
   // #773 — "sign out all other sessions": the device below is the one that asked.
   otherSessionsRevoked: (isEn) => isEn
-    ? { subject: 'Glou — Other sessions signed out', intro: 'All your other sessions were signed out from the device below, which stays signed in.' }
-    : { subject: 'Glou — Autres sessions déconnectées', intro: 'Toutes vos autres sessions ont été déconnectées depuis l’appareil ci-dessous, qui reste connecté.' },
+    ? { subject: 'Glou — Other sessions signed out', intro: 'All your other sessions were signed out from the device below, which stays signed in. Other devices you had trusted will ask for the two-factor code again.' }
+    : { subject: 'Glou — Autres sessions déconnectées', intro: 'Toutes vos autres sessions ont été déconnectées depuis l’appareil ci-dessous, qui reste connecté. Les autres appareils de confiance redemanderont le code de double authentification.' },
   // ISSUE_042 — sent to the PREVIOUS address, which is the only one the
   // legitimate owner still controls once the change went through.
   emailChanged: (isEn) => isEn
@@ -1632,10 +1632,19 @@ export class AuthService {
    * #773: "sign out all other sessions", one action instead of one per
    * session. The current session stays; the owner is told once, with the
    * device that asked (a stolen session doing this must not go unnoticed).
+   * Review R2: the other trusted devices stop being trusted too (a thief
+   * knowing the password would otherwise skip the 2FA code there); the one
+   * whose cookie came with the request, `currentDeviceToken`, keeps its trust.
+   * Returns the number of sessions signed out.
    */
-  async revokeAllOtherSessions(userId: string, currentSessionId: string, deviceInfo: DeviceInfo): Promise<number> {
+  async revokeAllOtherSessions(userId: string, currentSessionId: string, deviceInfo: DeviceInfo, currentDeviceToken?: string): Promise<number> {
     const revoked = await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown', 'sign_out_other_sessions');
-    if (revoked > 0) this.notifySecurityEvent(userId, 'otherSessionsRevoked', deviceInfo);
+    const keep = currentDeviceToken ? crypto.createHash('sha256').update(currentDeviceToken).digest('hex') : undefined;
+    const { count: untrusted } = await prisma.trustedDevice.updateMany({
+      where: { userId, revokedAt: null, ...(keep ? { NOT: { tokenHash: keep } } : {}) },
+      data: { revokedAt: new Date() },
+    });
+    if (revoked > 0 || untrusted > 0) this.notifySecurityEvent(userId, 'otherSessionsRevoked', deviceInfo);
     return revoked;
   }
 

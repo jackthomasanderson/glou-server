@@ -981,7 +981,7 @@
       "revokeConfirmBody": "The device concerned will be signed out of your account immediately.",
       "revokeOthers": "Sign out all other sessions",
       "revokeOthersConfirmTitle": "Sign out all other sessions?",
-      "revokeOthersConfirmBody": "Every other device signed in to your account will be signed out immediately. This device stays signed in.",
+      "revokeOthersConfirmBody": "Every other device signed in to your account will be signed out immediately, and devices you trusted, other than this one, will ask for the two-factor code again. This device stays signed in. If a device was lost or stolen, also change your password.",
       "revokeOthersSuccess": "Your other sessions were signed out.",
       "revokeOthersError": "Your other sessions could not be signed out. Try again.",
       "loadError": "Could not load your active sessions.",

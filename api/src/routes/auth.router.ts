@@ -377,10 +377,11 @@ router.get('/sessions', authMiddleware, async (req: Request, res: Response): Pro
 });
 
 // ─── DELETE /api/auth/sessions ─────────────────────────────────────────────────
-// #773: signs out every session of the caller except the current one.
+// #773: signs out every session of the caller except the current one, and
+// stops trusting every device but this one (review R2).
 
 router.delete('/sessions', authMiddleware, async (req: Request, res: Response): Promise<void> => {
-  const revoked = await authService.revokeAllOtherSessions(req.userId, req.sessionId, readDeviceInfo(req));
+  const revoked = await authService.revokeAllOtherSessions(req.userId, req.sessionId, readDeviceInfo(req), readTrustedDeviceCookie(req));
   res.json({ data: { revoked } });
 });
 

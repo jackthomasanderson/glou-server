@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 import request from 'supertest';
+import crypto from 'crypto';
 
 // #773: signing out every other session took one confirmation per session,
 // although the server already had the function. DELETE /api/auth/sessions
@@ -11,6 +12,7 @@ vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     user: { findUnique: vi.fn() },
     session: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
+    trustedDevice: { updateMany: vi.fn() },
     auditLog: { create: vi.fn() },
     $queryRaw: vi.fn(),
   },
@@ -26,6 +28,9 @@ const JWT_SECRET = 'integration-test-secret';
 
 type SessionRow = { id: string; userId: string; revokedAt: Date | null; expiresAt: Date; userAgent: string | null; ip: string | null };
 let sessions: SessionRow[] = [];
+type DeviceRow = { id: string; userId: string; tokenHash: string; revokedAt: Date | null };
+let devices: DeviceRow[] = [];
+const hash = (raw: string) => crypto.createHash('sha256').update(raw).digest('hex');
 
 const live = (id: string, userId: string): SessionRow =>
   ({ id, userId, revokedAt: null, expiresAt: new Date(Date.now() + 3_600_000), userAgent: 'Mozilla/5.0 (Windows NT 10.0) Chrome/120.0', ip: '203.0.113.7' });
@@ -52,6 +57,16 @@ const auditCalls = () => vi.mocked(prisma.auditLog.create).mock.calls.map(([arg]
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.JWT_SECRET = JWT_SECRET;
+  devices = [
+    { id: 'd-here', userId: 'alice', tokenHash: hash('raw-here'), revokedAt: null },
+    { id: 'd-laptop', userId: 'alice', tokenHash: hash('raw-laptop'), revokedAt: null },
+    { id: 'd-bob', userId: 'bob', tokenHash: hash('raw-bob'), revokedAt: null },
+  ];
+  vi.mocked(prisma.trustedDevice.updateMany).mockImplementation((async (args: { where: { userId: string; revokedAt: null; NOT?: { tokenHash: string } }; data: { revokedAt: Date } }) => {
+    const hit = devices.filter((d) => d.userId === args.where.userId && d.revokedAt === null && d.tokenHash !== args.where.NOT?.tokenHash);
+    hit.forEach((d) => { d.revokedAt = args.data.revokedAt; });
+    return { count: hit.length };
+  }) as never);
   sessions = [live('a-current', 'alice'), live('a-laptop', 'alice'), live('a-phone', 'alice'), live('b-1', 'bob')];
   vi.mocked(prisma.$queryRaw).mockResolvedValue([{ '?column?': 1 }] as never);
   vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
@@ -104,8 +119,9 @@ describe('DELETE /api/auth/sessions signs out every other session (#773)', () =>
     expect(JSON.stringify(vi.mocked(notificationService.send).mock.calls[0])).toContain('All your other sessions were signed out');
   });
 
-  it('with no other session, changes nothing and says so', async () => {
-    const res = await signOutOthers('bob', 'b-1');
+  it('with no other session nor other trusted device, changes nothing and says so', async () => {
+    const cookie = `glou_trusted_device=${jwt.sign({ tdt: 'raw-bob' }, JWT_SECRET, { expiresIn: '30d' })}`;
+    const res = await signOutOthers('bob', 'b-1').set('Cookie', cookie);
     expect(res.status).toBe(200);
     expect(res.body.data).toEqual({ revoked: 0 });
     expect(revoked()).toEqual([]);
@@ -116,5 +132,28 @@ describe('DELETE /api/auth/sessions signs out every other session (#773)', () =>
     const res = await request(app).delete('/api/auth/sessions').set('Sec-Fetch-Site', 'same-origin');
     expect(res.status).toBe(401);
     expect(revoked()).toEqual([]);
+  });
+
+  // Review R2: a trusted device lets a thief who knows the password skip the
+  // 2FA code; the other devices stop being trusted too, this one stays.
+  it('also stops trusting the caller\'s other devices, keeps this one and another member\'s', async () => {
+    const cookie = `glou_trusted_device=${jwt.sign({ tdt: 'raw-here' }, JWT_SECRET, { expiresIn: '30d' })}`;
+    const res = await signOutOthers('alice', 'a-current').set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    expect(devices.filter((d) => d.revokedAt).map((d) => d.id)).toEqual(['d-laptop']);
+  });
+
+  it('without a trusted-device cookie here, every trusted device of the caller is revoked', async () => {
+    await signOutOthers('alice', 'a-current');
+    expect(devices.filter((d) => d.revokedAt).map((d) => d.id).sort()).toEqual(['d-here', 'd-laptop']);
+  });
+
+  it('a lone session with another trusted device still tells the owner', async () => {
+    devices.push({ id: 'd-bob-2', userId: 'bob', tokenHash: hash('raw-bob-2'), revokedAt: null });
+    const cookie = `glou_trusted_device=${jwt.sign({ tdt: 'raw-bob' }, JWT_SECRET, { expiresIn: '30d' })}`;
+    const res = await signOutOthers('bob', 'b-1').set('Cookie', cookie);
+    expect(res.body.data).toEqual({ revoked: 0 });
+    expect(devices.filter((d) => d.revokedAt).map((d) => d.id)).toEqual(['d-bob-2']);
+    await vi.waitFor(() => expect(notificationService.send).toHaveBeenCalledTimes(1));
   });
 });
