@@ -151,6 +151,13 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
     if (asksBottle && preset && preset.id !== watchedItemId) setValue('itemId', preset.id);
   }, [asksBottle, preset, watchedItemId, setValue]);
 
+  // What the cross-field rules check, read when they run (#843): a rule must
+  // not close over a value of the render that registered it.
+  const ruleState = useRef({ naming, editing: !!editNote, tastesBottle });
+  useEffect(() => {
+    ruleState.current = { naming, editing: !!editNote, tastesBottle };
+  });
+
   // isSubmitting also covers reading the tasted item's stock after the save.
   const isSaving = createMutation.isPending || updateMutation.isPending || isSubmitting;
 
@@ -287,7 +294,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                     <Controller
                       name="wine.producer"
                       control={control}
-                      rules={{ validate: (value) => !naming || !!value?.trim() || t('tastings.errors.required') }}
+                      rules={{ validate: (value) => !ruleState.current.naming || !!value?.trim() || t('tastings.errors.required') }}
                       render={({ field }) => (
                         <Input
                           {...field}
@@ -302,7 +309,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                     <Controller
                       name="wine.name"
                       control={control}
-                      rules={{ validate: (value) => !naming || !!value?.trim() || t('tastings.errors.required') }}
+                      rules={{ validate: (value) => !ruleState.current.naming || !!value?.trim() || t('tastings.errors.required') }}
                       render={({ field }) => (
                         <Input
                           {...field}
@@ -355,7 +362,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                     <Controller
                       name="productId"
                       control={control}
-                      rules={{ validate: (value) => naming || !!editNote || !!value || !!watchedItemId || t('tastings.errors.required') }}
+                      rules={{ validate: (value, values) => ruleState.current.naming || ruleState.current.editing || !!value || !!values.itemId || t('tastings.errors.required') }}
                       render={({ field }) => (
                         <Autocomplete
                           label={`${t('tastingWine.wine')} *`}
@@ -412,7 +419,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                   <Controller
                     name="itemId"
                     control={control}
-                    rules={{ validate: (value) => !tastesBottle || !!value || t('tastings.errors.required') }}
+                    rules={{ validate: (value) => !ruleState.current.tastesBottle || !!value || t('tastings.errors.required') }}
                     render={({ field }) => (
                       <SingleSelect
                         label={`${t(isCigar ? 'tastingWine.whichCigars' : 'tastingWine.whichBottle')} *`}

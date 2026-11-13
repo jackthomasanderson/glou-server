@@ -132,8 +132,13 @@ vi.mock('@heroui/react', async () => {
       </fieldset>
     ),
     Radio: () => null,
-    Autocomplete: ({ label, selectedKey }: { label?: string; selectedKey?: string | null }) => (
-      <input aria-label={label} value={selectedKey ?? ''} readOnly />
+    Autocomplete: ({ label, selectedKey, isInvalid, errorMessage }: {
+      label?: string; selectedKey?: string | null; isInvalid?: boolean; errorMessage?: ReactNode;
+    }) => (
+      <>
+        {isInvalid && errorMessage ? <span>{errorMessage}</span> : null}
+        <input aria-label={label} value={selectedKey ?? ''} readOnly />
+      </>
     ),
     AutocompleteItem: () => null,
     ModalContent: ({ children }: { children?: ReactNode | (() => ReactNode) }) => (
@@ -563,6 +568,42 @@ describe('the wine tasted (FEAT-107)', () => {
     await act(async () => {});
 
     expect(createMutateAsync).not.toHaveBeenCalled();
+  });
+
+  // #843: the "Wine" rule reads the live values, never those of the form's first render.
+  it('accepts a bottle given once the form is open, even without its wine in the list', async () => {
+    products = [talbot([])];
+    const onClose = vi.fn();
+    const { rerender } = render(<TastingForm open onClose={onClose} />);
+    rerender(<TastingForm open onClose={onClose} initialItemId="unlisted-bottle" />);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'tastingWine.notListed' })).toBeNull());
+
+    save();
+
+    await waitFor(() => expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'unlisted-bottle' })));
+    expect(screen.queryByText('tastings.errors.required')).toBeNull();
+  });
+
+  it('no "validate" rule reads a value captured at render', async () => {
+    const { readFileSync } = await vi.importActual<typeof import('node:fs')>('node:fs');
+    const { join } = await vi.importActual<typeof import('node:path')>('node:path');
+    const source = readFileSync(join(__dirname, '..', 'TastingForm.tsx'), 'utf8');
+    const rules = source.match(/rules=\{\{ validate: [^\n]*/g) ?? [];
+    expect(rules.length).toBeGreaterThan(0);
+    for (const rule of rules) expect(rule).not.toMatch(/(?<![.\w])(naming|editNote|watchedItemId|tastesBottle)\b/);
+  });
+
+  it('asks for a wine again once the bottle given at opening is gone', async () => {
+    products = [talbot([])];
+    const { rerender } = render(<TastingForm open onClose={vi.fn()} initialItemId="unlisted-bottle" />);
+    rerender(<TastingForm open onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'tastingWine.notListed' })).toBeInTheDocument());
+
+    save();
+    await act(async () => {});
+
+    expect(createMutateAsync).not.toHaveBeenCalled();
+    expect(screen.getByText('tastings.errors.required')).toBeInTheDocument();
   });
 });
 
