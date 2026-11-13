@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiError, client } from '@/lib/api';
-import i18n from '@/lib/i18n';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { SLOTS_OUTSIDE_GRID, type SlotsOutsideGridDetails } from '@shared/product';
 import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
@@ -91,7 +90,8 @@ export function useUpdateCellar() {
       // removes — the API names those cells, to empty or move first.
       if (error instanceof ApiError && error.message === SLOTS_OUTSIDE_GRID) {
         const { slots } = error.details as SlotsOutsideGridDetails;
-        const cells = slots.map(({ column, row, name }) => i18n.t('cellars.grid.cellOutside', { col: column, row, name }));
+        // The plan's notation of a cell, the same in every language (C3·R5).
+        const cells = slots.map(({ column, row, name }) => `C${column}·R${row} (${name})`);
         notifyError('toast.cellar.slotsOutsideGrid', { count: slots.length, cells: cells.join(', ') });
         return;
       }

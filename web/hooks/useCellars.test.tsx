@@ -4,9 +4,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
-vi.mock('@/lib/i18n', () => ({
-  default: { t: (key: string, v: { col: number; row: number; name: string }) => `${key}(${v.col},${v.row},${v.name})` },
-}));
 
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { useDeleteCellar, useUpdateCellar } from './useCellars';
@@ -62,7 +59,7 @@ describe('useUpdateCellar', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(notifyError).toHaveBeenCalledWith('toast.cellar.slotsOutsideGrid', {
       count: 2,
-      cells: 'cellars.grid.cellOutside(2,5,Chablis), cellars.grid.cellOutside(7,1,Margaux)',
+      cells: 'C2·R5 (Chablis), C7·R1 (Margaux)',
     });
   });
 

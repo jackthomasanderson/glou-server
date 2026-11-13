@@ -664,7 +664,6 @@
       "cigarsCount_other": "{{count}} cigars"
     },
     "grid": {
-      "cellOutside": "column {{col}}, row {{row}} ({{name}})",
       "showConfig": "Configure grid layout (optional)",
       "hideConfig": "Hide grid configuration",
       "configHint": "Define the physical dimensions of your cellar to display a visual map.",

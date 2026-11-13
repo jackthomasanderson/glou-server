@@ -664,7 +664,6 @@
       "cigarsCount_other": "{{count}} cigares"
     },
     "grid": {
-      "cellOutside": "colonne {{col}}, rangée {{row}} ({{name}})",
       "showConfig": "Configurer le plan de cave (optionnel)",
       "hideConfig": "Masquer la configuration du plan",
       "configHint": "Définissez les dimensions physiques de votre cave pour afficher un plan visuel.",
