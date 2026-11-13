@@ -394,6 +394,28 @@ describe('ScanFlow — the label photo for the record (#660)', () => {
     expect(uploadImage).not.toHaveBeenCalled();
   });
 
+  // Review of #1014: the box is for a new wine; with "Vous avez déjà ce vin" up it is not offered.
+  it('no photo box while the known-wine banner is up; told apart, it comes back', () => {
+    sameName = [{ id: 'p1', name: 'Talbot', producer: 'Château Talbot', vintage: 2015, category: 'wine', items: [] }];
+    readLabel();
+    expect(screen.getByTestId('known-wine-banner')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'scan.review.usePhoto' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'known-distinct' }));
+    expect(photoBox()).toBeChecked();
+  });
+
+  it('a save that fails after the photo was sent reuses that photo on the next try', async () => {
+    createItem.mockRejectedValueOnce(new Error('VALIDATION_ERROR'));
+    readLabel();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.review.confirm' }));
+    await vi.waitFor(() => expect(createItem).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'scan.review.confirm' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(uploadImage).toHaveBeenCalledTimes(1);
+    expect(createItem).toHaveBeenLastCalledWith(expect.objectContaining({ photoUrl: '/uploads/products/label.jpg' }));
+  });
+
   it('a photo that cannot be saved does not lose the wine: added without it, and said', async () => {
     uploadImage.mockRejectedValueOnce(new Error('FILE_TOO_LARGE'));
     readLabel();

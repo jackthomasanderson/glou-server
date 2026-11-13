@@ -98,6 +98,10 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   const [labelPhoto, setLabelPhoto] = useState<File | null>(null);
   const [usePhoto, setUsePhoto] = useState(true);
   const [savingPhoto, setSavingPhoto] = useState(false);
+  // Sent once: a save that fails after it reuses it on the next try.
+  const [sentPhoto, setSentPhoto] = useState<{ file: File; url: string } | null>(null);
+  // Whether the box was offered when "More details" opened the full form.
+  const [photoForForm, setPhotoForForm] = useState(false);
 
   const jobQuery = useScanJob(jobId);
 
@@ -228,6 +232,8 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   );
   const knownWines = sameName.filter((product) => !distinctFrom.includes(product.id));
   const toldApart = sameName.filter((product) => distinctFrom.includes(product.id)).map((product) => product.id);
+  // #660: the label photo is for a new wine, never offered for one already known.
+  const photoOffered = labelPhoto !== null && knownWines.length === 0 && joining === null;
 
   /** The bottles were added to a known wine: as committed as a creation. */
   const afterJoin = (product: Product) => {
@@ -241,13 +247,17 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
    * photo was chosen in the full form. Only a new wine gets it: bottles added
    * to a known wine go through the reduced form, which never touches its photo.
    * A photo that cannot be saved does not stop the wine being added
-   * (`photoLost`: said once the wine is added).
+   * (`photoLost`: said once the wine is added). `offered`: the box was shown
+   * (not while "Vous avez déjà ce vin" is up, nor while adding to that wine).
    */
-  const withLabelPhoto = async (values: InventoryEntry): Promise<{ entry: InventoryEntry; photoLost: boolean }> => {
-    if (!labelPhoto || !usePhoto || values.photoUrl) return { entry: values, photoLost: false };
+  const withLabelPhoto = async (values: InventoryEntry, offered: boolean): Promise<{ entry: InventoryEntry; photoLost: boolean }> => {
+    if (!labelPhoto || !offered || !usePhoto || values.photoUrl) return { entry: values, photoLost: false };
+    if (sentPhoto?.file === labelPhoto) return { entry: { ...values, photoUrl: sentPhoto.url }, photoLost: false };
     setSavingPhoto(true);
     try {
-      return { entry: { ...values, photoUrl: await searchClient.uploadImage(await downscaleImage(labelPhoto)) }, photoLost: false };
+      const url = await searchClient.uploadImage(await downscaleImage(labelPhoto));
+      setSentPhoto({ file: labelPhoto, url });
+      return { entry: { ...values, photoUrl: url }, photoLost: false };
     } catch {
       return { entry: values, photoLost: true };
     } finally {
@@ -255,9 +265,9 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     }
   };
 
-  const commitItem = async (values: InventoryEntry, collectionIds: string[] = []) => {
+  const commitItem = async (values: InventoryEntry, collectionIds: string[], photoOffered: boolean) => {
     setReviewValues(values);
-    const { entry, photoLost } = await withLabelPhoto(values);
+    const { entry, photoLost } = await withLabelPhoto(values, photoOffered);
     // `scanJobId` lets the server tag the fields the label really filled (FEAT-05).
     const created = await create({ ...entry, scanJobId: jobId ?? undefined }, collectionIds);
     if (!created) return; // Reported by the mutation's onError toast.
@@ -271,12 +281,12 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
     if (saveAsDefault && reviewValues.category && reviewValues.cellarId) {
       setDefaultCellarForCategory(reviewValues.category, reviewValues.cellarId);
     }
-    void commitItem(toldApart.length > 0 ? { ...reviewValues, distinctFrom: toldApart } : reviewValues);
+    void commitItem(toldApart.length > 0 ? { ...reviewValues, distinctFrom: toldApart } : reviewValues, [], photoOffered);
   };
 
   const handleAdvancedSubmit = (values: InventoryEntry, collectionIds: string[]) => {
     setFullFormOpen(false);
-    void commitItem(values, collectionIds);
+    void commitItem(values, collectionIds, photoForForm);
   };
 
   const canConfirm = Boolean(
@@ -530,7 +540,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                       </Checkbox>
                     )}
 
-                    {labelPhoto && (
+                    {photoOffered && (
                       <Checkbox isSelected={usePhoto} onValueChange={setUsePhoto} size="sm">
                         {t('scan.review.usePhoto')}
                       </Checkbox>
@@ -551,7 +561,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
                           {t('scan.review.missingFields', { fields: missingFields.join(', ') })}
                         </p>
                       )}
-                      <Button variant="light" fullWidth isDisabled={isSubmitting || savingPhoto} onPress={() => setFullFormOpen(true)}>
+                      <Button variant="light" fullWidth isDisabled={isSubmitting || savingPhoto} onPress={() => { setPhotoForForm(photoOffered); setFullFormOpen(true); }}>
                         {t('scan.review.moreDetails')}
                       </Button>
                     </div>
