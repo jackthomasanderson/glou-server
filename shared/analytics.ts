@@ -103,6 +103,8 @@ export interface AnalyticsStats {
   urgentDegustationCount: number;
   /** Units in stock, bottles and cigars together (the sum of `categoryBreakdown`). */
   totalActiveItems: number;
+  /** #702: units in stock with neither an estimated value nor a purchase price (worth 0 € in `totalValuation`). */
+  unpricedUnits: number;
   categoryBreakdown: CategoryStat[];
   regionBreakdown: RegionStat[];
   /**

@@ -40,6 +40,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import i18n from '@/lib/i18n';
 import { formatCurrency, formatNumber } from '@/lib/format';
 import { CATEGORY_HEX } from '@/lib/analytics/categoryColors';
+import { valuationKpi } from '@/lib/analytics/valuation';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 
@@ -605,8 +606,11 @@ export function AnalyticsDashboard() {
             <StatCard
               testId="kpi-total-valuation"
               label={t('analytics.stats.totalValuation')}
-              value={fmtCurrency(data?.totalValuation ?? 0)}
-              hint={t('analytics.stats.totalValuationHint')}
+              {...valuationKpi({
+                totalValuation: data?.totalValuation ?? 0,
+                totalActiveItems: data?.totalActiveItems ?? 0,
+                unpricedUnits: data?.unpricedUnits ?? 0,
+              }, fmtCurrency, t as (k: string, opts?: Record<string, unknown>) => string)}
               icon={<Euro size={20} color="#2563EB" />}
               iconBg="rgba(37,99,235,0.1)"
             />

@@ -1702,6 +1702,10 @@
     "stats": {
       "totalValuation": "Global Valuation",
       "totalValuationHint": "Current total estimate",
+      "totalValuationNoPrice": "No price entered",
+      "totalValuationNoPriceHint": "Enter a purchase price or an estimated value to work it out",
+      "totalValuationUnpriced_one": "Current total estimate, {{count}} of them with no price",
+      "totalValuationUnpriced_other": "Current total estimate, {{count}} of them with no price",
       "liquidStock": "Liquid in stock",
       "liquidStockHint": "Excluding collection cigars",
       "cigarHumidor": "Cigars in humidor",
