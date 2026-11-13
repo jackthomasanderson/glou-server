@@ -9,6 +9,8 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 
 ## À venir
 
+## v2026.11.4
+
 ### Points d'attention
 - Les liens invités sans date d'expiration, ou qui ouvrent toutes les caves pour plus de 30 jours, expirent désormais 30 jours après cette mise à jour. Créez un nouveau lien limité aux bonnes caves ou collections pour un invité qui en a encore besoin.
 - Si l'app web est jointe directement, sans proxy inverse devant elle, mettez TRUSTED_PROXY_HOPS=0 dans .env et redémarrez. Si votre fichier compose remplace la commande du service web, retirez ce remplacement.
@@ -24,6 +26,7 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - Cette fenêtre « Quoi de neuf ? » : après chaque mise à jour, les administrateurs voient ce qui a changé. Elle se rouvre depuis Administration et depuis le bas du menu latéral.
 - Le panneau d'un vin montre ses mouvements de stock : qui a ajouté, ouvert, bu, déplacé, changé le prix ou corrigé ses bouteilles, et quand.
 - Administration → Gestion des membres : supprimer tout de suite le compte d'un membre, exporter ses données, et programmer ou annuler la suppression d'un compte, y compris pour un membre désactivé.
+- Analyses : la carte du monde se zoome, se déplace et s'affiche en plein écran ; les régions proches se séparent quand on zoome.
 
 ### Améliorations
 - Les collections sont partagées par le foyer : chaque membre voit et remplit toutes les collections, et une collection reste quand son auteur s'en va.
