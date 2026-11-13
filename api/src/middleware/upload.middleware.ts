@@ -97,7 +97,12 @@ const scanUpload = multer({
     },
 });
 
+// #886: product photos picked on the device (search.router.ts stores them here).
+export const PRODUCTS_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'products');
+
 export { csvUpload, scanUpload };
+
+const IMAGE_UPLOAD_DIRS = [uploadDir, scanUploadDir, PRODUCTS_UPLOAD_DIR];
 
 /**
  * #886: runs after an image upload (avatar, label scan, product photo). The
@@ -110,15 +115,21 @@ export { csvUpload, scanUpload };
 export async function verifyStoredImage(req: Request, _res: Response, next: NextFunction): Promise<void> {
   const file = req.file;
   if (!file) return next();
-  const inspection = await inspectImage(await fs.promises.readFile(file.path));
+  // Only inside the upload folders this file creates, under the name multer
+  // just gave it (never a path the request could steer).
+  const dir = IMAGE_UPLOAD_DIRS.find((known) => known === path.resolve(file.destination));
+  const stored = dir ? path.resolve(dir, path.basename(file.filename)) : '';
+  if (!dir || !stored.startsWith(dir + path.sep)) throw new AppError(400, 'INVALID_FILE_TYPE');
+
+  const inspection = await inspectImage(await fs.promises.readFile(stored));
   if (!inspection.ok) {
-    await fs.promises.rm(file.path, { force: true });
+    await fs.promises.rm(stored, { force: true });
     throw inspection.reason === 'DAMAGED' ? new AppError(422, 'IMAGE_DAMAGED') : new AppError(400, 'INVALID_FILE_TYPE');
   }
-  if (path.extname(file.filename) !== `.${inspection.ext}`) {
-    const filename = `${path.basename(file.filename, path.extname(file.filename))}.${inspection.ext}`;
-    const renamed = path.join(path.dirname(file.path), filename);
-    await fs.promises.rename(file.path, renamed);
+  if (path.extname(stored) !== `.${inspection.ext}`) {
+    const filename = `${crypto.randomUUID()}.${inspection.ext}`;
+    const renamed = path.join(dir, filename);
+    await fs.promises.rename(stored, renamed);
     file.filename = filename;
     file.path = renamed;
   }

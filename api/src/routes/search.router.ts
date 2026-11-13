@@ -6,7 +6,7 @@ import multer from 'multer';
 import { assertUrlAllowed, resolveSafeUrl } from '../lib/ssrf';
 import { AppError } from '../lib/errors';
 import { ALLOWED_IMAGE_TYPES, inspectImage } from '../lib/upload';
-import { verifyStoredImage } from '../middleware/upload.middleware';
+import { PRODUCTS_UPLOAD_DIR, verifyStoredImage } from '../middleware/upload.middleware';
 import { isCommercial, PRODUCER_EXTRA_TERMS } from '../lib/suggest-filter';
 
 const router = Router();
@@ -134,7 +134,6 @@ router.get('/producers', authMiddleware, async (req, res) => {
   }
 });
 
-const PRODUCTS_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'products');
 if (!fs.existsSync(PRODUCTS_UPLOAD_DIR)) {
   fs.mkdirSync(PRODUCTS_UPLOAD_DIR, { recursive: true });
 }

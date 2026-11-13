@@ -123,11 +123,12 @@ describe('POST /api/inventory/:id/correct (FEAT-92 c3)', () => {
   });
 
   it('gives the first answer back to a correction replayed with the same Idempotency-Key (#824)', async () => {
+    const QUEUE_ENTRY_ID = 'queued-change-1'; // the offline queue's entry id
     vi.mocked(stockService.correctQuantity).mockResolvedValueOnce({
       result: written({ id: 'b1', quantity: 5 }), productId: 'p1', changes: [], writtenOffItemId: null,
     } as never);
     const send = () => request(app).post('/api/inventory/b1/correct')
-      .set('Idempotency-Key', 'f2b0c8e4-0824-4c4e-9a11-correct00001').send({ quantity: 5, reason: 'input_error' });
+      .set('Idempotency-Key', QUEUE_ENTRY_ID).send({ quantity: 5, reason: 'input_error' });
 
     const first = await send();
     const replay = await send();

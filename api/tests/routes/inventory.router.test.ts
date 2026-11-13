@@ -151,14 +151,15 @@ describe('PATCH /api/inventory/:id', () => {
 
 describe('PATCH /api/inventory/:id — a replay after a lost answer (#824)', () => {
   it('gives the first answer back to a replay with the same Idempotency-Key, without applying it again', async () => {
+    const QUEUE_ENTRY_ID = 'queued-change-1'; // the offline queue's entry id
     vi.mocked(inventoryService.updateItem).mockResolvedValueOnce({
       item: { id: 'sub', productId: 'p1' }, changes: [], changed: [{ id: 'g', quantity: 5 }], removedIds: [],
     } as never);
     const body = { isOpened: true, expectedUpdatedAt: '2026-01-01T00:00:00.000Z' };
 
-    const first = await request(app).patch('/api/inventory/g').set('Idempotency-Key', 'f2b0c8e4-0824-4c4e-9a11-replay000001').send(body);
+    const first = await request(app).patch('/api/inventory/g').set('Idempotency-Key', QUEUE_ENTRY_ID).send(body);
     // The answer was lost: the queue sends it again, unchanged.
-    const replay = await request(app).patch('/api/inventory/g').set('Idempotency-Key', 'f2b0c8e4-0824-4c4e-9a11-replay000001').send(body);
+    const replay = await request(app).patch('/api/inventory/g').set('Idempotency-Key', QUEUE_ENTRY_ID).send(body);
 
     expect(replay.status).toBe(200);
     expect(replay.body).toEqual(first.body);

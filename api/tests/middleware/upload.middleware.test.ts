@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import rateLimit from 'express-rate-limit';
 import fs from 'node:fs';
 import path from 'node:path';
 import { avatarUpload, scanUpload, verifyStoredImage } from '../../src/middleware/upload.middleware';
@@ -12,6 +13,7 @@ import { IMAGES } from '../support/images';
 // sent to the recognition model. The bytes are now checked, as for downloads.
 
 const app = express();
+app.use(rateLimit({ windowMs: 60_000, limit: 1000 }));
 app.post('/avatar', avatarUpload.single('avatar'), verifyStoredImage, (req, res) => {
   res.json({ filename: req.file?.filename });
 });
