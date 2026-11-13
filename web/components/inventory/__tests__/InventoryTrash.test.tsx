@@ -37,6 +37,7 @@ vi.mock('@heroui/react', async (importActual) => ({
   ModalFooter: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, o?: Record<string, unknown>) => t(key, o), i18n: { language: 'fr' } }) }));
+vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }] }) }));
 const deleteItem = vi.fn();
 const deleteWine = vi.fn();
 const emptyTrash = vi.fn();
@@ -61,7 +62,9 @@ describe('InventoryTrash with wines', () => {
     render(<InventoryTrash t={t} />);
     const wines = screen.getByTestId('trash-wines');
     expect(within(wines).getByText(/Cuvée X/)).toBeInTheDocument();
-    expect(within(wines).getByText(/avec 6 bouteilles/)).toBeInTheDocument();
+    // #844: "6 bouteilles · …", no dangling "avec".
+    expect(within(wines).getByText(/^6 bouteilles · /)).toBeInTheDocument();
+    expect(within(wines).queryByText(/avec/)).toBeNull();
     // The bottles thrown with the wine are not listed a second time.
     expect(screen.getAllByText(/Cuvée X/)).toHaveLength(1);
     expect(screen.getByText(/Autre Vin/)).toBeInTheDocument();
@@ -80,7 +83,7 @@ describe('InventoryTrash with wines', () => {
   });
 
   // Recette #471: a line of several bottles (boxes) says how many went to the trash.
-  it('a line of several bottles or boxes says how many; a single one says nothing', () => {
+  it('every line says how many, a single bottle included (#844)', () => {
     data.wines = [];
     data.items = [
       { id: 'six', productId: 'w4', deletedAt: when, category: 'wine', name: 'Six', producer: 'D', quantity: 6, isOpened: false },
@@ -91,7 +94,17 @@ describe('InventoryTrash with wines', () => {
     const [six, boxes, one] = screen.getAllByRole('listitem');
     expect(six).toHaveTextContent('6 bouteilles');
     expect(boxes).toHaveTextContent('2 boîtes');
-    expect(one).not.toHaveTextContent('1 bouteille');
+    expect(one).toHaveTextContent('1 bouteille · ');
+  });
+
+  // #844: the same wine can have several lines; the trash says which one it was.
+  it('a line says which one it was: its cellar and price, as the drawer does', () => {
+    data.wines = [];
+    data.items = [
+      { id: 'g', productId: 'w7', deletedAt: when, category: 'wine', name: 'Margaux', producer: 'Château', quantity: 2, isOpened: false, cellarId: 'garage', purchasePrice: 20 },
+    ];
+    render(<InventoryTrash t={t} />);
+    expect(screen.getByRole('listitem').textContent?.replace(/\s/g, ' ')).toMatch(/2 bouteilles · Garage · 20 € \/ bouteille · /);
   });
 });
 

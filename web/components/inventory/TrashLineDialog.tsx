@@ -51,6 +51,10 @@ export function TrashLineDialog({ item, ctx, isOpen, onClose }: TrashLineDialogP
     >
       <p className="text-sm">{t('stockLine.trash.question', { context: noun, count, line: bottleLabel(item, ctx) })}</p>
       <p className="text-xs text-foreground-500">{t('stockLine.trash.restorable')}</p>
+      {/* #844: the whole line goes; part of it is "Corriger le nombre" (§10.4.7). */}
+      {count > 1 && (
+        <p className="text-xs text-foreground-500">{t('stockLine.trash.part', { action: t('stockLine.actions.correct') })}</p>
+      )}
     </LineDialogFrame>
   );
 }
