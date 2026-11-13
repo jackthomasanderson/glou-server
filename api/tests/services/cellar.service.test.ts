@@ -309,6 +309,21 @@ describe('CellarService.updateCellar — placed bottles outside a smaller grid (
     await expect(CellarService.updateCellar('c1', { columns: 4 })).resolves.toMatchObject({ columns: 4 });
   });
 
+  it('locks the cellar row against a placement, in the transaction that checks and writes', async () => {
+    vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cellar as never);
+    vi.mocked(prisma.itemSlot.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.cellar.update).mockResolvedValue({ ...cellar, rows: 4 } as never);
+
+    await CellarService.updateCellar('c1', { rows: 4 });
+
+    expect(prisma.$transaction).toHaveBeenCalled();
+    const [strings, id] = vi.mocked(prisma.$queryRaw).mock.calls[0] as unknown as [string[], string];
+    expect(strings.join('?')).toMatch(/FROM "cellars" WHERE "id" = \? FOR UPDATE/);
+    expect(id).toBe('c1');
+    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(prisma.itemSlot.findMany).mock.invocationCallOrder[0]);
+  });
+
   it('does not look at the slots when the grid size is unchanged or larger', async () => {
     vi.mocked(prisma.cellar.findFirst).mockResolvedValue(cellar as never);
     vi.mocked(prisma.cellar.update).mockResolvedValue(cellar as never);

@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma';
+import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput } from '../schemas/cellar.schema';
 import type { Cellar, Prisma } from '@prisma/client';
 import { IN_STOCK_ITEM_FILTER, itemUnits, slotCapacity, unitKind } from '../lib/finished-item';
@@ -62,6 +62,7 @@ function cellarStats(rows: CellarStockRow[], today: Date): CellarStats {
  * The edit is refused with those cells, to empty or move first.
  */
 async function assertNoSlotOutside(
+  tx: PrismaClientOrTx,
   cellar: { id: string; columns: number | null; rows: number | null },
   data: UpdateCellarInput,
 ): Promise<void> {
@@ -70,7 +71,7 @@ async function assertNoSlotOutside(
   if (cellar.columns == null || cellar.rows == null) return; // no grid, no slot
   const gridRemoved = columns == null || rows == null;
   if (!gridRemoved && columns >= cellar.columns && rows >= cellar.rows) return;
-  const outside = await prisma.itemSlot.findMany({
+  const outside = await tx.itemSlot.findMany({
     where: {
       cellarId: cellar.id,
       deletedAt: null,
@@ -128,13 +129,15 @@ export class CellarService {
   }
 
   static async updateCellar(id: string, data: UpdateCellarInput) {
-    const cellar = await prisma.cellar.findFirst({ where: { id } });
-    if (!cellar) return null;
-    await assertNoSlotOutside(cellar, data);
-
-    return prisma.cellar.update({
-      where: { id },
-      data,
+    // #852: the cellar row locked first, so a copy placed meanwhile (its
+    // grid read FOR SHARE, slot.service.ts) is seen by the check, or placed
+    // against the new size once this write commits.
+    return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM "cellars" WHERE "id" = ${id} FOR UPDATE`;
+      const cellar = await tx.cellar.findFirst({ where: { id } });
+      if (!cellar) return null;
+      await assertNoSlotOutside(tx, cellar, data);
+      return tx.cellar.update({ where: { id }, data });
     });
   }
 

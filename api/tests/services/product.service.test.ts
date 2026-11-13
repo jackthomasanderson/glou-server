@@ -4,6 +4,8 @@ import { ZodError } from 'zod';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
+    // #852: the grid a copy back from the trash is checked against.
+    cellar: { findUnique: vi.fn(async () => ({ columns: 10, rows: 10 })) },
     product: {
       findMany: vi.fn(),
       findFirst: vi.fn(),

@@ -452,6 +452,7 @@
       "updateError": "Impossible de mettre à jour la cave",
       "slotsOutsideGrid_one": "La nouvelle grille cacherait une case occupée : {{cells}}. Videz-la ou déplacez son contenu d'abord.",
       "slotsOutsideGrid_other": "La nouvelle grille cacherait {{count}} cases occupées : {{cells}}. Videz-les ou déplacez leur contenu d'abord.",
+      "slotsOutsideGridMore": "La nouvelle grille cacherait {{total}} cases occupées : {{cells}} et {{more}} autres. Videz-les ou déplacez leur contenu d'abord.",
       "deleteError": "Impossible de supprimer la cave"
     },
     "tasting": {

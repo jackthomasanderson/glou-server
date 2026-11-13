@@ -26,9 +26,16 @@ const view = (slot: { id: string; column: number; row: number }): ItemSlotView =
 
 const slotError = (status: number, code: string, details?: unknown) => new AppError(status, code, { details });
 
-/** The cell is in the cellar's grid (a cellar without a grid has no cell). */
+/**
+ * The cell is in the cellar's grid (a cellar without a grid has no cell).
+ * #852: the cellar row is read FOR SHARE, until the caller's transaction
+ * ends — a grid made smaller (CellarService.updateCellar, FOR UPDATE) waits
+ * for this copy to be placed and then sees it, or this placement waits for
+ * the new size: never a copy left outside the grid.
+ */
 async function assertInGrid(client: PrismaClientOrTx, cellarId: string, at: SlotPosition): Promise<void> {
-  const cellar = await client.cellar.findUnique({ where: { id: cellarId }, select: { columns: true, rows: true } });
+  const [cellar] = await client.$queryRaw<Array<{ columns: number | null; rows: number | null }>>`
+    SELECT "columns", "rows" FROM "cellars" WHERE "id" = ${cellarId} FOR SHARE`;
   if (!cellar || cellar.columns == null || cellar.rows == null || at.column > cellar.columns || at.row > cellar.rows) {
     throw slotError(400, 'OUTSIDE_GRID');
   }

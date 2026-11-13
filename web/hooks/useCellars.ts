@@ -71,6 +71,9 @@ export function useCreateCellar() {
 /**
  * Hook to update a cellar
  */
+/** #852: the cells outside a smaller grid named in its error message, at most. */
+const CELLS_LISTED = 5;
+
 export function useUpdateCellar() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -90,9 +93,14 @@ export function useUpdateCellar() {
       // removes — the API names those cells, to empty or move first.
       if (error instanceof ApiError && error.message === SLOTS_OUTSIDE_GRID) {
         const { slots } = error.details as SlotsOutsideGridDetails;
-        // The plan's notation of a cell, the same in every language (C3·R5).
-        const cells = slots.map(({ column, row, name }) => `C${column}·R${row} (${name})`);
-        notifyError('toast.cellar.slotsOutsideGrid', { count: slots.length, cells: cells.join(', ') });
+        // The plan's notation of a cell, the same in every language (C3·R5);
+        // the first few only, a message stays readable.
+        const cells = slots.slice(0, CELLS_LISTED).map(({ column, row, name }) => `C${column}·R${row} (${name})`).join(', ');
+        if (slots.length > CELLS_LISTED) {
+          notifyError('toast.cellar.slotsOutsideGridMore', { total: slots.length, more: slots.length - CELLS_LISTED, cells });
+        } else {
+          notifyError('toast.cellar.slotsOutsideGrid', { count: slots.length, cells });
+        }
         return;
       }
       notifyError('toast.cellar.updateError');

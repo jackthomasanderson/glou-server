@@ -452,6 +452,7 @@
       "updateError": "Could not update the cellar",
       "slotsOutsideGrid_one": "The new grid would hide a slot in use: {{cells}}. Empty it or move what it holds first.",
       "slotsOutsideGrid_other": "The new grid would hide {{count}} slots in use: {{cells}}. Empty them or move what they hold first.",
+      "slotsOutsideGridMore": "The new grid would hide {{total}} slots in use: {{cells}} and {{more}} more. Empty them or move what they hold first.",
       "deleteError": "Could not delete the cellar"
     },
     "tasting": {

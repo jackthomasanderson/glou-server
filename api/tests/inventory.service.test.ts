@@ -181,6 +181,21 @@ describe('InventoryService', () => {
 
     beforeEach(() => {
       vi.mocked(prisma.inventoryItem.findUniqueOrThrow).mockImplementation((async () => unitRow({ cellarId: 'c1' })) as never);
+      vi.mocked(prisma.cellar.findUnique).mockResolvedValue({ columns: 6, rows: 6 } as never);
+    });
+
+    // #852: the grid was made smaller while the bottle was in the trash — its
+    // cell is gone, it comes back unplaced rather than outside the plan.
+    it('comes back unplaced when its cell is no longer in the grid, read with the cellar row locked', async () => {
+      vi.mocked(prisma.inventoryItem.findFirst).mockResolvedValueOnce(trashed as never);
+      vi.mocked(prisma.cellar.findUnique).mockResolvedValue({ columns: 6, rows: 2 } as never);
+      slots.rows.push(slot({ itemId: 'b1', column: 2, row: 3, deletedAt: trashedAt }));
+
+      await service.restore('b1', 'u1');
+
+      expect(slots.rows.filter((row) => row.itemId === 'b1')).toEqual([]);
+      const sql = vi.mocked(prisma.$queryRaw).mock.calls.map(([strings]) => (strings as unknown as string[]).join('?'));
+      expect(sql).toContainEqual(expect.stringMatching(/FROM "cellars" WHERE "id" = \? FOR SHARE/));
     });
 
     it('comes back unplaced when another bottle took its cell meanwhile', async () => {
