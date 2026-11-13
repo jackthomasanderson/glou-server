@@ -27,4 +27,11 @@ describe('backup restore timeout', () => {
     await configClient.restoreBackup('b1', { password: 'pw', code: '123456' });
     expect(post).toHaveBeenCalledWith('/admin/backups/b1/restore', { confirm: true, password: 'pw', code: '123456' }, { timeoutMs: RESTORE_TIMEOUT_MS });
   });
+
+  // #619: a whole dump over a slow link: the same budget as a restore, not the 60 s of a small file.
+  it('is the budget a backup is downloaded with', async () => {
+    const blob = vi.spyOn(client, 'blob').mockResolvedValue({ blob: new Blob(['x']), headers: new Headers() });
+    await configClient.downloadBackup('b1', { password: 'pw' });
+    expect(blob).toHaveBeenCalledWith('/admin/backups/b1/download', { method: 'POST', body: { password: 'pw' }, timeoutMs: RESTORE_TIMEOUT_MS });
+  });
 });

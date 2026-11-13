@@ -29,6 +29,8 @@ vi.mock('../src/lib/prisma', () => ({
     trustedDevice: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      // Turning 2FA on revokes devices trusted before (#766).
+      updateMany: vi.fn(async () => ({ count: 0 })),
     },
     // login()/verifyTwoFactorLogin() fire-and-forget a "new device" security
     // notification, which reads this model via systemConfigService — without

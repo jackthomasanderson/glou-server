@@ -21,7 +21,7 @@ import { ErrorState } from '@/components/ui/ErrorState';
 export function CollectionsDashboard() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { data: collections, isLoading, isError, refetch, isRefetching } = useCollections();
+  const { data: collections, isLoading, isError, error: loadError, refetch, isRefetching } = useCollections();
   const createMutation = useCreateCollection();
   const updateMutation = useUpdateCollection();
   const deleteMutation = useDeleteCollection();
@@ -88,6 +88,7 @@ export function CollectionsDashboard() {
       {/* Error banner */}
       {isError && (
         <ErrorState
+          error={loadError}
           className="mb-4"
           message={t('collections.errors.load')}
           onRetry={() => { void refetch(); }}

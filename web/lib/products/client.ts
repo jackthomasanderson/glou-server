@@ -1,6 +1,6 @@
-import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal } from '../api';
-import { fetchOrNetworkError } from '../network-error';
+import { client, requestJson } from '../api';
 import type { BulkStockResult, BulkWinesAction, ProductDescription, UnitWriteResult } from '@shared/product';
+import type { StockMovementView } from '@shared/stock-movement';
 import type { InventoryCategory } from '@shared/inventory';
 import type { Wire } from '@shared/wire';
 import type { TrashDeletion } from '../inventory/client';
@@ -45,13 +45,7 @@ export const productsClient = {
    */
   async list(options: { cellarId?: string } = {}): Promise<ProductListResponse> {
     const query = options.cellarId ? `?${new URLSearchParams({ cellarId: options.cellarId })}` : '';
-    const res = await fetch(`/api/products${query}`, {
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      signal: timeoutSignal(15000),
-    });
-    if (!res.ok) await handleResponse(res); // throws Error(<API code>)
-    const body = (await res.json()) as ProductListResponse;
+    const body = await requestJson<ProductListResponse>(`/products${query}`);
     return { data: body.data, truncated: body.truncated === true };
   },
 
@@ -75,34 +69,28 @@ export const productsClient = {
     return data;
   },
 
+  /** #848 (FEAT-110): the wine's movement journal, newest first. */
+  async movements(id: string): Promise<Wire<StockMovementView>[]> {
+    const { data } = await client.get<Wire<StockMovementView>[]>(`/products/${encodeURIComponent(id)}/movements`);
+    return data;
+  },
+
   /**
    * FEAT-92 c4: the wine's description, once for all its bottles.
    * `expectedUpdatedAt` is the wine's own version as the form read it: a
    * change made meanwhile is refused (409 `CONFLICT`) instead of overwritten.
    */
   async update(id: string, patch: Partial<ProductDescription>, expectedUpdatedAt?: string): Promise<Product> {
-    const res = await fetch(`/api/products/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(expectedUpdatedAt ? { ...patch, expectedUpdatedAt } : patch),
-      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
-    });
-    if (!res.ok) throw await apiErrorFrom(res);
-    return ((await res.json()) as { data: Product }).data;
+    const { data } = await client.patch<Product>(`/products/${encodeURIComponent(id)}`, expectedUpdatedAt ? { ...patch, expectedUpdatedAt } : patch);
+    return data;
   },
 
   /** Adds bottles to the wine: they complete the identical line (same cellar, price, size and day), else form a new one. */
   async addUnits(id: string, input: AddUnitsInput): Promise<UnitWrite> {
-    const res = await fetchOrNetworkError(`/api/products/${encodeURIComponent(id)}/items`, {
+    const result = await requestJson<Partial<UnitWrite> & { data: ProductItem }>(`/products/${encodeURIComponent(id)}/items`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(input),
-      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
+      body: input,
     });
-    if (!res.ok) throw await apiErrorFrom(res);
-    const result = (await res.json()) as Partial<UnitWrite> & { data: ProductItem };
     return { data: result.data, changed: result.changed ?? [], removedIds: result.removedIds ?? [] };
   },
 
@@ -112,15 +100,10 @@ export const productsClient = {
    * `CONFLICT`) instead of overwritten.
    */
   async rollback(id: string, field: string, toValue: unknown, expectedUpdatedAt?: string): Promise<Product> {
-    const res = await fetch(`/api/products/${encodeURIComponent(id)}/rollback`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ field, toValue, ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}) }),
-      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
+    const { data } = await client.post<Product>(`/products/${encodeURIComponent(id)}/rollback`, {
+      field, toValue, ...(expectedUpdatedAt ? { expectedUpdatedAt } : {}),
     });
-    if (!res.ok) throw await apiErrorFrom(res);
-    return ((await res.json()) as { data: Product }).data;
+    return data;
   },
 
   /** Wines in the trash, with the bottles trashed together with them. */

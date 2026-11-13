@@ -8,7 +8,7 @@ import path from 'path';
 import { prisma, PrismaClientOrTx } from '../lib/prisma';
 import { RegisterInput, LoginInput } from '../schemas/auth.schema';
 import { UpdateProfileInput, UpdatePreferencesInput, UPLOADED_AVATAR_PATH } from '../schemas/user.schema';
-import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
+import { Prisma, Theme, Language, TempUnit, DateFormat } from '@prisma/client';
 import { describeDevice, locateIp, countryOfIp, type DeviceDescription } from '../lib/device';
 import { notificationService } from './notification.service';
 import { systemConfigService } from './system-config.service';
@@ -21,6 +21,10 @@ import { encrypt } from '../lib/crypto';
 import { openTwoFactorSecret } from '../lib/two-factor-secret';
 import { newTotpSecret, totpUri, isCurrentTotp } from '../lib/totp';
 import { ACCOUNT_DELETION_GRACE_DAYS, EXPORT_CATEGORIES, type ExportCategory, type PublicUser } from '../../../shared/auth';
+import { deletePersonalData } from './account-deletion.service';
+import { countOtherAdmins, countOtherAdminsLocked } from '../lib/last-admin';
+import { RELEASE_NOTES, seenStateNow } from '../lib/release-notes';
+import { APP_VERSION } from '../lib/app-version';
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -74,7 +78,7 @@ export interface DeviceInfo {
 export const ALL_EXPORT_CATEGORIES: readonly ExportCategory[] = EXPORT_CATEGORIES;
 
 export type LoginResult =
-  | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never; viaTrustedDevice?: boolean }
+  | { user: PublicUser; token: string; rememberMe: boolean; requires2fa?: never; viaTrustedDevice?: boolean; knownBrowserToken?: string }
   | { user: PublicUser; token: string; rememberMe: boolean; requires2fa: true };
 
 export interface SessionSummary {
@@ -144,6 +148,31 @@ const PUBLIC_USER_SELECT = {
   isTwoFactorEnabled: true,
 } satisfies Record<keyof RawUserForPublic, true>;
 
+// ─── Known browser (#988) ────────────────────────────────────────────────────
+// A browser where the account completed a sign-in. Stateless: a JWT naming a
+// random browser id, the account, and a fingerprint of the account's current
+// password hash. Every way of changing a password (self-service, e-mail reset
+// link, admin reset) writes a new hash, so every cookie issued before it stops
+// verifying, with no table to keep and nothing to forget to revoke. Its claim
+// names (`kb*`) differ from a session token's (`userId`) and a trusted
+// device's (`tdt`), so none can stand for another.
+export const KNOWN_BROWSER_TTL_MS = SESSION_DURATION_MS;
+
+/** HMAC of the password hash: reveals nothing about it, changes with it. */
+function passwordFingerprint(passwordHash: string, secret: string): string {
+  return crypto.createHmac('sha256', secret).update(`known-browser:${passwordHash}`).digest('base64url');
+}
+
+function knownBrowserToken(user: { id: string; passwordHash: string }): string | undefined {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) return undefined;
+  return jwt.sign(
+    { kb: crypto.randomBytes(16).toString('base64url'), kbu: user.id, kbp: passwordFingerprint(user.passwordHash, secret) },
+    secret,
+    { algorithm: 'HS256', expiresIn: Math.floor(KNOWN_BROWSER_TTL_MS / 1000) },
+  );
+}
+
 function signToken(payload: AuthPayload, expiresIn: SignOptions['expiresIn'] = JWT_EXPIRES_IN): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error('JWT_SECRET_NOT_SET');
@@ -159,6 +188,7 @@ export type SecurityEventKey =
   | 'twoFactorDisabled'
   | 'sessionRevoked'
   | 'emailChanged'
+  | 'usernameChanged'
   | 'twoFactorLocked'
   | 'backupCodesRegenerated'
   | 'accountDeletionRequested';
@@ -184,6 +214,10 @@ const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subj
   emailChanged: (isEn) => isEn
     ? { subject: 'Glou — Your account email was changed', intro: 'The email address of your account was just changed. This message was sent to the previous address.' }
     : { subject: 'Glou — Adresse e-mail modifiée', intro: 'L’adresse e-mail de votre compte vient d’être modifiée. Ce message est envoyé à l’ancienne adresse.' },
+  // #911 (review) — the username is a sign-in identifier too.
+  usernameChanged: (isEn) => isEn
+    ? { subject: 'Glou — Your username was changed', intro: 'The username you sign in with was just changed. Sign in with the new one from now on.' }
+    : { subject: 'Glou — Nom d’utilisateur modifié', intro: 'Le nom d’utilisateur qui vous sert à vous connecter vient d’être modifié. Connectez-vous désormais avec le nouveau.' },
   // ISSUE_043 — repeated wrong 2FA codes on an account.
   twoFactorLocked: (isEn) => isEn
     ? { subject: 'Glou — Two-factor verification temporarily locked', intro: 'Too many incorrect two-factor codes were submitted on your account, so the verification step has been temporarily locked.' }
@@ -393,7 +427,7 @@ export class AuthService {
   /**
    * Register a new user.
    */
-  async register(data: RegisterInput, deviceInfo: DeviceInfo): Promise<{ user: PublicUser; token: string }> {
+  async register(data: RegisterInput, deviceInfo: DeviceInfo): Promise<{ user: PublicUser; token: string; knownBrowserToken?: string }> {
     const { username, email, password, displayName } = data;
 
     // If this is the first user, make them an admin
@@ -427,10 +461,20 @@ export class AuthService {
         email,
         passwordHash,
         isAdmin,
+        // FEAT-115 (#990): a new install starts with its version seen; the
+        // What's New? window first opens at the next update.
+        ...(isAdmin ? seenStateNow(RELEASE_NOTES, APP_VERSION) : {}),
         displayName: displayName || null,
         ...(data.language ? { language: data.language } : {}),
       },
       select: PUBLIC_USER_SELECT,
+    }).catch((err: unknown) => {
+      // Two sign-ups with the same username or e-mail at once both pass the
+      // check above; the unique index refuses the second (#467 review).
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new Error('REGISTRATION_CONFLICT');
+      }
+      throw err;
     });
     const user = this.toPublicUser(rawUser);
 
@@ -438,7 +482,8 @@ export class AuthService {
     // its cookie is persistent (COOKIE_OPTIONS), so the Session is flagged rememberMe=true.
     const session = await this.createSession(user.id, deviceInfo, true);
     const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
-    return { user, token };
+    // #988: a sign-in like any other, so this browser is known from now on.
+    return { user, token, knownBrowserToken: knownBrowserToken({ id: user.id, passwordHash }) };
   }
 
   /**
@@ -499,7 +544,7 @@ export class AuthService {
             const session = await this.createSession(user.id, deviceInfo, rememberMe);
             const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
             if (!isKnownDevice) this.notifySecurityEvent(user.id, 'newDevice', deviceInfo);
-            return { user: publicUser, token, rememberMe, viaTrustedDevice: true };
+            return { user: publicUser, token, rememberMe, viaTrustedDevice: true, knownBrowserToken: knownBrowserToken(user) };
           }
         }
       }
@@ -515,7 +560,79 @@ export class AuthService {
     const session = await this.createSession(user.id, deviceInfo, rememberMe);
     const token = signToken({ userId: user.id, email: user.email, username: user.username, scope: 'full', sessionId: session.id });
     if (!isKnownDevice) this.notifySecurityEvent(user.id, 'newDevice', deviceInfo);
-    return { user: publicUser, token, rememberMe };
+    return { user: publicUser, token, rememberMe, knownBrowserToken: knownBrowserToken(user) };
+  }
+
+  /**
+   * #980: the trusted device a sign-in comes from, when its cookie may skip
+   * the identifier's sign-in budget: the device belongs to the account the
+   * identifier names (compared exactly as {@link login} does), is neither
+   * revoked nor expired, the account is active, and the connection's country
+   * matches the device's (the same rule that lets the device skip the 2FA
+   * challenge). The account is reached through the device, never looked up by
+   * the identifier, so the answer tells nothing about other identifiers.
+   */
+  async signInTrustedDeviceId(identifier: string, trustedDeviceToken: string, ip: string): Promise<string | null> {
+    const tokenHash = crypto.createHash('sha256').update(trustedDeviceToken).digest('hex');
+    const device = await prisma.trustedDevice.findUnique({
+      where: { tokenHash },
+      select: { id: true, revokedAt: true, expiresAt: true, country: true, user: { select: { username: true, email: true, isActive: true } } },
+    });
+    if (!device || device.revokedAt || device.expiresAt <= new Date() || !device.user.isActive) return null;
+    if (identifier !== device.user.username && identifier !== device.user.email) return null;
+    const currentCountry = countryOfIp(ip);
+    if (device.country && currentCountry && device.country !== currentCountry) return null;
+    return device.id;
+  }
+
+  /**
+   * #988: the id of the known browser a sign-in comes from, when its cookie
+   * may skip the identifier's sign-in budget: the cookie verifies, names an
+   * active account the identifier names (username or e-mail, compared exactly
+   * as {@link login} does), and was issued under the account's current
+   * password. Like {@link signInTrustedDeviceId}, the account is reached
+   * through the cookie, never looked up by the identifier. It never touches
+   * 2FA: {@link login} does not read it.
+   */
+  async signInKnownBrowserId(identifier: string, cookie: string): Promise<string | null> {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) return null;
+    let claims: { kb?: unknown; kbu?: unknown; kbp?: unknown };
+    try {
+      const payload: unknown = jwt.verify(cookie, secret, { algorithms: ['HS256'] });
+      if (typeof payload !== 'object' || payload === null) return null;
+      claims = payload as typeof claims;
+    } catch {
+      return null;
+    }
+    const { kb, kbu, kbp } = claims;
+    if (typeof kb !== 'string' || !kb || typeof kbu !== 'string' || typeof kbp !== 'string') return null;
+    const user = await prisma.user.findUnique({
+      where: { id: kbu },
+      select: { username: true, email: true, isActive: true, passwordHash: true },
+    });
+    if (!user || !user.isActive) return null;
+    if (identifier !== user.username && identifier !== user.email) return null;
+    const expected = Buffer.from(passwordFingerprint(user.passwordHash, secret));
+    const given = Buffer.from(kbp);
+    if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) return null;
+    return kb;
+  }
+
+  /**
+   * #980: the identifier's sign-in budget is spent and a sign-in was refused.
+   * Filed under the account it names, if any (an unknown identifier is not
+   * recorded, like a wrong password on it, #601), with the reason only: what
+   * was typed is never kept. The rate limiter calls this once per window.
+   * Never throws.
+   */
+  async auditSignInLocked(identifier: string, ip: string): Promise<void> {
+    try {
+      const user = await prisma.user.findFirst({ where: { OR: [{ username: identifier }, { email: identifier }] }, select: { id: true } });
+      if (user) await auditLog({ userId: user.id, action: 'LOGIN_FAILED', status: 'error', ip, details: { reason: 'sign_in_locked' } });
+    } catch (err) {
+      console.error('[audit] Failed to record a locked sign-in:', err);
+    }
   }
 
   /** #601: a refused sign-in, with the reason only. */
@@ -544,14 +661,6 @@ export class AuthService {
    * avatar routes, never from the request body (#880).
    */
   async updateProfile(userId: string, data: UpdateProfileInput & { avatarUrl?: string | null }): Promise<PublicUser> {
-    if (data.username) {
-      const existing = await prisma.user.findFirst({
-        where: { username: data.username, NOT: { id: userId } },
-        select: { id: true },
-      });
-      if (existing) throw new Error('USERNAME_ALREADY_TAKEN');
-    }
-
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
@@ -575,6 +684,49 @@ export class AuthService {
     if (user.avatarUrl) await this.deleteAvatarFile(user.avatarUrl, [userId]);
 
     return this.updateProfile(userId, { avatarUrl: null });
+  }
+
+  /**
+   * #911: re-confirms the account password before an action that changes a
+   * sign-in identifier or opens the cellar beyond the session (a read/write
+   * guest link). An open session alone is not enough. Throws REAUTH_REQUIRED
+   * (no password sent) or INVALID_CREDENTIALS (wrong password), like the
+   * e-mail change.
+   */
+  async confirmPassword(userId: string, password: string | undefined): Promise<void> {
+    if (!password) throw new Error('REAUTH_REQUIRED');
+    const { passwordHash } = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { passwordHash: true } });
+    if (!(await bcrypt.compare(password, passwordHash))) throw new Error('INVALID_CREDENTIALS');
+  }
+
+  /**
+   * #769, #911: the username is also a sign-in identifier, so changing it
+   * asks for the password and is audited with both names.
+   */
+  async updateUsername(userId: string, username: string, currentPassword: string | undefined, deviceInfo: DeviceInfo): Promise<PublicUser> {
+    await this.confirmPassword(userId, currentPassword);
+
+    const existing = await prisma.user.findFirst({
+      where: { username, NOT: { id: userId } },
+      select: { id: true },
+    });
+    if (existing) throw new Error('USERNAME_ALREADY_TAKEN');
+
+    const { username: previousUsername } = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { username: true } });
+    let user;
+    try {
+      user = await prisma.user.update({ where: { id: userId }, data: { username }, select: PUBLIC_USER_SELECT });
+    } catch (err) {
+      // Taken by someone else between the check above and this write.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') throw new Error('USERNAME_ALREADY_TAKEN');
+      throw err;
+    }
+
+    if (previousUsername !== user.username) {
+      this.notifySecurityEvent(userId, 'usernameChanged', deviceInfo);
+      this.auditSecurityChange(userId, 'USERNAME_CHANGE', deviceInfo, { previousUsername, newUsername: user.username });
+    }
+    return this.toPublicUser(user);
   }
 
   /**
@@ -619,9 +771,12 @@ export class AuthService {
   }
 
   /**
-   * Update user password
+   * Update user password. Also the forced change after an admin reset
+   * (#336). Returns a new known-browser token (#988): the new hash voids
+   * every earlier one, the member's own browser included, so the route hands
+   * that browser a fresh one.
    */
-  async updatePassword(userId: string, currentPass: string, newPass: string, deviceInfo: DeviceInfo, currentSessionId: string): Promise<void> {
+  async updatePassword(userId: string, currentPass: string, newPass: string, deviceInfo: DeviceInfo, currentSessionId: string): Promise<{ knownBrowserToken?: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
     const valid = await bcrypt.compare(currentPass, user.passwordHash);
@@ -641,6 +796,7 @@ export class AuthService {
     await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown');
     // ISSUE_044: neither must a trusted device, which skips the 2FA challenge.
     await this.revokeAllTrustedDevices(userId);
+    return { knownBrowserToken: knownBrowserToken({ id: userId, passwordHash }) };
   }
 
   /**
@@ -858,6 +1014,9 @@ export class AuthService {
         backupCodes: hashedBackupCodes,
       },
     });
+    // #766 (review): a device trusted while 2FA was off (allowed before) must
+    // not skip the code it never had to give.
+    await this.revokeAllTrustedDevices(userId);
 
     this.notifySecurityEvent(userId, 'twoFactorEnabled', deviceInfo);
     this.auditSecurityChange(userId, 'TWO_FACTOR_ON', deviceInfo);
@@ -1126,18 +1285,17 @@ export class AuthService {
       select: { passwordHash: true, isAdmin: true, username: true },
     });
     if (!password || !(await bcrypt.compare(password, account.passwordHash))) throw new Error('INVALID_CREDENTIALS');
-    if (account.isAdmin) {
-      // Admins already leaving do not count: two admins asking at once would
-      // otherwise each see the other one stay.
-      const otherAdmins = await prisma.user.count({
-        where: { isAdmin: true, isActive: true, deletionRequestedAt: null, id: { not: userId } },
-      });
-      if (otherAdmins === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
-    }
+    if (account.isAdmin && (await countOtherAdmins(prisma, userId)) === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
 
-    await prisma.user.update({
-      where: { id: userId },
-      data: { deletionRequestedAt: new Date() },
+    await prisma.$transaction(async (tx) => {
+      // Admins already leaving do not count: two admins asking at once would
+      // otherwise each see the other one stay. Counted again here, admin rows
+      // locked, so both requests cannot pass together.
+      if (account.isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) throw new Error('CANNOT_DELETE_LAST_ADMIN');
+      await tx.user.update({
+        where: { id: userId },
+        data: { deletionRequestedAt: new Date() },
+      });
     });
     void notifyAdminsOfAccountDeletion({ kind: 'requested', username: account.username, requesterId: userId });
     this.notifySecurityEvent(userId, 'accountDeletionRequested', deviceInfo);
@@ -1170,28 +1328,34 @@ export class AuthService {
    * identity. Anonymizing in place keeps every such reference valid while
    * removing the PII GDPR Art. 17 actually targets (email, username,
    * password hash, 2FA secret, avatar...) and deactivating the
-   * account (`isActive: false`) so it can no longer sign in. Sessions,
-   * trusted devices and guest shares created by the account are removed
-   * outright — nothing legitimately needs them to survive.
+   * account (`isActive: false`) so it can no longer sign in.
    *
-   * Rows only: the avatar file (if any) is deleted by the caller after this
+   * #661: the member's personal data (wishlist, budgets, goals, presets,
+   * scans, sessions, devices, guest links...) is deleted outright, the same
+   * as when an admin deletes the account for good (deletePersonalData). A
+   * member deactivated after asking is processed too.
+   *
+   * Rows only: the avatar and scan files are deleted by the caller after this
    * transaction commits, same two-phase contract as
    * `inventoryService.purgeTrashed`'s photo paths.
    */
   async purgeDueAccountDeletions(
     cutoff: Date,
     client: PrismaClientOrTx = prisma,
-  ): Promise<{ count: number; avatarPaths: string[] }> {
+  ): Promise<{ count: number; avatarPaths: string[]; scanImagePaths: string[] }> {
     const due = await client.user.findMany({
-      where: { deletionRequestedAt: { not: null, lt: cutoff }, isActive: true },
+      where: { deletionRequestedAt: { not: null, lt: cutoff } },
       select: { id: true, avatarUrl: true },
     });
-    if (due.length === 0) return { count: 0, avatarPaths: [] };
+    if (due.length === 0) return { count: 0, avatarPaths: [], scanImagePaths: [] };
 
     const ids = due.map((u) => u.id);
-    await client.session.deleteMany({ where: { userId: { in: ids } } });
-    await client.trustedDevice.deleteMany({ where: { userId: { in: ids } } });
-    await client.guestShare.deleteMany({ where: { userId: { in: ids } } });
+    const { scanImagePaths } = await deletePersonalData(ids, client);
+    // Their history rows stay (business history is kept for good): no IP
+    // address of theirs survives in them, and no name — they read as the
+    // anonymised account below. Only an admin's hard delete keeps the name (#695).
+    await client.auditLog.updateMany({ where: { userId: { in: ids } }, data: { ip: '', actorName: null } });
+    await client.configChangeLog.updateMany({ where: { userId: { in: ids } }, data: { actorName: null } });
 
     for (const user of due) {
       // A valid bcrypt hash of a random, never-recorded value — not just an
@@ -1207,6 +1371,8 @@ export class AuthService {
           passwordHash: unusablePasswordHash,
           displayName: null,
           avatarUrl: null,
+          appName: null,
+          appSlogan: null,
           notifWebhook: false,
           isTwoFactorEnabled: false,
           twoFactorSecret: null,
@@ -1224,7 +1390,7 @@ export class AuthService {
     const avatarPaths = due
       .map((u) => u.avatarUrl)
       .filter((url): url is string => !!url);
-    return { count: due.length, avatarPaths };
+    return { count: due.length, avatarPaths, scanImagePaths };
   }
 
   /** Deletes the purged accounts' avatar files from disk. Never throws: one bad path must not block the rest. */
@@ -1315,7 +1481,7 @@ export class AuthService {
     rememberMe: boolean,
     deviceInfo: DeviceInfo,
     trustDevice = false,
-  ): Promise<{ user: PublicUser; token: string; rememberMe: boolean; trustedDeviceToken?: string }> {
+  ): Promise<{ user: PublicUser; token: string; rememberMe: boolean; trustedDeviceToken?: string; knownBrowserToken?: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
     if (!user.isTwoFactorEnabled) throw new Error('2FA_NOT_ENABLED');
 
@@ -1370,7 +1536,7 @@ export class AuthService {
       trustedDeviceToken = await this.createTrustedDevice(user.id, deviceInfo);
     }
 
-    return { user: publicUser, token, rememberMe, trustedDeviceToken };
+    return { user: publicUser, token, rememberMe, trustedDeviceToken, knownBrowserToken: knownBrowserToken(user) };
   }
 
   // ─── Sessions & Trusted Devices (FEAT-25) ──────────────────────────────────
@@ -1428,11 +1594,14 @@ export class AuthService {
    */
   async trustCurrentDevice(userId: string, deviceInfo: DeviceInfo, password: string, code?: string): Promise<{ token: string }> {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    // #766: without 2FA there is no code to skip; a device trusted now would
+    // only start to matter, unnoticed, the day 2FA is turned on.
+    if (!user.isTwoFactorEnabled) throw new Error('TWO_FACTOR_DISABLED');
 
     const validPwd = await bcrypt.compare(password, user.passwordHash);
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
-    if (user.isTwoFactorEnabled && !(await this.matchesSecondFactor(user, code))) {
+    if (!(await this.matchesSecondFactor(user, code))) {
       throw new Error('INVALID_CODE');
     }
 
@@ -1441,12 +1610,29 @@ export class AuthService {
   }
 
   /**
+   * #766: until when the device holding `trustedDeviceToken` skips the 2FA
+   * code for `userId`, or null when it does not (no cookie, revoked, expired,
+   * another account's). `cookieExpiresAt` is the cookie's own end: the
+   * browser drops it then, whatever the row says.
+   */
+  async trustedDeviceUntil(userId: string, trustedDeviceToken: string | undefined, cookieExpiresAt?: Date): Promise<Date | null> {
+    if (!trustedDeviceToken) return null;
+    const tokenHash = crypto.createHash('sha256').update(trustedDeviceToken).digest('hex');
+    const device = await prisma.trustedDevice.findUnique({ where: { tokenHash } });
+    const now = new Date();
+    if (!device || device.userId !== userId || device.revokedAt || device.expiresAt <= now) return null;
+    return cookieExpiresAt && cookieExpiresAt < device.expiresAt ? cookieExpiresAt : device.expiresAt;
+  }
+
+  /**
    * Revoke the TrustedDevice matching the given raw token, if it belongs to `userId`.
    */
   async untrustCurrentDevice(userId: string, trustedDeviceToken: string): Promise<void> {
     const tokenHash = crypto.createHash('sha256').update(trustedDeviceToken).digest('hex');
     const device = await prisma.trustedDevice.findUnique({ where: { tokenHash } });
-    if (!device || device.userId !== userId) throw new Error('NOT_FOUND');
+    // #766 (review): nothing of this account's to revoke (deleted meanwhile,
+    // another account's cookie): stopping trust is already true.
+    if (!device || device.userId !== userId) return;
 
     await prisma.trustedDevice.update({
       where: { id: device.id },
@@ -1467,6 +1653,21 @@ export const COOKIE_OPTIONS = {
   sameSite: 'strict' as const,
   maxAge: 30 * 24 * 60 * 60 * 1000,
   path: '/',
+};
+
+// #988: known-browser cookie, see knownBrowserToken. Set on every completed
+// sign-in (2FA or not) and renewed by a password change. It only lets that
+// browser past a locked sign-in identifier (signInAccountLimiter); it never
+// skips 2FA. Same flags and scope as the trusted-device cookie, kept on
+// logout for the same reason, valid 30 days from the last sign-in, void as
+// soon as the password changes.
+export const KNOWN_BROWSER_COOKIE_NAME = 'glou_known_browser';
+export const KNOWN_BROWSER_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: isCookieSecure(),
+  sameSite: 'strict' as const,
+  maxAge: KNOWN_BROWSER_TTL_MS,
+  path: '/api/auth',
 };
 
 // Session cookie (rememberMe=false) — expires when browser closes
@@ -1515,9 +1716,10 @@ async function notifyAdminsOfAccountDeletion(event: AccountDeletionEvent): Promi
       }
       // #742: the "N accounts deleted" notice is sent by the 3 a.m.
       // maintenance run, inside most night-time quiet hours, which drop a
-      // message rather than delay it. Like the other security alerts, it
-      // goes through them.
-      return notificationService.send({ userId: admin.id, category: 'security', subject, htmlBody, bypassQuietHours: true });
+      // message rather than delay it, so it goes through them.
+      // #981: about a member's account, not the admin's own: an admin can
+      // turn these off, unlike security alerts.
+      return notificationService.send({ userId: admin.id, category: 'members', subject, htmlBody, bypassQuietHours: true });
     }));
   } catch (err) {
     console.error('[auth] Could not notify administrators of an account deletion:', err);

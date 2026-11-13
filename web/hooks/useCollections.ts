@@ -3,8 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { collectionsClient } from '@/lib/collections/client';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { Collection, CollectionFormValues } from '@/lib/collections/types';
+import { qk } from '@/lib/queryKeys';
 
-export const COLLECTIONS_KEY = ['collections'];
+const COLLECTIONS_KEY = qk.collections;
+
+/** The collections and their badge in the menu. */
+function refreshCollections(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY });
+  void queryClient.invalidateQueries({ queryKey: qk.sidebarCounts });
+}
 
 export function useCollections() {
   return useQuery<Collection[]>({
@@ -26,7 +33,7 @@ export function useCreateCollection() {
       notifySuccess('toast.collection.createSuccess');
     },
     onError: () => notifyError('toast.collection.createError'),
-    onSettled: () => void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY }),
+    onSettled: () => refreshCollections(queryClient),
   });
 }
 
@@ -54,8 +61,8 @@ export function useDeleteCollection() {
     },
     onError: () => notifyError('toast.collection.deleteError'),
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      refreshCollections(queryClient);
+      void queryClient.invalidateQueries({ queryKey: qk.inventory.all });
     },
   });
 }
@@ -70,7 +77,7 @@ export function useAddItemsToCollection() {
     mutationFn: ({ id, itemIds }) => collectionsClient.addItems(id, itemIds),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      void queryClient.invalidateQueries({ queryKey: qk.inventory.all });
     },
   });
 }
@@ -83,7 +90,7 @@ export function useRemoveItemFromCollection() {
     mutationFn: ({ id, itemId }) => collectionsClient.removeItem(id, itemId),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      void queryClient.invalidateQueries({ queryKey: qk.inventory.all });
     },
   });
 }
@@ -97,7 +104,7 @@ export function useAddProductsToCollection() {
     mutationFn: ({ id, productIds }) => collectionsClient.addProducts(id, productIds),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      void queryClient.invalidateQueries({ queryKey: qk.inventory.all });
     },
   });
 }
@@ -110,7 +117,7 @@ export function useRemoveProductFromCollection() {
     mutationFn: ({ id, productId }) => collectionsClient.removeProduct(id, productId),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['inventory'] });
+      void queryClient.invalidateQueries({ queryKey: qk.inventory.all });
     },
   });
 }

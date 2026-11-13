@@ -10,13 +10,3 @@ export class NetworkError extends TypeError {
     this.name = 'NetworkError';
   }
 }
-
-/** `fetch`, with a request that got no answer rethrown as a NetworkError. Timeouts and aborts are left as they are. */
-export async function fetchOrNetworkError(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-  try {
-    return await fetch(input, init);
-  } catch (err) {
-    if (err instanceof TypeError) throw new NetworkError(err);
-    throw err;
-  }
-}

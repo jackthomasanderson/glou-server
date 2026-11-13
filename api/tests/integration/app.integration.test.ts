@@ -572,6 +572,9 @@ describe('POST /api/admin/users/:id/role', () => {
     vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
       args.where.id === 'm1' ? { id: 'm1', isActive: true, isAdmin: false } : { id: args.where.id, isActive: true, isAdmin: true }) as never);
     (prisma.user as unknown as { update: ReturnType<typeof vi.fn> }).update = vi.fn().mockResolvedValue({ id: 'm1', isAdmin: true });
+    (prisma as unknown as { $transaction: unknown }).$transaction = vi.fn().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => fn(prisma));
+    // Another active admin stays (the last-admin checks, review of #975).
+    (prisma.user as unknown as { count: unknown }).count = vi.fn().mockResolvedValue(1);
   });
   const post = (body: Record<string, unknown>) => request(app)
     .post('/api/admin/users/m1/role')
@@ -594,7 +597,7 @@ describe('POST /api/admin/users/:id/role', () => {
     expect(res.status).toBe(200);
     expect(spy).toHaveBeenCalledWith('u1', { password: 'admin-pw', code: '123456' }, expect.anything(),
       { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: 'm1', isAdmin: true } });
-    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: { isAdmin: true } }));
+    expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ isAdmin: true }) }));
     spy.mockRestore();
   });
 
@@ -628,6 +631,26 @@ describe('POST /api/admin/users/:id/role', () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
     spy.mockRestore();
   });
+
+  // Review of #975: two admins removing each other's role at the same moment
+  // left none. The count is made again in the transaction, admin rows locked.
+  it('refuses to remove the role of the last other admin, counted after locking the admin rows', async () => {
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      ({ id: args.where.id, isActive: true, isAdmin: true })) as never);
+    const p = prisma as unknown as Record<string, unknown> & { user: Record<string, ReturnType<typeof vi.fn>> };
+    // One other admin before the step-up; none once the admin rows are locked.
+    p.user.count = vi.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0);
+    vi.mocked(prisma.$queryRaw).mockClear();
+    const spy = vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValueOnce();
+
+    const res = await post({ isAdmin: false, password: 'admin-pw' });
+
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CANNOT_REMOVE_LAST_ADMIN');
+    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]).toBeLessThan(p.user.count.mock.invocationCallOrder[1]);
+    expect(prisma.user.update).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
 });
 
 describe('GET /api/admin/audit-logs filters', () => {
@@ -644,7 +667,9 @@ describe('GET /api/admin/audit-logs filters', () => {
     expect(res.status).toBe(200);
     const where = vi.mocked(prisma.auditLog.findMany).mock.calls[0][0]?.where as Record<string, any>;
     expect(where.status).toBe('error');
-    expect(where.OR).toHaveLength(4);
+    // #695: a member deleted for good is found by the name kept on the row.
+    expect(where.OR).toHaveLength(5);
+    expect(where.OR).toContainEqual({ actorName: { contains: 'login', mode: 'insensitive' } });
     expect(where.createdAt.gte).toEqual(new Date('2026-10-01'));
     expect(where.createdAt.lte).toEqual(new Date('2026-10-02T23:59:59.999Z'));
     expect(vi.mocked(prisma.auditLog.count).mock.calls[0][0]).toEqual({ where });
@@ -670,7 +695,7 @@ describe('GET /api/admin/audit-logs filters', () => {
     expect(res.status).toBe(200);
     const where = vi.mocked(prisma.auditLog.findMany).mock.calls[0][0]?.where as Record<string, any>;
     expect(where.action).toEqual({ in: ['LOGIN', 'LOGIN_2FA'] });
-    expect(where.OR).toHaveLength(4);
+    expect(where.OR).toHaveLength(5);
   });
 
   it('rejects an unknown action type', async () => {
@@ -934,7 +959,44 @@ describe('POST /api/admin/backups/:id/restore', () => {
 
     expect(res.status).toBe(500);
     expect(res.body).toEqual({ error: 'RESTORE_FAILED' });
-    expect(log).toHaveBeenCalledWith('[Admin] Backup restore error:', expect.objectContaining({ message: raw }));
+    // #467: written once by the error middleware, the raw failure as the cause.
+    expect(log).toHaveBeenCalledWith(
+      '[error] %s -> %d %s', expect.any(String), 500, 'RESTORE_FAILED',
+      expect.objectContaining({ cause: expect.objectContaining({ message: raw }) }),
+    );
+  });
+
+  // #467 review: whatever else stops the restore (a corrupt or truncated
+  // dump, psql missing or too slow, an unreadable file), the dialog gets the
+  // #748 code; the detail goes to the server log only.
+  it.each([
+    'GUNZIP_FAILED: incorrect header check',
+    'PSQL_RESTORE_TIMEOUT after 600000 ms',
+    'spawn psql ENOENT',
+    'EACCES: permission denied, open \'/app/backups/x.sql.gz\'',
+    'INVALID_PATH',
+  ])('answers RESTORE_FAILED, never the raw text, when the restore fails with "%s"', async (raw) => {
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(new Error(raw)));
+    spies.push(vi.spyOn(console, 'error').mockImplementation(() => {}));
+
+    const res = await restore();
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: 'RESTORE_FAILED' });
+  });
+
+  it('answers 503 DATABASE_UNAVAILABLE when the database goes away during the restore', async () => {
+    spies.push(vi.spyOn(authService, 'reauthenticateAdmin').mockResolvedValue());
+    spies.push(vi.spyOn(backupService, 'restoreBackup').mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Can't reach database server", { code: 'P1001', clientVersion: '7.0.0' }),
+    ));
+    spies.push(vi.spyOn(console, 'error').mockImplementation(() => {}));
+
+    const res = await restore();
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ error: 'DATABASE_UNAVAILABLE' });
   });
 
   it('takes no backup at all on a wrong password', async () => {
@@ -1069,6 +1131,23 @@ describe('PATCH /api/admin/users/:id/status', () => {
     expect(p.session.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
     expect(p.trustedDevice.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
     expect(p.guestShare.updateMany).toHaveBeenCalledWith({ where: { userId: 'm1', revokedAt: null }, data: { revokedAt: now } });
+  });
+
+  // Review of #975: two admins deactivating each other at the same moment
+  // both passed the count made before the step-up.
+  it('re-counts the other active admins in the transaction, after locking the admin rows', async () => {
+    vi.mocked(prisma.user.findUnique).mockImplementation((async (args: { where: { id: string } }) =>
+      ({ id: args.where.id, isActive: true, isAdmin: true })) as never);
+    // Two active admins before the step-up; none left besides the target once locked.
+    p.user.count = vi.fn().mockResolvedValueOnce(2).mockResolvedValueOnce(0);
+    vi.mocked(prisma.$queryRaw).mockClear();
+
+    const res = await patch(false);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('CANNOT_DEACTIVATE_LAST_ADMIN');
+    expect(vi.mocked(prisma.$queryRaw).mock.invocationCallOrder[0]).toBeLessThan(p.user.count.mock.invocationCallOrder[1]);
+    expect(p.user.update).not.toHaveBeenCalled();
   });
 
   it('deactivate then reactivate: what was revoked stays revoked, and both changes are audited', async () => {

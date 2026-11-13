@@ -9,8 +9,9 @@ export const AVATAR_PATH_PREFIX = '/uploads/avatars/';
  */
 export const UPLOADED_AVATAR_PATH = /^\/uploads\/avatars\/([A-Za-z0-9-]+(?:\.[A-Za-z0-9]+)?)$/;
 
+// #911: the username is also a sign-in identifier: it is changed only through
+// PATCH /api/user/username, with the password, never here.
 export const updateProfileSchema = z.object({
-  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/).optional(),
   // #880: no `avatarUrl` here — only POST/DELETE /api/user/avatar set it, so
   // it always names a file the member uploaded. An extra key is stripped.
   appName: z.string().max(40).optional().nullable().or(z.literal('')),
@@ -28,6 +29,14 @@ export const updateEmailSchema = z.object({
 });
 
 export type UpdateEmailInput = z.infer<typeof updateEmailSchema>;
+
+// #911: the username is a sign-in identifier too: same confirmation as the
+// e-mail. `currentPassword` may be missing so the route can answer
+// REAUTH_REQUIRED (a missing password is not a wrong guess for the limiter).
+export const updateUsernameSchema = z.object({
+  username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/),
+  currentPassword: z.string().min(1).max(1024).optional(),
+});
 
 export const updatePasswordSchema = z.object({
   currentPassword: z.string(),

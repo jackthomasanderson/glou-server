@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
+import { errorMiddleware } from '../../src/middleware/error.middleware';
 
 vi.mock('../../src/middleware/guest.middleware', () => ({
   guestMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -34,6 +35,8 @@ import { auditLog } from '../../src/services/audit.service';
 const app = express();
 app.use(express.json());
 app.use('/api/guest/:token', guestRouter);
+// #467: the router lets failures reach the error middleware, as in app.ts.
+app.use(errorMiddleware);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -51,13 +54,14 @@ describe('PATCH /api/guest/:token/inventory/:itemId', () => {
       .send({ fillLevel: 50, notes: null });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
+    expect(res.body.details).toEqual(expect.objectContaining({ _errors: expect.any(Array) }));
     expect(inventoryService.updateItem).not.toHaveBeenCalled();
   });
 
   it('writes the state of the bottle', async () => {
     const res = await request(app).patch('/api/guest/tok/inventory/i1').send({ isOpened: true, fillLevel: 50 });
     expect(res.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { isOpened: true, fillLevel: 50 }, { guard: expect.any(Function), slotChoice: 'auto' });
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'i1', { isOpened: true, fillLevel: 50 }, { guard: expect.any(Function), slotChoice: 'auto', guest: { name: 'Marie' } });
   });
 
   it('answers with the share-redacted item, not the full updated row (#483)', async () => {
@@ -182,6 +186,8 @@ describe('POST /api/guest/:token/tastings', () => {
 
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('VALIDATION_ERROR');
+    // #467: one details shape for every route, Zod's format() (an object, not a joined string).
+    expect(res.body.details).toEqual(expect.objectContaining({ _errors: expect.any(Array) }));
     expect(createGuestTasting).not.toHaveBeenCalled();
   });
 
@@ -246,7 +252,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     expect((await request(app).patch('/api/guest/tok/inventory/i1').send({ undo: true })).status).toBe(200);
     expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'i1',
       { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null, placeAt: { column: 2, row: 3 } },
-      { guard: expect.any(Function), slotChoice: 'auto' });
+      { guard: expect.any(Function), slotChoice: 'auto', guest: { name: 'Marie' } });
   });
 
   it('a bottle opened from a group takes its cell with it: no cell recorded (it comes back with the bottle)', async () => {
@@ -306,7 +312,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     const undone = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
 
     expect(undone.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'sub', { isOpened: true, fillLevel: 60, openedAt: new Date(OPENED_AT), cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto' });
+    expect(inventoryService.updateItem).toHaveBeenLastCalledWith('owner', 'sub', { isOpened: true, fillLevel: 60, openedAt: new Date(OPENED_AT), cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto', guest: { name: 'Marie' } });
   });
 
   it('still refuses a level on a group of more than one, and closing the opened bottle', async () => {
@@ -335,7 +341,7 @@ describe('PATCH /api/guest/:token/inventory/:itemId — "Annuler"', () => {
     const res = await request(app).patch('/api/guest/tok/inventory/sub').send({ undo: true });
 
     expect(res.status).toBe(200);
-    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'sub', { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto' });
+    expect(inventoryService.updateItem).toHaveBeenCalledWith('owner', 'sub', { isOpened: false, fillLevel: null, openedAt: null, cigarsLeft: null }, { guard: expect.any(Function), slotChoice: 'auto', guest: { name: 'Marie' } });
     expect(auditLog).toHaveBeenCalledWith(expect.objectContaining({ details: expect.objectContaining({ undoOf: STAMP }) }));
   });
 

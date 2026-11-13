@@ -3,7 +3,9 @@ import { authService } from '../src/services/auth.service';
 import { prisma } from '../src/lib/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { Theme, Language, TempUnit, DateFormat } from '@prisma/client';
+import { Prisma, Theme, Language, TempUnit, DateFormat } from '@prisma/client';
+import { RELEASE_NOTES, seenStateNow } from '../src/lib/release-notes';
+import { APP_VERSION } from '../src/lib/app-version';
 
 vi.mock('../src/lib/prisma', () => ({
   prisma: {
@@ -102,6 +104,8 @@ describe('AuthService', () => {
         pinHash: null,
         autoLockDelayMin: null,
         onboardingCompletedAt: null,
+        lastSeenReleaseVersion: null,
+        seenReleaseNoteIds: [],
         mustChangePassword: false,
         notifEmail: false,
         notifWebhook: false,
@@ -135,6 +139,19 @@ describe('AuthService', () => {
       vi.mocked(prisma.user.count).mockResolvedValue(1);
       vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ registrationOpen: true } as any);
       vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'u1' } as any);
+
+      await expect(authService.register(validData, deviceInfo)).rejects.toThrow('REGISTRATION_CONFLICT');
+    });
+
+    // #467 review: two sign-ups with the same username or e-mail at once both
+    // pass the check above; the database's unique index refuses the second.
+    it('throws REGISTRATION_CONFLICT when the unique index refuses a concurrent sign-up', async () => {
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ registrationOpen: true } as any);
+      vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' }),
+      );
 
       await expect(authService.register(validData, deviceInfo)).rejects.toThrow('REGISTRATION_CONFLICT');
     });
@@ -177,6 +194,8 @@ describe('AuthService', () => {
         pinHash: null,
         autoLockDelayMin: null,
         onboardingCompletedAt: null,
+        lastSeenReleaseVersion: null,
+        seenReleaseNoteIds: [],
         mustChangePassword: false,
         notifEmail: false,
         notifWebhook: false,
@@ -194,6 +213,25 @@ describe('AuthService', () => {
 
       expect(prisma.systemConfig.findUnique).not.toHaveBeenCalled();
       expect(result.user.isAdmin).toBe(true);
+      // FEAT-115 (#990): on a new install the installed version counts as
+      // seen — the What's New? window first opens at the next update.
+      const created = vi.mocked(prisma.user.create).mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(created.data).toMatchObject({ lastSeenReleaseVersion: seenStateNow(RELEASE_NOTES, APP_VERSION).lastSeenReleaseVersion });
+      expect(created.data.seenReleaseNoteIds).toEqual(seenStateNow(RELEASE_NOTES, APP_VERSION).seenReleaseNoteIds);
+    });
+
+    it('records no release notes seen for a member, who never sees them (#990)', async () => {
+      vi.mocked(prisma.user.count).mockResolvedValue(1);
+      vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue({ registrationOpen: true } as any);
+      vi.mocked(prisma.user.findFirst).mockResolvedValue(null);
+      vi.mocked(prisma.user.create).mockResolvedValue({ id: '2', isAdmin: false, createdAt: new Date() } as any);
+      vi.mocked(prisma.session.create).mockResolvedValue({ id: 'session-2' } as any);
+      vi.mocked(jwt.sign).mockReturnValue('mock-jwt-token' as never);
+
+      await authService.register(validData, deviceInfo);
+
+      const created = vi.mocked(prisma.user.create).mock.calls[0][0] as { data: Record<string, unknown> };
+      expect(created.data).not.toHaveProperty('lastSeenReleaseVersion');
     });
   });
 
@@ -231,6 +269,8 @@ describe('AuthService', () => {
       pinHash: null,
       autoLockDelayMin: null,
       onboardingCompletedAt: null,
+      lastSeenReleaseVersion: null,
+      seenReleaseNoteIds: [],
       mustChangePassword: false,
       notifEmail: false,
       notifWebhook: false,
@@ -312,8 +352,10 @@ describe('AuthService', () => {
       backupCodes: [] as string[],
     };
 
+    const mockUser2fa = { ...mockUserNo2fa, isTwoFactorEnabled: true, twoFactorSecret: 'SECRET' };
+
     it('rejects a wrong password without creating a trusted device', async () => {
-      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUserNo2fa as never);
+      vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUser2fa as never);
       vi.mocked(bcrypt.compare).mockResolvedValue(false as never);
 
       await expect(
@@ -322,15 +364,15 @@ describe('AuthService', () => {
       expect(prisma.trustedDevice.create).not.toHaveBeenCalled();
     });
 
-    it('creates a trusted device once the password is confirmed (no 2FA on the account)', async () => {
+    // #766: with 2FA off there is no code to skip.
+    it('refuses when 2FA is off, even with the right password', async () => {
       vi.mocked(prisma.user.findUniqueOrThrow).mockResolvedValue(mockUserNo2fa as never);
       vi.mocked(bcrypt.compare).mockResolvedValue(true as never);
-      vi.mocked(prisma.trustedDevice.create).mockResolvedValue({} as never);
 
-      const result = await authService.trustCurrentDevice('u1', deviceInfo, 'correct-password');
-
-      expect(result.token).toBeTruthy();
-      expect(prisma.trustedDevice.create).toHaveBeenCalledTimes(1);
+      await expect(
+        authService.trustCurrentDevice('u1', deviceInfo, 'correct-password'),
+      ).rejects.toThrow('TWO_FACTOR_DISABLED');
+      expect(prisma.trustedDevice.create).not.toHaveBeenCalled();
     });
 
     it('requires a valid TOTP code when 2FA is enabled, even with the right password', async () => {

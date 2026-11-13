@@ -111,7 +111,7 @@ export function ConfigHistoryCard() {
                 </div>
                 <div className="sm:text-right shrink-0">
                   <p className="text-xs text-foreground-500">
-                    {t('adminConfig.history.by', { user: entry.user?.username ?? t('adminConfig.history.unknownUser') })}
+                    {t('adminConfig.history.by', { user: entry.user?.username ?? entry.actorName ?? t('adminConfig.history.unknownUser') })}
                   </p>
                   <p className="text-xs text-foreground-400">{hasMounted ? formatDateTime(entry.createdAt, i18n.language) : ''}</p>
                 </div>

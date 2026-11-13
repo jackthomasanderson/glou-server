@@ -29,6 +29,7 @@ vi.mock('@/hooks/useAutoLock', () => ({
 }));
 vi.mock('../LockScreen', () => ({ LockScreen: () => null }));
 vi.mock('../../onboarding/OnboardingWizard', () => ({ OnboardingWizard: () => null }));
+vi.mock('../../whats-new/WhatsNewProvider', () => ({ WhatsNewProvider: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
 
 import { AuthGuard } from '../AuthGuard';
 

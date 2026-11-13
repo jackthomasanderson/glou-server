@@ -15,7 +15,10 @@ vi.mock('@/lib/offline/db', () => ({ mirrorInventoryToCache: vi.fn(), getCachedI
 vi.mock('@/lib/offline/syncEngine', () => ({ overlayQueuedChanges: async <T,>(items: T) => items, enqueueMutation: vi.fn() }));
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
 
-import { INVENTORY_KEY, useInventoryItemLookup } from './useInventory';
+import { useInventoryItemLookup } from './useInventory';
+import { qk } from '@/lib/queryKeys';
+
+const INVENTORY_KEY = qk.inventory.list;
 
 const box = (quantity: number) => ({ id: 'cigar-1', category: 'cigar', quantity, isOpened: false }) as unknown as InventoryItem;
 

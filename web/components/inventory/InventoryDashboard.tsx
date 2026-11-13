@@ -87,7 +87,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const { i18n } = useTranslation();
   // #471: the list shows wines (families); the flat bottles still back the
   // drawer, the edit form, QR codes, duplicates and bulk actions until their lots.
-  const { data: products, isLoading, isError, refetch, isRefetching } = useProducts();
+  const { data: products, isLoading, isError, error: loadError, refetch, isRefetching } = useProducts();
   const { data: items } = useInventory();
   const productsTruncated = useProductsTruncated();
   const itemsTruncated = useInventoryTruncated();
@@ -232,13 +232,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   // page size changes — both adjusted during render (React's documented
   // pattern) rather than in effects, guarded against the previous render's
   // values so each reset only fires on an actual change.
-  const filterSortKey = [
+  const filterSortValues = [
     searchQuery, selectedCategories, selectedCellars, selectedTags,
     selectedWineColors, minValue, maxValue, sortBy, openedFilter, showGone, notLocated, selectedCollectionId,
   ];
-  const [prevFilterSortKey, setPrevFilterSortKey] = useState(filterSortKey);
-  if (filterSortKey.some((v, i) => v !== prevFilterSortKey[i])) {
-    setPrevFilterSortKey(filterSortKey);
+  const [prevFilterSortValues, setPrevFilterSortValues] = useState(filterSortValues);
+  if (filterSortValues.some((v, i) => v !== prevFilterSortValues[i])) {
+    setPrevFilterSortValues(filterSortValues);
     setAnchorId(null);
     setCurrentPage(1);
   }
@@ -514,6 +514,7 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
           {/* Error */}
           {isError && (
             <ErrorState
+              error={loadError}
               className="mb-4"
               message={t('inventory.errors.load')}
               onRetry={() => { void refetch(); }}

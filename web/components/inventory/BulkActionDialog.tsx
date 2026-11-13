@@ -13,6 +13,7 @@ import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/Of
 import { useBulkPresets, useCreateBulkPreset, useDeleteBulkPreset } from '@/hooks/useBulkPresets';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 import { FILL_LEVELS } from '@/lib/products/fillLevels';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 interface BulkActionDialogProps {
   open: boolean;
@@ -183,6 +184,7 @@ export function BulkActionDialog({
                   <span className="text-xs font-bold uppercase tracking-widest text-primary">{t('bulk.presets')}</span>
                   <Select
                     // select-may-empty: a list of presets to load, not a field: nothing stays selected.
+                    popoverProps={ACCESSIBLE_POPOVER}
                     aria-label={t('bulk.loadPreset')}
                     placeholder={t('bulk.loadPreset')}
                     variant="bordered"

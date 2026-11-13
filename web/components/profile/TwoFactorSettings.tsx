@@ -110,14 +110,12 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
     });
   };
 
+  // #766: a part of the "Sign-in and security" card (AccountSecurity), not a card of its own.
   return (
-    <div className="bg-content1 border border-divider rounded-2xl p-6">
-      <div className="flex items-center gap-3 mb-5">
-        <ShieldCheck size={20} className="text-primary" />
-        <h2 className="text-base font-semibold">{t('profile.twoFactor.title')}</h2>
-      </div>
+    <section aria-labelledby="two-factor-heading">
+      <h3 id="two-factor-heading" className="text-sm font-semibold mb-3">{t('profile.twoFactor.title')}</h3>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         <p className="text-sm text-foreground-500">
           {t('profile.twoFactor.description')}
         </p>
@@ -363,6 +361,6 @@ export function TwoFactorSettings({ user }: { user: PublicUser }) {
           )}
         </ModalContent>
       </ResponsiveModal>
-    </div>
+    </section>
   );
 }

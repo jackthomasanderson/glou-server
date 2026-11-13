@@ -1,12 +1,12 @@
 'use client';
 import React, { useRef, useState } from 'react';
 import {
-  Avatar, Button, Input, CircularProgress,
+  Avatar, Button, CircularProgress,
   ModalContent, ModalHeader, ModalBody, ModalFooter,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
-import { Camera, Trash2, Pencil, Check, X } from 'lucide-react';
-import { useUploadAvatar, useDeleteAvatar, useUpdateProfile, PublicUser } from '@/hooks/useAuth';
+import { Camera, Trash2 } from 'lucide-react';
+import { useUploadAvatar, useDeleteAvatar, PublicUser } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
 import { downscaleImage } from '@/lib/image-resize';
 
@@ -14,25 +14,11 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
   const { t } = useTranslation();
   const uploadAvatar = useUploadAvatar();
   const deleteAvatar = useDeleteAvatar();
-  const updateProfile = useUpdateProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
-  const [editingUsername, setEditingUsername] = useState(false);
-  const [usernameValue, setUsernameValue] = useState(user.username);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-
-  const handleUsernameConfirm = () => {
-    const trimmed = usernameValue.trim();
-    if (!trimmed || trimmed === user.username) { setEditingUsername(false); return; }
-    updateProfile.mutate({ username: trimmed }, {
-      onSuccess: () => { setEditingUsername(false); setFeedback({ type: 'success', msg: t('profile.saveSuccess') }); },
-      onError: (err) => {
-        setFeedback({ type: 'error', msg: err.message === 'USERNAME_ALREADY_TAKEN' ? t('auth.errors.USERNAME_ALREADY_TAKEN') : t('profile.avatarError') });
-      },
-    });
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) void handleUpload(e.target.files[0]);
@@ -122,41 +108,8 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
         )}
       </div>
 
-      {editingUsername ? (
-        <div className="flex items-center gap-1 mt-3">
-          <Input
-            size="sm"
-            value={usernameValue}
-            onValueChange={setUsernameValue}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleUsernameConfirm();
-              if (e.key === 'Escape') { setEditingUsername(false); setUsernameValue(user.username); }
-            }}
-            autoFocus
-            className="w-40"
-            isDisabled={updateProfile.isPending}
-          />
-          <Button isIconOnly size="sm" variant="light" color="primary" onPress={handleUsernameConfirm} isDisabled={updateProfile.isPending} aria-label={t('actions.confirm')}>
-            {updateProfile.isPending ? <CircularProgress size="sm" isIndeterminate /> : <Check size={14} />}
-          </Button>
-          <Button isIconOnly size="sm" variant="light" onPress={() => { setEditingUsername(false); setUsernameValue(user.username); }} aria-label={t('actions.cancel')}>
-            <X size={14} />
-          </Button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-1 mt-3">
-          <span className="text-sm font-bold">{user.username}</span>
-          <Button
-            isIconOnly size="sm" variant="light" color="default"
-            onPress={() => { setUsernameValue(user.username); setEditingUsername(true); }}
-            className="opacity-50 hover:opacity-100"
-            aria-label={t('actions.edit')}
-          >
-            <Pencil size={13} />
-          </Button>
-        </div>
-      )}
-
+      {/* #769: the username is a sign-in identifier, changed from the security card with the password. */}
+      <p className="text-sm font-bold mt-3">{user.username}</p>
       <p className="text-sm text-foreground-500">{user?.email}</p>
       <p className="text-xs text-foreground-400 mt-2 text-center" style={{ whiteSpace: 'pre-line' }}>
         {t('profile.avatarHint')}

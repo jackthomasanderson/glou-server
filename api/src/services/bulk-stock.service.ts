@@ -8,6 +8,7 @@ import { freeSlots, slotsFreed, trashSlots } from '../lib/slots';
 import type { AuditAction } from './audit.service';
 import { applyState, STATE_FIELDS, type StateItem } from './stock-state.service';
 import { splitLockedGroup } from './stock-split.service';
+import { foldByLine, recordMovements, trashMovements, type MovementDraft } from './stock-movement.service';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import { preselectGroup } from '../../../shared/stock-choice';
 import type { BulkStockResult, FieldChange } from '../../../shared/product';
@@ -104,6 +105,10 @@ export const bulkStockService = {
           // Its cell freed before the cellar is written (FEAT-93: the slot's key holds the cellar).
           const freed = slotsFreed(await freeSlots(tx, unit.id));
           await tx.inventoryItem.update({ where: { id: unit.id }, data: { cellarId, updatedBy: userId } });
+          await recordMovements(tx, { userId }, [{
+            productId: family.id, itemId: unit.id, kind: 'MOVED', delta: 0, count: 1,
+            details: { cellarId: unit.cellarId, fromCellarId: unit.cellarId, toCellarId: cellarId },
+          }]);
           const changes: FieldChange[] = [{ field: 'cellarId', from: unit.cellarId, to: cellarId }, ...freed];
           entries.push({ action: 'UPDATE', bottleId: unit.id, productId: family.id, details: { changes, bulk: true } });
         }
@@ -131,6 +136,7 @@ export const bulkStockService = {
         // FEAT-93 (#174): their cells go to the trash with them.
         await trashSlots(tx, rows.map((row) => row.id), deletedAt);
         await tx.inventoryItem.updateMany({ where: { id: { in: rows.map((row) => row.id) } }, data: { deletedAt, updatedBy: userId } });
+        await recordMovements(tx, { userId }, trashMovements('TRASHED', family.id, rows));
         for (const row of rows) entries.push({ action: 'DELETE', bottleId: row.id, productId: family.id, details: { bulk: true } });
       }
       return { result: { wines: families.length, units }, entries, deletedAt };
@@ -159,6 +165,8 @@ export const bulkStockService = {
         if (unitsOf(await inStock(tx, family.id)) < count) throw badRequest('COUNT_ABOVE_STOCK', { productId: family.id });
         // Boxes opened by this very action: the next cigars come out of them.
         const openedHere = new Set<string>();
+        // #848: told per line drunk from ("3 bouteilles bues"), not per copy.
+        const movements: MovementDraft[] = [];
         for (let i = 0; i < count; i++) {
           const rows = await inStock(tx, family.id);
           const opened = rows
@@ -170,9 +178,11 @@ export const bulkStockService = {
             ?? rows.find((row) => !isIntactItem(row));
           if (!target) break;
           const write = family.kind === 'cigar' ? { smokeOne: true } : { state: { ...FINISHED_ITEM_STATE } };
+          const told = movements.length;
           const done = await applyState<Record<string, never>, { id: string }>(
-            tx, target as StateItem, write, { userId, kind: family.kind, include: {} },
+            tx, target as StateItem, write, { userId, kind: family.kind, include: {}, collect: movements },
           );
+          for (let m = told; m < movements.length; m++) movements[m] = { ...movements[m], itemId: target.id };
           if (family.kind === 'cigar' && done.state.fillLevel !== 0) openedHere.add(done.data.id);
           units++;
           // FEAT-93 (decision #471 point 75): the cell the copy came from, if any, in the history of the line it left.
@@ -194,6 +204,7 @@ export const bulkStockService = {
             });
           }
         }
+        await recordMovements(tx, { userId }, foldByLine(movements));
       }
       return { result: { wines: families.length, units }, entries };
     }, { timeout: 60000, maxWait: 10000 });

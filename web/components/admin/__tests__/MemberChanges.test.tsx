@@ -17,17 +17,27 @@ const translate = (k: string, o?: Record<string, unknown>) =>
   (i18n.t as unknown as (key: string, options?: Record<string, unknown>) => string)(k, o);
 const updateRole = vi.fn();
 const updateStatus = vi.fn();
+const deleteMember = vi.fn();
+const scheduleDeletion = vi.fn();
+const exportData = vi.fn();
 const notifyError = vi.fn();
+const notifySuccess = vi.fn();
 
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: translate }) }));
 vi.mock('@/hooks/useAdmin', () => ({
   useUpdateUserRole: () => ({ mutateAsync: updateRole }),
   useUpdateUserStatus: () => ({ mutateAsync: updateStatus }),
+  useDeleteMember: () => ({ mutateAsync: deleteMember }),
+  useScheduleMemberDeletion: () => ({ mutateAsync: scheduleDeletion }),
+  useExportMemberData: () => ({ mutateAsync: exportData }),
 }));
 vi.mock('@/hooks/useAuth', () => ({
   useMe: () => ({ data: { id: 'a1', isTwoFactorEnabled: false }, refetch: vi.fn() }),
 }));
-vi.mock('@/lib/toast', () => ({ notifyError: (key: string) => notifyError(key) }));
+vi.mock('@/lib/toast', () => ({
+  notifyError: (key: string) => notifyError(key),
+  notifySuccess: (key: string) => notifySuccess(key),
+}));
 vi.mock('@/components/ui/ResponsiveModal', () => ({
   ResponsiveModal: ({ isOpen, children }: { isOpen?: boolean; children?: ReactNode }) =>
     isOpen ? <div role="dialog">{children}</div> : null,
@@ -64,17 +74,19 @@ const member = (extra: Partial<AdminUser> = {}): AdminUser => ({
   isAdmin: false, isActive: true, isTwoFactorEnabled: false, createdAt: '2026-01-01T00:00:00.000Z', ...extra,
 });
 
-function Harness({ target, action }: { target: AdminUser; action: 'removeAdmin' | 'toggleStatus' }) {
+type Action = 'removeAdmin' | 'toggleStatus' | 'deleteMember' | 'toggleDeletion' | 'exportData';
+
+function Harness({ target, action }: { target: AdminUser; action: Action }) {
   const changes = useMemberChanges();
   return (
     <>
-      <button type="button" onClick={() => (action === 'removeAdmin' ? changes.removeAdmin(target) : changes.toggleStatus(target))}>go</button>
+      <button type="button" onClick={() => changes[action](target)}>go</button>
       {changes.dialog}
     </>
   );
 }
 
-function open(target: AdminUser, action: 'removeAdmin' | 'toggleStatus') {
+function open(target: AdminUser, action: Action) {
   render(<Harness target={target} action={action} />);
   fireEvent.click(screen.getByRole('button', { name: 'go' }));
   return screen.getByRole('dialog');
@@ -90,6 +102,9 @@ beforeEach(async () => {
   await i18n.changeLanguage('en');
   updateRole.mockResolvedValue({});
   updateStatus.mockResolvedValue({});
+  deleteMember.mockResolvedValue({});
+  scheduleDeletion.mockResolvedValue({});
+  exportData.mockResolvedValue({});
 });
 
 describe('member changes ask for the admin\'s step-up (#603)', () => {
@@ -137,9 +152,64 @@ describe('member changes ask for the admin\'s step-up (#603)', () => {
     await waitFor(() => expect(notifyError).toHaveBeenCalledWith('admin.users.deactivateLastAdmin'));
   });
 
+  // Review of #975: the last-admin check made in the transaction, two admins demoting each other.
+  it('removing the role of the last other admin is said by its own message', async () => {
+    updateRole.mockRejectedValue(new ApiError('CANNOT_REMOVE_LAST_ADMIN', 409));
+    confirmWith(open(member({ isAdmin: true }), 'removeAdmin'), 'admin-pw');
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('admin.users.removeLastAdmin'));
+    for (const lang of [en, fr]) expect(lang.admin.users.removeLastAdmin).toBeTruthy();
+  });
+
   it('any other failure of the change itself is the shared toast', async () => {
     updateRole.mockRejectedValue(new ApiError('HTTP 500', 500));
     confirmWith(open(member({ isAdmin: true }), 'removeAdmin'), 'admin-pw');
     await waitFor(() => expect(notifyError).toHaveBeenCalledWith('toast.admin.roleError'));
+  });
+});
+
+// #695: an admin deletes a member for good; #661: schedules (or cancels) a
+// member's deletion and exports their data — each after the admin's password.
+describe('deleting a member and their data (#695, #661)', () => {
+  it.each([
+    ['deleting for good', member(), 'deleteMember', 'admin.users.deleteConfirm'],
+    ['scheduling the deletion', member({ isActive: false }), 'toggleDeletion', 'admin.users.scheduleDeletionConfirm'],
+    ['cancelling the deletion', member({ deletionRequestedAt: '2026-11-01T00:00:00.000Z' }), 'toggleDeletion', 'admin.users.cancelDeletionConfirm'],
+    ['exporting the data', member({ isActive: false }), 'exportData', 'admin.users.exportConfirm'],
+  ] as const)('%s says what will happen, in both languages, and waits for the password', (_label, target, action, key) => {
+    for (const lang of [en, fr]) expect(key.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown>)[k], lang), key).toBeTruthy();
+    const dialog = open(target, action);
+    expect(dialog.textContent).toContain(translate(key, { username: 'mum' }));
+    expect(deleteMember).not.toHaveBeenCalled();
+    expect(scheduleDeletion).not.toHaveBeenCalled();
+    expect(exportData).not.toHaveBeenCalled();
+  });
+
+  it('deletes with the password', async () => {
+    confirmWith(open(member(), 'deleteMember'), 'admin-pw');
+    await waitFor(() => expect(deleteMember).toHaveBeenCalledWith({ userId: 'm1', password: 'admin-pw' }));
+    expect(notifySuccess).toHaveBeenCalledWith('toast.admin.deleteSuccess');
+  });
+
+  it.each([
+    ['schedules', member(), true],
+    ['cancels', member({ deletionRequestedAt: '2026-11-01T00:00:00.000Z' }), false],
+  ])('%s the deletion with the password', async (_label, target, scheduled) => {
+    confirmWith(open(target, 'toggleDeletion'), 'admin-pw');
+    await waitFor(() => expect(scheduleDeletion).toHaveBeenCalledWith({ userId: 'm1', scheduled, password: 'admin-pw' }));
+  });
+
+  it('exports with the password', async () => {
+    confirmWith(open(member(), 'exportData'), 'admin-pw');
+    await waitFor(() => expect(exportData).toHaveBeenCalledWith({ userId: 'm1', username: 'mum', password: 'admin-pw' }));
+  });
+
+  it.each([
+    ['CANNOT_DELETE_LAST_ADMIN', 'admin.users.deleteLastAdmin'],
+    ['HTTP 500', 'toast.admin.deleteError'],
+  ])('a refused deletion (%s) is said', async (code, key) => {
+    deleteMember.mockRejectedValue(new ApiError(code, 409));
+    confirmWith(open(member({ isAdmin: true }), 'deleteMember'), 'admin-pw');
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith(key));
+    for (const lang of [en, fr]) expect(key.split('.').reduce<unknown>((o, k) => (o as Record<string, unknown>)[k], lang), key).toBeTruthy();
   });
 });

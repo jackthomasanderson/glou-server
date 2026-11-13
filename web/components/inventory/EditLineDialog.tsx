@@ -2,10 +2,8 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Input } from '@heroui/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { isIntactItem } from '@shared/units';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
-import { productDetailKey } from '@/hooks/useProducts';
 import { ParsedNumberInput } from '@/components/ui/ParsedInput';
 import { notifySuccess } from '@/lib/toast';
 import { lineParts, type LineContext } from '@/lib/products/lines';
@@ -67,7 +65,6 @@ const valuesOf = (item: ProductItem): LineValues => ({
  */
 export function EditLineDialog({ item, ctx, isOpen, onClose }: EditLineDialogProps) {
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
   const update = useUpdateInventoryItem();
   const initial = valuesOf(item);
   const [values, setValues] = useState<LineValues>(initial);
@@ -90,8 +87,6 @@ export function EditLineDialog({ item, ctx, isOpen, onClose }: EditLineDialogPro
       {
         onSuccess: () => {
           notifySuccess('stockLine.edit.done');
-          // Its history too.
-          void queryClient.invalidateQueries({ queryKey: productDetailKey(item.productId) });
           onClose();
         },
       },

@@ -2,9 +2,11 @@ import { Router, Request, Response } from 'express';
 import { z, ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { AppError, badRequest, conflict, isRecordNotFound, notFound } from '../lib/errors';
 import { routeParam } from '../lib/http';
 import { assertUrlAllowed } from '../lib/ssrf';
 import { authMiddleware, adminMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { isDatabaseUnavailable } from '../middleware/error.middleware';
 import { MaintenanceService } from '../services/maintenance.service';
 import { paginationQuerySchema } from '../schemas/pagination.schema';
 import { maturityReferenceSchema, maturityReferencePatchSchema, maturityReferenceReorderSchema } from '../schemas/maturity-reference.schema';
@@ -12,7 +14,7 @@ import { retentionConfigSchema, maintenanceRunsQuerySchema } from '../schemas/re
 import { networkConfigSchema } from '../schemas/network-config.schema';
 import { registrationConfigSchema } from '../schemas/registration-config.schema';
 import { smtpConfigSchema, smtpTestSchema, gotifyConfigSchema } from '../schemas/system-config.schema';
-import { memberRoleSchema, memberStatusSchema } from '../schemas/admin-user.schema';
+import { memberRoleSchema, memberStatusSchema, memberDeletionSchema } from '../schemas/admin-user.schema';
 import { backupConfigSchema, backupRunsQuerySchema, backupRestoreSchema, purgeSchema } from '../schemas/backup.schema';
 import { maturityReferenceService } from '../services/maturity-reference.service';
 import { systemConfigService } from '../services/system-config.service';
@@ -27,6 +29,12 @@ import type { BackupHealth, PurgeResponse } from '../../../shared/maintenance';
 import { AUDIT_ACTIONS, AUDIT_STATUSES } from '../../../shared/audit';
 import { lowersRetention, opensRegistration, weakensBackups } from '../../../shared/admin-config';
 import { sharesService } from '../services/shares.service';
+import { deleteMemberForGood } from '../services/account-deletion.service';
+import { scanService } from '../services/scan.service';
+import { countOtherAdmins, countOtherAdminsLocked } from '../lib/last-admin';
+import { RELEASE_NOTES, releaseNotesView, seenStateNow } from '../lib/release-notes';
+import { APP_VERSION } from '../lib/app-version';
+import type { ReleaseNotesView } from '../../../shared/release-notes';
 
 const adminRouter = Router();
 
@@ -114,32 +122,33 @@ const auditLogsQuerySchema = paginationQuerySchema({ defaultLimit: 50, maxLimit:
 adminRouter.use(authMiddleware);
 adminRouter.use(adminMiddleware);
 
+// #467: the error middleware answers every failure (a ZodError: 400
+// VALIDATION_ERROR; a database outage: 503). A catch below only maps a
+// business refusal to its code, then rethrows anything else.
+
 /**
  * @route   GET /api/admin/users
  * @desc    Get all users listing
  * @access  Admin Private
  */
 adminRouter.get('/users', async (req: Request, res: Response): Promise<void> => {
-    try {
-        const users = await prisma.user.findMany({
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                displayName: true,
-                isAdmin: true,
-                isActive: true,
-                // #638: the reset dialog asks for the admin's password when on.
-                isTwoFactorEnabled: true,
-                createdAt: true,
-            },
-            orderBy: { createdAt: 'desc' },
-        });
-        res.json({ data: users });
-    } catch (error) {
-        console.error('[Admin] Error fetching users:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-    }
+    const users = await prisma.user.findMany({
+        select: {
+            id: true,
+            username: true,
+            email: true,
+            displayName: true,
+            isAdmin: true,
+            isActive: true,
+            // #638: the reset dialog asks for the admin's password when on.
+            isTwoFactorEnabled: true,
+            // #661: a deletion asked by the member or scheduled by an admin.
+            deletionRequestedAt: true,
+            createdAt: true,
+        },
+        orderBy: { createdAt: 'desc' },
+    });
+    res.json({ data: users });
 });
 
 /**
@@ -174,31 +183,45 @@ adminRouter.post('/users/:userId/role', roleLimiter, async (req: Request, res: R
             res.status(409).json({ error: isAdmin ? 'ALREADY_ADMIN' : 'NOT_ADMIN' });
             return;
         }
+        // Checked again in the transaction below; here so a refusal spends no backup code.
+        if (!isAdmin && (await countOtherAdmins(prisma, userId)) === 0) {
+            res.status(409).json({ error: 'CANNOT_REMOVE_LAST_ADMIN' });
+            return;
+        }
         // #638: granting the role hands the session holder a second admin
         // account. #603: removing it is gated too — a stolen session could
         // otherwise demote the other admins and stay the only one.
         const audit: StepUpAudit = { action: 'ADMIN_ROLE_CHANGE', details: { targetUserId: userId, isAdmin } };
         if (!(await stepUp(req, res, audit))) return;
-        const user = await prisma.user.update({
-            where: { id: userId },
-            data: { isAdmin },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                isAdmin: true,
-                isActive: true,
-            },
+        const user = await prisma.$transaction(async (tx) => {
+            // Review of #975: two admins demoting each other at once would leave none.
+            if (!isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) throw new Error('CANNOT_REMOVE_LAST_ADMIN');
+            return tx.user.update({
+                where: { id: userId },
+                // FEAT-115 (#990): a new administrator starts with the installed
+                // release notes seen, not the whole history in the What's New? window.
+                data: isAdmin ? { isAdmin, ...seenStateNow(RELEASE_NOTES, APP_VERSION) } : { isAdmin },
+                select: {
+                    id: true,
+                    username: true,
+                    email: true,
+                    isAdmin: true,
+                    isActive: true,
+                },
+            });
         });
         auditSuccess(req, audit);
         res.json({ data: user });
     } catch (error: unknown) {
-        console.error('[Admin] Error updating user role:', error);
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (error instanceof Error && error.message === 'CANNOT_REMOVE_LAST_ADMIN') {
+            res.status(409).json({ error: 'CANNOT_REMOVE_LAST_ADMIN' });
+            return;
+        }
+        if (isRecordNotFound(error)) {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+        throw error;
     }
 });
 
@@ -231,15 +254,11 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        // Prevent deactivating the last active admin
-        if (!isActive && target.isAdmin) {
-            const activeAdminCount = await prisma.user.count({
-                where: { isAdmin: true, isActive: true },
-            });
-            if (activeAdminCount <= 1) {
-                res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
-                return;
-            }
+        // Prevent deactivating the last active admin (admins already leaving
+        // do not count, as in the transaction below).
+        if (!isActive && target.isAdmin && (await countOtherAdmins(prisma, userId)) === 0) {
+            res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
+            return;
         }
 
         // #603: checked after the refusals above, so they spend no backup
@@ -252,6 +271,11 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
         // reactivating the account never wakes up a stolen session, a trusted
         // device or a guest link (same revocation as adminResetPassword).
         const user = await prisma.$transaction(async (tx) => {
+            // Review of #975: counted again with the admin rows locked, so two
+            // admins deactivating each other at once cannot both pass.
+            if (!isActive && target.isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) {
+                throw new Error('CANNOT_DEACTIVATE_LAST_ADMIN');
+            }
             const updated = await tx.user.update({
                 where: { id: userId },
                 data: { isActive },
@@ -274,12 +298,15 @@ adminRouter.patch('/users/:userId/status', stepUpLimiter, async (req: Request, r
         auditSuccess(req, audit);
         res.json({ data: user });
     } catch (error) {
-        console.error('[Admin] Error updating user status:', error);
-        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        if (error instanceof Error && error.message === 'CANNOT_DEACTIVATE_LAST_ADMIN') {
+            res.status(400).json({ error: 'CANNOT_DEACTIVATE_LAST_ADMIN' });
+            return;
+        }
+        if (isRecordNotFound(error)) {
             res.status(404).json({ error: 'USER_NOT_FOUND' });
             return;
         }
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+        throw error;
     }
 });
 
@@ -316,9 +343,172 @@ adminRouter.post('/users/:userId/reset-password', resetPasswordLimiter, async (r
             res.status(409).json({ error: 'TARGET_CHANGED' });
             return;
         }
-        console.error('[Admin] Error resetting user password:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+        throw error;
     }
+});
+
+/**
+ * #695, #661: why a member's account may not be deleted, checked before the
+ * step-up so a refusal spends no backup code: the admin's own account (their
+ * profile has its own path), an unknown one, or the last admin — admins
+ * already leaving do not count, as for a member's own request (#603).
+ */
+async function refuseMemberDeletion(req: Request, res: Response, userId: string) {
+    if (userId === req.userId) {
+        res.status(400).json({ error: 'CANNOT_DELETE_SELF' });
+        return null;
+    }
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { isAdmin: true, deletionRequestedAt: true } });
+    if (!target) {
+        res.status(404).json({ error: 'USER_NOT_FOUND' });
+        return null;
+    }
+    if (target.isAdmin && (await countOtherAdmins(prisma, userId)) === 0) {
+        res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+        return null;
+    }
+    return target;
+}
+
+/**
+ * @route   POST /api/admin/users/:userId/delete
+ * @desc    #695 — deletes a member's account for good, after the admin's
+ *          password (and code). What they created in the shared inventory
+ *          is attributed to the admin, their history stays under their name,
+ *          their personal data goes (account-deletion.service). Audited.
+ * @access  Admin Private
+ */
+adminRouter.post('/users/:userId/delete', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
+    const userId = routeParam(req.params.userId);
+    try {
+        if (!(await refuseMemberDeletion(req, res, userId))) return;
+        const audit: StepUpAudit = { action: 'ADMIN_MEMBER_DELETE', details: { targetUserId: userId } };
+        if (!(await stepUp(req, res, audit))) return;
+        const deleted = await deleteMemberForGood(userId, req.userId);
+        // The rows are committed: now the files they pointed at can go.
+        await scanService.deleteScanFiles(deleted.scanImagePaths);
+        await authService.deleteAvatarFiles(deleted.avatarPaths);
+        // The account is gone: its name is kept in the entry.
+        auditSuccess(req, { action: audit.action, details: { ...audit.details, username: deleted.username } });
+        res.json({ data: { id: userId } });
+    } catch (error) {
+        if (error instanceof Error && error.message === 'CANNOT_DELETE_LAST_ADMIN') {
+            res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+            return;
+        }
+        if (isRecordNotFound(error)) {
+            res.status(404).json({ error: 'USER_NOT_FOUND' });
+            return;
+        }
+        throw error;
+    }
+});
+
+/**
+ * @route   PUT /api/admin/users/:userId/deletion
+ * @desc    #661 — schedules a member's account deletion (`scheduled: true`),
+ *          carried out after the same 30 days as their own request, or
+ *          cancels it. For a member who left and can no longer sign in.
+ *          Asks for the admin's password (and code). Audited.
+ * @access  Admin Private
+ */
+adminRouter.put('/users/:userId/deletion', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
+    const userId = routeParam(req.params.userId);
+    const parsed = memberDeletionSchema.safeParse(req.body);
+    if (!parsed.success) {
+        res.status(400).json({ error: 'INVALID_INPUT' });
+        return;
+    }
+    const { scheduled } = parsed.data;
+    try {
+        const target = await refuseMemberDeletion(req, res, userId);
+        if (!target) return;
+        if (scheduled && target.deletionRequestedAt) {
+            // Asking again must not push the date back.
+            res.status(409).json({ error: 'DELETION_ALREADY_SCHEDULED' });
+            return;
+        }
+        const audit: StepUpAudit = { action: 'ADMIN_DELETION_SCHEDULE', details: { targetUserId: userId, scheduled } };
+        if (!(await stepUp(req, res, audit))) return;
+        const user = await prisma.$transaction(async (tx) => {
+            // Counted again, admin rows locked: two admins scheduling each
+            // other's deletion at once cannot both be marked as leaving.
+            if (scheduled && target.isAdmin && (await countOtherAdminsLocked(tx, userId)) === 0) {
+                throw new Error('CANNOT_DELETE_LAST_ADMIN');
+            }
+            return tx.user.update({
+                where: { id: userId },
+                data: { deletionRequestedAt: scheduled ? new Date() : null },
+                select: { id: true, deletionRequestedAt: true },
+            });
+        });
+        auditSuccess(req, audit);
+        res.json({ data: user });
+    } catch (error) {
+        if (error instanceof Error && error.message === 'CANNOT_DELETE_LAST_ADMIN') {
+            res.status(409).json({ error: 'CANNOT_DELETE_LAST_ADMIN' });
+            return;
+        }
+        if (isRecordNotFound(error)) {
+            res.status(404).json({ error: 'USER_NOT_FOUND' });
+            return;
+        }
+        throw error;
+    }
+});
+
+/**
+ * @route   POST /api/admin/users/:userId/export
+ * @desc    #661 — a member's full data export (the one they get from their
+ *          profile), for a member who left and can no longer sign in. Asks
+ *          for the admin's password (and code). Audited.
+ * @access  Admin Private
+ */
+adminRouter.post('/users/:userId/export', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
+    const userId = routeParam(req.params.userId);
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!target) {
+        res.status(404).json({ error: 'USER_NOT_FOUND' });
+        return;
+    }
+    const audit: StepUpAudit = { action: 'ADMIN_MEMBER_EXPORT', details: { targetUserId: userId } };
+    if (!(await stepUp(req, res, audit))) return;
+    const data = await authService.exportUserData(userId);
+    auditSuccess(req, audit);
+    res.json({ data });
+});
+
+/**
+ * @route   GET /api/admin/release-notes
+ * @desc    FEAT-115 (#990): the release notes of the installed version and the
+ *          older ones (plus the upcoming ones on a beta image), each marked
+ *          seen or not by this administrator. The What's New? window opens by
+ *          itself when one is unseen, and reopens on demand with all of them.
+ * @access  Admin Private
+ */
+adminRouter.get('/release-notes', async (req: Request, res: Response): Promise<void> => {
+    const seen = await prisma.user.findUnique({
+        where: { id: req.userId },
+        select: { lastSeenReleaseVersion: true, seenReleaseNoteIds: true },
+    });
+    const view: ReleaseNotesView = releaseNotesView(RELEASE_NOTES, APP_VERSION, seen ?? { lastSeenReleaseVersion: null, seenReleaseNoteIds: [] });
+    res.json({ data: view });
+});
+
+/**
+ * @route   POST /api/admin/release-notes/seen
+ * @desc    FEAT-115 (#990): the What's New? window was closed, whichever way:
+ *          everything installed counts as seen by this administrator, on every
+ *          device. Personal state, like the onboarding: not audited.
+ * @access  Admin Private
+ */
+adminRouter.post('/release-notes/seen', async (req: Request, res: Response): Promise<void> => {
+    await prisma.user.update({
+        where: { id: req.userId },
+        data: seenStateNow(RELEASE_NOTES, APP_VERSION),
+        select: { id: true },
+    });
+    res.status(204).end();
 });
 
 /**
@@ -328,12 +518,7 @@ adminRouter.post('/users/:userId/reset-password', resetPasswordLimiter, async (r
  * @access  Admin Private
  */
 adminRouter.get('/shares', async (_req: Request, res: Response): Promise<void> => {
-    try {
-        res.json({ data: await sharesService.listActiveForAdmin() });
-    } catch (error) {
-        console.error('[Admin] Error listing guest links:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-    }
+    res.json({ data: await sharesService.listActiveForAdmin() });
 });
 
 /**
@@ -344,26 +529,21 @@ adminRouter.get('/shares', async (_req: Request, res: Response): Promise<void> =
  */
 adminRouter.delete('/shares/:id', async (req: Request, res: Response): Promise<void> => {
     const id = routeParam(req.params.id);
-    try {
-        const result = await sharesService.revokeAsAdmin(id);
-        if (!result) {
-            res.status(404).json({ error: 'SHARE_NOT_FOUND' });
-            return;
-        }
-        if (result.revoked) {
-            void auditLog({
-                userId: req.userId,
-                action: 'ADMIN_SHARE_REVOKE',
-                status: 'success',
-                ip: getClientIp(req),
-                details: { shareId: id, ownerId: result.ownerId },
-            });
-        }
-        res.json({ data: { id, revokedAt: result.revokedAt } });
-    } catch (error) {
-        console.error('[Admin] Error revoking guest link:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    const result = await sharesService.revokeAsAdmin(id);
+    if (!result) {
+        res.status(404).json({ error: 'SHARE_NOT_FOUND' });
+        return;
     }
+    if (result.revoked) {
+        void auditLog({
+            userId: req.userId,
+            action: 'ADMIN_SHARE_REVOKE',
+            status: 'success',
+            ip: getClientIp(req),
+            details: { shareId: id, ownerId: result.ownerId },
+        });
+    }
+    res.json({ data: { id, revokedAt: result.revokedAt } });
 });
 
 /**
@@ -387,6 +567,8 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
             { ip: { contains: q } },
             { user: { username: { contains: q, mode: 'insensitive' } } },
             { user: { displayName: { contains: q, mode: 'insensitive' } } },
+            // #695: a member deleted for good, under the name kept on the row.
+            { actorName: { contains: q, mode: 'insensitive' } },
         ];
     }
     if (status) where.status = status;
@@ -402,32 +584,27 @@ adminRouter.get('/audit-logs', async (req: Request, res: Response): Promise<void
         }
     }
 
-    try {
-        const [logs, total] = await Promise.all([
-            prisma.auditLog.findMany({
-                where,
-                skip,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    user: {
-                        select: { username: true, displayName: true },
-                    },
+    const [logs, total] = await Promise.all([
+        prisma.auditLog.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+            include: {
+                user: {
+                    select: { username: true, displayName: true },
                 },
-            }),
-            prisma.auditLog.count({ where }),
-        ]);
-
-        res.json({
-            data: {
-                items: logs,
-                meta: { page, limit, total, pages: Math.ceil(total / limit) },
             },
-        });
-    } catch (error) {
-        console.error('[Admin] Error fetching audit logs:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-    }
+        }),
+        prisma.auditLog.count({ where }),
+    ]);
+
+    res.json({
+        data: {
+            items: logs,
+            meta: { page, limit, total, pages: Math.ceil(total / limit) },
+        },
+    });
 });
 
 /**
@@ -443,30 +620,23 @@ adminRouter.post('/maintenance/purge', stepUpLimiter, async (req: Request, res: 
     }
     const ip = getClientIp(req);
 
-    try {
-        // #489: re-authenticate (#890: with the admin's code too), take a
-        // backup first (abort if it fails), and leave a trace of who purged,
-        // written after the purge since the purge wipes the audit log itself.
-        if (!(await stepUp(req, res, { action: 'PURGE', details: {} }))) return;
-        const backup = await backupService.runBackup('manual', req.userId);
-        if (!backup.success) {
-            res.status(500).json({ error: 'BACKUP_BEFORE_PURGE_FAILED' });
-            return;
-        }
-        const result = await MaintenanceService.purgeAllData();
-        await auditLog({
-            userId: req.userId,
-            action: 'PURGE',
-            status: 'success',
-            ip,
-            details: { counts: result.counts, backupRunId: backup.id },
-        });
-        const body: PurgeResponse = { ...result, backupRunId: backup.id };
-        res.json({ data: body });
-    } catch (error) {
-        console.error('[Admin] Maintenance purge error:', error);
-        res.status(500).json({ error: 'PURGE_FAILED' });
-    }
+    // #489: re-authenticate (#890: with the admin's code too), take a
+    // backup first (abort if it fails), and leave a trace of who purged,
+    // written after the purge since the purge wipes the audit log itself.
+    if (!(await stepUp(req, res, { action: 'PURGE', details: {} }))) return;
+    const backup = await backupService.runBackup('manual', req.userId);
+    // The run's own failure is in the backup history (#467: a stable code here).
+    if (!backup.success) throw new AppError(500, 'BACKUP_BEFORE_PURGE_FAILED');
+    const result = await MaintenanceService.purgeAllData();
+    await auditLog({
+        userId: req.userId,
+        action: 'PURGE',
+        status: 'success',
+        ip,
+        details: { counts: result.counts, backupRunId: backup.id },
+    });
+    const body: PurgeResponse = { ...result, backupRunId: backup.id };
+    res.json({ data: body });
 });
 
 /**
@@ -475,21 +645,12 @@ adminRouter.post('/maintenance/purge', stepUpLimiter, async (req: Request, res: 
  * @access  Admin Private
  */
 adminRouter.get('/maintenance/runs', async (req: Request, res: Response): Promise<void> => {
-    try {
-        const { limit } = maintenanceRunsQuerySchema.parse(req.query);
-        const runs = await prisma.maintenanceRun.findMany({
-            take: limit ?? 50,
-            orderBy: { runAt: 'desc' },
-        });
-        res.json({ data: runs });
-    } catch (error) {
-        if (error instanceof ZodError) {
-            res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
-            return;
-        }
-        console.error('[Admin] Error fetching maintenance runs:', error);
-        res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-    }
+    const { limit } = maintenanceRunsQuerySchema.parse(req.query);
+    const runs = await prisma.maintenanceRun.findMany({
+        take: limit ?? 50,
+        orderBy: { runAt: 'desc' },
+    });
+    res.json({ data: runs });
 });
 
 /**
@@ -498,13 +659,8 @@ adminRouter.get('/maintenance/runs', async (req: Request, res: Response): Promis
  * @access  Admin Private
  */
 adminRouter.post('/maintenance/run', async (req: Request, res: Response): Promise<void> => {
-    try {
-        const run = await MaintenanceService.runRetentionCleanup('manual', req.userId);
-        res.json({ data: run });
-    } catch (error) {
-        console.error('[Admin] Manual retention cleanup error:', error);
-        res.status(500).json({ error: 'RETENTION_CLEANUP_FAILED' });
-    }
+    const run = await MaintenanceService.runRetentionCleanup('manual', req.userId);
+    res.json({ data: run });
 });
 
 // ─── Maturity References ──────────────────────────────────────────────────────
@@ -554,57 +710,39 @@ adminRouter.get('/config', async (_req: Request, res: Response): Promise<void> =
 // decide where reset links and security alerts go, and the public URL is the
 // host of every reset link: each asks for the step-up (stepUp above).
 adminRouter.put('/config/smtp', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = smtpConfigSchema.parse(req.body);
-    const audit = configAudit('CONFIG_UPDATE', 'smtp');
-    if (!(await stepUp(req, res, audit))) return;
-    const config = await systemConfigService.updateSmtp(parsed, req.userId);
-    auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/smtp error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = smtpConfigSchema.parse(req.body);
+  const audit = configAudit('CONFIG_UPDATE', 'smtp');
+  if (!(await stepUp(req, res, audit))) return;
+  const config = await systemConfigService.updateSmtp(parsed, req.userId);
+  auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.put('/config/gotify', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = gotifyConfigSchema.parse(req.body);
-    // #767: every member's Gotify notification goes to this server: it
-    // cannot be on without its URL and app token.
-    if (await gotifyService.wouldBeOnWithoutServer(parsed)) {
-      res.status(400).json({ error: 'GOTIFY_INCOMPLETE' });
-      return;
-    }
-    // ISSUE_048: this address is fetched server-side on every test and every
-    // delivery: only a public HTTPS address, checked at save time and again
-    // before each call.
-    if (parsed.gotifyUrl) {
-      try {
-        await assertUrlAllowed(parsed.gotifyUrl);
-      } catch (err) {
-        console.error('[admin] PUT /config/gotify error:', err);
-        res.status(400).json({ error: 'INVALID_URL' });
-        return;
-      }
-    }
-    const audit = configAudit('CONFIG_UPDATE', 'gotify');
-    if (!(await stepUp(req, res, audit))) return;
-    const config = await systemConfigService.updateGotify(parsed, req.userId);
-    auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/gotify error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  const parsed = gotifyConfigSchema.parse(req.body);
+  // #767: every member's Gotify notification goes to this server: it
+  // cannot be on without its URL and app token.
+  if (await gotifyService.wouldBeOnWithoutServer(parsed)) {
+    res.status(400).json({ error: 'GOTIFY_INCOMPLETE' });
+    return;
   }
+  // ISSUE_048: this address is fetched server-side on every test and every
+  // delivery: only a public HTTPS address, checked at save time and again
+  // before each call.
+  if (parsed.gotifyUrl) {
+    try {
+      await assertUrlAllowed(parsed.gotifyUrl);
+    } catch (err) {
+      console.error('[admin] PUT /config/gotify error:', err);
+      res.status(400).json({ error: 'INVALID_URL' });
+      return;
+    }
+  }
+  const audit = configAudit('CONFIG_UPDATE', 'gotify');
+  if (!(await stepUp(req, res, audit))) return;
+  const config = await systemConfigService.updateGotify(parsed, req.userId);
+  auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 // #893: shortening a retention window erases rows at the next cleanup (the
@@ -614,39 +752,21 @@ adminRouter.put('/config/gotify', stepUpLimiter, async (req: Request, res: Respo
 // step-up. "Run cleanup now" and "Run now" (backup) do not: the first only
 // applies a retention that is itself gated, the second only adds a file.
 adminRouter.put('/config/retention', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = retentionConfigSchema.parse(req.body);
-    const { allowed, audit } = await stepUpIfWeakening(req, res, 'retention', (current) => lowersRetention(current, parsed));
-    if (!allowed) return;
-    const config = await systemConfigService.updateRetention(parsed, req.userId);
-    if (audit) auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/retention error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = retentionConfigSchema.parse(req.body);
+  const { allowed, audit } = await stepUpIfWeakening(req, res, 'retention', (current) => lowersRetention(current, parsed));
+  if (!allowed) return;
+  const config = await systemConfigService.updateRetention(parsed, req.userId);
+  if (audit) auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.put('/config/backup', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = backupConfigSchema.parse(req.body);
-    const { allowed, audit } = await stepUpIfWeakening(req, res, 'backup', (current) => weakensBackups(current, parsed));
-    if (!allowed) return;
-    const config = await systemConfigService.updateBackupConfig(parsed, req.userId);
-    if (audit) auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/backup error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = backupConfigSchema.parse(req.body);
+  const { allowed, audit } = await stepUpIfWeakening(req, res, 'backup', (current) => weakensBackups(current, parsed));
+  if (!allowed) return;
+  const config = await systemConfigService.updateBackupConfig(parsed, req.userId);
+  if (audit) auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.post('/config/test/smtp', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
@@ -657,92 +777,59 @@ adminRouter.post('/config/test/smtp', stepUpLimiter, async (req: Request, res: R
     return;
   }
   const { email } = parsed.data;
-  try {
-    const audit = configAudit('CONFIG_TEST', 'smtp');
-    if (!(await stepUp(req, res, audit))) return;
-    auditSuccess(req, audit);
-    let result: { success: boolean; error?: string };
-    if (email) {
-      result = await emailService.sendTestEmail(email);
-    } else {
-      result = await emailService.testConnection();
-    }
-    res.json({ data: result });
-  } catch (err) {
-    console.error('[admin] POST /config/test/smtp error:', err);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  const audit = configAudit('CONFIG_TEST', 'smtp');
+  if (!(await stepUp(req, res, audit))) return;
+  auditSuccess(req, audit);
+  let result: { success: boolean; error?: string };
+  if (email) {
+    result = await emailService.sendTestEmail(email);
+  } else {
+    result = await emailService.testConnection();
   }
+  res.json({ data: result });
 });
 
 adminRouter.post('/config/test/gotify', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const audit = configAudit('CONFIG_TEST', 'gotify');
-    if (!(await stepUp(req, res, audit))) return;
-    auditSuccess(req, audit);
-    // #767: the same delivery as members' notifications (instance URL, app
-    // token as X-Gotify-Key, SSRF check, no redirect followed).
-    const result = await gotifyService.post(
-      'Glou — Test',
-      'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
-    );
-    if (!result.success && result.error !== 'DELIVERY_FAILED') {
-      res.status(400).json({ error: result.error });
-      return;
-    }
-    res.json({ data: result });
-  } catch (err) {
-    console.error('[admin] POST /config/test/gotify error:', err);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+  const audit = configAudit('CONFIG_TEST', 'gotify');
+  if (!(await stepUp(req, res, audit))) return;
+  auditSuccess(req, audit);
+  // #767: the same delivery as members' notifications (instance URL, app
+  // token as X-Gotify-Key, SSRF check, no redirect followed).
+  const result = await gotifyService.post(
+    'Glou — Test',
+    'Notification de test depuis le panneau admin. / Test notification from the admin panel.',
+  );
+  if (!result.success && result.error !== 'DELIVERY_FAILED') {
+    res.status(400).json({ error: result.error });
+    return;
   }
+  res.json({ data: result });
 });
 
 // ─── Network Configuration & External Access (FEAT-54) ──────────────────────
 
 adminRouter.put('/config/network', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = networkConfigSchema.parse(req.body);
-    const audit = configAudit('CONFIG_UPDATE', 'network');
-    if (!(await stepUp(req, res, audit))) return;
-    const config = await systemConfigService.updateNetworkConfig(parsed, req.userId);
-    auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/network error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = networkConfigSchema.parse(req.body);
+  const audit = configAudit('CONFIG_UPDATE', 'network');
+  if (!(await stepUp(req, res, audit))) return;
+  const config = await systemConfigService.updateNetworkConfig(parsed, req.userId);
+  auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.post('/config/network/check', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const result = await systemConfigService.checkNetworkConsistency();
-    res.json({ data: result });
-  } catch (err) {
-    console.error('[admin] POST /config/network/check error:', err);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const result = await systemConfigService.checkNetworkConsistency();
+  res.json({ data: result });
 });
 
 // #893: opening sign-up asks for the step-up (see /config/retention), closing it does not.
 adminRouter.put('/config/registration', stepUpLimiter, async (req: Request, res: Response): Promise<void> => {
-  try {
-    const parsed = registrationConfigSchema.parse(req.body);
-    const { allowed, audit } = await stepUpIfWeakening(req, res, 'registration', (current) => opensRegistration(current, parsed));
-    if (!allowed) return;
-    const config = await systemConfigService.updateRegistrationConfig(parsed, req.userId);
-    if (audit) auditSuccess(req, audit);
-    res.json({ data: config });
-  } catch (err) {
-    console.error('[admin] PUT /config/registration error:', err);
-    if (err instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: err.issues });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const parsed = registrationConfigSchema.parse(req.body);
+  const { allowed, audit } = await stepUpIfWeakening(req, res, 'registration', (current) => opensRegistration(current, parsed));
+  if (!allowed) return;
+  const config = await systemConfigService.updateRegistrationConfig(parsed, req.userId);
+  if (audit) auditSuccess(req, audit);
+  res.json({ data: config });
 });
 
 adminRouter.get('/config/history', async (_req: Request, res: Response): Promise<void> => {
@@ -758,21 +845,12 @@ adminRouter.get('/config/history', async (_req: Request, res: Response): Promise
  * @access  Admin Private
  */
 adminRouter.get('/backups/runs', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { limit } = backupRunsQuerySchema.parse(req.query);
-    const runs = await prisma.backupRun.findMany({
-      take: limit ?? 50,
-      orderBy: { runAt: 'desc' },
-    });
-    res.json({ data: runs });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: error.issues });
-      return;
-    }
-    console.error('[Admin] Error fetching backup runs:', error);
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
-  }
+  const { limit } = backupRunsQuerySchema.parse(req.query);
+  const runs = await prisma.backupRun.findMany({
+    take: limit ?? 50,
+    orderBy: { runAt: 'desc' },
+  });
+  res.json({ data: runs });
 });
 
 /**
@@ -799,13 +877,8 @@ adminRouter.get('/backups/health', async (_req: Request, res: Response): Promise
  * @access  Admin Private
  */
 adminRouter.post('/backups/run', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const run = await backupService.runBackup('manual', req.userId);
-    res.json({ data: run });
-  } catch (error) {
-    console.error('[Admin] Manual backup error:', error);
-    res.status(500).json({ error: 'BACKUP_FAILED' });
-  }
+  const run = await backupService.runBackup('manual', req.userId);
+  res.json({ data: run });
 });
 
 /**
@@ -833,24 +906,20 @@ adminRouter.post('/backups/:id/restore', stepUpLimiter, async (req: Request, res
     const { safetyBackupRunId } = await backupService.restoreBackup(run.filePath, req.userId, getClientIp(req));
     res.json({ data: { ok: true, safetyBackupRunId } });
   } catch (error) {
-    if (error instanceof ZodError) {
-      res.status(400).json({ error: 'CONFIRMATION_REQUIRED', details: error.issues });
-      return;
-    }
+    if (error instanceof ZodError) throw badRequest('CONFIRMATION_REQUIRED');
     const msg = error instanceof Error ? error.message : '';
     // #471 (lot Z): a backup of another version of Glou is refused, nothing restored.
-    if (msg === 'BACKUP_FROM_OLDER_VERSION' || msg === 'BACKUP_FROM_NEWER_VERSION') {
-      res.status(409).json({ error: msg });
-      return;
-    }
+    if (msg === 'BACKUP_FROM_OLDER_VERSION') throw conflict('BACKUP_FROM_OLDER_VERSION');
+    if (msg === 'BACKUP_FROM_NEWER_VERSION') throw conflict('BACKUP_FROM_NEWER_VERSION');
     // #748: the file was deleted from the backups folder; same code as a download.
-    if (msg === 'BACKUP_FILE_NOT_FOUND') {
-      res.status(404).json({ error: 'BACKUP_FILE_MISSING' });
-      return;
-    }
-    // #748: stable codes only; the raw failure (psql's stderr) stays in the log.
-    console.error('[Admin] Backup restore error:', error);
-    res.status(500).json({ error: msg === 'BACKUP_BEFORE_RESTORE_FAILED' ? msg : 'RESTORE_FAILED' });
+    if (msg === 'BACKUP_FILE_NOT_FOUND') throw notFound('BACKUP_FILE_MISSING');
+    // A database outage stays a 503: retry once it is back.
+    if (isDatabaseUnavailable(error)) throw error;
+    // #748, #467: stable codes only. Any other failure (psql's stderr, a
+    // corrupt dump, psql missing or too slow, an unreadable file) is the
+    // cause, written to the log by the error middleware, never sent.
+    if (msg === 'BACKUP_BEFORE_RESTORE_FAILED') throw new AppError(500, msg, { cause: error });
+    throw new AppError(500, 'RESTORE_FAILED', { cause: error });
   }
 });
 
@@ -874,13 +943,10 @@ adminRouter.post('/backups/:id/download', stepUpLimiter, async (req: Request, re
       if (err) console.error('[Admin] Backup download stream error:', err);
     });
   } catch (error) {
-    console.error('[Admin] Backup download error:', error);
-    const msg = error instanceof Error ? error.message : 'DOWNLOAD_FAILED';
-    if (msg === 'BACKUP_NOT_FOUND' || msg === 'BACKUP_FILE_MISSING') {
-      res.status(404).json({ error: msg });
-      return;
-    }
-    res.status(500).json({ error: 'INTERNAL_SERVER_ERROR' });
+    const msg = error instanceof Error ? error.message : '';
+    if (msg === 'BACKUP_NOT_FOUND') throw notFound('BACKUP_NOT_FOUND');
+    if (msg === 'BACKUP_FILE_MISSING') throw notFound('BACKUP_FILE_MISSING');
+    throw error;
   }
 });
 

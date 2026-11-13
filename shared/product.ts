@@ -258,7 +258,8 @@ export interface ProductHistoryEntry {
   id: number;
   action: string;
   status: string;
-  actorId: string;
+  /** #695: null once the member was deleted for good (actorName keeps their name). */
+  actorId: string | null;
   actorName: string;
   /** ISSUE_483: the change came through a guest share link. */
   viaGuest?: boolean;

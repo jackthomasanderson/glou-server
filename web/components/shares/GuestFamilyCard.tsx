@@ -19,6 +19,7 @@ import { guestClient, GuestRequestError } from '@/lib/shares/client';
 import { guestCanTouch, guestOpenableGroups, type GuestFamily } from '@/lib/shares/guestFamilies';
 import type { GuestInventoryUpdatePayload, GuestShareMeta } from '@/lib/shares/types';
 import { notifyError, notifyUndoable } from '@/lib/toast';
+import { qk } from '@/lib/queryKeys';
 
 const ICONS: Record<StockMove, React.ReactElement> = {
   open: <Wine size={15} />,
@@ -109,7 +110,7 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
   const openedBox = family.kind === 'cigar' ? touchable[0] : undefined;
   const wine = wineName(family);
 
-  const settle = () => queryClient.invalidateQueries({ queryKey: ['guest', token, 'inventory'] });
+  const settle = () => queryClient.invalidateQueries({ queryKey: qk.guest.inventory(token) });
   const write = useMutation({
     // Said by `refused` below.
     meta: { handlesError: true },

@@ -208,6 +208,22 @@ jobs:
       - name: Migration bench (avatar addresses)
         run: bash e2e/migration/check-avatar-url-migration.sh
 
+      # #589: the units already finished keep their dating (finishedAt/finishedBy backfill).
+      - name: Migration bench (finished stamp)
+        run: bash e2e/migration/check-finished-at-migration.sh
+
+      # #848: each wine's movement journal starts with its units in stock.
+      - name: Migration bench (movement journal)
+        run: bash e2e/migration/check-stock-movements-migration.sh
+
+      # #981: admins who got member account notices through `security` keep them.
+      - name: Migration bench (members notification category)
+        run: bash e2e/migration/check-members-category-migration.sh
+
+      # #588: the retention purge keeps the history of bottles and wines.
+      - name: History survives the audit-log retention purge
+        run: bash e2e/check-history-retention.sh
+
       # Deterministic user-journey specs only. The gremlins fuzz
       # (monkey.spec.ts) is gated behind E2E_MONKEY and runs in the
       # `nightly-e2e-fuzz` workflow instead — it's slow and non-deterministic.

@@ -3,11 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { budgetClient } from '@/lib/budget/client';
 import { BudgetEnvelope, BudgetEnvelopeInput, BudgetProgress } from '@/lib/budget/types';
 import { notifySuccess } from '@/lib/toast';
+import { qk } from '@/lib/queryKeys';
 
 // A failure is said by the shared message (lib/queryClient.ts, #616).
 
-export const BUDGET_KEY = ['budget', 'envelopes'];
-const progressKey = (id: string) => ['budget', 'progress', id];
+const BUDGET_KEY = qk.budget.envelopes;
+const progressKey = qk.budget.progress;
 
 export function useBudgetEnvelopes() {
   return useQuery<BudgetEnvelope[]>({

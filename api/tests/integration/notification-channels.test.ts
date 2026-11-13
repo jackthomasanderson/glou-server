@@ -230,7 +230,7 @@ describe('GET /user/notifications — categories and time zone (#772, #780)', ()
 
     const { data } = (await get()).body;
 
-    expect(data.categories).toEqual(['peak', 'temperature', 'security', 'wishlist', 'backup']);
+    expect(data.categories).toEqual(['peak', 'temperature', 'security', 'wishlist', 'backup', 'members']);
     expect(data.automaticBackups).toBe(false);
   });
 
@@ -256,7 +256,7 @@ describe('PATCH /user/notifications — categories (#780)', () => {
     const res = await patch(['peak', 'backup']);
 
     expect(res.status).toBe(200);
-    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak'] } });
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak', 'security'] } });
   });
 
   it('refuses a member list holding only backup failures, which would read as "all"', async () => {
@@ -268,11 +268,59 @@ describe('PATCH /user/notifications — categories (#780)', () => {
     expect(prisma.user.update).not.toHaveBeenCalled();
   });
 
+  it('does not store member account notices for a member (#981)', async () => {
+    isAdmin = false;
+
+    const res = await patch(['peak', 'members']);
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak', 'security'] } });
+  });
+
+  it('lets an admin turn member account notices off (#981)', async () => {
+    const res = await patch(['peak', 'backup']);
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak', 'backup', 'security'] } });
+  });
+
   it('stores backup failures for an admin', async () => {
     const res = await patch(['backup', 'security']);
 
     expect(res.status).toBe(200);
     expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['backup', 'security'] } });
+  });
+});
+
+// #981: a stolen session cookie must not be able to silence the alerts that
+// would tell the owner about it. The category stays on whatever is sent.
+describe('PATCH /user/notifications — security alerts cannot be turned off (#981)', () => {
+  const withCookieOnly = (body: Record<string, unknown>) => request(app).patch('/api/user/notifications')
+    .set('Cookie', `glou_token=${token()}`)
+    .set('Sec-Fetch-Site', 'same-origin')
+    .send(body);
+
+  it('keeps security alerts when a session cookie sends a list without them', async () => {
+    isAdmin = false;
+
+    const res = await withCookieOnly({ notifCategories: ['peak', 'wishlist'] });
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['peak', 'wishlist', 'security'] } });
+  });
+
+  it('keeps security alerts for an admin too', async () => {
+    const res = await withCookieOnly({ notifCategories: ['backup'] });
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: ['backup', 'security'] } });
+  });
+
+  it('still stores an empty list as "every category"', async () => {
+    const res = await withCookieOnly({ notifCategories: [] });
+
+    expect(res.status).toBe(200);
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: 'u1' }, data: { notifCategories: [] } });
   });
 });
 

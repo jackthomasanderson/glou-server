@@ -2,13 +2,17 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useUpdateInventoryItem, INVENTORY_KEY } from './useInventory';
-import { PRODUCTS_KEY, productDetailKey } from './useProducts';
+import { useUpdateInventoryItem } from './useInventory';
+import { qk } from '@/lib/queryKeys';
 import type { InventoryItem } from '@/lib/inventory/types';
 import type { Product, ProductDetailView } from '@/lib/products/types';
 import { describeStock } from '@/lib/products/stock';
 import { product, unit } from '@/lib/products/__tests__/factories';
 import { frenchT } from '@/lib/products/__tests__/i18n';
+
+const INVENTORY_KEY = qk.inventory.list;
+const PRODUCTS_KEY = qk.products.list;
+const productDetailKey = qk.products.detail;
 
 const update = vi.fn();
 vi.mock('@/lib/inventory/client', () => ({ inventoryClient: { update: (...a: unknown[]) => update(...a) } }));

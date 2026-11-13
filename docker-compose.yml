@@ -103,6 +103,10 @@ services:
       # ISSUE_053: HSTS only when APP_URL is https://, unless overridden —
       # see next.config.mjs's shouldSendHsts().
       FORCE_HSTS: ${FORCE_HSTS:-}
+      # #979: reverse proxies in front of web (default 1); 0 when web is
+      # reached directly. Web hands the API only the client address it works
+      # out from them — see docs/wiki/EN/16-Network-Public-URL-Configuration.md.
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
     ports:
       - "3000:3000"
     logging: *logging

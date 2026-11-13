@@ -33,15 +33,48 @@ beforeEach(() => {
   vi.mocked(prisma.product.findMany).mockResolvedValue([] as never);
 });
 
-describe('collectionsService ownership guards', () => {
-  it('every mutating method returns null when the collection is not owned by the caller', async () => {
+// #476: collections are shared by the household like the rest of the
+// inventory. `userId` is who created one, never an access filter: any member
+// opens, fills, renames and deletes any collection.
+describe('collectionsService — shared by the household (#476)', () => {
+  it('lists every member\'s collections', async () => {
+    vi.mocked(prisma.collection.findMany).mockResolvedValue([] as never);
+
+    await collectionsService.list();
+
+    expect(vi.mocked(prisma.collection.findMany).mock.calls[0][0]!.where).toBeUndefined();
+  });
+
+  it('keeps who created a collection', async () => {
+    vi.mocked(prisma.collection.create).mockResolvedValue(collectionRow() as never);
+
+    await collectionsService.create('u2', { name: 'Gifts', color: '#6366f1' });
+
+    expect(vi.mocked(prisma.collection.create).mock.calls[0][0]!.data).toMatchObject({ name: 'Gifts', userId: 'u2' });
+  });
+
+  it('lets a member change a collection someone else created', async () => {
+    vi.mocked(prisma.collection.findFirst).mockResolvedValue({ id: 'c1', userId: 'someone-else' } as never);
+    vi.mocked(prisma.collection.delete).mockResolvedValue({ id: 'c1' } as never);
+
+    expect(await collectionsService.update('c1', { name: 'x' })).not.toBeNull();
+    expect(await collectionsService.addProducts('c1', { productIds: ['p1'] })).not.toBeNull();
+    expect(await collectionsService.removeProduct('c1', 'p1')).not.toBeNull();
+    expect(await collectionsService.delete('c1')).not.toBeNull();
+
+    for (const [args] of vi.mocked(prisma.collection.findFirst).mock.calls) {
+      expect(args).toEqual({ where: { id: 'c1' } });
+    }
+  });
+
+  it('every mutating method returns null for an unknown collection', async () => {
     vi.mocked(prisma.collection.findFirst).mockResolvedValue(null);
 
-    expect(await collectionsService.update('c1', 'u1', { name: 'x' })).toBeNull();
-    expect(await collectionsService.delete('c1', 'u1')).toBeNull();
-    expect(await collectionsService.addProducts('c1', 'u1', { itemIds: ['i1'] })).toBeNull();
-    expect(await collectionsService.removeItem('c1', 'u1', 'i1')).toBeNull();
-    expect(await collectionsService.removeProduct('c1', 'u1', 'p1')).toBeNull();
+    expect(await collectionsService.update('c1', { name: 'x' })).toBeNull();
+    expect(await collectionsService.delete('c1')).toBeNull();
+    expect(await collectionsService.addProducts('c1', { itemIds: ['i1'] })).toBeNull();
+    expect(await collectionsService.removeItem('c1', 'i1')).toBeNull();
+    expect(await collectionsService.removeProduct('c1', 'p1')).toBeNull();
 
     expect(prisma.collection.update).not.toHaveBeenCalled();
     expect(prisma.collection.delete).not.toHaveBeenCalled();
@@ -57,7 +90,7 @@ describe('collectionsService — a collection of families (#471)', () => {
       collectionRow([{ id: 'p1', items: [{ id: 'i1' }, { id: 'i2' }] }, { id: 'p2', items: [] }]),
     ] as never);
 
-    const [collection] = await collectionsService.list('u1');
+    const [collection] = await collectionsService.list();
 
     expect(collection).toMatchObject({ id: 'c1', products: [{ id: 'p1' }, { id: 'p2' }], items: [{ id: 'i1' }, { id: 'i2' }] });
     const include = vi.mocked(prisma.collection.findMany).mock.calls[0][0]!.include as Record<string, unknown>;
@@ -72,7 +105,7 @@ describe('collectionsService — a collection of families (#471)', () => {
   it('adds the families of the units named by the readers not migrated yet (itemIds)', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([{ productId: 'p1' }, { productId: 'p1' }] as never);
 
-    await collectionsService.addProducts('c1', 'u1', { itemIds: ['i1', 'i2', 'gone'] });
+    await collectionsService.addProducts('c1', { itemIds: ['i1', 'i2', 'gone'] });
 
     expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: { id: { in: ['i1', 'i2', 'gone'] }, deletedAt: null },
@@ -84,7 +117,7 @@ describe('collectionsService — a collection of families (#471)', () => {
   it('adds families named directly, ignoring unknown or trashed ones', async () => {
     vi.mocked(prisma.product.findMany).mockResolvedValue([{ id: 'p2' }] as never);
 
-    await collectionsService.addProducts('c1', 'u1', { productIds: ['p2', 'trashed'] });
+    await collectionsService.addProducts('c1', { productIds: ['p2', 'trashed'] });
 
     expect(prisma.product.findMany).toHaveBeenCalledWith({
       where: { id: { in: ['p2', 'trashed'] }, deletedAt: null },
@@ -97,7 +130,7 @@ describe('collectionsService — a collection of families (#471)', () => {
   it('takes the whole family out when a reader names one of its units', async () => {
     vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue({ productId: 'p1' } as never);
 
-    await collectionsService.removeItem('c1', 'u1', 'i1');
+    await collectionsService.removeItem('c1', 'i1');
 
     expect(updateData()).toEqual({ products: { disconnect: { id: 'p1' } } });
   });
@@ -106,14 +139,14 @@ describe('collectionsService — a collection of families (#471)', () => {
     vi.mocked(prisma.inventoryItem.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.collection.findFirstOrThrow).mockResolvedValue(collectionRow() as never);
 
-    const collection = await collectionsService.removeItem('c1', 'u1', 'nope');
+    const collection = await collectionsService.removeItem('c1', 'nope');
 
     expect(prisma.collection.update).not.toHaveBeenCalled();
     expect(collection).toMatchObject({ id: 'c1', products: [], items: [] });
   });
 
   it('takes a family out by its id', async () => {
-    await collectionsService.removeProduct('c1', 'u1', 'p1');
+    await collectionsService.removeProduct('c1', 'p1');
 
     expect(updateData()).toEqual({ products: { disconnect: { id: 'p1' } } });
   });
@@ -123,7 +156,7 @@ describe('collectionsService.delete', () => {
   it('deletes the row; its links go with it (ON DELETE CASCADE)', async () => {
     vi.mocked(prisma.collection.delete).mockResolvedValue({ id: 'c1' } as never);
 
-    await collectionsService.delete('c1', 'u1');
+    await collectionsService.delete('c1');
 
     expect(prisma.collection.update).not.toHaveBeenCalled();
     expect(prisma.collection.delete).toHaveBeenCalledWith({ where: { id: 'c1' } });

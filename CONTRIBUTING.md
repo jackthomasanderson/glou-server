@@ -56,7 +56,7 @@ Glou uses Calendar Versioning: `YYYY.MM[.PATCH]` (e.g. `2026.10.0`), not semver 
 On every promotion of `dev` to `main` (a maintainer action):
 
 1. Bump both `package.json` files to the current `YYYY.MM.0`, or increment `PATCH` if a release already happened this calendar month.
-2. Move `CHANGELOG.md`'s "Unreleased" section under a new `## vYYYY.MM[.PATCH] - YYYY-MM-DD` heading.
+2. Move `CHANGELOG.md`'s "Unreleased" section under a new `## vYYYY.MM[.PATCH] - YYYY-MM-DD` heading, and the `## Upcoming` / `## À venir` notes of `api/release-notes/RELEASE_NOTES.en.md` and `.fr.md` under a new `## vYYYY.MM[.PATCH]` heading in both files, leaving both upcoming sections empty.
 3. Tag `main` at that commit: `git tag vYYYY.MM[.PATCH] && git push origin vYYYY.MM[.PATCH]`.
 4. CI (`docker-publish.yml`) publishes that same version as an additional image tag on `main`, next to `latest`.
 
@@ -85,7 +85,9 @@ npm run typecheck      # the Playwright specs are type-checked too
 - Validation with Zod for every API input and output.
 - Manual edits win: never let automatic enrichment overwrite a field listed in `locked_fields`.
 - Database writes that touch multiple tables go through a Prisma `$transaction`.
+- API routes never answer a 500 themselves: let errors reach the error middleware (`api/src/middleware/error.middleware.ts`), which answers 503 `DATABASE_UNAVAILABLE` during a database outage and 400 `VALIDATION_ERROR` for a Zod error. Keep a `catch` only to map a business refusal (`notFound`, `conflict`, `badRequest` from `api/src/lib/errors.ts`), and never send an exception's message to the client.
 - Frontend state uses React Query with stale-while-revalidate; invalidate related caches after every successful mutation.
+- Every API call from the web app goes through `web/lib/api.ts` (`request`, `requestJson` or `client`), which sends the session cookie, sets the 15 s deadline and reads the API's error codes. ESLint refuses `fetch` anywhere else.
 - Match the style of the surrounding code (naming, comments, structure).
 
 ### Data model invariants
@@ -93,8 +95,8 @@ npm run typecheck      # the Playwright specs are type-checked too
 These rules hold across the whole codebase; a change that breaks one is a bug, not a style choice.
 
 - **One shared inventory per instance.** A Glou deployment has a single inventory shared by all its members; there is no per-user cellar. Every authenticated member can read and write all cellars, families and items.
-- **`userId` on inventory is an audit field, never an access filter.** On `Cellar`, `Product`, `InventoryItem`, `TastingNote`, `InventoryCountSession`, `BudgetEnvelope` and `HumidorReading` it records who created the row. Never filter or restrict inventory reads or writes by `userId`, and never delete shared rows because their creator left.
-- **Personal entities are the exception.** `ConsumptionGoal`, `WishlistItem`, `BulkPreset`, `ScanJob` and `Collection` belong to one member and are filtered by `userId` on purpose. A collection groups shared families (`Product`) but is itself personal. Computing a personal aggregate from the shared inventory (for example "what did I drink this month") is fine as long as it never hides inventory from anyone.
+- **`userId` on inventory is an audit field, never an access filter.** On `Cellar`, `Product`, `InventoryItem`, `TastingNote`, `InventoryCountSession`, `BudgetEnvelope`, `HumidorReading` and `Collection` it records who created the row. Never filter or restrict inventory reads or writes by `userId`, and never delete shared rows because their creator left: deleting a member re-attributes them to the deleting admin (`Collection` keeps no author, `SET NULL`).
+- **Personal entities are the exception.** `ConsumptionGoal`, `WishlistItem`, `BulkPreset` and `ScanJob` belong to one member and are filtered by `userId` on purpose; an account deletion deletes them (`api/src/services/account-deletion.service.ts`). Computing a personal aggregate from the shared inventory (for example "what did I drink this month") is fine as long as it never hides inventory from anyone.
 - **Family, group, sub-item.** A family (`Product`) holds the description of a wine, spirit or cigar (producer, name, vintage, peak, notes, photo, collections). Its physical bottles or cigars are `InventoryItem` rows: a group of N identical items (`quantity`), or a sub-item (`quantity = 1`, `parentItemId` pointing to the group it came from) once one has its own state (opened, finished, partly smoked). Never assume "one row = one bottle".
 - **Count through `itemUnits`.** Every count, value or spend goes through the pure helpers in `shared/units.ts` (`itemUnits` and friends), never `count(*)` or a sum of `quantity` over rows. "In stock" is `IN_STOCK_ITEM_FILTER` (`api/src/lib/finished-item.ts`); do not rebuild that scope by hand.
 - **Shared contracts live in `shared/`.** A type or constant read by both `api/` and `web/` is declared once in `shared/` (no dependencies, no Zod, no Prisma types) and never copied by hand.
@@ -103,6 +105,10 @@ These rules hold across the whole codebase; a change that breaks one is a bug, n
 ### Internationalisation
 
 Every user-facing string needs a structured i18n key with **both** a French and an English value. Keep the FR/EN JSON files in sync; the JSON must stay valid.
+
+### Release notes
+
+A change users will notice adds, next to its `CHANGELOG.md` entry, one plain-text line under `## Upcoming` in `api/release-notes/RELEASE_NOTES.en.md` and the same line under `## À venir` in `RELEASE_NOTES.fr.md`, in the same section (Points of attention, Security, New, Improved, Fixed, Removed). Administrators read them in the **What's New?** window after an update, so write for them, shorter than the changelog; points of attention only say what is left to do *after* the update. `npm test` in `api/` fails if the two files do not have the same releases, sections and number of notes.
 
 ### Tests
 

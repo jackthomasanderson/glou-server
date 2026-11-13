@@ -64,6 +64,7 @@
     "saving": "Enregistrement…",
     "error": "Une erreur est survenue",
     "serverUnreachable": "Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.",
+    "serverUnavailable": "Le serveur est momentanément indisponible. Vos données sont intactes : réessayez dans un instant.",
     "retry": "Réessayer",
     "empty": "Aucun élément"
   },
@@ -495,7 +496,13 @@
       "statusSuccess": "Statut du membre mis à jour",
       "roleError": "Impossible de modifier le rôle du membre",
       "statusError": "Impossible de modifier le statut du membre",
-      "resetPasswordError": "Impossible de réinitialiser le mot de passe du membre"
+      "resetPasswordError": "Impossible de réinitialiser le mot de passe du membre",
+      "deleteSuccess": "Compte supprimé",
+      "deleteError": "Impossible de supprimer le compte",
+      "deletionScheduled": "Suppression du compte programmée",
+      "deletionCancelled": "Suppression programmée annulée",
+      "deletionError": "Impossible de modifier la suppression programmée du compte",
+      "exportError": "Impossible d'exporter les données du membre"
     },
     "onboarding": {
       "completeError": "Impossible de terminer la configuration",
@@ -839,14 +846,19 @@
       "data": "Données"
     },
     "personalInfo": "Informations personnelles",
+    "displayNameHint": "Visible par les autres membres (« ajouté par »)",
     "preferences": "Préférences d'affichage",
     "appName": "Nom personnalisé de l'application",
     "appNamePlaceholder": "Ex: Ma Cave Privée",
     "appSlogan": "Slogan personnalisé de l'application",
     "appSloganPlaceholder": "Votre devise...",
+    "appDisplayHint": "Visible par vous uniquement, dans le menu",
+    "appDisplaySave": "Enregistrer le nom et le slogan",
     "reviewOnboarding": "Revoir le guide de démarrage",
-    "security": "Sécurité du compte",
+    "security": "Connexion et sécurité",
+    "appLockHeading": "Verrouillage de l'app",
     "changeEmail": "Changer l'adresse email",
+    "changeUsername": "Changer le nom d'utilisateur",
     "changePassword": "Changer le mot de passe",
     "currentPassword": "Mot de passe actuel",
     "newPassword": "Nouveau mot de passe",
@@ -895,6 +907,7 @@
     "passwordSuccess": "Mot de passe mis à jour",
     "passwordError": "Mot de passe actuel incorrect",
     "emailLabel": "Adresse email",
+    "usernameLabel": "Nom d'utilisateur (sert à la connexion)",
     "passwordLabel": "Mot de passe",
     "avatarHint": "Touchez la photo pour la changer (ou glissez une image dessus)",
     "autoLockDelay": "Verrouillage automatique",
@@ -916,7 +929,7 @@
     "pinRemoveSuccess": "Code PIN supprimé",
     "pinError": "Impossible de mettre à jour le code PIN",
     "twoFactor": {
-      "title": "Sécurité et authentification",
+      "title": "Double authentification",
       "description": "Protégez votre compte en activant la double authentification (2FA). Cela nécessitera un code généré par votre application lors de la connexion.",
       "status": "Statut 2FA :",
       "enabled": "Activé",
@@ -969,14 +982,20 @@
       "loadError": "Impossible de charger vos sessions actives.",
       "empty": "Aucune session active.",
       "trustDescription": "Faites confiance à cet appareil pour ne plus avoir à saisir de code de double authentification pendant 30 jours. Cette confiance est automatiquement révoquée en cas de connexion suspecte.",
+      "trustHeading": "Appareil de confiance",
+      "trustedUntil": "Cet appareil est de confiance jusqu'au {{date}} : le code de double authentification n'y est pas demandé.",
+      "trustLoadError": "Impossible de savoir si cet appareil est de confiance.",
       "trustDevice": "Faire confiance à cet appareil",
-      "trustConfirmHint": "Confirmez votre mot de passe pour faire confiance à cet appareil pendant 30 jours.",
+      "trustConfirmHint": "Confirmez avec votre mot de passe et un code de double authentification pour faire confiance à cet appareil pendant 30 jours.",
       "untrustDevice": "Ne plus faire confiance",
       "trustSuccess": "Cet appareil est désormais de confiance.",
       "untrustSuccess": "La confiance accordée à cet appareil a été révoquée.",
       "trustError": "Une erreur est survenue lors de la mise à jour de la confiance."
     },
-    "emailPasswordHint": "Confirmez avec le mot de passe de votre compte. Une alerte sera envoyée à l'ancienne adresse."
+    "emailPasswordHint": "Confirmez avec le mot de passe de votre compte. Une alerte sera envoyée à l'ancienne adresse.",
+    "usernamePasswordHint": "Ce nom sert à vous connecter : ensuite, connectez-vous avec le nouveau. Confirmez avec le mot de passe de votre compte.",
+    "usernameSuccess": "Nom d'utilisateur modifié. Connectez-vous désormais avec ce nom.",
+    "usernameInvalid": "De 3 à 30 caractères : lettres, chiffres, - et _."
   },
   "admin": {
     "title": "Administration",
@@ -1017,7 +1036,19 @@
       "resetPasswordResultTitle": "Mot de passe temporaire pour {{username}}",
       "resetPasswordResultHint": "Copiez ce mot de passe et transmettez-le au membre par un canal sécurisé. Il n'est affiché qu'une seule fois et ne pourra plus être récupéré ensuite — il devra choisir un vrai mot de passe à sa prochaine connexion.",
       "statusEnabled": "Activé",
-      "statusDisabled": "Désactivé"
+      "statusDisabled": "Désactivé",
+      "deleteMember": "Supprimer le compte maintenant",
+      "deleteSelf": "Votre propre compte se supprime depuis votre profil (Données & Confidentialité)",
+      "deleteConfirm": "Supprimer définitivement le compte de {{username}}, maintenant ? Ce qu'il a ajouté à la cave commune (caves, vins et bouteilles, dégustations, comptages, relevés d'humidor, budgets) vous sera attribué, et ses collections restent pour tous. Ses données personnelles sont supprimées : liste de souhaits, objectifs de consommation, préréglages, historique des scans, sessions et liens invités. Le journal d'activité garde ses actions passées sous son nom. Cette action est irréversible.",
+      "deleteLastAdmin": "C'est le dernier administrateur : donnez d'abord les droits d'administrateur à un autre membre.",
+      "scheduleDeletion": "Programmer la suppression du compte",
+      "scheduleDeletionConfirm": "Programmer la suppression du compte de {{username}} ? Elle a lieu dans 30 jours, comme une suppression qu'il demande lui-même : ses données personnelles (liste de souhaits, liens invités, objectifs de consommation, préréglages, historique des scans, sessions) sont supprimées ; les bouteilles, dégustations et collections qu'il a ajoutées restent pour le foyer, sans son nom. Vous pouvez annuler d'ici là.",
+      "cancelDeletion": "Annuler la suppression programmée",
+      "cancelDeletionConfirm": "Annuler la suppression programmée du compte de {{username}} ?",
+      "deletionScheduledOn": "Suppression le {{date}}",
+      "exportData": "Exporter ses données",
+      "exportConfirm": "Télécharger les données de {{username}} en fichier JSON, celui qu'il obtient depuis son profil ? Il contient des données personnelles : conservez-le en lieu sûr et ne le remettez qu'à lui.",
+      "removeLastAdmin": "C'est le dernier administrateur : donnez d'abord les droits d'administrateur à un autre membre."
     },
     "auditLog": {
       "filters": {
@@ -1090,12 +1121,16 @@
         "LOGIN_FAILED": "Connexion refusée",
         "PASSWORD_CHANGE": "Mot de passe modifié",
         "EMAIL_CHANGE": "Adresse e-mail modifiée",
+        "USERNAME_CHANGE": "Nom d'utilisateur modifié",
         "TWO_FACTOR_ON": "Double authentification activée",
         "TWO_FACTOR_OFF": "Double authentification désactivée",
         "ADMIN_PASSWORD_RESET": "Mot de passe réinitialisé par un administrateur",
         "SHARE_CREATE": "Lien invité créé",
         "SHARE_REVOKE": "Lien invité révoqué",
-        "TRASH_DELETE": "Supprimé définitivement de la corbeille"
+        "TRASH_DELETE": "Supprimé définitivement de la corbeille",
+        "ADMIN_MEMBER_DELETE": "Membre supprimé par un administrateur",
+        "ADMIN_DELETION_SCHEDULE": "Suppression de compte programmée ou annulée par un administrateur",
+        "ADMIN_MEMBER_EXPORT": "Données d'un membre exportées par un administrateur"
       },
       "statuses": {
         "success": "Réussi",
@@ -1730,7 +1765,24 @@
         "itemCount_one": "{{count}} résultat",
         "itemCount_other": "{{count}} résultats"
       },
-      "regionSelected": "Région sélectionnée : {{region}}"
+      "regionSelected": "Région sélectionnée : {{region}}",
+      "controls": {
+        "label": "Commandes de la carte",
+        "zoomIn": "Agrandir la carte",
+        "zoomOut": "Réduire la carte",
+        "recenter": "Recentrer sur ma cave",
+        "fullscreen": "Afficher la carte en plein écran",
+        "exitFullscreen": "Quitter le plein écran"
+      },
+      "cluster": {
+        "regions_one": "{{count}} région",
+        "regions_other": "{{count}} régions regroupées",
+        "hint": "Sélectionner pour agrandir ces régions"
+      },
+      "fullscreen": {
+        "label": "Carte du monde en plein écran",
+        "closeList": "Fermer la liste"
+      }
     },
     "categories": {
       "title": "Répartition des catégories",
@@ -1803,6 +1855,7 @@
       "consumed": "Consommés",
       "restored": "Restaurés",
       "scopeHint": "La période ne s'applique qu'aux mouvements ci-dessous ; les autres indicateurs portent sur l'intégralité de la cave.",
+      "journalStart": "« Ajoutés », « Mis à la corbeille » et « Restaurés » comptent les bouteilles (cigares) du journal des mouvements, qui commence à la mise à jour qui l'a apporté : rien avant cette date.",
       "deleted": "Mis à la corbeille"
     }
   },
@@ -1853,10 +1906,10 @@
       "configHistory": "Historique de configuration"
     },
     "deleteTitle": "Supprimer mon compte",
-    "deleteDescription": "Votre compte sera supprimé automatiquement 30 jours après votre demande ; les administrateurs en sont informés. Vous pouvez annuler d'ici là. Exportez vos données avant si vous voulez garder vos dégustations.",
+    "deleteDescription": "Votre compte sera supprimé automatiquement 30 jours après votre demande ; les administrateurs en sont informés. Vous pouvez annuler d'ici là. Supprimé : vos identifiants, votre profil, votre liste de souhaits, vos objectifs de consommation, vos préréglages, l'historique de vos scans, vos sessions et vos liens invités. Conservé pour le foyer, sans votre nom : les caves et bouteilles que vous avez ajoutées, vos dégustations, comptages, budgets et collections. Exportez vos données avant si vous voulez en garder une copie.",
     "deleteButton": "Supprimer le compte",
     "deleteModalTitle": "Confirmer la suppression",
-    "deleteModalBody": "Votre compte sera supprimé automatiquement dans 30 jours. Vous pouvez annuler d'ici là ; ensuite, la suppression est irréversible. Pensez à exporter vos données.",
+    "deleteModalBody": "Votre compte sera supprimé automatiquement dans 30 jours. Vous pouvez annuler d'ici là ; ensuite, la suppression est irréversible. Vos données personnelles sont supprimées ; les bouteilles, dégustations et collections que vous avez ajoutées restent dans la cave commune, sans votre nom. Pensez à exporter vos données.",
     "deleteModalHint": "Saisissez « {{keyword}} » pour confirmer :",
     "deleteKeyword": "SUPPRIMER",
     "deleteConfirm": "Confirmer la suppression",
@@ -1918,7 +1971,9 @@
         "custom": "Date personnalisée",
         "unlimited": "Illimité"
       },
-      "allowWrite": "Autoriser à ouvrir, boire ou fumer"
+      "allowWrite": "Autoriser à ouvrir, boire ou fumer",
+      "writePassword": "Votre mot de passe",
+      "writePasswordHint": "Un lien qui permet d'ouvrir, boire ou fumer reste valable même après votre déconnexion : confirmez avec le mot de passe de votre compte."
     },
     "errors": {
       "load": "Impossible de charger les partages."
@@ -2033,12 +2088,16 @@
     },
     "categories": {
       "title": "Catégories d'alertes",
-      "lastOne": "Au moins une catégorie reste active. Pour ne plus rien recevoir, désactivez les canaux ci-dessus.",
+      "securityLockedLead": "Toujours activées.",
+      "securityLocked": "Les alertes de sécurité (connexion depuis un nouvel appareil, changement de mot de passe, d'email, de nom d'utilisateur ou de double authentification) vous préviennent quand quelqu'un d'autre utilise votre compte : elles ne peuvent pas être désactivées. Elles partent toujours à l'email de votre compte, même si le canal email est désactivé. Gotify n'en reçoit une copie que si vous l'avez activé.",
+      "securityLockedNoChannel": "Les alertes de sécurité (connexion depuis un nouvel appareil, changement de mot de passe, d'email, de nom d'utilisateur ou de double authentification) vous préviennent quand quelqu'un d'autre utilise votre compte : elles ne peuvent pas être désactivées. Ce serveur ne peut envoyer ni email ni message Gotify : elles ne peuvent pas vous parvenir tant que votre administrateur n'a pas configuré l'email.",
+      "securityLockedNoEmail": "Les alertes de sécurité (connexion depuis un nouvel appareil, changement de mot de passe, d'email, de nom d'utilisateur ou de double authentification) vous préviennent quand quelqu'un d'autre utilise votre compte : elles ne peuvent pas être désactivées. Ce serveur ne peut pas envoyer d'email : elles ne vous parviennent que par Gotify, si vous l'activez. Demandez à votre administrateur de configurer l'email.",
       "peak": "Apogée atteint",
       "temperature": "Variations température/hygrométrie",
       "security": "Sécurité du compte",
       "wishlist": "Opportunités tarifaires (liste de souhaits)",
       "backup": "Échec des sauvegardes",
+      "members": "Comptes des membres (demandes de suppression et suppressions)",
       "backupAutomaticOff": "Les sauvegardes automatiques sont désactivées : seule une sauvegarde manuelle, ou la copie prise avant une restauration, peut encore échouer et vous alerter."
     },
     "quietHours": {
@@ -2047,7 +2106,7 @@
       "droppedLead": "Supprimés, pas différés.",
       "dropped": "Un message qui tombe dans cette plage est perdu : il n'est pas envoyé plus tard.",
       "details": "Les alertes d'apogée et le contrôle quotidien de l'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte passent toujours.",
-      "detailsAdmin": "Les alertes d'apogée et le contrôle quotidien de l'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte et les échecs de sauvegarde passent toujours.",
+      "detailsAdmin": "Les alertes d'apogée et le contrôle quotidien de l'humidor partent à {{hour}} h ; les alertes de sécurité de votre compte, les échecs de sauvegarde et les avis sur les comptes des membres passent toujours.",
       "timeZone": "Heures du fuseau de l'instance : {{timeZone}}.",
       "otherTimeZone": "Votre appareil est réglé sur {{deviceTimeZone}} : choisissez les heures telles qu'elles se lisent à {{timeZone}}.",
       "from": "De",
@@ -2237,7 +2296,7 @@
         "guestShareRetentionDays": "Partages invités expirés (jours)"
       },
       "hints": {
-        "logRetentionDays": "Durée de conservation des entrées du journal d'audit avant suppression définitive.",
+        "logRetentionDays": "Durée de conservation des entrées du journal d'audit avant suppression définitive. L'historique de chaque vin et de chaque bouteille est toujours conservé, sans l'adresse IP.",
         "sessionRetentionDays": "Délai après expiration ou révocation avant suppression définitive des sessions et appareils de confiance.",
         "guestShareRetentionDays": "Délai après expiration ou révocation avant suppression définitive des partages invités."
       },
@@ -3027,6 +3086,51 @@
       "elsewhere": "Goûté ailleurs",
       "boughtOn": "achat du {{date}}"
     },
+    "movements": {
+      "title": "Mouvements",
+      "initial_one": "Mise à jour : {{count}} en cave",
+      "initial_other": "Mise à jour : {{count}} en cave",
+      "added_bottle_one": "{{count}} bouteille ajoutée",
+      "added_bottle_other": "{{count}} bouteilles ajoutées",
+      "added_box_one": "{{count}} boîte ajoutée",
+      "added_box_other": "{{count}} boîtes ajoutées",
+      "added_cigar_one": "{{count}} cigare ajouté",
+      "added_cigar_other": "{{count}} cigares ajoutés",
+      "moved_bottle_one": "{{count}} bouteille déplacée de {{from}} vers {{to}}",
+      "moved_bottle_other": "{{count}} bouteilles déplacées de {{from}} vers {{to}}",
+      "moved_box_one": "{{count}} boîte déplacée de {{from}} vers {{to}}",
+      "moved_box_other": "{{count}} boîtes déplacées de {{from}} vers {{to}}",
+      "moved_cigar_one": "{{count}} cigare déplacé de {{from}} vers {{to}}",
+      "moved_cigar_other": "{{count}} cigares déplacés de {{from}} vers {{to}}",
+      "unfinished_bottle": "Bouteille marquée non finie",
+      "unfinished_box": "Boîte marquée non terminée",
+      "unfinished_cigar": "Cigare marqué non fumé",
+      "putBack_bottle": "Bouteille remise avec les autres",
+      "putBack_box": "Boîte remise avec les autres",
+      "putBack_cigar": "Cigare remis avec les autres",
+      "corrected": "Nombre corrigé",
+      "cigarsCorrected": "Nombre de cigares corrigé",
+      "trashed_bottle_one": "{{count}} bouteille mise à la corbeille",
+      "trashed_bottle_other": "{{count}} bouteilles mises à la corbeille",
+      "trashed_box_one": "{{count}} boîte mise à la corbeille",
+      "trashed_box_other": "{{count}} boîtes mises à la corbeille",
+      "trashed_cigar_one": "{{count}} cigare mis à la corbeille",
+      "trashed_cigar_other": "{{count}} cigares mis à la corbeille",
+      "restored_bottle_one": "{{count}} bouteille restaurée de la corbeille",
+      "restored_bottle_other": "{{count}} bouteilles restaurées de la corbeille",
+      "restored_box_one": "{{count}} boîte restaurée de la corbeille",
+      "restored_box_other": "{{count}} boîtes restaurées de la corbeille",
+      "restored_cigar_one": "{{count}} cigare restauré de la corbeille",
+      "restored_cigar_other": "{{count}} cigares restaurés de la corbeille",
+      "guest": "{{name}} (invité)",
+      "guestUnnamed": "Invité",
+      "deletedMember": "Membre supprimé",
+      "deletedCellar": "cave supprimée",
+      "difference": "Écart : {{value}}",
+      "showAll_one": "Voir les {{count}} mouvements",
+      "showAll_other": "Voir les {{count}} mouvements",
+      "loadError": "Les mouvements n'ont pas pu être chargés."
+    },
     "history": {
       "title": "Historique",
       "add_units": "Bouteilles ajoutées",
@@ -3306,5 +3410,24 @@
     "slotPlaced": "Case {{cell}} occupée",
     "slotFreed": "Case {{cell}} libérée",
     "slotMoved": "Case {{from}} → {{to}}"
+  },
+  "whatsNew": {
+    "title": "Quoi de neuf ?",
+    "open": "Quoi de neuf ?",
+    "installedVersion": "Version installée : {{version}}",
+    "version": "Version {{version}}",
+    "upcoming": "À venir",
+    "empty": "Pas encore de notes pour cette version.",
+    "loadError": "Les notes de version n'ont pas pu être chargées. Réessayez quand le serveur sera joignable.",
+    "gotIt": "Compris",
+    "sections": {
+      "attention": "Points d'attention",
+      "security": "Sécurité",
+      "new": "Nouveautés",
+      "improved": "Améliorations",
+      "fixed": "Corrections",
+      "removed": "Retiré"
+    },
+    "onlyAttention": "Seulement des points d'attention, affichés plus haut."
   }
 }

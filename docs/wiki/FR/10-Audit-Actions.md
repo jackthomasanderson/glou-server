@@ -68,13 +68,16 @@ Ce qui change qui peut entrer, et comment. Aucune entrée ne contient de mot de 
 
 | Code | Déclencheur | Auteur de l'entrée |
 | :--- | :--- | :--- |
-| `LOGIN_FAILED` | Connexion refusée : mauvais mot de passe, mauvais code de double authentification, ou compte désactivé (`details.reason`). Un identifiant inconnu n'est pas enregistré : ce qui a été tapé n'est jamais conservé. | Le compte visé |
+| `LOGIN_FAILED` | Connexion refusée : mauvais mot de passe, mauvais code de double authentification, compte désactivé, ou connexion bloquée après trop de mauvais mots de passe pour ce nom d'utilisateur ou cet e-mail (`details.reason` : `sign_in_locked`, enregistré une fois par blocage de 15 minutes, pas à chaque tentative). Un identifiant inconnu n'est pas enregistré : ce qui a été tapé n'est jamais conservé. | Le compte visé |
 | `PASSWORD_CHANGE` | Mot de passe changé depuis le profil, ou par un lien « mot de passe oublié » (`details.via`) | Le membre |
 | `EMAIL_CHANGE` | Adresse e-mail changée (ancienne et nouvelle adresse dans `details`) | Le membre |
 | `TWO_FACTOR_ON` / `TWO_FACTOR_OFF` | Double authentification activée / désactivée par le membre | Le membre |
 | `ADMIN_PASSWORD_RESET` | Mot de passe d'un membre réinitialisé par un administrateur (`details.twoFactorDisabled` : sa double authentification a été coupée) | L'administrateur |
 | `ADMIN_ROLE_CHANGE` | Droits d'administrateur donnés ou retirés | L'administrateur |
 | `ADMIN_STATUS_CHANGE` | Membre désactivé ou réactivé | L'administrateur |
+| `ADMIN_MEMBER_DELETE` | Compte d'un membre supprimé définitivement (`details.username` : qui c'était). Ses entrées passées restent, sous son nom | L'administrateur |
+| `ADMIN_DELETION_SCHEDULE` | Suppression du compte d'un membre programmée (`details.scheduled: true`) ou annulée | L'administrateur |
+| `ADMIN_MEMBER_EXPORT` | Données d'un membre exportées | L'administrateur |
 | `SHARE_CREATE` / `SHARE_REVOKE` | Lien invité créé (caves, caves en écriture, collections, expiration) / révoqué | Le membre |
 
 Les trois actions d'administration ci-dessus demandent le mot de passe de l'administrateur (et son code s'il a la double authentification) : un refus est enregistré avec le statut `error` et la raison dans `details.error`.
@@ -94,4 +97,5 @@ Les entrées de journal âgées de plus de **90 jours** sont supprimées au dém
 | **Redirection vers `/` à l'accès de `/admin`** | Le frontend vérifie `isAdmin` côté client. Si l'authToken est expiré, la redirection se produit. Reconnectez-vous et réessayez. |
 | **Le tableau affiche un état de chargement permanent** | L'API `GET /api/admin/audit-logs` est inaccessible. Vérifiez que le service API est en cours d'exécution et que la variable `NEXT_PUBLIC_API_URL` pointe vers la bonne URL. |
 | **La colonne "Utilisateur" affiche `-`** | L'utilisateur auteur de l'action a été supprimé de la base de données. L'entrée de log est conservée mais la jointure avec `User` retourne `null`. |
-| **`INTERNAL_SERVER_ERROR` en réponse API** | Consultez les logs du container API (`docker logs glou-api`). La cause la plus fréquente est une perte de connexion à la base de données PostgreSQL. |
+| **`503 DATABASE_UNAVAILABLE` en réponse API** (l'application affiche « Le serveur est momentanément indisponible ») | L'API n'atteint pas PostgreSQL : la base redémarre, est arrêtée ou n'a plus de connexion libre. Vérifiez le container de la base (`docker compose logs db`) et réessayez quand elle est revenue ; rien n'est perdu. |
+| **`500 UNEXPECTED_ERROR` en réponse API** | Une erreur inattendue du serveur. La réponse n'en donne jamais le détail : consultez les logs du container API (`docker compose logs api`), où chaque erreur est écrite une fois avec sa cause, sous la forme `[error] <méthode> <chemin> -> 500 UNEXPECTED_ERROR`. |

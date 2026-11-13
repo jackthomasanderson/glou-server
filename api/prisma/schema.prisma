@@ -73,6 +73,13 @@ model User {
   // there is no separate "current step" column to keep in sync.
   onboardingCompletedAt DateTime?
 
+  // What's New? window (FEAT-115, #990) — what an administrator has already
+  // seen of the release notes (api/release-notes/): every note of a version up
+  // to `lastSeenReleaseVersion` (CalVer), plus the upcoming notes whose id is
+  // in `seenReleaseNoteIds` (a beta image). Personal, never read for a member.
+  lastSeenReleaseVersion String?
+  seenReleaseNoteIds     String[]  @default([])
+
   // Notifications (FEAT-32)
   notifEmail         Boolean    @default(false)
   notifWebhook       Boolean    @default(false)
@@ -81,7 +88,8 @@ model User {
   notifQuietEnd      Int?
   notifLanguage      Language?
 
-  inventory    InventoryItem[]
+  inventory    InventoryItem[] @relation("ItemCreator")
+  finishedItems InventoryItem[] @relation("ItemFinisher")
   products     Product[]
   auditLogs    AuditLog[]
   cellars      Cellar[]
@@ -98,6 +106,7 @@ model User {
   budgetEnvelopes     BudgetEnvelope[]
   scanJobs            ScanJob[]
   humidorReadings     HumidorReading[]
+  stockMovements      StockMovement[]
 }
 
 enum Theme {
@@ -256,6 +265,7 @@ model Product {
   items             InventoryItem[]
   tastingNotes      TastingNote[]
   auditLogs         AuditLog[]
+  stockMovements    StockMovement[]
   collections       Collection[]         @relation("CollectionProducts")
   distinctions      ProductDistinction[] @relation("ProductDistinctionFirst")
   otherDistinctions ProductDistinction[] @relation("ProductDistinctionSecond")
@@ -294,7 +304,7 @@ model InventoryItem {
   // ISSUE_098: audit field, not an ownership field — see the matching note
   // on Cellar.userId. Deleting a member must never erase shared inventory.
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user   User   @relation("ItemCreator", fields: [userId], references: [id], onDelete: Restrict)
 
   // #471: the family. Restrict: a family is only purged once it has no unit.
   productId String
@@ -338,6 +348,16 @@ model InventoryItem {
   // Traceability
   updatedBy    String?   // userId of the last editor (null = no edits yet)
 
+  // #589: when the unit was finished (drunk, smoked) and by whom: stamped
+  // once by the write that finishes it, cleared if it is put back
+  // (lib/finished-item.ts `finishedStamp`). "Consumed over the period" and
+  // the personal consumption goal read these, never `updatedAt`/`updatedBy`,
+  // which any later edit rewrites. SetNull: deleting the member keeps the
+  // consumption, without its author.
+  finishedAt     DateTime?
+  finishedBy     String?
+  finishedByUser User?     @relation("ItemFinisher", fields: [finishedBy], references: [id], onDelete: SetNull)
+
   // Integrity
   lockedFields String[]  @default([]) // User-locked fields, not overwritten by a later automated update (OCR scan)
   fieldSources Json?     // Per-field source tag ({ [field]: 'manual'|'ocr'|'import_csv' }); absent field = implicit 'manual' (FEAT-05)
@@ -349,6 +369,8 @@ model InventoryItem {
   updatedAt DateTime @updatedAt
 
   auditLogs    AuditLog[]
+
+  stockMovements StockMovement[]
   tastingNotes TastingNote[]
   countEntries InventoryCountEntry[]
   // FEAT-93: the cells of the cellar plan its copies occupy.
@@ -407,8 +429,12 @@ model ItemSlot {
 
 model AuditLog {
   id        Int      @id @default(autoincrement())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // #695: emptied when an administrator deletes the member for good; the
+  // row stays, as the record of what they did, and `actorName` keeps the
+  // name it is shown under.
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorName String?
   bottleId  String?
   bottle    InventoryItem?  @relation(fields: [bottleId], references: [id], onDelete: SetNull)
   // #471: the family the change belongs to (description changes are logged
@@ -425,7 +451,59 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@index([productId])
+  // #588: a bottle's history, newest first (the drawer, "Restore this value").
+  @@index([bottleId, createdAt])
   @@map("audit_logs")
+}
+
+// #848 (FEAT-110): the movement journal of a wine — every change of a number
+// of bottles (cigars) or of their price, by whom, in the transaction that
+// made it (stock-movement.service.ts). Kinds and details: shared/stock-movement.ts.
+// Business history: never purged by the audit-log retention (#588); it goes
+// only with its wine. Starts with one `INITIAL` line per wine (migration
+// 20261112123434_stock_movements), the past is not rebuilt.
+model StockMovement {
+  // In the order written: the movements of one transaction share its time.
+  id        Int               @id @default(autoincrement())
+  productId String
+  product   Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  // The line or bottle concerned; it may be joined into another line or
+  // deleted later, the movement stays.
+  itemId    String?
+  item      InventoryItem?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  kind      StockMovementKind
+  // Units in stock gained or lost by the wine (bottles, or cigars): 0 for a move or a new price.
+  delta     Int
+  // Copies concerned (bottles moved, repriced, cigars smoked…).
+  count     Int
+  details   Json?
+  // The member who made it. A guest's movement has no member: `guestName`
+  // (the share's invitee, possibly empty) tells it. #661/#695: an account
+  // deleted later leaves the movement, shown as "deleted member".
+  userId    String?
+  user      User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  guestName String?
+  createdAt DateTime          @default(now())
+
+  @@index([productId, createdAt])
+  @@index([kind, createdAt])
+  @@index([itemId])
+  @@index([userId])
+  @@map("stock_movements")
+}
+
+enum StockMovementKind {
+  INITIAL
+  ADDED
+  OPENED
+  CONSUMED
+  UNFINISHED
+  PUT_BACK
+  MOVED
+  CORRECTED
+  PRICE_CHANGED
+  TRASHED
+  RESTORED
 }
 
 enum BottleCategory {
@@ -510,8 +588,11 @@ model Collection {
   name      String
   color     String          @default("#6366f1")
   icon      String?
-  userId    String
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // #476: collections are shared by the household like the rest of the
+  // inventory. `userId` is who created it (audit only, never an access
+  // filter); the collection outlives its author's account.
+  userId    String?
+  user      User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   products  Product[]       @relation("CollectionProducts")
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
@@ -801,8 +882,11 @@ model BackupRun {
 
 model ConfigChangeLog {
   id           Int      @id @default(autoincrement())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // #695: like AuditLog, detached when the admin who made the change is
+  // deleted, with the name kept in `actorName`.
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorName    String?
   fieldName    String
   maskedOldVal String?
   maskedNewVal String?
@@ -899,8 +983,11 @@ model WishlistItem {
 
 model BudgetEnvelope {
   id          String   @id @default(uuid())
+  // ISSUE_142: household-wide, `userId` is who created it (audit only).
+  // #695: Restrict like the rest of the shared data — an envelope never goes
+  // with its author's account (account-deletion.service re-attributes it).
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Restrict)
   periodStart DateTime
   periodEnd   DateTime
   amount      Decimal  @db.Decimal(12, 2)

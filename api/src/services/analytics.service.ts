@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { CurveShape, readinessIndex } from '../lib/maturity-curve';
-import { consumedUnits, itemCostInStock, itemSpend, itemUnits, itemValue } from '../lib/finished-item';
+import { consumedUnits, isFinishedState, itemCostInStock, itemSpend, itemUnits, itemValue } from '../lib/finished-item';
 import { UNIT_COUNT_SELECT } from '../lib/stock-units';
 import { ANALYTICS_PERIOD_SCOPE, type AnalyticsStats, type CavePoint, type MovementStats } from '../../../shared/analytics';
 import { findKnownRegion, mapLocationOf, normalizeRegionName } from '../../../shared/map-location';
@@ -36,17 +36,18 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
     : {};
 
-  // "Consumed" is a state of the item itself, not an audit action, so it is
-  // dated by `updatedAt` (every write stamps it) rather than by the audit
-  // log's `createdAt`. #838: until movements are logged (#848), every cigar
-  // smoked out of a box is dated by the box's last change of any kind.
-  const inPeriod = (date: Date) => (!from || date >= from) && (!to || date <= to);
+  // "Consumed" is a state of the item itself, not an audit action. #589: a
+  // finished unit is dated by `finishedAt`, stamped once by the write that
+  // finished it — never by `updatedAt`, which any later edit (a move, a
+  // count) rewrites. #838: until movements are logged (#848), the cigars
+  // smoked out of a box still opened are dated by the box's last change.
+  const inPeriod = (date: Date | null) => (!from || (date != null && date >= from)) && (!to || (date != null && date <= to));
 
   // ISSUE_035/ISSUE_104: deliberately not spread into the inventory query
   // (ANALYTICS_PERIOD_SCOPE, shared/analytics.ts). Inventory aggregates
   // describe the cellar as it stands right now — a bottle bought in 2019 is
   // still in the cellar today, so leaving it out of the valuation would mislead.
-  const [items, cellars, auditMovements] = await Promise.all([
+  const [items, cellars, journal] = await Promise.all([
     prisma.inventoryItem.findMany({
       // FEAT-87: analytics describe what the instance holds; a non-owned
       // reference is a wine without bottles (#471), out of every figure here.
@@ -58,6 +59,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
         bottleSize: true,
         cellarId: true,
         updatedAt: true,
+        finishedAt: true,
         product: {
           select: {
             category: true,
@@ -75,14 +77,13 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     prisma.cellar.findMany({
       select: { id: true, name: true, type: true },
     }),
-    prisma.auditLog.groupBy({
-      by: ['action'],
-      where: {
-        action: { in: ['CREATE', 'DELETE', 'RESTORE'] },
-        status: 'success',
-        ...dateFilter,
-      },
-      _count: { action: true },
+    // #848 (FEAT-110): bottles added, trashed and restored are read from the
+    // movement journal — never purged, and counted in bottles (cigars), not in
+    // lines. Its first line per wine (INITIAL) is no movement.
+    prisma.stockMovement.groupBy({
+      by: ['kind'],
+      where: { kind: { in: ['ADDED', 'TRASHED', 'RESTORED'] }, ...dateFilter },
+      _sum: { delta: true },
     }),
   ]);
 
@@ -128,7 +129,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     // #838: units consumed (each bottle drunk, each cigar smoked) during the
     // period, read from the item's state like every "consumed" figure
     // (lib/finished-item.ts); a write-off is not consumed.
-    if (inPeriod(item.updatedAt)) consumedCount += consumedUnits(item);
+    if (inPeriod(isFinishedState(item) ? item.finishedAt : item.updatedAt)) consumedCount += consumedUnits(item);
     const units = itemUnits(item);
     if (units === 0) continue;
     const value = itemValue(item);
@@ -226,11 +227,12 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   // The maturity buckets split the units in stock, so they add up to 100 %.
   const pct = (n: number) => (inStockUnits > 0 ? Math.round((n / inStockUnits) * 100) : 0);
 
+  const unitsOf = (kind: 'ADDED' | 'TRASHED' | 'RESTORED') => Math.abs(journal.find(r => r.kind === kind)?._sum.delta ?? 0);
   const movements: MovementStats = {
-    added: auditMovements.find(r => r.action === 'CREATE')?._count.action ?? 0,
+    added: unitsOf('ADDED'),
     consumed: consumedCount,
-    deleted: auditMovements.find(r => r.action === 'DELETE')?._count.action ?? 0,
-    restored: auditMovements.find(r => r.action === 'RESTORE')?._count.action ?? 0,
+    deleted: unitsOf('TRASHED'),
+    restored: unitsOf('RESTORED'),
   };
 
   // Build garde histogram sorted by year

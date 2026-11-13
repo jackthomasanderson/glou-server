@@ -7,7 +7,7 @@ import { InventoryPatch, InventoryInput, InventoryDraft } from '../schemas/inven
 import { computeReadiness, familyAlertStatus } from './alert.service';
 import { readFieldHistory } from './audit.service';
 import type { FieldChange, ItemView, ProductHistoryEntry } from '../../../shared/product';
-import { isGroupableItem, unitKind, type UnitKind } from '../lib/finished-item';
+import { finishedStamp, isGroupableItem, itemUnits, unitKind, type UnitKind } from '../lib/finished-item';
 import { v4 as uuidv4 } from 'uuid';
 import { INVENTORY_LIST_LIMIT, TRASH_RETENTION_DAYS, type FieldSource } from '../../../shared/inventory';
 import {
@@ -19,6 +19,7 @@ import {
   applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
 } from './stock-state.service';
 import { writeFamilyDescription, type UnitSlotChanges } from './product.service';
+import { lineMovements, recordMovements, stateMovement, trashMovements, type MovementActor, type MovementDraft } from './stock-movement.service';
 import { rememberDistinct } from './review.service';
 import { GROUP_KEY_FIELDS, joinIdenticalGroup, splitLockedGroup } from './stock-split.service';
 import {
@@ -125,7 +126,8 @@ const retentionCutoff = () => new Date(Date.now() - TRASH_RETENTION_DAYS * 24 * 
 export interface InventoryWithTraceability {
   item: Record<string, unknown>;
   creator: { id: string; name: string } | null;
-  lastEditor: { id: string; name: string } | null;
+  /** #695: `name` is null once that member was deleted for good (`updatedBy` has no foreign key). */
+  lastEditor: { id: string; name: string | null } | null;
 }
 
 /**
@@ -163,6 +165,8 @@ type InventoryItem = Awaited<ReturnType<typeof prisma.inventoryItem.findFirst>> 
 const RESTORABLE_UNIT_FIELDS: ReadonlySet<string> = new Set(
   Object.values(Prisma.InventoryItemScalarFieldEnum).filter((field) => ![
     'id', 'userId', 'productId', 'createdAt', 'updatedAt', 'deletedAt', 'updatedBy', 'lockedFields', 'fieldSources',
+    // #589: stamped by the write that finishes the unit, never restored on their own.
+    'finishedAt', 'finishedBy',
   ].includes(field)),
 );
 
@@ -265,7 +269,8 @@ export class InventoryService {
 
     const creator = item.userId ? { id: item.userId, name: userMap.get(item.userId) ?? item.userId } : null;
     const updatedById = item.updatedBy ?? undefined;
-    const lastEditor = updatedById ? { id: updatedById, name: userMap.get(updatedById) ?? updatedById } : null;
+    // #695: never the raw id as a name, for an editor deleted since.
+    const lastEditor = updatedById ? { id: updatedById, name: userMap.get(updatedById) ?? null } : null;
 
     // `item` (a concrete typed object) is a structural subtype of
     // `Record<string, unknown>` — every property value is assignable to
@@ -346,19 +351,30 @@ export class InventoryService {
       lockedFields: (data.lockedFields ?? []).filter(isProductField),
       ...(Object.keys(productSources).length > 0 ? { fieldSources: productSources } : {}),
     };
-    const created = await client.inventoryItem.create({
-      data: {
-        id: uuidv4(),
-        ...itemData,
-        purchasedAt: purchaseDayFromInput(data.purchasedAt),
-        ...extra,
-        ...(unitLocks.length > 0 ? { lockedFields: unitLocks } : {}),
-        user: { connect: { id: userId } },
-        ...(cellarId ? { cellar: { connect: { id: cellarId } } } : {}),
-        product: { create: product },
-      } satisfies Prisma.InventoryItemCreateInput,
-      include: INVENTORY_ITEM_INCLUDE,
-    });
+    // #589: a bottle recorded already drunk (or a box already smoked) is finished now, by its author.
+    const { finishedAt, finishedBy } = finishedStamp(
+      null, { isOpened: dbData.isOpened === true, fillLevel: (dbData.fillLevel as number | null | undefined) ?? null }, userId, new Date(),
+    );
+    // #848: the bottles added are told in the new wine's journal, in the same transaction.
+    const write = async (tx: PrismaClientOrTx) => {
+      const row = await tx.inventoryItem.create({
+        data: {
+          id: uuidv4(),
+          ...itemData,
+          purchasedAt: purchaseDayFromInput(data.purchasedAt),
+          ...extra,
+          ...(finishedBy ? { finishedAt, finishedByUser: { connect: { id: finishedBy } } } : {}),
+          ...(unitLocks.length > 0 ? { lockedFields: unitLocks } : {}),
+          user: { connect: { id: userId } },
+          ...(cellarId ? { cellar: { connect: { id: cellarId } } } : {}),
+          product: { create: product },
+        } satisfies Prisma.InventoryItemCreateInput,
+        include: INVENTORY_ITEM_INCLUDE,
+      });
+      await recordMovements(tx, { userId }, addedMovements(row));
+      return row;
+    };
+    const created = client === prisma ? await prisma.$transaction(write) : await write(client);
     // #592: the list's shape, readiness included.
     return attachReadiness(toItemView(created));
   }
@@ -408,6 +424,8 @@ export class InventoryService {
        * no plan in sight, decision #471 point 75).
        */
       slotChoice?: 'ask' | 'auto';
+      /** #848: a guest's write (FEAT-37): the movement journal names the guest, not the member who shared the cellar. */
+      guest?: MovementActor['guest'];
     },
   ): Promise<UpdateItemResult | null> {
     const { fieldSources, isManualEdit = true, bypassFieldLock = false } = options ?? {};
@@ -517,7 +535,7 @@ export class InventoryService {
       // The unit is always stamped: the flat record it stands for changed.
       let result = await applyState<typeof INVENTORY_ITEM_INCLUDE, InventoryItemRow>(
         tx, fresh as StateItem, { unit, state, smokeOne, keepTastings },
-        { userId, kind, include: INVENTORY_ITEM_INCLUDE, slotChoice },
+        { userId, kind, include: INVENTORY_ITEM_INCLUDE, slotChoice, guest: options?.guest },
       );
       // "Annuler" of a line finished in place: the copy put back takes its
       // cell again if nobody took it since (FEAT-93 lot S2), before a join
@@ -654,8 +672,12 @@ export class InventoryService {
     userId: string,
     ids: string[],
     patch: InventoryPatch,
-    /** FEAT-93: filled with the cells each unit gave up, for its history. */
-    slotChanges: UnitSlotChanges[] = [],
+    /**
+     * #588: filled with one history entry per line changed (its fields, the
+     * cells it gave up — FEAT-93) and one per wine whose description changed,
+     * logged by the route once the transaction went through.
+     */
+    history: BulkEditEntry[] = [],
   ): Promise<number> {
     const rows = await prisma.inventoryItem.findMany({
       where: { id: { in: ids }, deletedAt: null },
@@ -699,8 +721,11 @@ export class InventoryService {
               unitPatch: { ids, columns: unitPatch },
             })
             : null;
-          slotChanges.push(...(family?.unitSlotChanges ?? []));
           const changed = (family?.changes.length ?? 0) > 0;
+          if (changed) history.push({ action: 'UPDATE', productId: row.productId, details: { bulk: true, changes: family!.changes } });
+          for (const unit of family?.unitSlotChanges ?? []) {
+            history.push({ action: 'UPDATE', bottleId: unit.itemId, productId: row.productId, details: { bulk: true, changes: unit.changes } });
+          }
           familyChanged.set(row.productId, changed);
         }
         const changedEntries = Object.entries(unitPatch).filter(
@@ -725,7 +750,20 @@ export class InventoryService {
             where: { id: item.id },
             data: { ...others, updatedAt: new Date(), updatedBy: userId },
           });
-          await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
+          if (Object.keys(others).length > 0) {
+            history.push({ action: 'UPDATE', bottleId: item.id, productId: row.productId, details: { bulk: true, changes: fieldChanges(fresh, others) } });
+            // #848: its new price or number, in the wine's journal (the move is told by splitLockedGroup).
+            await recordMovements(tx, { userId }, lineMovements(fresh, { ...fresh, ...others } as typeof fresh)
+              .map((movement) => ({ productId: row.productId, itemId: item.id, ...movement })));
+          }
+          const split = await splitLockedGroup(tx, userId, group, group.quantity ?? 1, { field: 'cellarId', to: cellarId ?? null }, unitKind(row.product.category));
+          // As the bulk move does (bulk-stock.service.ts): each line the move wrote.
+          for (const { itemId, ...entry } of split.entries) {
+            history.push({
+              action: 'MOVE_UNITS', bottleId: itemId, productId: row.productId,
+              details: { count: split.count, cellarId: { from: split.change.from, to: split.change.to }, ...entry, bulk: true },
+            });
+          }
           updatedCount++;
           continue;
         }
@@ -740,7 +778,14 @@ export class InventoryService {
           ...(changed.cellarId !== undefined && changed.cellarId !== fresh.cellarId ? await freeSlots(tx, item.id) : []),
           ...await fitSlotsTo(tx, item.id, { ...fresh, ...changed } as typeof fresh, unitKind(familyPatch.category ?? row.product.category)),
         ];
-        if (freed.length > 0) slotChanges.push({ itemId: item.id, changes: slotsFreed(freed) });
+        // Only a line whose own fields or cells changed: a description edit is told once, on the wine.
+        const lineChanges = [...fieldChanges(fresh, changed), ...slotsFreed(freed)];
+        if (lineChanges.length > 0) {
+          history.push({ action: 'UPDATE', bottleId: item.id, productId: row.productId, details: { bulk: true, changes: lineChanges } });
+        }
+        // #848: a line moved, repriced or recounted, in the wine's journal.
+        await recordMovements(tx, { userId }, lineMovements(fresh, { ...fresh, ...changed } as typeof fresh)
+          .map((movement) => ({ productId: row.productId, itemId: item.id, ...movement })));
         await tx.inventoryItem.update({
           where: { id: item.id },
           data: {
@@ -756,7 +801,7 @@ export class InventoryService {
     return updatedCount;
   }
 
-  async softDelete(id: string): Promise<InventoryItemView | null> {
+  async softDelete(id: string, userId: string): Promise<InventoryItemView | null> {
     const existing = await prisma.inventoryItem.findFirst({
       where: { id, deletedAt: null },
     });
@@ -766,6 +811,8 @@ export class InventoryService {
     const deletedAt = new Date();
     const trashed = await prisma.$transaction(async (tx) => {
       await trashSlots(tx, [id], deletedAt);
+      // #848: the bottles it held leave the stock, in the wine's journal.
+      await recordMovements(tx, { userId }, trashMovements('TRASHED', existing.productId, [existing]));
       return tx.inventoryItem.update({ where: { id }, data: { deletedAt }, include: INVENTORY_ITEM_INCLUDE });
     });
     return toItemView(trashed);
@@ -773,6 +820,7 @@ export class InventoryService {
 
   async restore(
     id: string,
+    userId: string,
     /** FEAT-93: filled with the cells it could not take back (see restoreOnce), for its history. */
     slotChanges: FieldChange[] = [],
   ): Promise<WithReadiness<InventoryItemView> | null> {
@@ -794,12 +842,12 @@ export class InventoryService {
     // check and the write — tried once more, the check then sees it.
     let restored: { item: WithReadiness<InventoryItemView>; freed: FieldChange[] };
     try {
-      restored = await this.restoreOnce(existing);
+      restored = await this.restoreOnce(existing, userId);
     } catch (err) {
       // #962: deleted for good from the trash meanwhile — gone, as if never found.
       if (isRecordNotFound(err)) return null;
       if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002')) throw err;
-      restored = await this.restoreOnce(existing);
+      restored = await this.restoreOnce(existing, userId);
     }
     slotChanges.push(...restored.freed);
     return restored.item;
@@ -807,6 +855,7 @@ export class InventoryService {
 
   private restoreOnce(
     existing: { productId: string; id: string; product: { deletedAt: Date | null } },
+    userId: string,
   ): Promise<{ item: WithReadiness<InventoryItemView>; freed: FieldChange[] }> {
     const { id } = existing;
     return prisma.$transaction(async (tx) => {
@@ -822,6 +871,8 @@ export class InventoryService {
       // automatic rule (review of #854).
       const unit = await tx.inventoryItem.findUniqueOrThrow({ where: { id }, include: INVENTORY_ITEM_INCLUDE });
       const freed = slotsFreed(await fitSlotsTo(tx, id, unit, unitKind(unit.product.category)));
+      // #848: back in stock, in the wine's journal.
+      await recordMovements(tx, { userId }, trashMovements('RESTORED', unit.productId, [unit]));
       // #592: the list's shape, readiness included.
       const item = freed.length === 0
         ? unit
@@ -1093,6 +1144,33 @@ export class InventoryService {
   private getField(item: object, key: string): unknown {
     return (item as Record<string, unknown>)[key];
   }
+}
+
+/**
+ * #848: the movements of a line just created — its copies added, then the
+ * state it was recorded in (a bottle entered already opened or drunk).
+ */
+export function addedMovements(row: StateItem): MovementDraft[] {
+  const intact = { ...row, isOpened: false, fillLevel: null, cigarsLeft: null };
+  const base = { productId: row.productId, itemId: row.id, details: { cellarId: row.cellarId } };
+  const added: MovementDraft = { ...base, kind: 'ADDED', delta: itemUnits(intact), count: row.quantity ?? 1 };
+  const state = stateMovement(intact, row);
+  return [added, ...(state ? [{ ...base, ...state }] : [])];
+}
+
+/** #588: one entry of the bulk edit's history — on a line (`bottleId`), or on the wine for its description. */
+export interface BulkEditEntry {
+  action: 'UPDATE' | 'MOVE_UNITS';
+  bottleId?: string;
+  productId: string;
+  details: { bulk: true; changes?: FieldChange[] } & Record<string, unknown>;
+}
+
+/** The columns of `patch` that differ from `row`, as the history shows them. */
+function fieldChanges(row: Record<string, unknown>, patch: Record<string, unknown>): FieldChange[] {
+  return Object.entries(patch)
+    .filter(([field, value]) => JSON.stringify(row[field] ?? null) !== JSON.stringify(value ?? null))
+    .map(([field, value]) => ({ field, from: row[field] ?? null, to: value }));
 }
 
 /**

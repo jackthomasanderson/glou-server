@@ -22,6 +22,7 @@ const tastingPreset: { id?: string } = {};
 vi.mock('@/hooks/useProducts', () => ({
   productDetailKey: (id: string) => ['inventory', 'product', id],
   useProductDetail: () => ({ data: detail, isLoading: false, isError: false, refetch: vi.fn(), isRefetching: false }),
+  useProductMovements: () => ({ data: undefined, isError: false }),
 }));
 // ResponsiveModal (the history's restore confirmation) reads window.matchMedia.
 vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));

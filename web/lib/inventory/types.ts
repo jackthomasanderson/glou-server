@@ -126,7 +126,8 @@ export interface InventoryItem {
   // Traceability (FEAT-62) — present only on single-item GET
   updatedBy?: string | null;
   _creator?: { id: string; name: string } | null;
-  _lastEditor?: { id: string; name: string } | null;
+  /** #695: `name` is null once that member was deleted for good. */
+  _lastEditor?: { id: string; name: string | null } | null;
 }
 
 /**
@@ -155,7 +156,7 @@ export interface InventoryHistoryEntry {
   id: number;
   action: string;
   status: string;
-  actorId: string;
+  actorId: string | null;
   actorName: string;
   /** Set when the change came through a guest share link (#483). */
   viaGuest?: boolean;

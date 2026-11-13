@@ -66,4 +66,14 @@ describe('authErrorMessage', () => {
     expect(authErrorMessage(t, new Error('2FA_SECRET_NOT_GENERATED'))).toBe('An unexpected error occurred.');
     expect(authErrorMessage(t, new Error('SOMETHING'), 'forgotPassword.errors')).toBe('An error occurred. Please try again.');
   });
+
+  // #467: a database restart is said as such, not as "unexpected error" or a wrong password.
+  it('the server answers 503: temporarily unavailable, try again in a moment', async () => {
+    await i18n.changeLanguage('en');
+    expect(authErrorMessage(t, new ApiError('DATABASE_UNAVAILABLE', 503)))
+      .toBe('The server is temporarily unavailable. Your data is safe: try again in a moment.');
+    await i18n.changeLanguage('fr');
+    expect(authErrorMessage(t, new ApiError('DATABASE_UNAVAILABLE', 503), 'forgotPassword.errors'))
+      .toBe('Le serveur est momentanément indisponible. Vos données sont intactes : réessayez dans un instant.');
+  });
 });

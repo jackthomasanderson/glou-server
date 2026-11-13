@@ -18,7 +18,8 @@ export async function moveHistoryOnto(tx: PrismaClientOrTx, survivorId: string, 
 
 /** What {@link withoutUndone} reads of a field-history log. */
 export interface HistoryLog {
-  userId: string;
+  /** #695: null once the member was deleted for good. */
+  userId: string | null;
   action: string;
   bottleId: string | null;
   details: unknown;

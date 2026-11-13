@@ -3,6 +3,7 @@ import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
 import { getAlerts, toggleAlertPause } from '../services/alert.service';
 import { auditLog } from '../services/audit.service';
+import { notFound } from '../lib/errors';
 
 const router = Router();
 
@@ -12,34 +13,19 @@ router.use(authMiddleware);
 
 // ISSUE_087: a plain read used to write an audit-log row on every request —
 // no traceability value for "someone listed the alerts".
-router.get('/', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const alerts = await getAlerts();
-    res.json({ data: alerts });
-  } catch (error) {
-    console.error('[alerts] GET / error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+router.get('/', async (_req: Request, res: Response): Promise<void> => {
+  const alerts = await getAlerts();
+  res.json({ data: alerts });
 });
 
 // ─── PATCH /api/alerts/:id/pause ─────────────────────────────────────────────
 
 router.patch('/:id/pause', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  const ip = getClientIp(req);
-  try {
-    const success = await toggleAlertPause(id);
-    if (!success) {
-      res.status(404).json({ error: 'BOTTLE_NOT_FOUND' });
-      return;
-    }
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: id, details: { scope: 'alert-pause' } });
-    res.json({ data: { ok: true } });
-  } catch (error) {
-    console.error('[alerts] PATCH /:id/pause error:', error);
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { message: String(error) } });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const success = await toggleAlertPause(id);
+  if (!success) throw notFound('BOTTLE_NOT_FOUND');
+  void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip: getClientIp(req), bottleId: id, details: { scope: 'alert-pause' } });
+  res.json({ data: { ok: true } });
 });
 
 export { router as alertsRouter };

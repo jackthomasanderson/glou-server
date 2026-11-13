@@ -1,8 +1,10 @@
 'use client';
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { request } from '@/lib/api';
+import { qk } from '@/lib/queryKeys';
 
-const CONNECTIVITY_KEY = ['connectivity'];
+const CONNECTIVITY_KEY = qk.connectivity;
 
 /**
  * Connectivity state, combining two signals (FEAT-16/23):
@@ -22,8 +24,9 @@ export function useConnectivity(): boolean | null {
 
   const { data } = useQuery({
     queryKey: CONNECTIVITY_KEY,
-    queryFn: async () => {
-      const res = await fetch('/api/connectivity');
+    // #619: through `request` too, so a probe that never gets an answer gives up like any other call.
+    queryFn: async ({ signal }) => {
+      const res = await request('/connectivity', { signal });
       return res.json() as Promise<{ online: boolean }>;
     },
     refetchInterval: 30_000,

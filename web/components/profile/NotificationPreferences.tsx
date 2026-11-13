@@ -3,22 +3,24 @@ import React, { useCallback, useState, useId, type ComponentProps } from 'react'
 import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import Link from 'next/link';
 import { Button, Checkbox, Switch, Chip, Skeleton, SelectItem } from '@heroui/react';
-import { Bell, Globe, Loader2 } from 'lucide-react';
+import { Bell, Globe, Loader2, Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { configClient, type NotificationPrefs, type NotificationPrefsPatch } from '@/lib/config/client';
 import {
-  DAILY_ALERTS_HOUR, isNotificationCategoryEnabled, type ChannelOffReason, type NotificationCategory,
+  DAILY_ALERTS_HOUR, isMandatoryNotificationCategory, isNotificationCategoryEnabled,
+  type ChannelOffReason, type NotificationCategory,
 } from '@shared/notifications';
 import { AUTH_RATE_LIMIT_WINDOW_MINUTES, TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { isNetworkFailure } from '@/lib/auth/error-message';
 import { notifyError, notifySuccess } from '@/lib/toast';
+import { qk } from '@/lib/queryKeys';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-const NOTIF_PREFS_KEY = ['notification_prefs'];
+const NOTIF_PREFS_KEY = qk.notificationPrefs;
 
 /** The refusals of a channel test said in words (#767); anything else is "unexpected". */
 const TEST_ERRORS = new Set(['DELIVERY_FAILED', 'GOTIFY_NOT_CONFIGURED', 'INVALID_URL', 'SMTP_NOT_CONFIGURED']);
@@ -28,7 +30,8 @@ const TEST_ERRORS = new Set(['DELIVERY_FAILED', 'GOTIFY_NOT_CONFIGURED', 'INVALI
  * all of them. Toggling starts from what is actually received — toggling
  * against the stored `[]` turned the unticked category into the only one on.
  * Every category ticked again is saved as `[]`. `offered` is what this member
- * can receive (#780: backup failures reach admins only).
+ * can receive (#780: backup failures reach admins only). Security alerts are
+ * always on (#981), so the list is never left empty by unticking.
  */
 function toggledCategories(stored: string[], offered: NotificationCategory[], cat: NotificationCategory): string[] {
   const enabled = offered.filter((c) => isNotificationCategoryEnabled(stored, c));
@@ -84,7 +87,7 @@ function ChannelUnavailable({ channel, reason }: { channel: 'email' | 'gotify'; 
 
 export function NotificationPreferences() {
   const { t } = useTranslation();
-  const categoriesHintId = useId();
+  const securityLockedId = useId();
   const backupOffId = useId();
   const queryClient = useQueryClient();
   // #615: what is shown and saved comes from the server only; while it cannot
@@ -143,6 +146,7 @@ export function NotificationPreferences() {
   if (query.isError) {
     return (
       <ErrorState
+        error={query.error}
         message={t('notifications.loadError')}
         onRetry={() => void query.refetch()}
         isRetrying={query.isFetching}
@@ -153,8 +157,9 @@ export function NotificationPreferences() {
   const prefs = query.data;
   const { policy, categories } = prefs;
   const toggleCategory = (cat: NotificationCategory) => save({ notifCategories: toggledCategories(prefs.notifCategories, categories, cat) });
-  const enabledCount = categories.filter((c) => isNotificationCategoryEnabled(prefs.notifCategories, c)).length;
   const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // #981: where the locked security alerts can go on this instance.
+  const securityDelivery = policy.smtpEnabled ? 'securityLocked' : policy.gotifyEnabled ? 'securityLockedNoEmail' : 'securityLockedNoChannel';
 
   return (
     <div className="bg-content1 border border-divider rounded-2xl p-6">
@@ -211,22 +216,31 @@ export function NotificationPreferences() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
           {categories.map((cat) => {
             const enabled = isNotificationCategoryEnabled(prefs.notifCategories, cat);
-            // An empty list means "all": the last category on cannot be turned
-            // off here — the channel switches above stop everything.
-            const isLastOn = enabled && enabledCount === 1;
+            // #981: security alerts cannot be turned off (the server keeps them
+            // on whatever is sent); the box says why, on screen and when read.
+            const locked = isMandatoryNotificationCategory(cat);
             const backupOff = cat === 'backup' && prefs.automaticBackups === false;
-            const describedBy = [isLastOn && categoriesHintId, backupOff && backupOffId].filter(Boolean).join(' ') || undefined;
+            const describedBy = (locked && securityLockedId) || (backupOff && backupOffId) || undefined;
             return (
-              <div key={cat} className="flex flex-col gap-0.5">
+              <div key={cat} className={locked ? 'flex flex-col gap-0.5 sm:col-span-2' : 'flex flex-col gap-0.5'}>
                 <DescribedCheckbox
                   size="sm"
                   isSelected={enabled}
-                  isDisabled={isLastOn}
+                  isDisabled={locked}
                   describedBy={describedBy}
-                  onValueChange={() => { if (!isLastOn) void toggleCategory(cat); }}
+                  onValueChange={() => { if (!locked) void toggleCategory(cat); }}
                 >
                   <span className="text-sm">{t(`notifications.categories.${cat}`)}</span>
                 </DescribedCheckbox>
+                {locked && (
+                  <p id={securityLockedId} className="flex items-start gap-1.5 text-xs text-foreground-500 ps-7">
+                    <Lock size={12} className="shrink-0 mt-0.5 text-foreground" aria-hidden="true" />
+                    <span>
+                      <strong className="font-semibold text-foreground">{t('notifications.categories.securityLockedLead')}</strong>{' '}
+                      <span>{t(`notifications.categories.${securityDelivery}`)}</span>
+                    </span>
+                  </p>
+                )}
                 {backupOff && (
                   <p id={backupOffId} className="text-xs text-foreground-500 ps-7">{t('notifications.categories.backupAutomaticOff')}</p>
                 )}
@@ -234,9 +248,6 @@ export function NotificationPreferences() {
             );
           })}
         </div>
-        {enabledCount === 1 && (
-          <p id={categoriesHintId} className="text-xs text-foreground-500">{t('notifications.categories.lastOne')}</p>
-        )}
       </div>
 
       {/* Quiet hours */}

@@ -7,6 +7,7 @@
 ## For reviewers
 
 - [ ] New user-facing strings have **both** FR and EN i18n keys
+- [ ] A change users will notice adds its EN + FR release note (`api/release-notes/`, see CONTRIBUTING)
 - [ ] No secrets, `.env` values or private files committed
 - [ ] Docs / wiki updated if behaviour changed
 - [ ] Website (`docs/index.html`) updated if installation or updating changes
@@ -25,6 +26,7 @@ By submitting this pull request, I license my contribution under the [Glou CLA](
 ## Pour les relecteurs
 
 - [ ] Les nouveaux textes ont des clés i18n FR **et** EN
+- [ ] Un changement visible des utilisateurs ajoute sa note de version EN + FR (`api/release-notes/`, voir CONTRIBUTING)
 - [ ] Aucun secret, valeur `.env` ou fichier privé commité
 - [ ] Docs / wiki mis à jour si le comportement change
 - [ ] Site (`docs/index.html`) mis à jour si l'installation ou la mise à jour change

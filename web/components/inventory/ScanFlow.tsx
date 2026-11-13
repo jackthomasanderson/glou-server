@@ -10,7 +10,8 @@ import { InventoryItem, InventoryCategory, CATEGORY_VALUES } from '@/lib/invento
 import { CATEGORY_CHIP_COLOR } from '@/lib/analytics/categoryColors';
 import { useCreateFromForm } from '@/hooks/useCreateFromForm';
 import { useCellars } from '@/hooks/useCellars';
-import { useUploadScan, useScanJob, SCAN_STATUS_QUERY_KEY } from '@/hooks/useScan';
+import { useUploadScan, useScanJob } from '@/hooks/useScan';
+import { qk } from '@/lib/queryKeys';
 import { scanErrorCause, type ScanErrorCause } from '@/lib/scan/errors';
 import { getDefaultCellarForCategory, setDefaultCellarForCategory } from '@/lib/scan/defaultLocations';
 import { FilterChip } from '@/components/ui/FilterControls';
@@ -154,7 +155,7 @@ export function ScanFlow({ open, onClose, defaultCellarId = null, onItemCommitte
   // The service went away since the entry points were shown: hide them again.
   const serviceGone = phase === 'error' && errorCause === 'unavailable';
   useEffect(() => {
-    if (serviceGone) void queryClient.invalidateQueries({ queryKey: SCAN_STATUS_QUERY_KEY });
+    if (serviceGone) void queryClient.invalidateQueries({ queryKey: qk.scan.status });
   }, [serviceGone, queryClient]);
 
   const resetToCapture = () => {

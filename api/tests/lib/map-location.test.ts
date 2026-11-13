@@ -42,6 +42,25 @@ describe('findKnownRegion', () => {
   });
 });
 
+// FEAT-114 (#989): a group of markers on the map names each region's country.
+describe('findKnownRegion country', () => {
+  it('knows the country of every place, as an ISO 3166-1 code', () => {
+    for (const name of KNOWN_REGION_NAMES) {
+      expect(findKnownRegion(name)?.country, name).toMatch(/^[A-Z]{2}$/);
+    }
+  });
+
+  it('tells apart neighbouring regions of different countries', () => {
+    expect(findKnownRegion('Alsace')?.country).toBe('FR');
+    expect(findKnownRegion('Mosel')?.country).toBe('DE');
+    expect(findKnownRegion('Speyside')?.country).toBe('GB');
+    expect(findKnownRegion('Marlborough')?.country).toBe('NZ');
+    expect(findKnownRegion('Barossa')?.country).toBe('AU');
+    expect(findKnownRegion('Cuba')?.country).toBe('CU');
+    expect(findKnownRegion('Mendoza')?.country).toBe('AR');
+  });
+});
+
 describe('mapLocationOf / isPlacedOnMap', () => {
   it('uses the region first, even when it is unknown and the appellation is known', () => {
     const wine = { category: 'wine', region: 'Terroir Imaginaire', appellation: 'Pomerol' };

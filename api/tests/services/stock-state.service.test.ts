@@ -25,7 +25,7 @@ function unit(fields: Partial<StateItem> & { id: string; category?: string }): R
     needsReview: false, category: 'wine', location: null,
     purchasePrice: 20, estimatedValue: null, purchasePlace: null, bottleSize: '75cl', quantity: 1,
     isOpened: false, fillLevel: null, openedAt: null, lockedFields: [], fieldSources: null,
-    deletedAt: null, createdAt: DAY, updatedAt: DAY, updatedBy: null,
+    deletedAt: null, createdAt: DAY, updatedAt: DAY, updatedBy: null, finishedAt: null, finishedBy: null,
     ...fields,
   };
 }
@@ -55,6 +55,7 @@ function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entrie
   const items = new Map(rows.map((row) => [row.id, { ...row }]));
   const tastings = (options.tastings ?? []).map((row) => ({ ...row }));
   const audits = (options.audits ?? []).map((row) => ({ ...row }));
+  const movements: Record<string, unknown>[] = [];
   const entries = (options.entries ?? []).map((row) => ({ ...row }));
   const wishlist = (options.wishlist ?? []).map((row) => ({ ...row }));
   const withInclude = (row: Row | undefined, include?: Record<string, unknown>) => {
@@ -115,6 +116,8 @@ function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entrie
       },
     },
     auditLog: { updateMany: updateMany(audits) },
+    // #848: the movement journal written with the change.
+    stockMovement: { createMany: vi.fn(async ({ data }: { data: Row[] }) => { movements.push(...data); return { count: data.length }; }) },
     wishlistItem: { updateMany: updateMany(wishlist) },
     inventoryCountEntry: {
       findMany: async ({ where }: { where: Record<string, unknown> }) => entries.filter((row) => matches(row, where)),
@@ -143,6 +146,7 @@ function fakeDb(rows: Row[], options: { tastings?: Row[]; audits?: Row[]; entrie
     items,
     tastings,
     audits,
+    movements,
     entries,
     wishlist,
     order,
@@ -1012,5 +1016,187 @@ describe('applyState — the explicit choice of a cell (FEAT-93, lot S2)', () =>
 
     expect(db.cells('g')).toBe('1:1');
     expect(result.groupChange?.slotChanges).toEqual([{ field: 'slot', from: { column: 2, row: 1 }, to: null }]);
+  });
+});
+
+// #589: when a unit was finished, and by whom, is stamped once, on the write
+// that finishes it — never re-dated by a later edit, which only moves
+// `updatedAt`/`updatedBy`. "Consumed over the period" and the personal goal
+// read the stamp.
+describe('finishedAt / finishedBy (#589)', () => {
+  const MARCH = new Date('2026-03-10T20:00:00.000Z');
+  const APRIL = new Date('2026-04-12T09:00:00.000Z');
+  const as = (db: ReturnType<typeof fakeDb>, id: string, write: StateWrite, userId: string, now: Date, kind: 'bottle' | 'cigar' = 'bottle') =>
+    applyState<typeof INCLUDE, Row>(db.tx, db.get(id) as unknown as StateItem, write, { userId, kind, include: INCLUDE, now });
+
+  it('drinking one bottle of a group stamps the finished copy, never the group', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })]);
+
+    const drunk = await as(db, 'g', { state: { isOpened: true, fillLevel: 0 } }, 'marie', MARCH);
+
+    expect(db.get(drunk.data.id)).toMatchObject({ finishedAt: MARCH, finishedBy: 'marie' });
+    expect(db.get('g')).toMatchObject({ finishedAt: null, finishedBy: null });
+  });
+
+  it('finishing the only bottle of a line stamps the line itself', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 1, isOpened: true, fillLevel: 40, openedAt: DAY })]);
+
+    await as(db, 'g', { state: { fillLevel: 0 } }, 'marie', MARCH);
+
+    expect(db.get('g')).toMatchObject({ finishedAt: MARCH, finishedBy: 'marie' });
+  });
+
+  it('a finished bottle edited or moved a month later by someone else keeps when and by whom it was finished', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })]);
+    const drunk = await as(db, 'g', { state: { isOpened: true, fillLevel: 0 } }, 'marie', MARCH);
+
+    await as(db, drunk.data.id, { unit: { location: 'B2', cellarId: 'c2' } }, 'paul', APRIL);
+    // The same state sent again (an offline replay, a tasting saying "finished") is no new finish.
+    await as(db, drunk.data.id, { state: { isOpened: true, fillLevel: 0 } }, 'paul', APRIL);
+
+    expect(db.get(drunk.data.id)).toMatchObject({
+      location: 'B2', cellarId: 'c2', updatedAt: APRIL, updatedBy: 'paul',
+      finishedAt: MARCH, finishedBy: 'marie',
+    });
+  });
+
+  it('a finished bottle put back opened is no longer finished: the stamp is cleared', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 1 })]);
+    await as(db, 'g', { state: { isOpened: true, fillLevel: 0 } }, 'marie', MARCH);
+
+    await as(db, 'g', { state: { fillLevel: 30 } }, 'paul', APRIL);
+
+    expect(db.get('g')).toMatchObject({ fillLevel: 30, finishedAt: null, finishedBy: null });
+  });
+
+  it('a bottle finished, put back intact as a line of its own, carries no stamp', async () => {
+    const db = fakeDb([unit({ id: 'old', isOpened: true, fillLevel: 0, finishedAt: MARCH, finishedBy: 'marie' })]);
+
+    const result = await as(db, 'old', { state: { isOpened: false, fillLevel: 100 } }, 'paul', APRIL);
+
+    expect(result.outcome).toBe('regrouped');
+    expect(db.get('old')).toMatchObject({ isOpened: false, finishedAt: null, finishedBy: null });
+  });
+
+  it('the last cigar smoked stamps the box, the ones before do not', async () => {
+    const db = fakeDb([unit({ id: 'b', category: 'cigar', bottleSize: null, cigarsPerBox: 2, quantity: 1 })]);
+
+    await as(db, 'b', { smokeOne: true }, 'marie', MARCH, 'cigar');
+    expect(db.get('b')).toMatchObject({ cigarsLeft: 1, finishedAt: null, finishedBy: null });
+
+    await as(db, 'b', { smokeOne: true }, 'paul', APRIL, 'cigar');
+    expect(db.get('b')).toMatchObject({ fillLevel: 0, finishedAt: APRIL, finishedBy: 'paul' });
+  });
+
+  it('copies finished by a count closure (mark_consumed) are stamped for the member closing it', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 3 })]);
+
+    const finished = await finishUnits(db.tx, 'g', 3, { userId: 'marie', now: MARCH });
+
+    expect(finished).toHaveLength(3);
+    for (const id of finished) expect(db.get(id)).toMatchObject({ finishedAt: MARCH, finishedBy: 'marie' });
+  });
+});
+
+// #848 (FEAT-110): every write of the state rule tells the wine's movement
+// journal, in the same transaction — the form, a tasting, the consumption
+// plan, a label, the offline queue at replay and a guest all go through it.
+describe('applyState — movement journal (#848)', () => {
+  const journal = (db: ReturnType<typeof fakeDb>) =>
+    db.movements.map(({ kind, delta, count, itemId, userId, guestName, details }) => ({ kind, delta, count, itemId, userId, guestName, details }));
+
+  it('a bottle opened from a group of 6: one line on the bottle, its author, no change of stock', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })]);
+
+    const result = await apply(db, 'g', { state: { isOpened: true, fillLevel: 60, openedAt: NOW } });
+
+    expect(journal(db)).toEqual([
+      { kind: 'OPENED', delta: 0, count: 1, itemId: result.data.id, userId: 'member', guestName: null, details: { cellarId: 'c1' } },
+    ]);
+  });
+
+  it('a bottle drunk, then put back by mistake: −1, then +1 on its line of origin', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })]);
+    const drunk = await apply(db, 'g', { state: { isOpened: true, fillLevel: 0 } });
+
+    await apply(db, drunk.data.id, { state: { isOpened: false, fillLevel: 100 } });
+
+    expect(journal(db).map(({ kind, delta, itemId }) => ({ kind, delta, itemId }))).toEqual([
+      { kind: 'CONSUMED', delta: -1, itemId: drunk.data.id },
+      { kind: 'PUT_BACK', delta: 1, itemId: 'g' },
+    ]);
+  });
+
+  it('a guest\'s drink is told as the guest\'s, not the member\'s who shared the cellar', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 1 })]);
+
+    await applyState(db.tx, db.get('g') as unknown as StateItem, { state: { isOpened: true, fillLevel: 0 } }, {
+      userId: 'owner', kind: 'bottle', include: INCLUDE, now: NOW, guest: { name: 'Paul' },
+    });
+
+    expect(journal(db)).toEqual([
+      { kind: 'CONSUMED', delta: -1, count: 1, itemId: 'g', userId: null, guestName: 'Paul', details: { cellarId: 'c1' } },
+    ]);
+  });
+
+  it('a cigar smoked out of a closed box: −1 cigar', async () => {
+    const db = fakeDb([unit({ id: 'box', quantity: 3, cigarsPerBox: 25, category: 'cigar' })]);
+
+    await apply(db, 'box', { smokeOne: true }, 'cigar');
+
+    expect(journal(db).map(({ kind, delta, count }) => ({ kind, delta, count }))).toEqual([{ kind: 'CONSUMED', delta: -1, count: 1 }]);
+  });
+
+  it('a whole line moved and repriced in one edit: a move and a new price', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 4 })]);
+
+    await apply(db, 'g', { unit: { cellarId: 'c2', purchasePrice: 25 } });
+
+    expect(journal(db).map(({ kind, count, details }) => ({ kind, count, details }))).toEqual([
+      { kind: 'MOVED', count: 4, details: { cellarId: 'c1', fromCellarId: 'c1', toCellarId: 'c2' } },
+      { kind: 'PRICE_CHANGED', count: 4, details: { cellarId: 'c1', fromPrice: 20, toPrice: 25 } },
+    ]);
+  });
+
+  // Review of #982 (B1): a number edited on a whole line is one movement, never also told as drunk.
+  it('a group\'s number edited 6 → 8 → 7: ADDED +2, CORRECTED −1, nothing else; the journal adds up to the stock', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })]);
+
+    await apply(db, 'g', { unit: { quantity: 8 } });
+    await apply(db, 'g', { unit: { quantity: 7 } });
+
+    expect(journal(db).map(({ kind, delta, count, details }) => ({ kind, delta, count, details }))).toEqual([
+      { kind: 'ADDED', delta: 2, count: 2, details: { cellarId: 'c1' } },
+      { kind: 'CORRECTED', delta: -1, count: 1, details: { cellarId: 'c1', from: 8, to: 7 } },
+    ]);
+    expect(6 + db.movements.reduce((sum, row) => sum + (row.delta as number), 0)).toBe(db.unitsInStock());
+  });
+
+  // Review of #982 (remark 4): a box size corrected is a correction of the cigars, never cigars smoked.
+  it('a box size corrected 25 → 20 on 2 closed boxes: a correction of −10 cigars, not smoked', async () => {
+    const db = fakeDb([unit({ id: 'box', quantity: 2, cigarsPerBox: 25, category: 'cigar' })]);
+
+    await apply(db, 'box', { unit: { cigarsPerBox: 20 } }, 'cigar');
+
+    expect(journal(db).map(({ kind, delta }) => ({ kind, delta }))).toEqual([{ kind: 'CORRECTED', delta: -10 }]);
+  });
+
+  // Review of #982 (remark 6): copies finished together (count closure) are one movement of their line.
+  it('finishUnits: 3 copies of a ×6 finished are one movement of −3 on the line', async () => {
+    const db = fakeDb([unit({ id: 'g', quantity: 6 })]);
+
+    await finishUnits(db.tx, 'g', 3, { userId: 'member', now: NOW });
+
+    expect(journal(db).map(({ kind, delta, count, itemId }) => ({ kind, delta, count, itemId }))).toEqual([
+      { kind: 'CONSUMED', delta: -3, count: 3, itemId: 'g' },
+    ]);
+  });
+
+  it('a level changed on an opened bottle tells nothing', async () => {
+    const db = fakeDb([unit({ id: 'o', isOpened: true, fillLevel: 60 })]);
+
+    await apply(db, 'o', { state: { fillLevel: 30 } });
+
+    expect(db.movements).toEqual([]);
   });
 });

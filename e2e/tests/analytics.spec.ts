@@ -22,6 +22,9 @@ test('analytics page renders KPIs, the world map and the garde histogram', async
   await expect(page.getByTestId('kpi-cigar-humidor')).toContainText(String(stats.cigarCount));
   await expect(page.getByTestId('kpi-urgent-degustation')).toContainText(String(stats.urgentDegustationCount));
 
+  // #848: the movement counters say they start at the update that brought the journal.
+  await expect(page.getByTestId('movements-journal-start')).toContainText('journal des mouvements');
+
   // The garde histogram actually rendered its bars, not just "some SVGs
   // exist" (which the sidebar icons alone satisfy).
   if ((stats.gardeHistogram?.length ?? 0) > 0) {
@@ -106,5 +109,117 @@ test('the bottles the map cannot place are counted under it and listed with "Pas
     await expect(cards.filter({ hasText: `E2E 961 appellation ${tag}` })).toHaveCount(0);
   } finally {
     for (const { productId } of [unplaced, spelt, byAppellation]) await api.delete(`/api/products/${productId}`);
+  }
+});
+
+// FEAT-114 (#989): the world map zooms (controls, wheel), moves by dragging,
+// comes back to the cellar with "Recentrer", follows the region list, and shows
+// full screen with the region's list over it; Escape closes the wine drawer,
+// then the list, then full screen, the zoom kept all along.
+test('the world map zooms, recenters and shows full screen without losing its zoom', async ({ page }) => {
+  const api = page.request;
+  const okData = async <T>(res: APIResponse): Promise<T> => {
+    expect(res.ok(), `${res.url()} → ${res.status()} ${await res.text()}`).toBe(true);
+    return (await res.json()).data as T;
+  };
+  const tag = `${Date.now()}-${Math.round(Math.random() * 1e4)}`;
+  const create = (name: string, region: string) => api.post('/api/inventory', {
+    data: { category: 'wine', name: `E2E 989 ${name} ${tag}`, producer: 'Domaine E2E', vintage: 2020, region, quantity: 1 },
+  }).then((res) => okData<{ productId: string }>(res));
+  const created = [await create('Morgon', 'Beaujolais'), await create('Volnay', 'Bourgogne')];
+
+  try {
+    await page.goto('/analytics-terroirs');
+    const map = page.getByTestId('world-map');
+    await expect(map.locator('[data-testid="map-marker"], [data-testid="map-cluster"]').first()).toBeVisible();
+    const zoomOf = async () => Number(await map.getAttribute('data-zoom'));
+    const centerOf = () => map.getAttribute('data-center');
+    const opening = { zoom: await zoomOf(), center: await centerOf() };
+    expect(opening.zoom).toBeGreaterThan(1);
+
+    const zoomIn = page.getByRole('button', { name: 'Agrandir la carte' });
+    const zoomOut = page.getByRole('button', { name: 'Réduire la carte' });
+    // Out to the whole world, where − stops, then in again.
+    while (await zoomOut.isEnabled()) await zoomOut.click();
+    await expect(map).toHaveAttribute('data-zoom', '1');
+    await zoomIn.click();
+    await expect(map).toHaveAttribute('data-zoom', '2');
+
+    // The wheel zooms the map, not the page.
+    await map.scrollIntoViewIfNeeded();
+    const box = (await map.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    await page.mouse.wheel(0, -400);
+    await expect.poll(zoomOf).toBeGreaterThan(2);
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore);
+
+    // Dragging moves it.
+    const centerBeforeDrag = await centerOf();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 80, box.y + box.height / 2 - 40, { steps: 5 });
+    await page.mouse.up();
+    await expect.poll(centerOf).not.toBe(centerBeforeDrag);
+
+    // "Recentrer" brings back exactly the opening framing (nothing else changed the markers).
+    await page.getByRole('button', { name: 'Recentrer sur ma cave' }).click();
+    await expect(map).toHaveAttribute('data-zoom', String(opening.zoom));
+    await expect(map).toHaveAttribute('data-center', opening.center!);
+
+    // Choosing Beaujolais in the region list centres and enlarges the map on it.
+    const regionTrigger = page.locator('button[data-slot="trigger"]', { hasText: 'Région' }).filter({ visible: true }).first();
+    await regionTrigger.click();
+    await page.getByRole('option', { name: 'Beaujolais', exact: true }).click();
+    await expect.poll(zoomOf).toBeGreaterThanOrEqual(6);
+    const [lng, lat] = (await centerOf())!.split(',').map(Number);
+    expect(Math.abs(lng - 4.65)).toBeLessThan(1);
+    expect(Math.abs(lat - 46.12)).toBeLessThan(1);
+    // At the maximum zoom nothing stays grouped: Bourgogne and Beaujolais are two markers.
+    while (await zoomIn.isEnabled()) await zoomIn.click();
+    await expect(map).toHaveAttribute('data-zoom', '8');
+    await expect(map.getByTestId('map-cluster')).toHaveCount(0);
+    await expect(map.locator('[data-region="Bourgogne"]')).toHaveCount(1);
+    await expect(map.locator('[data-region="Beaujolais"]')).toHaveCount(1);
+    const focused = { zoom: await zoomOf(), center: await centerOf() };
+
+    // Full screen: same zoom, controls in it.
+    await page.getByRole('button', { name: 'Afficher la carte en plein écran' }).click();
+    const fullScreen = page.getByRole('dialog', { name: 'Carte du monde en plein écran' });
+    await expect(fullScreen).toBeVisible();
+    await expect(fullScreen.getByRole('button', { name: 'Agrandir la carte' })).toBeVisible();
+    await expect(fullScreen.getByRole('button', { name: 'Quitter le plein écran' })).toBeVisible();
+    expect(await zoomOf()).toBeCloseTo(focused.zoom, 6);
+
+    // A region chosen in full screen opens its list over the map; a wine opens its drawer over it.
+    await fullScreen.locator('button[data-slot="trigger"]', { hasText: 'Région' }).click();
+    await page.getByRole('option', { name: 'Bourgogne', exact: true }).click();
+    const list = fullScreen.getByRole('region', { name: /Bourgogne/ });
+    await expect(list).toBeVisible();
+    // The region list and the view-type switch stay usable with the list open
+    // (a click on a covered control fails Playwright's actionability check).
+    await fullScreen.getByRole('button', { name: 'Carte de chaleur par type' }).click();
+    await fullScreen.getByRole('button', { name: 'Marqueurs' }).click();
+    await fullScreen.locator('button[data-slot="trigger"]', { hasText: 'Région' }).click();
+    await page.getByRole('option', { name: 'Bourgogne', exact: true }).click();
+    await expect(list).toBeVisible();
+    await list.getByText(`E2E 989 Volnay ${tag}`).click();
+    const drawer = page.getByRole('dialog').filter({ has: page.locator('#inventory-detail-title') });
+    await expect(drawer.locator('#inventory-detail-title')).toHaveText(`E2E 989 Volnay ${tag}`);
+    const zoomInFullScreen = await zoomOf();
+
+    await page.keyboard.press('Escape');
+    await expect(drawer).toHaveCount(0);
+    await expect(list).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(list).toHaveCount(0);
+    await expect(fullScreen).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(fullScreen).toHaveCount(0);
+    expect(await zoomOf()).toBeCloseTo(zoomInFullScreen, 6);
+    // The region stays selected: its list shows under the map.
+    await expect(page.getByText(`E2E 989 Volnay ${tag}`)).toBeVisible();
+  } finally {
+    for (const { productId } of created) await api.delete(`/api/products/${productId}`);
   }
 });

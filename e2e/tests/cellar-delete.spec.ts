@@ -1,4 +1,5 @@
 import { test, expect, type APIResponse } from '@playwright/test';
+import { creds } from './_helpers';
 
 /**
  * #580: the server deleted the cellar and answered 204 No Content, but the
@@ -69,7 +70,7 @@ test('deleting the cellar of a paused count leaves a count that resumes and clos
     await data(await api.patch(`/api/inventory-count/sessions/${sessionId}/pause`));
 
     const both = await data<{ id: string }>(await api.post('/api/shares', {
-      data: { label: `E2E #597 both ${stamp}`, cellarIds: [counted.id, other.id], writeCellarIds: [counted.id] },
+      data: { label: `E2E #597 both ${stamp}`, cellarIds: [counted.id, other.id], writeCellarIds: [counted.id], password: creds().password },
     }));
     const onlyCounted = await data<{ id: string }>(await api.post('/api/shares', {
       data: { label: `E2E #597 only ${stamp}`, cellarIds: [counted.id] },

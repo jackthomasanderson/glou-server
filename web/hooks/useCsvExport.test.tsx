@@ -33,7 +33,7 @@ describe('useCsvExport (FEAT-99)', () => {
     result.current.mutate('fr-FR');
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(fetchMock).toHaveBeenCalledWith('/api/inventory/export.csv?lang=fr', { credentials: 'include' });
+    expect(fetchMock).toHaveBeenCalledWith('/api/inventory/export.csv?lang=fr', expect.objectContaining({ credentials: 'include', signal: expect.any(AbortSignal) }));
     expect(click).toHaveBeenCalledTimes(1);
   });
 
@@ -45,7 +45,7 @@ describe('useCsvExport (FEAT-99)', () => {
     result.current.mutate('de');
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(fetchMock).toHaveBeenCalledWith('/api/inventory/export.csv?lang=en', { credentials: 'include' });
+    expect(fetchMock).toHaveBeenCalledWith('/api/inventory/export.csv?lang=en', expect.objectContaining({ credentials: 'include', signal: expect.any(AbortSignal) }));
     expect(notifyError).toHaveBeenCalledWith('gdpr.csvError');
   });
 

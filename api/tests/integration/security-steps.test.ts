@@ -11,6 +11,8 @@ import { newTotpSecret } from '../../src/lib/totp';
 //       member's role or status need a password, not just the session.
 // #606: password checks of a signed-in account share a per-account limit.
 // #601: guest links created and revoked are in the audit log.
+// #911: changing the username and creating a read/write guest link need the password.
+// #766: a trusted device only makes sense with 2FA on; the page reads its real state.
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
@@ -19,7 +21,7 @@ vi.mock('../../src/lib/prisma', () => ({
       update: vi.fn(), updateMany: vi.fn(), count: vi.fn(),
     },
     session: { findUnique: vi.fn(), update: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
-    trustedDevice: { create: vi.fn(), updateMany: vi.fn() },
+    trustedDevice: { create: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     guestShare: { create: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     cellar: { count: vi.fn() },
     collection: { count: vi.fn() },
@@ -148,6 +150,16 @@ describe('POST /api/user/delete-account (#603)', () => {
     expect(scheduled()).toBe(false);
   });
 
+  // Second review of #975: two admins asking at once each saw the other stay.
+  it('counts the other admins again once the admin rows are locked', async () => {
+    accounts.d2 = account('d2', { isAdmin: true });
+    vi.mocked(prisma.user.count).mockResolvedValueOnce(1 as never).mockResolvedValueOnce(0 as never);
+    const res = await call('post', '/api/user/delete-account', 'd2', { password: PASSWORD });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CANNOT_DELETE_LAST_ADMIN');
+    expect(scheduled()).toBe(false);
+  });
+
   it('schedules the deletion with the password, and tells the owner', async () => {
     const res = await call('post', '/api/user/delete-account', 'd3', { password: PASSWORD });
     expect(res.status).toBe(200);
@@ -214,10 +226,23 @@ describe('member role and status changes need the admin\'s step-up (#603)', () =
   });
 
   it('still refuses deactivating the last active admin before the step-up', async () => {
-    vi.mocked(prisma.user.count).mockResolvedValue(1 as never);
+    // Second review of #975: the other admins, already leaving ones left out.
+    vi.mocked(prisma.user.count).mockResolvedValue(0 as never);
     const res = await call('patch', '/api/admin/users/other/status', 'admin1', { isActive: false });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('CANNOT_DEACTIVATE_LAST_ADMIN');
+    expect(prisma.user.count).toHaveBeenCalledWith({
+      where: { isAdmin: true, isActive: true, deletionRequestedAt: null, id: { not: 'other' } },
+    });
+    expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'admin1' } }));
+  });
+
+  it('refuses removing the role of the last other admin before the step-up', async () => {
+    vi.mocked(prisma.user.count).mockResolvedValue(0 as never);
+    const res = await call('post', '/api/admin/users/other/role', 'admin1', { isAdmin: false, password: PASSWORD });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('CANNOT_REMOVE_LAST_ADMIN');
+    expect(prisma.user.update).not.toHaveBeenCalled();
   });
 });
 
@@ -231,10 +256,10 @@ describe('password checks of a signed-in account share one limit (#606)', () => 
     ['e-mail change', 'patch', '/api/user/email', { email: 'x@example.com', currentPassword: 'guess' }],
     ['PIN set', 'post', '/api/auth/pin', { password: 'guess', pin: '1234' }],
     ['PIN removal', 'delete', '/api/auth/pin', { password: 'guess' }],
-    ['trusted device', 'post', '/api/auth/trust-device', { password: 'guess' }],
+    ['username change', 'patch', '/api/user/username', { username: 'new_name', currentPassword: 'guess' }],
     ['2FA turn-on', 'post', '/api/auth/2fa/turn-on', { password: 'guess', code: '123456' }],
     ['account deletion', 'post', '/api/user/delete-account', { password: 'guess' }],
-    ['PIN set', 'post', '/api/auth/pin', { password: 'guess', pin: '1234' }],
+    ['read/write guest link', 'post', '/api/shares', { cellarIds: ['c1'], writeCellarIds: ['c1'], password: 'guess' }],
     ['password change', 'patch', '/api/user/password', { currentPassword: 'guess', newPassword: 'a-new-password-1234' }],
     ['e-mail change', 'patch', '/api/user/email', { email: 'x@example.com', currentPassword: 'guess' }],
   ];
@@ -249,7 +274,7 @@ describe('password checks of a signed-in account share one limit (#606)', () => 
 
     for (const [label, method, path, body] of [
       ['PIN set', 'post', '/api/auth/pin', { password: 'guess', pin: '1234' }],
-      ['trusted device (2FA code check)', 'post', '/api/auth/trust-device', { password: PASSWORD, code: '000000' }],
+      ['trusted device', 'post', '/api/auth/trust-device', { password: PASSWORD, code: '000000' }],
       ['password change, right password', 'patch', '/api/user/password', { currentPassword: PASSWORD, newPassword: 'a-new-password-1234' }],
     ] as const) {
       const res = await call(method, path, 'lim1', body);
@@ -355,5 +380,202 @@ describe('guest links in the audit log (#601)', () => {
 
     await vi.waitFor(() => expect(auditCalls()).toContainEqual({ userId: 's1', action: 'SHARE_REVOKE', status: 'success', ip: expect.any(String), bottleId: null, productId: null, details: { shareId: 'sh1' } }));
     expect(auditCalls().filter((d) => d.action === 'SHARE_REVOKE')).toHaveLength(1);
+  });
+});
+
+// ─── #911 ────────────────────────────────────────────────────────────────────
+
+describe('changing the username asks for the password (#911)', () => {
+  const renamed = () => vi.mocked(prisma.user.update).mock.calls.some(([args]) => 'username' in (args.data as object));
+
+  it('the session alone is refused with REAUTH_REQUIRED, nothing changed', async () => {
+    const res = await call('patch', '/api/user/username', 'u1', { username: 'new_name' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('REAUTH_REQUIRED');
+    expect(renamed()).toBe(false);
+  });
+
+  it('a wrong password is refused', async () => {
+    const res = await call('patch', '/api/user/username', 'u1', { username: 'new_name', currentPassword: 'not-it' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('INVALID_CREDENTIALS');
+    expect(renamed()).toBe(false);
+  });
+
+  it('a name already taken is refused after the password', async () => {
+    vi.mocked(prisma.user.findFirst).mockResolvedValue({ id: 'someone-else' } as never);
+    const res = await call('patch', '/api/user/username', 'u1', { username: 'taken', currentPassword: PASSWORD });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('USERNAME_ALREADY_TAKEN');
+    expect(renamed()).toBe(false);
+  });
+
+  it('a malformed name is a validation error', async () => {
+    const res = await call('patch', '/api/user/username', 'u1', { username: 'a b', currentPassword: PASSWORD });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('VALIDATION_ERROR');
+  });
+
+  it('goes through with the password, and is audited with both names', async () => {
+    const res = await call('patch', '/api/user/username', 'u1', { username: 'new_name', currentPassword: PASSWORD });
+    expect(res.status).toBe(200);
+    expect(res.body.data.username).toBe('new_name');
+    await vi.waitFor(() => expect(auditCalls()).toContainEqual(expect.objectContaining({
+      userId: 'u1', action: 'USERNAME_CHANGE', status: 'success', details: { previousUsername: 'u1', newUsername: 'new_name' },
+    })));
+    expect(JSON.stringify(auditCalls())).not.toContain(PASSWORD);
+  });
+
+  it('tells the owner, like the e-mail change (review of #911)', async () => {
+    const res = await call('patch', '/api/user/username', 'u1', { username: 'new_name', currentPassword: PASSWORD });
+    expect(res.status).toBe(200);
+    await vi.waitFor(() => expect(notificationService.send).toHaveBeenCalledWith(expect.objectContaining({
+      userId: 'u1', category: 'security', subject: 'Glou — Your username was changed',
+    })));
+  });
+
+  it('the profile route no longer changes it: the key is dropped', async () => {
+    const res = await call('patch', '/api/user/profile', 'u1', { username: 'new_name', displayName: 'Alex' });
+    expect(res.status).toBe(200);
+    expect(renamed()).toBe(false);
+  });
+});
+
+describe('a guest link with write access asks for the password (#911)', () => {
+  beforeEach(() => {
+    vi.mocked(prisma.cellar.count).mockResolvedValue(1 as never);
+    vi.mocked(prisma.guestShare.create).mockImplementation((async (args: { data: Record<string, unknown> }) => ({
+      id: 'sh2', createdAt: new Date(), revokedAt: null, ...args.data,
+    })) as never);
+  });
+  const writeLink = { label: 'Pierre', cellarIds: ['c1'], writeCellarIds: ['c1'] };
+
+  it('the session alone is refused with REAUTH_REQUIRED, no link created', async () => {
+    const res = await call('post', '/api/shares', 's1', writeLink);
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('REAUTH_REQUIRED');
+    expect(prisma.guestShare.create).not.toHaveBeenCalled();
+  });
+
+  it('a wrong password is refused, no link created', async () => {
+    const res = await call('post', '/api/shares', 's1', { ...writeLink, password: 'not-it' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('INVALID_CREDENTIALS');
+    expect(prisma.guestShare.create).not.toHaveBeenCalled();
+  });
+
+  it('goes through with the password, which is neither stored nor audited', async () => {
+    const res = await call('post', '/api/shares', 's1', { ...writeLink, password: PASSWORD });
+    expect(res.status).toBe(201);
+    expect(res.body.data.writeCellarIds).toEqual(['c1']);
+    expect(JSON.stringify(vi.mocked(prisma.guestShare.create).mock.calls)).not.toContain(PASSWORD);
+    await vi.waitFor(() => expect(auditCalls()).toContainEqual(expect.objectContaining({ userId: 's1', action: 'SHARE_CREATE', status: 'success' })));
+    expect(JSON.stringify(auditCalls())).not.toContain(PASSWORD);
+  });
+
+  it('a read-only link stays one click', async () => {
+    const res = await call('post', '/api/shares', 's1', { label: 'Pierre', cellarIds: ['c1'], writeCellarIds: [] });
+    expect(res.status).toBe(201);
+  });
+
+  it('a spent password budget blocks read/write links only, not read-only ones (review of #911)', async () => {
+    for (let i = 0; i < 10; i++) {
+      expect((await call('post', '/api/shares', 'sb1', { ...writeLink, password: 'guess' }, `203.0.113.${i + 1}`)).status).toBe(401);
+    }
+    const blocked = await call('post', '/api/shares', 'sb1', { ...writeLink, password: PASSWORD });
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error).toBe('TOO_MANY_REQUESTS');
+    expect((await call('post', '/api/shares', 'sb1', { label: 'Pierre', cellarIds: ['c1'], writeCellarIds: [] })).status).toBe(201);
+  });
+});
+
+// ─── #766 ────────────────────────────────────────────────────────────────────
+
+describe('trusted device (#766)', () => {
+  const RAW = 'a'.repeat(64);
+  const cookie = (expiresIn: string | number = '30d') =>
+    `glou_trusted_device=${jwt.sign({ tdt: RAW }, JWT_SECRET, { expiresIn } as jwt.SignOptions)}`;
+  const state = (userId: string, withCookie?: string) => {
+    const req = request(app).get('/api/auth/trust-device').set('Authorization', as(userId));
+    return withCookie ? req.set('Cookie', withCookie) : req;
+  };
+
+  it('POST is refused when 2FA is off, even with the right password, and mints nothing', async () => {
+    const res = await call('post', '/api/auth/trust-device', 'td1', { password: PASSWORD });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('TWO_FACTOR_DISABLED');
+    expect(prisma.trustedDevice.create).not.toHaveBeenCalled();
+    expect(res.headers['set-cookie'] ?? []).not.toEqual(expect.arrayContaining([expect.stringContaining('glou_trusted_device=')]));
+  });
+
+  it('POST still trusts the device with 2FA on, the password and a code', async () => {
+    accounts.td2 = account('td2', { isTwoFactorEnabled: true, twoFactorSecret: encrypt(TOTP_SECRET) });
+    vi.mocked(prisma.trustedDevice.create).mockResolvedValue({} as never);
+    const res = await call('post', '/api/auth/trust-device', 'td2', { password: PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
+    expect(res.status).toBe(200);
+    expect(prisma.trustedDevice.create).toHaveBeenCalled();
+  });
+
+  it('GET says not trusted without the cookie', async () => {
+    const res = await state('td3');
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ trustedUntil: null });
+  });
+
+  it('GET gives the end of trust for a live device of this account', async () => {
+    const expiresAt = new Date(Date.now() + 10 * 86_400_000);
+    vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue({ id: 'dev1', userId: 'td3', revokedAt: null, expiresAt } as never);
+    const res = await state('td3', cookie());
+    expect(res.body.data.trustedUntil).toBe(expiresAt.toISOString());
+  });
+
+  it('GET gives the cookie\'s own end when it comes first', async () => {
+    vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue({ id: 'dev1', userId: 'td3', revokedAt: null, expiresAt: new Date(Date.now() + 30 * 86_400_000) } as never);
+    const res = await state('td3', cookie('2d'));
+    const until = new Date(res.body.data.trustedUntil).getTime();
+    expect(until).toBeGreaterThan(Date.now() + 86_400_000);
+    expect(until).toBeLessThanOrEqual(Date.now() + 2 * 86_400_000 + 1000);
+  });
+
+  it.each([
+    ['revoked', { userId: 'td3', revokedAt: new Date(), expiresAt: new Date(Date.now() + 86_400_000) }],
+    ['expired', { userId: 'td3', revokedAt: null, expiresAt: new Date(Date.now() - 1000) }],
+    ['another account\'s', { userId: 'someone-else', revokedAt: null, expiresAt: new Date(Date.now() + 86_400_000) }],
+  ])('GET says not trusted for a %s device', async (_label, device) => {
+    vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue({ id: 'dev1', ...device } as never);
+    const res = await state('td3', cookie());
+    expect(res.body.data).toEqual({ trustedUntil: null });
+  });
+
+  it('GET says not trusted for a forged cookie', async () => {
+    vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue({ id: 'dev1', userId: 'td3', revokedAt: null, expiresAt: new Date(Date.now() + 86_400_000) } as never);
+    const forged = `glou_trusted_device=${jwt.sign({ tdt: RAW }, 'not-the-secret')}`;
+    const res = await state('td3', forged);
+    expect(res.body.data).toEqual({ trustedUntil: null });
+  });
+});
+
+describe('trusted devices and 2FA changes (review of #766)', () => {
+  it('turning 2FA on revokes the devices trusted before (minted while it was off)', async () => {
+    accounts.on1 = account('on1', { twoFactorSecret: encrypt(TOTP_SECRET) });
+    const res = await call('post', '/api/auth/2fa/turn-on', 'on1', { password: PASSWORD, code: generateSync({ secret: TOTP_SECRET }) });
+    expect(res.status).toBe(200);
+    expect(prisma.trustedDevice.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: 'on1', revokedAt: null }, data: { revokedAt: expect.any(Date) },
+    }));
+  }, 30_000);
+
+  it.each([
+    ['no cookie', undefined, null],
+    ['another account\'s device', 'cookie', { id: 'dev1', userId: 'someone-else', revokedAt: null, expiresAt: new Date(Date.now() + 86_400_000) }],
+    ['a device deleted meanwhile', 'cookie', null],
+  ])('DELETE with %s answers 200 and clears the cookie, never 500', async (_label, withCookie, device) => {
+    vi.mocked(prisma.trustedDevice.findUnique).mockResolvedValue(device as never);
+    let req = request(app).delete('/api/auth/trust-device').set('Authorization', as('td9')).set('Sec-Fetch-Site', 'same-origin');
+    if (withCookie) req = req.set('Cookie', `glou_trusted_device=${jwt.sign({ tdt: 'b'.repeat(64) }, JWT_SECRET)}`);
+    const res = await req;
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ ok: true });
+    expect(String(res.headers['set-cookie'] ?? '')).toContain('glou_trusted_device=;');
   });
 });

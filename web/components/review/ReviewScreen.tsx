@@ -20,7 +20,7 @@ import { CountCase } from './CountCase';
  */
 export function ReviewScreen() {
   const { t } = useTranslation();
-  const { data, isLoading, isError, refetch, isRefetching } = useReviewCases();
+  const { data, isLoading, isError, error: queryError, refetch, isRefetching } = useReviewCases();
   /** The last merge whose notes or tags exceed what the description form accepts. */
   const [overLimits, setOverLimits] = useState<{ name: string; notes: boolean; tags: boolean } | null>(null);
 
@@ -41,7 +41,7 @@ export function ReviewScreen() {
       )}
 
       {isLoading && <div className="flex justify-center py-10"><Spinner aria-label={t('review.loading')} /></div>}
-      {isError && <ErrorState message={t('review.errors.load')} onRetry={() => void refetch()} isRetrying={isRefetching} />}
+      {isError && <ErrorState error={queryError} message={t('review.errors.load')} onRetry={() => void refetch()} isRetrying={isRefetching} />}
 
       {data && reviewPointCount(data) === 0 && (
         <EmptyState icon={<CheckCircle2 size={40} className="text-success" />} title={t('review.empty')} description={t('review.emptyHint')} />

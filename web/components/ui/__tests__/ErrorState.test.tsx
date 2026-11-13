@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ErrorState } from '../ErrorState';
 import { EmptyState } from '../EmptyState';
+import { ApiError } from '@/lib/api';
 
 // ─── ISSUE_118 / ISSUE_121 ──────────────────────────────────────────────────
 // HeroUI is stubbed with plain DOM elements: react-aria's internals need
@@ -32,6 +33,19 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('ErrorState', () => {
+  // #467: whatever the screen, a database restart reads as "temporarily
+  // unavailable, retry", not as "could not load…".
+  it('says the server is temporarily unavailable when the failure is a 503', () => {
+    render(<ErrorState message="Could not load cellars" error={new ApiError('DATABASE_UNAVAILABLE', 503)} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('status.serverUnavailable');
+    expect(screen.queryByText('Could not load cellars')).not.toBeInTheDocument();
+  });
+
+  it("keeps the screen's own message for any other failure", () => {
+    render(<ErrorState message="Could not load cellars" error={new ApiError('UNEXPECTED_ERROR', 500)} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load cellars');
+  });
+
   it('shows the provided message and a retry button wired to the handler', () => {
     const onRetry = vi.fn();
     render(<ErrorState message="Boom" onRetry={onRetry} />);

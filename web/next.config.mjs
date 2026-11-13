@@ -87,6 +87,13 @@ export const pwaOptions = {
         method: 'GET',
         handler: 'NetworkOnly',
       },
+      // FEAT-115 (#990): the What's New? window opens only with the server's
+      // answer; a cached copy would show offline notes already seen elsewhere.
+      {
+        urlPattern: ({ url, sameOrigin }) => sameOrigin && url.pathname === '/api/admin/release-notes',
+        method: 'GET',
+        handler: 'NetworkOnly',
+      },
       // #471 (recette v2): the translations, at their fingerprinted URL
       // (lib/i18n.ts). Network first so a page always gets the file of its
       // own version; the copy kept is what an app started offline reads

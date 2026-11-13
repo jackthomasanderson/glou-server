@@ -18,26 +18,19 @@ router.use(authMiddleware);
 // lines they make, read against the cellar (#471, FEAT-99). Never writes.
 
 router.post('/csv/preview', csvUpload.single('file'), async (req: Request, res: Response): Promise<void> => {
-  const ip = getClientIp(req);
-  try {
-    if (!req.file) {
-      res.status(400).json({ error: 'NO_FILE_UPLOADED' });
-      return;
-    }
-    const result = await importService.preview(req.file.buffer);
-    void auditLog({
-      userId: req.userId,
-      ip,
-      action: 'IMPORT_CSV',
-      status: 'success',
-      details: { stage: 'preview', validCount: result.valid.length, errorCount: result.errors.length, lineCount: result.lines.length },
-    });
-    res.json({ data: result });
-  } catch (error) {
-    console.error('[import] POST /csv/preview error:', error);
-    void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'error', details: { stage: 'preview', message: String(error) } });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  if (!req.file) {
+    res.status(400).json({ error: 'NO_FILE_UPLOADED' });
+    return;
   }
+  const result = await importService.preview(req.file.buffer);
+  void auditLog({
+    userId: req.userId,
+    ip: getClientIp(req),
+    action: 'IMPORT_CSV',
+    status: 'success',
+    details: { stage: 'preview', validCount: result.valid.length, errorCount: result.errors.length, lineCount: result.lines.length },
+  });
+  res.json({ data: result });
 });
 
 // ─── POST /api/import/csv/confirm ────────────────────────────────────────────
@@ -61,7 +54,6 @@ router.post('/csv/confirm', async (req: Request, res: Response): Promise<void> =
     void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'success', details: { stage: 'confirm', ...result } });
     res.status(201).json({ data: result });
   } catch (error) {
-    console.error('[import] POST /csv/confirm error:', error);
     if (error instanceof ZodError) {
       // Identical rows adding up past one group's bound: a code the screen explains.
       if (error.issues.some((issue) => issue.message === 'LINE_TOO_LARGE')) {
@@ -71,17 +63,14 @@ router.post('/csv/confirm', async (req: Request, res: Response): Promise<void> =
       }
       const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
       void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'validation_error', details: { stage: 'confirm', issues } });
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
-      return;
     }
     // A group the import would push past its bound (QUANTITY_TOO_LARGE).
     if (error instanceof AppError) {
       void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'validation_error', details: { stage: 'confirm', issues: error.code } });
-      res.status(error.status).json({ error: error.code });
-      return;
     }
-    void auditLog({ userId: req.userId, ip, action: 'IMPORT_CSV', status: 'error', details: { stage: 'confirm', message: String(error) } });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+    // #467: the error middleware answers (400 VALIDATION_ERROR, the AppError's
+    // own status, or 503/500 for a failure of ours).
+    throw error;
   }
 });
 

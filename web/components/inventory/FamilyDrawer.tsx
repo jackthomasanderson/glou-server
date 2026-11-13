@@ -9,7 +9,8 @@ import {
 import { isIntactItem, unitKind } from '@shared/units';
 import { useCellars, useRemoveSlot } from '@/hooks/useCellars';
 import { notifyError } from '@/lib/toast';
-import { productDetailKey, useProductDetail } from '@/hooks/useProducts';
+import { useProductDetail, useProductMovements } from '@/hooks/useProducts';
+import { qk } from '@/lib/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUpdateInventoryItem } from '@/hooks/useInventory';
 import { useToggleAlertPause } from '@/hooks/useAlerts';
@@ -35,6 +36,7 @@ import { FamilyStockLines } from './FamilyStockLines';
 import { useSyncQueue } from '@/hooks/useOfflineSync';
 import { isProvisional } from '@/lib/offline/optimistic';
 import { FamilyHistory } from './FamilyHistory';
+import { FamilyMovements } from './FamilyMovements';
 import { StockLineMenu } from './StockLineMenu';
 import { StockMoveActions } from './StockMoveActions';
 import { usePutBackOpened } from './PutBackOpened';
@@ -144,7 +146,9 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const hasMounted = useHasMounted();
-  const { data: product, isLoading, isError, refetch, isRefetching } = useProductDetail(productId);
+  const { data: product, isLoading, isError, error: queryError, refetch, isRefetching } = useProductDetail(productId);
+  // #848 (FEAT-110): its movement journal, shown above the field history.
+  const movements = useProductMovements(productId);
   const { data: cellars } = useCellars();
   const updateItem = useUpdateInventoryItem();
   const queryClient = useQueryClient();
@@ -181,7 +185,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const cell = slotContext && heldSlot ? { ...slotContext, slotId: heldSlot.id } : null;
   // FEAT-108 (plan §4): the gestures of the plan wait for the network.
   const offline = useOfflineBlocked();
-  const removeSlot = useRemoveSlot(slotLine?.cellarId ?? '');
+  const removeSlot = useRemoveSlot();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const removeFromCell = async (slotId: string) => {
     try {
@@ -225,7 +229,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   // The version sent is read from the cache when the level is sent: a level
   // chosen while the previous one was saving goes after it, from its answer.
   const handleLevel = useCallback(async (item: ProductItem, level: number) => {
-    const current = queryClient.getQueryData<ProductDetailView>(productDetailKey(item.productId))
+    const current = queryClient.getQueryData<ProductDetailView>(qk.products.detail(item.productId))
       ?.items.find((unit) => unit.id === item.id) ?? item;
     // Never a level on a line of more than one bottle: it would open one more.
     if (!hasOwnLevel(current)) throw new Error('NOT_ONE_BOTTLE');
@@ -456,7 +460,13 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           )}
         </section>
 
-        {/* 6. History of the wine and of its bottles */}
+        {/* 6. History: the movements of its bottles first (#848), then the changes of its fields */}
+        <FamilyMovements
+          movements={movements.data}
+          isError={movements.isError}
+          nounOf={historyNounOf(p.items, p.history, kind)}
+          kind={kind}
+        />
         <FamilyHistory
           productId={p.id}
           productUpdatedAt={p.updatedAt}
@@ -541,7 +551,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
               )}
               {isError && (
                 <div className="p-5">
-                  <ErrorState message={t('familyDrawer.loadError')} onRetry={() => { void refetch(); }} isRetrying={isRefetching} />
+                  <ErrorState error={queryError} message={t('familyDrawer.loadError')} onRetry={() => { void refetch(); }} isRetrying={isRefetching} />
                 </div>
               )}
               {product && renderBody(product)}

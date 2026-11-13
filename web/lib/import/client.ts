@@ -13,22 +13,13 @@ export const CONFIRM_TIMEOUT_MS = CSV_IMPORT_TRANSACTION_MAX_WAIT_MS + CSV_IMPOR
 // ─── CSV Import API client (FEAT-56) ─────────────────────────────────────────
 
 export const importClient = {
-  /** Multipart upload — bypasses `lib/api.ts`'s JSON-only `client` helper. */
   async previewCsv(file: File): Promise<CsvImportPreview> {
     const formData = new FormData();
     formData.append('file', file);
-
-    const res = await fetch('/api/import/csv/preview', {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
-    });
     // A reverse proxy in front of the app answers an oversized upload (413)
     // with its own page, not the API's JSON; so can a sign-in portal (200).
-    const json = (await res.json().catch(() => ({}))) as { data?: CsvImportPreview; error?: string };
-    if (!res.ok) throw new Error(json.error ?? (res.status === 413 ? 'FILE_TOO_LARGE' : 'UNEXPECTED_ERROR'));
-    if (!json.data) throw new Error('UNEXPECTED_ERROR');
-    return json.data;
+    const { data } = await client.upload<CsvImportPreview>('/import/csv/preview', formData, { codeByStatus: { 413: 'FILE_TOO_LARGE' } });
+    return data;
   },
 
   /** #471 (FEAT-99): `choices` = what the member chose for each wine already in the cellar. */

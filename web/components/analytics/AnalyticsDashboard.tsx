@@ -533,7 +533,7 @@ export function AnalyticsDashboard() {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<Period>('all');
   const { from, to } = periodToDates(period);
-  const { data, isLoading, isError, refetch, isRefetching } = useAnalytics(from, to);
+  const { data, isLoading, isError, error: loadError, refetch, isRefetching } = useAnalytics(from, to);
 
   // Defer to the next frame so the click handler returns before the
   // (synchronous, blocking) print layout pass starts (#421).
@@ -546,6 +546,7 @@ export function AnalyticsDashboard() {
       <MainLayout>
         <div className="max-w-5xl mx-auto py-6 px-4">
           <ErrorState
+            error={loadError}
             message={t('analytics.errors.load')}
             onRetry={() => { void refetch(); }}
             isRetrying={isRefetching}
@@ -669,8 +670,12 @@ export function AnalyticsDashboard() {
               <SelectItem key="all">{t('analytics.period.all')}</SelectItem>
             </SingleSelect>
           </div>
-          <p className="text-xs text-foreground-500 mt-1 mb-4">
+          <p className="text-xs text-foreground-500 mt-1">
             {t('analytics.movements.scopeHint')}
+          </p>
+          {/* #848: these counters read the movement journal, which has no past before the update. */}
+          <p data-testid="movements-journal-start" className="text-xs text-foreground-500 mb-4">
+            {t('analytics.movements.journalStart')}
           </p>
           {isLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">

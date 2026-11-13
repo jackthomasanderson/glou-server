@@ -47,10 +47,11 @@ import { authRateLimit } from './lib/rate-limit';
 export function createApp(): express.Express {
   const app = express();
 
-  // A self-hosted deployment sits behind exactly one reverse proxy (the compose
-  // file's, or the operator's own). Trust a single hop so `req.ip` and the
-  // rate-limiter below see the real client address from X-Forwarded-For rather
-  // than the proxy's — without trusting a longer, spoofable forwarding chain.
+  // The one hop in front of the API is the `web` container, which overwrites
+  // X-Forwarded-For with the single client address it works out from its
+  // socket and TRUSTED_PROXY_HOPS (#979, web/lib/client-address.mjs). Trust
+  // that hop only, so `req.ip` and the per-address limiters see that value —
+  // never an address a client wrote itself.
   app.set('trust proxy', 1);
 
   // ─── Access logging (ISSUE_102) ────────────────────────────────────────────

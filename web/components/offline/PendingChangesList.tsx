@@ -7,6 +7,7 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import type { InventoryItem } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import { changeLabel, refusalKey } from '@/lib/offline/describe';
+import { qk } from '@/lib/queryKeys';
 
 /**
  * #337 — lists the offline sync queue so a mutation the server refused
@@ -24,8 +25,8 @@ export function PendingChangesList({ onResolveConflict }: { onResolveConflict?: 
   const { queue, retryMutation, removeMutation, undeferConflict } = useOfflineSync();
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
-  const items = queryClient.getQueryData<InventoryItem[]>(['inventory']);
-  const products = queryClient.getQueryData<Product[]>(['inventory', 'products']);
+  const items = queryClient.getQueryData<InventoryItem[]>(qk.inventory.list);
+  const products = queryClient.getQueryData<Product[]>(qk.products.list);
   const nameOf = (itemId: string) =>
     items?.find((i) => i.id === itemId)?.name
     ?? products?.find((p) => p.items.some((unit) => unit.id === itemId))?.name

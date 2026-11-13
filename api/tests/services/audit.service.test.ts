@@ -5,6 +5,7 @@ vi.mock('../../src/lib/prisma', () => ({
     auditLog: {
       create: vi.fn(),
       deleteMany: vi.fn(),
+      updateMany: vi.fn(),
       findMany: vi.fn(),
     },
     user: { findMany: vi.fn() },
@@ -110,12 +111,50 @@ describe('purgeOldAuditLogs', () => {
   });
 
   it('honours a custom retention window and transaction client', async () => {
-    const txClient = { auditLog: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }) } } as never;
+    const txClient = { auditLog: { deleteMany: vi.fn().mockResolvedValue({ count: 1 }), updateMany: vi.fn().mockResolvedValue({ count: 0 }) } } as never;
 
     const count = await purgeOldAuditLogs(30, txClient as never);
 
     expect(count).toBe(1);
     expect(prisma.auditLog.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('keeps the business history of bottles and wines, whatever the retention (#588)', async () => {
+    vi.mocked(prisma.auditLog.deleteMany).mockResolvedValue({ count: 0 } as never);
+
+    await purgeOldAuditLogs(1);
+
+    const { where } = vi.mocked(prisma.auditLog.deleteMany).mock.calls[0]![0] as {
+      where: { createdAt: unknown; NOT: { status: string; action: { in: string[] }; OR: unknown[] } };
+    };
+    expect(where.NOT.status).toBe('success');
+    expect(where.NOT.OR).toEqual([{ bottleId: { not: null } }, { productId: { not: null } }]);
+    // Decision of 2026-11-12: field edits, restores and guest moves, and the
+    // per-line entries of bulk actions (moves, trash) — every action the
+    // drawer's history reads.
+    expect(where.NOT.action.in).toEqual(expect.arrayContaining([
+      'CREATE', 'UPDATE', 'RESTORE', 'RESTORE_FIELD', 'GUEST_UPDATE', 'MOVE_UNITS', 'DELETE',
+    ]));
+    // A sign-in or an admin action is a security trace: still purged.
+    expect(where.NOT.action.in).not.toContain('LOGIN');
+  });
+
+  it('keeps that history without the IP address once past the retention (#588 review)', async () => {
+    vi.mocked(prisma.auditLog.deleteMany).mockResolvedValue({ count: 0 } as never);
+    vi.mocked(prisma.auditLog.updateMany).mockResolvedValue({ count: 2 } as never);
+    const before = Date.now();
+
+    await purgeOldAuditLogs(30);
+
+    const scrub = vi.mocked(prisma.auditLog.updateMany).mock.calls[0]![0] as {
+      where: { createdAt: { lt: Date }; NOT: unknown; status: string; OR: unknown[] }; data: unknown;
+    };
+    expect(scrub.data).toEqual({ ip: '' });
+    expect(scrub.where).toMatchObject({ status: 'success', OR: [{ bottleId: { not: null } }, { productId: { not: null } }], NOT: { ip: '' } });
+    expect(Math.abs(scrub.where.createdAt.lt.getTime() - (before - 30 * 24 * 60 * 60 * 1000))).toBeLessThan(5000);
+    // Scrubbed before the purge runs, in the same client.
+    expect(vi.mocked(prisma.auditLog.updateMany).mock.invocationCallOrder[0])
+      .toBeLessThan(vi.mocked(prisma.auditLog.deleteMany).mock.invocationCallOrder[0]);
   });
 });
 

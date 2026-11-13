@@ -347,11 +347,12 @@ export interface GoalProgress {
  * web/components/tastings/TastingForm.tsx handleStockChoice): that flow
  * PATCHes InventoryItem with { isOpened: true, fillLevel: 0 } and nothing
  * else — TastingNote does NOT persist a stockUpdate field, so InventoryItem
- * itself is the only durable signal of "this bottle was finished". Every
- * write through inventoryService.updateItem stamps `updatedBy`/`updatedAt`
- * with the acting user (see api/src/services/inventory.service.ts), so we
- * count items with isOpened=true, fillLevel=0, updatedBy=this user, and
- * updatedAt inside the goal's period.
+ * itself is the only durable signal of "this bottle was finished". #589: the
+ * write that finishes a unit stamps `finishedBy`/`finishedAt` once (the
+ * acting user, lib/finished-item.ts `finishedStamp`), so we count items with
+ * isOpened=true, fillLevel=0, finishedBy=this user, and finishedAt inside the
+ * goal's period — never `updatedBy`/`updatedAt`, which a later edit (a move,
+ * a count, a postponed suggestion) rewrites.
  *
  * This progress count IS legitimately scoped by userId — unlike the shared
  * suggestion list above, a ConsumptionGoal is a personal target, so "did I
@@ -377,8 +378,8 @@ export async function getGoalProgress(userId: string): Promise<GoalProgress> {
     where: {
       deletedAt: null,
       ...FINISHED_ITEM_STATE,
-      updatedBy: userId,
-      updatedAt: { gte: goal.periodStart, lte: goal.periodEnd },
+      finishedBy: userId,
+      finishedAt: { gte: goal.periodStart, lte: goal.periodEnd },
     },
   });
 

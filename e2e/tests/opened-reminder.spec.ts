@@ -117,8 +117,8 @@ test.describe('the opened bottle first (#471, L2)', () => {
 
     await drawer.locator(`[data-line-id="${sub.id}"]`).getByTestId('stock-line-menu').click();
     const asked = page.waitForResponse((r) => r.url().endsWith(`/api/inventory/${sub.id}`) && r.request().method() === 'PATCH');
-    // The menu sits in a portal hidden from the accessibility tree (#727): found by its text.
-    await page.locator('[role="menuitem"]').filter({ hasText: "Annuler l'ouverture" }).click();
+    // By role (#729): the drawer no longer hides its line menu from screen readers.
+    await page.getByRole('menuitem', { name: "Annuler l'ouverture" }).click();
     expect((await asked).status()).toBe(409);
     const keep = page.getByTestId('keep-tasting-dialog');
     await expect(keep).toContainText('Une dégustation a été notée sur cette bouteille.');

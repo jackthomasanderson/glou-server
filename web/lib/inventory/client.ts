@@ -1,5 +1,4 @@
-import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, handleResponse, timeoutSignal } from '../api';
-import { fetchOrNetworkError } from '../network-error';
+import { client, requestJson } from '../api';
 import type { UnitWriteResult } from '@shared/product';
 import type { Wire } from '@shared/wire';
 import type { InventoryCategory } from '@shared/inventory';
@@ -27,13 +26,7 @@ export const inventoryClient = {
    * the 2,000 most recent items), which `client.get` drops with the envelope.
    */
   async listWithMeta(): Promise<{ items: InventoryItem[]; truncated: boolean }> {
-    const res = await fetch('/api/inventory', {
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      signal: timeoutSignal(15000),
-    });
-    if (!res.ok) await handleResponse(res); // throws Error(<API code>)
-    const body = (await res.json()) as { data: InventoryItem[]; truncated?: boolean };
+    const body = await requestJson<{ data: InventoryItem[]; truncated?: boolean }>('/inventory');
     return { items: body.data, truncated: body.truncated === true };
   },
 
@@ -59,18 +52,13 @@ export const inventoryClient = {
    */
   async update(id: string, patch: InventoryItemPatch, expectedUpdatedAt?: string): Promise<InventoryUnitWrite> {
     const body = expectedUpdatedAt ? { ...patch, expectedUpdatedAt } : patch;
-    const res = await fetchOrNetworkError(`/api/inventory/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(body),
-      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
-    });
-    if (!res.ok) throw await apiErrorFrom(res);
     // D8 (#471): opening one bottle of a group answers the sub-record created
     // (`data`), the group decremented (`changed`), and a reattachment the
     // sub-record absorbed (`removedIds`).
-    const result = (await res.json()) as Partial<InventoryUnitWrite> & { data: InventoryItem };
+    const result = await requestJson<Partial<InventoryUnitWrite> & { data: InventoryItem }>(`/inventory/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      body,
+    });
     return { data: result.data, changed: result.changed ?? [], removedIds: result.removedIds ?? [] };
   },
 

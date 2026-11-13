@@ -4,15 +4,10 @@ import type { MergeRequest } from '@shared/review';
 import { reviewClient, type MergeAnswer, type ReviewCases } from '@/lib/review/client';
 import { NetworkError } from '@/lib/network-error';
 import { notifyError } from '@/lib/toast';
-import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
-import { productDetailKey } from '@/hooks/useProducts';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 import type { ProductItem } from '@/lib/products/types';
 
-/**
- * #471 (FEAT-102): what is left to review after the update. Under the
- * `inventory` prefix, so every change of the wines refreshes it too.
- */
-export const REVIEW_KEY = ['inventory', 'review'];
+const REVIEW_KEY = qk.review;
 
 /** The cases to review, shared by every member (a case settled by one disappears for all). */
 export function useReviewCases(options?: { enabled?: boolean }) {
@@ -47,11 +42,7 @@ function notifyRefusal(error: Error) {
 /** Everything a review action may change: the list, the wines, the drawers, cellars and counters. */
 function useRefreshAfterReview() {
   const queryClient = useQueryClient();
-  return () => {
-    void queryClient.invalidateQueries({ queryKey: ['inventory'] });
-    void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-    void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-  };
+  return () => invalidateAfterInventoryChange(queryClient);
 }
 
 /** "Regrouper" (c2): definitive, no undo (ux-ui.md §10.7). */
@@ -66,7 +57,7 @@ export function useMergeFamilies() {
         ...old,
         merges: old.merges.filter((merge) => !merge.products.some((product) => answer.removedProductIds.includes(product.id))),
       });
-      for (const id of answer.removedProductIds) queryClient.removeQueries({ queryKey: productDetailKey(id) });
+      for (const id of answer.removedProductIds) queryClient.removeQueries({ queryKey: qk.products.detail(id) });
     },
     onError: notifyRefusal,
     onSettled: refresh,

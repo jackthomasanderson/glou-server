@@ -1,7 +1,6 @@
 'use client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { PRODUCTS_KEY, productDetailKey } from '@/hooks/useProducts';
-import { SIDEBAR_COUNTS_KEY } from '@/hooks/useSidebarCounts';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 import { NetworkError } from '@/lib/network-error';
 import { notifyError } from '@/lib/toast';
 import { enqueueMutation, markQueuedResult, queuedMutationOf, shownAfter } from '@/lib/offline/syncEngine';
@@ -60,27 +59,25 @@ function useStockAction<TBody extends CorrectBody | MoveBody | RepriceBody>(acti
       // Queued without network: already shown by the queue.
       if (queuedMutationOf(write)) return;
       const written: ProductItem[] = [write.data, ...write.changed];
-      queryClient.setQueryData<ProductDetailView>(productDetailKey(item.productId), (old) =>
+      queryClient.setQueryData<ProductDetailView>(qk.products.detail(item.productId), (old) =>
         detailWithUnitWrite(old, null, written, write.removedIds));
-      queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => withUnitChanges(old, written, write.removedIds));
+      queryClient.setQueryData<Product[]>(qk.products.list, (old) => withUnitChanges(old, written, write.removedIds));
     },
-    onError: (error, { item }) => {
+    onError: (error) => {
       // FEAT-108 (point 47): without network, these actions wait for it — said, never queued here.
       if (error instanceof NetworkError) {
         notifyError('stockLine.errors.offline');
         return;
       }
       notifyError(REFUSALS[error.message] ?? 'stockLine.errors.failed');
-      // Changed meanwhile: the line is read again, the dialog then sends from it.
-      if (error.message === 'CONFLICT' || error.message === 'SLOTS_TO_FREE_REQUIRED') void queryClient.invalidateQueries({ queryKey: productDetailKey(item.productId) });
     },
-    onSettled: (_write, _error, { item }) => {
-      void queryClient.invalidateQueries({ queryKey: productDetailKey(item.productId) });
-      // The flat list (still loaded by the page), cellars, counters and spending follow.
-      void queryClient.invalidateQueries({ queryKey: ['inventory'], exact: true });
-      void queryClient.invalidateQueries({ queryKey: ['cellars'] });
-      void queryClient.invalidateQueries({ queryKey: SIDEBAR_COUNTS_KEY });
-      void queryClient.invalidateQueries({ queryKey: ['budget'] });
+    // The drawer (its history; after a refusal, the line the dialog sends from
+    // next), the flat list, cellars, counters, spending… follow. The wines were
+    // written above.
+    onSettled: (write, error) => {
+      // Queued without network (a correction): the replay refreshes everything once sent.
+      if (write && queuedMutationOf(write)) return;
+      invalidateAfterInventoryChange(queryClient, { alreadyWritten: error ? [] : [qk.products.list] });
     },
   });
 }

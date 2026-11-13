@@ -44,7 +44,7 @@ function endOfMonthISO(): string {
 
 export function ConsumptionPlanWidget() {
   const { t } = useTranslation();
-  const { data: suggestions, isLoading, isError, refetch, isRefetching } = useConsumptionSuggestions(SUGGESTIONS_LIMIT);
+  const { data: suggestions, isLoading, isError, error: queryError, refetch, isRefetching } = useConsumptionSuggestions(SUGGESTIONS_LIMIT);
   const postpone = usePostponeSuggestion(SUGGESTIONS_LIMIT);
   const { data: progress, isLoading: goalLoading } = useGoalProgress();
   const setGoal = useSetGoal();
@@ -182,6 +182,7 @@ export function ConsumptionPlanWidget() {
 
         {isError && (
           <ErrorState
+            error={queryError}
             className="mb-4"
             message={t('consumptionPlan.suggestions.loadError')}
             onRetry={() => { void refetch(); }}

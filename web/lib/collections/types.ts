@@ -3,7 +3,8 @@ export interface Collection {
   name: string;
   color: string;
   icon?: string | null;
-  userId: string;
+  /** #476: who created it (collections are shared); null once their account was deleted. */
+  userId: string | null;
   items: { id: string }[];
   createdAt: string;
   updatedAt: string;

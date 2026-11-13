@@ -5,15 +5,16 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Button, Avatar, Badge, Tooltip, Divider } from '@heroui/react';
 import {
   Wine, Sparkles, GlassWater, Leaf, Warehouse, Library, Martini, BarChart3,
-  ChevronLeft, ChevronRight, ShieldCheck, ClipboardCheck, Wallet, LogOut,
+  ChevronLeft, ChevronRight, ShieldCheck, ClipboardCheck, Wallet, LogOut, Megaphone,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useLogout } from '@/hooks/useAuth';
-import { useSidebarCounts, useSidebarCountsSync } from '@/hooks/useSidebarCounts';
+import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ThemeToggle } from './ThemeToggle';
 import { safeWriteStorage, glouKey, readStorageMigrating } from '@/lib/safe-storage';
 import { confirmLeave } from '@/lib/leaveGuard';
+import { useWhatsNew } from '@/components/whats-new/WhatsNewProvider';
 
 export const SIDEBAR_WIDTH = 220;
 export const SIDEBAR_COLLAPSED_WIDTH = 64;
@@ -35,6 +36,8 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
   const searchParams = useSearchParams();
   const categoryParam = searchParams.get('category');
   const hasMounted = useHasMounted();
+  // FEAT-115 (#990): administrators only (null for a member).
+  const whatsNew = useWhatsNew();
 
   // ISSUE_434: "Vin"/"Pétillant"/"Spiritueux" are category shortcuts into
   // the SAME /bottles page used by search results, alerts, collections and
@@ -210,6 +213,29 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         </div>
       )}
 
+      {/* FEAT-115 (#990): the installed version and the What's New? link, administrators only. */}
+      {user?.isAdmin && whatsNew && (
+        <div className={`shrink-0 flex items-center pb-2 ${expanded ? 'px-3 gap-2' : 'justify-center'}`}>
+          {expanded && whatsNew.version && (
+            <span className="text-xs text-foreground-500 font-mono truncate">{whatsNew.version}</span>
+          )}
+          <Tooltip content={t('whatsNew.open')} placement="right" delay={500} isDisabled={expanded}>
+            <Button
+              size="sm"
+              variant="light"
+              radius="md"
+              isIconOnly={!expanded}
+              className={expanded ? 'ml-auto px-2 min-w-0 text-xs text-foreground-500' : 'min-w-0'}
+              startContent={expanded ? <Megaphone size={14} /> : undefined}
+              aria-label={t('whatsNew.open')}
+              onPress={whatsNew.open}
+            >
+              {expanded ? t('whatsNew.open') : <Megaphone size={16} />}
+            </Button>
+          </Tooltip>
+        </div>
+      )}
+
       {/* User footer — theme toggle + connectivity + avatar (ux-ui.md §3.1) */}
       <Divider className="shrink-0" />
       <div
@@ -274,8 +300,6 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
 /** Desktop sidebar. On mobile the bottom bar (BottomNav.tsx) is the navigation. */
 export function Sidebar() {
   const { t } = useTranslation();
-  // The only mount of the counts subscription (#632); always rendered, hidden by CSS on mobile.
-  useSidebarCountsSync();
   const [expanded, setExpanded] = useState(true);
 
   useEffect(() => {

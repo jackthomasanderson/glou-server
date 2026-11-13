@@ -1,5 +1,4 @@
-import { apiErrorFrom, client, DEFAULT_TIMEOUT_MS, timeoutSignal } from '../api';
-import { fetchOrNetworkError } from '../network-error';
+import { client, requestJson } from '../api';
 import type { MergeOverLimits, MergeRequest, ReviewList } from '@shared/review';
 import type { Wire } from '@shared/wire';
 import type { Product, ProductItem } from '../products/types';
@@ -29,15 +28,7 @@ export const reviewClient = {
   /** "Regrouper": the families of one wine become one, with the value chosen per field. */
   async merge(request: MergeRequest): Promise<MergeAnswer> {
     // The answer carries more than `data` (overLimits, what was removed): read whole.
-    const res = await fetchOrNetworkError('/api/products/merge', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(request),
-      signal: timeoutSignal(DEFAULT_TIMEOUT_MS),
-    });
-    if (!res.ok) throw await apiErrorFrom(res);
-    return (await res.json()) as MergeAnswer;
+    return requestJson<MergeAnswer>('/products/merge', { method: 'POST', body: request });
   },
 
   /** "C'est un autre vin": remembered for good, the case is never proposed again. */

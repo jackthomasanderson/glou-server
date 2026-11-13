@@ -3,10 +3,10 @@ import { ZodError } from 'zod';
 import jwt from 'jsonwebtoken';
 import { registerSchema, loginSchema, verify2faSchema, turnOn2faSchema, turnOff2faSchema, trustDeviceSchema, regenerateBackupCodesSchema, forgotPasswordSchema, validateResetTokenSchema, resetPasswordSchema } from '../schemas/auth.schema';
 import { setPinSchema, removePinSchema, unlockSchema } from '../schemas/user.schema';
-import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
+import { authService, COOKIE_NAME, COOKIE_OPTIONS, SESSION_COOKIE_OPTIONS, KNOWN_BROWSER_COOKIE_NAME, KNOWN_BROWSER_COOKIE_OPTIONS, LoginResult } from '../services/auth.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
-import { authRateLimit, passwordCheckLimiter, unlockAccountLimiter } from '../lib/rate-limit';
+import { authRateLimit, passwordCheckLimiter, signInAccountLimiter, unlockAccountLimiter } from '../lib/rate-limit';
 import { auditLog } from '../services/audit.service';
 import { AuthPayload } from '../services/auth.service';
 import { passwordResetService } from '../services/password-reset.service';
@@ -33,16 +33,26 @@ const TRUSTED_DEVICE_COOKIE_OPTIONS = {
   path: '/api/auth',
 };
 
+// ─── Known-browser cookie (#988, see auth.service) ─────────────────────────────
+
+function setKnownBrowserCookie(res: Response, token: string | undefined): void {
+  if (token) res.cookie(KNOWN_BROWSER_COOKIE_NAME, token, KNOWN_BROWSER_COOKIE_OPTIONS);
+}
+
 // ─── Public error codes (ISSUE_051) ──────────────────────────────────────────
 // `/reset-password` and `/2fa/verify-login` are reachable without a session, and
 // both used to echo `error.message` straight back. As long as the exception comes
 // from business code that message is a curated code, but a failure raised by the
 // data layer (a Prisma `findUniqueOrThrow`, for instance) describes the model and
 // operation involved. Only the codes listed here may leave the process; anything
-// else becomes UNEXPECTED_ERROR and is logged server-side only.
+// else goes to the error middleware (#467): 503 while the database is down, 500
+// otherwise, logged server-side only.
 const PUBLIC_AUTH_ERROR_CODES = new Set([
+  '2FA_ALREADY_ENABLED',
   '2FA_NOT_ENABLED',
+  '2FA_SECRET_NOT_GENERATED',
   '2FA_TEMPORARILY_LOCKED',
+  'INVALID_CODE',
   'INVALID_CREDENTIALS',
   'INVALID_OR_EXPIRED_TOKEN',
   'INVALID_TOTP_CODE',
@@ -52,18 +62,21 @@ const PUBLIC_AUTH_ERROR_CODES = new Set([
   'TOKEN_INVALID_OR_EXPIRED',
   'REGISTRATION_CONFLICT',
   'REGISTRATION_CLOSED',
+  'TWO_FACTOR_DISABLED',
   'VALIDATION_ERROR',
 ]);
 
 const CONFLICT_REGISTER_CODES = new Set(['REGISTRATION_CONFLICT']);
 const FORBIDDEN_REGISTER_CODES = new Set(['REGISTRATION_CLOSED']);
 
-/** Allow-listed error code for an unauthenticated caller, never a raw message. */
-function publicAuthError(error: unknown, route: string): string {
+/**
+ * The allow-listed code of a business refusal, never a raw message. Any other
+ * failure is rethrown for the error middleware to answer and log (#467).
+ */
+function publicAuthError(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
   if (PUBLIC_AUTH_ERROR_CODES.has(message)) return message;
-  console.error(`[auth] ${route} failed with a non-public error:`, error);
-  return 'UNEXPECTED_ERROR';
+  throw error;
 }
 
 function readDeviceInfo(req: Request): { userAgent: string | undefined; ip: string } {
@@ -86,6 +99,11 @@ function packTrustedDeviceToken(rawToken: string): string {
 }
 
 function readTrustedDeviceCookie(req: Request): string | undefined {
+  return readTrustedDevice(req)?.token;
+}
+
+/** The raw device token in a valid trusted-device cookie, and when that cookie expires (#766). */
+function readTrustedDevice(req: Request): { token: string; expiresAt?: Date } | undefined {
   const wrapped = (req.cookies as Record<string, string | undefined>)?.[TRUSTED_DEVICE_COOKIE_NAME];
   if (!wrapped) return undefined;
   const secret = process.env.JWT_SECRET;
@@ -93,8 +111,8 @@ function readTrustedDeviceCookie(req: Request): string | undefined {
   try {
     const payload = jwt.verify(wrapped, secret);
     if (typeof payload === 'object' && payload !== null) {
-      const tdt = (payload as { tdt?: unknown }).tdt;
-      if (typeof tdt === 'string') return tdt;
+      const { tdt, exp } = payload as { tdt?: unknown; exp?: unknown };
+      if (typeof tdt === 'string') return { token: tdt, expiresAt: typeof exp === 'number' ? new Date(exp * 1000) : undefined };
     }
     return undefined;
   } catch {
@@ -111,27 +129,54 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = registerSchema.parse(req.body);
-    const { user, token } = await authService.register(data, readDeviceInfo(req));
+    const { user, token, knownBrowserToken } = await authService.register(data, readDeviceInfo(req));
 
     res.cookie(COOKIE_NAME, token, COOKIE_OPTIONS);
+    setKnownBrowserCookie(res, knownBrowserToken);
     void auditLog({ userId: user.id, action: 'REGISTER', status: 'success', ip });
     res.status(201).json({ data: user });
   } catch (error) {
-    console.error('[auth] POST /register error:', error);
-    if (error instanceof ZodError) {
-      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
-      return;
-    }
-    const msg = publicAuthError(error, 'POST /register');
-    const status = FORBIDDEN_REGISTER_CODES.has(msg) ? 403 : CONFLICT_REGISTER_CODES.has(msg) ? 409 : 500;
+    // A ZodError reaches the error middleware too: 400 VALIDATION_ERROR.
+    if (error instanceof ZodError) throw error;
+    const msg = publicAuthError(error);
+    const status = FORBIDDEN_REGISTER_CODES.has(msg) ? 403 : CONFLICT_REGISTER_CODES.has(msg) ? 409 : 400;
     res.status(status).json({ error: msg });
   }
 });
 
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
 
-router.post('/login', async (req: Request, res: Response): Promise<void> => {
+/**
+ * #980/#988: notes the trusted device, or else the known browser, a sign-in
+ * comes from, when its cookie belongs to the account the identifier names,
+ * for the sign-in limiter to skip that identifier's budget (see
+ * signInAccountLimiter). Without a valid cookie (the only case a stranger can
+ * produce) the account is not looked up.
+ */
+async function resolveSignInProof(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const identifier = (req.body as { identifier?: unknown } | undefined)?.identifier;
+  if (typeof identifier !== 'string') {
+    next();
+    return;
+  }
+  const deviceToken = readTrustedDeviceCookie(req);
+  const deviceId = deviceToken ? await authService.signInTrustedDeviceId(identifier, deviceToken, getClientIp(req)) : null;
+  if (deviceId) {
+    res.locals.signInProof = `device:${deviceId}`;
+  } else {
+    const browserCookie = (req.cookies as Record<string, string | undefined>)?.[KNOWN_BROWSER_COOKIE_NAME];
+    const browserId = browserCookie ? await authService.signInKnownBrowserId(identifier, browserCookie) : null;
+    if (browserId) res.locals.signInProof = `browser:${browserId}`;
+  }
+  next();
+}
+
+// #980: one LOGIN_FAILED row per locked identifier and window, under its account.
+const signInLimiter = signInAccountLimiter((identifier, req) => {
+  void authService.auditSignInLocked(identifier, getClientIp(req));
+});
+
+router.post('/login', resolveSignInProof, signInLimiter, async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const data = loginSchema.parse(req.body);
@@ -142,6 +187,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     const cookieOpts = rememberMe ? COOKIE_OPTIONS : SESSION_COOKIE_OPTIONS;
     res.cookie(COOKIE_NAME, token, cookieOpts);
     if (!requires2fa) {
+      setKnownBrowserCookie(res, result.knownBrowserToken);
       void auditLog({
         userId: user.id,
         action: 'LOGIN',
@@ -152,17 +198,17 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     }
     res.json({ data: { ...user, requires2fa } });
   } catch (error) {
-    console.error('[auth] POST /login error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
+    const msg = error instanceof Error ? error.message : '';
     // Always 401 for invalid credentials (no enumeration). A deactivated account
     // is collapsed to the same code so it neither leaks the account's existence
-    // nor reads as an application failure.
-    const refused = msg === 'INVALID_CREDENTIALS' || msg === 'ACCOUNT_DEACTIVATED';
-    res.status(401).json({ error: refused ? 'INVALID_CREDENTIALS' : 'UNEXPECTED_ERROR' });
+    // nor reads as an application failure. Anything else (the database down)
+    // is not a wrong password: the error middleware answers it (#467).
+    if (msg !== 'INVALID_CREDENTIALS' && msg !== 'ACCOUNT_DEACTIVATED') throw error;
+    res.status(401).json({ error: 'INVALID_CREDENTIALS' });
   }
 });
 
@@ -212,15 +258,15 @@ router.post('/2fa/verify-login', async (req: Request, res: Response): Promise<vo
     if (result.trustedDeviceToken) {
       res.cookie(TRUSTED_DEVICE_COOKIE_NAME, packTrustedDeviceToken(result.trustedDeviceToken), TRUSTED_DEVICE_COOKIE_OPTIONS);
     }
+    setKnownBrowserCookie(res, result.knownBrowserToken);
     void auditLog({ userId: result.user.id, action: 'LOGIN_2FA', status: 'success', ip });
     res.json({ data: result.user });
   } catch (error) {
-    console.error('[auth] POST /2fa/verify-login error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    const msg = publicAuthError(error, 'POST /2fa/verify-login');
+    const msg = publicAuthError(error);
     // ISSUE_043: a locked account is a throttling decision, not a credential
     // rejection — 429 so clients (and operators reading logs) can tell them apart.
     if (msg === '2FA_TEMPORARILY_LOCKED') {
@@ -239,9 +285,7 @@ router.post('/2fa/generate', authMiddleware, async (req: Request, res: Response)
     const data = await authService.generateTwoFactorSecret(req.userId);
     res.json({ data });
   } catch (error) {
-    console.error('[auth] POST /2fa/generate error:', error);
-    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
-    res.status(400).json({ error: msg });
+    res.status(400).json({ error: publicAuthError(error) });
   }
 });
 
@@ -253,13 +297,11 @@ router.post('/2fa/turn-on', authMiddleware, passwordCheckLimiter, async (req: Re
     const data = await authService.turnOnTwoFactorAuthentication(req.userId, password, code, readDeviceInfo(req));
     res.json({ data });
   } catch (error) {
-    console.error('[auth] POST /2fa/turn-on error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
-    res.status(400).json({ error: msg });
+    res.status(400).json({ error: publicAuthError(error) });
   }
 });
 
@@ -271,13 +313,11 @@ router.post('/2fa/turn-off', authMiddleware, passwordCheckLimiter, async (req: R
     await authService.turnOffTwoFactorAuthentication(req.userId, password, readDeviceInfo(req), req.sessionId, code);
     res.json({ data: { success: true } });
   } catch (error) {
-    console.error('[auth] POST /2fa/turn-off error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
-    res.status(400).json({ error: msg });
+    res.status(400).json({ error: publicAuthError(error) });
   }
 });
 
@@ -295,7 +335,7 @@ router.post('/2fa/backup-codes', authMiddleware, passwordCheckLimiter, async (re
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    res.status(400).json({ error: publicAuthError(error, 'POST /2fa/backup-codes') });
+    res.status(400).json({ error: publicAuthError(error) });
   }
 });
 
@@ -344,6 +384,16 @@ router.delete('/sessions/:id', authMiddleware, async (req: Request, res: Respons
   }
 });
 
+// ─── GET /api/auth/trust-device ────────────────────────────────────────────────
+// #766: whether this device skips the 2FA code, and until when — the cookie is
+// httpOnly, so the page cannot tell by itself.
+
+router.get('/trust-device', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+  const device = readTrustedDevice(req);
+  const trustedUntil = await authService.trustedDeviceUntil(req.userId, device?.token, device?.expiresAt);
+  res.json({ data: { trustedUntil } });
+});
+
 // ─── POST /api/auth/trust-device ───────────────────────────────────────────────
 
 router.post('/trust-device', authMiddleware, passwordCheckLimiter, async (req: Request, res: Response): Promise<void> => {
@@ -355,12 +405,11 @@ router.post('/trust-device', authMiddleware, passwordCheckLimiter, async (req: R
     void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'success', ip });
     res.json({ data: { ok: true } });
   } catch (error) {
-    console.error('[auth] POST /trust-device error:', error);
     if (error instanceof ZodError) {
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    const msg = error instanceof Error ? error.message : 'UNEXPECTED_ERROR';
+    const msg = publicAuthError(error);
     void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'error', ip, details: { message: msg } });
     res.status(400).json({ error: msg });
   }
@@ -515,8 +564,7 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
     await passwordResetService.resetPassword(parsed.data.token, parsed.data.newPassword, readDeviceInfo(req));
     res.json({ data: { ok: true } });
   } catch (err) {
-    console.error('[auth] POST /reset-password error:', err);
-    res.status(400).json({ error: publicAuthError(err, 'POST /reset-password') });
+    res.status(400).json({ error: publicAuthError(err) });
   }
 });
 

@@ -1,8 +1,9 @@
 'use client';
 import type { QueryClient } from '@tanstack/react-query';
 import { randomId } from '@/lib/uuid';
-import { timeoutSignal } from '@/lib/api';
+import { request } from '@/lib/api';
 import type { InventoryItem } from '@/lib/inventory/types';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 import {
   type QueuedMutation,
   getAllQueuedMutations,
@@ -27,15 +28,11 @@ import {
 // driven equally by the `online` window event and by the `useOfflineSync`
 // hook's mount effect.
 
-// Must match `INVENTORY_KEY` / the per-item key in hooks/useInventory.ts —
-// duplicated here (rather than imported) to avoid a circular module
-// dependency (useInventory.ts calls into this module for `enqueueMutation`).
-const INVENTORY_LIST_KEY = ['inventory'] as const;
-const inventoryItemKey = (id: string) => ['inventory', id] as const;
-// #471: the wines (hooks/useProducts.ts `PRODUCTS_KEY`) and every open
-// drawer (`productDetailKey(id)`), duplicated for the same reason.
-const PRODUCTS_LIST_KEY = ['inventory', 'products'] as const;
-const PRODUCT_DETAIL_PREFIX = ['inventory', 'product'] as const;
+// #471: the flat list, the wines and every open drawer show the queued changes.
+const INVENTORY_LIST_KEY = qk.inventory.list;
+const inventoryItemKey = qk.inventory.item;
+const PRODUCTS_LIST_KEY = qk.products.list;
+const PRODUCT_DETAIL_PREFIX = qk.products.details;
 
 /**
  * Review of #753: every tab runs its own replay on the same IndexedDB queue;
@@ -308,7 +305,7 @@ export async function removeQueuedMutation(id: string, queryClient?: QueryClient
   if (queryClient) {
     // FEAT-108: its effect is taken back on screen at once, even offline.
     dropped = await discardQueuedMutation(id, queryClient);
-    if (dropped) void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
+    if (dropped) invalidateAfterInventoryChange(queryClient);
   } else {
     dropped = (await takeQueuedMutationUnlessSyncing(id)) !== undefined;
   }
@@ -357,10 +354,9 @@ function isTemporaryStatus(status: number): boolean {
 }
 
 /**
- * Raw call to the inventory API — deliberately NOT reusing `lib/api.ts`'s
- * `client.patch`: that helper collapses any non-2xx response into a plain
- * `Error` and discards the parsed body, but the offline sync flow
- * specifically needs the HTTP status (409) and the server's current item
+ * Raw answer of the inventory API (`request`, not `client.patch`): `client`
+ * turns a refusal into an ApiError and drops the body, but the offline sync
+ * flow specifically needs the HTTP status (409) and the server's current item
  * from the response body to drive conflict resolution. FEAT-108: a
  * "Corriger le nombre" goes to its own route, with the same guard.
  */
@@ -368,12 +364,10 @@ async function sendChange(mutation: QueuedMutation): Promise<PatchOutcome> {
   const isCorrection = mutation.kind === 'correct';
   let res: Response;
   try {
-    res = await fetch(`/api/inventory/${mutation.itemId}${isCorrection ? '/correct' : ''}`, {
+    res = await request(`/inventory/${mutation.itemId}${isCorrection ? '/correct' : ''}`, {
       method: isCorrection ? 'POST' : 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ ...mutation.patch, expectedUpdatedAt: mutation.expectedUpdatedAt }),
-      signal: timeoutSignal(15000),
     });
   } catch {
     // Network cut or timeout: the server never answered.
@@ -388,8 +382,9 @@ async function sendChange(mutation: QueuedMutation): Promise<PatchOutcome> {
     return { kind: 'error', message: body?.error ?? 'CONFLICT', code: body?.error ?? 'CONFLICT' };
   }
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as { error?: string; details?: unknown } | null;
-    const reason = (typeof body?.details === 'string' ? body.details : undefined) ?? body?.error ?? `HTTP ${res.status}`;
+    // The stable code only: since #467 no route sends a readable `details`.
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    const reason = body?.error ?? `HTTP ${res.status}`;
     // An expired session (401) or one waiting for its second factor (403
     // `2FA_REQUIRED`, api/src/middleware/auth.middleware.ts): nothing wrong
     // with the change, it goes through once the member has signed in again,
@@ -423,10 +418,7 @@ async function alreadyApplied(mutation: QueuedMutation, serverItem: InventoryIte
   const productId = mutation.productId ?? (typeof server.productId === 'string' ? server.productId : undefined);
   if (!productId) return null;
   try {
-    const res = await fetch(`/api/products/${encodeURIComponent(productId)}`, {
-      credentials: 'include',
-      signal: timeoutSignal(15000),
-    });
+    const res = await request(`/products/${encodeURIComponent(productId)}`);
     if (!res.ok) return null;
     const body = (await res.json()) as { data?: { items?: UnitLike[] } };
     const copy = body.data?.items?.find((unit) =>
@@ -594,8 +586,9 @@ async function replayQueue(queryClient: QueryClient): Promise<void> {
     else cancelSyncRetry();
   } finally {
     // Refetch only when something reached the server; the refetched list
-    // keeps the changes still queued on top (`overlayQueuedChanges`).
-    if (anySynced) void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
+    // keeps the changes still queued on top (`overlayQueuedChanges`). What
+    // derives from the stock (goal, bell, counters…) follows too (#621).
+    if (anySynced) invalidateAfterInventoryChange(queryClient);
   }
 }
 
@@ -647,6 +640,6 @@ export async function resolveConflictKeepLocal(mutationId: string, queryClient: 
 export async function resolveConflictKeepServer(mutationId: string, queryClient: QueryClient): Promise<void> {
   await deleteQueuedMutation(mutationId);
   // The screen already shows the server's version (put there when the conflict came back).
-  void queryClient.invalidateQueries({ queryKey: INVENTORY_LIST_KEY });
+  invalidateAfterInventoryChange(queryClient);
   notifyListeners();
 }

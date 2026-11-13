@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '@/lib/api';
 import { notifyError, notifySuccess } from '@/lib/toast';
+import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 
 import { Cellar, CellarGridData, CreateCellarInput, UpdateCellarInput } from '@/lib/cellars/types';
 
@@ -9,7 +10,7 @@ import { Cellar, CellarGridData, CreateCellarInput, UpdateCellarInput } from '@/
  */
 export function useCellars() {
   return useQuery<Cellar[]>({
-    queryKey: ['cellars'],
+    queryKey: qk.cellars.all,
     queryFn: async () => {
       const { data } = await client.get<Cellar[]>('/cellars');
       return data;
@@ -22,7 +23,7 @@ export function useCellars() {
  */
 export function useCellar(id: string) {
   return useQuery<Cellar>({
-    queryKey: ['cellars', id],
+    queryKey: qk.cellars.detail(id),
     queryFn: async () => {
       const { data } = await client.get<Cellar>(`/cellars/${id}`);
       return data;
@@ -36,7 +37,7 @@ export function useCellar(id: string) {
  */
 export function useCellarGrid(cellarId: string) {
   return useQuery<CellarGridData>({
-    queryKey: ['cellars', cellarId, 'grid'],
+    queryKey: qk.cellars.grid(cellarId),
     queryFn: async () => {
       const { data } = await client.get<CellarGridData>(`/cellars/${cellarId}/grid`);
       return data;
@@ -57,7 +58,9 @@ export function useCreateCellar() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      // The cellars and their badge in the menu.
+      void queryClient.invalidateQueries({ queryKey: qk.cellars.all });
+      void queryClient.invalidateQueries({ queryKey: qk.sidebarCounts });
       notifySuccess('toast.cellar.createSuccess');
     },
     onError: () => notifyError('toast.cellar.createError'),
@@ -76,7 +79,9 @@ export function useUpdateCellar() {
       return response.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      // The cellars and their badge in the menu.
+      void queryClient.invalidateQueries({ queryKey: qk.cellars.all });
+      void queryClient.invalidateQueries({ queryKey: qk.sidebarCounts });
       notifySuccess('toast.cellar.updateSuccess');
     },
     onError: () => notifyError('toast.cellar.updateError'),
@@ -94,7 +99,9 @@ export function useDeleteCellar() {
       await client.delete<void>(`/cellars/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cellars'] });
+      // The cellars and their badge in the menu.
+      void queryClient.invalidateQueries({ queryKey: qk.cellars.all });
+      void queryClient.invalidateQueries({ queryKey: qk.sidebarCounts });
       notifySuccess('toast.cellar.deleteSuccess');
     },
     onError: () => notifyError('toast.cellar.deleteError'),
@@ -107,7 +114,7 @@ export function useDeleteCellar() {
  * 'SLOT_OCCUPIED' when the cell is taken, 'NO_UNPLACED_COPY' when every copy
  * of the line is already placed.
  */
-export function useAssignSlot(cellarId: string) {
+export function useAssignSlot() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, { itemId: string; column: number; row: number }>({
     // Said by the grid's assign dialog.
@@ -116,15 +123,12 @@ export function useAssignSlot(cellarId: string) {
       await client.post(`/inventory/${itemId}/slots`, { column, row });
     },
     // A refusal too: the plan was out of date (a cell or a copy taken from another device).
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['cellars', cellarId, 'grid'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-    },
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
 
 /** FEAT-93: takes a copy out of its cell (DELETE /api/slots/:slotId); it stays in stock, unplaced. */
-export function useRemoveSlot(cellarId: string) {
+export function useRemoveSlot() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, { slotId: string }>({
     // Said by the drawer (FamilyDrawer).
@@ -133,9 +137,6 @@ export function useRemoveSlot(cellarId: string) {
       await client.delete(`/slots/${slotId}`);
     },
     // A refusal too (SLOT_NOT_FOUND: taken out or drunk on another device): the plan and the drawer catch up.
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['cellars', cellarId, 'grid'] });
-      queryClient.invalidateQueries({ queryKey: ['inventory'] });
-    },
+    onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }

@@ -4,7 +4,8 @@ import { CorrectionInput, RecordFoundItemInput, StartSessionInput } from '../sch
 import { inventoryService } from './inventory.service';
 import { InventoryDraft } from '../schemas/inventory.schema';
 import { IN_STOCK_ITEM_FILTER, isFinishedState, isIntactItem } from '../lib/finished-item';
-import { freeSlots, type SlotChange } from '../lib/slots';
+import { freeSlots, slotsFreed, type SlotChange } from '../lib/slots';
+import { recordMovements } from './stock-movement.service';
 import { lockFamilies } from '../lib/product-fields';
 import { moveCountEntry } from '../lib/count-entries';
 import { finishUnits } from './stock-state.service';
@@ -808,7 +809,8 @@ async function applyCorrectionsInternal(
     // #798: the bottle's cells belong to its old cellar, so it arrives
     // unplaced in the session's cellar — freed before the cellar is written
     // (FEAT-93: the slot's key holds the cellar).
-    if (item.cellarId !== session.cellarId) await freeSlots(tx, item.id);
+    const moves = item.cellarId !== session.cellarId;
+    const freed = moves ? slotsFreed(await freeSlots(tx, item.id)) : [];
     await tx.inventoryItem.update({
       where: { id: item.id },
       data: {
@@ -816,6 +818,20 @@ async function applyCorrectionsInternal(
         updatedAt: new Date(),
         updatedBy: actingUserId,
       },
+    });
+    // #848: and in its wine's journal.
+    if (moves) {
+      await recordMovements(tx, { userId: actingUserId }, [{
+        productId: item.productId, itemId: item.id, kind: 'MOVED', delta: 0, count: item.isOpened ? 1 : item.quantity ?? 1,
+        details: { cellarId: item.cellarId, fromCellarId: item.cellarId, toCellarId: session.cellarId },
+      }]);
+    }
+    // #588: told in the bottle's history, as every other correction of the closure.
+    if (moves) history.push({
+      action: 'UPDATE',
+      itemId: item.id,
+      productId: item.productId,
+      details: { ...base, changes: [{ field: 'cellarId', from: item.cellarId ?? null, to: session.cellarId }, ...freed] },
     });
     appliedCount++;
   }

@@ -60,7 +60,8 @@ describe('statsService.getSidebarCounts (#212)', () => {
     expect(counts).toEqual({
       bottles: 1, cigars: 1, cellars: 2, collections: 3, countSessionActive: false, wishlistReady: 0, remindersToday: 1,
     });
-    expect(db.collection.count).toHaveBeenCalledWith({ where: { userId: 'u1' } });
+    // #476: collections are shared by the household: every member's count.
+    expect(db.collection.count).toHaveBeenCalledWith();
   });
 
   it('flags an active or paused count session', async () => {

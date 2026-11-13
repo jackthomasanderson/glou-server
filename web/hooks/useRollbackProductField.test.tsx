@@ -2,10 +2,13 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import React from 'react';
 import { renderHook } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { PRODUCTS_KEY, productDetailKey } from './useProducts';
+import { qk } from '@/lib/queryKeys';
 import { useRollbackProductField } from './useRollbackProductField';
 import type { Product } from '@/lib/products/types';
 import { product } from '@/lib/products/__tests__/factories';
+
+const PRODUCTS_KEY = qk.products.list;
+const productDetailKey = qk.products.detail;
 
 // #471 (FEAT-05): "Restaurer cette valeur" on a change of a wine's description.
 

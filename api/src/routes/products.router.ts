@@ -5,6 +5,7 @@ import { isRestorableDescriptionField } from '../../../shared/product';
 import { productService, type UnitSlotChanges } from '../services/product.service';
 import { inventoryService } from '../services/inventory.service';
 import { auditLog } from '../services/audit.service';
+import { listMovements } from '../services/stock-movement.service';
 import { adminMiddleware, authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { logTrashDeletion } from '../lib/trash-audit';
 import { routeParam } from '../lib/http';
@@ -48,6 +49,13 @@ router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const product = await productService.get(routeParam(req.params.id));
   if (!product) throw notFound('PRODUCT_NOT_FOUND');
   res.json({ data: product });
+});
+
+// GET /api/products/:id/movements — #848 (FEAT-110): the wine's movement journal, newest first.
+router.get('/:id/movements', async (req: Request, res: Response): Promise<void> => {
+  const movements = await listMovements(routeParam(req.params.id));
+  if (!movements) throw notFound('PRODUCT_NOT_FOUND');
+  res.json({ data: movements });
 });
 
 /** FEAT-93: the cells a bottle gave up with its family's new category (or on its restore), in that bottle's history. */
@@ -124,7 +132,7 @@ async function rollbackDescription(req: Request, res: Response, id: string, ip: 
 // DELETE /api/products/:id — the wine and all its bottles to the trash (D10).
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  const trashed = await productService.trash(id);
+  const trashed = await productService.trash(id, req.userId);
   if (!trashed) throw notFound('PRODUCT_NOT_FOUND');
   const daysLeft = inventoryService.daysUntilPermanentDelete(trashed.deletedAt);
   void auditLog({ userId: req.userId, action: 'DELETE', status: 'success', ip: getClientIp(req), productId: id, details: { daysLeft, itemIds: trashed.itemIds } });
@@ -135,7 +143,7 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 router.post('/:id/restore', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   const slotChanges: UnitSlotChanges[] = [];
-  const product = await productService.restore(id, slotChanges);
+  const product = await productService.restore(id, req.userId, slotChanges);
   if (!product) throw notFound('PRODUCT_NOT_FOUND_OR_EXPIRED');
   void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip: getClientIp(req), productId: id });
   // FEAT-93: the cells a bottle could not take back, in its own history.

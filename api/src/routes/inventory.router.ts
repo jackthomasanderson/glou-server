@@ -3,10 +3,9 @@ import { ZodError } from 'zod';
 import { inventoryInputSchema, inventoryPatchSchema, bulkUpdateSchema, rollbackFieldSchema, emptyTrashSchema } from '../schemas/inventory.schema';
 import { scanJobIdHintSchema } from '../schemas/scan.schema';
 import { distinctFromSchema } from '../schemas/product.schema';
-import { inventoryService } from '../services/inventory.service';
+import { inventoryService, type BulkEditEntry } from '../services/inventory.service';
 import { inventoryExportService } from '../services/inventory-export.service';
 import { scanService } from '../services/scan.service';
-import type { UnitSlotChanges } from '../services/product.service';
 import { auditLog } from '../services/audit.service';
 import { adminMiddleware, authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { logTrashDeletion } from '../lib/trash-audit';
@@ -19,6 +18,15 @@ const router = Router();
 // All routes require authentication
 router.use(authMiddleware);
 
+// #467: the error middleware answers every failure: an AppError its own
+// status, a ZodError 400 VALIDATION_ERROR, a database outage 503. The catch
+// blocks below only write the refusal to the audit log, then rethrow.
+
+/** A refused body, as one line for the audit log (never sent to the client). */
+function zodIssues(error: ZodError): string {
+  return error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
+}
+
 // ─── GET /api/inventory ──────────────────────────────────────────────────────
 
 // ISSUE_087: a plain read used to write an audit-log row on every request —
@@ -26,13 +34,8 @@ router.use(authMiddleware);
 // accumulated thousands of rows a week for an event with zero traceability
 // value. Only actions that actually change data are logged now.
 router.get('/', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const { items, truncated } = await inventoryService.listInventory();
-    res.json({ data: items, truncated });
-  } catch (error) {
-    console.error('[inventory] GET / error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const { items, truncated } = await inventoryService.listInventory();
+  res.json({ data: items, truncated });
 });
 
 // ─── GET /api/inventory/export.csv ───────────────────────────────────────────
@@ -40,32 +43,22 @@ router.get('/', async (_req: Request, res: Response): Promise<void> => {
 // (authMiddleware above); guests never reach it. Read-only, so no audit row.
 
 router.get('/export.csv', async (req: Request, res: Response): Promise<void> => {
-  try {
-    const lang = req.query.lang === 'fr' ? 'fr' : 'en';
-    const { csv, rows } = await inventoryExportService.exportCsv(lang);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="glou-cellar-${new Date().toISOString().slice(0, 10)}.csv"`);
-    res.setHeader('Cache-Control', 'no-store');
-    // The screen warns when the file is longer than one import takes.
-    res.setHeader('X-Glou-Rows', String(rows));
-    res.setHeader('Access-Control-Expose-Headers', 'X-Glou-Rows');
-    res.send(csv);
-  } catch (error) {
-    console.error('[inventory] GET /export.csv error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const lang = req.query.lang === 'fr' ? 'fr' : 'en';
+  const { csv, rows } = await inventoryExportService.exportCsv(lang);
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="glou-cellar-${new Date().toISOString().slice(0, 10)}.csv"`);
+  res.setHeader('Cache-Control', 'no-store');
+  // The screen warns when the file is longer than one import takes.
+  res.setHeader('X-Glou-Rows', String(rows));
+  res.setHeader('Access-Control-Expose-Headers', 'X-Glou-Rows');
+  res.send(csv);
 });
 
 // ─── GET /api/inventory/trash ────────────────────────────────────────────────
 
 router.get('/trash', async (_req: Request, res: Response): Promise<void> => {
-  try {
-    const items = await inventoryService.listTrash();
-    res.json({ data: items });
-  } catch (error) {
-    console.error('[inventory] GET /trash error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const items = await inventoryService.listTrash();
+  res.json({ data: items });
 });
 
 // ─── DELETE /api/inventory/trash/:id ─────────────────────────────────────────
@@ -94,35 +87,19 @@ router.post('/trash/empty', adminMiddleware, async (req: Request, res: Response)
 
 router.get('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  try {
-    const result = await inventoryService.getItemWithTraceability(id);
-    if (!result) {
-      res.status(404).json({ error: 'ITEM_NOT_FOUND' });
-      return;
-    }
-    res.json({ data: { ...result.item, _creator: result.creator, _lastEditor: result.lastEditor } });
-  } catch (error) {
-    console.error('[inventory] GET /:id error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const result = await inventoryService.getItemWithTraceability(id);
+  if (!result) throw notFound('ITEM_NOT_FOUND');
+  res.json({ data: { ...result.item, _creator: result.creator, _lastEditor: result.lastEditor } });
 });
 
 // ─── GET /api/inventory/:id/history ─────────────────────────────────────────
 
 router.get('/:id/history', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
-  try {
-    const item = await inventoryService.getItem(id);
-    if (!item) {
-      res.status(404).json({ error: 'ITEM_NOT_FOUND' });
-      return;
-    }
-    const history = await inventoryService.getItemHistory(id);
-    res.json({ data: history });
-  } catch (error) {
-    console.error('[inventory] GET /:id/history error:', error);
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
-  }
+  const item = await inventoryService.getItem(id);
+  if (!item) throw notFound('ITEM_NOT_FOUND');
+  const history = await inventoryService.getItemHistory(id);
+  res.json({ data: history });
 });
 
 // ─── POST /api/inventory/bulk ────────────────────────────────────────────────
@@ -131,29 +108,19 @@ router.post('/bulk', async (req: Request, res: Response): Promise<void> => {
   const ip = getClientIp(req);
   try {
     const { ids, patch: validatedPatch } = bulkUpdateSchema.parse(req.body);
-    const slotChanges: UnitSlotChanges[] = [];
-    const count = await inventoryService.bulkUpdate(req.userId, ids, validatedPatch, slotChanges);
+    const history: BulkEditEntry[] = [];
+    const count = await inventoryService.bulkUpdate(req.userId, ids, validatedPatch, history);
     void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, details: { count, bulk: true } });
-    // FEAT-93: each bottle that gave up cells says which, in its own history.
-    for (const { itemId, changes } of slotChanges) {
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'success', ip, bottleId: itemId, details: { changes, bulk: true } });
-    }
+    // #588: each line changed, and each wine whose description changed, in its own history.
+    for (const entry of history) void auditLog({ userId: req.userId, status: 'success', ip, ...entry });
     res.json({ data: { updatedCount: count } });
   } catch (error) {
     if (error instanceof AppError) {
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, details: { reason: error.code, bulk: true } });
-      res.status(error.status).json({ error: error.code, details: error.details });
-      return;
+    } else if (error instanceof ZodError) {
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'validation_error', ip, details: { issues: zodIssues(error), bulk: true } });
     }
-    console.error('[inventory] POST /bulk error:', error);
-    if (error instanceof ZodError) {
-      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'validation_error', ip, details: { issues, bulk: true } });
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
-      return;
-    }
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, details: { message: String(error), bulk: true } });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+    throw error;
   }
 });
 
@@ -186,15 +153,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     void auditLog({ userId: req.userId, action: 'CREATE', status: 'success', ip, bottleId: item.id, productId: item.productId, details: { category: data.category, ...apart } });
     res.status(201).json({ data: item });
   } catch (error) {
-    console.error('[inventory] POST / error:', error);
-    if (error instanceof ZodError) {
-      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
-      void auditLog({ userId: req.userId, action: 'CREATE', status: 'validation_error', ip, details: { issues } });
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
-      return;
+    if (error instanceof AppError) {
+      // A creation the stock rules refuse (QUANTITY_TOO_LARGE…): nothing was created.
+      void auditLog({ userId: req.userId, action: 'CREATE', status: 'error', ip, details: { reason: error.code } });
+    } else if (error instanceof ZodError) {
+      void auditLog({ userId: req.userId, action: 'CREATE', status: 'validation_error', ip, details: { issues: zodIssues(error) } });
     }
-    void auditLog({ userId: req.userId, action: 'CREATE', status: 'error', ip, details: { message: String(error) } });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+    throw error;
   }
 });
 
@@ -247,18 +212,10 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
     if (error instanceof AppError) {
       // #471: a write the detach / reattach rule refuses (TASTINGS_ON_ITEM, NOT_A_CIGAR…).
       void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { reason: error.code } });
-      res.status(error.status).json({ error: error.code, details: error.details });
-      return;
+    } else if (error instanceof ZodError) {
+      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'validation_error', ip, bottleId: id, details: { issues: zodIssues(error) } });
     }
-    console.error('[inventory] PATCH /:id error:', error);
-    if (error instanceof ZodError) {
-      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
-      void auditLog({ userId: req.userId, action: 'UPDATE', status: 'validation_error', ip, bottleId: id, details: { issues } });
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
-      return;
-    }
-    void auditLog({ userId: req.userId, action: 'UPDATE', status: 'error', ip, bottleId: id, details: { message: String(error) } });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+    throw error;
   }
 });
 
@@ -267,21 +224,15 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
 router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
-  try {
-    const item = await inventoryService.softDelete(id);
-    if (!item) {
-      void auditLog({ userId: req.userId, action: 'DELETE', status: 'not_found', ip, bottleId: id });
-      res.status(404).json({ error: 'ITEM_NOT_FOUND' });
-      return;
-    }
-    const daysLeft = inventoryService.daysUntilPermanentDelete(item.deletedAt!);
-    void auditLog({ userId: req.userId, action: 'DELETE', status: 'success', ip, bottleId: id, productId: item.productId, details: { daysLeft } });
-    res.json({ data: item, meta: { daysUntilPermanentDelete: daysLeft } });
-  } catch (error) {
-    console.error('[inventory] DELETE /:id error:', error);
-    void auditLog({ userId: req.userId, action: 'DELETE', status: 'error', ip, bottleId: id, details: { message: String(error) } });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  const item = await inventoryService.softDelete(id, req.userId);
+  if (!item) {
+    void auditLog({ userId: req.userId, action: 'DELETE', status: 'not_found', ip, bottleId: id });
+    res.status(404).json({ error: 'ITEM_NOT_FOUND' });
+    return;
   }
+  const daysLeft = inventoryService.daysUntilPermanentDelete(item.deletedAt!);
+  void auditLog({ userId: req.userId, action: 'DELETE', status: 'success', ip, bottleId: id, productId: item.productId, details: { daysLeft } });
+  res.json({ data: item, meta: { daysUntilPermanentDelete: daysLeft } });
 });
 
 // ─── POST /api/inventory/:id/restore ────────────────────────────────────────
@@ -289,23 +240,17 @@ router.delete('/:id', async (req: Request, res: Response): Promise<void> => {
 router.post('/:id/restore', async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
-  try {
-    const slotChanges: FieldChange[] = [];
-    const item = await inventoryService.restore(id, slotChanges);
-    if (!item) {
-      void auditLog({ userId: req.userId, action: 'RESTORE', status: 'not_found', ip, bottleId: id });
-      res.status(404).json({ error: 'ITEM_NOT_FOUND_OR_EXPIRED' });
-      return;
-    }
-    // FEAT-93: the cells it could not take back are told in its history.
-    const details = slotChanges.length > 0 ? { details: { changes: slotChanges } } : {};
-    void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip, bottleId: id, productId: item.productId, ...details });
-    res.json({ data: item });
-  } catch (error) {
-    console.error('[inventory] POST /:id/restore error:', error);
-    void auditLog({ userId: req.userId, action: 'RESTORE', status: 'error', ip, bottleId: id, details: { message: String(error) } });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+  const slotChanges: FieldChange[] = [];
+  const item = await inventoryService.restore(id, req.userId, slotChanges);
+  if (!item) {
+    void auditLog({ userId: req.userId, action: 'RESTORE', status: 'not_found', ip, bottleId: id });
+    res.status(404).json({ error: 'ITEM_NOT_FOUND_OR_EXPIRED' });
+    return;
   }
+  // FEAT-93: the cells it could not take back are told in its history.
+  const details = slotChanges.length > 0 ? { details: { changes: slotChanges } } : {};
+  void auditLog({ userId: req.userId, action: 'RESTORE', status: 'success', ip, bottleId: id, productId: item.productId, ...details });
+  res.json({ data: item });
 });
 
 // ─── POST /api/inventory/:id/rollback ───────────────────────────────────────
@@ -343,18 +288,10 @@ router.post('/:id/rollback', async (req: Request, res: Response): Promise<void> 
     if (error instanceof AppError) {
       // #471: a restored state the detach / reattach rule refuses (409 TASTINGS_ON_ITEM, 400…).
       void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'error', ip, bottleId: id, details: { reason: error.code } });
-      res.status(error.status).json({ error: error.code, details: error.details });
-      return;
+    } else if (error instanceof ZodError) {
+      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, bottleId: id, details: { issues: zodIssues(error) } });
     }
-    console.error('[inventory] POST /:id/rollback error:', error);
-    if (error instanceof ZodError) {
-      const issues = error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join('; ');
-      void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'validation_error', ip, bottleId: id, details: { issues } });
-      res.status(400).json({ error: 'VALIDATION_ERROR', details: issues });
-      return;
-    }
-    void auditLog({ userId: req.userId, action: 'RESTORE_FIELD', status: 'error', ip, bottleId: id, details: { message: String(error) } });
-    res.status(500).json({ error: 'UNEXPECTED_ERROR' });
+    throw error;
   }
 });
 

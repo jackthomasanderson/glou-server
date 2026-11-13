@@ -12,6 +12,7 @@ import { useAdminAuditLogs, type AuditLogEntry, type AuditLogFilters } from '@/h
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { formatDateTime } from '@/lib/format';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 const PAGE_SIZE = 50;
 
@@ -50,7 +51,8 @@ export function AuditLogSection() {
   );
 
   const when = (entry: AuditLogEntry) => (hasMounted ? formatDateTime(entry.createdAt, i18n.language) : '');
-  const who = (entry: AuditLogEntry) => entry.user?.username || '—';
+  // #695: a member deleted for good is named by the name kept on the entry.
+  const who = (entry: AuditLogEntry) => entry.user?.username || entry.actorName || '—';
   const statusChip = (entry: AuditLogEntry) => (
     <Chip size="sm" color={entry.status === 'success' ? 'success' : 'danger'} variant="flat" radius="sm">{statusLabel(entry.status)}</Chip>
   );
@@ -142,6 +144,7 @@ export function AuditLogSection() {
         />
         <Select
           // select-may-empty: a filter without an "all" choice: emptying it shows every action.
+          popoverProps={ACCESSIBLE_POPOVER}
           size="sm" variant="bordered" selectionMode="multiple"
           label={t('admin.auditLog.filters.actions')}
           selectedKeys={new Set(filters.actions ?? [])}
@@ -151,6 +154,7 @@ export function AuditLogSection() {
         </Select>
         <Select
           // select-may-empty: a filter without an "all" choice: emptying it shows every status.
+          popoverProps={ACCESSIBLE_POPOVER}
           size="sm" variant="bordered"
           label={t('admin.auditLog.columns.status')}
           selectedKeys={filters.status ? [filters.status] : []}

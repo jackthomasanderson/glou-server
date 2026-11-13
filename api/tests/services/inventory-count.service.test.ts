@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     inventoryCountSession: { findUnique: vi.fn() },
+    stockMovement: { createMany: vi.fn(async () => ({ count: 0 })) },
     inventoryItem: { findFirst: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     inventoryCountEntry: { findMany: vi.fn() },
     $transaction: vi.fn(),
@@ -27,7 +28,7 @@ function mockTransactionClient(itemRow: Record<string, unknown> | null, cells: F
   const $queryRaw = vi.fn();
   vi.mocked(prisma.$transaction).mockImplementation(
     ((callback: (tx: unknown) => unknown) =>
-      callback({ inventoryItem: { findFirst, update, findMany }, inventoryCountEntry: { findMany: vi.fn().mockResolvedValue([]) }, itemSlot: slots.delegate, $queryRaw })) as never,
+      callback({ inventoryItem: { findFirst, update, findMany }, stockMovement: prisma.stockMovement, inventoryCountEntry: { findMany: vi.fn().mockResolvedValue([]) }, itemSlot: slots.delegate, $queryRaw })) as never,
   );
   return { findFirst, update, $queryRaw, slots };
 }
@@ -74,6 +75,9 @@ describe('applyCorrections', () => {
       data: {
         isOpened: true,
         fillLevel: 0,
+        // #589: the member closing the count is who finished it, now.
+        finishedAt: expect.any(Date),
+        finishedBy: 'u1',
         updatedAt: expect.any(Date),
         updatedBy: 'u1',
       },
@@ -94,11 +98,11 @@ describe('applyCorrections', () => {
       id: 's1',
       cellarId: 'c1',
     } as never);
-    const tx = mockTransactionClient({ id: 'b1', deletedAt: null, lockedFields: ['cellarId'] });
+    const tx = mockTransactionClient({ id: 'b1', productId: 'p1', deletedAt: null, lockedFields: ['cellarId'], cellarId: 'c2' });
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'move_to_scope' }], 'u1');
 
-    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [], history: [] });
+    expect(result).toMatchObject({ status: 'success', appliedCount: 1, skipped: [], history: [{ itemId: 'b1' }] });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
       data: expect.objectContaining({ cellarId: 'c1', updatedBy: 'u1' }),
@@ -112,12 +116,22 @@ describe('applyCorrections', () => {
       cellarId: 'c1',
     } as never);
     const tx = mockTransactionClient({
-      id: 'b1', deletedAt: null, lockedFields: [], cellarId: 'c2',
+      id: 'b1', productId: 'p1', deletedAt: null, lockedFields: [], cellarId: 'c2',
     }, [slot({ itemId: 'b1', cellarId: 'c2', column: 2, row: 3 })]);
 
     const result = await applyCorrections('s1', [{ itemId: 'b1', action: 'move_to_scope' }], 'u1');
 
-    expect(result).toEqual({ status: 'success', appliedCount: 1, skipped: [], history: [] });
+    // #588: the move is told in the bottle's history, with the cell it left.
+    expect(result).toEqual({
+      status: 'success', appliedCount: 1, skipped: [],
+      history: [{
+        action: 'UPDATE', itemId: 'b1', productId: 'p1',
+        details: {
+          scope: 'inventory-count', sessionId: 's1',
+          changes: [{ field: 'cellarId', from: 'c2', to: 'c1' }, { field: 'slot', from: { column: 2, row: 3 }, to: null }],
+        },
+      }],
+    });
     expect(tx.update).toHaveBeenCalledWith({
       where: { id: 'b1' },
       data: expect.objectContaining({ cellarId: 'c1' }),

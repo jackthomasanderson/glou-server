@@ -4,6 +4,7 @@ import { MutationObserver, onlineManager } from '@tanstack/react-query';
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
 
 import { notifyError } from '@/lib/toast';
+import { ApiError } from './api';
 import { NetworkError } from './network-error';
 import { createQueryClient } from './queryClient';
 
@@ -48,6 +49,30 @@ describe('createQueryClient — shared failure message', () => {
     await expect(observer.mutate()).rejects.toThrow();
     expect(notifyError).toHaveBeenCalledTimes(1);
     expect(notifyError).toHaveBeenCalledWith('status.serverUnreachable');
+  });
+
+  // #619: a deadline passed, or a proxy's error page, is the same "cannot reach the server".
+  it.each([
+    ['a timeout', new DOMException('The operation timed out.', 'TimeoutError')],
+    ['a proxy error page', new ApiError('NETWORK_ERROR', 502)],
+  ])('says the server could not be reached after %s', async (_label, error) => {
+    const observer = new MutationObserver(createQueryClient(), {
+      mutationFn: async () => { throw error; },
+    });
+    await expect(observer.mutate()).rejects.toBe(error);
+    expect(notifyError).toHaveBeenCalledWith('status.serverUnreachable');
+  });
+
+  // #467: the database is restarting: the server answered, nothing is lost, retry soon.
+  it.each([
+    ['the API', new ApiError('DATABASE_UNAVAILABLE', 503)],
+    ['a proxy', new ApiError('HTTP 503', 503)],
+  ])('says the server is temporarily unavailable on a 503 from %s', async (_label, error) => {
+    const observer = new MutationObserver(createQueryClient(), {
+      mutationFn: async () => { throw error; },
+    });
+    await expect(observer.mutate()).rejects.toBe(error);
+    expect(notifyError).toHaveBeenCalledWith('status.serverUnavailable');
   });
 
   it('stays silent for an action that says its own failure (meta.handlesError)', async () => {
