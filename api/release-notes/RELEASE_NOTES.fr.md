@@ -19,6 +19,9 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 ### Améliorations
 - Profil → Sessions actives : la localisation est indiquée comme approximative, chaque session montre quand elle s'est connectée, et un seul bouton déconnecte toutes les autres sessions.
 
+### Corrections
+- Analyses : au zoom le plus proche de la carte du monde, les régions écartées ne chevauchent plus le repère d'une région voisine.
+
 ## v2026.11.4
 
 ### Points d'attention

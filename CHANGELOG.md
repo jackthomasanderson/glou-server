@@ -20,6 +20,9 @@ Entries start with the pull request that introduced them where there is one.
 - **Upgrade note: a mail relay without STARTTLS stops sending with the STARTTLS security; choose "No encryption (trusted local relay)" for it.** With the **STARTTLS** security, the connection to the mail server now has to switch to encryption: if it does not (a network attacker can remove the server's offer), nothing is sent, so the SMTP password can no longer leak in clear text. Administration → System Configuration → Email gets a third, explicit choice, **No encryption (trusted local relay)**, which says that messages and the SMTP password then travel in clear. Your current choice is kept: TLS stays TLS, STARTTLS stays STARTTLS (now strict). When the server refuses STARTTLS, the encrypted connection fails, or the server's certificate is not trusted (self-signed, expired, issued for another name), **Test connection** and **Send test** say which in words instead of showing the raw error (#924).
 - Wrong two-factor codes typed when turning two-factor authentication off, generating new backup codes, trusting a device or confirming an administrator action now count toward the same limit as at sign-in: after 5 wrong codes in a row, the code is refused everywhere for 15 minutes, sign-in included, and you receive the "verification temporarily locked" alert. Before, only sign-in counted them, so someone holding an open session and the password could keep guessing from several addresses. A right code clears the count (#889).
 
+### Fixed
+- Analytics: at the closest zoom of the world map, regions spread apart no longer land on a neighbouring region's marker; nearby regions are spread together until no marker overlaps another (#994).
+
 ## v2026.11.4 - 2026-11-13
 
 > **Before you update:**

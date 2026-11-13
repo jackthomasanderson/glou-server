@@ -18,6 +18,9 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 ### Improved
 - Profile → Active sessions: the location is labelled as approximate, each session shows when it signed in, and one button signs out every other session.
 
+### Fixed
+- Analytics: at the closest zoom of the world map, spread regions no longer overlap a neighbouring region's marker.
+
 ## v2026.11.4
 
 ### Points of attention
