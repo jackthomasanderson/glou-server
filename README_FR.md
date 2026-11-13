@@ -63,6 +63,9 @@ docker compose up -d
 ```
 Docker télécharge les images pré-construites et démarre la stack. Aucune compilation requise.
 
+> [!IMPORTANT]
+> Les sauvegardes nocturnes de `./backups` ne contiennent **que la base**. Les photos (bouteilles, avatars) restent dans le volume Docker `api_uploads` et ne sont **pas** dans `./backups`. Archivez-les à côté de `docker-compose.yml` avec `docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz` ; pour vérifier, planifier et restaurer cette archive, voyez [Sauvegarder les photos](./docs/wiki/FR/30-Reprise-Apres-Sinistre.md#sauvegarder-les-photos).
+
 > [!NOTE]
 > Le scan d'étiquette par IA est optionnel et désactivé par défaut (~9 Go de disque, ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d`.
 
@@ -90,7 +93,7 @@ Rendez-vous sur [http://localhost:3000](http://localhost:3000), cliquez sur **S'
 - Liste de souhaits et budget : prix plafonds, alertes bonnes affaires sur prix observés, et enveloppe budgétaire par période.
 - Mode hors ligne : consultez et modifiez les items chargés hors connexion ; les changements se synchronisent automatiquement avec résolution de conflit.
 - Carte du monde, heatmap et filtres : explorez la collection géographiquement et filtrez par prix, millésime, note ou état.
-- Sauvegardes planifiées et portabilité : sauvegardes nocturnes de la base (activées par défaut, rattrapage des exécutions manquées, échecs signalés aux admins) restaurables en tout ou rien, plus un export RGPD complet, intégral ou filtré.
+- Sauvegardes planifiées et portabilité : sauvegardes nocturnes de la base (activées par défaut, photos archivées à part, rattrapage des exécutions manquées, échecs signalés aux admins) restaurables en tout ou rien, plus un export RGPD complet, intégral ou filtré.
 - Inscription fermée par défaut : seul le premier compte (l'admin) s'inscrit librement ; un admin ouvre l'inscription au besoin.
 - Accès clavier et lecteur d'écran : grille de cave, filtres, tableaux et recherche utilisables au clavier, focus géré dans les panneaux, erreurs annoncées.
 - Exploitation plus sûre : tags d'image immuables par SHA de commit pour le retour arrière, vérification au démarrage des secrets requis, et guides de [rotation des secrets](./docs/wiki/FR/29-Rotation-Des-Secrets.md), de [reprise après sinistre](./docs/wiki/FR/30-Reprise-Apres-Sinistre.md) et de [mise à jour](./docs/wiki/FR/31-Mises-A-Jour-Et-Retour-Arriere.md).
