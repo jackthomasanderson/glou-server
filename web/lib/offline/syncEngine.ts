@@ -380,6 +380,9 @@ async function sendChange(mutation: QueuedMutation): Promise<PatchOutcome> {
   if (res.status === 409) {
     const body = (await res.json().catch(() => null)) as { data?: InventoryItem; error?: string } | null;
     if (body?.data) return { kind: 'conflict', serverItem: body.data };
+    // #824: the server is still applying an earlier send of this very change
+    // (its answer was lost or late): try again later, it is not a conflict.
+    if (body?.error === 'IDEMPOTENCY_IN_PROGRESS') return { kind: 'retry', reason: body.error };
     // A refusal answered 409 without the unit (a tasting noted on the
     // bottle, nothing left to smoke…): said in words by the panel.
     return { kind: 'error', message: body?.error ?? 'CONFLICT', code: body?.error ?? 'CONFLICT' };

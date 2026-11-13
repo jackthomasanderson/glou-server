@@ -376,6 +376,16 @@ describe('flushQueue — a replay after a lost answer (#824)', () => {
     expect(server.applied()).toBe(1);
   });
 
+  it('waits and tries again when the server is still applying the first send (409 IDEMPOTENCY_IN_PROGRESS), never a conflict', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: 't1', expectedUpdatedAt: 'v-1' });
+    vi.stubGlobal('fetch', vi.fn(async () => errResponse(409, { error: 'IDEMPOTENCY_IN_PROGRESS' })));
+
+    await flushQueue(fakeQueryClient());
+
+    expect(store.get('m1')).toMatchObject({ status: 'pending', temporaryFailures: 1 });
+    expect(store.get('m1')?.conflictServerItem).toBeUndefined();
+  });
+
   it('sends the same key on every attempt of an entry, and its own key per entry', async () => {
     queue({ id: 'm1', itemId: 'A', createdAt: 't1', expectedUpdatedAt: 'v-1' });
     queue({ id: 'm2', itemId: 'B', createdAt: 't2', expectedUpdatedAt: 'v-1' });
