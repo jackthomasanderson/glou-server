@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { frenchT } from '@/lib/products/__tests__/i18n';
+import { product } from '@/lib/products/__tests__/factories';
 
 let t: Awaited<ReturnType<typeof frenchT>>;
 beforeAll(async () => {
@@ -85,6 +86,17 @@ describe('an empty category page (#503)', () => {
     for (const bar of screen.getAllByTestId('filter-bar')) expect(bar).toHaveAttribute('data-active', 'false');
     fireEvent.click(screen.getAllByRole('button', { name: t('inventory.add') }).at(-1)!);
     expect(screen.getByTestId('form')).toHaveAttribute('data-category', 'wine');
+  });
+
+  // #840: the cellar holds wines, but no sparkling one.
+  it('an empty Sparkling page in a cellar of red wines says so and offers to add one', () => {
+    params = new URLSearchParams('category=sparkling');
+    products = [product({ category: 'wine', color: 'red' })];
+    wrap(<InventoryDashboard t={t as never} lockedCategories={['wine', 'sparkling', 'spirit']} />);
+    expect(screen.getByText(t('inventory.noCategory_sparkling'))).toBeInTheDocument();
+    expect(screen.queryByText(t('inventory.noResultsFilters'))).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: t('inventory.add') }).at(-1)!);
+    expect(screen.getByTestId('form')).toHaveAttribute('data-category', 'sparkling');
   });
 
   it('links to all bottles', () => {
