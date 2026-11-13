@@ -610,6 +610,7 @@ export function AnalyticsDashboard() {
                 totalValuation: data?.totalValuation ?? 0,
                 totalActiveItems: data?.totalActiveItems ?? 0,
                 unpricedUnits: data?.unpricedUnits ?? 0,
+                unpricedCigars: data?.unpricedCigars ?? 0,
               }, fmtCurrency, t as (k: string, opts?: Record<string, unknown>) => string)}
               icon={<Euro size={20} color="#2563EB" />}
               iconBg="rgba(37,99,235,0.1)"

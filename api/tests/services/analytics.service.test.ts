@@ -599,6 +599,19 @@ describe('getAnalytics — units in stock with no price (#702)', () => {
     expect(stats.totalActiveItems).toBe(9);
   });
 
+  it('tells the cigars with no price apart, so the KPI names them (review of #1014)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ quantity: 6 }),
+      item({ category: 'cigar', quantity: 2, cigarsPerBox: 25 }),
+      item({ category: 'cigar', quantity: 3, purchasePrice: 12 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.unpricedUnits).toBe(56);
+    expect(stats.unpricedCigars).toBe(50);
+  });
+
   it('is 0 when every unit in stock has a price', async () => {
     vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([item({ quantity: 3, purchasePrice: 10 })] as never);
     expect((await getAnalytics()).unpricedUnits).toBe(0);

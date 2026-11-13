@@ -101,6 +101,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
   let inStockUnits = 0;
   // #702: units in stock worth 0 € only because nothing says their price.
   let unpricedUnits = 0;
+  let unpricedCigars = 0;
 
   const categoryMap: Record<string, { count: number; valuation: number }> = {};
   const regionMap: Record<string, { count: number; valuation: number }> = {};
@@ -137,7 +138,10 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     const value = itemValue(item);
     inStockUnits += units;
     totalValuation += value;
-    if (item.estimatedValue == null && item.purchasePrice == null) unpricedUnits += units;
+    if (item.estimatedValue == null && item.purchasePrice == null) {
+      unpricedUnits += units;
+      if (product.category === 'cigar') unpricedCigars += units;
+    }
     // #838: the cost of the same units as `value`, for the capital gain.
     inStockPurchasePrice += itemCostInStock(item);
     totalLiquidLiters += computeBottleVolume(product.category, item.bottleSize, item.fillLevel) * units;
@@ -274,6 +278,7 @@ export async function getAnalytics(from?: Date, to?: Date): Promise<AnalyticsSta
     urgentDegustationCount,
     totalActiveItems: inStockUnits,
     unpricedUnits,
+    unpricedCigars,
     categoryBreakdown: Object.entries(categoryMap)
       .map(([category, { count, valuation }]) => ({ category, count, valuation: Math.round(valuation) }))
       .sort((a, b) => b.count - a.count),

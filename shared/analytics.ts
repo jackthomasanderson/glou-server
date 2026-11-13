@@ -105,6 +105,8 @@ export interface AnalyticsStats {
   totalActiveItems: number;
   /** #702: units in stock with neither an estimated value nor a purchase price (worth 0 € in `totalValuation`). */
   unpricedUnits: number;
+  /** #702: of `unpricedUnits`, the cigars (the rest are bottles), so the KPI names them. */
+  unpricedCigars: number;
   categoryBreakdown: CategoryStat[];
   regionBreakdown: RegionStat[];
   /**
