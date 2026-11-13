@@ -1,6 +1,7 @@
 'use client';
 import React, { useId, useSyncExternalStore } from 'react';
 import { Button, Tooltip, type ButtonProps } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { useTranslation } from 'react-i18next';
 import { useConnectivity } from '@/hooks/useConnectivity';
 
@@ -47,7 +48,7 @@ export function OfflineBlockedButton({ blocked, onPress, className, children, ..
   const reason = t('offline.blocked');
   return (
     <>
-      <Tooltip content={reason} delay={0}>
+      <Tooltip {...ACCESSIBLE_POPOVER} content={reason} delay={0}>
         <Button
           {...props}
           className={`${className ?? ''} opacity-disabled cursor-not-allowed`}

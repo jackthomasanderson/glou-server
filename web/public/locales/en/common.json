@@ -492,7 +492,6 @@
     "count": {
       "scanError": "Couldn't confirm the bottle",
       "scanError_cigar": "Couldn't confirm the cigar",
-      "recordError": "Couldn't record the find",
       "skipped_one": "Session closed: {{count}} correction couldn't be applied (the bottle changed meanwhile).",
       "skipped_other": "Session closed: {{count}} corrections couldn't be applied (the bottles changed meanwhile)."
     },
@@ -1044,6 +1043,7 @@
       },
       "resetPasswordResultTitle": "Temporary password for {{username}}",
       "resetPasswordResultHint": "Copy this password and share it with the member through a secure channel. It is shown only once and cannot be retrieved afterwards — they will be asked to set a real password on their next login.",
+      "resetPasswordCopyFailed": "Copy is not possible here (insecure connection). Select the password and copy it manually.",
       "statusEnabled": "Enabled",
       "statusDisabled": "Disabled",
       "deleteMember": "Delete account now",

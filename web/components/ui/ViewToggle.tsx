@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { Button, ButtonGroup, Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from './accessiblePopover';
 import { LayoutGrid, List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { segmentClass } from '@/components/ui/segmentClass';
@@ -15,7 +16,7 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
   const { t } = useTranslation();
   return (
     <ButtonGroup size="sm" variant="flat">
-      <Tooltip content={t('view.grid')} delay={500}>
+      <Tooltip {...ACCESSIBLE_POPOVER} content={t('view.grid')} delay={500}>
         <Button
           isIconOnly
           color={value === 'grid' ? 'primary' : 'default'}
@@ -28,7 +29,7 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
           <LayoutGrid size={16} />
         </Button>
       </Tooltip>
-      <Tooltip content={t('view.list')} delay={500}>
+      <Tooltip {...ACCESSIBLE_POPOVER} content={t('view.list')} delay={500}>
         <Button
           isIconOnly
           color={value === 'list' ? 'primary' : 'default'}

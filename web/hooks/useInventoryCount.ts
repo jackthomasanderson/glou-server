@@ -106,9 +106,9 @@ export function useScanItem(sessionId: string) {
 export function useRecordFoundItem(sessionId: string) {
   const queryClient = useQueryClient();
   return useMutation<RecordFoundItemResult, Error, RecordFoundItemInput>({
+    // Said once, with its reason, by RecordFoundItemModal (#887).
     meta: { handlesError: true },
     mutationFn: (input: RecordFoundItemInput) => inventoryCountClient.recordFoundItem(sessionId, input),
-    onError: () => notifyError('toast.count.recordError'),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: reportKey(sessionId) });
     },

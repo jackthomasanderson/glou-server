@@ -32,6 +32,10 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - L'objectif de consommation du mois compte chaque cigare fumé dans une boîte, comme les Analyses ; il ne comptait une boîte qu'une fois vide, et pour un seul.
 - Le journal d'audit enregistre les valeurs réellement écrites sur une bouteille ou une boîte, y compris ce que la modification a effacé (une boîte refermée : son nombre et sa date d'ouverture). Les erreurs sur des cigares en modification groupée ou en inventaire parlent désormais de cigares.
 - La date d'achat proposée pour de nouvelles bouteilles est le jour du serveur : des bouteilles achetées ensemble vers minuit ne sont plus réparties sur deux lignes.
+- Annuler après la mise à la corbeille d'un vin apparaît désormais en haut à droite comme tous les autres Annuler, attend tant que la souris ou le clavier est dessus, et chaque vin mis à la corbeille garde le sien.
+- L'échec d'un changement d'avatar, ou des collections d'un vin, est désormais signalé même après avoir quitté la page ; copier le mot de passe temporaire d'un membre fonctionne en HTTP simple.
+- Les lecteurs d'écran atteignent désormais une info-bulle ouverte dans une fenêtre ou un tiroir.
+- Taper juste après avoir fermé une fenêtre ou un tiroir ne perd plus les premières touches.
 
 ## v2026.11.4
 

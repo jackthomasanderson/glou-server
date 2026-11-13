@@ -3,6 +3,7 @@ import React from 'react';
 import {
   Card, CardBody, CardFooter, Chip, Tooltip, Skeleton, Button, Checkbox,
 } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import {
   MapPin, AlertTriangle, Pencil, Trash2, Clock, CheckCircle, BellOff,
 } from 'lucide-react';
@@ -329,7 +330,7 @@ export function InventoryCard({
       {/* 40 px touch targets on phones (ux-ui.md §5.4), compact from sm up. */}
       <CardFooter className="relative z-10 pt-0 px-2 pb-1.5 justify-end gap-1 sm:gap-0">
         {onEdit && (
-          <Tooltip content={t('actions.edit')} delay={500}>
+          <Tooltip {...ACCESSIBLE_POPOVER} content={t('actions.edit')} delay={500}>
             <Button
               isIconOnly
               size="sm"
@@ -343,7 +344,7 @@ export function InventoryCard({
             </Button>
           </Tooltip>
         )}
-        <Tooltip content={t('familyList.trash.action')} delay={500}>
+        <Tooltip {...ACCESSIBLE_POPOVER} content={t('familyList.trash.action')} delay={500}>
           <Button
             isIconOnly
             size="sm"

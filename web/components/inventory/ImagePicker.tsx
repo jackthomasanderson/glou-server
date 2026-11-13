@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Input, Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { Search, Loader2, X } from 'lucide-react';
 import { useConnectivityWarning } from '@/hooks/useConnectivityWarning';
 import { useTranslation } from 'react-i18next';
@@ -124,7 +125,7 @@ export function ImagePickerButton({
 
   return (
     <div className="relative">
-      <Tooltip content={t('imagePicker.tooltip')} delay={500}>
+      <Tooltip {...ACCESSIBLE_POPOVER} content={t('imagePicker.tooltip')} delay={500}>
         <div className="relative inline-flex">
           <Button
             ref={buttonRef}
@@ -216,7 +217,7 @@ export function ImagePickerButton({
           {!loading && !saving && results.length > 0 && (
             <div className="grid grid-cols-4 gap-2">
               {results.map((img) => (
-                <Tooltip key={img.url} content={img.title} delay={500}>
+                <Tooltip {...ACCESSIBLE_POPOVER} key={img.url} content={img.title} delay={500}>
                   <button
                     type="button"
                     aria-label={img.title}

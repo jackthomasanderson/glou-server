@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Button, Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from './accessiblePopover';
 import { Moon, Sun } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useThemeMode } from '@/hooks/useThemeMode';
@@ -26,7 +27,7 @@ export function ThemeToggle({ placement = 'right', className = '' }: ThemeToggle
 
   return (
     <>
-      <Tooltip content={actionLabel} placement={placement} delay={500}>
+      <Tooltip {...ACCESSIBLE_POPOVER} content={actionLabel} placement={placement} delay={500}>
         <Button
           isIconOnly
           size="sm"

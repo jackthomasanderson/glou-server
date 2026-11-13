@@ -17,7 +17,8 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  // A failure is said by the hook (#887): only the success is shown here.
+  const [success, setSuccess] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -27,16 +28,16 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
   const handleUpload = async (original: File) => {
     // #494: an avatar is shown at 96 px at most.
     const file = await downscaleImage(original, 512);
+    setSuccess(null);
     uploadAvatar.mutate(file, {
-      onSuccess: () => setFeedback({ type: 'success', msg: t('profile.avatarSuccess') }),
-      onError: () => setFeedback({ type: 'error', msg: t('profile.avatarError') }),
+      onSuccess: () => setSuccess(t('profile.avatarSuccess')),
     });
   };
 
   const handleDelete = () => {
+    setSuccess(null);
     deleteAvatar.mutate(undefined, {
-      onSuccess: () => setFeedback({ type: 'success', msg: t('profile.deleteAvatarSuccess') }),
-      onError: () => setFeedback({ type: 'error', msg: t('profile.deleteAvatarError') }),
+      onSuccess: () => setSuccess(t('profile.deleteAvatarSuccess')),
       onSettled: () => setConfirmingDelete(false),
     });
   };
@@ -115,9 +116,9 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
         {t('profile.avatarHint')}
       </p>
 
-      {feedback && (
-        <div role={feedback.type === 'success' ? 'status' : 'alert'} className={`mt-3 text-sm px-4 py-2 rounded-lg ${feedback.type === 'success' ? 'bg-success-50 text-success-700 border border-success-200' : 'bg-danger-50 text-danger border border-danger-200'}`}>
-          {feedback.msg}
+      {success && (
+        <div role="status" className="mt-3 text-sm px-4 py-2 rounded-lg bg-success-50 text-success-700 border border-success-200">
+          {success}
         </div>
       )}
 

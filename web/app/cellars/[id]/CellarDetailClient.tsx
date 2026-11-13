@@ -4,6 +4,7 @@ import { cellarContentsLabel } from '@/lib/cellars/contents';
 import React, { useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Button, Chip, CircularProgress, Tooltip, ButtonGroup, Table, TableHeader, TableColumn, TableBody, TableRow, TableCell, Card, CardBody } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { LayoutGrid, List, Map, Plus, Warehouse } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency } from '@/lib/format';
@@ -213,14 +214,14 @@ export function CellarDetailClient() {
         {/* View toggle */}
         <div className="flex justify-between items-center gap-2 mb-5">
           <ButtonGroup size="sm" variant="flat">
-            <Tooltip content={t('view.grid')} delay={500}>
+            <Tooltip {...ACCESSIBLE_POPOVER} content={t('view.grid')} delay={500}>
               <Button
                 isIconOnly color={view === 'grid' ? 'primary' : 'default'}
                 variant={view === 'grid' ? 'flat' : 'light'}
                 onPress={() => setView('grid')} aria-label={t('view.grid')} aria-pressed={view === 'grid'} className={segmentClass(view === 'grid')}
               ><LayoutGrid size={16} /></Button>
             </Tooltip>
-            <Tooltip content={t('view.list')} delay={500}>
+            <Tooltip {...ACCESSIBLE_POPOVER} content={t('view.list')} delay={500}>
               <Button
                 isIconOnly color={view === 'list' ? 'primary' : 'default'}
                 variant={view === 'list' ? 'flat' : 'light'}
@@ -228,7 +229,7 @@ export function CellarDetailClient() {
               ><List size={16} /></Button>
             </Tooltip>
             {hasGrid && (
-              <Tooltip content={t('view.map')} delay={500}>
+              <Tooltip {...ACCESSIBLE_POPOVER} content={t('view.map')} delay={500}>
                 <Button
                   isIconOnly color={view === 'map' ? 'primary' : 'default'}
                   variant={view === 'map' ? 'flat' : 'light'}

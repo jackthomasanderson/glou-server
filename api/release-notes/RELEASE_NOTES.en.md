@@ -31,6 +31,10 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - The monthly consumption goal counts each cigar smoked from a box, like Analytics; it used to count a box only once empty, as one.
 - The audit log records the values a bottle or a box really got, including what the change cleared (a box closed again: its count and opening date). Errors about cigars in a bulk edit or a count now say cigars.
 - The default purchase day of new bottles is today where the server is, so bottles bought together near midnight no longer land on two lines.
+- Undo after putting a wine in the trash now appears at the top right like every other Undo, waits while the mouse or the keyboard is on it, and each trashed wine keeps its own.
+- A failed avatar change, or a failed change of a wine's collections, is now said even after leaving the page; copying a member's temporary password works over plain HTTP.
+- Screen readers now reach a tooltip opened inside a window or a drawer.
+- Typing right after closing a window or a drawer no longer loses the first keys.
 
 ## v2026.11.4
 

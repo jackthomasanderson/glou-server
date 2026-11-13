@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import { Card, CardBody, CardFooter, Avatar, Chip, Button, Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { Pencil, Trash2, Star, Wine } from 'lucide-react';
 import { TastingNote } from '@/lib/tastings/types';
 import { useTranslation } from 'react-i18next';
@@ -99,7 +100,7 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
       </CardBody>
 
       <CardFooter className="pt-0 justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-        <Tooltip delay={500} content={t('actions.edit')}>
+        <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('actions.edit')}>
           <Button
             isIconOnly
             size="sm"
@@ -110,7 +111,7 @@ export function TastingCard({ note, onView, onEdit, onDelete }: TastingCardProps
             <Pencil size={16} />
           </Button>
         </Tooltip>
-        <Tooltip delay={500} content={t('actions.delete')}>
+        <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('actions.delete')}>
           <Button
             isIconOnly
             size="sm"

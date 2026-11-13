@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Chip, Slider, Tooltip } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { FILL_LEVELS } from '@/lib/products/fillLevels';
 import { ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { isProvisional } from '@/lib/offline/optimistic';
@@ -40,7 +41,7 @@ interface FamilyStockLinesProps {
 function PendingMark({ t }: { t: LineContext['t'] }) {
   const label = t('offline.pendingSyncTooltip');
   return (
-    <Tooltip content={label} delay={300}>
+    <Tooltip {...ACCESSIBLE_POPOVER} content={label} delay={300}>
       <span role="img" className="inline-flex items-center ml-1.5 align-middle text-warning-600" data-testid="line-pending" tabIndex={0} aria-label={label}>
         <Clock size={12} aria-hidden />
       </span>

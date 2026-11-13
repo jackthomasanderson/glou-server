@@ -32,8 +32,7 @@ import { useScanAvailability } from '@/hooks/useScan';
 import { InventoryCardSkeleton } from './InventoryCard';
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { InventoryEntry } from './InventoryForm';
-import { UndoToast } from '@/components/ui/UndoToast';
-import { notifySuccess } from '@/lib/toast';
+import { notifySuccess, notifyUndoable } from '@/lib/toast';
 import { InventoryFilterBar, InventoryFilterToggleButton } from './InventoryFilterBar';
 import { InventoryBulkBar, InventoryBulkToggleButton } from './InventoryBulkBar';
 import { BulkWinesDialog, type BulkWinesActionName } from './BulkWinesDialog';
@@ -119,7 +118,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
   const [editingFromDrawer, setEditingFromDrawer] = useState(false);
   // #471: the drawer shows a wine (family), any wine — one without bottle included.
   const [viewingProductId, setViewingProductId] = useState<string | null>(null);
-  const [undoTarget, setUndoTarget] = useState<Product | null>(null);
 
   const bulkUpdateMutation = useBulkUpdateInventoryItem();
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
@@ -286,8 +284,8 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         { ids: Array.from(selectedItemIds), patch },
         {
           onSuccess: (res) => {
-            // Plain success toast, not an UndoToast: a bulk update has no
-            // undo window, so no countdown bar should suggest one (ISSUE_124).
+            // Plain success toast, with no "Undo": a bulk update cannot be
+            // undone (ISSUE_124).
             notifySuccess('bulk.success', { count: res.updatedCount });
             setBulkMode(false);
             clearSelection();
@@ -318,18 +316,13 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
       trashMutation.mutate(product.id, {
         onSuccess: () => {
           setTrashTarget(null);
-          setUndoTarget(product);
+          // The app's one "Undo" (#836), one per wine: a second trash does not replace the first.
+          notifyUndoable('familyList.trash.done', { name: wineName(product) }, () => restoreMutation.mutate(product.id));
         },
       });
     },
-    [trashMutation]
+    [trashMutation, restoreMutation]
   );
-
-  const handleUndo = useCallback(() => {
-    if (!undoTarget) return;
-    restoreMutation.mutate(undoTarget.id);
-    setUndoTarget(null);
-  }, [undoTarget, restoreMutation]);
 
 
   // From a card or from the drawer: the wine as last known (the drawer's
@@ -678,15 +671,6 @@ export function InventoryDashboard({ t, lockedCategories }: InventoryDashboardPr
         <Plus size={22} />
       </Button>
 
-      {/* Toasts */}
-      {undoTarget && (
-        <UndoToast
-          message={t('familyList.trash.done', { name: wineName(undoTarget) })}
-          undoLabel={t('actions.undo')}
-          onUndo={handleUndo}
-          onExpire={() => setUndoTarget(null)}
-        />
-      )}
       <InventoryBulkBar
         t={t}
         bulkMode={bulkMode}

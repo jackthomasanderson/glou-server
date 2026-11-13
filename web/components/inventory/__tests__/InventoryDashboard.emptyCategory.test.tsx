@@ -48,7 +48,6 @@ vi.mock('@/hooks/useScan', () => ({ useScanAvailability: () => false }));
 vi.mock('@/hooks/useViewMode', () => ({ useViewMode: () => ['grid', vi.fn()] }));
 vi.mock('@/hooks/usePageSize', () => ({ usePageSize: () => [24, vi.fn()] }));
 vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
-vi.mock('@/components/ui/UndoToast', () => ({ UndoToast: () => null }));
 vi.mock('@/components/ui/ViewToggle', () => ({ ViewToggle: () => null }));
 vi.mock('@/components/ui/PageSizeToggle', () => ({ PageSizeToggle: () => null }));
 vi.mock('../InventoryFilterBar', () => ({

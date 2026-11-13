@@ -100,6 +100,21 @@ test.describe('closing a drawer, a window or a message never takes a click (rece
     }
   });
 
+  // #875: the closing drawer's focus trap stayed on while it slid away, and
+  // pulled the focus (and the first keystrokes) back from the page.
+  test('the drawer closed, a field clicked at once keeps the focus and what is typed', async ({ page }) => {
+    const name = await planWithFour(page);
+    const search = page.getByPlaceholder('Rechercher...').first();
+    const at = await centre(search);
+    await openFromCell(page, name, 2, 1);
+    await closeDrawer(page);
+    // At once: the drawer is still sliding away.
+    await page.mouse.click(at.x, at.y);
+    await page.keyboard.type('Cuvée');
+    await expect(search).toHaveValue('Cuvée');
+    await expect(search).toBeFocused();
+  });
+
   test('the drawer closed, the very next click on the side menu leaves the page', async ({ page }) => {
     const name = await planWithFour(page);
     await openFromCell(page, name, 2, 1);

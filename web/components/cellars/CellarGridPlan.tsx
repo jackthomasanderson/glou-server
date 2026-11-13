@@ -11,6 +11,7 @@ import {
   ModalFooter,
   CircularProgress,
 } from '@heroui/react';
+import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Flame, Plus, Snowflake } from 'lucide-react';
 import {
@@ -184,6 +185,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = 
     // pointer (a hover or a click goes to the cell under it), closes as soon as
     // the pointer leaves its cell, and never shows while a bottle is dragged.
     <Tooltip
+      {...ACCESSIBLE_POPOVER}
       delay={500}
       closeDelay={0}
       isDisabled={dragging || isDragging}

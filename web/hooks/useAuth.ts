@@ -190,7 +190,7 @@ export function useUpdateProfile() {
 export function useUploadAvatar() {
   const queryClient = useQueryClient();
   return useMutation<PublicUser, Error, File>({
-    // Said by AvatarUploader.
+    // Said here, not by AvatarUploader: the answer may come after the page was left (#887).
     meta: { handlesError: true },
     mutationFn: async (file) => {
       const formData = new FormData();
@@ -200,6 +200,7 @@ export function useUploadAvatar() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
+    onError: () => notifyError('profile.avatarError'),
   });
 }
 
@@ -208,12 +209,13 @@ export function useUploadAvatar() {
 export function useDeleteAvatar() {
   const queryClient = useQueryClient();
   return useMutation<PublicUser, Error, void>({
-    // Said by AvatarUploader.
+    // Said here, not by AvatarUploader: the answer may come after the page was left (#887).
     meta: { handlesError: true },
     mutationFn: async () => (await client.delete<PublicUser>('/user/avatar')).data,
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
+    onError: () => notifyError('profile.deleteAvatarError'),
   });
 }
 // ─── useUpdateEmail ──────────────────────────────────────────────────────────
