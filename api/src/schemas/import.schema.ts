@@ -129,7 +129,8 @@ const familyFields = {
   grapeVarieties: z.array(z.string().trim().min(1).max(100, 'GRAPE_TOO_LONG')).max(10, 'TOO_MANY_GRAPES').optional(),
   tags: z.array(z.string().trim().min(1).max(50, 'TAG_TOO_LONG')).max(20, 'TOO_MANY_TAGS').optional(),
   notes: optText(2000, 'NOTES_TOO_LONG'),
-  collection: optText(200, 'COLLECTION_TOO_LONG'),
+  // #468: the names of real collections (the free-text label is gone).
+  collection: z.array(z.string().trim().min(1).max(100, 'COLLECTION_TOO_LONG')).max(20, 'TOO_MANY_COLLECTIONS').optional(),
   serviceTemp: optText(50, 'SERVICE_TEMP_TOO_LONG'),
   lotNumber: optText(50, 'LOT_NUMBER_TOO_LONG'),
   peakMaturityFrom: optInt(1800, 2200, 'INVALID_PEAK_WINDOW'),
@@ -162,7 +163,7 @@ const familyCells: Record<keyof typeof familyFields, (v: unknown) => unknown> = 
   appellation: emptyToUndefined, classification: emptyToUndefined,
   grapeVarieties: toList, tags: toList,
   notes: (v) => { const cell = emptyToUndefined(v); return typeof cell === 'string' ? cell.trim().slice(0, 2000) : cell; },
-  collection: emptyToUndefined, serviceTemp: emptyToUndefined, lotNumber: emptyToUndefined,
+  collection: toList, serviceTemp: emptyToUndefined, lotNumber: emptyToUndefined,
   peakMaturityFrom: toNum, peakMaturityTo: toNum,
   needsAeration: toOpened,
   sparklingType: leniently(SPARKLING_TYPES), sugarLevel: leniently(SUGAR_LEVELS),

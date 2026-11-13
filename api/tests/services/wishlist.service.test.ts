@@ -3,6 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     wishlistItem: { findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    user: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -13,7 +14,8 @@ vi.mock('../../src/services/review.service', () => ({ rememberDistinct: vi.fn() 
 
 import { prisma } from '../../src/lib/prisma';
 import { inventoryService } from '../../src/services/inventory.service';
-import { convertToInventory } from '../../src/services/wishlist.service';
+import { convertToInventory, recordPriceSeen } from '../../src/services/wishlist.service';
+import { notificationService } from '../../src/services/notification.service';
 import { addUnitsIn, lockedListedFamily } from '../../src/services/stock.service';
 import { rememberDistinct } from '../../src/services/review.service';
 
@@ -25,6 +27,24 @@ const talbot = (fields: Record<string, unknown> = {}) => ({
 const wish = (fields: Record<string, unknown> = {}) => ({
   id: 'w1', userId: 'u1', name: 'Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2015,
   targetQuantity: 6, maxPrice: null, lastSeenPrice: 20, status: 'active', ...fields,
+});
+
+// #468: the observed price is typed by the member themselves (no price feed
+// exists), so a price under the ceiling is shown in the list, never sent back
+// to them as an e-mail or Gotify alert.
+describe('recordPriceSeen', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('records a price under the ceiling without sending any notification', async () => {
+    vi.mocked(prisma.wishlistItem.findFirst).mockResolvedValue(wish({ maxPrice: 50, lastSeenPrice: null }) as never);
+    vi.mocked(prisma.wishlistItem.update).mockResolvedValue(wish({ maxPrice: 50, lastSeenPrice: 42 }) as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ language: 'EN', notifLanguage: null } as never);
+    const item = await recordPriceSeen('u1', 'w1', 42);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(item).toMatchObject({ lastSeenPrice: 42 });
+    expect(prisma.wishlistItem.update).toHaveBeenCalledWith({ where: { id: 'w1' }, data: { lastSeenPrice: 42, lastSeenAt: expect.any(Date) } });
+    expect(notificationService.send).not.toHaveBeenCalled();
+  });
 });
 
 // #471 (FEAT-92, decision point 15, lot E1): a wish turned into stock is one

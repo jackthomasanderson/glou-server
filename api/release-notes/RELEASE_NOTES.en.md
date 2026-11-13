@@ -17,6 +17,8 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 
 ### Improved
 - Profile → Active sessions: the location is labelled as approximate, each session shows when it signed in, and one button signs out every other session.
+- Wishlist: an observed price at or below a wish's ceiling is now marked in the list, and no longer sends a message about the price you just typed. The "Price opportunities" alert category is gone from the notification settings.
+- The old free-text collection label of a wine, which no screen showed any more, becomes real collections: you may find new collections named after those labels. The Collection column of the CSV export and import now lists a wine's collections.
 
 ### Fixed
 - Analytics: at the closest zoom of the world map, spread regions no longer overlap a neighbouring region's marker.

@@ -12,8 +12,8 @@ import { groupKey, isGroupableItem, type GroupKeyFields, type UnitKind } from '.
 /**
  * The description fields compared when families of one wine meet (D2) — what
  * "À regrouper ?" may show side by side. Not compared: the key itself
- * (category, producer, name), photo, notes, tags, collections, the legacy
- * `collection` label and the non-descriptive family fields (D3).
+ * (category, producer, name), photo, notes, tags, collections and the
+ * non-descriptive family fields (D3).
  */
 export const REVIEW_FIELDS = [
   'vintage', 'color', 'region', 'grapeVarieties', 'alcoholDegree', 'needsAeration', 'serviceTemp',
@@ -269,7 +269,7 @@ export interface MergeRequest {
  * The description form's limits (api/src/schemas/inventory.schema.ts): a merge
  * may exceed them; the legacy label is cut to fit, notes and tags are kept whole.
  */
-export const DESCRIPTION_LIMITS = { collection: 200, notes: 2000, tags: 20, tagLength: 50 } as const;
+export const DESCRIPTION_LIMITS = { notes: 2000, tags: 20, tagLength: 50 } as const;
 
 /** The merged family's notes or tags exceed the form's limits: the member must shorten them before saving the description. */
 export interface MergeOverLimits {

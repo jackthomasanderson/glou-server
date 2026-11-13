@@ -4,8 +4,6 @@ import { addUnitsIn, lockedListedFamily } from './stock.service';
 import { badRequest } from '../lib/errors';
 import { namesSameWine } from '../../../shared/units';
 import { rememberDistinct } from './review.service';
-import { notificationService } from './notification.service';
-import { escapeHtml } from '../lib/html';
 import { WishlistCreateInput, WishlistPatchInput, ConvertToInventoryInput } from '../schemas/wishlist.schema';
 import { InventoryDraft } from '../schemas/inventory.schema';
 
@@ -62,57 +60,19 @@ export async function deleteWishlistItem(userId: string, id: string): Promise<bo
 }
 
 /**
- * Records a manually-observed price for a wish (feature.md: "la détection
- * d'opportunité repose sur la saisie manuelle de prix ... aucun service
- * tiers de prix n'est configuré" — no external price feed exists in this
- * project, see design.md "APIs Tierces" roadmap). If the observed price is
- * at or below the user's ceiling (`maxPrice`), a `wishlist` category
- * notification is fired. Notification dispatch is fire-and-forget: a
- * failure there must never fail the price-recording call itself.
+ * Records a manually-observed price for a wish. No price feed exists (feature.md:
+ * "aucun service tiers de prix n'est configuré"), so the price is always typed by
+ * the member themselves: a price at or below the ceiling is shown in the list,
+ * never sent back to them as an alert (#468).
  */
 export async function recordPriceSeen(userId: string, id: string, price: number): Promise<WishlistItemDTO | null> {
   const existing = await prisma.wishlistItem.findFirst({ where: { id, userId } });
   if (!existing) return null;
 
-  const item = await prisma.wishlistItem.update({
+  return prisma.wishlistItem.update({
     where: { id },
     data: { lastSeenPrice: price, lastSeenAt: new Date() },
   });
-
-  // Only a price that crosses the ceiling is news: the previous one was
-  // unknown or above it. A member entering prices in a row under the ceiling
-  // (or in a loop) must not push one message each into the instance's
-  // shared Gotify app (#767).
-  // Decimal columns: compared as numbers (two Decimals would compare as strings).
-  const wasUnder = existing.lastSeenPrice != null && existing.maxPrice != null
-    && Number(existing.lastSeenPrice) <= Number(existing.maxPrice);
-  if (existing.maxPrice != null && price <= existing.maxPrice && !wasUnder) {
-    void notifyOpportunity(userId, item).catch((err) => {
-      console.error('[wishlist] Failed to send opportunity notification:', err);
-    });
-  }
-
-  return item;
-}
-
-async function notifyOpportunity(userId: string, item: NonNullable<WishlistItemDTO>): Promise<void> {
-  const user = await prisma.user.findUnique({ where: { id: userId }, select: { language: true, notifLanguage: true } });
-  if (!user) return;
-  const isEn = (user.notifLanguage ?? user.language) === 'EN';
-
-  const label = [item.name, item.producer, item.vintage ? `(${item.vintage})` : null].filter(Boolean).join(' ');
-  const subject = isEn ? `Price opportunity: ${label}` : `Opportunité tarifaire : ${label}`;
-  const htmlBody = [
-    `<p>${isEn
-      ? `An observed price for <strong>${escapeHtml(label)}</strong> is now at or below your ceiling.`
-      : `Un prix observé pour <strong>${escapeHtml(label)}</strong> est désormais inférieur ou égal à votre plafond.`}</p>`,
-    '<ul>',
-    `<li>${isEn ? 'Observed price' : 'Prix observé'}: ${escapeHtml(item.lastSeenPrice)}</li>`,
-    `<li>${isEn ? 'Your ceiling' : 'Votre plafond'}: ${escapeHtml(item.maxPrice)}</li>`,
-    '</ul>',
-  ].join('');
-
-  await notificationService.send({ userId, category: 'wishlist', subject, htmlBody });
 }
 
 /**

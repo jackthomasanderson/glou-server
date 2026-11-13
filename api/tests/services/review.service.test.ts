@@ -247,31 +247,25 @@ describe('reviewService.merge (FEAT-102 c2)', () => {
     expect(productUpdate().data.notes).toBe('2026-01-01\nCadeau\n\n2026-02-01\nFoire');
   });
 
-  it('keeps the legacy label within 200 characters, first spelling first, the rest in the notes', async () => {
-    const long = 'L'.repeat(190);
-    families(
-      family({ id: 'pa', collection: 'Fête', createdAt: new Date('2026-01-01T10:00:00Z') }),
-      family({ id: 'pb', collection: ' fête ', createdAt: new Date('2026-02-01T10:00:00Z') }),
-      family({ id: 'pc', collection: long, createdAt: new Date('2026-03-01T10:00:00Z') }),
-      family({ id: 'pd', collection: 'Mariage', notes: 'Note', createdAt: new Date('2026-04-01T10:00:00Z') }),
-    );
+  // #468: the free-text label is gone; collections (a relation) are merged
+  // with the families' links, not written on the surviving family.
+  it('writes no legacy collection label on the surviving family', async () => {
+    families(family({ id: 'pa', notes: 'Note' }), family({ id: 'pb', createdAt: new Date('2026-02-01T10:00:00Z') }));
 
-    await reviewService.merge('u2', { productIds: ['pa', 'pb', 'pc', 'pd'] });
+    await reviewService.merge('u2', { productIds: ['pa', 'pb'] });
 
-    const { collection, notes } = productUpdate().data as { collection: string; notes: string };
-    expect(collection).toBe(`Fête / ${long}`);
-    expect(notes).toMatch(new RegExp(`^Note\\n\\n\\d{4}-\\d{2}-\\d{2}\\nLibellés d'origine : Fête / ${long} / Mariage$`));
+    expect(productUpdate().data).not.toHaveProperty('collection');
+    expect(productUpdate().data.notes).toBe('Note');
   });
 
-  it('keeps every label when they fit, and says when notes or tags exceed the form', async () => {
+  it('says when notes or tags exceed the form', async () => {
     families(
-      family({ id: 'p1', collection: 'Fête', notes: 'N'.repeat(1500), tags: Array.from({ length: 12 }, (_v, i) => `a${i}`) }),
-      family({ id: 'p2', collection: 'Mariage', notes: 'M'.repeat(600), tags: Array.from({ length: 12 }, (_v, i) => `b${i}`), createdAt: new Date('2026-02-01T00:00:00Z') }),
+      family({ id: 'p1', notes: 'N'.repeat(1500), tags: Array.from({ length: 12 }, (_v, i) => `a${i}`) }),
+      family({ id: 'p2', notes: 'M'.repeat(600), tags: Array.from({ length: 12 }, (_v, i) => `b${i}`), createdAt: new Date('2026-02-01T00:00:00Z') }),
     );
 
     const outcome = await reviewService.merge('u2', { productIds: ['p1', 'p2'] });
 
-    expect(productUpdate().data.collection).toBe('Fête / Mariage');
     expect(outcome.overLimits).toEqual({ notes: true, tags: true });
   });
 

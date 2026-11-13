@@ -10,7 +10,7 @@ beforeAll(async () => { t = await frenchT(); });
 
 const suggestion = (over: Partial<ConsumptionSuggestion>): ConsumptionSuggestion => ({
   id: 'b1', productId: 'p1', name: 'Cuvée X', producer: 'Domaine', category: 'wine', vintage: 2020, photoUrl: null,
-  cellarId: null, collection: null, alertStatus: 'peak', isOpened: false, fillLevel: null, reason: 'peak_window', ...over,
+  cellarId: null, alertStatus: 'peak', isOpened: false, fillLevel: null, reason: 'peak_window', ...over,
 } as ConsumptionSuggestion);
 
 describe('consumeLabel', () => {

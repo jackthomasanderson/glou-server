@@ -79,7 +79,6 @@ function family(overrides: Record<string, unknown> = {}) {
     peakMaturityTo: 2035,
     curveShape: null,
     alertsPaused: false,
-    collection: null,
     photoUrl: null,
     items: [{ id: 'b1', cellarId: 'c1' }],
     ...overrides,

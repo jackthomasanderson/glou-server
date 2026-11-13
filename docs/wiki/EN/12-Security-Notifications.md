@@ -38,7 +38,7 @@ Someone who steals a signed-in session could otherwise turn these alerts off fir
 | Not set up or off | — | On | A Gotify copy only. |
 | Not set up or off | — | Off, or Gotify not set up | Nothing can be sent: ask your administrator to set up email. Administrators still see sign-ins and account changes in the [audit log](./10-Audit-Log.md). |
 
-Your email switch only affects the other categories (peak maturity, temperature, wishlist, backups). Turning Gotify off only stops the Gotify copy.
+Your email switch only affects the other categories (peak maturity, temperature, backups). Turning Gotify off only stops the Gotify copy.
 
 > [!CAUTION]
 > Security notifications always bypass your configured quiet hours: they are never delayed or dropped at night.

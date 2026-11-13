@@ -13,6 +13,8 @@ const db = {
   products: [] as FakeProduct[],
   units: [] as FakeUnit[],
   cellars: [] as Array<{ id: string; name: string; type?: string; createdAt: Date }>,
+  collections: [] as Array<{ id: string; name: string; userId?: string; createdAt: Date }>,
+  collectionLinks: [] as Array<[string, string]>,
   log: [] as string[],
 };
 let sequence = 0;
@@ -55,6 +57,18 @@ const tx = {
       return unit;
     }),
   },
+  collection: {
+    findMany: vi.fn(async () => db.collections),
+    create: vi.fn(async ({ data }: { data: { name: string; userId: string } }) => {
+      const collection = { id: next('k'), createdAt: new Date(), ...data };
+      db.collections.push(collection);
+      return collection;
+    }),
+    update: vi.fn(async ({ where, data }: { where: { id: string }; data: { products: { connect: { id: string } } } }) => {
+      db.collectionLinks.push([where.id, data.products.connect.id]);
+      return db.collections.find((c) => c.id === where.id);
+    }),
+  },
   cellar: {
     findMany: vi.fn(async () => db.cellars),
     create: vi.fn(async ({ data }: { data: { name: string; type?: string } }) => {
@@ -83,6 +97,8 @@ beforeEach(() => {
   db.products = [];
   db.units = [];
   db.cellars = [];
+  db.collections = [];
+  db.collectionLinks = [];
   db.log = [];
   sequence = 0;
   vi.clearAllMocks();
@@ -579,6 +595,37 @@ describe('FEAT-99 export: nothing lost on the way back', () => {
       expect(family).toMatchObject({ alertStatus: 'none' });
       expect(family.fieldSources).not.toHaveProperty('peakMaturityFrom');
     }
+  });
+
+  // #468: the "Collection" column names real collections (the free-text
+  // label is gone): a known one is joined, case aside, an unknown one created.
+  it('puts a new family in the collections its row names, creating the unknown ones once', async () => {
+    db.collections.push({ id: 'noel', name: 'Noël', createdAt: new Date('2025-01-01') });
+    await importService.confirmImport('u1', [
+      row({ collection: [' noël ', 'Fête'] }),
+      row({ name: 'Talbot', collection: ['fête'] }),
+    ], null);
+    expect(db.collections.map((c) => c.name)).toEqual(['Noël', 'Fête']);
+    const fete = db.collections[1].id;
+    expect(db.products.map((p) => [p.name, p.collections])).toEqual([
+      ['Pétrus', { connect: [{ id: 'noel' }, { id: fete }] }],
+      ['Talbot', { connect: [{ id: fete }] }],
+    ]);
+    expect(db.products[0]).not.toHaveProperty('collection');
+  });
+
+  it('puts a wine already known in the collections its row names too', async () => {
+    db.collections.push({ id: 'noel', name: 'Noël', createdAt: new Date('2025-01-01') });
+    existingWine('Pétrus', 0);
+    await importService.confirmImport('u1', [row({ collection: ['Noël', 'Fête'] })], null);
+    expect(db.products).toHaveLength(1);
+    expect(db.collectionLinks).toEqual([['noel', 'existing-Pétrus'], [db.collections[1].id, 'existing-Pétrus']]);
+  });
+
+  it('reads the "Collection" column as a list split on |', () => {
+    const { valid, errors } = importService.previewCsv(csv('name,producer,category,collection\nA,P,wine,Noël | Fête\n'));
+    expect(errors).toEqual([]);
+    expect(valid[0]).toMatchObject({ collection: ['Noël', 'Fête'] });
   });
 
   it('reads the new columns with their English and French headers, lists split on |', () => {

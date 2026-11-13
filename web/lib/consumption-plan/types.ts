@@ -8,7 +8,6 @@ export interface ConsumptionSuggestion {
   vintage?: number | null;
   photoUrl?: string | null;
   cellarId?: string | null;
-  collection?: string | null;
   alertStatus?: string | null;
   isOpened: boolean;
   fillLevel?: number | null;

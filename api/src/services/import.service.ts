@@ -168,6 +168,14 @@ async function stockOf(client: PrismaClientOrTx, productIds: string[]): Promise<
 }
 
 /** Existing cellars by normalised name (the oldest of a name wins). */
+/** #468: the collections by name (case and spaces aside), the oldest of a name first. */
+async function collectionsByName(client: PrismaClientOrTx): Promise<Map<string, string>> {
+  const collections = await client.collection.findMany({ select: { id: true, name: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
+  const byName = new Map<string, string>();
+  for (const collection of collections) if (!byName.has(normalizeName(collection.name))) byName.set(normalizeName(collection.name), collection.id);
+  return byName;
+}
+
 async function cellarsByName(client: PrismaClientOrTx): Promise<Map<string, string>> {
   const cellars = await client.cellar.findMany({ select: { id: true, name: true }, orderBy: [{ createdAt: 'asc' }, { id: 'asc' }] });
   const byName = new Map<string, string>();
@@ -299,6 +307,7 @@ export class ImportService {
         const stock = await stockOf(tx, idsOf(families));
         const joined = new Map([...families].map(([key, list]) => [key, list[0]]));
         const cellars = await cellarsByName(tx);
+        const collections = await collectionsByName(tx);
         const chosen = new Map(choices.map((choice) => [choice.key, choice]));
         const today = todayAsPurchaseDate();
 
@@ -328,7 +337,13 @@ export class ImportService {
             continue;
           }
 
-          const family = known ?? (await this.createFamily(tx, userId, line.row));
+          const family = known ?? (await this.createFamily(tx, userId, line.row, collections));
+          // #468: a wine already known joins the collections its row names too.
+          if (known) {
+            for (const id of await this.collectionsOf(tx, userId, line.row.collection ?? [], collections)) {
+              await tx.collection.update({ where: { id }, data: { products: { connect: { id: known.id } } } });
+            }
+          }
           joined.set(key, family);
           const lineCellarId = await this.cellarOf(tx, userId, line, lines, cellars, cellarId, result.createdCellars);
           const written = await addCopies(
@@ -399,7 +414,7 @@ export class ImportService {
    * #510: a spirit without an ABV column gets none rather than a made-up
    * 0 %), each tagged as coming from the file (FEAT-05).
    */
-  private async createFamily(tx: PrismaClientOrTx, userId: string, row: CsvImportRow): Promise<Product> {
+  private async createFamily(tx: PrismaClientOrTx, userId: string, row: CsvImportRow, collections: Map<string, string>): Promise<Product> {
     const { vintage, format } = csvRowFamily(row);
     const { batchDate, disgorgingDate, ...picked } = pickFamilyFields(row);
     // #593: a spirit or a cigar has no drinking window, whatever its row says.
@@ -417,15 +432,35 @@ export class ImportService {
       ...(batchDate !== undefined ? { batchDate: purchaseDayToDate(batchDate) } : {}),
       ...(disgorgingDate !== undefined ? { disgorgingDate: purchaseDayToDate(disgorgingDate) } : {}),
     };
+    const collectionIds = await this.collectionsOf(tx, userId, row.collection ?? [], collections);
     return tx.product.create({
       data: {
         userId,
         category: row.category,
         ...description,
+        ...(collectionIds.length > 0 ? { collections: { connect: collectionIds.map((id) => ({ id })) } } : {}),
         alertStatus: familyAlertStatus({ category: row.category, peakMaturityFrom: row.peakMaturityFrom, peakMaturityTo: row.peakMaturityTo }),
         fieldSources: Object.fromEntries(Object.keys(description).map((field) => [field, 'import_csv'])),
       },
     });
+  }
+
+  /**
+   * #468: the collections a row names, the known ones by name (case and
+   * spaces aside), the others created once for the whole import.
+   */
+  private async collectionsOf(tx: PrismaClientOrTx, userId: string, names: readonly string[], collections: Map<string, string>): Promise<string[]> {
+    const ids: string[] = [];
+    for (const name of names) {
+      const key = normalizeName(name);
+      let id = collections.get(key);
+      if (!id) {
+        id = (await tx.collection.create({ data: { name: name.trim(), userId } })).id;
+        collections.set(key, id);
+      }
+      if (!ids.includes(id)) ids.push(id);
+    }
+    return ids;
   }
 
   /**

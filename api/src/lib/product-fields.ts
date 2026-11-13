@@ -6,8 +6,8 @@ import type { ItemView } from '../../../shared/product';
 /**
  * #471 (FEAT-92/94): the input fields that belong to the family (`Product`)
  * rather than to its physical units (`InventoryItem`) — design.md, "Où vit une
- * donnée" (decisions D1/D19): the whole description, technical sheet and
- * legacy `collection` label included, plus what is true of every bottle of
+ * donnée" (decisions D1/D19): the whole description, technical sheet
+ * included, plus what is true of every bottle of
  * the wine (drinking window, alerts, reminder, photo, notes, tags).
  *
  * Bookkeeping columns (`lockedFields`, `fieldSources`, `updatedBy`, `userId`,
@@ -16,7 +16,7 @@ import type { ItemView } from '../../../shared/product';
  * keeps the two lists equal.
  */
 export const PRODUCT_FIELDS = [
-  'category', 'name', 'producer', 'collection', 'tags', 'photoUrl', 'notes',
+  'category', 'name', 'producer', 'tags', 'photoUrl', 'notes',
   // Wine & Sparkling
   'vintage', 'color', 'region', 'grapeVarieties', 'alcoholDegree', 'needsAeration', 'serviceTemp',
   'lotNumber', 'batchDate', 'appellation', 'classification',

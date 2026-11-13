@@ -220,6 +220,10 @@ jobs:
       - name: Migration bench (members notification category)
         run: bash e2e/migration/check-members-category-migration.sh
 
+      # #468: sensor readings become manual ones; legacy labels become collections.
+      - name: Migration bench (legacy fields)
+        run: bash e2e/migration/check-legacy-fields-migration.sh
+
       # #588: the retention purge keeps the history of bottles and wines.
       - name: History survives the audit-log retention purge
         run: bash e2e/check-history-retention.sh

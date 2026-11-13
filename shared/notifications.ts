@@ -4,7 +4,7 @@
  * #469/#338: the categories that have a real sender, in display order.
  * A member's stored list (`User.notifCategories`) holds the ones they receive.
  */
-export const NOTIFICATION_CATEGORIES = ['peak', 'temperature', 'security', 'wishlist', 'backup', 'members'] as const;
+export const NOTIFICATION_CATEGORIES = ['peak', 'temperature', 'security', 'backup', 'members'] as const;
 export type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
 
 /**

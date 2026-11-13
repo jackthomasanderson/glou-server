@@ -18,6 +18,8 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 
 ### Améliorations
 - Profil → Sessions actives : la localisation est indiquée comme approximative, chaque session montre quand elle s'est connectée, et un seul bouton déconnecte toutes les autres sessions.
+- Liste de souhaits : un prix observé inférieur ou égal au plafond d'un souhait est désormais signalé dans la liste, et n'envoie plus de message sur le prix que vous venez de saisir. La catégorie d'alerte « Opportunités tarifaires » disparaît des réglages de notification.
+- L'ancien libellé de collection en texte libre d'un vin, qu'aucun écran n'affichait plus, devient de vraies collections : de nouvelles collections portant ces libellés peuvent apparaître. La colonne Collection de l'export et de l'import CSV liste désormais les collections du vin.
 
 ### Corrections
 - Analyses : au zoom le plus proche de la carte du monde, les régions écartées ne chevauchent plus le repère d'une région voisine.

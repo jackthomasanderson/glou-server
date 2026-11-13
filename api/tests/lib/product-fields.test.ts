@@ -35,14 +35,19 @@ describe('PRODUCT_FIELDS (#471, design.md "Où vit une donnée")', () => {
     }
   });
 
-  it('puts the whole technical sheet and the legacy collection label on the family (D1/D19)', () => {
+  it('puts the whole technical sheet on the family (D1/D19)', () => {
     for (const field of [
       'lotNumber', 'batchDate', 'disgorgingDate', 'caskNumber', 'isSingleCask', 'caskProof',
-      'factoryCode', 'manufactureYear', 'collection', 'notes', 'tags', 'photoUrl', 'alertStatus',
+      'factoryCode', 'manufactureYear', 'notes', 'tags', 'photoUrl', 'alertStatus',
       'alertsPaused', 'consumptionPostponedUntil', 'reminderDate', 'curveShape',
     ]) {
       expect(PRODUCT_FIELDS as readonly string[]).toContain(field);
     }
+  });
+
+  // #468: the legacy free-text label became real collections, then went.
+  it('no longer holds the legacy collection label', () => {
+    expect(PRODUCT_FIELDS as readonly string[]).not.toContain('collection');
   });
 
   it('is copied in full by the expansion, in both the insert and the lock filter', () => {

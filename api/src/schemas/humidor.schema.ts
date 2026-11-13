@@ -2,11 +2,10 @@ import { z } from 'zod';
 
 // ─── Task 4: Humidor Hygrometric Monitoring ──────────────────────────────────
 // See schema.prisma's HumidorReading comment for the "why Cellar, not
-// InventoryItem" rationale. `source` defaults to 'manual' (the only path
-// actually wired up in this pass — the web form); 'sensor' is reserved for a
-// future physical bridge posting to the same endpoint.
+// InventoryItem" rationale. `source` is always 'manual' (the web form): no
+// sensor bridge exists (#468, climate sensors dropped in #747).
 
-export const humidorReadingSourceValues = ['manual', 'sensor'] as const;
+export const humidorReadingSourceValues = ['manual'] as const;
 
 export const recordHumidorReadingSchema = z.object({
   cellarId: z.string().min(1),

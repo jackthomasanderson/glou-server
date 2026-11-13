@@ -63,7 +63,6 @@ function sourceItem(overrides: Record<string, unknown> = {}) {
     vintage: 2018,
     photoUrl: null,
     cellarId: 'c1',
-    collection: null,
     isOpened: false,
     fillLevel: null,
     peakMaturityFrom: 2028,
@@ -74,7 +73,7 @@ function sourceItem(overrides: Record<string, unknown> = {}) {
     ...overrides,
   };
   const {
-    name, producer, category, vintage, photoUrl, collection, peakMaturityFrom, peakMaturityTo, curveShape,
+    name, producer, category, vintage, photoUrl, peakMaturityFrom, peakMaturityTo, curveShape,
     consumptionPostponedUntil, ...unit
   } = flat;
   return {
@@ -82,7 +81,7 @@ function sourceItem(overrides: Record<string, unknown> = {}) {
     productId: `p-${flat.id}`,
     ...unit,
     product: {
-      name, producer, category, vintage, photoUrl, collection, peakMaturityFrom, peakMaturityTo, curveShape,
+      name, producer, category, vintage, photoUrl, peakMaturityFrom, peakMaturityTo, curveShape,
       consumptionPostponedUntil,
     },
   };

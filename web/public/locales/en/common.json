@@ -640,8 +640,7 @@
       "temperatureCelsius": "Temperature (°C)",
       "addReading": "Add a reading",
       "source": {
-        "manual": "Manual",
-        "sensor": "Sensor"
+        "manual": "Manual"
       }
     },
     "deleteTitle": "Delete cellar",
@@ -2104,7 +2103,6 @@
       "peak": "Peak maturity reached",
       "temperature": "Temperature/humidity variations",
       "security": "Account security",
-      "wishlist": "Price opportunities (wishlist)",
       "backup": "Backup failures",
       "members": "Member accounts (deletion requests and deletions)",
       "backupAutomaticOff": "Automatic backups are off: only a manual backup, or the copy taken before a restore, can still fail and alert you."
@@ -2637,7 +2635,7 @@
       "vintage": "Vintage",
       "targetQuantity": "Target quantity",
       "maxPrice": "Ceiling price",
-      "maxPriceHint": "You'll be notified if an observed price is at or below this ceiling.",
+      "maxPriceHint": "An observed price at or below this ceiling is marked in the list.",
       "notes": "Notes"
     },
     "status": {
@@ -2656,7 +2654,8 @@
       "description": "Enter the price observed for \"{{name}}\". No external price source is connected: this entry is manual.",
       "price": "Observed price",
       "submit": "Save price",
-      "lastSeen": "Last price seen: {{price}} on {{date}}"
+      "lastSeen": "Last price seen: {{price}} on {{date}}",
+      "underCeiling": "At or below your ceiling"
     },
     "convert": {
       "action": "Move to inventory",
