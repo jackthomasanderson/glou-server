@@ -72,7 +72,7 @@
     "wine": "Wine",
     "sparkling": "Sparkling",
     "spirit": "Spirit",
-    "cigar": "Cigar / Box"
+    "cigar": "Cigar"
   },
   "categoriesPlural": {
     "wine": "wines",
@@ -1800,10 +1800,6 @@
     "categories": {
       "title": "Category breakdown",
       "active": "In stock",
-      "wine": "Wines",
-      "sparkling": "Bubbles & Champagnes",
-      "spirit": "Fine Spirits",
-      "cigar": "Prestige Cigars",
       "unit": {
         "bottle_one": "bottle",
         "bottle_other": "bottles",
@@ -2647,12 +2643,6 @@
       "active": "Active",
       "acquired": "Acquired",
       "cancelled": "Cancelled"
-    },
-    "categories": {
-      "wine": "Wine",
-      "sparkling": "Sparkling",
-      "spirit": "Spirit",
-      "cigar": "Cigar"
     },
     "priceSeen": {
       "title": "Record an observed price",

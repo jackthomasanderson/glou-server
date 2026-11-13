@@ -15,7 +15,7 @@ describe('CategoryBreakdown', () => {
       { category: 'cigar', count: 10, valuation: 100 },
     ]} />);
     const names = screen.getAllByTestId('analytics-category-name');
-    expect(names.map((name) => name.textContent)).toEqual(['Vins', 'Cigares de Prestige']);
+    expect(names.map((name) => name.textContent)).toEqual(['Vin', 'Cigare']);
     for (const name of names) {
       expect(name.classList.contains('truncate')).toBe(false);
       expect(name.className).toMatch(/break-words/);

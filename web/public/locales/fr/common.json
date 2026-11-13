@@ -72,7 +72,7 @@
     "wine": "Vin",
     "sparkling": "Bulles",
     "spirit": "Spiritueux",
-    "cigar": "Cigare / Boîte"
+    "cigar": "Cigare"
   },
   "categoriesPlural": {
     "wine": "vins",
@@ -1802,10 +1802,6 @@
     "categories": {
       "title": "Répartition des catégories",
       "active": "En stock",
-      "wine": "Vins",
-      "sparkling": "Bulles & Champagnes",
-      "spirit": "Spiritueux Fins",
-      "cigar": "Cigares de Prestige",
       "unit": {
         "bottle_one": "bouteille",
         "bottle_other": "bouteilles",
@@ -2649,12 +2645,6 @@
       "active": "Actif",
       "acquired": "Acquis",
       "cancelled": "Annulé"
-    },
-    "categories": {
-      "wine": "Vin",
-      "sparkling": "Bulles",
-      "spirit": "Spiritueux",
-      "cigar": "Cigare"
     },
     "priceSeen": {
       "title": "Marquer un prix observé",
