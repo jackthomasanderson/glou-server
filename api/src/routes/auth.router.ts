@@ -79,6 +79,14 @@ function publicAuthError(error: unknown): string {
   throw error;
 }
 
+/**
+ * #889: the 2FA lock is a throttling decision, answered 429 like at sign-in
+ * (ISSUE_043); any other refusal of a 2FA step-up is a 400.
+ */
+function stepUpStatus(code: string): number {
+  return code === '2FA_TEMPORARILY_LOCKED' ? 429 : 400;
+}
+
 function readDeviceInfo(req: Request): { userAgent: string | undefined; ip: string } {
   return { userAgent: req.headers['user-agent'], ip: getClientIp(req) };
 }
@@ -317,7 +325,8 @@ router.post('/2fa/turn-off', authMiddleware, passwordCheckLimiter, async (req: R
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    res.status(400).json({ error: publicAuthError(error) });
+    const msg = publicAuthError(error);
+    res.status(stepUpStatus(msg)).json({ error: msg });
   }
 });
 
@@ -335,7 +344,8 @@ router.post('/2fa/backup-codes', authMiddleware, passwordCheckLimiter, async (re
       res.status(400).json({ error: 'VALIDATION_ERROR' });
       return;
     }
-    res.status(400).json({ error: publicAuthError(error) });
+    const msg = publicAuthError(error);
+    res.status(stepUpStatus(msg)).json({ error: msg });
   }
 });
 
@@ -411,7 +421,7 @@ router.post('/trust-device', authMiddleware, passwordCheckLimiter, async (req: R
     }
     const msg = publicAuthError(error);
     void auditLog({ userId: req.userId, action: 'TRUST_DEVICE', status: 'error', ip, details: { message: msg } });
-    res.status(400).json({ error: msg });
+    res.status(stepUpStatus(msg)).json({ error: msg });
   }
 });
 

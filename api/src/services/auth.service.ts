@@ -899,7 +899,13 @@ export class AuthService {
     if (!(await bcrypt.compare(password as string, admin.passwordHash))) refuse('INVALID_PASSWORD');
     if (!admin.isTwoFactorEnabled) return;
 
-    const match = await this.matchSecondFactor(admin, code);
+    let match: { backupCodeHash: string | null } | null = null;
+    try {
+      match = await this.checkSecondFactorStepUp(admin, code, deviceInfo);
+    } catch (err) {
+      if (err instanceof Error && err.message === '2FA_TEMPORARILY_LOCKED') refuse(err.message);
+      throw err;
+    }
     if (!match) refuse('INVALID_TOTP_CODE');
     if (match && match.backupCodeHash) {
       const usedHash = match.backupCodeHash;
@@ -1062,13 +1068,9 @@ export class AuthService {
 
   /**
    * Re-confirmation by second factor: a current authenticator code or one of
-   * the stored backup codes (compared with bcrypt, never in the clear).
+   * the stored backup codes (compared with bcrypt, never in the clear),
+   * telling which backup code matched (so a caller can consume it).
    */
-  private async matchesSecondFactor(user: { id: string; twoFactorSecret: string | null; backupCodes: string[] }, code?: string): Promise<boolean> {
-    return (await this.matchSecondFactor(user, code)) !== null;
-  }
-
-  /** Same check, telling which backup code matched (so a caller can consume it). */
   private async matchSecondFactor(
     user: { id: string; twoFactorSecret: string | null; backupCodes: string[] },
     code?: string,
@@ -1085,6 +1087,32 @@ export class AuthService {
   }
 
   /**
+   * #889: a second-factor check outside sign-in (turning 2FA off, new backup
+   * codes, trusting a device, the admin step-up). It shares the sign-in's
+   * per-account counter and lock: wrong codes here count toward the same
+   * TWO_FACTOR_MAX_FAILED_ATTEMPTS, a locked account is refused everywhere
+   * (2FA_TEMPORARILY_LOCKED), and a right code clears the counter. A request
+   * without any code is not a guess and is not counted.
+   */
+  private async checkSecondFactorStepUp(
+    user: { id: string; twoFactorSecret: string | null; backupCodes: string[]; twoFactorFailedAttempts: number; twoFactorLockedUntil: Date | null },
+    code: string | undefined,
+    deviceInfo: DeviceInfo,
+  ): Promise<{ backupCodeHash: string | null } | null> {
+    if (user.twoFactorLockedUntil && user.twoFactorLockedUntil > new Date()) throw new Error('2FA_TEMPORARILY_LOCKED');
+
+    const match = await this.matchSecondFactor(user, code);
+    if (!match) {
+      if (code) await this.registerFailedTwoFactorAttempt(user.id, deviceInfo);
+      return null;
+    }
+    if (user.twoFactorFailedAttempts > 0 || user.twoFactorLockedUntil) {
+      await prisma.user.update({ where: { id: user.id }, data: { twoFactorFailedAttempts: 0, twoFactorLockedUntil: null } });
+    }
+    return match;
+  }
+
+  /**
    * #638: replace every backup code by ten new ones — the old ones stop
    * working at once. Same re-confirmation as turning 2FA off: password plus
    * a current authenticator or backup code.
@@ -1096,7 +1124,7 @@ export class AuthService {
     const validPwd = await bcrypt.compare(password, user.passwordHash);
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
-    if (!(await this.matchesSecondFactor(user, code))) throw new Error('INVALID_TOTP_CODE');
+    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo))) throw new Error('INVALID_TOTP_CODE');
 
     const { backupCodes, hashedBackupCodes } = await this.newBackupCodes();
     // Conditional on the codes read above still being current: of two
@@ -1135,7 +1163,7 @@ export class AuthService {
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
     // Either TOTP or a matching backup code (turning off drops them anyway).
-    if (!(await this.matchesSecondFactor(user, code))) throw new Error('INVALID_TOTP_CODE');
+    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo))) throw new Error('INVALID_TOTP_CODE');
 
     await prisma.user.update({
       where: { id: userId },
@@ -1601,7 +1629,7 @@ export class AuthService {
     const validPwd = await bcrypt.compare(password, user.passwordHash);
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
-    if (!(await this.matchesSecondFactor(user, code))) {
+    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo))) {
       throw new Error('INVALID_CODE');
     }
 

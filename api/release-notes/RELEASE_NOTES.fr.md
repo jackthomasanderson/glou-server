@@ -9,6 +9,9 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 
 ## À venir
 
+### Sécurité
+- Les codes de double authentification erronés saisis pour désactiver la double authentification, générer des codes de secours, faire confiance à un appareil ou confirmer une action d'administration comptent désormais dans le même blocage après 5 essais qu'à la connexion.
+
 ## v2026.11.4
 
 ### Points d'attention

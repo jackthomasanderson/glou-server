@@ -10,6 +10,9 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+### Security
+- Wrong two-factor codes typed when turning two-factor authentication off, generating new backup codes, trusting a device or confirming an administrator action now count toward the same limit as at sign-in: after 5 wrong codes in a row, the code is refused everywhere for 15 minutes, sign-in included, and you receive the "verification temporarily locked" alert. Before, only sign-in counted them, so someone holding an open session and the password could keep guessing from several addresses. A right code clears the count (#889).
+
 ## v2026.11.4 - 2026-11-13
 
 > **Before you update:**

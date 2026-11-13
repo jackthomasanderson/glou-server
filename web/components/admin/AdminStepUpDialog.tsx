@@ -21,7 +21,8 @@ interface AdminStepUpDialogProps {
 }
 
 /** The step-up's own refusals, said in the dialog (and the throttled form, #640). */
-const STEP_UP_REFUSALS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE', TOO_MANY_REQUESTS_ERROR]);
+// #889: 2FA_TEMPORARILY_LOCKED, wrong codes here or at sign-in locked the admin's second factor.
+const STEP_UP_REFUSALS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE', '2FA_TEMPORARILY_LOCKED', TOO_MANY_REQUESTS_ERROR]);
 
 /** Whether `err` is a refusal of the step-up itself, rather than of the action it confirmed. */
 export function isStepUpRefusal(err: unknown): err is Error {
@@ -65,7 +66,7 @@ export function AdminStepUpDialog({ isOpen, message, isPending, error, onConfirm
   const errorText = (err: Error) => {
     if (err.message === 'REAUTH_REQUIRED') return t('admin.users.stepUpRequired');
     if (err.message === 'INVALID_PASSWORD') return t('profile.passwordError');
-    if (err.message === 'INVALID_TOTP_CODE') return authErrorMessage(t, err);
+    if (err.message === 'INVALID_TOTP_CODE' || err.message === '2FA_TEMPORARILY_LOCKED') return authErrorMessage(t, err);
     return authErrorMessage(t, err, 'admin.users.stepUpErrors');
   };
 

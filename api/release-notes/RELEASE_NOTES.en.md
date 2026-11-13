@@ -8,6 +8,9 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 
 ## Upcoming
 
+### Security
+- Wrong two-factor codes typed when turning two-factor off, generating backup codes, trusting a device or confirming an administrator action now count toward the same 5-attempt lock as at sign-in.
+
 ## v2026.11.4
 
 ### Points of attention

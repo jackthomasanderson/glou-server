@@ -125,6 +125,7 @@ describe('ResetPasswordDialog (#638)', () => {
     ['en', 'REAUTH_REQUIRED', 'Enter your password to confirm.', true],
     ['en', 'INVALID_TOTP_CODE', 'Incorrect verification code.', true],
     ['fr', 'INVALID_TOTP_CODE', 'Code de vérification incorrect.', true],
+    ['en', '2FA_TEMPORARILY_LOCKED', 'Too many incorrect codes. Verification is locked for 15 minutes.', false],
     ['en', 'HTTP 500', 'This could not be done. Try again.', false],
   ])('%s: %s is said once, in the dialog, which stays open', async (lng, code, expected, refetches) => {
     await i18n.changeLanguage(lng);
