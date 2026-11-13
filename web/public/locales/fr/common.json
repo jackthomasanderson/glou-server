@@ -2146,6 +2146,7 @@
       "SMTP_NOT_CONFIGURED": "L'e-mail est coupé ou n'a pas de serveur : activez-le, renseignez le serveur et enregistrez avant de tester.",
       "SMTP_STARTTLS_FAILED": "Le serveur de messagerie n'a pas accepté STARTTLS : rien n'a été envoyé (pas même le mot de passe). Choisissez TLS (port 465) si le serveur le permet, ou « Sans chiffrement (relais local de confiance) » uniquement pour un relais sur votre propre réseau.",
       "SMTP_TLS_FAILED": "La connexion chiffrée au serveur de messagerie a échoué. Vérifiez le port (465 pour TLS) et que le certificat du serveur est valide, ou choisissez STARTTLS (port 587).",
+      "SMTP_CERTIFICATE_UNTRUSTED": "Le certificat du serveur de messagerie n'est pas reconnu (auto-signé, expiré ou émis pour un autre nom) : rien n'a été envoyé. Saisissez le nom du serveur exactement comme sur son certificat, ou donnez au serveur un certificat d'une autorité reconnue. Ne désactivez pas le chiffrement pour contourner le problème.",
       "GOTIFY_NOT_CONFIGURED": "Gotify est coupé ou n'a pas d'URL ou de jeton : renseignez l'URL et le jeton d'application, activez-le et enregistrez avant de tester.",
       "GOTIFY_INCOMPLETE": "Gotify ne peut pas être activé sans son URL et son jeton d'application : renseignez les deux, ou coupez le canal.",
       "DELIVERY_FAILED": "Le serveur Gotify n'a pas accepté la notification. Vérifiez l'URL et le jeton."

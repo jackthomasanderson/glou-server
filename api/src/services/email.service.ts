@@ -29,16 +29,32 @@ const SECURITY_OPTIONS: Record<SmtpSecurity, { secure: boolean; requireTLS?: boo
 };
 
 /**
+ * Node's codes for a server certificate that cannot be trusted: self-signed,
+ * expired, from an unknown authority, or issued for another name.
+ */
+const CERTIFICATE_CODE = /CERT|SELF_SIGNED|UNABLE_TO_(VERIFY|GET_ISSUER)|DEPTH_ZERO/;
+/** The same problems as worded in the message of a failed STARTTLS upgrade (ETLS carries no `originalCode`). */
+const CERTIFICATE_MESSAGE = /certificate|self[- ]signed|altnames/i;
+
+/**
  * The reason a test failed, for the admin (#924): a TLS or STARTTLS failure
  * gets its own code, said in words by the settings screen; any other refusal
  * is the mail server's own message, as before.
+ * - an untrusted certificate (either mode): SMTP_CERTIFICATE_UNTRUSTED, so the
+ *   admin fixes the certificate or the name instead of dropping encryption;
+ * - STARTTLS refused or failed (ETLS): SMTP_STARTTLS_FAILED;
+ * - implicit TLS failed: nodemailer reports the handshake as ESOCKET with
+ *   the TLS cause (`ERR_SSL_…`) in `originalCode`, or as ETLS: SMTP_TLS_FAILED.
  */
 function testFailure(err: unknown, security: SmtpSecurity | undefined): string {
   if (!(err instanceof Error)) return 'UNKNOWN_ERROR';
-  if ((err as { code?: unknown }).code === 'ETLS') {
-    if (security === 'STARTTLS') return 'SMTP_STARTTLS_FAILED';
-    if (security === 'TLS') return 'SMTP_TLS_FAILED';
+  const { code, originalCode } = err as { code?: unknown; originalCode?: unknown };
+  const cause = typeof originalCode === 'string' ? originalCode : '';
+  if (code === 'ETLS' || code === 'ESOCKET') {
+    if (CERTIFICATE_CODE.test(cause) || (code === 'ETLS' && CERTIFICATE_MESSAGE.test(err.message))) return 'SMTP_CERTIFICATE_UNTRUSTED';
   }
+  if (code === 'ETLS' && security === 'STARTTLS') return 'SMTP_STARTTLS_FAILED';
+  if (security === 'TLS' && (code === 'ETLS' || (code === 'ESOCKET' && /^ERR_SSL_/.test(cause)))) return 'SMTP_TLS_FAILED';
   return err.message;
 }
 

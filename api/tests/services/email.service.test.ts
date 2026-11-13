@@ -100,10 +100,37 @@ describe('emailService connection security (#924)', () => {
     expect(await emailService.testConnection()).toEqual({ success: false, error: 'SMTP_STARTTLS_FAILED' });
   });
 
-  it('a TLS failure in TLS mode is a TLS failure, not a STARTTLS one', async () => {
+  // Review R1: with implicit TLS, nodemailer reports a failed handshake as
+  // ESOCKET, the TLS cause in originalCode (seen against a relay without TLS).
+  it('a TLS failure in TLS mode (ESOCKET + an OpenSSL code) is a TLS failure, not a STARTTLS one', async () => {
     getSmtp.mockResolvedValue(smtp({ smtpHost: 'sec-fail-tls', smtpSecurity: 'TLS' }));
-    createTransport.mockReturnValue({ sendMail: vi.fn(), verify: vi.fn().mockRejectedValue(Object.assign(new Error('Error initiating TLS'), { code: 'ETLS' })) });
+    const err = Object.assign(new Error('C0A7E5F1:error:0A00010B:SSL routines:ssl3_get_record:wrong version number'),
+      { code: 'ESOCKET', originalCode: 'ERR_SSL_WRONG_VERSION_NUMBER' });
+    createTransport.mockReturnValue({ sendMail: vi.fn(), verify: vi.fn().mockRejectedValue(err) });
     expect(await emailService.testConnection()).toEqual({ success: false, error: 'SMTP_TLS_FAILED' });
+  });
+
+  it('a plain socket failure in TLS mode (connection refused) keeps the server\'s message', async () => {
+    getSmtp.mockResolvedValue(smtp({ smtpHost: 'sec-refused-tls', smtpSecurity: 'TLS' }));
+    const err = Object.assign(new Error('connect ECONNREFUSED 10.0.0.1:465'), { code: 'ESOCKET', originalCode: 'ECONNREFUSED' });
+    createTransport.mockReturnValue({ sendMail: vi.fn(), verify: vi.fn().mockRejectedValue(err) });
+    expect(await emailService.testConnection()).toEqual({ success: false, error: 'connect ECONNREFUSED 10.0.0.1:465' });
+  });
+
+  // Review R3: an untrusted certificate is not a server without STARTTLS, and
+  // must not lead the admin to "No encryption".
+  it.each([
+    ['TLS', 'self-signed (ESOCKET)', Object.assign(new Error('self-signed certificate'), { code: 'ESOCKET', originalCode: 'DEPTH_ZERO_SELF_SIGNED_CERT' })],
+    ['TLS', 'expired (ESOCKET)', Object.assign(new Error('certificate has expired'), { code: 'ESOCKET', originalCode: 'CERT_HAS_EXPIRED' })],
+    ['TLS', 'another name (ESOCKET)', Object.assign(new Error("Hostname/IP does not match certificate's altnames"), { code: 'ESOCKET', originalCode: 'ERR_TLS_CERT_ALTNAME_INVALID' })],
+    ['STARTTLS', 'self-signed (ETLS)', Object.assign(new Error('Error initiating TLS - self-signed certificate'), { code: 'ETLS' })],
+    ['STARTTLS', 'untrusted issuer (ETLS)', Object.assign(new Error('Error initiating TLS - unable to verify the first certificate'), { code: 'ETLS' })],
+    ['STARTTLS', 'another name (ETLS)', Object.assign(new Error("Error initiating TLS - Hostname/IP does not match certificate's altnames: Host: mail. is not in the cert's altnames"), { code: 'ETLS' })],
+  ])('%s, a certificate that is %s says the certificate is not trusted', async (smtpSecurity, label, err) => {
+    getSmtp.mockResolvedValue(smtp({ smtpHost: `sec-cert-${smtpSecurity}-${label}`, smtpSecurity }));
+    createTransport.mockReturnValue({ sendMail: vi.fn().mockRejectedValue(err), verify: vi.fn().mockRejectedValue(err) });
+    expect(await emailService.testConnection()).toEqual({ success: false, error: 'SMTP_CERTIFICATE_UNTRUSTED' });
+    expect(await emailService.sendTestEmail('a@b.c')).toEqual({ success: false, error: 'SMTP_CERTIFICATE_UNTRUSTED' });
   });
 
   it('another refusal is still shown as the server gave it', async () => {

@@ -283,7 +283,7 @@ describe('SystemConfigSection — email card wording and security (#763, #764)',
     expect(sentTo(fetchMock, '/admin/config/smtp')[0]).toEqual(expect.objectContaining({ smtpSecurity: 'NONE', smtpPort: 25 }));
   });
 
-  it.each(['SMTP_STARTTLS_FAILED', 'SMTP_TLS_FAILED'])('says in words that a test failed with %s', async (error) => {
+  it.each(['SMTP_STARTTLS_FAILED', 'SMTP_TLS_FAILED', 'SMTP_CERTIFICATE_UNTRUSTED'])('says in words that a test failed with %s', async (error) => {
     stubFetch({ '/admin/config': ok(CONFIG), 'POST /admin/config/test/smtp': ok({ success: false, error }) });
     renderWithQuery(<SystemConfigSection />);
     fireEvent.click(within(await card('adminConfig.cards.email')).getByRole('button', { name: 'adminConfig.smtp.test' }));

@@ -2144,6 +2144,7 @@
       "SMTP_NOT_CONFIGURED": "Email is switched off or has no server: turn it on, fill in the server and save before testing.",
       "SMTP_STARTTLS_FAILED": "The mail server did not accept STARTTLS, so nothing was sent (not even the password). Choose TLS (port 465) if the server supports it, or \"No encryption (trusted local relay)\" only for a relay on your own network.",
       "SMTP_TLS_FAILED": "The encrypted connection to the mail server failed. Check the port (465 for TLS) and that the server's certificate is valid, or choose STARTTLS (port 587).",
+      "SMTP_CERTIFICATE_UNTRUSTED": "The mail server's certificate is not trusted (self-signed, expired, or issued for another name), so nothing was sent. Enter the server name exactly as it appears on its certificate, or give the server a certificate from a recognised authority. Do not turn encryption off to get around it.",
       "GOTIFY_NOT_CONFIGURED": "Gotify is switched off or has no URL or token: fill in the URL and the application token, turn it on and save before testing.",
       "GOTIFY_INCOMPLETE": "Gotify cannot be switched on without its URL and application token: fill in both, or switch the channel off.",
       "DELIVERY_FAILED": "The Gotify server did not accept the notification. Check the URL and the token."
