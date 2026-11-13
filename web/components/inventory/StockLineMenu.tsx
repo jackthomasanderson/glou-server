@@ -75,6 +75,8 @@ export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<DialogAction | null>(null);
+  // #844: the trash reached from "Corriger le nombre" (down to 0) does not send back to it.
+  const [trashFromCorrect, setTrashFromCorrect] = useState(false);
   const { run } = useStockMove();
   const flow = useStockMoveFlow({ wine: product ? wineName(product) : '', ctx, onFinishOpened });
   const putBack = usePutBackOpened(ctx);
@@ -90,7 +92,10 @@ export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
     else if (action === 'finish') void run(item, 'drink', ctx.kind);
     else if (isMove(action) && !isIntactItem(item)) void run(item, action, ctx.kind);
     else if (isMove(action)) flow.start(action, product?.items ?? [item], item);
-    else setOpen(action);
+    else {
+      setTrashFromCorrect(false);
+      setOpen(action);
+    }
   };
   const dialog = { item, ctx, isOpen: true, onClose: close };
   const label = (action: LineAction) => t(
@@ -127,11 +132,11 @@ export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
         </DropdownMenu>
       </Dropdown>
 
-      {open === 'correct' && <CorrectQuantityDialog {...dialog} onTrashInstead={() => setOpen('trash')} />}
+      {open === 'correct' && <CorrectQuantityDialog {...dialog} onTrashInstead={() => { setTrashFromCorrect(true); setOpen('trash'); }} />}
       {open === 'move' && <MoveUnitsDialog {...dialog} />}
       {open === 'reprice' && <RepriceDialog {...dialog} />}
       {open === 'edit' && <EditLineDialog {...dialog} />}
-      {open === 'trash' && <TrashLineDialog {...dialog} />}
+      {open === 'trash' && <TrashLineDialog {...dialog} showPartHint={!trashFromCorrect} />}
       {flow.dialogs}
       {putBack.dialog}
     </>

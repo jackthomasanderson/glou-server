@@ -13,6 +13,11 @@ interface TrashLineDialogProps {
   ctx: LineContext;
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * #844: opened from the line menu's "Mettre à la corbeille", where removing
+   * part of the line is "Corriger le nombre" — not after a correction to 0, nor on /review.
+   */
+  showPartHint?: boolean;
 }
 
 /**
@@ -20,7 +25,7 @@ interface TrashLineDialogProps {
  * number said — "Mettre ces 4 bouteilles (Garage · 20 € / bouteille) à la
  * corbeille ?". Restorable from the trash; part of a line is "Corriger le nombre".
  */
-export function TrashLineDialog({ item, ctx, isOpen, onClose }: TrashLineDialogProps) {
+export function TrashLineDialog({ item, ctx, isOpen, onClose, showPartHint = false }: TrashLineDialogProps) {
   const { t } = useTranslation();
   const trash = useDeleteInventoryItem();
   const count = lineCopies(item);
@@ -52,7 +57,7 @@ export function TrashLineDialog({ item, ctx, isOpen, onClose }: TrashLineDialogP
       <p className="text-sm">{t('stockLine.trash.question', { context: noun, count, line: bottleLabel(item, ctx) })}</p>
       <p className="text-xs text-foreground-500">{t('stockLine.trash.restorable')}</p>
       {/* #844: the whole line goes; part of it is "Corriger le nombre" (§10.4.7). */}
-      {count > 1 && (
+      {showPartHint && count > 1 && (
         <p className="text-xs text-foreground-500">{t('stockLine.trash.part', { action: t('stockLine.actions.correct') })}</p>
       )}
     </LineDialogFrame>
