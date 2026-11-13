@@ -584,8 +584,11 @@ export class InventoryService {
     // detach rule wrote it (a smoked cigar), and what it normalised or
     // cleared on the way (a box closed again has no count, no opening date).
     const recorded = [...new Set([...Object.keys(dbData), ...STATE_FIELDS])];
+    // A copy detached from its group is compared with that group: its number
+    // (6 → 1) is no change of the copy — the group's entry tells it (6 → 5).
+    const detached = outcome.outcome === 'detached';
     const unitChanges = new Map(recorded
-      .filter((key) => !isProductField(key))
+      .filter((key) => !isProductField(key) && !(detached && key === 'quantity'))
       .map((key) => ({ field: key, from: this.getField(current, key), to: this.getField(written.writtenUnit, key) }))
       .filter((change) => JSON.stringify(change.from) !== JSON.stringify(change.to))
       .map((change) => [change.field, change]));

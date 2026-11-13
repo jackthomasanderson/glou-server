@@ -513,6 +513,21 @@ describe('InventoryService', () => {
       expect(created.data).toMatchObject({ productId: 'p1', quantity: 1, isOpened: true, fillLevel: 60, parentItemId: 'b1' });
     });
 
+    // #873 (review of #1017): the copy's entry compares the group it came from
+    // with the copy written. Its number (6 → 1) is no change of the copy —
+    // the group's own entry tells 6 → 5.
+    it("records the copy's state, never the group's number as its own", async () => {
+      const result = await service.updateItem('u1', 'b1', { quantity: 6, isOpened: true, fillLevel: 60 });
+
+      if (!result || 'conflict' in result) throw new Error('expected a write');
+      expect(result.outcome).toBe('detached');
+      expect(result.changes).toEqual(expect.arrayContaining([
+        { field: 'isOpened', from: false, to: true }, { field: 'fillLevel', from: null, to: 60 },
+      ]));
+      expect(result.changes).not.toContainEqual(expect.objectContaining({ field: 'quantity' }));
+      expect(result.groupChange).toEqual({ itemId: 'b1', from: 6, to: 5 });
+    });
+
     it('locks the family, then reads the unit again, before deciding', async () => {
       await service.updateItem('u1', 'b1', { isOpened: true, fillLevel: 60 });
 
