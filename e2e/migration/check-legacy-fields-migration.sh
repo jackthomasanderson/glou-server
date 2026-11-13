@@ -73,7 +73,7 @@ fi
 # kept in full in the notes.
 long=$(psql_on "$database" -tA </dev/null -c "SELECT string_agg(cp.\"B\" || '|' || length(c.\"name\") || '|' || (c.\"name\" = btrim(c.\"name\"))::text, ' ' ORDER BY cp.\"B\")
   FROM \"collections\" c JOIN \"_CollectionProducts\" cp ON cp.\"A\" = c.\"id\" WHERE length(c.\"name\") >= 50")
-[ "$long" = "p6|99|true p7|100|true" ] || { echo "Long labels after the migration: $long" >&2; exit 1; }
+[ "$long" = "p6|99|true p7|100|true p8|100|true" ] || { echo "Long labels after the migration: $long" >&2; exit 1; }
 notes=$(psql_on "$database" -tA </dev/null -c "SELECT string_agg(\"id\" || '|' || (\"notes\" LIKE '%Libellés d''origine : ' || CASE \"id\" WHEN 'p6' THEN repeat('a', 99) || ' bbbbb' ELSE repeat('c', 150) END)::text
   || '|' || (\"id\" <> 'p7' OR \"notes\" LIKE 'Old note' || E'\n\n' || '%')::text, ' ' ORDER BY \"id\") FROM \"products\" WHERE \"id\" IN ('p6', 'p7')")
 [ "$notes" = "p6|true|true p7|true|true" ] || { echo "Notes of the long labels after the migration: $notes" >&2; exit 1; }
