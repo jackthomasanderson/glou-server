@@ -480,6 +480,7 @@
       "deleteSuccess": "Enveloppe budgétaire supprimée"
     },
     "bulkUpdateError": "Impossible de modifier les vins sélectionnés",
+    "bulkUpdateError_cigar": "Impossible de modifier les cigares sélectionnés",
     "bulkPreset": {
       "deleteError": "Impossible de supprimer le modèle d'actions"
     },
@@ -489,6 +490,7 @@
     },
     "count": {
       "scanError": "Impossible de confirmer la bouteille",
+      "scanError_cigar": "Impossible de confirmer le cigare",
       "recordError": "Impossible d'enregistrer la trouvaille",
       "skipped_one": "Session clôturée : {{count}} correction n'a pas pu être appliquée (la bouteille a changé entre-temps).",
       "skipped_other": "Session clôturée : {{count}} corrections n'ont pas pu être appliquées (les bouteilles ont changé entre-temps)."

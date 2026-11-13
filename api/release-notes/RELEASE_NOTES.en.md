@@ -29,6 +29,7 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - Cellar names are saved without spaces before or after them, and a name made only of spaces is refused.
 - Making a cellar's grid smaller while bottles or cigars are placed in the rows or columns it removes is refused, naming the slots to empty first; they used to disappear from the plan.
 - The monthly consumption goal counts each cigar smoked from a box, like Analytics; it used to count a box only once empty, as one.
+- The audit log records the values a bottle or a box really got, including what the change cleared (a box closed again: its count and opening date). Errors about cigars in a bulk edit or a count now say cigars.
 
 ## v2026.11.4
 

@@ -16,7 +16,7 @@ import {
   type FlatItemView, type ProductField,
 } from '../lib/product-fields';
 import {
-  applyState, isStateField, planState, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
+  applyState, isStateField, planState, STATE_FIELDS, type ApplyStateResult, type StateItem, type StateOutcome, type StatePatch,
 } from './stock-state.service';
 import { writeFamilyDescription, type UnitSlotChanges } from './product.service';
 import { lineMovements, recordMovements, stateMovement, trashMovements, type MovementActor, type MovementDraft } from './stock-movement.service';
@@ -557,12 +557,16 @@ export class InventoryService {
       // end as one line, never two identical ones side by side.
       const regroups = result.outcome === 'regrouped' || (result.outcome === 'updated'
         && GROUP_KEY_FIELDS.some((field) => field in unit && JSON.stringify(unit[field]) !== JSON.stringify(fresh[field])));
+      // #873: the unit as written, before a join replaces it by its survivor —
+      // what the history records.
+      const writtenUnit: Record<string, unknown> = result.data;
       const joined = regroups ? await joinIdenticalGroup(tx, result.data, kind, userId) : null;
-      if (!joined) return { result, fresh: fresh as StateItem, joined: null };
+      if (!joined) return { result, fresh: fresh as StateItem, writtenUnit, joined: null };
       const survivor = await tx.inventoryItem.findUniqueOrThrow({ where: { id: joined.survivorId }, include: INVENTORY_ITEM_INCLUDE });
       return {
         result: { ...result, data: survivor as InventoryItemRow, removedIds: [...result.removedIds, id] },
         fresh: fresh as StateItem,
+        writtenUnit,
         joined: { from: joined.from, to: joined.to },
       };
     });
@@ -575,15 +579,18 @@ export class InventoryService {
     const current: StateItem = written.fresh;
     const joined = written.joined;
 
-    // #471: recorded from the unit as read once locked, with the state as
-    // the detach rule wrote it (a smoked cigar).
-    const recorded: Record<string, unknown> = { ...dbData };
-    if (smokeOne) Object.assign(recorded, outcome.state);
-    const unitChanges = new Map(Object.entries(recorded)
-      .filter(([key, value]) => !isProductField(key) && JSON.stringify(this.getField(current, key)) !== JSON.stringify(value))
-      .map(([key, value]) => [key, { field: key, from: this.getField(current, key), to: value }]));
+    // #471: recorded from the unit as read once locked. #873: to the values
+    // read back after the write, not those of the patch — the state as the
+    // detach rule wrote it (a smoked cigar), and what it normalised or
+    // cleared on the way (a box closed again has no count, no opening date).
+    const recorded = [...new Set([...Object.keys(dbData), ...STATE_FIELDS])];
+    const unitChanges = new Map(recorded
+      .filter((key) => !isProductField(key))
+      .map((key) => ({ field: key, from: this.getField(current, key), to: this.getField(written.writtenUnit, key) }))
+      .filter((change) => JSON.stringify(change.from) !== JSON.stringify(change.to))
+      .map((change) => [change.field, change]));
     const changes = [
-      ...Object.keys(recorded)
+      ...recorded
         .map((key) => familyChanges.get(key) ?? unitChanges.get(key))
         .filter((change): change is FieldChange => change !== undefined),
       // FEAT-93 (#573): the cells the unit gave up, so its history says which.
