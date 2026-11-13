@@ -28,6 +28,7 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - Scan: a bottle added by scanning now keeps the label photo as its photo, unless you untick Use this photo for the record.
 - Cellar names are saved without spaces before or after them, and a name made only of spaces is refused.
 - Making a cellar's grid smaller while bottles or cigars are placed in the rows or columns it removes is refused, naming the slots to empty first; they used to disappear from the plan.
+- The monthly consumption goal counts each cigar smoked from a box, like Analytics; it used to count a box only once empty, as one.
 
 ## v2026.11.4
 

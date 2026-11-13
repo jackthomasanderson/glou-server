@@ -3,7 +3,7 @@ import { prisma } from '../lib/prisma';
 import { getAlerts, computeReadiness, familyAlertStatus } from './alert.service';
 import { CurveShape } from '../lib/maturity-curve';
 import { SetGoalInput } from '../schemas/consumption-plan.schema';
-import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER } from '../lib/finished-item';
+import { FINISHED_ITEM_STATE, IN_STOCK_ITEM_FILTER, consumedUnits } from '../lib/finished-item';
 import { writeProductFields } from '../lib/product-fields';
 import { preselectGroup } from '../../../shared/stock-choice';
 
@@ -369,16 +369,29 @@ export async function getGoalProgress(userId: string): Promise<GoalProgress> {
     return { goal: null, consumedCount: 0, percent: 0, remaining: 0 };
   }
 
-  // #471: a finished unit is one copy (a sub-record detached from its group,
-  // or a group of one), so counting its rows counts bottles.
-  const consumedCount = await prisma.inventoryItem.count({
+  // #888: units consumed, counted as Analytics does (#838, shared/units.ts):
+  // a finished bottle is one, a box counts each cigar smoked from it. A
+  // finished unit is dated and attributed by its finishing (#589); an opened
+  // box still holding cigars, by its last change — the same limit as
+  // Analytics' "Consumed".
+  const period = { gte: goal.periodStart, lte: goal.periodEnd };
+  const consumed = await prisma.inventoryItem.findMany({
     where: {
       deletedAt: null,
-      ...FINISHED_ITEM_STATE,
-      finishedBy: userId,
-      finishedAt: { gte: goal.periodStart, lte: goal.periodEnd },
+      isOpened: true,
+      OR: [
+        { fillLevel: FINISHED_ITEM_STATE.fillLevel, finishedBy: userId, finishedAt: period },
+        {
+          cigarsPerBox: { gt: 0 },
+          NOT: { fillLevel: { equals: FINISHED_ITEM_STATE.fillLevel, not: null } },
+          updatedBy: userId,
+          updatedAt: period,
+        },
+      ],
     },
+    select: { isOpened: true, fillLevel: true, cigarsPerBox: true, cigarsLeft: true },
   });
+  const consumedCount = consumed.reduce((sum, item) => sum + consumedUnits(item), 0);
 
   const percent = goal.targetValue > 0 ? Math.min(100, Math.round((consumedCount / goal.targetValue) * 100)) : 0;
   const remaining = Math.max(0, goal.targetValue - consumedCount);
