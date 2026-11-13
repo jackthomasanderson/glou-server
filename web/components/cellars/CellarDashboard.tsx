@@ -245,7 +245,7 @@ export const CellarDashboard: React.FC = () => {
   const handleSubmit = async () => {
     if (!formData.name.trim()) { setFormTried(true); return; }
     const payload = {
-      name: formData.name,
+      name: formData.name.trim(),
       description: formData.description || null,
       type: formData.type,
       columns: showGridConfig ? parseOptionalInt(formData.grid.columns) : null,
