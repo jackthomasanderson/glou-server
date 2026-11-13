@@ -2,8 +2,9 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../lib/errors';
-import { ALLOWED_IMAGE_TYPES } from '../lib/upload';
+import { ALLOWED_IMAGE_TYPES, inspectImage } from '../lib/upload';
 
 // A rejected upload is the caller's mistake, so every `fileFilter` below hands
 // back an AppError carrying its own 400; multer's own LIMIT_FILE_SIZE becomes a
@@ -96,4 +97,41 @@ const scanUpload = multer({
     },
 });
 
+// #886: product photos picked on the device (search.router.ts stores them here).
+export const PRODUCTS_UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'products');
+
 export { csvUpload, scanUpload };
+
+const IMAGE_UPLOAD_DIRS = [uploadDir, scanUploadDir, PRODUCTS_UPLOAD_DIR];
+
+/**
+ * #886: runs after an image upload (avatar, label scan, product photo). The
+ * `fileFilter`s above only see the declared type: the stored bytes are now
+ * judged like a downloaded photo (`inspectImage`). A file that is not an
+ * image (400 INVALID_FILE_TYPE) or cannot be read to its end (422
+ * IMAGE_DAMAGED) is deleted at once; a real image declared under another
+ * type is renamed to the extension of what it really is.
+ */
+export async function verifyStoredImage(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  const file = req.file;
+  if (!file) return next();
+  // Only inside the upload folders this file creates, under the name multer
+  // just gave it (never a path the request could steer).
+  const dir = IMAGE_UPLOAD_DIRS.find((known) => known === path.resolve(file.destination));
+  const stored = dir ? path.resolve(dir, path.basename(file.filename)) : '';
+  if (!dir || !stored.startsWith(dir + path.sep)) throw new AppError(400, 'INVALID_FILE_TYPE');
+
+  const inspection = await inspectImage(await fs.promises.readFile(stored));
+  if (!inspection.ok) {
+    await fs.promises.rm(stored, { force: true });
+    throw inspection.reason === 'DAMAGED' ? new AppError(422, 'IMAGE_DAMAGED') : new AppError(400, 'INVALID_FILE_TYPE');
+  }
+  if (path.extname(stored) !== `.${inspection.ext}`) {
+    const filename = `${crypto.randomUUID()}.${inspection.ext}`;
+    const renamed = path.join(dir, filename);
+    await fs.promises.rename(stored, renamed);
+    file.filename = filename;
+    file.path = renamed;
+  }
+  next();
+}

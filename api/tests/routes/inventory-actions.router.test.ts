@@ -122,6 +122,22 @@ describe('POST /api/inventory/:id/correct (FEAT-92 c3)', () => {
     }));
   });
 
+  it('gives the first answer back to a correction replayed with the same Idempotency-Key (#824)', async () => {
+    const QUEUE_ENTRY_ID = 'queued-change-1'; // the offline queue's entry id
+    vi.mocked(stockService.correctQuantity).mockResolvedValueOnce({
+      result: written({ id: 'b1', quantity: 5 }), productId: 'p1', changes: [], writtenOffItemId: null,
+    } as never);
+    const send = () => request(app).post('/api/inventory/b1/correct')
+      .set('Idempotency-Key', QUEUE_ENTRY_ID).send({ quantity: 5, reason: 'input_error' });
+
+    const first = await send();
+    const replay = await send();
+
+    expect(replay.status).toBe(200);
+    expect(replay.body).toEqual(first.body);
+    expect(stockService.correctQuantity).toHaveBeenCalledTimes(1);
+  });
+
   it('answers 404 for an unknown or trashed unit', async () => {
     vi.mocked(stockService.correctQuantity).mockResolvedValue(null);
 

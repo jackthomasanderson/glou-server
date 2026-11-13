@@ -5,7 +5,7 @@ import type { ExportCategory } from '../../../shared/auth';
 import { MANDATORY_NOTIFICATION_CATEGORIES, notificationCategoriesFor } from '../../../shared/notifications';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
 import { routeParam } from '../lib/http';
-import { avatarUpload } from '../middleware/upload.middleware';
+import { avatarUpload, verifyStoredImage } from '../middleware/upload.middleware';
 import { AVATAR_PATH_PREFIX, updateProfileSchema, updatePreferencesSchema, updateEmailSchema, updateUsernameSchema, updatePasswordSchema, completeOnboardingSchema, updateNotificationPrefsSchema, deleteAccountSchema } from '../schemas/user.schema';
 import { accountRequestLimit, passwordCheckLimiter } from '../lib/rate-limit';
 import { prisma } from '../lib/prisma';
@@ -56,7 +56,7 @@ router.patch('/profile', authMiddleware, async (req: Request, res: Response, nex
  * POST /api/user/avatar
  * Upload a new avatar image
  */
-router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), async (req: Request, res: Response) => {
+router.post('/avatar', authMiddleware, avatarUpload.single('avatar'), verifyStoredImage, async (req: Request, res: Response) => {
   if (!req.file) {
     res.status(400).json({ error: 'NO_FILE_UPLOADED' });
     return;

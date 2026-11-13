@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import fs from 'fs';
+import path from 'path';
 
 // #862: the photo suggestion searched "producer name" alone (a ball bearing for
 // "ZZ C5 Petit") and the download stored whatever the remote host answered,
@@ -17,13 +18,16 @@ vi.mock('../../src/lib/ssrf', () => ({
 
 import searchRouter from '../../src/routes/search.router';
 import { resolveSafeUrl } from '../../src/lib/ssrf';
+import { errorMiddleware } from '../../src/middleware/error.middleware';
+import { IMAGES } from '../support/images';
 
 const app = express();
 app.use(express.json());
 app.use('/api/search', searchRouter);
+app.use(errorMiddleware);
 
-const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0x0d, 0x49, 0x48, 0x44, 0x52]);
-const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]);
+const PNG = IMAGES.png;
+const JPEG = IMAGES.jpg;
 
 function remoteAnswer(body: Buffer | string, contentType: string) {
   vi.mocked(resolveSafeUrl).mockResolvedValue(
@@ -90,6 +94,51 @@ describe('POST /api/search/images/save (#862)', () => {
     const res = await request(app).post('/api/search/images/save').send({ url: 'https://example.com/a.png' });
     expect(res.status).toBe(422);
     expect(written).toHaveLength(0);
+  });
+});
+
+describe('POST /api/search/images/save — a download cut short (#886)', () => {
+  it('refuses a JPEG whose body stops before its end and stores nothing', async () => {
+    remoteAnswer(JPEG.subarray(0, JPEG.length - 40), 'image/jpeg');
+    const res = await request(app).post('/api/search/images/save').send({ url: 'https://example.com/a.jpg' });
+    expect(res.status).toBe(422);
+    expect(res.body).toEqual({ error: 'IMAGE_DAMAGED' });
+    expect(written).toHaveLength(0);
+  });
+});
+
+describe('POST /api/search/images/upload (#886)', () => {
+  const productsDir = path.join(process.cwd(), 'uploads', 'products');
+  const stored = () => new Set(fs.readdirSync(productsDir));
+  let before: Set<string>;
+  beforeEach(() => { before = stored(); });
+  afterEach(() => {
+    for (const name of stored()) if (!before.has(name)) fs.rmSync(path.join(productsDir, name), { force: true });
+  });
+  const added = () => [...stored()].filter((name) => !before.has(name));
+
+  it('refuses a text file renamed .jpg and keeps nothing on disk', async () => {
+    const res = await request(app).post('/api/search/images/upload')
+      .attach('image', Buffer.from('Château Margaux 2015, 6 bottles\n'), { filename: 'label.jpg', contentType: 'image/jpeg' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('INVALID_FILE_TYPE');
+    expect(added()).toEqual([]);
+  });
+
+  it('refuses a photo cut short and keeps nothing on disk', async () => {
+    const res = await request(app).post('/api/search/images/upload')
+      .attach('image', PNG.subarray(0, PNG.length - 12), { filename: 'photo.png', contentType: 'image/png' });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBe('IMAGE_DAMAGED');
+    expect(added()).toEqual([]);
+  });
+
+  it('stores a real photo under the extension of its bytes, not of its declared type', async () => {
+    const res = await request(app).post('/api/search/images/upload')
+      .attach('image', JPEG, { filename: 'photo.png', contentType: 'image/png' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.path).toMatch(/^\/uploads\/products\/[\w-]+\.jpg$/);
+    expect(added()).toEqual([path.basename(res.body.data.path)]);
   });
 });
 

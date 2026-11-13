@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 import { scanJobIdParamSchema } from '../schemas/scan.schema';
-import { scanUpload } from '../middleware/upload.middleware';
+import { scanUpload, verifyStoredImage } from '../middleware/upload.middleware';
 import { scanService } from '../services/scan.service';
 import { isScanAvailable } from '../services/ocr.service';
 import { auditLog } from '../services/audit.service';
@@ -70,7 +70,7 @@ router.get('/status', async (_req: Request, res: Response): Promise<void> => {
 // the actual vision/OCR call runs in the background (see scan.service.ts).
 // The client is expected to poll GET /api/scan/jobs/:id until 'done'/'failed'.
 
-router.post('/', requireScanAvailable, requireScanCapacity, scanLimiter, scanUpload.single('photo'), async (req: Request, res: Response): Promise<void> => {
+router.post('/', requireScanAvailable, requireScanCapacity, scanLimiter, scanUpload.single('photo'), verifyStoredImage, async (req: Request, res: Response): Promise<void> => {
   if (!req.file) {
     res.status(400).json({ error: 'NO_FILE_UPLOADED' });
     return;

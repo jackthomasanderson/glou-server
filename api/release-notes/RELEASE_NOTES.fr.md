@@ -40,6 +40,8 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - Taper juste après avoir fermé une fenêtre ou un tiroir ne perd plus les premières touches.
 - Les nombres décimaux prennent la virgule en français : stock liquide, notes moyennes, humidité et températures de l'humidor, températures de service et tailles des sauvegardes.
 - Après avoir confirmé quitter une page aux modifications non enregistrées, Précédent et Suivant ne s'arrêtent plus sur une étape qui ne fait rien ; la déconnexion depuis l'écran verrouillé demande d'abord, et Plus > Administration quand on y est déjà ne demande rien.
+- Un fichier qui n'est pas une image, ou une photo incomplète ou abîmée, est désormais refusé avec un message clair quand il est ajouté à un vin, comme photo de profil ou pour un scan d'étiquette, au lieu de s'afficher comme une photo cassée.
+- Une modification faite hors ligne, arrivée au serveur alors que le réseau coupait, ne s'affiche plus comme un faux conflit quand elle est renvoyée : elle est reconnue et appliquée une seule fois.
 
 ## v2026.11.4
 

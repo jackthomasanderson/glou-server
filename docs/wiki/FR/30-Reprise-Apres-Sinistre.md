@@ -1,7 +1,10 @@
 # Reprise après sinistre : reconstruire Glou sur une nouvelle machine
 
 ## En bref
-Pour tout reconstruire il faut trois choses : la **sauvegarde de la base** (`.sql.gz`), votre **`.env`** (mêmes secrets) et le **volume des photos** (`api_uploads`). La sauvegarde intégrée ne couvre que la base, et par défaut elle est stockée sur la même machine que les données : copiez-la ailleurs.
+Pour tout reconstruire il faut trois choses : la **sauvegarde de la base** (`.sql.gz`), votre **`.env`** (mêmes secrets) et les **photos** (le volume Docker `api_uploads`). La sauvegarde intégrée ne couvre que la base, et par défaut elle est stockée sur la même machine que les données : copiez-la ailleurs.
+
+> [!IMPORTANT]
+> **Les photos ne sont pas dans `./backups`.** Un outil de sauvegarde pointé sur le dossier du projet (restic, un snapshot NAS, rsync…) récupère les sauvegardes de la base mais pas les photos : elles restent dans le volume `api_uploads`, sous `/var/lib/docker`. Archivez-les avec la commande de [Sauvegarder les photos](#sauvegarder-les-photos), et laissez votre outil de sauvegarde récupérer aussi cette archive.
 
 ## Ce qui est (et n'est pas) dans une sauvegarde
 
@@ -16,7 +19,7 @@ Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf 
 
 ## Prérequis (à faire *avant* d'en avoir besoin)
 1. Sauvegardes activées : Admin → Configuration système → Données → **Activé**.
-2. Copiez régulièrement hors de la machine : le fichier le plus récent du dossier `./backups` (ou **Télécharger** depuis l'historique), votre `.env`, et le volume `api_uploads`.
+2. Copiez régulièrement hors de la machine : le fichier le plus récent du dossier `./backups` (ou **Télécharger** depuis l'historique), votre `.env`, et l'archive des photos faite par [Sauvegarder les photos](#sauvegarder-les-photos).
    > [!NOTE]
    > S'il existe encore un ancien volume `api_backups`, il ne contient que des sauvegardes antérieures à la mise à jour 2026.10 ; vérifiez la date avant d'en restaurer une.
 3. Sachez où sont rangés votre `docker-compose.yml` et votre `.env`.
@@ -45,19 +48,32 @@ Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf 
    ```
    Une erreur SQL dans le fichier annule toute la restauration ; un fichier tronqué, c'est le rôle de la vérification `gunzip -t` ci-dessus. La partie `sed` retire un réglage que contiennent les anciennes sauvegardes et que PostgreSQL 15 refuse ; elle ne change rien aux sauvegardes plus récentes. Si vous avez changé `DB_USER` ou `DB_NAME` dans votre `.env`, utilisez ces valeurs à la place de `glou` et `glou_db`.
 5. Redémarrez l'API pour qu'elle applique les mises à jour de base postérieures à la sauvegarde : `docker compose restart api`.
-6. Restaurez les photos dans le volume `api_uploads`, par exemple :
+6. Restaurez les photos dans le volume `api_uploads`, depuis le dossier de votre `docker-compose.yml`, la pile démarrée (étape 2) :
    ```bash
-   docker run --rm -v <projet>_api_uploads:/data -v "$PWD":/backup alpine \
-     sh -c 'cd /data && tar xzf /backup/uploads.tar.gz && chown -R 1001:1001 /data'
+   gzip -t glou-photos.tar.gz
+   docker compose exec -T -u 0 api sh -c 'tar xzf - -C /app/uploads && chown -R 1001:1001 /app/uploads' < glou-photos.tar.gz
    ```
+   La première commande n'affiche rien quand l'archive est complète. La seconde la décompresse dans le volume et rend les fichiers à l'utilisateur de l'API (`1001`).
 7. Vérifiez : connectez-vous, ouvrez une cave, envoyez un email de test (Admin → Configuration système → Notifications → E-mail → Tester la connexion).
 
 ## Sauvegarder les photos
+Les photos (photos des bouteilles, avatars, photos de scan d'étiquette) se trouvent dans le volume Docker `api_uploads`, monté sur `/app/uploads` dans le conteneur de l'API. Elles ne sont **pas** dans la sauvegarde intégrée et **pas** dans `./backups`. Depuis le dossier de votre `docker-compose.yml`, la pile démarrée :
 ```bash
-docker run --rm -v <projet>_api_uploads:/data -v "$PWD":/backup alpine \
-  tar czf /backup/uploads.tar.gz -C /data .
+docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz.tmp && mv glou-photos.tar.gz.tmp glou-photos.tar.gz
 ```
-Remplacez `<projet>` par le préfixe affiché par `docker volume ls` (en général le nom du dossier de votre fichier compose).
+Cela écrit `glou-photos.tar.gz` à côté de `docker-compose.yml`, là où un outil de sauvegarde pointé sur le dossier du projet le récupère. Gardez `-T` : sans lui, l'archive est abîmée. L'archive est d'abord écrite dans un fichier `.tmp` et ne remplace la précédente que si la commande réussit (pile arrêtée, disque plein…). Vérifiez-la :
+```bash
+gzip -t glou-photos.tar.gz && tar tzf glou-photos.tar.gz | head
+```
+La première partie n'affiche rien quand l'archive est complète ; la seconde liste les premiers fichiers (`./products/…`, `./avatars/…`).
+
+Pour la refaire chaque nuit, ajoutez une ligne à la crontab d'un utilisateur qui a le droit de lancer `docker` (`crontab -e`), par exemple à 3 h 30, après la sauvegarde de la base :
+```bash
+30 3 * * * cd /chemin/vers/glou && docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz.tmp && mv glou-photos.tar.gz.tmp glou-photos.tar.gz
+```
+N'écrivez pas cette archive dans `./backups` : ce dossier est réservé aux sauvegardes de la base que Glou fait et liste lui-même.
+
+Pour la restaurer, voyez l'étape 6 de [Reconstruire sur une nouvelle machine](#reconstruire-sur-une-nouvelle-machine) ; la même commande restaure les photos sur la même machine.
 
 ## Dépannage
 
@@ -69,4 +85,4 @@ Remplacez `<projet>` par le préfixe affiché par `docker volume ls` (en génér
 | La restauration s'arrête avec `unrecognized configuration parameter "transaction_timeout"` | La partie `sed '/^SET transaction_timeout/d'` de la commande manque : recopiez la commande en entier. |
 | La restauration s'arrête avec `invalid command \restrict` | L'image de la base sur cette machine est antérieure à PostgreSQL 15.14 : mettez-la à jour avec `docker compose pull db && docker compose up -d db`, puis relancez la commande. |
 | Tout est revenu mais les emails/Gotify échouent | `CONFIG_ENCRYPTION_KEY` diffère de celle de la sauvegarde. Utilisez le `.env` d'origine, ou ressaisissez les réglages comme décrit dans [Changer les secrets](./29-Rotation-Des-Secrets.md). |
-| Les photos des bouteilles manquent | Le volume des photos n'a pas été restauré (il ne fait pas partie de la sauvegarde de la base). |
+| Les photos des bouteilles manquent | Les photos n'ont pas été restaurées : elles ne font partie ni de la sauvegarde de la base ni de `./backups`. Restaurez l'archive des photos (étape 6). |

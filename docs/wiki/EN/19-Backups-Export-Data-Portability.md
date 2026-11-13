@@ -71,6 +71,9 @@ Back up `.env` wherever you already keep secrets (a password manager, an encrypt
 ### Where backups actually live, and proving a restore works
 Backup dumps land in `./backups` on the **host**, bind-mounted into the container (`docker-compose.yml`), not in a Docker-managed named volume — so whatever backup tool you already run on the host (`restic`, a NAS snapshot, `rsync` to another machine…) sees and collects them on its own, and a disk failure doesn't take out the database and its backups together.
 
+> [!IMPORTANT]
+> **Photos are not in these backups, nor in `./backups`.** Bottle pictures, avatars and label scan photos stay in the `api_uploads` Docker volume. Archive them next to `docker-compose.yml` with `docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz.tmp && mv glou-photos.tar.gz.tmp glou-photos.tar.gz`, and see [Back up the photos](./30-Disaster-Recovery.md#back-up-the-photos) for the check, a nightly schedule and the restore.
+
 A restore actually working isn't just asserted here: `e2e/tests/backup-restore.spec.ts` runs a real backup → create data → restore → confirm the new data is gone, and that the safety backup and the newer backups are still listed, cycle against a live instance on every CI run (see `.github/workflows/docker-publish.yml`'s `e2e` job) — a continuously re-verified proof, rather than a single dated note that goes stale the moment something changes.
 
 ## The firewall (troubleshooting)
@@ -81,6 +84,6 @@ A restore actually working isn't just asserted here: `e2e/tests/backup-restore.s
 | **I clicked Restore and now my data is different than before** | Expected: restore overwrites all current data with the backup's content. If this was a mistake, restore the backup taken automatically just before the restore: it is the most recent **Manual** entry of the history. |
 | **The restore was refused: the backup taken before the restore failed** | Nothing was restored. The failed backup is in the history with its error: fix the cause (usually disk space or the `./backups` permissions), then restore again. |
 | **My export file only has some of my data** | You used **Filter** and only selected certain categories. Use the plain **Export** button for a full export instead. |
-| **Where are backup files actually stored?** | `./backups` on the host (bind-mounted, see above) — point your own backup tool at that directory. |
+| **Where are backup files actually stored?** | `./backups` on the host (bind-mounted, see above) — point your own backup tool at that directory. The photos are not there: see [Back up the photos](./30-Disaster-Recovery.md#back-up-the-photos). |
 | **After a restore, authenticator codes are refused** | Same cause: a different `CONFIG_ENCRYPTION_KEY`. Put the old key back in `.env` and `docker compose up -d api`; otherwise each member signs in with a backup code and sets two-factor authentication up again ([Lost phone](./32-Lost-Phone-2FA.md)). |
 | **A restored backup's SMTP/Gotify/API-key fields are empty** | The dump was taken (or is being restored) on an instance whose `.env` has a different `CONFIG_ENCRYPTION_KEY` than the one that encrypted those fields. Re-enter them, and keep `CONFIG_ENCRYPTION_KEY` backed up with your other secrets — see "Back up `.env` too, separately" above. |

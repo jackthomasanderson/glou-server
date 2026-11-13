@@ -187,6 +187,13 @@ export function useUpdateProfile() {
 
 // ─── useUploadAvatar ─────────────────────────────────────────────────────────
 
+/** #886: the refusals of a photo the member can act on; any other failure gets the generic message. */
+const AVATAR_ERROR_KEYS: Record<string, string> = {
+  INVALID_FILE_TYPE: 'profile.avatarInvalidType',
+  SVG_NOT_ALLOWED: 'profile.avatarInvalidType',
+  IMAGE_DAMAGED: 'profile.avatarDamaged',
+};
+
 export function useUploadAvatar() {
   const queryClient = useQueryClient();
   return useMutation<PublicUser, Error, File>({
@@ -200,7 +207,7 @@ export function useUploadAvatar() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
-    onError: () => notifyError('profile.avatarError'),
+    onError: (err) => notifyError(AVATAR_ERROR_KEYS[err.message] ?? 'profile.avatarError'),
   });
 }
 

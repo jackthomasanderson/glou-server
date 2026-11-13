@@ -39,6 +39,8 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - Typing right after closing a window or a drawer no longer loses the first keys.
 - Decimal numbers use the comma in French: liquid stock, average ratings, humidor humidity and temperatures, serving temperatures and backup sizes.
 - After confirming you leave a page with unsaved changes, Back and Forward no longer stop on a step that does nothing; signing out from the lock screen asks first, and More > Administration while already there asks nothing.
+- A file that is not an image, or a photo cut short or damaged, is now refused with a clear message when it is added to a wine, as a profile picture or for a label scan, instead of showing as a broken photo.
+- A change made offline that reached the server while the network dropped no longer shows as a false conflict when it is sent again: it is recognised and applied only once.
 
 ## v2026.11.4
 

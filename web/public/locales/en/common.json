@@ -810,7 +810,8 @@
     "urlPlaceholder": "https://… (image URL)",
     "errors": {
       "tooLarge": "This photo is too large (5 MB at most). Choose a smaller one.",
-      "unsupportedType": "This image format is not supported. Use a JPEG, PNG, WebP, GIF or AVIF photo.",
+      "unsupportedType": "This file is not a supported image. Use a JPEG, PNG, WebP, GIF or AVIF photo.",
+      "damaged": "This photo is damaged or incomplete and cannot be read. Choose another one.",
       "invalidUrl": "Enter an image address starting with https://.",
       "fetchFailed": "This image could not be downloaded. Check the address or choose another image.",
       "failed": "The photo could not be saved. Check your connection and try again."
@@ -898,6 +899,8 @@
     "saveError": "Error while updating profile",
     "avatarSuccess": "Profile picture updated",
     "avatarError": "Error uploading profile picture",
+    "avatarInvalidType": "This file is not a supported image. Use a JPEG, PNG, WebP, GIF or AVIF photo.",
+    "avatarDamaged": "This photo is damaged or incomplete and cannot be read. Choose another one.",
     "changeAvatar": "Change profile picture",
     "deleteAvatar": "Delete profile picture",
     "deleteAvatarConfirm": "Are you sure you want to delete your profile picture?",
@@ -2744,6 +2747,7 @@
       "rateLimited": "Too many scans in a short time. Try again in a few minutes.",
       "busy": "Too many labels are already being analyzed on this server. Try again in a few minutes.",
       "photoRejected": "This photo could not be sent: it is too large (10 MB max) or its format is not supported (JPEG, PNG, WebP or GIF).",
+      "photoDamaged": "This photo is damaged or incomplete and cannot be read. Take the photo again.",
       "heic": "HEIC photos are not supported. On an iPhone, choose the photo from the Photo Library (not from Files): it is then sent as a JPEG. You can also take the photo with the camera button.",
       "timeout": "The analysis took too long: this server probably lacks the power for label recognition.",
       "interrupted": "The analysis was interrupted by a server restart. Take the photo again.",

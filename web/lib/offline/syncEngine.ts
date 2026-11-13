@@ -366,7 +366,10 @@ async function sendChange(mutation: QueuedMutation): Promise<PatchOutcome> {
   try {
     res = await request(`/inventory/${mutation.itemId}${isCorrection ? '/correct' : ''}`, {
       method: isCorrection ? 'POST' : 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      // #824: the entry's own id, the same on every attempt — a change the
+      // server applied but whose answer was lost gets that answer back,
+      // instead of a 409 shown as a false conflict.
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': mutation.id },
       body: JSON.stringify({ ...mutation.patch, expectedUpdatedAt: mutation.expectedUpdatedAt }),
     });
   } catch {
@@ -377,6 +380,9 @@ async function sendChange(mutation: QueuedMutation): Promise<PatchOutcome> {
   if (res.status === 409) {
     const body = (await res.json().catch(() => null)) as { data?: InventoryItem; error?: string } | null;
     if (body?.data) return { kind: 'conflict', serverItem: body.data };
+    // #824: the server is still applying an earlier send of this very change
+    // (its answer was lost or late): try again later, it is not a conflict.
+    if (body?.error === 'IDEMPOTENCY_IN_PROGRESS') return { kind: 'retry', reason: body.error };
     // A refusal answered 409 without the unit (a tasting noted on the
     // bottle, nothing left to smoke…): said in words by the panel.
     return { kind: 'error', message: body?.error ?? 'CONFLICT', code: body?.error ?? 'CONFLICT' };
