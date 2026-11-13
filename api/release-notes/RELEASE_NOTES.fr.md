@@ -33,6 +33,7 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - Le journal d'audit enregistre les valeurs réellement écrites sur une bouteille ou une boîte, y compris ce que la modification a effacé (une boîte refermée : son nombre et sa date d'ouverture). Les erreurs sur des cigares en modification groupée ou en inventaire parlent désormais de cigares.
 - La date d'achat proposée pour de nouvelles bouteilles est le jour du serveur : des bouteilles achetées ensemble vers minuit ne sont plus réparties sur deux lignes.
 - Annuler après la mise à la corbeille d'un vin apparaît désormais en haut à droite comme tous les autres Annuler, attend tant que la souris ou le clavier est dessus, et chaque vin mis à la corbeille garde le sien.
+- L'échec d'un changement d'avatar, ou des collections d'un vin, est désormais signalé même après avoir quitté la page ; copier le mot de passe temporaire d'un membre fonctionne en HTTP simple.
 
 ## v2026.11.4
 

@@ -14,6 +14,7 @@ vi.mock('@/hooks/useInventoryCount', () => ({
 }));
 
 import { RecordFoundItemModal } from '../RecordFoundItemModal';
+import { NetworkError } from '@/lib/network-error';
 
 const ABV = 'inventory.fields.alcoholDegree';
 
@@ -56,5 +57,16 @@ describe('RecordFoundItemModal — the ABV of a spirit (#587)', () => {
     const dialog = await openAs('spirit');
     expect(within(dialog).getByLabelText(ABV)).toBeInTheDocument();
     expect(await submit(dialog)).not.toHaveProperty('alcoholDegree');
+  });
+});
+
+// #887: a failed find is said once, in the form; no answer at all says
+// "cannot reach the server", not a generic error.
+describe('RecordFoundItemModal — a failed record (#887)', () => {
+  it('says the server cannot be reached when there is no answer', async () => {
+    record.mockRejectedValue(new NetworkError(new TypeError('Failed to fetch')));
+    const dialog = await openAs();
+    await submit(dialog);
+    expect(await within(dialog).findByText('status.serverUnreachable')).toBeInTheDocument();
   });
 });

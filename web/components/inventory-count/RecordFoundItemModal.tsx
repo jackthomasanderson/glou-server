@@ -12,6 +12,7 @@ import {
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { useTranslation } from 'react-i18next';
 import { useRecordFoundItem } from '@/hooks/useInventoryCount';
+import { authErrorMessage } from '@/lib/auth/error-message';
 import { InventoryCategory } from '@/lib/inventory-count/types';
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
@@ -72,10 +73,8 @@ export function RecordFoundItemModal({ sessionId, isOpen, onClose }: RecordFound
       });
       resetAndClose();
     } catch (err) {
-      const code = err instanceof Error ? err.message : 'UNEXPECTED_ERROR';
-      const key = `inventoryCount.errors.${code}`;
-      const translated = t(key);
-      setError(translated === key ? t('inventoryCount.errors.UNEXPECTED_ERROR') : translated);
+      // No answer at all says so (#887), like every other failure (#616).
+      setError(authErrorMessage(t, err, 'inventoryCount.errors'));
     }
   };
 
