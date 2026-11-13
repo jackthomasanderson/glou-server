@@ -5,7 +5,7 @@ import { Button, Input, Chip, CircularProgress } from '@heroui/react';
 import { Droplets, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useHumidorHistory, useRecordHumidorReading, HumidorDriftStatus } from '@/hooks/useHumidor';
-import { formatDateTime, formatTemperature } from '@/lib/format';
+import { formatDateTime, formatNumber, formatTemperature } from '@/lib/format';
 
 interface HumidorPanelProps {
   cellarId: string;
@@ -73,7 +73,7 @@ export function HumidorPanel({ cellarId }: HumidorPanelProps) {
       {data.latest && (
         <p className="text-xs text-foreground-500 mb-3">
           {t('cellars.humidor.latestReading', {
-            humidity: data.latest.humidityPercent,
+            humidity: formatNumber(data.latest.humidityPercent, i18n.language),
             date: formatDateTime(data.latest.recordedAt, i18n.language),
           })}
         </p>
@@ -95,7 +95,7 @@ export function HumidorPanel({ cellarId }: HumidorPanelProps) {
             <div key={r.id} className="flex items-center justify-between gap-2 text-xs border-b border-divider py-1 last:border-b-0">
               <span className="text-foreground-400 shrink-0">{formatDateTime(r.recordedAt, i18n.language)}</span>
               <span className="font-semibold flex-1 text-right">
-                {t('percent', { value: r.humidityPercent })}{r.temperatureCelsius != null ? ` · ${formatTemperature(r.temperatureCelsius)}` : ''}
+                {t('percent', { value: formatNumber(r.humidityPercent, i18n.language) })}{r.temperatureCelsius != null ? ` · ${formatTemperature(r.temperatureCelsius, i18n.language)}` : ''}
               </span>
               <Chip size="sm" variant="flat" className="h-4 px-1.5 text-xs shrink-0">
                 {t(`cellars.humidor.source.${r.source}`)}

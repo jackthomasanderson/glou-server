@@ -11,7 +11,7 @@ import { SingleSelect } from '@/components/ui/SingleSelect';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
 import { ADMIN_BACKUP_HEALTH_KEY, BACKUP_RUNS_KEY, useAdminBackupHealth, useBackupRuns } from '@/hooks/useAdmin';
 import { useHasMounted } from '@/hooks/useHasMounted';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatNumber } from '@/lib/format';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { ConfigCard, QueryList, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
 import { useGuardedSave } from '../useGuardedSave';
@@ -38,7 +38,7 @@ const toForm = (cfg: SystemConfigPublic) => ({
   backupHour: String(cfg.backupHour),
 });
 
-function formatBytes(bytes: number | null): string {
+export function formatBytes(bytes: number | null, lang: string | undefined): string {
   if (bytes == null) return '—';
   const units = ['B', 'KB', 'MB', 'GB'];
   let value = bytes;
@@ -47,7 +47,7 @@ function formatBytes(bytes: number | null): string {
     value /= 1024;
     unitIndex += 1;
   }
-  return `${value.toFixed(1)} ${units[unitIndex]}`;
+  return `${formatNumber(value, lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${units[unitIndex]}`;
 }
 
 /** FEAT-18: scheduled backups, a manual one, and the history with download and restore. */
@@ -225,7 +225,7 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
                   )}
                   <div className="flex-1 min-w-0">
                     {run.success ? (
-                      <p className="text-xs text-foreground-500 truncate">{formatBytes(run.fileSizeBytes)}</p>
+                      <p className="text-xs text-foreground-500 truncate">{formatBytes(run.fileSizeBytes, i18n.language)}</p>
                     ) : run.error ? (
                       <p className="text-xs text-danger truncate">{run.error}</p>
                     ) : null}

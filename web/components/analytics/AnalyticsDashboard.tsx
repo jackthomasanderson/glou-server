@@ -618,7 +618,7 @@ export function AnalyticsDashboard() {
             <StatCard
               testId="kpi-liquid-stock"
               label={t('analytics.stats.liquidStock')}
-              value={`${data?.totalLiquidLiters ?? 0} L`}
+              value={`${fmtNum(data?.totalLiquidLiters ?? 0)} L`}
               hint={t('analytics.stats.liquidStockHint')}
               icon={<Droplets size={20} color="#0891B2" />}
               iconBg="rgba(8,145,178,0.1)"
