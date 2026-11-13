@@ -884,7 +884,6 @@
       "description": "Affiche les champs avancés (dégustation structurée, fût/batch spiritueux, monitoring d'humidor) dans les formulaires."
     },
     "accentColor": "Couleur d'accentuation",
-    "preferencesHint": "Les changements de thème et de langue s'appliquent instantanément et sont sauvegardés sur votre compte.",
     "colors": {
       "indigo": "Indigo",
       "rose": "Rose",
@@ -1005,7 +1004,10 @@
     "emailPasswordHint": "Confirmez avec le mot de passe de votre compte. Une alerte sera envoyée à l'ancienne adresse.",
     "usernamePasswordHint": "Ce nom sert à vous connecter : ensuite, connectez-vous avec le nouveau. Confirmez avec le mot de passe de votre compte.",
     "usernameSuccess": "Nom d'utilisateur modifié. Connectez-vous désormais avec ce nom.",
-    "usernameInvalid": "De 3 à 30 caractères : lettres, chiffres, - et _."
+    "usernameInvalid": "De 3 à 30 caractères : lettres, chiffres, - et _.",
+    "saveModeHint": "Les réglages s'enregistrent dès que vous les changez, sauf les champs texte : leur bouton dit ce qu'il enregistre.",
+    "displayNameSave": "Enregistrer le nom affiché",
+    "leaveConfirm": "Un nom ou un slogan n'est pas enregistré. Quitter la page et le perdre ?"
   },
   "admin": {
     "title": "Administration",
