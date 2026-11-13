@@ -4,6 +4,7 @@ import { Avatar, Button, Card, CardBody, Input, Tabs, Tab } from '@heroui/react'
 import { Lock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useMe, useLogout } from '@/hooks/useAuth';
+import { leaveThen } from '@/lib/leaveGuard';
 import { useRestoreFocus } from '@/hooks/useRestoreFocus';
 import { authErrorMessage } from '@/lib/auth/error-message';
 
@@ -165,7 +166,8 @@ export function LockScreen({ unlock, isUnlocking }: LockScreenProps) {
             variant="light"
             color="default"
             size="sm"
-            onPress={() => logoutMutation.mutate()}
+            // #920: unsaved changes are not dropped without the question the sidebar's sign-out asks.
+            onPress={() => { leaveThen(() => logoutMutation.mutate()); }}
             isDisabled={logoutMutation.isPending}
           >
             {t('lock.backToLogin')}

@@ -10,7 +10,7 @@ import { useCellars } from '@/hooks/useCellars';
 import type { Product } from '@/lib/products/types';
 import { isGone } from '@/lib/products/filters';
 import { Cellar } from '@/lib/cellars/types';
-import { confirmLeave } from '@/lib/leaveGuard';
+import { leaveThen } from '@/lib/leaveGuard';
 
 function normalize(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -66,17 +66,14 @@ function useSearch() {
   const select = useCallback(
     (option: SearchOption, onDone: () => void) => {
       // #759: unsaved changes (admin settings) are not dropped without a question.
-      if (!confirmLeave()) return;
-      setQuery('');
-      onDone();
-      if (option.kind === 'cellar') {
-        router.push(`/cellars/${encodeURIComponent(option.cellar.id)}`);
-        return;
-      }
       // ?scan=<id> opens the wine directly (same mechanism as QR codes);
       // cigars live on their own page, /bottles excludes them.
-      const base = option.item.category === 'cigar' ? '/cigars' : '/bottles';
-      router.push(`${base}?scan=${encodeURIComponent(option.item.id)}`);
+      const href = option.kind === 'cellar'
+        ? `/cellars/${encodeURIComponent(option.cellar.id)}`
+        : `${option.item.category === 'cigar' ? '/cigars' : '/bottles'}?scan=${encodeURIComponent(option.item.id)}`;
+      if (!leaveThen(() => router.push(href))) return;
+      setQuery('');
+      onDone();
     },
     [router],
   );

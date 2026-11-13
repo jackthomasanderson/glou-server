@@ -12,7 +12,7 @@ import { useSidebarCounts } from '@/hooks/useSidebarCounts';
 import { AlertBottle } from '@/lib/alerts/client';
 import { todayLocalIso } from '@/lib/format';
 import { alertUrgency } from '@/lib/inventory/types';
-import { confirmLeave } from '@/lib/leaveGuard';
+import { leaveThen } from '@/lib/leaveGuard';
 import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'> = {
@@ -63,9 +63,8 @@ export function NotificationBell() {
 
   const go = (href: string) => {
     // #759: unsaved changes (admin settings) are not dropped without a question.
-    if (!confirmLeave()) return;
+    if (!leaveThen(() => router.push(href))) return;
     setIsOpen(false);
-    router.push(href);
   };
 
   // Avoid hydration mismatch — render plain button until mounted
