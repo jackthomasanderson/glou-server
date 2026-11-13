@@ -58,7 +58,9 @@ export type ImageInspection =
  * and adding one (sharp, libvips) is a heavy native dependency. So the check
  * walks each format's structure: every segment, chunk or box must fit in the
  * file, the image must have non-zero dimensions and the format's end marker
- * must be there. A PNG's pixels are fully inflated (zlib, CRC of each chunk).
+ * must be there. A PNG's pixels are inflated (zlib, CRC of each chunk) and
+ * must be exactly the size its header declares, within PNG_MAX_SIDE and
+ * PNG_MAX_PIXELS; the filtered rows themselves are not decoded.
  * The compressed pixels of a JPEG, GIF, WebP or AVIF are not decoded: a file
  * complete in length but corrupted inside still passes, a truncated one never.
  */
@@ -111,35 +113,80 @@ function isCompleteJpeg(bytes: Buffer): boolean {
   return false;
 }
 
-/** Every chunk inside the file with a correct CRC, IHDR first, IEND last, the pixels fully inflated. */
+/**
+ * #886 review: a PNG is refused (as damaged) past these dimensions, before its
+ * pixels are inflated. 16384 px per side and 50 megapixels hold any camera
+ * photo (a 48 MP phone sensor included) and keep the inflated data under
+ * 400 MB even at 16 bits per channel with alpha. Photos picked in the app are
+ * resized in the browser first (#494), so only a crafted file comes near.
+ */
+export const PNG_MAX_SIDE = 16384;
+export const PNG_MAX_PIXELS = 50_000_000;
+
+/** Channels per PNG colour type (grey, RGB, palette, grey + alpha, RGBA). */
+const PNG_CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
+/** Adam7 passes: x start, y start, x step, y step. */
+const ADAM7 = [[0, 0, 8, 8], [4, 0, 8, 8], [0, 4, 4, 8], [2, 0, 4, 4], [0, 2, 2, 4], [1, 0, 2, 2], [0, 1, 1, 2]];
+
+/** The exact size of a PNG's inflated pixels (a filter byte per row), from its header; null when out of bounds. */
+function pngRawSize(ihdr: Buffer): number | null {
+  const width = ihdr.readUInt32BE(0);
+  const height = ihdr.readUInt32BE(4);
+  const bitDepth = ihdr[8];
+  const channels = PNG_CHANNELS[ihdr[9]];
+  if (!channels || width === 0 || height === 0) return null;
+  if (width > PNG_MAX_SIDE || height > PNG_MAX_SIDE || width * height > PNG_MAX_PIXELS) return null;
+  const rows = (w: number, h: number) => (w === 0 || h === 0 ? 0 : h * (1 + Math.ceil((w * channels * bitDepth) / 8)));
+  if (ihdr[12] === 0) return rows(width, height);
+  return ADAM7.reduce((total, [x0, y0, dx, dy]) =>
+    total + rows(Math.ceil(Math.max(0, width - x0) / dx), Math.ceil(Math.max(0, height - y0) / dy)), 0);
+}
+
+/**
+ * Every chunk inside the file with a correct CRC, IHDR first, IEND last, and
+ * the pixels inflated to exactly the size the header declares — the inflate
+ * stops as soon as it goes past it (a small file declaring 1x1 can otherwise
+ * inflate to gigabytes).
+ */
 async function isCompletePng(bytes: Buffer): Promise<boolean> {
   let at = 8;
   const pixels: Buffer[] = [];
-  let first = true;
+  let rawSize: number | null = null;
   while (at + 12 <= bytes.length) {
     const length = bytes.readUInt32BE(at);
     const type = bytes.toString('latin1', at + 4, at + 8);
     const end = at + 12 + length;
     if (end > bytes.length) return false;
     if (zlib.crc32(bytes.subarray(at + 4, at + 8 + length)) !== bytes.readUInt32BE(at + 8 + length)) return false;
-    if (first) {
-      if (type !== 'IHDR' || length !== 13 || bytes.readUInt32BE(at + 8) === 0 || bytes.readUInt32BE(at + 12) === 0) return false;
-      first = false;
+    if (rawSize === null) {
+      if (type !== 'IHDR' || length !== 13) return false;
+      rawSize = pngRawSize(bytes.subarray(at + 8, at + 21));
+      if (rawSize === null) return false;
     }
     if (type === 'IDAT') pixels.push(bytes.subarray(at + 8, at + 8 + length));
-    if (type === 'IEND') return pixels.length > 0 && inflates(Buffer.concat(pixels));
+    if (type === 'IEND') return pixels.length > 0 && inflatesTo(Buffer.concat(pixels), rawSize);
     at = end;
   }
   return false;
 }
 
-/** Inflates to the end without keeping the output (a small file can hold a very large image). */
-function inflates(data: Buffer): Promise<boolean> {
+/** Inflates to the end without keeping the output, true when it is exactly `size` bytes. */
+function inflatesTo(data: Buffer, size: number): Promise<boolean> {
   return new Promise((resolve) => {
     const inflate = zlib.createInflate();
-    inflate.on('data', () => undefined);
-    inflate.on('end', () => resolve(true));
-    inflate.on('error', () => resolve(false));
+    let total = 0;
+    const settle = (result: boolean) => {
+      inflate.removeAllListeners();
+      inflate.on('error', () => undefined);
+      inflate.destroy();
+      resolve(result);
+    };
+    inflate.on('data', (chunk: Buffer) => {
+      total += chunk.length;
+      if (total > size) settle(false);
+    });
+    inflate.on('end', () => settle(total === size));
+    inflate.on('error', () => settle(false));
     inflate.end(data);
   });
 }
