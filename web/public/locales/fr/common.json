@@ -2137,6 +2137,8 @@
       "INVALID_INPUT": "Une valeur n'est pas valide. Vérifiez les champs de cette carte.",
       "INVALID_URL": "Cette adresse ne peut pas être utilisée : elle doit être une URL valide que le serveur a le droit de joindre.",
       "SMTP_NOT_CONFIGURED": "L'e-mail est coupé ou n'a pas de serveur : activez-le, renseignez le serveur et enregistrez avant de tester.",
+      "SMTP_STARTTLS_FAILED": "Le serveur de messagerie n'a pas accepté STARTTLS : rien n'a été envoyé (pas même le mot de passe). Choisissez TLS (port 465) si le serveur le permet, ou « Sans chiffrement (relais local de confiance) » uniquement pour un relais sur votre propre réseau.",
+      "SMTP_TLS_FAILED": "La connexion chiffrée au serveur de messagerie a échoué. Vérifiez le port (465 pour TLS) et que le certificat du serveur est valide, ou choisissez STARTTLS (port 587).",
       "GOTIFY_NOT_CONFIGURED": "Gotify est coupé ou n'a pas d'URL ou de jeton : renseignez l'URL et le jeton d'application, activez-le et enregistrez avant de tester.",
       "GOTIFY_INCOMPLETE": "Gotify ne peut pas être activé sans son URL et son jeton d'application : renseignez les deux, ou coupez le canal.",
       "DELIVERY_FAILED": "Le serveur Gotify n'a pas accepté la notification. Vérifiez l'URL et le jeton."
@@ -2188,9 +2190,10 @@
       "from": "Adresse expéditeur",
       "fromPlaceholder": "ex. Glou <glou@example.com>",
       "secure": "Sécurité de la connexion",
-      "secureHint": "STARTTLS démarre en clair puis passe en chiffré (port 587, la plupart des fournisseurs). TLS est chiffré dès le premier octet (port 465).",
-      "secureStarttls": "STARTTLS (port 587)",
+      "secureHint": "STARTTLS démarre en clair et doit passer en chiffré avant tout envoi (port 587, la plupart des fournisseurs) : si le serveur ne le propose pas, rien n'est envoyé. TLS est chiffré dès le premier octet (port 465). Sans chiffrement est réservé à un relais de messagerie sur votre propre réseau.",
+      "secureStarttls": "STARTTLS (obligatoire, port 587)",
       "secureTls": "TLS (implicite, port 465)",
+      "secureNone": "Sans chiffrement (relais local de confiance)",
       "testRecipient": "Adresse du destinataire du test",
       "testRecipientPlaceholder": "ex. vous@example.com",
       "sendTest": "Envoyer le test",
@@ -2198,6 +2201,7 @@
         "tlsOn587": "Le port 587 attend STARTTLS : avec TLS (implicite), la connexion échoue le plus souvent. Choisissez STARTTLS, ou le port 465 pour TLS.",
         "starttlsOn465": "Le port 465 attend TLS (implicite) : avec STARTTLS, la connexion échoue le plus souvent. Choisissez TLS, ou le port 587 pour STARTTLS."
       },
+      "noneWarning": "Les messages, et l'identifiant et le mot de passe SMTP s'ils sont renseignés, circulent en clair. Ne choisissez ceci que pour un relais de confiance sur votre propre réseau.",
       "test": "Tester la connexion",
       "testSuccess": "Connexion SMTP validée.",
       "testEmailSuccess": "Email de test envoyé.",
@@ -2264,6 +2268,7 @@
         "smtpPassEnc": "Mot de passe SMTP",
         "smtpFrom": "Adresse d'expédition",
         "smtpSecure": "Connexion sécurisée (TLS)",
+        "smtpSecurity": "Sécurité de la connexion",
         "gotifyEnabled": "Notifications Gotify",
         "gotifyUrl": "URL Gotify",
         "gotifyTokenEnc": "Token Gotify",
@@ -2285,6 +2290,11 @@
         "accessMode": {
           "direct": "direct",
           "proxy": "derrière un proxy inverse"
+        },
+        "smtpSecurity": {
+          "TLS": "TLS (implicite)",
+          "STARTTLS": "STARTTLS (obligatoire)",
+          "NONE": "sans chiffrement"
         }
       }
     },

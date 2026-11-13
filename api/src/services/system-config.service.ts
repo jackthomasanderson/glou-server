@@ -2,6 +2,7 @@ import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { encrypt, decrypt, maskSecret } from '../lib/crypto';
 import { SystemConfig } from '@prisma/client';
 import { instanceTimeZone } from '../lib/quiet-hours';
+import type { SmtpSecurity } from '../../../shared/admin-config';
 
 export interface SmtpConfig {
   smtpEnabled: boolean;
@@ -10,7 +11,7 @@ export interface SmtpConfig {
   smtpUser: string | null;
   smtpPass: string | null; // plaintext (decrypted)
   smtpFrom: string | null;
-  smtpSecure: boolean;
+  smtpSecurity: SmtpSecurity;
 }
 
 export interface GotifyConfig {
@@ -66,7 +67,7 @@ export type PublicSystemConfig = {
   smtpUser: string | null;
   smtpPassMasked: string | null;
   smtpFrom: string | null;
-  smtpSecure: boolean;
+  smtpSecurity: SmtpSecurity;
   gotifyEnabled: boolean;
   gotifyUrl: string | null;
   gotifyTokenMasked: string | null;
@@ -171,7 +172,7 @@ export const systemConfigService = {
       smtpUser: cfg.smtpUser,
       smtpPassMasked: maskSecret(cfg.smtpPassEnc),
       smtpFrom: cfg.smtpFrom,
-      smtpSecure: cfg.smtpSecure,
+      smtpSecurity: cfg.smtpSecurity,
       gotifyEnabled: cfg.gotifyEnabled,
       gotifyUrl: cfg.gotifyUrl,
       gotifyTokenMasked: maskSecret(cfg.gotifyTokenEnc),
@@ -199,7 +200,7 @@ export const systemConfigService = {
       smtpUser: cfg.smtpUser,
       smtpPass: cfg.smtpPassEnc ? decrypt(cfg.smtpPassEnc) : null,
       smtpFrom: cfg.smtpFrom,
-      smtpSecure: cfg.smtpSecure,
+      smtpSecurity: cfg.smtpSecurity,
     };
   },
 
@@ -220,7 +221,7 @@ export const systemConfigService = {
     if (data.smtpPort !== undefined) update.smtpPort = data.smtpPort;
     if (data.smtpUser !== undefined) update.smtpUser = data.smtpUser;
     if (data.smtpFrom !== undefined) update.smtpFrom = data.smtpFrom;
-    if (data.smtpSecure !== undefined) update.smtpSecure = data.smtpSecure;
+    if (data.smtpSecurity !== undefined) update.smtpSecurity = data.smtpSecurity;
     if (data.smtpPass !== undefined) {
       update.smtpPassEnc = data.smtpPass ? encrypt(data.smtpPass) : null;
     }

@@ -35,7 +35,7 @@ const app = createApp();
 const token = () => jwt.sign({ userId: 'u1', email: 'u1@example.com', scope: 'full', sessionId: 's1' }, JWT_SECRET, { algorithm: 'HS256' });
 
 const saved: PublicSystemConfig = {
-  smtpEnabled: true, smtpHost: 'mail.example.com', smtpPort: 587, smtpUser: null, smtpPassMasked: null, smtpFrom: null, smtpSecure: false,
+  smtpEnabled: true, smtpHost: 'mail.example.com', smtpPort: 587, smtpUser: null, smtpPassMasked: null, smtpFrom: null, smtpSecurity: 'STARTTLS',
   gotifyEnabled: false, gotifyUrl: 'https://1.2.3.4', gotifyTokenMasked: null,
   logRetentionDays: 90, sessionRetentionDays: 30, guestShareRetentionDays: 30,
   publicUrl: null, effectivePublicUrl: 'http://localhost:3000',

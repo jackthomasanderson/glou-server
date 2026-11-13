@@ -1,5 +1,6 @@
 import { client } from '@/lib/api';
 import type { BackupHealth } from '@shared/maintenance';
+import type { SmtpSecurity } from '@shared/admin-config';
 import type { NotificationCategory, NotificationChannelPolicy } from '@shared/notifications';
 
 /**
@@ -32,7 +33,7 @@ export interface SystemConfigPublic {
   smtpUser: string | null;
   smtpPassMasked: string | null;
   smtpFrom: string | null;
-  smtpSecure: boolean;
+  smtpSecurity: SmtpSecurity;
   gotifyEnabled: boolean;
   gotifyUrl: string | null;
   gotifyTokenMasked: string | null;

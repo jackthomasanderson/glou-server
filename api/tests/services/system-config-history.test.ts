@@ -35,7 +35,7 @@ beforeEach(() => {
     smtpUser: 'mailer',
     smtpPassEnc: encrypt('hunter2'),
     smtpFrom: 'glou@example.com',
-    smtpSecure: false,
+    smtpSecurity: 'STARTTLS',
     gotifyEnabled: false,
     gotifyUrl: null,
     gotifyTokenEnc: null,
@@ -74,7 +74,7 @@ describe('configuration history (#760, #628)', () => {
     await systemConfigService.updateBackupConfig({ backupEnabled: true, backupRetentionDays: 7, backupHour: 3 }, 'admin');
     await systemConfigService.updateSmtp({
       smtpEnabled: true, smtpHost: 'smtp.example.com', smtpPort: 587, smtpUser: 'mailer',
-      smtpFrom: 'glou@example.com', smtpSecure: false, smtpPass: 'hunter2',
+      smtpFrom: 'glou@example.com', smtpSecurity: 'STARTTLS', smtpPass: 'hunter2',
     }, 'admin');
     expect(prisma.configChangeLog.create).not.toHaveBeenCalled();
   });

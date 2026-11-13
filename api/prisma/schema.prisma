@@ -777,6 +777,13 @@ model TrustedDevice {
 
 // ─── FEAT-34/53: System Configuration (singleton) ────────────────────────────
 
+/// #924: how the SMTP connection is encrypted.
+enum SmtpSecurity {
+  TLS
+  STARTTLS
+  NONE
+}
+
 model SystemConfig {
   id String @id @default("singleton")
 
@@ -787,7 +794,9 @@ model SystemConfig {
   smtpUser    String?
   smtpPassEnc String? // AES-256-GCM encrypted
   smtpFrom    String?
-  smtpSecure  Boolean @default(false) // false = STARTTLS (port 587); true = implicit TLS (port 465)
+  // #924: TLS = implicit TLS (port 465); STARTTLS = required upgrade (port 587),
+  // never a fall-back to clear text; NONE = no encryption (trusted local relay).
+  smtpSecurity SmtpSecurity @default(STARTTLS)
 
   // Gotify/Webhook (FEAT-34/53)
   gotifyEnabled  Boolean @default(false)
