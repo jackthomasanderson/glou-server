@@ -37,7 +37,8 @@ vi.mock('@heroui/react', async (importActual) => ({
   ModalFooter: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
 }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (key: string, o?: Record<string, unknown>) => t(key, o), i18n: { language: 'fr' } }) }));
-vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }] }) }));
+const cellarsState = vi.hoisted(() => ({ data: [{ id: 'garage', name: 'Garage' }] as Array<{ id: string; name: string }> | undefined }));
+vi.mock('@/hooks/useCellars', () => ({ useCellars: () => ({ data: cellarsState.data }) }));
 const deleteItem = vi.fn();
 const deleteWine = vi.fn();
 const emptyTrash = vi.fn();
@@ -105,6 +106,23 @@ describe('InventoryTrash with wines', () => {
     ];
     render(<InventoryTrash t={t} />);
     expect(screen.getByRole('listitem').textContent?.replace(/\s/g, ' ')).toMatch(/2 bouteilles · Garage · 20 € \/ bouteille · /);
+  });
+
+  // Review of #1014: while the cellars load, a line in a cellar must not flash "Sans cave".
+  it('says nothing of the cellar until the cellars are known', () => {
+    cellarsState.data = undefined;
+    try {
+      data.wines = [];
+      data.items = [
+        { id: 'g', productId: 'w7', deletedAt: when, category: 'wine', name: 'Margaux', producer: 'Château', quantity: 2, isOpened: false, cellarId: 'garage', purchasePrice: 20 },
+      ];
+      render(<InventoryTrash t={t} />);
+      const line = screen.getByRole('listitem');
+      expect(line).toHaveTextContent('2 bouteilles · ');
+      expect(line).not.toHaveTextContent('Sans cave');
+    } finally {
+      cellarsState.data = [{ id: 'garage', name: 'Garage' }];
+    }
   });
 });
 

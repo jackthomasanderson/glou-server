@@ -63,7 +63,8 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
   const { data: cellars } = useCellars();
   const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
   // #844: which line it was, as the drawer says it — "Garage · 20 € / bouteille".
-  const lineLabel = (item: InventoryItem) => bottleLabel(item as unknown as ProductItem, {
+  // Not before the cellars are known: a line in a cellar would flash "Sans cave".
+  const lineLabel = (item: InventoryItem) => cellars && bottleLabel(item as unknown as ProductItem, {
     kind: unitKind(item.category),
     t,
     cellarName,
@@ -266,7 +267,7 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
             {item.deletedAt && (
               <p className="text-xs text-foreground-400">
                 {/* #844: every line says how many and which one it was, a single bottle included. */}
-                {`${[t('familyList.trash.lineCount', { context: lineNoun(item), count: lineCopies(item) }), lineLabel(item)].join(' · ')} · `}
+                {`${[t('familyList.trash.lineCount', { context: lineNoun(item), count: lineCopies(item) }), lineLabel(item)].filter(Boolean).join(' · ')} · `}
                 {t('inventory.trashDaysLeft', { count: daysLeft(item.deletedAt) })}
               </p>
             )}
