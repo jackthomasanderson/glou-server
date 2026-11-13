@@ -64,7 +64,7 @@ docker compose up -d
 Docker pulls the pre-built images and starts the stack. No compilation required.
 
 > [!IMPORTANT]
-> The nightly backups in `./backups` hold the **database only**. Photos (bottle pictures, avatars) stay in the `api_uploads` Docker volume and are **not** in `./backups`. Archive them next to `docker-compose.yml` with `docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz`; to check, schedule and restore it, see [Back up the photos](./docs/wiki/EN/30-Disaster-Recovery.md#back-up-the-photos).
+> The nightly backups in `./backups` hold the **database only**. Photos (bottle pictures, avatars) stay in the `api_uploads` Docker volume and are **not** in `./backups`. Archive them next to `docker-compose.yml` with `docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz.tmp && mv glou-photos.tar.gz.tmp glou-photos.tar.gz`; to check, schedule and restore it, see [Back up the photos](./docs/wiki/EN/30-Disaster-Recovery.md#back-up-the-photos).
 
 > [!NOTE]
 > The AI label scan is optional and off by default (~9 GB of disk, ~3 GB of RAM). Enable it with `docker compose --profile scan up -d`.

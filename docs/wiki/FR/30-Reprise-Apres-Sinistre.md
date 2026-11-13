@@ -59,9 +59,9 @@ Si le disque de la machine meurt, les fichiers de sauvegarde meurent avec, sauf 
 ## Sauvegarder les photos
 Les photos (photos des bouteilles, avatars, photos de scan d'étiquette) se trouvent dans le volume Docker `api_uploads`, monté sur `/app/uploads` dans le conteneur de l'API. Elles ne sont **pas** dans la sauvegarde intégrée et **pas** dans `./backups`. Depuis le dossier de votre `docker-compose.yml`, la pile démarrée :
 ```bash
-docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz
+docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz.tmp && mv glou-photos.tar.gz.tmp glou-photos.tar.gz
 ```
-Cela écrit `glou-photos.tar.gz` à côté de `docker-compose.yml`, là où un outil de sauvegarde pointé sur le dossier du projet le récupère. Gardez `-T` : sans lui, l'archive est abîmée. Vérifiez-la :
+Cela écrit `glou-photos.tar.gz` à côté de `docker-compose.yml`, là où un outil de sauvegarde pointé sur le dossier du projet le récupère. Gardez `-T` : sans lui, l'archive est abîmée. L'archive est d'abord écrite dans un fichier `.tmp` et ne remplace la précédente que si la commande réussit (pile arrêtée, disque plein…). Vérifiez-la :
 ```bash
 gzip -t glou-photos.tar.gz && tar tzf glou-photos.tar.gz | head
 ```

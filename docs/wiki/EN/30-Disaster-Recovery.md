@@ -59,9 +59,9 @@ If the host disk dies, the backup files die with it unless you copied them elsew
 ## Back up the photos
 The photos (bottle pictures, avatars, label scan photos) live in the `api_uploads` Docker volume, mounted on `/app/uploads` in the API container. They are **not** in the built-in backup and **not** in `./backups`. From the folder of your `docker-compose.yml`, with the stack running:
 ```bash
-docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz
+docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz.tmp && mv glou-photos.tar.gz.tmp glou-photos.tar.gz
 ```
-This writes `glou-photos.tar.gz` next to `docker-compose.yml`, where a backup tool pointed at the project folder collects it. Keep `-T`: without it, the archive is damaged. Check it:
+This writes `glou-photos.tar.gz` next to `docker-compose.yml`, where a backup tool pointed at the project folder collects it. Keep `-T`: without it, the archive is damaged. The archive is written to a `.tmp` file first and only replaces the previous one when the command succeeds (stack stopped, disk full…). Check it:
 ```bash
 gzip -t glou-photos.tar.gz && tar tzf glou-photos.tar.gz | head
 ```

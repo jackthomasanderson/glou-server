@@ -64,7 +64,7 @@ docker compose up -d
 Docker télécharge les images pré-construites et démarre la stack. Aucune compilation requise.
 
 > [!IMPORTANT]
-> Les sauvegardes nocturnes de `./backups` ne contiennent **que la base**. Les photos (bouteilles, avatars) restent dans le volume Docker `api_uploads` et ne sont **pas** dans `./backups`. Archivez-les à côté de `docker-compose.yml` avec `docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz` ; pour vérifier, planifier et restaurer cette archive, voyez [Sauvegarder les photos](./docs/wiki/FR/30-Reprise-Apres-Sinistre.md#sauvegarder-les-photos).
+> Les sauvegardes nocturnes de `./backups` ne contiennent **que la base**. Les photos (bouteilles, avatars) restent dans le volume Docker `api_uploads` et ne sont **pas** dans `./backups`. Archivez-les à côté de `docker-compose.yml` avec `docker compose exec -T api tar czf - -C /app/uploads . > glou-photos.tar.gz.tmp && mv glou-photos.tar.gz.tmp glou-photos.tar.gz` ; pour vérifier, planifier et restaurer cette archive, voyez [Sauvegarder les photos](./docs/wiki/FR/30-Reprise-Apres-Sinistre.md#sauvegarder-les-photos).
 
 > [!NOTE]
 > Le scan d'étiquette par IA est optionnel et désactivé par défaut (~9 Go de disque, ~3 Go de RAM). Activez-le avec `docker compose --profile scan up -d`.
