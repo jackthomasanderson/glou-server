@@ -17,6 +17,8 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - Les codes de double authentification erronés saisis pour désactiver la double authentification, générer des codes de secours, faire confiance à un appareil ou confirmer une action d'administration comptent désormais dans le même blocage après 5 essais qu'à la connexion.
 
 ### Améliorations
+- Les noms de catégorie sont les mêmes sur toutes les pages : la liste de souhaits et la répartition des catégories des Analyses reprennent les mots de l'app, et la catégorie cigare s'appelle simplement « Cigare ».
+- Profil : une phrase dit quels réglages s'enregistrent d'eux-mêmes ; les boutons des champs texte disent ce qu'ils enregistrent, restent grisés tant que rien n'a changé, et quitter la page avec une modification non enregistrée demande d'abord. Chaque enregistrement se confirme par le même message.
 - Profil → Sessions actives : la localisation est indiquée comme approximative, chaque session montre quand elle s'est connectée, et un seul bouton déconnecte toutes les autres sessions.
 - Liste de souhaits : un prix observé inférieur ou égal au plafond d'un souhait est désormais signalé dans la liste, et n'envoie plus de message sur le prix que vous venez de saisir. La catégorie d'alerte « Opportunités tarifaires » disparaît des réglages de notification.
 - L'ancien libellé de collection en texte libre d'un vin, qu'aucun écran n'affichait plus, devient de vraies collections : de nouvelles collections portant ces libellés peuvent apparaître. La colonne Collection de l'export et de l'import CSV liste désormais les collections du vin.
@@ -36,6 +38,8 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - L'échec d'un changement d'avatar, ou des collections d'un vin, est désormais signalé même après avoir quitté la page ; copier le mot de passe temporaire d'un membre fonctionne en HTTP simple.
 - Les lecteurs d'écran atteignent désormais une info-bulle ouverte dans une fenêtre ou un tiroir.
 - Taper juste après avoir fermé une fenêtre ou un tiroir ne perd plus les premières touches.
+- Les nombres décimaux prennent la virgule en français : stock liquide, notes moyennes, humidité et températures de l'humidor, températures de service et tailles des sauvegardes.
+- Après avoir confirmé quitter une page aux modifications non enregistrées, Précédent et Suivant ne s'arrêtent plus sur une étape qui ne fait rien ; la déconnexion depuis l'écran verrouillé demande d'abord, et Plus > Administration quand on y est déjà ne demande rien.
 
 ## v2026.11.4
 
