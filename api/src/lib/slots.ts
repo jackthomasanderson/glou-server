@@ -118,9 +118,23 @@ export async function trashSlots(client: PrismaClientOrTx, itemIds: string[], de
 }
 
 /**
+ * #852: a cellar's grid, its row locked FOR SHARE until the transaction ends:
+ * a grid made smaller meanwhile (CellarService.updateCellar, FOR UPDATE)
+ * waits for the copy placed here and sees it, or is seen by it.
+ */
+export async function lockedGrid(client: PrismaClientOrTx, cellarId: string): Promise<{ columns: number | null; rows: number | null } | null> {
+  await client.$queryRaw`SELECT 1 FROM "cellars" WHERE "id" = ${cellarId} FOR SHARE`;
+  return client.cellar.findUnique({ where: { id: cellarId }, select: { columns: true, rows: true } });
+}
+
+const inGrid = (grid: { columns: number | null; rows: number | null } | null, at: SlotPosition): boolean =>
+  grid != null && grid.columns != null && grid.rows != null && at.column <= grid.columns && at.row <= grid.rows;
+
+/**
  * Restore (#174): a unit back from the trash takes its cells back, except a
- * cell another unit has taken since — that slot is deleted and the copy
- * comes back unplaced. Returns the cells lost that way.
+ * cell another unit has taken since, or (#852) one its cellar's grid no
+ * longer has — that slot is deleted and the copy comes back unplaced.
+ * Returns the cells lost that way.
  */
 export async function reviveSlots(client: PrismaClientOrTx, itemIds: string[]): Promise<SlotPosition[]> {
   if (itemIds.length === 0) return [];
@@ -132,7 +146,13 @@ export async function reviveSlots(client: PrismaClientOrTx, itemIds: string[]): 
   const lost: Array<{ id: string } & SlotPosition> = [];
   const revived: string[] = [];
   const taken = new Set<string>();
+  const grids = new Map<string, Awaited<ReturnType<typeof lockedGrid>>>();
   for (const slot of trashed) {
+    if (!grids.has(slot.cellarId)) grids.set(slot.cellarId, await lockedGrid(client, slot.cellarId));
+    if (!inGrid(grids.get(slot.cellarId)!, slot)) {
+      lost.push(slot);
+      continue;
+    }
     const cell = `${slot.cellarId}:${slot.column}:${slot.row}`;
     const occupied = taken.has(cell) || (await client.itemSlot.count({
       where: { cellarId: slot.cellarId, column: slot.column, row: slot.row, deletedAt: null },
@@ -222,8 +242,7 @@ export async function placeBack(
   at: SlotPosition,
 ): Promise<SlotPosition | null> {
   if (!unit.cellarId) return null;
-  const cellar = await client.cellar.findUnique({ where: { id: unit.cellarId }, select: { columns: true, rows: true } });
-  if (!cellar || cellar.columns == null || cellar.rows == null || at.column > cellar.columns || at.row > cellar.rows) return null;
+  if (!inGrid(await lockedGrid(client, unit.cellarId), at)) return null;
   const placed = await client.itemSlot.count({ where: { itemId: unit.id, deletedAt: null } });
   if (placed >= slotCapacity(unit, kind)) return null;
   const inserted = await client.$executeRaw`INSERT INTO "item_slots" ("id", "itemId", "cellarId", "column", "row")

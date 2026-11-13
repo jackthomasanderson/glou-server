@@ -90,7 +90,12 @@ export function useScanItem(sessionId: string) {
   return useMutation<ScanEntry, Error, ScanInput>({
     meta: { handlesError: true },
     mutationFn: ({ itemId, foundQuantity }: ScanInput) => inventoryCountClient.scan(sessionId, itemId, foundQuantity),
-    onError: () => notifyError('toast.count.scanError'),
+    // #873: a cigar is not told "the bottle".
+    onError: (_error, { itemId }) => {
+      const line = queryClient.getQueryData<SessionReport>(reportKey(sessionId))?.expected.find((candidate) => candidate.id === itemId);
+      if (line?.category === 'cigar') notifyError('toast.count.scanError', { context: 'cigar' });
+      else notifyError('toast.count.scanError');
+    },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: reportKey(sessionId) });
     },

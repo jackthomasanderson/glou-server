@@ -348,7 +348,11 @@ export function useBulkUpdateInventoryItem() {
   return useMutation<{ updatedCount: number }, Error, { ids: string[]; patch: Partial<InventoryItem> }>({
     meta: { handlesError: true },
     mutationFn: ({ ids, patch }) => inventoryClient.bulkUpdate(ids, patch),
-    onError: () => notifyError('toast.bulkUpdateError'),
+    // #873: a selection of cigars only is not told "the selected wines".
+    onError: (_error, { ids }) => {
+      const allCigars = ids.length > 0 && ids.every((id) => cachedCategory(queryClient, id) === 'cigar');
+      notifyError('toast.bulkUpdateError', ...unitCtx(allCigars ? 'cigar' : undefined));
+    },
     onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }

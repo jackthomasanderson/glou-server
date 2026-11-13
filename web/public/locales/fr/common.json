@@ -450,6 +450,9 @@
       "deleteSuccess": "Cave supprimée",
       "createError": "Impossible de créer la cave",
       "updateError": "Impossible de mettre à jour la cave",
+      "slotsOutsideGrid_one": "La nouvelle grille cacherait une case occupée : {{cells}}. Videz-la ou déplacez son contenu d'abord.",
+      "slotsOutsideGrid_other": "La nouvelle grille cacherait {{count}} cases occupées : {{cells}}. Videz-les ou déplacez leur contenu d'abord.",
+      "slotsOutsideGridMore": "La nouvelle grille cacherait {{total}} cases occupées : {{cells}} et {{more}} autres. Videz-les ou déplacez leur contenu d'abord.",
       "deleteError": "Impossible de supprimer la cave"
     },
     "tasting": {
@@ -478,6 +481,7 @@
       "deleteSuccess": "Enveloppe budgétaire supprimée"
     },
     "bulkUpdateError": "Impossible de modifier les vins sélectionnés",
+    "bulkUpdateError_cigar": "Impossible de modifier les cigares sélectionnés",
     "bulkPreset": {
       "deleteError": "Impossible de supprimer le modèle d'actions"
     },
@@ -487,6 +491,7 @@
     },
     "count": {
       "scanError": "Impossible de confirmer la bouteille",
+      "scanError_cigar": "Impossible de confirmer le cigare",
       "recordError": "Impossible d'enregistrer la trouvaille",
       "skipped_one": "Session clôturée : {{count}} correction n'a pas pu être appliquée (la bouteille a changé entre-temps).",
       "skipped_other": "Session clôturée : {{count}} corrections n'ont pas pu être appliquées (les bouteilles ont changé entre-temps)."

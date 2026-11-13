@@ -101,11 +101,11 @@ test.describe('FEAT-95 — cigars in closed boxes and single cigars', () => {
     await expect(card.getByTestId('family-card-badge')).toHaveText('79');
 
     // c3: a 4th box, then one cigar smoked: the first cigar of a closed box opens it (24 left) …
-    // Bought the same day as the first boxes, given explicitly: the form sent
-    // the browser's day, the API defaults to the server's (TZ=Europe/Paris),
-    // which differ between 23:00 and 00:00 UTC.
+    // Sent without a purchase day: the API's default, today where the
+    // instance is (TZ=Europe/Paris), is the form's too (#834) — the same line
+    // as the first boxes, even between 23:00 and 00:00 UTC.
     await okBody(await api.post(`/api/products/${boxes.productId}/items`, {
-      data: { quantity: 1, cigarsPerBox: 25, purchasePrice: 200, purchasedAt: boxes.purchasedAt },
+      data: { quantity: 1, cigarsPerBox: 25, purchasePrice: 200 },
     }));
     const smoked = await write(api, boxes.id, { smokeOne: true });
     expect(smoked.data).toMatchObject({ isOpened: true, cigarsLeft: 24, cigarsPerBox: 25, quantity: 1, parentItemId: boxes.id });

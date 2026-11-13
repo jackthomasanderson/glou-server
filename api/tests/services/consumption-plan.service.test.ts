@@ -43,6 +43,9 @@ import {
 
 const NOW = new Date('2030-06-15T12:00:00.000Z');
 
+/** A drunk bottle, as the goal reads it. */
+const drunk = () => ({ isOpened: true, fillLevel: 0, cigarsPerBox: null, cigarsLeft: null });
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
@@ -461,32 +464,39 @@ describe('consumption goals', () => {
     const progress = await getGoalProgress('u1');
 
     expect(progress).toEqual({ goal: null, consumedCount: 0, percent: 0, remaining: 0 });
-    expect(prisma.inventoryItem.count).not.toHaveBeenCalled();
+    expect(prisma.inventoryItem.findMany).not.toHaveBeenCalled();
   });
 
   it('getGoalProgress computes percent/remaining and clamps percent at 100 when the goal is exceeded', async () => {
     const goal = { id: 'g1', periodStart: new Date('2030-06-01'), periodEnd: new Date('2030-06-30'), targetType: 'count', targetValue: 5 };
     vi.mocked(prisma.consumptionGoal.findFirst).mockResolvedValue(goal as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(8);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue(Array.from({ length: 8 }, () => drunk()) as never);
 
     const progress = await getGoalProgress('u1');
 
     expect(progress).toEqual({ goal, consumedCount: 8, percent: 100, remaining: 0 });
-    expect(prisma.inventoryItem.count).toHaveBeenCalledWith({
+    expect(prisma.inventoryItem.findMany).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
         isOpened: true,
-        fillLevel: 0,
-        finishedBy: 'u1',
-        finishedAt: { gte: goal.periodStart, lte: goal.periodEnd },
+        OR: [
+          { fillLevel: 0, finishedBy: 'u1', finishedAt: { gte: goal.periodStart, lte: goal.periodEnd } },
+          {
+            cigarsPerBox: { gt: 0 },
+            NOT: { fillLevel: { equals: 0, not: null } },
+            updatedBy: 'u1',
+            updatedAt: { gte: goal.periodStart, lte: goal.periodEnd },
+          },
+        ],
       },
+      select: { isOpened: true, fillLevel: true, cigarsPerBox: true, cigarsLeft: true },
     });
   });
 
   it('getGoalProgress never divides by zero when targetValue is 0 (edge case)', async () => {
     const goal = { id: 'g1', periodStart: new Date('2030-06-01'), periodEnd: new Date('2030-06-30'), targetType: 'count', targetValue: 0 };
     vi.mocked(prisma.consumptionGoal.findFirst).mockResolvedValue(goal as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(3);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([drunk(), drunk(), drunk()] as never);
 
     const progress = await getGoalProgress('u1');
 
@@ -521,14 +531,11 @@ describe('consumption suggestions (FEAT-87, #471)', () => {
       periodStart: new Date('2026-01-01'),
       periodEnd: new Date('2026-12-31'),
     } as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(2 as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([drunk(), drunk()] as never);
 
-    await getGoalProgress('u1');
+    const progress = await getGoalProgress('u1');
 
-    const call = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as {
-      where: Record<string, unknown>;
-    };
-    expect(call.where).toMatchObject({ isOpened: true, fillLevel: 0 });
+    expect(progress.consumedCount).toBe(2);
   });
 
   // #589: whoever last edited a finished bottle (a move, a tag, a count) is
@@ -537,13 +544,31 @@ describe('consumption suggestions (FEAT-87, #471)', () => {
     vi.mocked(prisma.consumptionGoal.findFirst).mockResolvedValue({
       id: 'g1', userId: 'u1', targetValue: 4, periodStart: new Date('2026-03-01'), periodEnd: new Date('2026-03-31'),
     } as never);
-    vi.mocked(prisma.inventoryItem.count).mockResolvedValue(1 as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([drunk()] as never);
 
     await getGoalProgress('u1');
 
-    const { where } = vi.mocked(prisma.inventoryItem.count).mock.calls[0][0] as unknown as { where: Record<string, unknown> };
-    expect(where).toMatchObject({ finishedBy: 'u1', finishedAt: { gte: new Date('2026-03-01'), lte: new Date('2026-03-31') } });
-    expect(where).not.toHaveProperty('updatedBy');
-    expect(where).not.toHaveProperty('updatedAt');
+    const { where } = vi.mocked(prisma.inventoryItem.findMany).mock.calls[0][0] as unknown as { where: { OR: Record<string, unknown>[] } };
+    const finished = where.OR[0];
+    expect(finished).toMatchObject({ fillLevel: 0, finishedBy: 'u1', finishedAt: { gte: new Date('2026-03-01'), lte: new Date('2026-03-31') } });
+    expect(finished).not.toHaveProperty('updatedBy');
+    expect(finished).not.toHaveProperty('updatedAt');
+  });
+
+  // #888: smoking a cigar from a box only lowers its `cigarsLeft`; the goal
+  // counts each cigar smoked, like Analytics (#838, shared/units.ts).
+  it('counts each cigar smoked from a box, and a drunk bottle as one', async () => {
+    vi.mocked(prisma.consumptionGoal.findFirst).mockResolvedValue({
+      id: 'g1', userId: 'u1', targetValue: 10, periodStart: new Date('2026-03-01'), periodEnd: new Date('2026-03-31'),
+    } as never);
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      { isOpened: true, fillLevel: null, cigarsPerBox: 25, cigarsLeft: 22 },
+      drunk(),
+    ] as never);
+
+    const progress = await getGoalProgress('u1');
+
+    expect(progress.consumedCount).toBe(4);
+    expect(progress.remaining).toBe(6);
   });
 });

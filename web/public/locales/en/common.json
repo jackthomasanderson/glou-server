@@ -450,6 +450,9 @@
       "deleteSuccess": "Cellar deleted",
       "createError": "Could not create the cellar",
       "updateError": "Could not update the cellar",
+      "slotsOutsideGrid_one": "The new grid would hide a slot in use: {{cells}}. Empty it or move what it holds first.",
+      "slotsOutsideGrid_other": "The new grid would hide {{count}} slots in use: {{cells}}. Empty them or move what they hold first.",
+      "slotsOutsideGridMore": "The new grid would hide {{total}} slots in use: {{cells}} and {{more}} more. Empty them or move what they hold first.",
       "deleteError": "Could not delete the cellar"
     },
     "tasting": {
@@ -478,6 +481,7 @@
       "deleteSuccess": "Budget envelope deleted"
     },
     "bulkUpdateError": "Could not update the selected wines",
+    "bulkUpdateError_cigar": "Could not update the selected cigars",
     "bulkPreset": {
       "deleteError": "Could not delete the action preset"
     },
@@ -487,6 +491,7 @@
     },
     "count": {
       "scanError": "Couldn't confirm the bottle",
+      "scanError_cigar": "Couldn't confirm the cigar",
       "recordError": "Couldn't record the find",
       "skipped_one": "Session closed: {{count}} correction couldn't be applied (the bottle changed meanwhile).",
       "skipped_other": "Session closed: {{count}} corrections couldn't be applied (the bottles changed meanwhile)."

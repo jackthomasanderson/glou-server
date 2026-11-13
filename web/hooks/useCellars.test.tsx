@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 vi.mock('@/lib/toast', () => ({ notifyError: vi.fn(), notifySuccess: vi.fn() }));
 
 import { notifyError, notifySuccess } from '@/lib/toast';
-import { useDeleteCellar } from './useCellars';
+import { useDeleteCellar, useUpdateCellar } from './useCellars';
 
 // #580: deleting a cellar worked on the server (204 No Content), yet the
 // screen said it had failed and kept the confirmation dialog open.
@@ -41,5 +41,54 @@ describe('useDeleteCellar', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(notifyError).toHaveBeenCalledWith('toast.cellar.deleteError');
     expect(notifySuccess).not.toHaveBeenCalled();
+  });
+});
+
+// #852: a smaller grid would hide the bottles placed in the cells it removes;
+// the API refuses it with those cells, and the message names them.
+describe('useUpdateCellar', () => {
+  it('names the cells to empty first when the grid would leave bottles outside', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: 'SLOTS_OUTSIDE_GRID',
+      details: { slots: [{ column: 2, row: 5, name: 'Chablis' }, { column: 7, row: 1, name: 'Margaux' }] },
+    }), { status: 409 })));
+    const { result } = renderHook(() => useUpdateCellar(), { wrapper });
+
+    act(() => result.current.mutate({ id: 'cellar-1', data: { rows: 4 } }));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(notifyError).toHaveBeenCalledWith('toast.cellar.slotsOutsideGrid', {
+      count: 2,
+      cells: 'C2·R5 (Chablis), C7·R1 (Margaux)',
+    });
+  });
+
+  it('lists five cells at most, then says how many more', async () => {
+    const slots = Array.from({ length: 8 }, (_, i) => ({ column: i + 1, row: 5, name: `W${i + 1}` }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: 'SLOTS_OUTSIDE_GRID', details: { slots },
+    }), { status: 409 })));
+    const { result } = renderHook(() => useUpdateCellar(), { wrapper });
+
+    act(() => result.current.mutate({ id: 'cellar-1', data: { rows: 4 } }));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(notifyError).toHaveBeenCalledWith('toast.cellar.slotsOutsideGridMore', {
+      total: 8,
+      more: 3,
+      cells: 'C1·R5 (W1), C2·R5 (W2), C3·R5 (W3), C4·R5 (W4), C5·R5 (W5)',
+    });
+  });
+
+  it('keeps the generic message for any other refusal', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'VALIDATION_ERROR' }), { status: 400 }),
+    ));
+    const { result } = renderHook(() => useUpdateCellar(), { wrapper });
+
+    act(() => result.current.mutate({ id: 'cellar-1', data: { rows: 4 } }));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(notifyError).toHaveBeenCalledWith('toast.cellar.updateError');
   });
 });

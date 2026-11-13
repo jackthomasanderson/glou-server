@@ -120,6 +120,21 @@ export function todayLocalIso(now: Date = new Date()): string {
 }
 
 /**
+ * #834: today's date as `YYYY-MM-DD` in `timeZone` — the instance's, where
+ * the API dates a purchase it is sent without a day. The browser's day
+ * ({@link todayLocalIso}) when the zone is unknown.
+ */
+export function todayInTimeZone(timeZone: string | undefined, now: Date = new Date()): string {
+  if (!timeZone) return todayLocalIso(now);
+  try {
+    // en-CA writes a date as YYYY-MM-DD.
+    return new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  } catch {
+    return todayLocalIso(now); // RangeError: a zone this browser does not know
+  }
+}
+
+/**
  * The last millisecond of a `YYYY-MM-DD` day in the user's local time zone (#598).
  * `new Date('2026-10-25')` is midnight UTC, the very start of the day (2 a.m. in France).
  */

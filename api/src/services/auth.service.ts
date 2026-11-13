@@ -25,6 +25,7 @@ import { deletePersonalData } from './account-deletion.service';
 import { countOtherAdmins, countOtherAdminsLocked } from '../lib/last-admin';
 import { RELEASE_NOTES, seenStateNow } from '../lib/release-notes';
 import { APP_VERSION } from '../lib/app-version';
+import { instanceTimeZone } from '../lib/quiet-hours';
 
 const JWT_EXPIRES_IN = '30d';
 // Session / trusted-device lifetime, kept in sync with JWT_EXPIRES_IN (30d) for consistency
@@ -267,6 +268,7 @@ export class AuthService {
       onboardingCompletedAt: user.onboardingCompletedAt,
       mustChangePassword: user.mustChangePassword,
       isTwoFactorEnabled: user.isTwoFactorEnabled,
+      instanceTimeZone: instanceTimeZone(),
     };
   }
 

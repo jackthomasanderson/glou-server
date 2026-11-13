@@ -34,6 +34,7 @@ describe('placeBack (FEAT-93 lot S2, placeAt)', () => {
   function client(placed: number) {
     return {
       cellar: { findUnique: vi.fn(async () => ({ columns: 4, rows: 4 })) },
+      $queryRaw: vi.fn(async () => []),
       itemSlot: { count: vi.fn(async () => placed) },
       $executeRaw: vi.fn(async () => 1),
     };

@@ -16,7 +16,8 @@ const humidityRangeValid = (data: { targetHumidityMin?: number | null; targetHum
 };
 
 const cellarFields = z.object({
-  name: z.string().min(1, 'Name is required').max(100),
+  // #869: trimmed, so a name made only of spaces is refused as empty.
+  name: z.string().trim().min(1, 'Name is required').max(100),
   description: z.string().max(500).optional().nullable(),
   type: z.nativeEnum(CellarType).default('VINTAGE'),
   // Grid plan configuration (FEAT-68). Capped at 30x30 (900 cells, ISSUE_388):

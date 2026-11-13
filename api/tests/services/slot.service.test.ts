@@ -3,7 +3,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
     inventoryItem: { findFirst: vi.fn() },
-    cellar: { findUnique: vi.fn() },
     itemSlot: {},
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
@@ -45,8 +44,11 @@ beforeEach(() => {
   slots = fakeSlots();
   Object.assign(prisma, { itemSlot: slots.delegate });
   vi.mocked(prisma.$transaction).mockImplementation(((callback: (tx: unknown) => unknown) => callback(prisma)) as never);
-  vi.mocked(prisma.cellar.findUnique).mockImplementation(((args: { where: { id: string } }) =>
-    Promise.resolve(args.where.id === 'shelf' ? { columns: null, rows: null } : { columns: 6, rows: 4 })) as never);
+  // #852: the grid is read with its row locked (FOR SHARE); the family lock answers nothing.
+  vi.mocked(prisma.$queryRaw).mockImplementation(((strings: TemplateStringsArray, ...values: unknown[]) => {
+    if (!strings.join('?').includes('"cellars"')) return Promise.resolve([]);
+    return Promise.resolve([values[0] === 'shelf' ? { columns: null, rows: null } : { columns: 6, rows: 4 }]);
+  }) as never);
   vi.mocked(prisma.inventoryItem.findFirst).mockImplementation(((args: { where: { id: string } }) => {
     const row = units.find((candidate) => candidate.id === args.where.id && candidate.deletedAt == null);
     if (!row) return Promise.resolve(null);
@@ -121,6 +123,16 @@ describe('slotService.place (POST /api/inventory/:id/slots)', () => {
     expect(await rejection(slotService.place('g', { column: 1, row: 5 }))).toMatchObject({ status: 400, code: 'OUTSIDE_GRID' });
     expect(await rejection(slotService.place('gone', { column: 1, row: 1 }))).toMatchObject({ status: 404, code: 'ITEM_NOT_FOUND' });
     expect(slots.delegate.create).not.toHaveBeenCalled();
+  });
+
+  // #852: a grid made smaller meanwhile (cellar row locked FOR UPDATE) waits
+  // for this placement, or this placement for it — never a copy outside.
+  it('reads the grid with the cellar row locked against a resize, in its transaction', async () => {
+    await slotService.place('g', { column: 1, row: 1 });
+    const gridRead = vi.mocked(prisma.$queryRaw).mock.calls
+      .map(([strings]) => (strings as unknown as string[]).join('?'))
+      .find((sql) => sql.includes('"cellars"'));
+    expect(gridRead).toMatch(/FOR SHARE/);
   });
 });
 

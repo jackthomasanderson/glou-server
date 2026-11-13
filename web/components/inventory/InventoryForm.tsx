@@ -26,6 +26,7 @@ import { ItemImageSection } from './ItemImageSection';
 import { MaturitySuggestionField } from './MaturitySuggestionField';
 import { CollectionSelector } from './CollectionSelector';
 import { useExpertMode } from '@/hooks/useExpertMode';
+import { useInstanceToday } from '@/hooks/useInstanceToday';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { useValidationNotice } from '@/hooks/useValidationNotice';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
@@ -117,10 +118,10 @@ const EMPTY_FORM: Partial<InventoryItem> = {
 /**
  * #471 (FEAT-92 c1, FEAT-95, ux-ui.md §10.4.1): what a new entry starts with
  * — one bottle, or one closed box (its size to fill in), bought today
- * (`YYYY-MM-DD`, D6).
+ * (`YYYY-MM-DD`, D6) — #834: where the instance is ({@link useInstanceToday}).
  */
-const creationDefaults = (): Partial<InventoryItem> => ({
-  purchasedAt: todayLocalIso(),
+const creationDefaults = (today: string): Partial<InventoryItem> => ({
+  purchasedAt: today,
   quantity: 1,
 });
 
@@ -139,18 +140,19 @@ export function InventoryForm({
   const { data: cellars } = useCellars();
   const { data: allCollections } = useCollections();
   const isExpert = useExpertMode();
+  const today = useInstanceToday();
   const emptyForm: Partial<InventoryItem> = {
     ...EMPTY_FORM,
     ...(defaultCategory ? { category: defaultCategory } : {}),
     ...(defaultCellarId ? { cellarId: defaultCellarId } : {}),
-    ...creationDefaults(),
+    ...creationDefaults(today),
   };
   // A new entry prefilled by a scan gets the same defaults, under its values.
   const startValues = (): Partial<InventoryItem> =>
     !initialValues ? emptyForm
       : initialValues.id || descriptionOf ? initialValues
         : {
-          ...creationDefaults(),
+          ...creationDefaults(today),
           // A value the scan left undefined (a wine's number) keeps the default.
           ...Object.fromEntries(Object.entries(initialValues).filter(([, value]) => value !== undefined)),
         };
@@ -489,7 +491,7 @@ export function InventoryForm({
                             const wasCigar = prev.category === 'cigar';
                             // A number of bottles is not a number of cigars (FEAT-95): switching resets it.
                             if (!showsBottle || wasCigar === (cat === 'cigar')) return { ...prev, category: cat };
-                            return { ...prev, category: cat, quantity: creationDefaults().quantity };
+                            return { ...prev, category: cat, quantity: creationDefaults(today).quantity };
                           })}
                         >
                           {t(`categories.${cat}`)}

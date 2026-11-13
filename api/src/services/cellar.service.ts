@@ -1,10 +1,12 @@
-import { prisma } from '../lib/prisma';
+import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { CreateCellarInput, UpdateCellarInput } from '../schemas/cellar.schema';
 import type { Cellar, Prisma } from '@prisma/client';
 import { IN_STOCK_ITEM_FILTER, itemUnits, slotCapacity, unitKind } from '../lib/finished-item';
 import { UNIT_SLOTS } from '../lib/product-fields';
 import { UNIT_COUNT_SELECT, sumTotals, type UnitTotalsRow } from '../lib/stock-units';
 import type { CellarStats, GridLine } from '../../../shared/cellar';
+import { SLOTS_OUTSIDE_GRID, type SlotsOutsideGridDetails } from '../../../shared/product';
+import { AppError } from '../lib/errors';
 
 /** GET /api/cellars/:id/grid (FEAT-68, FEAT-93). */
 export interface CellarGrid {
@@ -54,6 +56,37 @@ function cellarStats(rows: CellarStockRow[], today: Date): CellarStats {
   };
 }
 
+/**
+ * #852: a grid made smaller (or removed) must not hide the copies placed in
+ * the cells it takes away — they would stay placed, on no cell of the plan.
+ * The edit is refused with those cells, to empty or move first.
+ */
+async function assertNoSlotOutside(
+  tx: PrismaClientOrTx,
+  cellar: { id: string; columns: number | null; rows: number | null },
+  data: UpdateCellarInput,
+): Promise<void> {
+  const columns = data.columns !== undefined ? data.columns : cellar.columns;
+  const rows = data.rows !== undefined ? data.rows : cellar.rows;
+  if (cellar.columns == null || cellar.rows == null) return; // no grid, no slot
+  const gridRemoved = columns == null || rows == null;
+  if (!gridRemoved && columns >= cellar.columns && rows >= cellar.rows) return;
+  const outside = await tx.itemSlot.findMany({
+    where: {
+      cellarId: cellar.id,
+      deletedAt: null,
+      ...(gridRemoved ? {} : { OR: [{ column: { gt: columns } }, { row: { gt: rows } }] }),
+    },
+    select: { column: true, row: true, item: { select: { product: { select: { name: true } } } } },
+    orderBy: [{ row: 'asc' }, { column: 'asc' }],
+  });
+  if (outside.length === 0) return;
+  const details: SlotsOutsideGridDetails = {
+    slots: outside.map((slot) => ({ column: slot.column, row: slot.row, name: slot.item.product.name })),
+  };
+  throw new AppError(409, SLOTS_OUTSIDE_GRID, { details });
+}
+
 export class CellarService {
   static async createCellar(userId: string, data: CreateCellarInput) {
     return prisma.cellar.create({
@@ -96,12 +129,15 @@ export class CellarService {
   }
 
   static async updateCellar(id: string, data: UpdateCellarInput) {
-    const cellar = await prisma.cellar.findFirst({ where: { id } });
-    if (!cellar) return null;
-
-    return prisma.cellar.update({
-      where: { id },
-      data,
+    // #852: the cellar row locked first, so a copy placed meanwhile (its
+    // grid read FOR SHARE, slot.service.ts) is seen by the check, or placed
+    // against the new size once this write commits.
+    return prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT 1 FROM "cellars" WHERE "id" = ${id} FOR UPDATE`;
+      const cellar = await tx.cellar.findFirst({ where: { id } });
+      if (!cellar) return null;
+      await assertNoSlotOutside(tx, cellar, data);
+      return tx.cellar.update({ where: { id }, data });
     });
   }
 

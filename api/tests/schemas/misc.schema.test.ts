@@ -89,4 +89,15 @@ describe('cellar schemas', () => {
     expect(updateCellarSchema.safeParse({}).success).toBe(true);
     expect(updateCellarSchema.safeParse({ rows: 2, hotZoneRows: 5 }).success).toBe(false);
   });
+
+  // #869: a name typed with outer spaces is stored trimmed; one made only of
+  // spaces is refused, on creation and on edit.
+  it('trims the cellar name and rejects a blank one', () => {
+    const created = createCellarSchema.safeParse({ name: '  Cave du bas \n' });
+    expect(created.success && created.data.name).toBe('Cave du bas');
+    const updated = updateCellarSchema.safeParse({ name: 'Cave ' });
+    expect(updated.success && updated.data.name).toBe('Cave');
+    expect(createCellarSchema.safeParse({ name: '   ' }).success).toBe(false);
+    expect(updateCellarSchema.safeParse({ name: ' \t ' }).success).toBe(false);
+  });
 });

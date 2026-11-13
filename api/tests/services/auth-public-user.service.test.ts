@@ -88,7 +88,7 @@ const twoFactorOn = {
 const PUBLIC_USER_FIELDS = [
   'accentColor', 'appName', 'appSlogan', 'autoLockDelayMin', 'avatarUrl',
   'createdAt', 'dateFormat', 'deletionRequestedAt', 'displayName', 'email',
-  'expertMode', 'hasPin', 'id', 'isAdmin', 'isTwoFactorEnabled', 'language',
+  'expertMode', 'hasPin', 'id', 'instanceTimeZone', 'isAdmin', 'isTwoFactorEnabled', 'language',
   'mustChangePassword', 'onboardingCompletedAt', 'tempUnit', 'theme', 'username',
 ] as const;
 
