@@ -38,6 +38,7 @@ Entries start with the pull request that introduced them where there is one.
 - Screen readers now reach a tooltip opened inside a window or a drawer; the colour check also covers the raised surfaces of the dark theme (#976).
 - Typing in the search or a filter right after closing a window or a drawer no longer loses the first keys: the closing window no longer pulls the focus back while it slides away (#875).
 - Photos are now checked on their content, not only on their declared type. A file that is not an image (a document renamed `.jpg`) is refused when it is picked on the device for a wine, a profile picture or a label scan, and a photo cut short (a download that stopped half-way, a damaged file) is refused with a message saying it is damaged, instead of being stored and shown as a broken image. A real photo is stored under the extension of what it really is (#886).
+- A change made offline whose answer was lost on the way back (unstable network) no longer comes back as a false conflict when it is sent again: each queued change now carries its own key, and the server answers a change it already applied with its first answer, without applying it twice. The server remembers these answers for a day (#824).
 
 ### Removed
 - Humidor readings: the API no longer accepts the `sensor` reading source, reserved for a sensor bridge that was never built; every reading is a manual one, and the database migration turns any reading stored with it into a manual one (#468).

@@ -10,6 +10,7 @@ import { slotService, type SlotWrite } from '../services/slot.service';
 import { slotCellSchema } from '../schemas/cellar.schema';
 import { auditLog } from '../services/audit.service';
 import { authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { idempotent } from '../middleware/idempotency.middleware';
 import { routeParam } from '../lib/http';
 import { notFound } from '../lib/errors';
 
@@ -36,7 +37,8 @@ router.post('/products/:id/items', authMiddleware, async (req: Request, res: Res
 });
 
 // POST /api/inventory/:id/correct — "Corriger le nombre" of a group, with its reason (point 34).
-router.post('/inventory/:id/correct', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+// #824: replayed by the offline queue with an Idempotency-Key.
+router.post('/inventory/:id/correct', authMiddleware, idempotent, async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   const input = correctQuantitySchema.parse(req.body);

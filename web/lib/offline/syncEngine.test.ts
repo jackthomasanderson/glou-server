@@ -338,6 +338,59 @@ describe('flushQueue — temporary server errors (#585)', () => {
   });
 });
 
+describe('flushQueue — a replay after a lost answer (#824)', () => {
+  /** Fake API that applies a change, keeps its answer by Idempotency-Key, and can lose the next answer. */
+  function idempotentServer() {
+    const fake = versionedServer('v-1');
+    const answers = new Map<string, Response>();
+    const keys: Array<string | null> = [];
+    let loseNext = false;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const key = new Headers(init?.headers).get('Idempotency-Key');
+      keys.push(key);
+      const known = key ? answers.get(key) : undefined;
+      if (known) return known;
+      const res = await fake.fetchMock(url, init);
+      if (key && res.ok) answers.set(key, res);
+      if (loseNext) {
+        loseNext = false;
+        throw new TypeError('Failed to fetch'); // applied, but the answer never came back
+      }
+      return res;
+    });
+    return { fetchMock, keys, applied: () => fake.received.length, loseNextAnswer: () => { loseNext = true; } };
+  }
+
+  it('gets the first answer back, not a conflict, and the change is applied once', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: 't1', expectedUpdatedAt: 'v-1' });
+    const server = idempotentServer();
+    vi.stubGlobal('fetch', server.fetchMock);
+    server.loseNextAnswer();
+
+    await flushQueue(fakeQueryClient());
+    expect(store.get('m1')?.status).toBe('pending');
+    cancelSyncRetry();
+    await flushQueue(fakeQueryClient());
+
+    expect(store.has('m1')).toBe(false);
+    expect(server.applied()).toBe(1);
+  });
+
+  it('sends the same key on every attempt of an entry, and its own key per entry', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: 't1', expectedUpdatedAt: 'v-1' });
+    queue({ id: 'm2', itemId: 'B', createdAt: 't2', expectedUpdatedAt: 'v-1' });
+    const server = idempotentServer();
+    vi.stubGlobal('fetch', server.fetchMock);
+    server.loseNextAnswer();
+
+    await flushQueue(fakeQueryClient());
+    cancelSyncRetry();
+    await flushQueue(fakeQueryClient());
+
+    expect(server.keys).toEqual(['m1', 'm1', 'm2']);
+  });
+});
+
 describe('"Decide later" on a conflict (#585)', () => {
   it('is remembered for the browser session, outside any component', () => {
     deferConflict('c1');

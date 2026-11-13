@@ -366,7 +366,10 @@ async function sendChange(mutation: QueuedMutation): Promise<PatchOutcome> {
   try {
     res = await request(`/inventory/${mutation.itemId}${isCorrection ? '/correct' : ''}`, {
       method: isCorrection ? 'POST' : 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      // #824: the entry's own id, the same on every attempt — a change the
+      // server applied but whose answer was lost gets that answer back,
+      // instead of a 409 shown as a false conflict.
+      headers: { 'Content-Type': 'application/json', 'Idempotency-Key': mutation.id },
       body: JSON.stringify({ ...mutation.patch, expectedUpdatedAt: mutation.expectedUpdatedAt }),
     });
   } catch {

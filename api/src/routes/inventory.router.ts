@@ -8,6 +8,7 @@ import { inventoryExportService } from '../services/inventory-export.service';
 import { scanService } from '../services/scan.service';
 import { auditLog } from '../services/audit.service';
 import { adminMiddleware, authMiddleware, getClientIp } from '../middleware/auth.middleware';
+import { idempotent } from '../middleware/idempotency.middleware';
 import { logTrashDeletion } from '../lib/trash-audit';
 import { routeParam } from '../lib/http';
 import { AppError, notFound } from '../lib/errors';
@@ -165,7 +166,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
 // ─── PATCH /api/inventory/:id ────────────────────────────────────────────────
 
-router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
+// #824: replayed by the offline queue with an Idempotency-Key.
+router.patch('/:id', idempotent, async (req: Request, res: Response): Promise<void> => {
   const id = routeParam(req.params.id);
   const ip = getClientIp(req);
   try {
