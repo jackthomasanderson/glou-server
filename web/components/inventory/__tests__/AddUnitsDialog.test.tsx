@@ -1,5 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { qk } from '@/lib/queryKeys';
 import { todayLocalIso } from '@/lib/format';
 import { product, unit, openedBottle } from '@/lib/products/__tests__/factories';
 import { frenchT } from '@/lib/products/__tests__/i18n';
@@ -39,6 +41,23 @@ beforeEach(() => {
 });
 
 describe('AddUnitsAction', () => {
+  // #834: the default purchase day is the instance's (the API's default when
+  // none is sent), not the browser's: here the instance is 14 h ahead of UTC,
+  // already on the 16th while every browser zone west of it is still on the 15th.
+  it("dates the new bottles today where the instance is, not where the browser is", () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-15T12:00:00Z'));
+    try {
+      const client = new QueryClient();
+      client.setQueryData(qk.auth.me, { instanceTimeZone: 'Pacific/Kiritimati' });
+      render(<QueryClientProvider client={client}><AddUnitsAction product={detail([unit({ quantity: 6 })])} /></QueryClientProvider>);
+      fireEvent.click(screen.getByRole('button', { name: 'Ajouter des bouteilles' }));
+      expect(within(screen.getByRole('dialog')).getByLabelText("Date d'achat")).toHaveValue('2026-01-16');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('offline: still shown, unavailable, with the reason, and opens nothing (FEAT-108, ux-ui.md §10.8)', () => {
     connectivity.online = false;
     render(<AddUnitsAction product={detail([unit({ quantity: 6 })])} />);

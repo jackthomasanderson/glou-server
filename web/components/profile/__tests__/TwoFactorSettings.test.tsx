@@ -113,6 +113,7 @@ function makeUser(isTwoFactorEnabled: boolean, isAdmin = false): PublicUser {
     expertMode: false,
     isAdmin,
     isTwoFactorEnabled,
+    instanceTimeZone: 'Europe/Paris',
     createdAt: '2026-01-01T00:00:00.000Z',
     deletionRequestedAt: null,
     hasPin: false,

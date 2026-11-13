@@ -31,6 +31,7 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 - Réduire la grille d'une cave alors que des bouteilles ou des cigares sont placés dans les rangées ou colonnes retirées est refusé, avec les cases à vider d'abord ; ils disparaissaient du plan.
 - L'objectif de consommation du mois compte chaque cigare fumé dans une boîte, comme les Analyses ; il ne comptait une boîte qu'une fois vide, et pour un seul.
 - Le journal d'audit enregistre les valeurs réellement écrites sur une bouteille ou une boîte, y compris ce que la modification a effacé (une boîte refermée : son nombre et sa date d'ouverture). Les erreurs sur des cigares en modification groupée ou en inventaire parlent désormais de cigares.
+- La date d'achat proposée pour de nouvelles bouteilles est le jour du serveur : des bouteilles achetées ensemble vers minuit ne sont plus réparties sur deux lignes.
 
 ## v2026.11.4
 

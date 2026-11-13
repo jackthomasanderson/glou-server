@@ -12,7 +12,8 @@ import { ParsedNumberInput } from '@/components/ui/ParsedInput';
 import { useAddUnits } from '@/hooks/useProducts';
 import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { useCellars } from '@/hooks/useCellars';
-import { currencySymbol, todayLocalIso } from '@/lib/format';
+import { currencySymbol } from '@/lib/format';
+import { useInstanceToday } from '@/hooks/useInstanceToday';
 import { wineName } from '@/lib/products/stock';
 import type { UnitWrite } from '@/lib/products/client';
 import type { Product, ProductItem } from '@/lib/products/types';
@@ -72,8 +73,10 @@ export function AddUnitsForm({ product, onDone, onCancel = onDone, onAdded, star
   const [cellarId, setCellarId] = useState<string | null>(typed.cellarId !== undefined ? typed.cellarId : start?.cellarId ?? null);
   const [price, setPrice] = useState<number | undefined>(typed.purchasePrice ?? start?.purchasePrice ?? undefined);
   const [bottleSize, setBottleSize] = useState(typed.bottleSize || start?.bottleSize || '');
-  // D6: a day, the YYYY-MM-DD text of the field — never a local Date.
-  const [purchasedAt, setPurchasedAt] = useState(typed.purchasedAt || todayLocalIso());
+  // D6: a day, the YYYY-MM-DD text of the field — never a local Date. #834:
+  // today where the instance is, as the API dates a purchase sent without one.
+  const today = useInstanceToday();
+  const [purchasedAt, setPurchasedAt] = useState(typed.purchasedAt || today);
   const [submitted, setSubmitted] = useState(false);
   // FEAT-95 (decision point 52): a cigar asks "boîtes de combien" or "à l'unité" instead of a size.
   const isCigar = product.category === 'cigar';

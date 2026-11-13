@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import {
   currencySymbol, formatCurrency, formatDate, formatDateTime, formatNumber,
-  formatTemperature, formatTemperatureRange, setFormatPreferences, todayLocalIso,
+  formatTemperature, formatTemperatureRange, setFormatPreferences, todayInTimeZone, todayLocalIso,
 } from '../format';
 
 describe('format (#217)', () => {
@@ -78,5 +78,22 @@ describe('todayLocalIso (#482)', () => {
 
   it('zero-pads month and day', () => {
     expect(todayLocalIso(new Date(2027, 0, 5, 23, 59))).toBe('2027-01-05');
+  });
+});
+
+// #834: a purchase day defaults to "today" where the instance is, as the API
+// does when none is sent — a browser elsewhere would split one purchase in two lines.
+describe('todayInTimeZone (#834)', () => {
+  it("gives the instance's day, not the browser's nor UTC's", () => {
+    // 23:30 UTC on 15 January: already the 16th in Paris.
+    expect(todayInTimeZone('Europe/Paris', new Date('2026-01-15T23:30:00Z'))).toBe('2026-01-16');
+    expect(todayInTimeZone('UTC', new Date('2026-01-15T23:30:00Z'))).toBe('2026-01-15');
+    expect(todayInTimeZone('America/New_York', new Date('2026-01-16T03:00:00Z'))).toBe('2026-01-15');
+  });
+
+  it("falls back to the browser's day without a known zone", () => {
+    const now = new Date(2027, 2, 12, 0, 30);
+    expect(todayInTimeZone(undefined, now)).toBe(todayLocalIso(now));
+    expect(todayInTimeZone('Not/AZone', now)).toBe(todayLocalIso(now));
   });
 });

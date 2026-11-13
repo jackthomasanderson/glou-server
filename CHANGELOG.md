@@ -32,6 +32,7 @@ Entries start with the pull request that introduced them where there is one.
 - Making a cellar's grid smaller, or removing it, while bottles or cigars are placed in the rows or columns it takes away is now refused, with a message naming those slots to empty first. They used to stay placed on no slot of the plan, out of sight (#852).
 - The monthly consumption goal now counts each cigar smoked from a box, like Analytics → Consumed; it used to count nothing until the box was empty, then the whole box as one (#888).
 - The audit log now records the values a bottle or a box really got, read back after the change, including what was cleared on the way: putting back a box closed now shows its count and opening date cleared instead of the number sent. A refused bulk edit of cigars and a refused count of a cigar now say "cigars" instead of "wines" or "the bottle" (#873).
+- The purchase day a new bottle (or box) is given by default is now today where the server is (its `TZ`), the same day the server gives a bottle added without one. Around midnight, a phone or browser in another time zone used to date it another day, and the same purchase was split into two lines (#834).
 
 ### Removed
 - Humidor readings: the API no longer accepts the `sensor` reading source, reserved for a sensor bridge that was never built; every reading is a manual one, and the database migration turns any reading stored with it into a manual one (#468).

@@ -64,4 +64,9 @@ export interface PublicUser {
   mustChangePassword: boolean;
   /** #576: drives the 2FA panel and the trust-this-device prompt. */
   isTwoFactorEnabled: boolean;
+  /**
+   * #834: the instance's time zone (`TZ`), where "today" is for a purchase
+   * day — the API's default when none is sent. Not a member setting.
+   */
+  instanceTimeZone: string;
 }
