@@ -212,4 +212,21 @@ describe('wrong codes on the step-up routes lock the account like at sign-in (#8
     expect(admin.twoFactorFailedAttempts).toBe(0);
     expect(admin.twoFactorLockedUntil).toBeNull();
   });
+
+  // Review R5: wrong step-up codes leave a trace in the audit log, as at sign-in.
+  it.each([
+    ['turning 2FA off', TURN_OFF, 'TWO_FACTOR_OFF'],
+    ['regenerating backup codes', BACKUP_CODES, 'BACKUP_CODES_REGENERATE'],
+  ])('a wrong code when %s is written to the audit log, without the code', async (_label, path, action) => {
+    const id = path === TURN_OFF ? 'm8' : 'm8b';
+    seed(id, { twoFactorFailedAttempts: 4 });
+    const code = wrongCode();
+    await call('post', path, id, { password: PASSWORD, code }, '192.0.2.80');
+    await call('post', path, id, { password: PASSWORD, code: currentCode() }, '192.0.2.81');
+    const entries = vi.mocked(prisma.auditLog.create).mock.calls.map(([a]) => (a as { data: Record<string, unknown> }).data)
+      .filter((d) => d.action === action && d.status === 'error');
+    expect(entries.map((d) => (d.details as { reason?: string }).reason)).toEqual(['wrong_2fa_code', '2fa_locked']);
+    expect(entries.every((d) => d.userId === id)).toBe(true);
+    expect(JSON.stringify(entries)).not.toContain(code);
+  });
 });

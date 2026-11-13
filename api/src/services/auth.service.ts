@@ -1100,17 +1100,30 @@ export class AuthService {
    * TWO_FACTOR_MAX_FAILED_ATTEMPTS, a locked account is refused everywhere
    * (2FA_TEMPORARILY_LOCKED), and a right code clears the counter. A request
    * without any code is not a guess and is not counted.
+   * `auditAction`: the step-up's own audit action, under which a wrong code
+   * (`wrong_2fa_code`) and a lock refusal (`2fa_locked`) are recorded, as at
+   * sign-in. Left out by callers that already audit their refusals.
    */
   private async checkSecondFactorStepUp(
     user: { id: string; twoFactorSecret: string | null; backupCodes: string[]; twoFactorFailedAttempts: number; twoFactorLockedUntil: Date | null },
     code: string | undefined,
     deviceInfo: DeviceInfo,
+    auditAction?: AuditAction,
   ): Promise<{ backupCodeHash: string | null } | null> {
-    if (user.twoFactorLockedUntil && user.twoFactorLockedUntil > new Date()) throw new Error('2FA_TEMPORARILY_LOCKED');
+    const auditRefusal = (reason: 'wrong_2fa_code' | '2fa_locked') => {
+      if (auditAction) void auditLog({ userId: user.id, action: auditAction, status: 'error', ip: deviceInfo.ip ?? 'unknown', details: { reason } });
+    };
+    if (user.twoFactorLockedUntil && user.twoFactorLockedUntil > new Date()) {
+      auditRefusal('2fa_locked');
+      throw new Error('2FA_TEMPORARILY_LOCKED');
+    }
 
     const match = await this.matchSecondFactor(user, code);
     if (!match) {
-      if (code) await this.registerFailedTwoFactorAttempt(user.id, deviceInfo);
+      if (code) {
+        auditRefusal('wrong_2fa_code');
+        await this.registerFailedTwoFactorAttempt(user.id, deviceInfo);
+      }
       return null;
     }
     if (user.twoFactorFailedAttempts > 0 || user.twoFactorLockedUntil) {
@@ -1131,7 +1144,7 @@ export class AuthService {
     const validPwd = await bcrypt.compare(password, user.passwordHash);
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
-    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo))) throw new Error('INVALID_TOTP_CODE');
+    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo, 'BACKUP_CODES_REGENERATE'))) throw new Error('INVALID_TOTP_CODE');
 
     const { backupCodes, hashedBackupCodes } = await this.newBackupCodes();
     // Conditional on the codes read above still being current: of two
@@ -1170,7 +1183,7 @@ export class AuthService {
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
     // Either TOTP or a matching backup code (turning off drops them anyway).
-    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo))) throw new Error('INVALID_TOTP_CODE');
+    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo, 'TWO_FACTOR_OFF'))) throw new Error('INVALID_TOTP_CODE');
 
     await prisma.user.update({
       where: { id: userId },
