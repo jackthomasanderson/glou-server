@@ -812,7 +812,8 @@
     "urlPlaceholder": "https://… (URL de l'image)",
     "errors": {
       "tooLarge": "Cette photo est trop volumineuse (5 Mo au maximum). Choisissez-en une plus légère.",
-      "unsupportedType": "Ce format d'image n'est pas pris en charge. Utilisez une photo JPEG, PNG, WebP, GIF ou AVIF.",
+      "unsupportedType": "Ce fichier n'est pas une image prise en charge. Utilisez une photo JPEG, PNG, WebP, GIF ou AVIF.",
+      "damaged": "Cette photo est abîmée ou incomplète et ne peut pas être lue. Choisissez-en une autre.",
       "invalidUrl": "Saisissez une adresse d'image commençant par https://.",
       "fetchFailed": "Impossible de télécharger cette image. Vérifiez l'adresse ou choisissez-en une autre.",
       "failed": "La photo n'a pas pu être enregistrée. Vérifiez votre connexion et réessayez."
@@ -900,6 +901,8 @@
     "saveError": "Erreur lors de la mise à jour du profil",
     "avatarSuccess": "Photo de profil mise à jour",
     "avatarError": "Erreur lors de l'envoi de l'image",
+    "avatarInvalidType": "Ce fichier n'est pas une image prise en charge. Utilisez une photo JPEG, PNG, WebP, GIF ou AVIF.",
+    "avatarDamaged": "Cette photo est abîmée ou incomplète et ne peut pas être lue. Choisissez-en une autre.",
     "changeAvatar": "Changer la photo de profil",
     "deleteAvatar": "Supprimer la photo de profil",
     "deleteAvatarConfirm": "Voulez-vous vraiment supprimer votre photo de profil ?",
@@ -2746,6 +2749,7 @@
       "rateLimited": "Trop de scans en peu de temps. Réessayez dans quelques minutes.",
       "busy": "Trop d'étiquettes sont déjà en cours d'analyse sur ce serveur. Réessayez dans quelques minutes.",
       "photoRejected": "Cette photo n'a pas pu être envoyée : elle est trop lourde (10 Mo maximum) ou son format n'est pas pris en charge (JPEG, PNG, WebP ou GIF).",
+      "photoDamaged": "Cette photo est abîmée ou incomplète et ne peut pas être lue. Reprenez la photo.",
       "heic": "Les photos HEIC ne sont pas prises en charge. Sur iPhone, choisissez la photo dans la Photothèque (pas dans Fichiers) : elle est alors envoyée en JPEG. Vous pouvez aussi la prendre avec le bouton de l'appareil photo.",
       "timeout": "L'analyse a pris trop de temps : ce serveur manque probablement de puissance pour la reconnaissance d'étiquettes.",
       "interrupted": "L'analyse a été interrompue par un redémarrage du serveur. Reprenez la photo.",

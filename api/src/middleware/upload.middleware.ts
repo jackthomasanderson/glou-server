@@ -2,8 +2,9 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
+import type { NextFunction, Request, Response } from 'express';
 import { AppError } from '../lib/errors';
-import { ALLOWED_IMAGE_TYPES } from '../lib/upload';
+import { ALLOWED_IMAGE_TYPES, inspectImage } from '../lib/upload';
 
 // A rejected upload is the caller's mistake, so every `fileFilter` below hands
 // back an AppError carrying its own 400; multer's own LIMIT_FILE_SIZE becomes a
@@ -97,3 +98,29 @@ const scanUpload = multer({
 });
 
 export { csvUpload, scanUpload };
+
+/**
+ * #886: runs after an image upload (avatar, label scan, product photo). The
+ * `fileFilter`s above only see the declared type: the stored bytes are now
+ * judged like a downloaded photo (`inspectImage`). A file that is not an
+ * image (400 INVALID_FILE_TYPE) or cannot be read to its end (422
+ * IMAGE_DAMAGED) is deleted at once; a real image declared under another
+ * type is renamed to the extension of what it really is.
+ */
+export async function verifyStoredImage(req: Request, _res: Response, next: NextFunction): Promise<void> {
+  const file = req.file;
+  if (!file) return next();
+  const inspection = await inspectImage(await fs.promises.readFile(file.path));
+  if (!inspection.ok) {
+    await fs.promises.rm(file.path, { force: true });
+    throw inspection.reason === 'DAMAGED' ? new AppError(422, 'IMAGE_DAMAGED') : new AppError(400, 'INVALID_FILE_TYPE');
+  }
+  if (path.extname(file.filename) !== `.${inspection.ext}`) {
+    const filename = `${path.basename(file.filename, path.extname(file.filename))}.${inspection.ext}`;
+    const renamed = path.join(path.dirname(file.path), filename);
+    await fs.promises.rename(file.path, renamed);
+    file.filename = filename;
+    file.path = renamed;
+  }
+  next();
+}

@@ -24,6 +24,7 @@ vi.mock('../../src/middleware/upload.middleware', () => ({
       next();
     },
   },
+  verifyStoredImage: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 vi.mock('../../src/services/scan.service', () => ({
   scanService: { createJob: vi.fn(), getJob: vi.fn(), countActiveJobs: vi.fn() },

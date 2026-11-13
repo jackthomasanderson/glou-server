@@ -5,7 +5,8 @@ import path from 'path';
 import multer from 'multer';
 import { assertUrlAllowed, resolveSafeUrl } from '../lib/ssrf';
 import { AppError } from '../lib/errors';
-import { ALLOWED_IMAGE_TYPES, detectImageExtension } from '../lib/upload';
+import { ALLOWED_IMAGE_TYPES, inspectImage } from '../lib/upload';
+import { verifyStoredImage } from '../middleware/upload.middleware';
 import { isCommercial, PRODUCER_EXTRA_TERMS } from '../lib/suggest-filter';
 
 const router = Router();
@@ -300,13 +301,16 @@ router.post('/images/save', authMiddleware, async (req, res) => {
       reader.releaseLock?.();
     }
 
-    // #862: only a file whose bytes are those of an image is stored, under the
-    // extension of what it really is: a broken photo is never attached.
+    // #862, #886: only a file whose bytes are those of an image, readable to
+    // its end, is stored, under the extension of what it really is: a broken
+    // photo (a page, a download cut short) is never attached.
     const bytes = Buffer.concat(chunks);
-    const ext = detectImageExtension(bytes);
-    if (!ext) return res.status(422).json({ error: 'INVALID_IMAGE_TYPE' });
+    const inspection = await inspectImage(bytes);
+    if (!inspection.ok) {
+      return res.status(422).json({ error: inspection.reason === 'DAMAGED' ? 'IMAGE_DAMAGED' : 'INVALID_IMAGE_TYPE' });
+    }
 
-    const filename = `${crypto.randomUUID()}.${ext}`;
+    const filename = `${crypto.randomUUID()}.${inspection.ext}`;
     fs.writeFileSync(path.join(PRODUCTS_UPLOAD_DIR, filename), bytes);
 
     res.json({ data: { path: `/uploads/products/${filename}` } });
@@ -319,7 +323,7 @@ router.post('/images/save', authMiddleware, async (req, res) => {
 });
 
 // POST /api/search/images/upload — store a file upload locally
-router.post('/images/upload', authMiddleware, productImageUpload.single('image'), (req, res) => {
+router.post('/images/upload', authMiddleware, productImageUpload.single('image'), verifyStoredImage, (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'NO_FILE' });
   res.json({ data: { path: `/uploads/products/${req.file.filename}` } });
 });

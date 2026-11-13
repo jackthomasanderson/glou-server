@@ -40,6 +40,7 @@ const PHOTO_ERROR_KEYS: Record<string, string> = {
   IMAGE_TOO_LARGE: 'itemImage.errors.tooLarge',
   INVALID_FILE_TYPE: 'itemImage.errors.unsupportedType',
   INVALID_IMAGE_TYPE: 'itemImage.errors.unsupportedType',
+  IMAGE_DAMAGED: 'itemImage.errors.damaged',
   INVALID_URL: 'itemImage.errors.invalidUrl',
   FETCH_FAILED: 'itemImage.errors.fetchFailed',
 };

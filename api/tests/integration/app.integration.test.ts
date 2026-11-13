@@ -29,6 +29,7 @@ import { createApp } from '../../src/app';
 import { backupService } from '../../src/services/backup.service';
 import { authService } from '../../src/services/auth.service';
 import pkg from '../../package.json';
+import { IMAGES } from '../support/images';
 
 const JWT_SECRET = 'integration-test-secret';
 const app = createApp();
@@ -1035,7 +1036,7 @@ describe('POST /api/user/avatar', () => {
       .post('/api/user/avatar')
       .set('Authorization', `Bearer ${authToken()}`)
       .set('Sec-Fetch-Site', 'same-origin')
-      .attach('avatar', Buffer.from([0x89, 0x50, 0x4e, 0x47]), { filename: 'me.png', contentType: 'image/png' });
+      .attach('avatar', IMAGES.png, { filename: 'me.png', contentType: 'image/png' });
 
     expect(res.status).toBe(200);
     const avatarUrl = updateSpy.mock.calls[0][1].avatarUrl as string;

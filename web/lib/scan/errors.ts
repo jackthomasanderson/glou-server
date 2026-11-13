@@ -9,6 +9,7 @@ export type ScanErrorCause =
   | 'rateLimited'
   | 'busy'
   | 'photoRejected'
+  | 'photoDamaged'
   | 'heic'
   | 'timeout'
   | 'interrupted'
@@ -26,6 +27,8 @@ const CAUSE_BY_CODE: Partial<Record<string, ScanErrorCause>> = {
   FILE_TOO_LARGE: 'photoRejected',
   INVALID_FILE_TYPE: 'photoRejected',
   SVG_NOT_ALLOWED: 'photoRejected',
+  // #886: an image the API cannot read to its end (a photo cut short).
+  IMAGE_DAMAGED: 'photoDamaged',
   SCAN_TIMEOUT: 'timeout',
   SCAN_INTERRUPTED: 'interrupted',
 };

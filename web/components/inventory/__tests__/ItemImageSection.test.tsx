@@ -87,6 +87,17 @@ describe('ItemImageSection photo upload failures (#645)', () => {
     await expectRefusedWith('itemImage.errors.unsupportedType');
   });
 
+  it('says the photo is damaged when the API cannot read it to its end (#886)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'IMAGE_DAMAGED' }), { status: 422, headers: { 'Content-Type': 'application/json' } }),
+    ));
+    const { container } = renderSection();
+
+    choosePhoto(container);
+
+    await expectRefusedWith('itemImage.errors.damaged');
+  });
+
   it('stops the overlay and reports a failure when the network drops', async () => {
     const answer = deferFetch();
     const { container } = renderSection();

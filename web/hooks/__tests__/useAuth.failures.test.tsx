@@ -46,6 +46,17 @@ describe('avatar failures (#887)', () => {
     expect(notifyError).toHaveBeenCalledWith('profile.avatarError');
   });
 
+  it.each([
+    ['INVALID_FILE_TYPE', 'profile.avatarInvalidType'],
+    ['IMAGE_DAMAGED', 'profile.avatarDamaged'],
+  ])('says why the API refused the photo (%s, #886)', async (code, message) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: code }), { status: 400 })));
+    const { result } = renderHook(() => useUploadAvatar(), { wrapper });
+    await act(async () => { await result.current.mutateAsync(new File(['x'], 'a.jpg')).catch(() => {}); });
+    expect(notifyError).toHaveBeenCalledTimes(1);
+    expect(notifyError).toHaveBeenCalledWith(message);
+  });
+
   it('says the removal failed', async () => {
     refused();
     const { result } = renderHook(() => useDeleteAvatar(), { wrapper });
