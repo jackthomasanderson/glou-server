@@ -9,6 +9,16 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 
 ## À venir
 
+### Points d'attention
+- Avec la sécurité STARTTLS, les e-mails ne partent plus quand le serveur de messagerie ne passe pas en chiffré. Si les e-mails se sont arrêtés après la mise à jour et que votre relais n'a pas STARTTLS, choisissez « Sans chiffrement (relais local de confiance) » dans Administration → Configuration système → E-mail, puis testez la connexion.
+
+### Sécurité
+- Avec STARTTLS, la connexion au serveur de messagerie doit désormais être chiffrée : le mot de passe SMTP ne peut plus circuler en clair. Un troisième choix, « Sans chiffrement (relais local de confiance) », sert pour un relais sur votre propre réseau.
+- Les codes de double authentification erronés saisis pour désactiver la double authentification, générer des codes de secours, faire confiance à un appareil ou confirmer une action d'administration comptent désormais dans le même blocage après 5 essais qu'à la connexion.
+
+### Améliorations
+- Profil → Sessions actives : la localisation est indiquée comme approximative, chaque session montre quand elle s'est connectée, et un seul bouton déconnecte toutes les autres sessions.
+
 ## v2026.11.4
 
 ### Points d'attention

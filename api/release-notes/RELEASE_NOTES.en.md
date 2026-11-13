@@ -8,6 +8,16 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 
 ## Upcoming
 
+### Points of attention
+- E-mail with the STARTTLS security is no longer sent when the mail server does not switch to encryption. If e-mail stopped after the update and your relay has no STARTTLS, choose "No encryption (trusted local relay)" in Administration → System Configuration → Email, then test the connection.
+
+### Security
+- With STARTTLS, the connection to the mail server must now be encrypted, so the SMTP password can no longer leak in clear text. A third choice, "No encryption (trusted local relay)", is for a relay on your own network.
+- Wrong two-factor codes typed when turning two-factor off, generating backup codes, trusting a device or confirming an administrator action now count toward the same 5-attempt lock as at sign-in.
+
+### Improved
+- Profile → Active sessions: the location is labelled as approximate, each session shows when it signed in, and one button signs out every other session.
+
 ## v2026.11.4
 
 ### Points of attention

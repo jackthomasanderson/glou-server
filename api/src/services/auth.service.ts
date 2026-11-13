@@ -187,6 +187,7 @@ export type SecurityEventKey =
   | 'twoFactorEnabled'
   | 'twoFactorDisabled'
   | 'sessionRevoked'
+  | 'otherSessionsRevoked'
   | 'emailChanged'
   | 'usernameChanged'
   | 'twoFactorLocked'
@@ -209,6 +210,10 @@ const SECURITY_EVENT_CONTENT: Record<SecurityEventKey, (isEn: boolean) => { subj
   sessionRevoked: (isEn) => isEn
     ? { subject: 'Glou — A session was signed out', intro: 'A session on your account was signed out.' }
     : { subject: 'Glou — Session déconnectée', intro: 'Une session de votre compte a été déconnectée.' },
+  // #773 — "sign out all other sessions": the device below is the one that asked.
+  otherSessionsRevoked: (isEn) => isEn
+    ? { subject: 'Glou — Other sessions signed out', intro: 'All your other sessions were signed out from the device below, which stays signed in. Other devices you had trusted will ask for the two-factor code again.' }
+    : { subject: 'Glou — Autres sessions déconnectées', intro: 'Toutes vos autres sessions ont été déconnectées depuis l’appareil ci-dessous, qui reste connecté. Les autres appareils de confiance redemanderont le code de double authentification.' },
   // ISSUE_042 — sent to the PREVIOUS address, which is the only one the
   // legitimate owner still controls once the change went through.
   emailChanged: (isEn) => isEn
@@ -324,14 +329,15 @@ export class AuthService {
    * Called after a password change or a 2FA disable so a stolen session
    * cookie does not survive the credential rotation (mirrors the manual
    * revoke path used by `DELETE /api/auth/sessions/:id`, FEAT-25). Records a
-   * single `SESSION_REVOKE` AuditLog entry covering the whole batch.
+   * single `SESSION_REVOKE` AuditLog entry covering the whole batch, and
+   * returns how many sessions were signed out.
    */
-  private async revokeOtherSessions(userId: string, currentSessionId: string, ip: string): Promise<void> {
+  private async revokeOtherSessions(userId: string, currentSessionId: string, ip: string, reason = 'bulk_revoke_on_credential_change'): Promise<number> {
     const sessions = await prisma.session.findMany({
       where: { userId, revokedAt: null, NOT: { id: currentSessionId } },
       select: { id: true },
     });
-    if (sessions.length === 0) return;
+    if (sessions.length === 0) return 0;
 
     await prisma.session.updateMany({
       where: { id: { in: sessions.map((s) => s.id) } },
@@ -344,11 +350,12 @@ export class AuthService {
       status: 'success',
       ip,
       details: {
-        reason: 'bulk_revoke_on_credential_change',
+        reason,
         revokedSessionIds: sessions.map((s) => s.id),
         excludedSessionId: currentSessionId,
       },
     });
+    return sessions.length;
   }
 
   /**
@@ -899,7 +906,13 @@ export class AuthService {
     if (!(await bcrypt.compare(password as string, admin.passwordHash))) refuse('INVALID_PASSWORD');
     if (!admin.isTwoFactorEnabled) return;
 
-    const match = await this.matchSecondFactor(admin, code);
+    let match: { backupCodeHash: string | null } | null = null;
+    try {
+      match = await this.checkSecondFactorStepUp(admin, code, deviceInfo);
+    } catch (err) {
+      if (err instanceof Error && err.message === '2FA_TEMPORARILY_LOCKED') refuse(err.message);
+      throw err;
+    }
     if (!match) refuse('INVALID_TOTP_CODE');
     if (match && match.backupCodeHash) {
       const usedHash = match.backupCodeHash;
@@ -1062,13 +1075,9 @@ export class AuthService {
 
   /**
    * Re-confirmation by second factor: a current authenticator code or one of
-   * the stored backup codes (compared with bcrypt, never in the clear).
+   * the stored backup codes (compared with bcrypt, never in the clear),
+   * telling which backup code matched (so a caller can consume it).
    */
-  private async matchesSecondFactor(user: { id: string; twoFactorSecret: string | null; backupCodes: string[] }, code?: string): Promise<boolean> {
-    return (await this.matchSecondFactor(user, code)) !== null;
-  }
-
-  /** Same check, telling which backup code matched (so a caller can consume it). */
   private async matchSecondFactor(
     user: { id: string; twoFactorSecret: string | null; backupCodes: string[] },
     code?: string,
@@ -1085,6 +1094,45 @@ export class AuthService {
   }
 
   /**
+   * #889: a second-factor check outside sign-in (turning 2FA off, new backup
+   * codes, trusting a device, the admin step-up). It shares the sign-in's
+   * per-account counter and lock: wrong codes here count toward the same
+   * TWO_FACTOR_MAX_FAILED_ATTEMPTS, a locked account is refused everywhere
+   * (2FA_TEMPORARILY_LOCKED), and a right code clears the counter. A request
+   * without any code is not a guess and is not counted.
+   * `auditAction`: the step-up's own audit action, under which a wrong code
+   * (`wrong_2fa_code`) and a lock refusal (`2fa_locked`) are recorded, as at
+   * sign-in. Left out by callers that already audit their refusals.
+   */
+  private async checkSecondFactorStepUp(
+    user: { id: string; twoFactorSecret: string | null; backupCodes: string[]; twoFactorFailedAttempts: number; twoFactorLockedUntil: Date | null },
+    code: string | undefined,
+    deviceInfo: DeviceInfo,
+    auditAction?: AuditAction,
+  ): Promise<{ backupCodeHash: string | null } | null> {
+    const auditRefusal = (reason: 'wrong_2fa_code' | '2fa_locked') => {
+      if (auditAction) void auditLog({ userId: user.id, action: auditAction, status: 'error', ip: deviceInfo.ip ?? 'unknown', details: { reason } });
+    };
+    if (user.twoFactorLockedUntil && user.twoFactorLockedUntil > new Date()) {
+      auditRefusal('2fa_locked');
+      throw new Error('2FA_TEMPORARILY_LOCKED');
+    }
+
+    const match = await this.matchSecondFactor(user, code);
+    if (!match) {
+      if (code) {
+        auditRefusal('wrong_2fa_code');
+        await this.registerFailedTwoFactorAttempt(user.id, deviceInfo);
+      }
+      return null;
+    }
+    if (user.twoFactorFailedAttempts > 0 || user.twoFactorLockedUntil) {
+      await prisma.user.update({ where: { id: user.id }, data: { twoFactorFailedAttempts: 0, twoFactorLockedUntil: null } });
+    }
+    return match;
+  }
+
+  /**
    * #638: replace every backup code by ten new ones — the old ones stop
    * working at once. Same re-confirmation as turning 2FA off: password plus
    * a current authenticator or backup code.
@@ -1096,7 +1144,7 @@ export class AuthService {
     const validPwd = await bcrypt.compare(password, user.passwordHash);
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
-    if (!(await this.matchesSecondFactor(user, code))) throw new Error('INVALID_TOTP_CODE');
+    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo, 'BACKUP_CODES_REGENERATE'))) throw new Error('INVALID_TOTP_CODE');
 
     const { backupCodes, hashedBackupCodes } = await this.newBackupCodes();
     // Conditional on the codes read above still being current: of two
@@ -1135,7 +1183,7 @@ export class AuthService {
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
     // Either TOTP or a matching backup code (turning off drops them anyway).
-    if (!(await this.matchesSecondFactor(user, code))) throw new Error('INVALID_TOTP_CODE');
+    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo, 'TWO_FACTOR_OFF'))) throw new Error('INVALID_TOTP_CODE');
 
     await prisma.user.update({
       where: { id: userId },
@@ -1581,6 +1629,26 @@ export class AuthService {
   }
 
   /**
+   * #773: "sign out all other sessions", one action instead of one per
+   * session. The current session stays; the owner is told once, with the
+   * device that asked (a stolen session doing this must not go unnoticed).
+   * Review R2: the other trusted devices stop being trusted too (a thief
+   * knowing the password would otherwise skip the 2FA code there); the one
+   * whose cookie came with the request, `currentDeviceToken`, keeps its trust.
+   * Returns the number of sessions signed out.
+   */
+  async revokeAllOtherSessions(userId: string, currentSessionId: string, deviceInfo: DeviceInfo, currentDeviceToken?: string): Promise<number> {
+    const revoked = await this.revokeOtherSessions(userId, currentSessionId, deviceInfo.ip ?? 'unknown', 'sign_out_other_sessions');
+    const keep = currentDeviceToken ? crypto.createHash('sha256').update(currentDeviceToken).digest('hex') : undefined;
+    const { count: untrusted } = await prisma.trustedDevice.updateMany({
+      where: { userId, revokedAt: null, ...(keep ? { NOT: { tokenHash: keep } } : {}) },
+      data: { revokedAt: new Date() },
+    });
+    if (revoked > 0 || untrusted > 0) this.notifySecurityEvent(userId, 'otherSessionsRevoked', deviceInfo);
+    return revoked;
+  }
+
+  /**
    * Mark the caller's current device as trusted outside of the 2FA login
    * flow (e.g. a "Trust this device" button in security settings).
    */
@@ -1601,7 +1669,7 @@ export class AuthService {
     const validPwd = await bcrypt.compare(password, user.passwordHash);
     if (!validPwd) throw new Error('INVALID_CREDENTIALS');
 
-    if (!(await this.matchesSecondFactor(user, code))) {
+    if (!(await this.checkSecondFactorStepUp(user, code, deviceInfo))) {
       throw new Error('INVALID_CODE');
     }
 

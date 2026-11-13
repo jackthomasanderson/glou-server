@@ -26,7 +26,7 @@ export const HISTORY_FIELDS: Record<string, HistoryFieldKind> = {
   smtpUser: 'text',
   smtpPassEnc: 'secret',
   smtpFrom: 'text',
-  smtpSecure: 'bool',
+  smtpSecurity: 'enum',
   // Gotify
   gotifyEnabled: 'bool',
   gotifyUrl: 'text',
@@ -44,6 +44,7 @@ export const HISTORY_FIELDS: Record<string, HistoryFieldKind> = {
   // Sign-up
   registrationOpen: 'bool',
   // Removed settings, kept for older entries
+  smtpSecure: 'bool', // TLS on or off, before the three modes of #924
   inAppEnabled: 'bool', // the in-app channel, before #671
   backupHourUtc: 'hour', // a UTC hour, before #761
   accessMode: 'enum',

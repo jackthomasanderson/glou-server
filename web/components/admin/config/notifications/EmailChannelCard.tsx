@@ -4,6 +4,7 @@ import { Button, Input, Switch, SelectItem } from '@heroui/react';
 import { Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { configClient, type AdminReauth, type SystemConfigPublic } from '@/lib/config/client';
+import { SMTP_SECURITY_MODES, type SmtpSecurity } from '@shared/admin-config';
 import { useAdminStepUp, isStepUpRefusal } from '@/components/admin/AdminStepUpDialog';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 import { notifyError, notifySuccess } from '@/lib/toast';
@@ -16,29 +17,38 @@ const toForm = (cfg: SystemConfigPublic) => ({
   smtpUser: cfg.smtpUser ?? '',
   smtpPass: '',
   smtpFrom: cfg.smtpFrom ?? '',
-  smtpSecure: cfg.smtpSecure,
+  smtpSecurity: cfg.smtpSecurity,
 });
 
-const STARTTLS_PORT = '587';
-const TLS_PORT = '465';
+/** Each mode's usual port. */
+const DEFAULT_PORT: Record<SmtpSecurity, string> = { STARTTLS: '587', TLS: '465', NONE: '25' };
 
 /**
- * #763: nodemailer's `secure: true` is TLS from the first byte (port 465);
- * `false` starts in clear and upgrades with STARTTLS (port 587). Picking a
- * mode moves the port only while it is empty or still the other mode's
- * default, so a custom port is never overwritten.
+ * #763: TLS is encrypted from the first byte (port 465); STARTTLS starts in
+ * clear and upgrades (port 587). #924: NONE is a local relay without
+ * encryption (port 25). Picking a mode moves the port only while it is empty
+ * or still another mode's default, so a custom port is never overwritten.
  */
-export function portForSecurity(port: string, secure: boolean): string {
-  const otherDefault = secure ? STARTTLS_PORT : TLS_PORT;
-  return port === '' || port === otherDefault ? (secure ? TLS_PORT : STARTTLS_PORT) : port;
+export function portForSecurity(port: string, security: SmtpSecurity): string {
+  return port === '' || Object.values(DEFAULT_PORT).includes(port) ? DEFAULT_PORT[security] : port;
 }
 
 /** A port and mode that rarely work together, e.g. the old default (587 + TLS). */
-function portMismatch(port: string, secure: boolean): 'tlsOn587' | 'starttlsOn465' | null {
-  if (port === STARTTLS_PORT && secure) return 'tlsOn587';
-  if (port === TLS_PORT && !secure) return 'starttlsOn465';
+function portMismatch(port: string, security: SmtpSecurity): 'tlsOn587' | 'starttlsOn465' | null {
+  if (port === DEFAULT_PORT.STARTTLS && security === 'TLS') return 'tlsOn587';
+  if (port === DEFAULT_PORT.TLS && security === 'STARTTLS') return 'starttlsOn465';
   return null;
 }
+
+const isSmtpSecurity = (value: unknown): value is SmtpSecurity =>
+  (SMTP_SECURITY_MODES as readonly unknown[]).includes(value);
+
+/** Option labels, in the order offered: the encrypted modes first. */
+const SECURITY_LABELS: Record<SmtpSecurity, string> = {
+  STARTTLS: 'adminConfig.smtp.secureStarttls',
+  TLS: 'adminConfig.smtp.secureTls',
+  NONE: 'adminConfig.smtp.secureNone',
+};
 
 function emailState(cfg: SystemConfigPublic): ChannelState {
   if (!cfg.smtpHost) return 'notConfigured';
@@ -57,7 +67,7 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
   // #759: each test says its own progress, and only one runs at a time.
   const [testing, setTesting] = useState<'connection' | 'email' | null>(null);
   const onSaved = useConfigSaved();
-  const mismatch = portMismatch(form.smtpPort, form.smtpSecure);
+  const mismatch = portMismatch(form.smtpPort, form.smtpSecurity);
   // #890: the mail server sends reset links and security alerts.
   const stepUp = useAdminStepUp();
 
@@ -71,7 +81,7 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
         smtpUser: form.smtpUser || null,
         smtpPass: form.smtpPass || undefined,
         smtpFrom: form.smtpFrom || null,
-        smtpSecure: form.smtpSecure,
+        smtpSecurity: form.smtpSecurity,
       }, reauth);
       onSaved(updated);
       reset(toForm(updated));
@@ -115,18 +125,19 @@ export function EmailChannelCard({ config }: { config: SystemConfigPublic }) {
       <SingleSelect
         label={t('adminConfig.smtp.secure')}
         description={t('adminConfig.smtp.secureHint')}
-        selectedKeys={[form.smtpSecure ? 'tls' : 'starttls']}
+        selectedKeys={[form.smtpSecurity]}
         onSelectionChange={(keys) => {
           const value = Array.from(keys)[0];
-          if (value !== 'tls' && value !== 'starttls') return;
-          const secure = value === 'tls';
-          update({ smtpSecure: secure, smtpPort: portForSecurity(form.smtpPort, secure) });
+          if (!isSmtpSecurity(value)) return;
+          update({ smtpSecurity: value, smtpPort: portForSecurity(form.smtpPort, value) });
         }}
         variant="bordered" size="sm" radius="md" labelPlacement="outside"
       >
-        <SelectItem key="starttls">{t('adminConfig.smtp.secureStarttls')}</SelectItem>
-        <SelectItem key="tls">{t('adminConfig.smtp.secureTls')}</SelectItem>
+        {(Object.keys(SECURITY_LABELS) as SmtpSecurity[]).map((mode) => (
+          <SelectItem key={mode}>{t(SECURITY_LABELS[mode])}</SelectItem>
+        ))}
       </SingleSelect>
+      {form.smtpSecurity === 'NONE' && <p role="note" className="text-xs text-warning">{t('adminConfig.smtp.noneWarning')}</p>}
       {mismatch && <p role="note" className="text-xs text-warning">{t(`adminConfig.smtp.mismatch.${mismatch}`)}</p>}
       <SaveBar isDirty={isDirty} isSaving={saving} onSave={() => stepUp.ask(t('adminConfig.stepUp.smtp'), save)}>
         <Button size="sm" variant="bordered" isLoading={testing === 'connection'} isDisabled={isDirty || testing !== null} onPress={() => stepUp.ask(t('adminConfig.stepUp.smtpTest'), (reauth) => test(false, reauth))}>{t('adminConfig.smtp.test')}</Button>

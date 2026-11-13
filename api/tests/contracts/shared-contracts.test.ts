@@ -4,12 +4,13 @@ import {
   Prisma, BottleCategory, AlertStatus as PrismaAlertStatus, CurveShape as PrismaCurveShape,
   type Theme as PrismaTheme, type Language as PrismaLanguage,
   type TempUnit as PrismaTempUnit, type DateFormat as PrismaDateFormat,
-  TastingReadiness as PrismaTastingReadiness,
+  TastingReadiness as PrismaTastingReadiness, SmtpSecurity as PrismaSmtpSecurity,
   type Collection, type InventoryItem, type ItemSlot, type Product, type TastingNote,
 } from '@prisma/client';
 import { ALERT_STATUSES, CATEGORY_VALUES, CURVE_SHAPES, type AlertStatus, type CurveShape, type InventoryCategory } from '../../../shared/inventory';
 import type { DateFormat, Language, TempUnit, Theme } from '../../../shared/auth';
 import type { CsvImportRow } from '../../../shared/import';
+import { SMTP_SECURITY_MODES, type SmtpSecurity } from '../../../shared/admin-config';
 import type { csvImportRowSchema } from '../../src/schemas/import.schema';
 import {
   HISTORY_FIELDS, RESTORABLE_DESCRIPTION_FIELDS, TASTING_READINESS, type ItemView, type ProductCollection, type ProductTasting, type ProductView, type TastingReadiness,
@@ -31,6 +32,10 @@ describe('shared/ matches the Prisma schema (#466)', () => {
   it('lists the AlertStatus values', () => {
     expect(sorted(ALERT_STATUSES)).toEqual(sorted(Object.values(PrismaAlertStatus)));
     expectTypeOf<AlertStatus>().toEqualTypeOf<PrismaAlertStatus>();
+  });
+  it('lists the SmtpSecurity values (#924)', () => {
+    expect(sorted(SMTP_SECURITY_MODES)).toEqual(sorted(Object.values(PrismaSmtpSecurity)));
+    expectTypeOf<SmtpSecurity>().toEqualTypeOf<PrismaSmtpSecurity>();
   });
   it('lists the CurveShape values', () => {
     expect(sorted(CURVE_SHAPES)).toEqual(sorted(Object.values(PrismaCurveShape)));

@@ -225,13 +225,19 @@ describe('SystemConfigSection — email card wording and security (#763, #764)',
   });
 
   it('moves the port with the security mode only while it is a default', () => {
-    expect(portForSecurity('587', true)).toBe('465');
-    expect(portForSecurity('', true)).toBe('465');
-    expect(portForSecurity('465', false)).toBe('587');
-    expect(portForSecurity('', false)).toBe('587');
-    expect(portForSecurity('2525', true)).toBe('2525');
-    expect(portForSecurity('2525', false)).toBe('2525');
-    expect(portForSecurity('587', false)).toBe('587');
+    expect(portForSecurity('587', 'TLS')).toBe('465');
+    expect(portForSecurity('', 'TLS')).toBe('465');
+    expect(portForSecurity('465', 'STARTTLS')).toBe('587');
+    expect(portForSecurity('', 'STARTTLS')).toBe('587');
+    expect(portForSecurity('2525', 'TLS')).toBe('2525');
+    expect(portForSecurity('2525', 'STARTTLS')).toBe('2525');
+    expect(portForSecurity('587', 'STARTTLS')).toBe('587');
+    // #924: a local relay without encryption usually listens on 25.
+    expect(portForSecurity('', 'NONE')).toBe('25');
+    expect(portForSecurity('587', 'NONE')).toBe('25');
+    expect(portForSecurity('465', 'NONE')).toBe('25');
+    expect(portForSecurity('2525', 'NONE')).toBe('2525');
+    expect(portForSecurity('25', 'STARTTLS')).toBe('587');
   });
 
   it('warns when the saved port and security do not match, and not otherwise', async () => {
@@ -240,24 +246,48 @@ describe('SystemConfigSection — email card wording and security (#763, #764)',
     renderWithQuery(<SystemConfigSection />);
     const email = await card('adminConfig.cards.email');
     expect(within(email).getByText('adminConfig.smtp.mismatch.tlsOn587')).toBeInTheDocument();
-    fireEvent.change(within(email).getByLabelText('adminConfig.smtp.secure'), { target: { value: 'starttls' } });
+    fireEvent.change(within(email).getByLabelText('adminConfig.smtp.secure'), { target: { value: 'STARTTLS' } });
     expect(within(email).queryByText(/adminConfig\.smtp\.mismatch/)).toBeNull();
     fireEvent.change(within(email).getByLabelText('adminConfig.smtp.port'), { target: { value: '465' } });
     expect(within(email).getByText('adminConfig.smtp.mismatch.starttlsOn465')).toBeInTheDocument();
   });
 
-  it('choosing TLS moves the default port to 465 and saves smtpSecure true', async () => {
-    const saved = { ...CONFIG, smtpSecure: true, smtpPort: 465 };
-    const fetchMock = stubFetch({ '/admin/config': ok({ ...CONFIG, smtpSecure: false }), 'PUT /admin/config/smtp': ok(saved) });
+  it('choosing TLS moves the default port to 465 and saves smtpSecurity TLS', async () => {
+    const saved = { ...CONFIG, smtpSecurity: 'TLS', smtpPort: 465 };
+    const fetchMock = stubFetch({ '/admin/config': ok({ ...CONFIG, smtpSecurity: 'STARTTLS' }), 'PUT /admin/config/smtp': ok(saved) });
     renderWithQuery(<SystemConfigSection />);
     const email = await card('adminConfig.cards.email');
     const security = within(email).getByLabelText('adminConfig.smtp.secure') as HTMLSelectElement;
-    expect(security.value).toBe('starttls');
-    fireEvent.change(security, { target: { value: 'tls' } });
+    expect(security.value).toBe('STARTTLS');
+    fireEvent.change(security, { target: { value: 'TLS' } });
     expect(within(email).getByLabelText('adminConfig.smtp.port')).toHaveValue('465');
     fireEvent.click(within(email).getByRole('button', { name: 'adminConfig.save' }));
     confirmStepUp();
     await vi.waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('adminConfig.smtp.saved'));
-    expect(sentTo(fetchMock, '/admin/config/smtp')[0]).toEqual(expect.objectContaining({ smtpSecure: true, smtpPort: 465 }));
+    expect(sentTo(fetchMock, '/admin/config/smtp')[0]).toEqual(expect.objectContaining({ smtpSecurity: 'TLS', smtpPort: 465 }));
+  });
+
+  // #924: STARTTLS is now required; clear text is a third, explicit choice.
+  it('offers "no encryption" as its own choice, says what it means, and saves smtpSecurity NONE', async () => {
+    const saved = { ...CONFIG, smtpSecurity: 'NONE', smtpPort: 25 };
+    const fetchMock = stubFetch({ '/admin/config': ok({ ...CONFIG, smtpSecurity: 'STARTTLS' }), 'PUT /admin/config/smtp': ok(saved) });
+    renderWithQuery(<SystemConfigSection />);
+    const email = await card('adminConfig.cards.email');
+    expect(within(email).queryByText('adminConfig.smtp.noneWarning')).toBeNull();
+    fireEvent.change(within(email).getByLabelText('adminConfig.smtp.secure'), { target: { value: 'NONE' } });
+    expect(within(email).getByText('adminConfig.smtp.noneWarning')).toBeInTheDocument();
+    expect(within(email).getByLabelText('adminConfig.smtp.port')).toHaveValue('25');
+    fireEvent.click(within(email).getByRole('button', { name: 'adminConfig.save' }));
+    confirmStepUp();
+    await vi.waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('adminConfig.smtp.saved'));
+    expect(sentTo(fetchMock, '/admin/config/smtp')[0]).toEqual(expect.objectContaining({ smtpSecurity: 'NONE', smtpPort: 25 }));
+  });
+
+  it.each(['SMTP_STARTTLS_FAILED', 'SMTP_TLS_FAILED', 'SMTP_CERTIFICATE_UNTRUSTED'])('says in words that a test failed with %s', async (error) => {
+    stubFetch({ '/admin/config': ok(CONFIG), 'POST /admin/config/test/smtp': ok({ success: false, error }) });
+    renderWithQuery(<SystemConfigSection />);
+    fireEvent.click(within(await card('adminConfig.cards.email')).getByRole('button', { name: 'adminConfig.smtp.test' }));
+    confirmStepUp();
+    await vi.waitFor(() => expect(notifyError).toHaveBeenCalledWith(`adminConfig.errors.${error}`));
   });
 });

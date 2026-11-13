@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SMTP_SECURITY_MODES } from '../../../shared/admin-config';
 
 // ISSUE_125: admin config endpoints wrote req.body straight to the DB/crypto
 // layer with no shape or type check. Every field is optional — the service
@@ -11,7 +12,7 @@ export const smtpConfigSchema = z.object({
   smtpUser: z.string().optional().nullable(),
   smtpPass: z.string().optional().nullable(),
   smtpFrom: z.string().optional().nullable(),
-  smtpSecure: z.boolean().optional(),
+  smtpSecurity: z.enum(SMTP_SECURITY_MODES).optional(),
 });
 
 // #636: the SMTP test sends to this address, or only opens a connection

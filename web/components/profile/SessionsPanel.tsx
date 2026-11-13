@@ -5,10 +5,11 @@ import { Button, ModalContent, ModalHeader, ModalBody, ModalFooter, Skeleton } f
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { Monitor, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useSessions, useRevokeSession, SessionInfo } from '@/hooks/useAuth';
+import { useSessions, useRevokeSession, useRevokeOtherSessions, SessionInfo } from '@/hooks/useAuth';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { formatDateTime, formatDeviceLabel } from '@/lib/format';
+import { notifyError, notifySuccess } from '@/lib/toast';
 
 export function SessionsPanel() {
   const { t, i18n } = useTranslation();
@@ -16,8 +17,25 @@ export function SessionsPanel() {
 
   const { data: sessions, isLoading, isError, error: queryError, refetch, isRefetching } = useSessions();
   const revokeSession = useRevokeSession();
+  const revokeOthers = useRevokeOtherSessions();
 
   const [sessionToRevoke, setSessionToRevoke] = useState<SessionInfo | null>(null);
+  const [confirmRevokeOthers, setConfirmRevokeOthers] = useState(false);
+  const hasOtherSessions = !!sessions?.some((s) => !s.isCurrent);
+
+  // #773: one action, one confirmation, every session but this one.
+  const handleConfirmRevokeOthers = () => {
+    revokeOthers.mutate(undefined, {
+      onSuccess: () => {
+        setConfirmRevokeOthers(false);
+        notifySuccess('profile.sessions.revokeOthersSuccess');
+      },
+      onError: () => {
+        setConfirmRevokeOthers(false);
+        notifyError('profile.sessions.revokeOthersError');
+      },
+    });
+  };
 
   const handleConfirmRevoke = () => {
     if (!sessionToRevoke) return;
@@ -29,10 +47,16 @@ export function SessionsPanel() {
 
   const formatDate = (value: string) => (hasMounted ? formatDateTime(value, i18n.language) : '');
 
+  // #773: guessed from the IP address, often wrong with home boxes and mobile
+  // networks, so it is labelled as approximate rather than shown as a fact.
   const formatLocation = (location: SessionInfo['location']) => {
     if (!location || (!location.city && !location.country)) return t('profile.sessions.unknownLocation');
-    return [location.city, location.country].filter(Boolean).join(', ');
+    return t('profile.sessions.approxLocation', { location: [location.city, location.country].filter(Boolean).join(', ') });
   };
+
+  // #773: the sign-in date and time tell apart two sessions with the same device label.
+  const signedInOn = (session: SessionInfo) =>
+    t('profile.sessions.signedInOn', { date: formatDate(session.createdAt) });
 
   const formatDevice = (device: SessionInfo['device']) => formatDeviceLabel(device, t);
 
@@ -83,6 +107,7 @@ export function SessionsPanel() {
                   <MapPin size={12} />
                   <span className="truncate">{formatLocation(session.location)}</span>
                 </div>
+                <p className="text-xs text-foreground-400 mt-0.5">{signedInOn(session)}</p>
                 <p className="text-xs text-foreground-400 mt-0.5">
                   {t('profile.sessions.lastActive')} : {formatDate(session.lastActiveAt)}
                 </p>
@@ -100,6 +125,17 @@ export function SessionsPanel() {
               )}
             </div>
           ))}
+          {hasOtherSessions && (
+            <Button
+              size="sm"
+              variant="flat"
+              color="danger"
+              className="self-start"
+              onPress={() => setConfirmRevokeOthers(true)}
+            >
+              {t('profile.sessions.revokeOthers')}
+            </Button>
+          )}
           {/* #434: the DB-IP Lite licence asks for a link back where locations are shown. */}
           <p className="text-xs text-foreground-400">
             <a href="https://db-ip.com" target="_blank" rel="noopener noreferrer" className="hover:underline">
@@ -118,7 +154,10 @@ export function SessionsPanel() {
               <ModalBody>
                 <p className="text-sm text-foreground-600">{t('profile.sessions.revokeConfirmBody')}</p>
                 {sessionToRevoke && (
-                  <p className="text-sm font-medium mt-2">{formatDevice(sessionToRevoke.device)}</p>
+                  <>
+                    <p className="text-sm font-medium mt-2">{formatDevice(sessionToRevoke.device)}</p>
+                    <p className="text-xs text-foreground-500">{signedInOn(sessionToRevoke)}</p>
+                  </>
                 )}
               </ModalBody>
               <ModalFooter>
@@ -140,6 +179,32 @@ export function SessionsPanel() {
         </ModalContent>
       </ResponsiveModal>
 
+      <ResponsiveModal isOpen={confirmRevokeOthers} onClose={() => setConfirmRevokeOthers(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader>{t('profile.sessions.revokeOthersConfirmTitle')}</ModalHeader>
+              <ModalBody>
+                <p className="text-sm text-foreground-600">{t('profile.sessions.revokeOthersConfirmBody')}</p>
+              </ModalBody>
+              <ModalFooter>
+                <Button color="danger" variant="light" onPress={onClose} isDisabled={revokeOthers.isPending}>
+                  {t('actions.cancel')}
+                </Button>
+                <Button
+                  color="danger"
+                  variant="solid"
+                  onPress={handleConfirmRevokeOthers}
+                  isLoading={revokeOthers.isPending}
+                  isDisabled={revokeOthers.isPending}
+                >
+                  {t('profile.sessions.revokeOthers')}
+                </Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </ResponsiveModal>
     </div>
   );
 }

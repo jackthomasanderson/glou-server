@@ -968,8 +968,10 @@
       "title": "Active Sessions",
       "current": "Current Session",
       "lastActive": "Last active",
+      "signedInOn": "Signed in on {{date}}",
       "geoCredit": "IP Geolocation by DB-IP",
       "unknownLocation": "Unknown location",
+      "approxLocation": "Approximate location: {{location}}",
       "unknownDevice": "Unknown device",
       "unknownBrowser": "Unknown browser",
       "unknownOs": "Unknown OS",
@@ -977,6 +979,11 @@
       "revoke": "Sign out",
       "revokeConfirmTitle": "Sign out this session?",
       "revokeConfirmBody": "The device concerned will be signed out of your account immediately.",
+      "revokeOthers": "Sign out all other sessions",
+      "revokeOthersConfirmTitle": "Sign out all other sessions?",
+      "revokeOthersConfirmBody": "Every other device signed in to your account will be signed out immediately, and devices you trusted, other than this one, will ask for the two-factor code again. This device stays signed in. If a device was lost or stolen, also change your password.",
+      "revokeOthersSuccess": "Your other sessions were signed out.",
+      "revokeOthersError": "Your other sessions could not be signed out. Try again.",
       "loadError": "Could not load your active sessions.",
       "empty": "No active sessions.",
       "trustDescription": "Trust this device to skip the two-factor authentication code for 30 days. This trust is automatically revoked if a suspicious connection is detected.",
@@ -2135,6 +2142,9 @@
       "INVALID_INPUT": "A value is not valid. Check the fields of this card.",
       "INVALID_URL": "This address cannot be used: it must be a valid URL that the server is allowed to reach.",
       "SMTP_NOT_CONFIGURED": "Email is switched off or has no server: turn it on, fill in the server and save before testing.",
+      "SMTP_STARTTLS_FAILED": "The mail server did not accept STARTTLS, so nothing was sent (not even the password). Choose TLS (port 465) if the server supports it, or \"No encryption (trusted local relay)\" only for a relay on your own network.",
+      "SMTP_TLS_FAILED": "The encrypted connection to the mail server failed. Check the port (465 for TLS) and that the server's certificate is valid, or choose STARTTLS (port 587).",
+      "SMTP_CERTIFICATE_UNTRUSTED": "The mail server's certificate is not trusted (self-signed, expired, or issued for another name), so nothing was sent. Enter the server name exactly as it appears on its certificate, or give the server a certificate from a recognised authority. Do not turn encryption off to get around it.",
       "GOTIFY_NOT_CONFIGURED": "Gotify is switched off or has no URL or token: fill in the URL and the application token, turn it on and save before testing.",
       "GOTIFY_INCOMPLETE": "Gotify cannot be switched on without its URL and application token: fill in both, or switch the channel off.",
       "DELIVERY_FAILED": "The Gotify server did not accept the notification. Check the URL and the token."
@@ -2186,9 +2196,10 @@
       "from": "Sender address",
       "fromPlaceholder": "e.g. Glou <glou@example.com>",
       "secure": "Connection security",
-      "secureHint": "STARTTLS starts in clear and upgrades to encryption (port 587, most providers). TLS is encrypted from the first byte (port 465).",
-      "secureStarttls": "STARTTLS (port 587)",
+      "secureHint": "STARTTLS starts in clear and must switch to encryption before anything else is sent (port 587, most providers): if the server does not offer it, nothing is sent. TLS is encrypted from the first byte (port 465). No encryption is only for a mail relay on your own network.",
+      "secureStarttls": "STARTTLS (required, port 587)",
       "secureTls": "TLS (implicit, port 465)",
+      "secureNone": "No encryption (trusted local relay)",
       "testRecipient": "Test recipient address",
       "testRecipientPlaceholder": "e.g. you@example.com",
       "sendTest": "Send test",
@@ -2196,6 +2207,7 @@
         "tlsOn587": "Port 587 expects STARTTLS: with TLS (implicit) the connection usually fails. Choose STARTTLS, or use port 465 for TLS.",
         "starttlsOn465": "Port 465 expects TLS (implicit): with STARTTLS the connection usually fails. Choose TLS, or use port 587 for STARTTLS."
       },
+      "noneWarning": "Messages, and the SMTP username and password if set, travel in clear text. Only choose this for a relay on your own network that you trust.",
       "test": "Test connection",
       "testSuccess": "SMTP connection validated.",
       "testEmailSuccess": "Test email sent.",
@@ -2262,6 +2274,7 @@
         "smtpPassEnc": "SMTP password",
         "smtpFrom": "Sender address",
         "smtpSecure": "Secure connection (TLS)",
+        "smtpSecurity": "Connection security",
         "gotifyEnabled": "Gotify notifications",
         "gotifyUrl": "Gotify URL",
         "gotifyTokenEnc": "Gotify token",
@@ -2283,6 +2296,11 @@
         "accessMode": {
           "direct": "direct",
           "proxy": "behind a reverse proxy"
+        },
+        "smtpSecurity": {
+          "TLS": "TLS (implicit)",
+          "STARTTLS": "STARTTLS (required)",
+          "NONE": "no encryption"
         }
       }
     },

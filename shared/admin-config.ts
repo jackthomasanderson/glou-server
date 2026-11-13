@@ -31,3 +31,11 @@ export function weakensBackups(current: BackupSettings, next: BackupSettings): b
 export function opensRegistration(current: { registrationOpen: boolean }, next: { registrationOpen: boolean }): boolean {
   return !current.registrationOpen && next.registrationOpen;
 }
+
+/**
+ * #924: how the SMTP connection is encrypted. TLS from the first byte (port
+ * 465); STARTTLS required, never a fall-back to clear text (port 587); or no
+ * encryption at all, for a trusted relay on the local network.
+ */
+export const SMTP_SECURITY_MODES = ['TLS', 'STARTTLS', 'NONE'] as const;
+export type SmtpSecurity = (typeof SMTP_SECURITY_MODES)[number];

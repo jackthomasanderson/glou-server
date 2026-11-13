@@ -18,7 +18,7 @@ import path from 'node:path';
 
 vi.mock('../../src/lib/prisma', () => ({
   prisma: {
-    user: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), updateMany: vi.fn() },
+    user: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     session: { findUnique: vi.fn(), update: vi.fn() },
     auditLog: { create: vi.fn() },
     backupRun: { findUnique: vi.fn() },
@@ -77,7 +77,11 @@ beforeEach(() => {
     isTwoFactorEnabled: adminHasTwoFactor,
     twoFactorSecret: adminHasTwoFactor ? encrypt(TOTP_SECRET) : null,
     backupCodes: [],
+    twoFactorFailedAttempts: 0,
+    twoFactorLockedUntil: null,
   })) as never);
+  // #889: a wrong code counts toward the account's 2FA lock.
+  vi.mocked(prisma.user.update).mockResolvedValue({ twoFactorFailedAttempts: 1 } as never);
   vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
   vi.mocked(prisma.backupRun.findUnique).mockResolvedValue({ id: 'b1', success: true, filePath: '/app/backups/b1.sql.gz' } as never);
 

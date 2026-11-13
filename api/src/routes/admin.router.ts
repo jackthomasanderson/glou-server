@@ -39,7 +39,9 @@ import type { ReleaseNotesView } from '../../../shared/release-notes';
 const adminRouter = Router();
 
 /** Refusals of the admin's own re-authentication (#638). */
-const REAUTH_ERRORS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE']);
+// #889: 2FA_TEMPORARILY_LOCKED (429) when the admin's wrong codes, here or at
+// sign-in, locked their second factor.
+const REAUTH_ERRORS = new Set(['REAUTH_REQUIRED', 'INVALID_PASSWORD', 'INVALID_TOTP_CODE', '2FA_TEMPORARILY_LOCKED']);
 
 // #890: one limiter for every other step-up route, counting refusals only — a
 // password or code guess spends it whatever the route, an admin saving their
@@ -75,7 +77,7 @@ async function stepUp(req: Request, res: Response, audit: StepUpAudit): Promise<
         return true;
     } catch (error) {
         if (error instanceof Error && REAUTH_ERRORS.has(error.message)) {
-            res.status(403).json({ error: error.message });
+            res.status(error.message === '2FA_TEMPORARILY_LOCKED' ? 429 : 403).json({ error: error.message });
             return false;
         }
         throw error;
@@ -336,7 +338,7 @@ adminRouter.post('/users/:userId/reset-password', resetPasswordLimiter, async (r
         res.json({ data: { tempPassword } });
     } catch (error) {
         if (error instanceof Error && REAUTH_ERRORS.has(error.message)) {
-            res.status(403).json({ error: error.message });
+            res.status(error.message === '2FA_TEMPORARILY_LOCKED' ? 429 : 403).json({ error: error.message });
             return;
         }
         if (error instanceof Error && error.message === 'TARGET_CHANGED') {

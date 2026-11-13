@@ -10,6 +10,16 @@ Entries start with the pull request that introduced them where there is one.
 
 ## Unreleased
 
+> **Before you update:**
+> - **E-mail (SMTP):** with the **STARTTLS** security, Glou now refuses to send when the mail server does not switch to encryption, instead of sending in clear text. If your mail relay has no STARTTLS (a relay on your own network, for example), choose **No encryption (trusted local relay)** in Administration → System Configuration → Email after the update, then use **Test connection** (#924).
+
+### Changed
+- Profile → **Active sessions**: the place shown for each session now reads "Approximate location", since it is guessed from the network address and is often wrong with home boxes and mobile networks. Each session also shows when it signed in, so two sessions with the same device ("Chrome on Windows") can be told apart, in the list and in the sign-out dialog. A new **Sign out all other sessions** button, shown when another session is open, signs out every device except this one after a single confirmation, and stops trusting every device but this one (they ask for the two-factor code again); the dialog reminds you to change your password if a device was lost or stolen. You receive a security alert saying so, and the audit log records it once (#773).
+
+### Security
+- **Upgrade note: a mail relay without STARTTLS stops sending with the STARTTLS security; choose "No encryption (trusted local relay)" for it.** With the **STARTTLS** security, the connection to the mail server now has to switch to encryption: if it does not (a network attacker can remove the server's offer), nothing is sent, so the SMTP password can no longer leak in clear text. Administration → System Configuration → Email gets a third, explicit choice, **No encryption (trusted local relay)**, which says that messages and the SMTP password then travel in clear. Your current choice is kept: TLS stays TLS, STARTTLS stays STARTTLS (now strict). When the server refuses STARTTLS, the encrypted connection fails, or the server's certificate is not trusted (self-signed, expired, issued for another name), **Test connection** and **Send test** say which in words instead of showing the raw error (#924).
+- Wrong two-factor codes typed when turning two-factor authentication off, generating new backup codes, trusting a device or confirming an administrator action now count toward the same limit as at sign-in: after 5 wrong codes in a row, the code is refused everywhere for 15 minutes, sign-in included, and you receive the "verification temporarily locked" alert. Before, only sign-in counted them, so someone holding an open session and the password could keep guessing from several addresses. A right code clears the count (#889).
+
 ## v2026.11.4 - 2026-11-13
 
 > **Before you update:**
