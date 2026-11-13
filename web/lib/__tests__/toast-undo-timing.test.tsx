@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { act, render, screen, fireEvent } from '@testing-library/react';
-import { HeroUIProvider, ToastProvider, closeAll } from '@heroui/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { HeroUIProvider, Modal, ModalBody, ModalContent, ToastProvider, closeAll } from '@heroui/react';
 
 vi.mock('@/lib/i18n', () => ({ default: { t: (key: string) => key } }));
 
 import { notifyUndoable, UNDO_TIMEOUT_MS } from '@/lib/toast';
+import { installClosingOverlayFocusGuard } from '@/lib/closingOverlayFocus';
 
 /**
  * #651 / #836 (WCAG 2.2.1, 2.4.3): the one "Undo" message of the app, as it
@@ -17,6 +19,7 @@ import { notifyUndoable, UNDO_TIMEOUT_MS } from '@/lib/toast';
 let focusVisible = true;
 const realMatches = Element.prototype.matches;
 
+const FAKED: NonNullable<Parameters<typeof vi.useFakeTimers>[0]>['toFake'] = ['setTimeout', 'clearTimeout', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame', 'setInterval', 'clearInterval', 'performance'];
 const advance = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
 const undoButton = () => screen.queryByRole('button', { name: 'actions.undo' });
 const toast = () => undoButton()?.closest<HTMLElement>('[data-toast]') ?? null;
@@ -42,7 +45,7 @@ describe('notifyUndoable timing and focus (#651, #836)', () => {
     Element.prototype.matches = function (sel: string) {
       return sel === ':focus-visible' ? focusVisible : realMatches.call(this, sel);
     };
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'requestAnimationFrame', 'cancelAnimationFrame', 'setInterval', 'clearInterval', 'performance'] });
+    vi.useFakeTimers({ toFake: FAKED });
   });
   afterEach(() => {
     act(() => closeAll());
@@ -139,4 +142,51 @@ describe('notifyUndoable timing and focus (#651, #836)', () => {
     setup();
     expect(toast()!.querySelector('[role="progressbar"]')).toBeNull();
   });
+
+  // Review of #1018: the real keyboard flow. The trash is confirmed in a
+  // dialog that is still closing when the message moves the focus to "Undo";
+  // the #875 guard (lib/closingOverlayFocus.ts) is installed as in the app.
+  // Focus the message placed itself pauses in keyboard mode: the member is
+  // on "Undo", its ring showing.
+  it('pauses once it moved the focus to "Undo" while the confirming dialog closes (keyboard)', async () => {
+    const uninstall = installClosingOverlayFocusGuard(document);
+    try {
+      function Confirm() {
+        const [open, setOpen] = useState(true);
+        return (
+          <Modal isOpen={open} onClose={() => setOpen(false)}>
+            <ModalContent><ModalBody>
+              <button type="button" autoFocus onClick={(e) => {
+                const button = e.currentTarget;
+                setOpen(false);
+                // The server answers: the card that opened the dialog is gone, and the focus with it.
+                setTimeout(() => {
+                  button.blur();
+                  notifyUndoable('familyList.trash.done', { name: 'Cuvée X' }, vi.fn());
+                }, 0);
+              }}>confirm</button>
+            </ModalBody></ModalContent>
+          </Modal>
+        );
+      }
+      // Real time until the dialog is shown (its animation code loads asynchronously).
+      vi.useRealTimers();
+      render(<HeroUIProvider><ToastProvider disableAnimation /><Confirm /></HeroUIProvider>);
+      await waitFor(() => expect(document.querySelector('[aria-modal="true"][data-open]')).not.toBeNull());
+      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
+      vi.useFakeTimers({ toFake: FAKED });
+      act(() => screen.getByRole('button', { name: 'confirm' }).click());
+      // The answer, then the message's focus watch.
+      advance(10);
+      advance(200);
+      // The dialog is still closing, the focus is on "Undo".
+      expect(document.querySelector('[aria-modal="true"]:not([data-open])')).not.toBeNull();
+      expect(document.activeElement).toBe(undoButton());
+      advance(UNDO_TIMEOUT_MS * 3);
+      expect(expired()).toBe(false);
+    } finally {
+      uninstall();
+    }
+  });
 });
+

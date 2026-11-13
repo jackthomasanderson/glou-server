@@ -64,4 +64,30 @@ describe('focus right after closing a window (#875)', () => {
     await frames();
     expect(document.activeElement).toBe(opener);
   });
+
+  // Review of #1018: focus going to a message or a list (a top layer) is
+  // never pulled back by the trap, so the guard leaves its event alone.
+  it('lets focus arriving on a top layer reach the other listeners while a window closes', async () => {
+    render(<Page kind="modal" />);
+    await frames();
+    act(() => screen.getByRole('textbox', { name: 'Inside' }).focus());
+    act(() => screen.getByRole('button', { name: 'Done' }).click());
+    expect(document.querySelector('[aria-modal="true"]:not([data-open])')).not.toBeNull();
+    const layer = document.createElement('div');
+    layer.setAttribute('data-react-aria-top-layer', 'true');
+    const undo = document.createElement('button');
+    layer.appendChild(undo);
+    document.body.appendChild(layer);
+    const heard: EventTarget[] = [];
+    const listener = (e: FocusEvent) => { if (e.target) heard.push(e.target); };
+    document.addEventListener('focusin', listener);
+    try {
+      act(() => undo.focus());
+      expect(heard).toContain(undo);
+    } finally {
+      document.removeEventListener('focusin', listener);
+      layer.remove();
+    }
+  });
 });
+

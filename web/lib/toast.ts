@@ -149,7 +149,10 @@ function UndoActions({ id, onExpire, className, children }: { id: string; onExpi
       hovered = false;
       sync();
     };
-    // Focus placed by the message itself or by a tap is not a request to wait: only keyboard focus pauses.
+    // Keyboard focus pauses (':focus-visible'), including the focus the message
+    // moved to "Undo" itself after a keyboard action: the member is on "Undo",
+    // its ring showing. After a mouse or a tap it does not (no ring), so the
+    // message still goes on its own.
     const onFocusIn = (e: FocusEvent) => {
       focused = inside(e.target) && (e.target as Element).matches(':focus-visible');
       sync();
@@ -166,8 +169,10 @@ function UndoActions({ id, onExpire, className, children }: { id: string; onExpi
     const stopPoll = setTimeout(() => clearInterval(poll), FOCUS_WATCH_MS);
     document.addEventListener('pointerover', onOver);
     document.addEventListener('pointerout', onOut);
-    document.addEventListener('focusin', onFocusIn);
-    document.addEventListener('focusout', onFocusOut);
+    // Captured: heard before any listener below can stop the event (the #875
+    // guard, lib/closingOverlayFocus.ts, while a confirming dialog closes).
+    document.addEventListener('focusin', onFocusIn, true);
+    document.addEventListener('focusout', onFocusOut, true);
     sync();
     return () => {
       clearTimeout(timer);
@@ -175,8 +180,8 @@ function UndoActions({ id, onExpire, className, children }: { id: string; onExpi
       clearTimeout(stopPoll);
       document.removeEventListener('pointerover', onOver);
       document.removeEventListener('pointerout', onOut);
-      document.removeEventListener('focusin', onFocusIn);
-      document.removeEventListener('focusout', onFocusOut);
+      document.removeEventListener('focusin', onFocusIn, true);
+      document.removeEventListener('focusout', onFocusOut, true);
     };
   }, [node, id, onExpire]);
   return createElement('div', { ref: setNode, className, 'data-undo-id': id }, children);

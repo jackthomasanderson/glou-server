@@ -18,6 +18,12 @@
  *
  * A closing window is the one #872 already lets clicks through
  * (globals.css): its dialog has lost `data-open`.
+ *
+ * What it can break: for those 0.3 s, a `focusin` listener on the document
+ * in the bubble phase, added after the app started, does not hear focus
+ * arriving on the page. Listen in the capture phase instead (the Undo
+ * message does, lib/toast.ts). Focus going to a top layer (a message, a
+ * list) is left alone: the FocusScope never pulls it back anyway.
  */
 
 const CLOSING = '[aria-modal="true"]:not([data-open])';
@@ -34,12 +40,15 @@ function closingRootOf(doc: Document, node: EventTarget | null): Element | null 
   return null;
 }
 
+/** A message or a list: react-aria's focus trap lets the focus go there. */
+const inTopLayer = (node: EventTarget | null) => node instanceof Element && node.closest('[data-react-aria-top-layer]') !== null;
+
 const onlyClosingWindows = (doc: Document) => doc.querySelector(CLOSING) !== null && doc.querySelector(OPEN) === null;
 
 export function installClosingOverlayFocusGuard(doc: Document): () => void {
   // Focus arriving on the page: kept from the FocusScope's document listener (added later, so after this one).
   const onFocusIn = (e: FocusEvent) => {
-    if (onlyClosingWindows(doc) && !closingRootOf(doc, e.target)) e.stopImmediatePropagation();
+    if (onlyClosingWindows(doc) && !closingRootOf(doc, e.target) && !inTopLayer(e.target)) e.stopImmediatePropagation();
   };
   // Focus leaving the closing window: kept from the listener on its root (captured on the way down).
   const onFocusOut = (e: FocusEvent) => {
