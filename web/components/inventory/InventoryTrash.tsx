@@ -1,5 +1,6 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LoadingRegion } from '@/components/ui/LoadingRegion';
 import { Button, Chip } from '@heroui/react';
 import { Trash2 } from 'lucide-react';
@@ -13,6 +14,10 @@ import { ErrorState } from '@/components/ui/ErrorState';
 import { InventoryListRowSkeleton } from './InventoryListRow';
 import { unitNoun } from '@/lib/products/stockActions';
 import { useMe } from '@/hooks/useAuth';
+import { useCellars } from '@/hooks/useCellars';
+import { formatCurrency, formatDate } from '@/lib/format';
+import { bottleLabel, formatPurchaseDay } from '@/lib/products/lines';
+import type { ProductItem } from '@/lib/products/types';
 import { useDeleteTrashedItem, useDeleteTrashedProduct, useEmptyTrash } from '@/hooks/usePermanentDelete';
 import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { CATEGORY_VALUES, TRASH_RETENTION_DAYS, type InventoryCategory } from '@shared/inventory';
@@ -54,6 +59,19 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
   const deleteWineMutation = useDeleteTrashedProduct();
   const emptyMutation = useEmptyTrash();
   const [pending, setPending] = useState<{ kind: 'wine' | 'item'; id: string } | { kind: 'empty' } | null>(null);
+  const lang = useTranslation().i18n.language;
+  const { data: cellars } = useCellars();
+  const cellarName = useCallback((id: string) => cellars?.find((cellar) => cellar.id === id)?.name, [cellars]);
+  // #844: which line it was, as the drawer says it — "Garage · 20 € / bouteille".
+  // Not before the cellars are known: a line in a cellar would flash "Sans cave".
+  const lineLabel = (item: InventoryItem) => cellars && bottleLabel(item as unknown as ProductItem, {
+    kind: unitKind(item.category),
+    t,
+    cellarName,
+    formatPrice: (value) => formatCurrency(value, lang),
+    formatDay: (day) => formatPurchaseDay(day, lang),
+    formatDate: (iso) => formatDate(iso, lang),
+  });
 
   const inScope = (category: string) => !lockedCategories || lockedCategories.includes(category);
   // #471 (D10): a wine thrown away is listed once, with the bottles that went
@@ -71,8 +89,6 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
     const noun = lineNoun(item);
     return { restore: t('inventory.restore', { context: noun === 'bottle' ? undefined : noun, count: lineCopies(item) }) };
   };
-  // Recette v3: a box and a cigar look alike in the list — their number is always said.
-  const saysCount = (item: InventoryItem) => lineCopies(item) > 1 || lineNoun(item) !== 'bottle';
 
   if (isLoading || winesTrash.isLoading) {
     return (
@@ -207,7 +223,7 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
                     <Chip size="sm" variant="flat">{t(`categories.${wine.category}`)}</Chip>
                   </div>
                   <p className="text-xs text-foreground-400">
-                    {units > 0 && `${t(cigars ? 'familyList.trash.withCigars' : 'familyList.trash.withBottles', { count: units })} · `}
+                    {units > 0 && `${t('familyList.trash.lineCount', { context: cigars ? 'cigar' : 'bottle', count: units })} · `}
                     {t('inventory.trashDaysLeft', { count: daysLeft(wine.deletedAt) })}
                   </p>
                 </div>
@@ -250,8 +266,8 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
             </div>
             {item.deletedAt && (
               <p className="text-xs text-foreground-400">
-                {/* Recette #471: how many went with a line of several bottles, and any line of cigars (boxes). */}
-                {saysCount(item) && `${t('familyList.trash.lineCount', { context: lineNoun(item), count: lineCopies(item) })} · `}
+                {/* #844: every line says how many and which one it was, a single bottle included. */}
+                {`${[t('familyList.trash.lineCount', { context: lineNoun(item), count: lineCopies(item) }), lineLabel(item)].filter(Boolean).join(' · ')} · `}
                 {t('inventory.trashDaysLeft', { count: daysLeft(item.deletedAt) })}
               </p>
             )}

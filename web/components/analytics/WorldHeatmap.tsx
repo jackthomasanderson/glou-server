@@ -223,7 +223,9 @@ function MarkerLayer({ markers, isDark, onHover, onRegionClick, onClusterClick }
     const xy = projection([m.lng, m.lat]);
     return xy ? [{ ...m, x: xy[0], y: xy[1] }] : [];
   }), [markers, projection]);
-  const { groups, markers: singles } = layoutMarkers(placed, k);
+  // A pan re-renders the layer without changing the zoom: the layout (#994,
+  // merged spreads at the maximum zoom) is only worked out again when it can change.
+  const { groups, markers: singles } = useMemo(() => layoutMarkers(placed, k), [placed, k]);
 
   return (
     <>

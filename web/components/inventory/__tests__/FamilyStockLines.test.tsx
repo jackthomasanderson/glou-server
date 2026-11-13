@@ -156,6 +156,14 @@ describe('FamilyStockLines', () => {
     expect(onLevelCommit).toHaveBeenCalledWith(expect.objectContaining({ id: 'sub' }), 100);
   });
 
+  // #845: "Pleine" is the way back with the others, not a level the bottle is
+  // already at: never shown selected, even on a bottle just opened.
+  it('a bottle just opened (100 %) shows "Pleine" as an action to take, not as selected', () => {
+    draw([openedBottle(100, { id: 'sub' })], { onLevelCommit: vi.fn(async () => {}) });
+    const full = screen.getByRole('button', { name: 'Pleine' });
+    expect(full).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('the shortcuts Pleine / Moitié / Vide set the level of the opened bottle', () => {
     const onLevelCommit = vi.fn(async () => {});
     draw([openedBottle(60)], { onLevelCommit });

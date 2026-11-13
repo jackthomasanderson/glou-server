@@ -269,6 +269,27 @@ describe('layoutMarkers (groups below the maximum zoom, spread at it)', () => {
     expect(Math.hypot(ax - bx, ay - by)).toBeGreaterThanOrEqual(2 * markerRadius(4));
   });
 
+  // #994: a spread marker must not land on a neighbour that was not in its group.
+  it('keeps every marker clear of the others at the maximum zoom on a phone, neighbours of a spread included', () => {
+    const seed = [
+      at('Bourgogne', BOURGOGNE, 12), at('Burgundy', BOURGOGNE, 2), at('Bourgogne-Franche-Comté', [4.81, 47.24], 3),
+      at('Mâcon', [4.83, 46.31], 4), at('Beaujolais', BEAUJOLAIS, 6), at('Rhône', [4.83, 45.0], 8),
+    ];
+    const layout = layoutMarkers(seed, MAP_MAX_ZOOM);
+    expect(layout.groups).toEqual([]);
+    expect(layout.markers).toHaveLength(seed.length);
+    for (const [i, a] of layout.markers.entries()) {
+      for (const b of layout.markers.slice(i + 1)) {
+        const [ax, ay] = screen(a, MAP_MAX_ZOOM);
+        const [bx, by] = screen(b, MAP_MAX_ZOOM);
+        expect(Math.hypot(ax - bx, ay - by), `${a.item.id} / ${b.item.id}`)
+          .toBeGreaterThanOrEqual(markerRadius(a.item.count) + markerRadius(b.item.count));
+      }
+    }
+    // Same input, same places: markers do not jump between renders.
+    expect(layoutMarkers(seed, MAP_MAX_ZOOM)).toEqual(layout);
+  });
+
   it('leaves a lone marker where it is', () => {
     const layout = layoutMarkers([at('Rome', ROME, 3)], MAP_MAX_ZOOM);
     expect(layout.markers).toEqual([{ item: expect.objectContaining({ id: 'Rome' }), dx: 0, dy: 0 }]);

@@ -17,7 +17,9 @@ test('analytics page renders KPIs, the world map and the garde histogram', async
   // The KPI cards reflect the figures the API actually returned — a
   // zeroed-totals bug (e.g. a date-filtering regression) must fail this,
   // not just "some digit exists somewhere on the page".
-  await expect(page.getByTestId('kpi-total-valuation')).toContainText(String(stats.totalValuation));
+  // #702: with no price at all, the valuation says so instead of 0 €.
+  const nothingPriced = stats.totalActiveItems > 0 && stats.unpricedUnits >= stats.totalActiveItems;
+  await expect(page.getByTestId('kpi-total-valuation')).toContainText(nothingPriced ? 'Prix non renseigné' : String(stats.totalValuation));
   await expect(page.getByTestId('kpi-liquid-stock')).toContainText(String(stats.totalLiquidLiters));
   await expect(page.getByTestId('kpi-cigar-humidor')).toContainText(String(stats.cigarCount));
   await expect(page.getByTestId('kpi-urgent-degustation')).toContainText(String(stats.urgentDegustationCount));

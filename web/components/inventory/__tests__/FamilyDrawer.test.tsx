@@ -34,6 +34,7 @@ vi.mock('@/hooks/useCellars', () => ({
 }));
 vi.mock('@/hooks/useInventory', () => ({
   useUpdateInventoryItem: () => ({ mutateAsync: mutate, isPending: false }),
+  useDeleteInventoryItem: () => ({ mutate: vi.fn(), isPending: false }),
   useRollbackField: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, isError: false }),
 }));
 vi.mock('@/hooks/useAlerts', () => ({ useToggleAlertPause: () => ({ mutate: vi.fn(), isPending: false }) }));
@@ -162,6 +163,18 @@ describe('FamilyDrawer', () => {
     fireEvent.keyDown(slider, { key: 'End' });
     fireEvent.keyUp(slider, { key: 'End' });
     expect(mutate.mock.calls[0][0]).toMatchObject({ id: 'sub', patch: { fillLevel: 100, isOpened: false } });
+  });
+
+  // #845: a bottle just opened is at 100 %; "Pleine" still puts it back, and says so.
+  it('"Pleine" on a bottle just opened (100 %) puts it back with the others, with "Annuler"', async () => {
+    const { notifyUndoable } = await import('@/lib/toast');
+    vi.mocked(notifyUndoable).mockClear();
+    mutate.mockImplementationOnce(async () => ({ id: 'group' }));
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 5, cellarId: 'garage' }), openedBottle(100, { id: 'sub', parentItemId: 'group' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pleine' }));
+    expect(mutate.mock.calls[0][0]).toMatchObject({ id: 'sub', patch: { fillLevel: 100, isOpened: false } });
+    await waitFor(() => expect(notifyUndoable).toHaveBeenCalledWith('openedReminder.putBack.rejoined', expect.anything(), expect.any(Function)));
   });
 
   it('a tasting of a known bottle says which one: its cellar and price', () => {
@@ -371,6 +384,32 @@ describe('FamilyDrawer — actions of a line (#471, W3)', () => {
     detail = detailOf({ items: [] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} />);
     expect(screen.queryByTestId('stock-move-open')).toBeNull();
+  });
+
+  // #844 (review of #1014): "to remove only some, use Correct the number" is
+  // for "Mettre à la corbeille" from the menu, never after a correction to 0.
+  const PART_HINT = /qu'une partie/;
+  it('"Mettre à la corbeille" from the menu says how to remove only some of the line', async () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const [line] = screen.getAllByTestId('family-line');
+    await menuOf(line);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Mettre à la corbeille' }));
+    expect(await screen.findByTestId('trash-line-dialog')).toHaveTextContent(PART_HINT);
+  });
+
+  it('the trash offered after correcting the number to 0 does not send back to "Corriger le nombre"', async () => {
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 6, cellarId: 'garage' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    const [line] = screen.getAllByTestId('family-line');
+    await menuOf(line);
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Corriger le nombre' }));
+    fireEvent.change(await screen.findByTestId('correct-quantity-input'), { target: { value: '0' } });
+    fireEvent.click(screen.getByRole('radio', { name: /Erreur de saisie/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mettre ces bouteilles à la corbeille' }));
+    const dialog = await screen.findByTestId('trash-line-dialog');
+    expect(dialog).toHaveTextContent('Mettre ces 6 bouteilles');
+    expect(dialog).not.toHaveTextContent(PART_HINT);
   });
 
   it('an opened bottle: finished, put back, edited or trashed from its menu (§10.3)', async () => {

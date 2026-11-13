@@ -369,6 +369,22 @@ describe('TrashLineDialog (§10.4.7)', () => {
     expect(screen.getByTestId('line-dialog-wine')).toHaveTextContent('Cuvée X 2020');
   });
 
+  // #844 (ux-ui.md §10.4.7): the whole line goes; the dialog says how to remove only some.
+  it('a line of several says how to remove only some of them', () => {
+    renderIn(<TrashLineDialog item={group({ quantity: 4 })} ctx={ctx()} isOpen onClose={vi.fn()} showPartHint />);
+    expect(screen.getByText("Pour n'en retirer qu'une partie, utilisez « Corriger le nombre » dans le menu de la ligne.")).toBeInTheDocument();
+  });
+
+  it('a single bottle has no part to remove: no such hint', () => {
+    renderIn(<TrashLineDialog item={group({ quantity: 1 })} ctx={ctx()} isOpen onClose={vi.fn()} showPartHint />);
+    expect(screen.queryByText(/qu'une partie/)).toBeNull();
+  });
+
+  it('without showPartHint (after a correction to 0, on /review): no such hint', () => {
+    renderIn(<TrashLineDialog item={group({ quantity: 4 })} ctx={ctx()} isOpen onClose={vi.fn()} />);
+    expect(screen.queryByText(/qu'une partie/)).toBeNull();
+  });
+
   it('an opened bottle is one bottle', () => {
     renderIn(<TrashLineDialog item={openedBottle(40, { cellarId: 'garage' })} ctx={ctx()} isOpen onClose={vi.fn()} />);
     expect(screen.getByText('Mettre cette bouteille (Garage) à la corbeille ?')).toBeInTheDocument();

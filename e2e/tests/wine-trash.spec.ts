@@ -38,7 +38,9 @@ test('trash a wine: confirm, undo, then restore it from the trash', async ({ pag
     await expect(card).toHaveCount(0);
     await page.getByRole('tab', { name: 'Corbeille' }).click();
     const trashed = page.getByTestId('trash-wines').getByRole('listitem').filter({ hasText: name });
-    await expect(trashed).toContainText('avec 1 bouteille');
+    // #844: "1 bouteille · …", no dangling "avec".
+    await expect(trashed).toContainText('1 bouteille · ');
+    await expect(trashed).not.toContainText('avec');
     await expect(page.getByRole('listitem').filter({ hasText: name })).toHaveCount(1);
     await trashed.getByRole('button', { name: 'Restaurer' }).click();
     await expect(trashed).toHaveCount(0);

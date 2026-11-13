@@ -168,6 +168,37 @@ function spread<T extends ClusterItem>(members: T[], zoom: number): LaidOutMarke
   });
 }
 
+/** Two laid-out markers whose discs touch on screen at this zoom. */
+function overlaps<T extends ClusterItem>(a: LaidOutMarker<T>, b: LaidOutMarker<T>, zoom: number): boolean {
+  const distance = Math.hypot(a.item.x * zoom + a.dx - (b.item.x * zoom + b.dx), a.item.y * zoom + a.dy - (b.item.y * zoom + b.dy));
+  return distance < markerRadius(a.item.count) + markerRadius(b.item.count);
+}
+
+/**
+ * The markers at the maximum zoom: each overlapping group spread around its
+ * centre; when a spread lands on a marker outside its group (#994), the two
+ * groups are spread together, until nothing overlaps. Merging always ends
+ * (at worst one group holds every marker) and only depends on the input
+ * order, so markers do not jump between renders.
+ */
+function spreadAll<T extends ClusterItem>(clusters: MarkerCluster<T>[], zoom: number): LaidOutMarker<T>[] {
+  const groups = clusters.map((cluster) => cluster.members);
+  for (;;) {
+    const laidOut = groups.map((members) =>
+      members.length === 1 ? [{ item: members[0], dx: 0, dy: 0 }] : spread(members, zoom));
+    let clash: [number, number] | null = null;
+    for (let i = 0; i < laidOut.length && !clash; i++) {
+      for (let j = i + 1; j < laidOut.length && !clash; j++) {
+        if (laidOut[i].some((a) => laidOut[j].some((b) => overlaps(a, b, zoom)))) clash = [i, j];
+      }
+    }
+    if (!clash) return laidOut.flat();
+    const [i, j] = clash;
+    groups[i] = [...groups[i], ...groups[j]];
+    groups.splice(j, 1);
+  }
+}
+
 /**
  * What the map draws at this zoom: below the maximum, overlapping markers form
  * groups (selecting one zooms in to part them); at the maximum zoom, where
@@ -178,12 +209,12 @@ export function layoutMarkers<T extends ClusterItem>(items: T[], zoom: number): 
   groups: MarkerCluster<T>[];
   markers: LaidOutMarker<T>[];
 } {
-  const atMaximum = zoom >= MAP_MAX_ZOOM - 1e-6;
+  const clusters = clusterMarkers(items, zoom);
+  if (zoom >= MAP_MAX_ZOOM - 1e-6) return { groups: [], markers: spreadAll(clusters, zoom) };
   const groups: MarkerCluster<T>[] = [];
   const markers: LaidOutMarker<T>[] = [];
-  for (const cluster of clusterMarkers(items, zoom)) {
+  for (const cluster of clusters) {
     if (cluster.members.length === 1) markers.push({ item: cluster.members[0], dx: 0, dy: 0 });
-    else if (atMaximum) markers.push(...spread(cluster.members, zoom));
     else groups.push(cluster);
   }
   return { groups, markers };

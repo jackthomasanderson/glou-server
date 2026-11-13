@@ -576,6 +576,48 @@ describe('getAnalytics — consumed units and the capital gain (#838)', () => {
   });
 });
 
+// #702: a bottle with no price counts 0 € in the value; the KPI must say so.
+describe('getAnalytics — units in stock with no price (#702)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.cellar.findMany).mockResolvedValue([] as never);
+    vi.mocked(prisma.stockMovement.groupBy).mockResolvedValue([] as never);
+  });
+
+  it('counts the units in stock with neither an estimated value nor a purchase price, a group by its bottles', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ quantity: 6 }),
+      item({ quantity: 2, purchasePrice: 20 }),
+      item({ quantity: 1, estimatedValue: 40 }),
+      // Drunk: no longer in stock, not "unpriced".
+      item({ quantity: 1, isOpened: true, fillLevel: 0 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.unpricedUnits).toBe(6);
+    expect(stats.totalActiveItems).toBe(9);
+  });
+
+  it('tells the cigars with no price apart, so the KPI names them (review of #1014)', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([
+      item({ quantity: 6 }),
+      item({ category: 'cigar', quantity: 2, cigarsPerBox: 25 }),
+      item({ category: 'cigar', quantity: 3, purchasePrice: 12 }),
+    ] as never);
+
+    const stats = await getAnalytics();
+
+    expect(stats.unpricedUnits).toBe(56);
+    expect(stats.unpricedCigars).toBe(50);
+  });
+
+  it('is 0 when every unit in stock has a price', async () => {
+    vi.mocked(prisma.inventoryItem.findMany).mockResolvedValue([item({ quantity: 3, purchasePrice: 10 })] as never);
+    expect((await getAnalytics()).unpricedUnits).toBe(0);
+  });
+});
+
 describe('getAnalytics — where the world map places the bottles (#961)', () => {
   beforeEach(() => {
     vi.clearAllMocks();

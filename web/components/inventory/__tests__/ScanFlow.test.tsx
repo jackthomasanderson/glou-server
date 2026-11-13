@@ -85,9 +85,18 @@ vi.mock('@heroui/react', () => ({
   Input: () => <input />,
   Select: () => <select />,
   SelectItem: () => null,
-  Checkbox: () => <input type="checkbox" />,
+  Checkbox: ({ children, isSelected, onValueChange }: { children?: ReactNode; isSelected?: boolean; onValueChange?: (v: boolean) => void }) => (
+    <label><input type="checkbox" checked={!!isSelected} onChange={(e) => onValueChange?.(e.target.checked)} />{children}</label>
+  ),
   CircularProgress: () => <div />,
 }));
+
+// #660: the label photo, kept for the record when asked.
+const uploadImage = vi.fn();
+vi.mock('@/lib/search/client', () => ({ searchClient: { uploadImage: (file: File) => uploadImage(file) } }));
+vi.mock('@/lib/image-resize', () => ({ downscaleImage: async (file: File) => file }));
+const notifyError = vi.fn();
+vi.mock('@/lib/toast', () => ({ notifyError: (...args: unknown[]) => notifyError(...args) }));
 
 import { ScanFlow } from '../ScanFlow';
 
@@ -105,6 +114,7 @@ beforeEach(() => {
   sameName = [];
   createItem.mockResolvedValue({ id: 'i1', name: 'Talbot', producer: 'Château Talbot' });
   addToCollection.mockResolvedValue({});
+  uploadImage.mockResolvedValue('/uploads/products/label.jpg');
 });
 
 describe('ScanFlow error message follows the cause (#639)', () => {
@@ -332,5 +342,87 @@ describe('ScanFlow — the full form saves as everywhere else (#690)', () => {
 
     expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
     expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ cellarId: null }));
+  });
+});
+
+// #660: a scanned bottle had no photo — the label photo was only read, then deleted.
+describe('ScanFlow — the label photo for the record (#660)', () => {
+  const readLabel = () => {
+    uploadOutcome = { jobId: 'j1' };
+    polledJob = { status: 'done', extractedData: { category: 'wine', name: 'Talbot', producer: 'Château Talbot' } };
+    renderAndSendPhoto();
+  };
+  const photoBox = () => screen.getByRole('checkbox', { name: 'scan.review.usePhoto' });
+
+  it('ticked by default: the new wine gets the label photo', async () => {
+    readLabel();
+    expect(photoBox()).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.review.confirm' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(uploadImage).toHaveBeenCalledWith(expect.objectContaining({ name: 'label.jpg' }));
+    expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ photoUrl: '/uploads/products/label.jpg' }));
+  });
+
+  it('unticked: no photo is sent', async () => {
+    readLabel();
+    fireEvent.click(photoBox());
+    fireEvent.click(screen.getByRole('button', { name: 'scan.review.confirm' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(uploadImage).not.toHaveBeenCalled();
+    expect(createItem).toHaveBeenCalledWith(expect.not.objectContaining({ photoUrl: expect.anything() }));
+  });
+
+  it('the full form ("More details") keeps the label photo and the collections picked there', async () => {
+    readLabel();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.review.moreDetails' }));
+    fireEvent.click(screen.getByRole('button', { name: 'submit-manual-in-collection' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(createItem).toHaveBeenCalledWith(expect.objectContaining({ photoUrl: '/uploads/products/label.jpg', scanJobId: 'j1' }));
+    expect(addToCollection).toHaveBeenCalledWith({ id: 'col-gifts', itemIds: ['i1'] });
+  });
+
+  it('bottles added to a wine already known never change its photo', async () => {
+    sameName = [{ id: 'p1', name: 'Talbot', producer: 'Château Talbot', vintage: 2015, category: 'wine', items: [] }];
+    readLabel();
+    fireEvent.click(screen.getByRole('button', { name: 'known-add' }));
+    fireEvent.click(screen.getByRole('button', { name: 'reduced-add Talbot' }));
+
+    expect(await screen.findByText('scan.cart.addedWine')).toBeInTheDocument();
+    expect(uploadImage).not.toHaveBeenCalled();
+  });
+
+  // Review of #1014: the box is for a new wine; with "Vous avez déjà ce vin" up it is not offered.
+  it('no photo box while the known-wine banner is up; told apart, it comes back', () => {
+    sameName = [{ id: 'p1', name: 'Talbot', producer: 'Château Talbot', vintage: 2015, category: 'wine', items: [] }];
+    readLabel();
+    expect(screen.getByTestId('known-wine-banner')).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'scan.review.usePhoto' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'known-distinct' }));
+    expect(photoBox()).toBeChecked();
+  });
+
+  it('a save that fails after the photo was sent reuses that photo on the next try', async () => {
+    createItem.mockRejectedValueOnce(new Error('VALIDATION_ERROR'));
+    readLabel();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.review.confirm' }));
+    await vi.waitFor(() => expect(createItem).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'scan.review.confirm' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(uploadImage).toHaveBeenCalledTimes(1);
+    expect(createItem).toHaveBeenLastCalledWith(expect.objectContaining({ photoUrl: '/uploads/products/label.jpg' }));
+  });
+
+  it('a photo that cannot be saved does not lose the wine: added without it, and said', async () => {
+    uploadImage.mockRejectedValueOnce(new Error('FILE_TOO_LARGE'));
+    readLabel();
+    fireEvent.click(screen.getByRole('button', { name: 'scan.review.confirm' }));
+
+    expect(await screen.findByText(/Talbot — Château Talbot/)).toBeInTheDocument();
+    expect(createItem).toHaveBeenCalledWith(expect.not.objectContaining({ photoUrl: expect.anything() }));
+    expect(notifyError).toHaveBeenCalledWith('scan.review.photoNotSaved');
   });
 });
