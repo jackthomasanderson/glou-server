@@ -1,5 +1,5 @@
 'use client';
-import { createElement } from 'react';
+import { createElement, useEffect, useState, type ReactNode } from 'react';
 import { addToast, Button, closeToast } from '@heroui/react';
 import i18n from '@/lib/i18n';
 
@@ -90,13 +90,114 @@ export function notifyWarning(messageKey: string, values?: Record<string, unknow
 /** ux-ui.md §10.4: an everyday action is undone from its message for 8 seconds (decision #471 point 71). */
 export const UNDO_TIMEOUT_MS = 8000;
 
+// A closing confirmation hands the focus back to a card that no longer
+// exists, so it ends on <body>. Watch for that for a while (a slow phone can
+// take more than a second) and bring it to "Undo" as soon as it lands there.
+const FOCUS_WATCH_MS = 1500;
+const FOCUS_POLL_MS = 100;
+
+const isFocusLost = () => {
+  const active = document.activeElement;
+  return !active || active === document.body || active === document.documentElement;
+};
+
+/** A message closing while it holds the focus gives it to the page title, never to <body>. */
+function releaseFocus(toast: Element | null) {
+  if (!toast?.contains(document.activeElement)) return;
+  const heading = document.querySelector<HTMLElement>('main h1, h1');
+  if (!heading) return;
+  if (!heading.hasAttribute('tabindex')) heading.setAttribute('tabindex', '-1');
+  heading.focus();
+}
+
+/**
+ * The actions of an undoable message, and its countdown (#651, WCAG 2.2.1
+ * and 2.4.3). HeroUI's own timer only stops under the mouse; this one also
+ * stops while the message holds the keyboard focus, and keeps the time
+ * already spent. Listened on the document: HeroUI re-renders the message
+ * elsewhere when a drawer opens or closes.
+ */
+function UndoActions({ id, onExpire, className, children }: { id: string; onExpire: () => void; className?: string; children?: ReactNode }) {
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!node) return;
+    const inside = (target: EventTarget | null) => target instanceof Node && !!undoToastOf(id)?.contains(target);
+    let hovered = false;
+    let focused = false;
+    let remaining = UNDO_TIMEOUT_MS;
+    let startedAt = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const sync = () => {
+      if (hovered || focused) {
+        if (timer === undefined) return;
+        clearTimeout(timer);
+        timer = undefined;
+        remaining -= Date.now() - startedAt;
+      } else if (timer === undefined) {
+        startedAt = Date.now();
+        timer = setTimeout(onExpire, remaining);
+      }
+    };
+    // A mouse pointer only: a tap emulates hover with no "leave" until the next tap.
+    const onOver = (e: PointerEvent) => {
+      if (e.pointerType !== 'mouse') return;
+      hovered = inside(e.target);
+      sync();
+    };
+    const onOut = (e: PointerEvent) => {
+      if (e.relatedTarget !== null) return;
+      hovered = false;
+      sync();
+    };
+    // Focus placed by the message itself or by a tap is not a request to wait: only keyboard focus pauses.
+    const onFocusIn = (e: FocusEvent) => {
+      focused = inside(e.target) && (e.target as Element).matches(':focus-visible');
+      sync();
+    };
+    const onFocusOut = (e: FocusEvent) => {
+      if (inside(e.relatedTarget)) return;
+      focused = false;
+      sync();
+    };
+    // Polled: removing a focused element fires no focusout in every browser.
+    const poll = setInterval(() => {
+      if (isFocusLost()) node.querySelector<HTMLElement>('[data-undo]')?.focus();
+    }, FOCUS_POLL_MS);
+    const stopPoll = setTimeout(() => clearInterval(poll), FOCUS_WATCH_MS);
+    document.addEventListener('pointerover', onOver);
+    document.addEventListener('pointerout', onOut);
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
+    sync();
+    return () => {
+      clearTimeout(timer);
+      clearInterval(poll);
+      clearTimeout(stopPoll);
+      document.removeEventListener('pointerover', onOver);
+      document.removeEventListener('pointerout', onOut);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
+    };
+  }, [node, id, onExpire]);
+  return createElement('div', { ref: setNode, className, 'data-undo-id': id }, children);
+}
+
+let undoSeq = 0;
+
+/** The message holding an undoable message's actions. */
+function undoToastOf(id: string): Element | null {
+  const actions = document.querySelector(`[data-undo-id="${id}"]`);
+  return actions?.closest('[data-toast]') ?? actions;
+}
+
 /**
  * A success that can be taken back (#471, ux-ui.md §10.4: "1 bouteille
- * ouverte · Annuler"). The toast region is a top layer: its button works
- * above an open drawer without closing it. Pressing "Annuler" closes the
- * message and calls `onUndo` once. `extra`, a second action of the same
- * message (FEAT-109: « Noter une dégustation » after « J'en bois une »),
- * also closes it.
+ * ouverte · Annuler"), and the only "Undo" of the app (#836): a wine put in
+ * the trash too. The toast region is a top layer: its button works above an
+ * open drawer without closing it. Pressing "Annuler" closes the message and
+ * calls `onUndo` once. `extra`, a second action of the same message
+ * (FEAT-109: « Noter une dégustation » after « J'en bois une »), also closes
+ * it.
  */
 export function notifyUndoable(
   messageKey: string,
@@ -105,24 +206,30 @@ export function notifyUndoable(
   extra?: { labelKey: string; onPress: () => void },
 ): void {
   let done = false;
+  const id = `undo-${++undoSeq}`;
+  const close = () => {
+    done = true;
+    releaseFocus(undoToastOf(id));
+    if (key) closeToast(key);
+  };
   const once = (action: () => void) => () => {
     if (done) return;
-    done = true;
-    if (key) closeToast(key);
+    close();
     action();
   };
-  const button = (label: string, onPress: () => void) =>
-    createElement(Button, { key: label, size: 'sm', variant: 'flat', color: 'success', onPress }, label);
-  const undo = button(translate('actions.undo'), once(onUndo));
+  const button = (label: string, onPress: () => void, isUndo = false) =>
+    createElement(Button, { key: label, size: 'sm', variant: 'flat', color: 'success', onPress, ...(isUndo ? { 'data-undo': true } : {}) }, label);
+  const undo = button(translate('actions.undo'), once(onUndo), true);
   // Two actions go under the message, not beside it: beside, they left the
   // message a word's width and cut it mid-word on a phone (« 1 / bout / eille
   // / bue », recette v3 of #471).
   const key = addToast({
     title: translate(messageKey, values),
     color: 'success',
-    timeout: UNDO_TIMEOUT_MS,
+    // The countdown is UndoActions' own, which also pauses on keyboard focus.
+    timeout: PERSISTENT_TIMEOUT,
     ...(extra
-      ? { description: createElement('div', { className: 'flex flex-wrap gap-1 mt-1' }, button(translate(extra.labelKey), once(extra.onPress)), undo) }
-      : { endContent: undo }),
+      ? { description: createElement(UndoActions, { id, onExpire: close, className: 'flex flex-wrap gap-1 mt-1' }, button(translate(extra.labelKey), once(extra.onPress)), undo) }
+      : { endContent: createElement(UndoActions, { id, onExpire: close }, undo) }),
   });
 }

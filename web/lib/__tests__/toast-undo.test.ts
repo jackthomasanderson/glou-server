@@ -9,15 +9,18 @@ vi.mock('@heroui/react', () => ({
 }));
 vi.mock('@/lib/i18n', () => ({ default: { t: (key: string) => key } }));
 
-import { notifyUndoable } from '@/lib/toast';
+import { notifyUndoable, UNDO_TIMEOUT_MS } from '@/lib/toast';
 
 describe('notifyUndoable (decision #471 point 71)', () => {
   beforeEach(() => addToast.mockClear());
 
-  it('keeps « Annuler » on screen for 8 seconds', () => {
+  // The countdown itself (8 s, paused on hover and keyboard focus, #651) is
+  // checked on the rendered message in toast-undo-timing.test.tsx.
+  it('keeps « Annuler » on screen for 8 seconds, with its own countdown instead of HeroUI\'s', () => {
     notifyUndoable('stockMove.opened', undefined, () => {});
     expect(addToast).toHaveBeenCalledTimes(1);
-    expect(addToast.mock.calls[0][0].timeout).toBe(8000);
+    expect(UNDO_TIMEOUT_MS).toBe(8000);
+    expect(addToast.mock.calls[0][0].timeout).toBe(0);
   });
 
   // Recette v3: beside two buttons the message was a word wide, cut mid-word

@@ -72,10 +72,9 @@ const WINES_ACTIONS: ReadonlyArray<{ key: BulkWinesActionName | 'edit'; icon: Re
  * and the bulk edit dialog itself.
  *
  * The post-update confirmation is a plain success toast raised by the
- * dashboard through the shared notification system. It deliberately does NOT
- * use `UndoToast`: that component's countdown bar reads as "you have a few
- * seconds to undo", and a bulk update cannot be undone (ISSUE_124). The
- * before/after recap in `BulkActionDialog` is the safeguard instead.
+ * dashboard through the shared notification system. It deliberately offers
+ * no "Undo" (`notifyUndoable`): a bulk update cannot be undone (ISSUE_124).
+ * The before/after recap in `BulkActionDialog` is the safeguard instead.
  */
 export function InventoryBulkBar({
   t,

@@ -27,8 +27,11 @@ test('trash a wine: confirm, undo, then restore it from the trash', async ({ pag
     await card.getByRole('button', { name: 'Mettre à la corbeille' }).click();
     await confirm.getByRole('button', { name: 'Mettre à la corbeille' }).click();
     await expect(card).toHaveCount(0);
-    const toast = page.getByRole('status').filter({ hasText: `${name} 2020 mis à la corbeille` });
+    // The app's one undoable message (#836): top right, like opening a bottle.
+    const toast = page.locator('[data-toast]').filter({ hasText: `${name} 2020 mis à la corbeille` });
     await expect(toast).toBeVisible();
+    // #651: the focus left with the card lands on « Annuler », not at the top of the page.
+    await expect(toast.getByRole('button', { name: 'Annuler' })).toBeFocused();
     await toast.getByRole('button', { name: 'Annuler' }).click();
     await expect(card).toBeVisible();
 
