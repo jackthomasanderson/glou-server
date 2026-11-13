@@ -34,6 +34,7 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 - Undo after putting a wine in the trash now appears at the top right like every other Undo, waits while the mouse or the keyboard is on it, and each trashed wine keeps its own.
 - A failed avatar change, or a failed change of a wine's collections, is now said even after leaving the page; copying a member's temporary password works over plain HTTP.
 - Screen readers now reach a tooltip opened inside a window or a drawer.
+- Typing right after closing a window or a drawer no longer loses the first keys.
 
 ## v2026.11.4
 

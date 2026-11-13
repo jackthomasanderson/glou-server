@@ -36,6 +36,7 @@ Entries start with the pull request that introduced them where there is one.
 - **Undo** now looks and behaves the same everywhere: putting a wine in the trash shows the same message at the top right as opening or drinking a bottle, instead of a separate bar at the bottom of the page. Each wine trashed keeps its own **Undo**, so trashing two in a row no longer loses the first one's. The message waits while the mouse is over it or the keyboard is on it, and after a deletion the keyboard lands on **Undo** instead of the top of the page (#836, #651).
 - Failure messages: recording an item found during a stock count says why it failed once, and "cannot reach the server" when there is no network. A failed change of avatar, or of a wine's collections from its drawer, is now said even after leaving the page. Copying a member's temporary password from Administration works over plain HTTP and says when the browser refuses (#887).
 - Screen readers now reach a tooltip opened inside a window or a drawer; the colour check also covers the raised surfaces of the dark theme (#976).
+- Typing in the search or a filter right after closing a window or a drawer no longer loses the first keys: the closing window no longer pulls the focus back while it slides away (#875).
 
 ### Removed
 - Humidor readings: the API no longer accepts the `sensor` reading source, reserved for a sensor bridge that was never built; every reading is a manual one, and the database migration turns any reading stored with it into a manual one (#468).
