@@ -132,20 +132,25 @@ export function OpenedLevel({ item, t, onCommit, canPutBack = true }: {
         <span className="text-sm font-bold tabular-nums w-12 text-right">{t('familyList.stock.level', { level: shown })}</span>
       </div>
       <div className="flex gap-2 mt-1">
-        {FILL_LEVELS.filter(({ value }) => canPutBack || value < FULL).map(({ value, key }) => (
-          <Button
-            key={value}
-            size="sm"
-            variant={shown === value ? 'solid' : 'bordered'}
-            color={shown === value ? 'warning' : 'default'}
-            // min-w-0: in a narrow card (the guest's) the shortcuts share the width instead of overflowing it.
-            className="flex-1 min-w-0 h-7"
-            onPress={() => commit(value)}
-            aria-pressed={shown === value}
-          >
-            {t(key)}
-          </Button>
-        ))}
+        {FILL_LEVELS.filter(({ value }) => canPutBack || value < FULL).map(({ value, key }) => {
+          // "Pleine" puts the bottle back with the others: an action, never
+          // shown as the state of a bottle just opened at 100 % (#845).
+          const selected = value < FULL && shown === value;
+          return (
+            <Button
+              key={value}
+              size="sm"
+              variant={selected ? 'solid' : 'bordered'}
+              color={selected ? 'warning' : 'default'}
+              // min-w-0: in a narrow card (the guest's) the shortcuts share the width instead of overflowing it.
+              className="flex-1 min-w-0 h-7"
+              onPress={() => commit(value)}
+              aria-pressed={selected}
+            >
+              {t(key)}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );

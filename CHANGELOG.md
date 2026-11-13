@@ -22,6 +22,7 @@ Entries start with the pull request that introduced them where there is one.
 
 ### Fixed
 - Analytics: at the closest zoom of the world map, regions spread apart no longer land on a neighbouring region's marker; nearby regions are spread together until no marker overlaps another (#994).
+- A bottle just opened (at 100 %) no longer shows **Full** as already selected in the wine's drawer: Full is shown as the action it is, and pressing it puts the bottle back with the others, with **Undo** (#845).
 
 ## v2026.11.4 - 2026-11-13
 

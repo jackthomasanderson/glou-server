@@ -164,6 +164,18 @@ describe('FamilyDrawer', () => {
     expect(mutate.mock.calls[0][0]).toMatchObject({ id: 'sub', patch: { fillLevel: 100, isOpened: false } });
   });
 
+  // #845: a bottle just opened is at 100 %; "Pleine" still puts it back, and says so.
+  it('"Pleine" on a bottle just opened (100 %) puts it back with the others, with "Annuler"', async () => {
+    const { notifyUndoable } = await import('@/lib/toast');
+    vi.mocked(notifyUndoable).mockClear();
+    mutate.mockImplementationOnce(async () => ({ id: 'group' }));
+    detail = detailOf({ items: [unit({ id: 'group', quantity: 5, cellarId: 'garage' }), openedBottle(100, { id: 'sub', parentItemId: 'group' })] });
+    render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Pleine' }));
+    expect(mutate.mock.calls[0][0]).toMatchObject({ id: 'sub', patch: { fillLevel: 100, isOpened: false } });
+    await waitFor(() => expect(notifyUndoable).toHaveBeenCalledWith('openedReminder.putBack.rejoined', expect.anything(), expect.any(Function)));
+  });
+
   it('a tasting of a known bottle says which one: its cellar and price', () => {
     detail = detailOf({
       items: [unit({ id: 'b1', quantity: 2, cellarId: 'garage', purchasePrice: 20 })],

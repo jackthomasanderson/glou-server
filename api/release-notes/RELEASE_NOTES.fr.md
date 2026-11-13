@@ -21,6 +21,7 @@ d'une version range les notes à venir sous le nouveau titre `## vYYYY.MM[.PATCH
 
 ### Corrections
 - Analyses : au zoom le plus proche de la carte du monde, les régions écartées ne chevauchent plus le repère d'une région voisine.
+- Dans le tiroir d'un vin, « Pleine » sur une bouteille tout juste ouverte ne paraît plus déjà choisi : l'appuyer remet la bouteille avec les autres.
 
 ## v2026.11.4
 

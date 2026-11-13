@@ -20,6 +20,7 @@ One plain-text line per note, no Markdown. Releasing moves the upcoming notes un
 
 ### Fixed
 - Analytics: at the closest zoom of the world map, spread regions no longer overlap a neighbouring region's marker.
+- In a wine's drawer, Full on a bottle just opened no longer looks already selected: pressing it puts the bottle back with the others.
 
 ## v2026.11.4
 
