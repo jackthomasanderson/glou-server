@@ -1,4 +1,4 @@
-FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS builder
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS builder
 
 # #466: /build/api + /build/shared reproduce the repository layout, so
 # tsconfig's rootDir ".." emits dist/api/src/index.js and dist/shared/.
@@ -30,7 +30,7 @@ RUN npm run build
 # and gives both architectures the same one. Published monthly: falls back to
 # the previous month, and fails the build if neither file is available.
 # GEO_DOWNLOAD=false (e2e, nightly fuzz) skips it: no file, locations are null.
-FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS geo
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS geo
 ARG GEO_DOWNLOAD=true
 ARG GEO_MONTH=
 WORKDIR /geo
@@ -56,7 +56,7 @@ RUN set -eu; \
     echo "No DB-IP City Lite database for $month or $previous" >&2; exit 1
 
 # ─── Production image ────────────────────────────────────────────────────────
-FROM node:26-alpine@sha256:8996bb5821d62a8fd9bb27c1cb07462f3fdce6e47d640c6a881ead0b064ce216 AS runner
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS runner
 
 # Non-root user
 # postgresql-client: provides pg_dump/pg_restore/psql for the scheduled backup
