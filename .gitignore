@@ -49,12 +49,15 @@ tmp/
 # --- Database dumps from the host bind mount (ISSUE_020) ---
 /backups/
 
-# --- Pipeline vibecoding : personnel, jamais poussé en ligne — ni depuis ce
-# template, ni depuis un projet dérivé (voir AGENTS.md). Le pipeline reste à
-# jour localement via .claude/hooks/pipeline-pull.sh, qui copie depuis la
-# copie locale du template : aucun réseau, aucun push impliqué.
-# Exception : .github/workflows/ reste suivi (il n'est listé nulle part
-# ci-dessous), nécessaire au fonctionnement de la CI GitHub.
+# >>> pipeline-vibecoding : bloc personnel (voir .claude/hooks/mirror-visibility.sh) >>>
+# --- Pipeline vibecoding : personnel. Dépôt GitHub public (régime par défaut)
+# : les chemins listés ci-dessous restent locaux, jamais poussés. Dépôt GitHub
+# privé : .claude/hooks/mirror-visibility.sh les retire de ce fichier au
+# démarrage de session, dossier local et dépôt passent en miroir (ce
+# commentaire reste, une liste vide en dessous = miroir actif). Le pipeline
+# lui-même se met à jour via .claude/hooks/pipeline-pull.sh, clone en lecture
+# seule de l'upstream, jamais de push. .github/workflows/ reste suivi dans les
+# deux cas, la CI GitHub en dépend (voir .github/workflows/README.md).
 _projet/
 .ressources/
 .claude/
@@ -63,6 +66,4 @@ _projet/
 AGENTS.md
 CLAUDE.md
 TUTORIEL.md
-# --- Docker ---
-# Exception : .github/workflows/ reste suivi, nécessaire au fonctionnement
-# de la CI GitHub (voir .github/workflows/README.md).
+# <<< pipeline-vibecoding : fin du bloc personnel <<<
