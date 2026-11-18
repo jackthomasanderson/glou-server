@@ -158,10 +158,14 @@ export function ConflictResolutionModal() {
       radius="lg"
       backdrop="opaque"
       placement="center"
-      // #1059: above the messages' own layer (z-[100]), which is the one
-      // thing in the app that paints over a modal: « 1 bouteille bue ·
-      // Annuler » lay over this dialog's description on a phone, and the
-      // member decided without reading what had changed.
+      // #1059: above the messages' own layer, which is the one thing in the
+      // app that paints over a modal: « 1 bouteille bue · Annuler » lay over
+      // this dialog's description on a phone, and the member decided without
+      // reading what had changed. The `blocking` level of the app's stacking
+      // order (tailwind.config.ts), whose place above HeroUI's own levels is
+      // checked there, against HeroUI's real styles. Written as the value
+      // because tailwind-merge only drops the theme's own `z-50` for a plain
+      // one, and the test of this dialog holds the two together.
       classNames={{ wrapper: 'z-[110]', backdrop: 'z-[110]' }}
     >
       <ModalContent {...{ [SELF_ATTR]: true }}>

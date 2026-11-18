@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { HeroUIProvider } from '@heroui/react';
+import { Drawer, DrawerContent, HeroUIProvider } from '@heroui/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { QueuedMutation } from '@/lib/offline/db';
 import type { InventoryItem } from '@/lib/inventory/types';
 import type { Product } from '@/lib/products/types';
 import fr from '@/public/locales/fr/common.json';
+import tailwind from '@/tailwind.config';
 
 // #1059: a sync conflict raised while the tasting form is open used to mount
 // under it — HeroUI gives every modal the same full-screen container at the
@@ -88,11 +89,23 @@ function drinkConflict(): QueuedMutation {
 
 let queryClient: QueryClient;
 
-/** The tasting form and the conflict dialog, as a page of the app mounts them. */
-function Harness({ open }: { open: boolean }) {
+/**
+ * The tasting form and the conflict dialog, as a page of the app mounts them.
+ * `drawer`: the wine's drawer the form is usually opened from
+ * (FamilyDrawer → « Noter une dégustation »), which stays open behind it.
+ */
+function Harness({ open, drawer = false, appLayer = false }: { open: boolean; drawer?: boolean; appLayer?: boolean }) {
   return (
     <HeroUIProvider disableAnimation>
       <QueryClientProvider client={queryClient}>
+        {/* A full-screen layer of the app's own, written by hand rather than
+            opened as a HeroUI window: the lock screen, the onboarding wizard,
+            the fullscreen map. It says `aria-modal` too, and never leaves the
+            page while it is up. */}
+        {appLayer && <div role="dialog" aria-modal="true" aria-label="lock">locked</div>}
+        <Drawer isOpen={drawer}>
+          <DrawerContent>{() => <p>drawer</p>}</DrawerContent>
+        </Drawer>
         <TastingForm open={open} onClose={() => {}} initialItemId="wine-1" />
         <ConflictResolutionModal />
       </QueryClientProvider>
@@ -113,10 +126,10 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ data: null }) })));
 });
 
-/** The tasting form's own dialog: the open modal that is not the conflict one. */
-const formDialog = () => Array.from(document.querySelectorAll('[aria-modal="true"]'))
-  .find((el) => !el.hasAttribute('data-conflict-dialog'))!;
-const conflictNode = () => document.querySelector('[data-conflict-dialog]');
+/** The two windows as the page holds them, found by what they show. */
+const conflictModal = () => conflictDialog()?.closest('[aria-modal="true"]') ?? null;
+const formModal = () => Array.from(document.querySelectorAll('[aria-modal="true"]'))
+  .find((el) => el !== conflictModal()) ?? null;
 
 describe('a conflict and the tasting form, open together (#1059)', () => {
   it('a conflict raised while the form is open is the usable one: last in the page, over the form', async () => {
@@ -130,7 +143,11 @@ describe('a conflict and the tasting form, open together (#1059)', () => {
     await waitFor(() => expect(conflictDialog()).not.toBeNull());
     // Last opened means painted over the form and holding the focus: its
     // buttons receive the clicks, as they did before this fix.
-    const covered = formDialog().compareDocumentPosition(conflictNode()!) & Node.DOCUMENT_POSITION_FOLLOWING;
+    const form = formModal();
+    const conflict = conflictModal();
+    expect(form).not.toBeNull();
+    expect(conflict).not.toBeNull();
+    const covered = form!.compareDocumentPosition(conflict!) & Node.DOCUMENT_POSITION_FOLLOWING;
     expect(covered).toBeTruthy();
   });
 
@@ -149,7 +166,7 @@ describe('a conflict and the tasting form, open together (#1059)', () => {
 
     // The dialog is not left under the form, where its buttons received
     // nothing and Escape closed the form.
-    await waitFor(() => expect(conflictNode()).toBeNull());
+    await waitFor(() => expect(conflictDialog()).toBeNull());
     expect(notes().value).toBe(typed);
     // Nothing is lost: the change is still queued, waiting to be arbitrated.
     expect(store.get('A')?.status).toBe('conflict');
@@ -158,16 +175,55 @@ describe('a conflict and the tasting form, open together (#1059)', () => {
     view.rerender(<Harness open={false} />);
     await waitFor(() => expect(conflictDialog()).not.toBeNull());
   });
+
+  // B1 of the review of #1059: the question was asked again only once EVERY
+  // window was closed, and the form is opened from the wine's drawer
+  // (FamilyDrawer), which stays open behind it: the arbitration was then
+  // never asked again, with nothing on screen saying it was still owed.
+  it('comes back when the form closes, even with the wine\'s drawer still open behind it', async () => {
+    store.set('A', drinkConflict());
+    // The member drank from the drawer; the replay raises the conflict over it.
+    const view = render(<Harness open={false} drawer />);
+    await waitFor(() => expect(conflictDialog()).not.toBeNull());
+
+    // « Noter une dégustation » in that same drawer opens the form over it.
+    view.rerender(<Harness open drawer />);
+    await waitFor(() => expect(notes()).toBeInTheDocument());
+    await waitFor(() => expect(conflictDialog()).toBeNull());
+
+    // The form closed; the drawer is still open.
+    view.rerender(<Harness open={false} drawer />);
+    await waitFor(() => expect(conflictDialog()).not.toBeNull());
+  });
+
+  // Same for the app's own full-screen layers (LockScreen,
+  // ForcedPasswordChange, OnboardingWizard, the fullscreen map): they say
+  // `aria-modal` as well, so waiting for "no window at all" would have left
+  // the question owed for as long as one of them was up.
+  it('comes back when the form closes, even under one of the app\'s own full-screen layers', async () => {
+    store.set('A', drinkConflict());
+    const view = render(<Harness open={false} appLayer />);
+    await waitFor(() => expect(conflictDialog()).not.toBeNull());
+
+    view.rerender(<Harness open appLayer />);
+    await waitFor(() => expect(notes()).toBeInTheDocument());
+    await waitFor(() => expect(conflictDialog()).toBeNull());
+
+    view.rerender(<Harness open={false} appLayer />);
+    await waitFor(() => expect(conflictDialog()).not.toBeNull());
+  });
 });
 
-// #1059: HeroUI gives the messages their own layer (`z-[100]`), above every
-// modal (`z-50`) — « 1 bouteille bue · Annuler » lay over this dialog's
-// description on a phone, and the member decided without reading what had
-// changed. The dialog that must be read goes above that layer.
+// #1059: HeroUI gives the messages their own layer, above every modal —
+// « 1 bouteille bue · Annuler » lay over this dialog's description on a
+// phone, and the member decided without reading what had changed. The dialog
+// that must be read goes to the app's `blocking` level, whose place in the
+// stacking order (above HeroUI's windows and messages, under the lock screen)
+// is checked by tailwind.config.test.ts.
 describe('the conflict dialog is above the messages (#1059)', () => {
-  const MESSAGES_LAYER = 100;
+  const BLOCKING = (tailwind.theme?.extend?.zIndex as Record<string, string>).blocking;
 
-  it('its container and its backdrop are above the messages\' layer, not at the modals\' z-50', async () => {
+  it('its container and its backdrop carry the blocking level, not the modals\' z-50', async () => {
     store.set('A', drinkConflict());
     render(<Harness open={false} />);
     await waitFor(() => expect(conflictDialog()).not.toBeNull());
@@ -180,10 +236,12 @@ describe('the conflict dialog is above the messages (#1059)', () => {
     expect(layers).toHaveLength(2);
     for (const layer of layers) {
       const classes = (layer?.className ?? '').split(/\s+/);
-      const z = classes.map((c) => /^z-\[(\d+)\]$/.exec(c)?.[1]).find(Boolean);
-      expect(Number(z)).toBeGreaterThan(MESSAGES_LAYER);
-      // The theme's own z-50 must have been merged away, or it would win on
-      // the source order of the stylesheet.
+      // The documented `blocking` level, never a value of its own: its place
+      // above HeroUI's windows and messages is what tailwind.config.test.ts
+      // checks, against HeroUI's real styles.
+      expect(classes).toContain(`z-[${BLOCKING}]`);
+      // The theme's own z-50 must have been merged away, or the two levels
+      // would be settled by the order of the stylesheet.
       expect(classes).not.toContain('z-50');
     }
   });

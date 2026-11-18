@@ -22,6 +22,9 @@ const config: Config = {
       //   50     ...but under HeroUI Modal/Drawer (rendered in <body>): the add
       //          form and the scan opened from the wizard must show on top
       //   100    HeroUI toast region: errors raised in the wizard stay visible
+      //   110    blocking: a window that must be read and answered before
+      //          anything else (the sync conflict dialog, #1059) — above the
+      //          messages, which covered its description on a phone
       //   9999   lock: lock screen / forced password change, above everything,
       //          an open window and its toasts included
       // react-aria places popovers (Select, Autocomplete lists) at 100000 inline.
@@ -29,6 +32,7 @@ const config: Config = {
       zIndex: {
         overlay: '40',
         wizard: '45',
+        blocking: '110',
         lock: '9999',
       },
     },
