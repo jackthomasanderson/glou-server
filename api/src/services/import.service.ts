@@ -131,9 +131,13 @@ const clip = (text: string) => (text.length > ECHO_MAX_CHARS ? `${text.slice(0, 
 
 /**
  * Where each column of the importer is read in a file: its headers, Glou's
- * own names first, then another software's (only when the file has none of
- * Glou's), then the fallbacks — whatever their order in the file. A row
- * takes the first non-empty cell.
+ * own names first, then another software's, then the fallbacks — whatever
+ * their order in the file. A row takes the first non-empty cell.
+ *
+ * A lower-ranked header is kept beside one of Glou's own names, as a cell
+ * the row falls back to, only in a CellarTracker or Vivino export: elsewhere
+ * a file's own column stands alone, right or wrong, as before #1035. A
+ * column Glou has no name of its own for in the file is read in any file.
  */
 interface ColumnMap {
   sources: Map<string, string[]>;
@@ -141,6 +145,8 @@ interface ColumnMap {
   unrecognized: string[];
   /** Each column's first header, as the file writes it: what a message about it quotes. */
   label: Map<string, string>;
+  /** Every header as the file writes it, by the key a parsed row holds it under. */
+  original: Map<string, string>;
   /** A CellarTracker or Vivino export: a purchase day it writes that cannot be read is left out, not a refusal. */
   thirdParty: boolean;
   /** A CellarTracker export (its `iWine` column): month-first dates. */
@@ -165,9 +171,9 @@ function mapColumns(header: readonly string[]): ColumnMap {
     if (remaining && own(token) === 'quantity') return undefined;
     return own(token);
   };
-  const ranked: Array<[string, number, number]> = [];
-  const unrecognized: string[] = [];
   const thirdParty = cellarTracker || tokens.includes('usercellarcount') || tokens.includes('winename');
+  const ranked: Array<[string, number, number]> = [];
+  const dropped: number[] = [];
   header.forEach((name, index) => {
     const token = tokens[index];
     const column = ownOf(token);
@@ -175,18 +181,27 @@ function mapColumns(header: readonly string[]): ColumnMap {
     if (column) ranked.push([column, 0, index]);
     else if (other) ranked.push([other, 1, index]);
     else if (HEADER_FALLBACKS[token]) ranked.push([HEADER_FALLBACKS[token], 2, index]);
-    else if (name !== '' && !(remaining && own(token) === 'quantity')) unrecognized.push(name);
+    else if (name !== '' && !(remaining && own(token) === 'quantity')) dropped.push(index);
   });
   ranked.sort((a, b) => a[1] - b[1] || a[2] - b[2]);
+  // Outside a CellarTracker or Vivino export, a column Glou has a name of its
+  // own for in this file is read there and nowhere else.
+  const ownColumns = new Set(ranked.filter(([, rank]) => rank === 0).map(([column]) => column));
+  const kept = thirdParty ? ranked : ranked.filter(([column, rank]) => rank === 0 || !ownColumns.has(column));
+  const keptIndexes = new Set(kept.map(([, , index]) => index));
+  for (const [, , index] of ranked) if (!keptIndexes.has(index)) dropped.push(index);
   const sources = new Map<string, string[]>();
   const label = new Map<string, string>();
-  for (const [column, , index] of ranked) {
+  const original = new Map<string, string>();
+  for (const name of header) original.set(name.toLowerCase(), name);
+  for (const [column, , index] of kept) {
     sources.set(column, [...(sources.get(column) ?? []), header[index].toLowerCase()]);
     if (!label.has(column)) label.set(column, header[index]);
   }
-  const quantityTokens = ranked.filter(([column]) => column === 'quantity').map(([, , index]) => tokens[index]);
+  const unrecognized = [...new Set(dropped)].sort((a, b) => a - b).map((index) => header[index]);
+  const quantityTokens = kept.filter(([column]) => column === 'quantity').map(([, , index]) => tokens[index]);
   const countLeft = quantityTokens.length > 0 && quantityTokens.every((token) => token === 'remaining' || token === 'usercellarcount');
-  return { sources, unrecognized, label, thirdParty, cellarTracker, storagePlace, countLeft };
+  return { sources, unrecognized, label, original, thirdParty, cellarTracker, storagePlace, countLeft };
 }
 
 /** CellarTracker's `3/14/2019` (month first, maybe with a time) as `2019-03-14`. */
@@ -214,14 +229,18 @@ const OPENED_ONLY_COLUMNS = ['fillLevel', 'cigarsLeft', 'openedAt'] as const;
  * columns are dropped. A level, cigars left or opening day on a row that is
  * not opened is ignored, whatever it holds.
  */
-function canonicalRecord(record: Record<string, string>, columns: ColumnMap): Record<string, string> {
+function canonicalRecord(record: Record<string, string>, columns: ColumnMap): { row: Record<string, string>; from: Map<string, string> } {
   const out: Record<string, string> = {};
+  // The header each cell was read under, so a refusal names the column it is really in.
+  const from = new Map<string, string>();
   for (const [column, keys] of columns.sources) {
-    const cells = keys.map((key) => unneutralize(record[key] ?? ''));
-    const filled = cells.filter((cell) => cell.trim() !== '');
+    const cells = keys.map((key) => [key, unneutralize(record[key] ?? '')] as const);
+    const filled = cells.filter(([, cell]) => cell.trim() !== '');
     // The category: the first cell that names one (CellarTracker's Type when its Category says nothing).
-    const readable = column === 'category' ? filled.find(isCategory) : undefined;
-    out[column] = readable ?? filled[0] ?? cells[0];
+    const readable = column === 'category' ? filled.find(([, cell]) => isCategory(cell)) : undefined;
+    const [key, cell] = readable ?? filled[0] ?? cells[0];
+    out[column] = cell;
+    from.set(column, key);
   }
   if (toOpened(out.opened) !== true) for (const column of OPENED_ONLY_COLUMNS) delete out[column];
   // #1035: another software's file is never refused for its purchase day:
@@ -232,7 +251,7 @@ function canonicalRecord(record: Record<string, string>, columns: ColumnMap): Re
   }
   // A storage place used as the cellar keeps to a cellar name's length.
   if (columns.storagePlace && out.cellar !== undefined) out.cellar = out.cellar.trim().slice(0, CELLAR_NAME_MAX);
-  return out;
+  return { row: out, from };
 }
 
 /** The family description a row carries (FEAT-99), undefined cells left out. */
@@ -352,7 +371,7 @@ export class ImportService {
 
     records.forEach((raw, index) => {
       const rowNumber = index + 2; // +1 for the header row, +1 for 1-based numbering
-      const record = canonicalRecord(raw, columns);
+      const { row: record, from } = canonicalRecord(raw, columns);
       // #1035: a wine another software lists with no bottle left (Vivino's cellar count, CellarTracker's Remaining at 0).
       const left = record.quantity?.trim().replace(',', '.') ?? '';
       if (columns.countLeft && left !== '' && Number(left) === 0) {
@@ -369,7 +388,9 @@ export class ImportService {
         // INVALID_ROW, never the validator's own text.
         const issue = result.error.issues[0];
         const reason = issue && isErrorCode(issue.message) ? issue.message : 'INVALID_ROW';
-        const label = typeof issue?.path[0] === 'string' ? columns.label.get(issue.path[0]) : undefined;
+        const column0 = typeof issue?.path[0] === 'string' ? issue.path[0] : undefined;
+        const read = column0 ? from.get(column0) : undefined;
+        const label = (read ? columns.original.get(read) : undefined) ?? (column0 ? columns.label.get(column0) : undefined);
         const column = label ? clip(label) : undefined;
         const name = record.name?.trim() ? clip(record.name.trim()) : undefined;
         errors.push({ row: rowNumber, reason, ...(column ? { column } : {}), ...(name ? { name } : {}) });

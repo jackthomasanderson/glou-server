@@ -808,7 +808,8 @@ describe('exports of other cellar software (#1035)', () => {
     expect(valid.map((row) => [row.name, row.category, row.notes])).toEqual([
       ['Brut Réserve', 'sparkling', undefined], ['Lagavulin 16', 'spirit', undefined], ['Bandol', 'wine', undefined], ['Behike 52', 'cigar', undefined],
     ]);
-    expect(unrecognizedColumns).toEqual(['Note']);
+    // Not a CellarTracker or Vivino export: its own columns stand alone, the other names are left aside.
+    expect(unrecognizedColumns).toEqual(['Type', 'Wine', 'Note']);
   });
 
   // Second review of #1051: CellarTracker's Category of a spirit is "Distilled", and a Category cell may be empty.
@@ -825,6 +826,36 @@ describe('exports of other cellar software (#1035)', () => {
     expect(valid.map((row) => [row.name, row.category])).toEqual([
       ['Lagavulin 16', 'spirit'], ['Talbot', 'wine'], ['Krug', 'sparkling'], ['Tavel', 'wine'], ['Gloria', 'wine'],
     ]);
+  });
+
+  // Third review of #1051: a file of its own carrying both names kept its own cell, right or wrong.
+  it('still refuses a category it cannot read in a file that is not from CellarTracker or Vivino', () => {
+    const { valid, errors, unrecognizedColumns } = importService.previewCsv(csv(
+      'Nom;Producteur;Catégorie;Type\nBandol;Tempier;Pinot Noir;Rouge\n',
+    ));
+    expect(valid).toEqual([]);
+    expect(errors).toEqual([{ row: 2, reason: 'INVALID_CATEGORY', column: 'Catégorie', name: 'Bandol' }]);
+    expect(unrecognizedColumns).toEqual(['Type']);
+  });
+
+  it('leaves another software\'s column aside in such a file, even where its own cell is empty', () => {
+    const { valid, errors, unrecognizedColumns } = importService.previewCsv(csv(
+      'Nom;Producteur;Catégorie;Quantité;Bottles;Notes;Commentaire\nA;P;Vin;;six;;vu\n',
+    ));
+    expect(errors).toEqual([]);
+    expect(valid).toEqual([{ name: 'A', producer: 'P', category: 'wine' }]);
+    expect(unrecognizedColumns).toEqual(['Bottles', 'Commentaire']);
+  });
+
+  it('reads another software\'s column when the file has no column of its own for it', () => {
+    const { valid, errors } = importService.previewCsv(csv('Winery,Wine,Type,Price,Valuation\nTempier,Bandol,Red,20,30\n'));
+    expect(errors).toEqual([]);
+    expect(valid).toEqual([{ name: 'Bandol', producer: 'Tempier', category: 'wine', purchasePrice: 20, estimatedValue: 30 }]);
+  });
+
+  it('names the column the refused cell is really in, even when it is a fallback', () => {
+    const { errors } = importService.previewCsv(csv('iWine,Wine,Producer,Category,Quantity,Bottles\n1,A,P,Dry,,six\n'));
+    expect(errors).toEqual([{ row: 2, reason: 'INVALID_QUANTITY', column: 'Bottles', name: 'A' }]);
   });
 
   it('still refuses an impossible purchase day in a file that is not from CellarTracker or Vivino', () => {
