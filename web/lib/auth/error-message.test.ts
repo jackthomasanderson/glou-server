@@ -94,14 +94,20 @@ describe('rate-limited requests', () => {
     expect(loadErrorMessage(t, err(45), 'x')).toBe('Too many requests in a short time. Try again in 45 seconds.');
     expect(loadErrorMessage(t, err(91), 'x')).toBe('Too many requests in a short time. Try again in 2 minutes.');
     await i18n.changeLanguage('fr');
-    expect(loadErrorMessage(t, err(45), 'x')).toBe('Trop de requêtes en peu de temps. Réessayez dans 45 secondes.');
-    expect(loadErrorMessage(t, err(600), 'x')).toBe('Trop de requêtes en peu de temps. Réessayez dans 10 minutes.');
+    expect(loadErrorMessage(t, err(45), 'x')).toBe('Trop de demandes en peu de temps. Réessayez dans 45 secondes.');
+    expect(loadErrorMessage(t, err(600), 'x')).toBe('Trop de demandes en peu de temps. Réessayez dans 10 minutes.');
   });
 
   it('without a Retry-After, says "in a moment" rather than guessing', async () => {
     await i18n.changeLanguage('en');
     expect(rateLimitedNotice(new ApiError('TOO_MANY_REQUESTS', 429))).toEqual({ key: 'status.rateLimited' });
     expect(loadErrorMessage(t, new ApiError('TOO_MANY_REQUESTS', 429), 'x')).toBe('Too many requests in a short time. Try again in a moment.');
+  });
+
+  it('says "in a moment" for a wait over a day, never "1440 minutes"', () => {
+    expect(rateLimitedNotice(new ApiError('TOO_MANY_REQUESTS', 429, 86_400))).toMatchObject({ key: 'status.rateLimitedMinutes' });
+    expect(rateLimitedNotice(new ApiError('TOO_MANY_REQUESTS', 429, 86_401))).toEqual({ key: 'status.rateLimited' });
+    expect(rateLimitedNotice(new ApiError('TOO_MANY_REQUESTS', 429, 1e20))).toEqual({ key: 'status.rateLimited' });
   });
 
   it('leaves other failures to the screen own wording', () => {

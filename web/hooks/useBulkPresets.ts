@@ -31,6 +31,6 @@ export function useDeleteBulkPreset() {
       queryClient.invalidateQueries({ queryKey: qk.bulkPresets });
     },
     // The confirmation closes right away: a failure must still be said.
-    onError: () => notifyError('toast.bulkPreset.deleteError'),
+    onError: (error) => notifyError('toast.bulkPreset.deleteError', undefined, error),
   });
 }

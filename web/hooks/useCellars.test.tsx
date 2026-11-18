@@ -39,7 +39,7 @@ describe('useDeleteCellar', () => {
     act(() => result.current.mutate('cellar-1'));
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(notifyError).toHaveBeenCalledWith('toast.cellar.deleteError');
+    expect(notifyError).toHaveBeenCalledWith('toast.cellar.deleteError', undefined, expect.anything());
     expect(notifySuccess).not.toHaveBeenCalled();
   });
 });

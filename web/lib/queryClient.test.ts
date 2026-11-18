@@ -109,3 +109,13 @@ describe('createQueryClient — rate-limited action', () => {
     expect(notifyError).not.toHaveBeenCalledWith('status.serverUnreachable');
   });
 });
+
+// #1039: retrying a throttled request would only drain the shared budget faster.
+describe('createQueryClient — retries', () => {
+  it('does not retry a 429, and still retries other failures', () => {
+    const retry = createQueryClient().getDefaultOptions().queries?.retry as (n: number, e: unknown) => boolean;
+    expect(retry(0, new ApiError('TOO_MANY_REQUESTS', 429, 10))).toBe(false);
+    expect(retry(0, new ApiError('HTTP 500', 500))).toBe(true);
+    expect(retry(2, new ApiError('HTTP 500', 500))).toBe(false);
+  });
+});

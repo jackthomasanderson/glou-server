@@ -57,13 +57,13 @@ describe('useUpdateProduct', () => {
     expect(notifyError).toHaveBeenLastCalledWith('familyDrawer.form.conflict', { context: 'cigar' });
     update.mockRejectedValue(new Error('boom'));
     await expect(result.current.mutateAsync({ id: 'p2', patch: { name: 'x' } })).rejects.toThrow();
-    expect(notifyError).toHaveBeenLastCalledWith('familyDrawer.form.error', { context: 'spirit' });
+    expect(notifyError).toHaveBeenLastCalledWith('familyDrawer.form.error', { context: 'spirit' }, expect.anything());
   });
 
   it('a value refused by the server is told apart from a failure', async () => {
     update.mockRejectedValue(new Error('VALIDATION_ERROR'));
     const { result } = setup();
     await expect(result.current.mutateAsync({ id: 'p1', patch: { region: 'x' } })).rejects.toThrow();
-    expect(notifyError).toHaveBeenCalledWith('familyDrawer.form.rejected', undefined);
+    expect(notifyError).toHaveBeenCalledWith('familyDrawer.form.rejected', undefined, expect.anything());
   });
 });

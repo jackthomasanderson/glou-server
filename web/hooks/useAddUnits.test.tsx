@@ -85,7 +85,7 @@ describe('useAddUnits', () => {
     addUnits.mockRejectedValue(new Error(code));
     const { result } = setup();
     await expect(result.current.mutateAsync({ product: product(), input: { quantity: 1 } })).rejects.toThrow();
-    expect(notifyError).toHaveBeenCalledWith(key);
+    expect(notifyError).toHaveBeenCalledWith(key, undefined, expect.anything());
   });
 
   it('says adding bottles needs the network (decision point 47)', async () => {
@@ -116,6 +116,6 @@ describe('useAddUnits', () => {
     addUnits.mockRejectedValue(new Error(code));
     const { result } = setup();
     await expect(result.current.mutateAsync({ product: product({ category: 'cigar' }), input: { quantity: 1 } })).rejects.toThrow();
-    expect(notifyError).toHaveBeenCalledWith(key);
+    expect(notifyError).toHaveBeenCalledWith(key, undefined, expect.anything());
   });
 });

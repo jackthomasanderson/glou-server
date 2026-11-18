@@ -66,7 +66,7 @@ describe('permanent deletion from the trash (#962)', () => {
     api.deleteItem.mockRejectedValue(new TypeError('Failed to fetch'));
     const { result } = setup(() => useDeleteTrashedItem());
     result.current.mutate('b1');
-    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('toast.trash.deleteError', undefined));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('toast.trash.deleteError', undefined, expect.anything()));
     expect(result.current.isPaused).toBe(false);
   });
 });

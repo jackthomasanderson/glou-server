@@ -43,7 +43,7 @@ describe('avatar failures (#887)', () => {
     const { result } = renderHook(() => useUploadAvatar(), { wrapper });
     await act(async () => { await result.current.mutateAsync(new File(['x'], 'a.png')).catch(() => {}); });
     expect(notifyError).toHaveBeenCalledTimes(1);
-    expect(notifyError).toHaveBeenCalledWith('profile.avatarError');
+    expect(notifyError).toHaveBeenCalledWith('profile.avatarError', undefined, expect.anything());
   });
 
   it.each([
@@ -54,7 +54,7 @@ describe('avatar failures (#887)', () => {
     const { result } = renderHook(() => useUploadAvatar(), { wrapper });
     await act(async () => { await result.current.mutateAsync(new File(['x'], 'a.jpg')).catch(() => {}); });
     expect(notifyError).toHaveBeenCalledTimes(1);
-    expect(notifyError).toHaveBeenCalledWith(message);
+    expect(notifyError).toHaveBeenCalledWith(message, undefined, expect.anything());
   });
 
   it('says the removal failed', async () => {
@@ -62,6 +62,6 @@ describe('avatar failures (#887)', () => {
     const { result } = renderHook(() => useDeleteAvatar(), { wrapper });
     await act(async () => { await result.current.mutateAsync().catch(() => {}); });
     expect(notifyError).toHaveBeenCalledTimes(1);
-    expect(notifyError).toHaveBeenCalledWith('profile.deleteAvatarError');
+    expect(notifyError).toHaveBeenCalledWith('profile.deleteAvatarError', undefined, expect.anything());
   });
 });

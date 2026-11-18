@@ -186,7 +186,7 @@ export function useCreateInventoryItem() {
     onError: (error, variables) => {
       // #683: say when the server refused a value, so the user can tell a
       // form problem from a connection problem.
-      notifyError(error.message === 'VALIDATION_ERROR' ? 'toast.createRejected' : 'toast.createError', ...unitCtx(variables.category));
+      notifyError(error.message === 'VALIDATION_ERROR' ? 'toast.createRejected' : 'toast.createError', unitCtx(variables.category)[0], error);
     },
     onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
@@ -303,11 +303,11 @@ export function useUpdateInventoryItem() {
       // unasked (409), or another field written with it (400); a box
       // refuses to close again once cigars were smoked out of it (400).
       if (error.message in REATTACH_REFUSALS) {
-        notifyError(REATTACH_REFUSALS[error.message]);
+        notifyError(REATTACH_REFUSALS[error.message], undefined, error);
         return;
       }
       if (error.message !== 'CONFLICT') {
-        notifyError('toast.updateError', ...unitCtx(cachedCategory(queryClient, id)));
+        notifyError('toast.updateError', unitCtx(cachedCategory(queryClient, id))[0], error);
         return;
       }
       // #572: changed meanwhile. Nothing was written; fetch the current
@@ -349,9 +349,9 @@ export function useBulkUpdateInventoryItem() {
     meta: { handlesError: true },
     mutationFn: ({ ids, patch }) => inventoryClient.bulkUpdate(ids, patch),
     // #873: a selection of cigars only is not told "the selected wines".
-    onError: (_error, { ids }) => {
+    onError: (error, { ids }) => {
       const allCigars = ids.length > 0 && ids.every((id) => cachedCategory(queryClient, id) === 'cigar');
-      notifyError('toast.bulkUpdateError', ...unitCtx(allCigars ? 'cigar' : undefined));
+      notifyError('toast.bulkUpdateError', unitCtx(allCigars ? 'cigar' : undefined)[0], error);
     },
     onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
@@ -374,7 +374,7 @@ export function useDeleteInventoryItem() {
       queryClient.setQueriesData<ProductDetailView>({ queryKey: qk.products.details }, (old) =>
         old?.items.some((unit) => unit.id === id) ? { ...old, items: old.items.filter((unit) => unit.id !== id) } : old);
     },
-    onError: (_error, id) => notifyError('toast.deleteError', ...unitCtx(cachedCategory(queryClient, id))),
+    onError: (error, id) => notifyError('toast.deleteError', unitCtx(cachedCategory(queryClient, id))[0], error),
     // The trash, the drawers and everything derived follow; the two lists were written above.
     onSettled: () => invalidateAfterInventoryChange(queryClient, { alreadyWritten: [INVENTORY_KEY, PRODUCTS_KEY] }),
   });
@@ -388,7 +388,7 @@ export function useRestoreInventoryItem() {
     meta: { handlesError: true },
     mutationFn: inventoryClient.restore,
     onSuccess: (restored) => notifySuccess('toast.restoreSuccess', ...unitCtx(restored.category)),
-    onError: (_error, id) => notifyError('toast.restoreError', ...unitCtx(cachedCategory(queryClient, id))),
+    onError: (error, id) => notifyError('toast.restoreError', unitCtx(cachedCategory(queryClient, id))[0], error),
     onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }

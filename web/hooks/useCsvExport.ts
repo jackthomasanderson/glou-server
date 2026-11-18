@@ -23,6 +23,6 @@ export function useCsvExport() {
       // The file imports back 500 lines at a time: say so rather than let the import refuse it later.
       if (rows > CSV_IMPORT_MAX_ROWS) notifyWarning('gdpr.csvTooLong', { count: rows, max: CSV_IMPORT_MAX_ROWS });
     },
-    onError: () => notifyError('gdpr.csvError'),
+    onError: (error) => notifyError('gdpr.csvError', undefined, error),
   });
 }

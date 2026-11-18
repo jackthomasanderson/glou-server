@@ -30,6 +30,8 @@ export function isRateLimited(err: unknown): boolean {
 
 /** Up to this many seconds the wait is said in seconds, beyond it in whole minutes. */
 const SECONDS_UNTIL_MINUTES = 90;
+/** A wait longer than a day is not believable (a proxy's timestamp, garbage): said as "in a moment". */
+const MAX_WAIT_SECONDS = 24 * 60 * 60;
 
 /**
  * What to tell a member whose request was throttled: the i18n key and its
@@ -38,7 +40,7 @@ const SECONDS_UNTIL_MINUTES = 90;
  */
 export function rateLimitedNotice(err: unknown): { key: string; values?: { count: number } } {
   const seconds = (err as { retryAfter?: unknown } | null)?.retryAfter;
-  if (typeof seconds !== 'number' || !(seconds > 0)) return { key: 'status.rateLimited' };
+  if (typeof seconds !== 'number' || !(seconds > 0) || seconds > MAX_WAIT_SECONDS) return { key: 'status.rateLimited' };
   return seconds <= SECONDS_UNTIL_MINUTES
     ? { key: 'status.rateLimitedSeconds', values: { count: Math.ceil(seconds) } }
     : { key: 'status.rateLimitedMinutes', values: { count: Math.ceil(seconds / 60) } };

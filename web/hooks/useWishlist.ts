@@ -32,7 +32,7 @@ export function useCreateWishlistItem() {
       queryClient.setQueryData<WishlistItem[]>(WISHLIST_KEY, (old) => (old ? [created, ...old] : [created]));
       notifySuccess('toast.wishlist.createSuccess');
     },
-    onError: () => notifyError('toast.wishlist.createError'),
+    onError: (error) => notifyError('toast.wishlist.createError', undefined, error),
     onSettled: () => refreshWishlist(queryClient),
   });
 }
@@ -43,7 +43,7 @@ export function useUpdateWishlistItem() {
     meta: { handlesError: true },
     mutationFn: ({ id, data }) => wishlistClient.update(id, data),
     onSuccess: () => notifySuccess('toast.wishlist.updateSuccess'),
-    onError: () => notifyError('toast.wishlist.updateError'),
+    onError: (error) => notifyError('toast.wishlist.updateError', undefined, error),
     onSettled: () => refreshWishlist(queryClient),
   });
 }
@@ -57,7 +57,7 @@ export function useDeleteWishlistItem() {
       queryClient.setQueryData<WishlistItem[]>(WISHLIST_KEY, (old) => (old ? old.filter((w) => w.id !== id) : []));
       notifySuccess('toast.wishlist.deleteSuccess');
     },
-    onError: () => notifyError('toast.wishlist.deleteError'),
+    onError: (error) => notifyError('toast.wishlist.deleteError', undefined, error),
     onSettled: () => refreshWishlist(queryClient),
   });
 }
@@ -68,7 +68,7 @@ export function useRecordPriceSeen() {
     meta: { handlesError: true },
     mutationFn: ({ id, price }) => wishlistClient.recordPriceSeen(id, price),
     onSuccess: () => notifySuccess('toast.wishlist.priceSuccess'),
-    onError: () => notifyError('toast.wishlist.priceError'),
+    onError: (error) => notifyError('toast.wishlist.priceError', undefined, error),
     onSettled: () => refreshWishlist(queryClient),
   });
 }
@@ -79,7 +79,7 @@ export function useConvertToInventory() {
     meta: { handlesError: true },
     mutationFn: ({ id, data }) => wishlistClient.convertToInventory(id, data),
     onSuccess: () => notifySuccess('toast.wishlist.convertSuccess'),
-    onError: () => notifyError('toast.wishlist.convertError'),
+    onError: (error) => notifyError('toast.wishlist.convertError', undefined, error),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: WISHLIST_KEY });
       // #471: the bottles bought join the stock (list, cellar, counters, spending…).

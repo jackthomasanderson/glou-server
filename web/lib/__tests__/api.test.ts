@@ -82,6 +82,14 @@ describe('apiErrorFrom', () => {
     expect(err.retryAfter).toBeLessThanOrEqual(120);
   });
 
+  it('reads RateLimit-Reset when Retry-After is garbage, and ignores both on other statuses', async () => {
+    const answer = (status: number, headers: Record<string, string>) => ({
+      ok: false, status, headers: new Headers(headers), json: () => Promise.reject(new SyntaxError('text')),
+    }) as unknown as Response;
+    expect(await apiErrorFrom(answer(429, { 'Retry-After': 'soon', 'RateLimit-Reset': '30' }))).toMatchObject({ retryAfter: 30 });
+    expect((await apiErrorFrom(answer(500, { 'RateLimit-Reset': '30', 'Retry-After': '30' }))).retryAfter).toBeUndefined();
+  });
+
   it('reads a 429 with no header as TOO_MANY_REQUESTS without a wait', async () => {
     const res = { ok: false, status: 429, headers: new Headers(), json: () => Promise.reject(new SyntaxError('text')) } as unknown as Response;
     const err = await apiErrorFrom(res);

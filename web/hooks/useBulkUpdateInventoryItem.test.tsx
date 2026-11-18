@@ -28,13 +28,13 @@ describe('useBulkUpdateInventoryItem', () => {
     const { result } = setup({ a: 'cigar', b: 'cigar' });
     result.current.mutate({ ids: ['a', 'b'], patch: { location: 'Top' } });
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(notifyError).toHaveBeenCalledWith('toast.bulkUpdateError', { context: 'cigar' });
+    expect(notifyError).toHaveBeenCalledWith('toast.bulkUpdateError', { context: 'cigar' }, expect.anything());
   });
 
   it('keeps the wines for a selection with a bottle', async () => {
     const { result } = setup({ a: 'cigar', b: 'wine' });
     result.current.mutate({ ids: ['a', 'b'], patch: { location: 'Top' } });
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(notifyError).toHaveBeenCalledWith('toast.bulkUpdateError');
+    expect(notifyError).toHaveBeenCalledWith('toast.bulkUpdateError', undefined, expect.anything());
   });
 });

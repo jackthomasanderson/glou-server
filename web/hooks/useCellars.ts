@@ -64,7 +64,7 @@ export function useCreateCellar() {
       void queryClient.invalidateQueries({ queryKey: qk.sidebarCounts });
       notifySuccess('toast.cellar.createSuccess');
     },
-    onError: () => notifyError('toast.cellar.createError'),
+    onError: (error) => notifyError('toast.cellar.createError', undefined, error),
   });
 }
 
@@ -124,7 +124,7 @@ export function useDeleteCellar() {
       void queryClient.invalidateQueries({ queryKey: qk.sidebarCounts });
       notifySuccess('toast.cellar.deleteSuccess');
     },
-    onError: () => notifyError('toast.cellar.deleteError'),
+    onError: (error) => notifyError('toast.cellar.deleteError', undefined, error),
   });
 }
 

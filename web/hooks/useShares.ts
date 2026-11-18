@@ -47,7 +47,7 @@ export function useRevokeShare() {
         old ? old.map((s) => (s.id === updated.id ? updated : s)) : [updated],
       );
     },
-    onError: () => notifyError('toast.share.revokeError'),
+    onError: (error) => notifyError('toast.share.revokeError', undefined, error),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: SHARES_KEY }),
   });
 }

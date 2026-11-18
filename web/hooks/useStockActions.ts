@@ -69,7 +69,7 @@ function useStockAction<TBody extends CorrectBody | MoveBody | RepriceBody>(acti
         notifyError('stockLine.errors.offline');
         return;
       }
-      notifyError(REFUSALS[error.message] ?? 'stockLine.errors.failed');
+      notifyError(REFUSALS[error.message] ?? 'stockLine.errors.failed', undefined, error);
     },
     // The drawer (its history; after a refusal, the line the dialog sends from
     // next), the flat list, cellars, counters, spending… follow. The wines were

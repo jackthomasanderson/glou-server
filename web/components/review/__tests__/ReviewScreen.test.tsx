@@ -179,7 +179,7 @@ describe('ReviewScreen — À regrouper ? (FEAT-102 c1-c3)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Regrouper' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Regrouper' }));
 
-    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('review.errors.changed'));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('review.errors.changed', undefined, expect.anything()));
     await waitFor(() => expect(reads()).toBeGreaterThan(before));
     expect(screen.queryByRole('dialog')).toBeNull();
   });

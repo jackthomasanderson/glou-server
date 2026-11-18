@@ -30,7 +30,7 @@ export function useCreateTasting() {
     meta: { handlesError: true },
     mutationFn: tastingsClient.create,
     onSuccess: () => notifySuccess('toast.tasting.createSuccess'),
-    onError: () => notifyError('toast.tasting.createError'),
+    onError: (error) => notifyError('toast.tasting.createError', undefined, error),
     onSettled: () => refreshAfterTasting(queryClient),
   });
 }
@@ -41,7 +41,7 @@ export function useUpdateTasting() {
     meta: { handlesError: true },
     mutationFn: ({ id, data }) => tastingsClient.update(id, data),
     onSuccess: () => notifySuccess('toast.tasting.updateSuccess'),
-    onError: () => notifyError('toast.tasting.updateError'),
+    onError: (error) => notifyError('toast.tasting.updateError', undefined, error),
     onSettled: () => refreshAfterTasting(queryClient),
   });
 }
@@ -52,7 +52,7 @@ export function useDeleteTasting() {
     meta: { handlesError: true },
     mutationFn: tastingsClient.delete,
     onSuccess: () => notifySuccess('toast.tasting.deleteSuccess'),
-    onError: () => notifyError('toast.tasting.deleteError'),
+    onError: (error) => notifyError('toast.tasting.deleteError', undefined, error),
     onSettled: () => refreshAfterTasting(queryClient),
   });
 }

@@ -50,7 +50,8 @@ export function createQueryClient(): QueryClient {
     }),
     defaultOptions: {
       queries: {
-        retry: 2,
+        // A throttled request is not retried: it would drain the shared budget faster (#1039).
+        retry: (failureCount, error) => !isRateLimited(error) && failureCount < 2,
         staleTime: 1000 * 30,
       },
       mutations: {
