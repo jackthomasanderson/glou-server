@@ -180,13 +180,14 @@ test.describe('Layout fits its width (recette n°5 ter of #847)', () => {
   // #1041: at 390 px the actions of a wish ran past its card ("Supprimer" out of the screen).
   test('every action of a wish is on screen at 390 px (#1041)', async ({ page }) => {
     const api = page.request;
+    const name = `E2E 1041 Vacqueyras Cuvée du Marquis ${stamp()}`;
     const item = await okData<{ id: string }>(await api.post('/api/wishlist/items', {
-      data: { name: `E2E 1041 Vacqueyras Cuvée du Marquis ${stamp()}`, producer: 'Domaine Montirius', category: 'wine', vintage: 2019 },
+      data: { name, producer: 'Domaine Montirius', category: 'wine', vintage: 2019 },
     }));
     try {
       await page.setViewportSize({ width: 390, height: 664 });
       await page.goto('/wishlist-budget');
-      const card = page.getByTestId('wishlist-item').filter({ hasText: 'E2E 1041 Vacqueyras' });
+      const card = page.getByTestId('wishlist-item').filter({ hasText: name });
       for (const name of ['Marquer un prix observé', 'Modifier', "Basculer vers l'inventaire", 'Supprimer']) {
         const box = await card.getByRole('button', { name }).boundingBox();
         expect(box, name).not.toBeNull();
