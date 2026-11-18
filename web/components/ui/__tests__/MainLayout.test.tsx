@@ -93,11 +93,11 @@ describe('MainLayout', () => {
     const admin = { appName: 'Glou', username: 'boss', isAdmin: true };
     const member = { appName: 'Glou', username: 'paul', isAdmin: false };
 
-    it('tells an administrator, on any page, that the last backup failed and is overdue, with the way to Admin → Data', () => {
+    it('tells an administrator, on any page, that the last backup failed (one message, not also overdue), with the way to Admin → Data', () => {
       setup(admin, failing);
       const alert = screen.getByRole('alert');
       expect(alert).toHaveTextContent('admin.backupWarning.failed');
-      expect(alert).toHaveTextContent('admin.backupWarning.overdue');
+      expect(alert).not.toHaveTextContent('admin.backupWarning.overdue');
       expect(within(alert).getByRole('link', { name: 'admin.backupWarning.open' }).getAttribute('href')).toBe('/admin?tab=data');
     });
 
