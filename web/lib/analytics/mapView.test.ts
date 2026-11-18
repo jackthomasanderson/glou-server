@@ -18,6 +18,7 @@ import {
   type LngLat,
   type MapProjector,
 } from './mapView';
+import { KNOWN_REGION_NAMES, findKnownRegion } from '@shared/map-location';
 
 // FEAT-114: a plain linear projection (1 degree = 2 px, centred on the world
 // view's centre) stands in for the map's Equal Earth projection: the framing
@@ -288,6 +289,50 @@ describe('layoutMarkers (groups below the maximum zoom, spread at it)', () => {
     }
     // Same input, same places: markers do not jump between renders.
     expect(layoutMarkers(seed, MAP_MAX_ZOOM)).toEqual(layout);
+  });
+
+  // #1019: a very dense cellar must not get a ring wider than the screen.
+  describe('dense areas at the maximum zoom on a phone', () => {
+    const french = KNOWN_REGION_NAMES.flatMap((name, i) => {
+      const region = findKnownRegion(name);
+      return region?.country === 'FR' ? [{ name, region, i }] : [];
+    });
+    const dense = (n: number, bottles: (i: number) => number) => french.slice(0, n).map(({ name, region }, i) =>
+      at(name, [region.lng, region.lat], bottles(i)));
+    const mixed = (i: number) => 1 + ((i * 7) % 12);
+    const check = (n: number, bottles = mixed) => {
+      const items = dense(n, bottles);
+      const layout = layoutMarkers(items, MAP_MAX_ZOOM);
+      expect(layout.markers).toHaveLength(n);
+      for (const [i, a] of layout.markers.entries()) {
+        for (const b of layout.markers.slice(i + 1)) {
+          const [ax, ay] = screen(a, MAP_MAX_ZOOM);
+          const [bx, by] = screen(b, MAP_MAX_ZOOM);
+          expect(Math.hypot(ax - bx, ay - by), `${a.item.id} / ${b.item.id}`)
+            .toBeGreaterThanOrEqual(markerRadius(a.item.count) + markerRadius(b.item.count) - 1e-6);
+        }
+      }
+      return Math.max(...layout.markers.map((m) => Math.hypot(m.dx, m.dy)));
+    };
+
+    it('moves no marker by more than about 60 px with 30 nearby regions, none overlapping', () => {
+      expect(check(30)).toBeLessThanOrEqual(60);
+    });
+
+    it('stays near 60 px even when every region holds 20+ bottles (the largest markers)', () => {
+      expect(check(30, () => 25)).toBeLessThanOrEqual(65);
+    });
+
+    it('keeps the ring for exactly 6 markers at one point: 6 seats, none at the centre', () => {
+      const six = Array.from({ length: 6 }, (_, i) => at(`R${i}`, BOURGOGNE, 4));
+      const pitch = 2 * markerRadius(4) + 2;
+      const layout = layoutMarkers(six, MAP_MAX_ZOOM);
+      for (const m of layout.markers) expect(Math.hypot(m.dx, m.dy)).toBeCloseTo(pitch / (2 * Math.sin(Math.PI / 6)), 6);
+    });
+
+    it('keeps 91 regions closer to their place than the single ring did (173 px with this fixture)', () => {
+      expect(check(Math.min(91, french.length))).toBeLessThanOrEqual(130);
+    });
   });
 
   it('leaves a lone marker where it is', () => {
