@@ -145,27 +145,82 @@ export interface LaidOutMarker<T extends ClusterItem> {
   dy: number;
 }
 
+/** A place for a spread marker, in screen pixels from the spread's centre. */
+type Slot = [number, number];
+
+/** Seats on a circle of this radius, evenly spaced, the first at the top. */
+function ringSlots(count: number, radius: number): Slot[] {
+  return Array.from({ length: count }, (_, i) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * i) / count;
+    return [radius * Math.cos(angle), radius * Math.sin(angle)];
+  });
+}
+
 /**
- * Overlapping markers spread on a circle around their centre, in the order
- * they sit around it, each far enough from its neighbours to be hovered and
- * selected on its own: what the map shows where zooming cannot part them.
+ * Seats for `count` markers `pitch` pixels apart: one ring when it is the
+ * most compact way (a few markers, the usual case), else the centre plus
+ * concentric rings `pitch` apart, each holding as many markers as its
+ * circumference allows, so a dense area stays close to its real place
+ * instead of getting a ring wider than the screen (#1019).
+ */
+function spreadSlots(count: number, pitch: number): { slots: Slot[]; single: boolean } {
+  const singleRadius = pitch / (2 * Math.sin(Math.PI / count));
+  // The honeycomb: every seat is `pitch` from its neighbours, the nearest to the centre first.
+  const reach = Math.ceil(Math.sqrt(count)) + 1;
+  const lattice: Slot[] = [];
+  for (let row = -reach; row <= reach; row++) {
+    for (let col = -reach; col <= reach; col++) {
+      lattice.push([pitch * (col + row / 2), pitch * row * Math.sqrt(3) / 2]);
+    }
+  }
+  const slots = lattice
+    .sort((a, b) => Math.hypot(...a) - Math.hypot(...b) || a[1] - b[1] || a[0] - b[0])
+    .slice(0, count);
+  if (Math.max(...slots.map((slot) => Math.hypot(...slot))) >= singleRadius) {
+    return { slots: ringSlots(count, singleRadius), single: true };
+  }
+  return { slots, single: false };
+}
+
+/**
+ * Overlapping markers spread around their centre, each far enough from its
+ * neighbours to be hovered and selected on its own: what the map shows where
+ * zooming cannot part them. On one ring they keep the order they sit around
+ * the centre; on several rings each takes the free seat nearest its place.
  */
 function spread<T extends ClusterItem>(members: T[], zoom: number): LaidOutMarker<T>[] {
   const cx = members.reduce((sum, m) => sum + m.x, 0) / members.length;
   const cy = members.reduce((sum, m) => sum + m.y, 0) / members.length;
   const largest = Math.max(...members.map((m) => markerRadius(m.count)));
-  const ring = (largest + SPREAD_GAP_PX / 2) / Math.sin(Math.PI / members.length);
-  const ordered = members.map((item, index) => ({ item, index, angle: Math.atan2(item.y - cy, item.x - cx) }))
+  const { slots, single } = spreadSlots(members.length, 2 * largest + SPREAD_GAP_PX);
+  const at = members.map((item, index) => ({ item, index, angle: Math.atan2(item.y - cy, item.x - cx) }));
+  let seats: { item: T; slot: Slot }[];
+  if (single) {
     // Markers at the very same point share one angle: their order breaks the tie.
-    .sort((a, b) => a.angle - b.angle || a.index - b.index);
-  return ordered.map(({ item }, i) => {
-    const angle = -Math.PI / 2 + (2 * Math.PI * i) / members.length;
-    return {
-      item,
-      dx: (cx - item.x) * zoom + ring * Math.cos(angle),
-      dy: (cy - item.y) * zoom + ring * Math.sin(angle),
-    };
-  });
+    at.sort((a, b) => a.angle - b.angle || a.index - b.index);
+    seats = at.map(({ item }, i) => ({ item, slot: slots[i] }));
+  } else {
+    // Farthest from the centre first, each on the free seat nearest its place:
+    // the outliers get the outer seats and stay close to where they are.
+    const free = [...slots];
+    seats = [];
+    const outward = at.map((m) => ({ ...m, d: Math.hypot(m.item.x - cx, m.item.y - cy) }))
+      .sort((a, b) => b.d - a.d || a.index - b.index);
+    for (const { item } of outward) {
+      let best = 0;
+      let bestDistance = Infinity;
+      free.forEach((slot, s) => {
+        const distance = Math.hypot((item.x - cx) * zoom - slot[0], (item.y - cy) * zoom - slot[1]);
+        if (distance < bestDistance) [best, bestDistance] = [s, distance];
+      });
+      seats.push({ item, slot: free.splice(best, 1)[0] });
+    }
+  }
+  return seats.map(({ item, slot }) => ({
+    item,
+    dx: (cx - item.x) * zoom + slot[0],
+    dy: (cy - item.y) * zoom + slot[1],
+  }));
 }
 
 /** Two laid-out markers whose discs touch on screen at this zoom. */
