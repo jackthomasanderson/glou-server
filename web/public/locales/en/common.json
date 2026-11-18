@@ -2384,7 +2384,7 @@
       "failure": {
         "title": "The last backup failed.",
         "details": "Technical details",
-        "dismiss": "Hide this warning until the next failure",
+        "dismiss": "Hide this warning until the next backup problem",
         "codes": {
           "PG_DUMP_SPAWN_FAILED": "The pg_dump tool could not be started: it is missing from the API image or install. Use the official Glou image, or install the PostgreSQL client tools where the API runs, then back up again.",
           "PG_DUMP_FAILED": "pg_dump started, but the database refused or interrupted the copy. Check that the database is running and that the API can reach it with the right credentials (the API logs have the details), then back up again.",

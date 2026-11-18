@@ -57,6 +57,13 @@ describe('backupService.getStatus — the backup alert (#671)', () => {
     });
   });
 
+  it('caps a long error (pg_dump stderr) in the health answer', async () => {
+    history({ lastSuccess: null, lastRun: { id: 'r', runAt: hoursAgo(1), error: `PG_DUMP_FAILED (exit 1): ${'x'.repeat(5000)}`, success: false } });
+    const status = await backupService.getStatus();
+    expect(status.lastFailure?.error).toHaveLength(300);
+    expect(status.lastFailure?.error).toMatch(/^PG_DUMP_FAILED/);
+  });
+
   it('flags a last success older than 48 hours', async () => {
     history({ lastSuccess: hoursAgo(49), lastRun: { success: true } });
     expect(await backupService.getStatus()).toMatchObject({ lastRunFailed: false, overdue: true });

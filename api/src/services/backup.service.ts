@@ -208,6 +208,9 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
   });
 }
 
+/** #1048: pg_dump's stderr is unbounded; the health answer, read on every admin page, carries a few hundred characters. */
+const MAX_FAILURE_ERROR_LENGTH = 300;
+
 export const backupService = {
   /**
    * #756: whether automatic backups are on (the schema's default, true, until
@@ -231,7 +234,7 @@ export const backupService = {
       lastSuccessAt,
       lastRunFailed: lastRun ? !lastRun.success : false,
       // #1048: which run failed — the banner stays dismissed until another one does.
-      lastFailure: lastRun && !lastRun.success ? { id: lastRun.id, at: lastRun.runAt, error: lastRun.error } : null,
+      lastFailure: lastRun && !lastRun.success ? { id: lastRun.id, at: lastRun.runAt, error: lastRun.error?.slice(0, MAX_FAILURE_ERROR_LENGTH) ?? null } : null,
       overdue: backupEnabled && lastSuccessAt !== null && Date.now() - lastSuccessAt.getTime() > ALERT_AFTER_MS,
     };
   },

@@ -14,9 +14,9 @@ vi.mock('@/hooks/useAdmin', () => ({ useAdminBackupHealth: () => ({ data: health
 
 import { BackupAlertBanner } from '../BackupAlertBanner';
 
-const failed = (id: string) => ({ directoryWritable: true, lastRunFailed: true, lastSuccessAt: null, lastFailure: { id, at: '2026-11-18T03:00:00Z', error: 'PG_DUMP_SPAWN_FAILED: x' } });
+const failed = (id: string, error = 'PG_DUMP_SPAWN_FAILED: x') => ({ directoryWritable: true, lastRunFailed: true, lastSuccessAt: null, lastFailure: { id, at: '2026-11-18T03:00:00Z', error } });
 
-beforeEach(() => { localStorage.clear(); pathname = '/cave'; });
+beforeEach(() => { vi.useRealTimers(); localStorage.clear(); pathname = '/cave'; });
 
 describe('BackupAlertBanner (#1048)', () => {
   it('shows one message, with a way to open the backups and a way to hide it', () => {
@@ -26,7 +26,7 @@ describe('BackupAlertBanner (#1048)', () => {
     expect(screen.getByRole('button', { name: 'adminConfig.backup.failure.dismiss' })).toBeInTheDocument();
   });
 
-  it('stays hidden after being dismissed, also after a reload, but not for a new failure', () => {
+  it('stays hidden after being dismissed, also after a reload and the hourly retry, but not for another cause or the next day', () => {
     health = failed('run-1');
     const first = render(<BackupAlertBanner />);
     fireEvent.click(screen.getByRole('button', { name: 'adminConfig.backup.failure.dismiss' }));
@@ -36,9 +36,22 @@ describe('BackupAlertBanner (#1048)', () => {
     render(<BackupAlertBanner />);
     expect(screen.queryByRole('alert')).toBeNull();
 
-    health = failed('run-2');
-    const next = render(<BackupAlertBanner />);
-    expect(next.getAllByRole('alert').length).toBeGreaterThan(0);
+    // The hourly retry of the same cause is a new run: still hidden.
+    health = failed('run-2', 'PG_DUMP_SPAWN_FAILED: y');
+    const retry = render(<BackupAlertBanner />);
+    expect(retry.queryByRole('alert')).toBeNull();
+    retry.unmount();
+
+    health = failed('run-3', 'WRITE_FAILED: ENOSPC');
+    const other = render(<BackupAlertBanner />);
+    expect(other.getAllByRole('alert').length).toBeGreaterThan(0);
+    other.unmount();
+
+    health = failed('run-4');
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(Date.now() + 86_400_000);
+    const nextDay = render(<BackupAlertBanner />);
+    expect(nextDay.getAllByRole('alert').length).toBeGreaterThan(0);
   });
 
   it('hides for the session even when the browser stores nothing', () => {

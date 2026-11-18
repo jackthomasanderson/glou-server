@@ -2386,7 +2386,7 @@
       "failure": {
         "title": "La dernière sauvegarde a échoué.",
         "details": "Détails techniques",
-        "dismiss": "Masquer cet avertissement jusqu'à la prochaine défaillance",
+        "dismiss": "Masquer cet avertissement jusqu'au prochain problème de sauvegarde",
         "codes": {
           "PG_DUMP_SPAWN_FAILED": "L'outil pg_dump n'a pas pu démarrer : il manque dans l'image ou l'installation de l'API. Utilisez l'image officielle de Glou, ou installez les outils clients PostgreSQL là où tourne l'API, puis relancez une sauvegarde.",
           "PG_DUMP_FAILED": "pg_dump a démarré, mais la base a refusé ou interrompu la copie. Vérifiez que la base tourne et que l'API peut l'atteindre avec les bons identifiants (les journaux de l'API donnent le détail), puis relancez une sauvegarde.",

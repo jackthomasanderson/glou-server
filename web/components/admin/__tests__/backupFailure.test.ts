@@ -39,14 +39,33 @@ describe('backupFailureInfo (#1048)', () => {
 
 describe('backup banner dismissal (#1048)', () => {
   beforeEach(() => localStorage.clear());
-  const failed = (id: string) => ({ directoryWritable: true, lastRunFailed: true, lastFailure: { id, at: '2026-11-18T03:00:00Z', error: 'x' } });
 
-  it('changes signature with each new failed run, so a dismissal does not hide it', () => {
-    expect(backupAlertSignature(failed('run-1'))).toBe('failed:run-1');
-    expect(backupAlertSignature(failed('run-2'))).not.toBe(backupAlertSignature(failed('run-1')));
-    expect(backupAlertSignature({ directoryWritable: true, overdue: true, lastSuccessAt: '2026-11-10T00:00:00Z' })).toBe('overdue:2026-11-10T00:00:00Z');
-    expect(backupAlertSignature({ directoryWritable: true, lastRunFailed: false })).toBeNull();
-    expect(backupAlertSignature(undefined)).toBeNull();
+  const NOW = Date.parse('2026-11-18T10:00:00Z');
+  const failedRun = (id: string, error: string, lastSuccessAt: string | null = null) =>
+    ({ directoryWritable: true, lastRunFailed: true, lastSuccessAt, lastFailure: { id, at: '2026-11-18T03:00:00Z', error } });
+
+  it('keeps the signature through the hourly retry of the same failure, whatever the run', () => {
+    const first = backupAlertSignature(failedRun('run-1', 'PG_DUMP_SPAWN_FAILED: a'), NOW);
+    expect(backupAlertSignature(failedRun('run-2', 'PG_DUMP_SPAWN_FAILED: b'), NOW + 3_600_000)).toBe(first);
+  });
+
+  it('changes it for another cause, or a failure after a new success', () => {
+    const base = backupAlertSignature(failedRun('r1', 'PG_DUMP_SPAWN_FAILED: a'), NOW);
+    expect(backupAlertSignature(failedRun('r2', 'WRITE_FAILED: ENOSPC'), NOW)).not.toBe(base);
+    expect(backupAlertSignature(failedRun('r3', 'PG_DUMP_SPAWN_FAILED: a', '2026-11-18T05:00:00Z'), NOW)).not.toBe(base);
+  });
+
+  it('brings the warning back the next day, failed or overdue', () => {
+    const failedHealth = failedRun('r1', 'PG_DUMP_SPAWN_FAILED: a');
+    expect(backupAlertSignature(failedHealth, NOW)).not.toBe(backupAlertSignature(failedHealth, NOW + 86_400_000));
+    const overdue = { directoryWritable: true, overdue: true, lastSuccessAt: '2026-11-10T00:00:00Z' };
+    expect(backupAlertSignature(overdue, NOW)).not.toBe(backupAlertSignature(overdue, NOW + 86_400_000));
+    expect(backupAlertSignature(overdue, NOW)).toBe(backupAlertSignature(overdue, NOW + 3_600_000));
+  });
+
+  it('has no signature when nothing is wrong or unknown', () => {
+    expect(backupAlertSignature({ directoryWritable: true, lastRunFailed: false }, NOW)).toBeNull();
+    expect(backupAlertSignature(undefined, NOW)).toBeNull();
   });
 
   it('remembers a dismissal per admin', () => {

@@ -34,15 +34,26 @@ export function backupFailureInfo(error: string | null | undefined): BackupFailu
   };
 }
 
+const DAY_MS = 86_400_000;
+
 /**
- * #1048: what the banner is about, as a string that changes with every new
- * failure (the failed run's id) or new overdue period (the last success), so a
- * dismissal never hides a later problem.
+ * #1048: what the banner is about, so that hiding it lasts. A failing install
+ * retries every hour (each retry a new run), so the signature is the streak —
+ * the last success it follows and the cause — not the run: a success then a
+ * new failure, or another cause, brings the banner back; the hourly retry of
+ * the same cause does not. The day makes it come back once a day, as a data-loss
+ * warning must not be silenced for good (an overdue backup changes nothing else
+ * until a backup succeeds).
  */
-export function backupAlertSignature(health: BackupHealth | null | undefined): string | null {
+export function backupAlertSignature(health: BackupHealth | null | undefined, now: number = Date.now()): string | null {
   if (!health) return null;
-  if (health.lastRunFailed === true) return `failed:${health.lastFailure?.id ?? 'unknown'}`;
-  if (health.overdue === true) return `overdue:${String(health.lastSuccessAt ?? '')}`;
+  const day = Math.floor(now / DAY_MS);
+  const since = String(health.lastSuccessAt ?? 'never');
+  if (health.lastRunFailed === true) {
+    const code = /^[A-Z][A-Z0-9_]+/.exec(health.lastFailure?.error ?? '')?.[0] ?? 'unknown';
+    return `failed:${since}:${code}:${day}`;
+  }
+  if (health.overdue === true) return `overdue:${since}:${day}`;
   return null;
 }
 
