@@ -1,49 +1,55 @@
-# Workflows GitHub Actions
+# GitHub Actions workflows
 
-## Deux niveaux de CI, un par branche
+This repository has two workflows: `docker-publish.yml` (tests, end-to-end checks, image publishing) and `nightly-e2e-fuzz.yml` (scheduled UI fuzzing).
 
-Voir la stratégie de branches de l'agent [5-cloture-archivage.md](../agents/5-cloture-archivage.md) : `dev` est la branche de travail, `main` ne reçoit que du code déjà validé. La CI reflète cette asymétrie plutôt que de rejouer la même chose deux fois.
+## `docker-publish.yml` — Build & Publish Docker Images
 
-```mermaid
-flowchart LR
-    subgraph dev["push sur dev"]
-        D1["🔒 Secrets scan"] --> D2["🔨 Build check"]
-        D2 --> D3["🐳 Publish :beta<br/>(si Dockerfile)"]
-    end
-    subgraph main["push sur main"]
-        M1["🔒 Secrets scan"] --> M5
-        M2["🧹 Lint"] --> M5
-        M3["✅ Tests"] --> M5
-        M4["🛡️ Sécurité"] --> M5["🐳 Build, scan, Publish :latest<br/>(si Dockerfile)"]
-    end
-```
+**Triggers**
+- `pull_request` targeting `main`, `dev`, `feat/families` or `feat/slots`: runs `test` and `e2e` only.
+- `push` on `main` or `dev`: runs everything, including publishing.
 
-### ci-dev.yml — rapide, juste de quoi avoir un `dev` fonctionnel
+A new run cancels the in-progress run of the same ref only for pull requests. The default `GITHUB_TOKEN` permission is `contents: read`; only `build-and-push` and `publish-manifest` get `packages: write`.
 
-Déclenché sur `push` vers `dev`. Scan de secrets (rapide, quasi gratuit) + vérification que le projet compile/démarre, **sans lint ni suite de tests complète** — l'objectif est un retour en quelques minutes, pas un audit qualité. Si le projet a un `Dockerfile`, l'image est construite et poussée sur `ghcr.io` taguée `:beta`, sans scan d'image (pour rester rapide) : de quoi tester la version en cours sans attendre.
+**Jobs, in order**
 
-Un `push` sur `dev` rend les runs précédents obsolètes (le code a déjà changé) : un `concurrency` group annule automatiquement tout run encore en cours pour ce même ref dès qu'un nouveau push arrive, pour ne pas consommer de minutes CI pour rien.
+1. `test`: secrets scan (gitleaks CLI, `--no-git`), `npm audit --omit=dev --audit-level=critical` for `api/` and `web/`, Prisma client generation, typecheck, lint and unit tests for both packages, then the `THIRD_PARTY_NOTICES.md` check (below).
+2. `e2e` (needs `test`): typechecks the specs, builds `docker-compose.e2e.yml`, starts the stack, runs the SQL migration benches and shell checks (`e2e/migration/`, `e2e/check-*.sh`), then the Playwright user-journey suite inside Playwright's official image (20 min timeout). The fuzz spec `monkey.spec.ts` is not part of it.
+3. `build-and-push` (needs `test` and `e2e`, pushes only): one job per image (`api`, `web`) and architecture (`amd64`, `arm64`), each on a native runner (`ubuntu-latest` and `ubuntu-24.04-arm`), 45 min timeout. Each pushes its image by digest only. Provenance and SBOM are enabled.
+4. `publish-manifest` (needs `build-and-push`): per image, joins the two digests into one multi-arch manifest and pushes the tags.
 
-### ci-main.yml — dur, le gate qualité complet
+There is no QEMU emulation: the arm64 images are built on an arm64 runner. A full run is still long, mainly because of `e2e` and the image builds.
 
-Déclenché sur `push` vers `main`. `main` ne doit recevoir que du code qualitatif sous tous les angles : secrets, lint, tests, analyse de sécurité tournent tous et sont **bloquants**. Le job `build` (image Docker, si le projet en publie une) ne s'exécute que si tout le reste est vert ; l'image est scannée avant d'être publiée `:latest`.
+**Required checks for merging into `dev` and `main`** (branch rulesets): `test`, `e2e` and `license/cla` (from the CLA assistant, not a workflow of this repository). `build-and-push` and `publish-manifest` do not run on pull requests.
 
-### Aucune configuration requise pour la publication Docker
+## Published images
 
-`ghcr.io` (GitHub Container Registry) s'authentifie avec le `GITHUB_TOKEN` fourni automatiquement par GitHub Actions, et le nom de l'image est dérivé de `github.repository` (en minuscules). Aucune variable ni secret à créer — juste vérifier que le dépôt autorise `packages: write` pour les Actions (réglage par défaut sur un dépôt personnel : Settings → Actions → General → Workflow permissions).
+Pushed to `ghcr.io/jackthomasanderson/glou-server-api` and `ghcr.io/jackthomasanderson/glou-server-web`, authenticated with `GITHUB_TOKEN` (no secret to create):
 
-**Actions marketplace utilisées** : `actions/checkout`, `actions/setup-java` (uniquement si projet Gradle/Android), `gitleaks/gitleaks-action`, `aquasecurity/trivy-action`, `docker/setup-buildx-action`, `docker/build-push-action`, `docker/login-action`.
+| Branch | Tags |
+| --- | --- |
+| `dev` | `beta`, `sha-<full commit>` |
+| `main` | `latest`, `v<version of api/package.json>`, `sha-<full commit>` |
 
-### Dependabot sur les actions elles-mêmes
+## Artifacts
 
-Ces actions marketplace sont référencées par tag mobile (`@v4`, `@master`...), jamais mis à jour automatiquement sinon. [`.github/dependabot.yml`](../dependabot.yml) ouvre une PR hebdomadaire dès qu'une nouvelle version est disponible — c'est la seule dépendance que ce template impose lui-même (le reste des dépendances du projet dérivé n'est pas de son ressort).
+Download with `gh run download <run-id> -n <name>`:
 
-### Le build check, le lint et les tests sont auto-détectés, pas imposés
+- `third-party-notices` (7 days): uploaded when the notices check fails; contains the regenerated `THIRD_PARTY_NOTICES.md`, ready to commit.
+- `playwright-report` (7 days): the Playwright report of the `e2e` job, uploaded unless the run was cancelled.
+- `fuzz-report` (14 days): same, for the nightly fuzz.
 
-Le template n'impose aucune stack technique (voir `AGENTS.md`). La détection reconnaît Node.js, Python, Go et Gradle selon les fichiers présents à la racine, et passe proprement si aucun n'est trouvé. Pour Gradle, la seule présence de `gradlew` ne suffit pas à conclure "Android" (un projet Kotlin/Java pur en a un aussi) : la détection cherche en plus le plugin `com.android.application`/`com.android.library` ou un `AndroidManifest.xml` avant de lancer les tâches spécifiquement Android (`assembleDebug`, `lint`) — sinon elle retombe sur les tâches Gradle génériques (`assemble`), et ignore proprement le lint sans tâche standard équivalente. Sur `ci-main.yml`, si un `package.json` existe sans script `test` déclaré, l'étape tests échoue explicitement plutôt que de passer en silence, pour ne jamais laisser un projet publier sans suite de tests configurée sans que ce soit signalé. Si le projet utilise un autre outil, adapter le script de détection correspondant.
+## Things that break the `test` job
 
-## Pas de workflow pour synchroniser le pipeline lui-même
+- **`THIRD_PARTY_NOTICES.md`**: the job runs `node scripts/generate-notices.mjs` and fails if the file differs. It happens when production dependencies change without regenerating the file; take the `third-party-notices` artifact or run the script.
+- **gitleaks allowance**: `.gitleaksignore` allows the throwaway `CONFIG_ENCRYPTION_KEY` of `docker-compose.e2e.yml` by line number (`docker-compose.e2e.yml:generic-api-key:43`). Inserting or removing a line above it in that file breaks the `test` job unless the number in `.gitleaksignore` is updated.
 
-Dans un projet **dérivé** de ce template, `.github/agents/` et `.github/rules/` (ainsi que `.claude/`) ne sont **jamais poussés en ligne** (voir `AGENTS.md`, section "Public vs personnel") — seul `.github/workflows/` y est suivi par git et poussé, c'est ce qui permet à `ci-dev.yml`/`ci-main.yml` de s'exécuter. Leur mise à jour dans un projet dérivé ne passe donc pas par un workflow GitHub Actions, mais par une copie locale automatique — y compris pour `.github/workflows/` lui-même, également resynchronisé : voir le hook `.claude/hooks/pipeline-pull.sh`, documenté dans [`.claude/README.md`](../../.claude/README.md) et dans `AGENTS.md` (section "Mise à jour du pipeline dans les projets dérivés").
+## `nightly-e2e-fuzz.yml` — Nightly UI Fuzz (gremlins)
 
-Ce dépôt template lui-même fait exception à la règle "jamais en ligne" : il est poussé dans son intégralité (y compris `.github/agents/` et `.github/rules/`) vers un dépôt GitHub **privé** dédié, puisque c'est justement la source que `pipeline-pull.sh` lit pour les projets dérivés — voir `AGENTS.md`.
+- **Triggers**: schedule at 03:17 UTC daily, and manual `workflow_dispatch` with an optional `seed`.
+- **Job `fuzz`** (a single job): builds and starts the E2E stack, then runs `monkey.spec.ts` (gremlins clicking at random) with `E2E_MONKEY=1`, 30 min timeout. A failure means a page threw an uncaught exception, logged a console error or hit a crash screen.
+- **Seed**: the run number by default, or the `seed` input to replay a given run.
+- **On failure of a scheduled run**: opens an issue titled "Nightly fuzz failed", or comments on it if already open.
+
+## Files not pushed to this public repository
+
+`.github/agents/`, `.github/rules/` and `.claude/` (the development pipeline) are listed in `.gitignore` and are not pushed to this public repository. Only `.github/workflows/` is tracked and pushed, because GitHub Actions needs it. Those local pipeline files are kept up to date by a local copy, not by a workflow.
