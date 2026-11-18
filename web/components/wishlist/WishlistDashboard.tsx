@@ -382,6 +382,7 @@ export function WishlistDashboard() {
                   decimal
                   label={t('wishlist.form.maxPrice')}
                   description={t('wishlist.form.maxPriceHint')}
+                  min={0}
                   value={form.maxPrice}
                   onValueChange={(v) => setForm((f) => ({ ...f, maxPrice: v ?? null }))}
                   variant="bordered" size="md" radius="md" labelPlacement="outside"
@@ -478,6 +479,7 @@ export function WishlistDashboard() {
                   <ParsedNumberInput
                     decimal
                     data-testid="wishlist-convert-price"
+                    min={0}
                     // #471: the price of ONE bottle (or cigar), for the whole group bought.
                     label={t(joinsCigars ? cigarPriceKey(cigars.storage)
                       : convertTarget?.category === 'cigar' ? 'wishlist.convert.purchasePrice' : 'inventory.fields.unitPrice')}

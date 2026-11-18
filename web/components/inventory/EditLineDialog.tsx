@@ -111,6 +111,7 @@ export function EditLineDialog({ item, ctx, isOpen, onClose }: EditLineDialogPro
         <ParsedNumberInput
           decimal
           label={t('stockLine.price', { context: noun })}
+          min={0}
           value={values.purchasePrice ?? undefined}
           onValueChange={(value) => set('purchasePrice', value ?? null)}
           variant="bordered"

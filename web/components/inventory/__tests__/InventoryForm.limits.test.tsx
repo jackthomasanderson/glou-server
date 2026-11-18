@@ -64,6 +64,16 @@ describe('InventoryForm — inline limits (#1042)', () => {
     expect(onSubmit.mock.calls[0][0]).toMatchObject({ purchasePrice: 5 });
   });
 
+  it('flags a lone minus in the price instead of saving no price silently', () => {
+    const { dialog, onSubmit, submit } = setup();
+    const price = (within(dialog).getByTestId('inventory-unit-price-input').querySelector('input') ?? within(dialog).getByTestId('inventory-unit-price-input')) as HTMLInputElement;
+    fireEvent.change(price, { target: { value: '-' } });
+    expect(price.value).toBe('-');
+    submit();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(price).toHaveAttribute('aria-invalid', 'true');
+  });
+
   it('refuses an alcohol degree of 150 on the field', () => {
     const { dialog, onSubmit, submit } = setup();
     const abv = within(dialog).getByLabelText("Degré d'alcool (%)") as HTMLInputElement;

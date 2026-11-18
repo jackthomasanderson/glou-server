@@ -82,12 +82,19 @@ function useRangeCheck({ min, max, isInvalid, errorMessage, onBlur, value, type 
   const outOfRange = value != null && !Number.isNaN(value) && ((min != null && value < Number(min)) || (max != null && value > Number(max)));
   const key = min != null && max != null ? 'inventory.validation.range' : min != null ? 'inventory.validation.atLeast' : 'inventory.validation.atMost';
   const message = checks ? t(key, { min, max }) : '';
+  // Every render: a lone "-" leaves the value (undefined) as it was, only the text changes.
   useEffect(() => {
     const input = inputRef.current;
     if (!checks || !input) return;
     // A text field (a price, a degree) has no native range: its out-of-range value is made invalid
     // here, so the form is refused like with a number field.
-    if (type === 'text') input.setCustomValidity(outOfRange ? message : '');
+    // A lone "-" (or "-,") typed is no number: told like an out-of-range value, not kept silently.
+    const garbled = input.value.trim() !== '' && (value == null || Number.isNaN(value));
+    if (type === 'text') input.setCustomValidity(outOfRange || garbled ? message : '');
+  });
+  useEffect(() => {
+    const input = inputRef.current;
+    if (!checks || !input) return;
     // The form was sent with this value out of range: our message, not the browser's bubble.
     const refused = (event: Event) => {
       event.preventDefault();
@@ -96,7 +103,7 @@ function useRangeCheck({ min, max, isInvalid, errorMessage, onBlur, value, type 
     };
     input.addEventListener('invalid', refused);
     return () => input.removeEventListener('invalid', refused);
-  }, [checks, type, outOfRange, message]);
+  }, [checks]);
   if (!checks) return { typed: () => {}, props: {} };
   return {
     typed: () => setShown(false),
@@ -106,7 +113,8 @@ function useRangeCheck({ min, max, isInvalid, errorMessage, onBlur, value, type 
       isInvalid: shown || Boolean(isInvalid),
       errorMessage: shown ? message : errorMessage,
       onBlur: (event: React.FocusEvent<HTMLInputElement>) => {
-        setShown(outOfRange);
+        const text = event.currentTarget.value.trim();
+        setShown(outOfRange || (type === 'text' && text !== '' && (value == null || Number.isNaN(value))));
         onBlur?.(event);
       },
     },

@@ -161,6 +161,7 @@ export function AddUnitsForm({ product, onDone, onCancel = onDone, onAdded, star
           </SingleSelect>
           <ParsedNumberInput decimal
             data-testid="add-units-price"
+            min={0}
             label={t(isCigar ? cigarPriceKey(cigars.storage) : 'inventory.fields.unitPrice')}
             variant="bordered"
             size="sm"

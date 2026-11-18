@@ -1096,6 +1096,7 @@ export function InventoryForm({
                           size="sm"
                           value={values.estimatedValue}
                           onValueChange={(v) => setField('estimatedValue', v)}
+                          min={0}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
                         />
                         </>)}
