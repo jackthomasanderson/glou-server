@@ -50,7 +50,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
   // behind is `inert` (AuthGuard), so Tab can only move within the wizard (#200).
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => { dialogRef.current?.focus(); }, []);
-  const { data: state, isLoading: stateLoading } = useOnboardingState(true);
+  const { data: state, isLoading: stateLoading, refetch: refetchState } = useOnboardingState(true);
   const { data: user } = useMe();
   const completeOnboarding = useCompleteOnboarding();
   const postpone = usePostponeOnboarding();
@@ -60,6 +60,10 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
   const [joining, setJoining] = useState(false);
   const [cellarId, setCellarId] = useState<string | null>(null);
   const [cellarName, setCellarName] = useState<string | null>(null);
+  // The preselected cellar comes from an earlier run and the wizard was reopened.
+  const [reopenedCellar, setReopenedCellar] = useState(false);
+  // #1047: "Cellar created" is only true of a cellar created in this run.
+  const [cellarCreatedHere, setCellarCreatedHere] = useState(false);
   const [ingestionMode, setIngestionMode] = useState<IngestionMode>(null);
   const [itemsAdded, setItemsAdded] = useState(0);
   const [importResult, setImportResult] = useState<CsvImportResult | null>(null);
@@ -75,19 +79,27 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
   // loaded before the wizard opened (#574: waiting for it to *change* left the
   // wizard spinning forever). A failed state request starts from the welcome.
   if (!resumed && !stateLoading) {
-    // Reopened from the profile, the wizard keeps its former behaviour
-    // (FEAT-89/FEAT-90, out of scope): any cellar means "resume at the
-    // methods", with no wizard cellar preselected.
+    // Reopened from the profile, any cellar means "resume at the methods"
+    // (FEAT-89/FEAT-90). The member's own cellar is preselected either way
+    // (#1047): what they add goes there, as on the first run.
     const joiningPath = !forced && Boolean(state?.joining);
     const resumeAtMethods = forced ? (state?.cellarCount ?? 0) > 0 : Boolean(state?.wizardCellar);
     setJoining(joiningPath);
-    if (!forced && state?.wizardCellar) {
+    if (state?.wizardCellar) {
       setCellarId(state.wizardCellar.id);
       setCellarName(state.wizardCellar.name);
+      // Reopened, "Back" still offers to create one more cellar (the e2e specs rely on it).
+      setReopenedCellar(forced);
     }
     setStep(resumeAtMethods && !joiningPath ? 'ingestion-choice' : 'welcome');
     setResumed(true);
   }
+
+  // #1047: the summary tells what the instance holds now, not what this visit
+  // counted: the state fetched on opening is stale once bottles were added.
+  useEffect(() => {
+    if (step === 'summary') void refetchState();
+  }, [step, refetchState]);
 
   const steps: readonly Step[] = joining ? JOINING_STEPS : INSTALLER_STEPS;
   const stepIndex = steps.indexOf(step);
@@ -112,6 +124,8 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
   const handleCellarCreated = (cellar: Cellar) => {
     setCellarId(cellar.id);
     setCellarName(cellar.name);
+    setReopenedCellar(false);
+    setCellarCreatedHere(true);
     setStep('ingestion-choice');
   };
 
@@ -190,7 +204,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
 
         {step === 'cellar' && (
           <CellarStep
-            existingCellar={cellarId && cellarName ? { name: cellarName } : null}
+            existingCellar={cellarId && cellarName && !reopenedCellar ? { name: cellarName } : null}
             onCreated={handleCellarCreated}
             onContinue={() => setStep('ingestion-choice')}
             onSkip={() => setStep('ingestion-choice')}
@@ -251,6 +265,10 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
         {step === 'summary' && (
           <SummaryStep
             cellarName={cellarName}
+            cellarId={cellarId}
+            cellarCreatedHere={cellarCreatedHere}
+            bottleCount={state?.bottleCount ?? 0}
+            cigarCount={state?.cigarCount ?? 0}
             itemsAdded={itemsAdded}
             importResult={importResult}
             isAdmin={user?.isAdmin ?? false}

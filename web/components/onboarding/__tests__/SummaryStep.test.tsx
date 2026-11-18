@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import type { CsvImportResult } from '@/lib/import/types';
 
 // #471 (FEAT-99): the summary of a CSV import speaks in bottles and wines
@@ -10,7 +10,8 @@ vi.mock('react-i18next', () => ({
     t: (k: string, o?: Record<string, unknown>) => (o ? [k, ...Object.values(o)].join('|') : k),
   }),
 }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const push = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
 import { SummaryStep } from '../steps/SummaryStep';
 
@@ -53,5 +54,41 @@ describe('SummaryStep after a CSV import (FEAT-99)', () => {
     renderSummary(result({ skippedLines: 1, skippedUnits: 6 }));
 
     expect(screen.getByText('onboarding.summary.nothingImported')).toBeInTheDocument();
+  });
+});
+
+// #1047: the button opens the cellar, and a visit that added nothing still
+// shows what the instance holds.
+describe('SummaryStep hand-off and real counts (#1047)', () => {
+  beforeEach(() => push.mockClear());
+
+  it('"View my cellar" finishes, then opens the wizard cellar', () => {
+    const onFinish = vi.fn();
+    render(<SummaryStep cellarName="Cave" cellarId="c1" itemsAdded={0} isAdmin={false} isFinishing={false} onFinish={onFinish} />);
+    fireEvent.click(screen.getByRole('button', { name: 'onboarding.summary.finishButton' }));
+    expect(onFinish).toHaveBeenCalledOnce();
+    expect(push).toHaveBeenCalledWith('/cellars/c1');
+  });
+
+  it('opens the cellars page when there is no cellar', () => {
+    renderSummary(null);
+    fireEvent.click(screen.getByRole('button', { name: 'onboarding.summary.finishButton' }));
+    expect(push).toHaveBeenCalledWith('/cellars');
+  });
+
+  it('shows the server counts when this visit added nothing', () => {
+    render(<SummaryStep cellarName="Cave" itemsAdded={0} bottleCount={12} cigarCount={3} isAdmin={false} isFinishing={false} onFinish={() => {}} />);
+    expect(screen.getByText('onboarding.summary.inInventory|onboarding.summary.bottles|12 · onboarding.summary.cigars|3')).toBeInTheDocument();
+    expect(screen.queryByText('onboarding.summary.noItems')).toBeNull();
+  });
+
+  it('says "your cellar" when the cellar was not created in this run', () => {
+    render(<SummaryStep cellarName="Cave" cellarCreatedHere={false} itemsAdded={0} isAdmin={false} isFinishing={false} onFinish={() => {}} />);
+    expect(screen.getByText('onboarding.summary.yourCellar|Cave')).toBeInTheDocument();
+  });
+
+  it('keeps "nothing added" on an empty instance', () => {
+    renderSummary(null);
+    expect(screen.getByText('onboarding.summary.noItems')).toBeInTheDocument();
   });
 });

@@ -66,6 +66,12 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     expect(cellarRes.ok(), await cellarRes.text()).toBe(true);
     cellarId = (await cellarRes.json())?.data?.id as string;
 
+    // The reopened wizard preselects the member's own (oldest) cellar (#1047).
+    const stateRes = await page.request.get('/api/user/onboarding');
+    expect(stateRes.ok(), await stateRes.text()).toBe(true);
+    const wizardCellarId = (await stateRes.json())?.data?.wizardCellar?.id as string;
+    expect(wizardCellarId).toBeTruthy();
+
     await page.goto('/bottles?onboarding=1');
     const wizard = page.getByRole('dialog', { name: 'Assistant de démarrage' });
     await expect(wizard.getByText('Comment souhaitez-vous ajouter vos bouteilles ?')).toBeVisible();
@@ -104,6 +110,8 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     await page.getByTestId('inventory-form-submit').click();
     const res = await created;
     expect(res.status()).toBe(201);
+    // #1047: the add form kept the wizard's cellar.
+    expect((await res.json())?.data?.cellarId).toBe(wizardCellarId);
     itemId = (await res.json())?.data?.id as string;
     productId = (await res.json())?.data?.productId as string;
 
@@ -137,6 +145,8 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     await expect(wizard.getByText('2 bouteilles ou cigares ajoutés à votre inventaire')).toBeVisible();
     await wizard.getByRole('button', { name: 'Voir ma cave' }).click();
     await expect(wizard).toBeHidden();
+    // #1047: "Voir ma cave" opens the member's cellar, not the page it came from.
+    await expect(page).toHaveURL(new RegExp(`/cellars/${wizardCellarId}`));
   } finally {
     if (productId) await page.request.delete(`/api/products/${productId}`);
     else if (itemId) await page.request.delete(`/api/inventory/${itemId}`);

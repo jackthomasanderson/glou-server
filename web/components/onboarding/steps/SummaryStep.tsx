@@ -8,11 +8,18 @@ import { importedText } from '@/lib/import/summary';
 
 interface SummaryStepProps {
   cellarName: string | null;
+  /** The cellar "View my cellar" opens; without one, the cellars page. */
+  cellarId?: string | null;
+  /** #1047: false when the cellar already existed before this run ("Your cellar", not "Cellar created"). */
+  cellarCreatedHere?: boolean;
   itemsAdded: number;
   /** #471 (FEAT-99): what the CSV import wrote — "6 bouteilles · 1 vin" — and left out. */
   importResult?: CsvImportResult | null;
   /** Only admins see the (optional) System Configuration pointer below — the panel itself is admin-only (see AdminPage). */
   isAdmin: boolean;
+  /** #1047: what the instance really holds (server state), shown when this visit added nothing, e.g. a reopened wizard. */
+  bottleCount?: number;
+  cigarCount?: number;
   /** FEAT-89: a joining member creates no cellar; the cellar line would only say "none". */
   joining?: boolean;
   isFinishing: boolean;
@@ -20,7 +27,7 @@ interface SummaryStepProps {
 }
 
 /** Step 5/5 — recap of what the wizard set up, then hand off to the dashboard. */
-export function SummaryStep({ cellarName, itemsAdded, importResult = null, isAdmin, joining = false, isFinishing, onFinish }: SummaryStepProps) {
+export function SummaryStep({ cellarName, cellarId = null, cellarCreatedHere = true, itemsAdded, importResult = null, isAdmin, bottleCount = 0, cigarCount = 0, joining = false, isFinishing, onFinish }: SummaryStepProps) {
   const { t } = useTranslation();
   const imported = importResult ? importedText(importResult, t) : '';
   const router = useRouter();
@@ -33,6 +40,17 @@ export function SummaryStep({ cellarName, itemsAdded, importResult = null, isAdm
     onFinish();
     router.push('/admin');
   };
+
+  // #1047: "View my cellar" really goes there: the wizard's cellar, else the list.
+  const goToCellar = () => {
+    onFinish();
+    router.push(cellarId ? `/cellars/${cellarId}` : '/cellars');
+  };
+
+  const held = [
+    bottleCount > 0 ? t('onboarding.summary.bottles', { count: bottleCount }) : '',
+    cigarCount > 0 ? t('onboarding.summary.cigars', { count: cigarCount }) : '',
+  ].filter(Boolean).join(' · ');
 
   return (
     <div className="flex flex-col items-center gap-5 py-8 px-6 text-center">
@@ -48,7 +66,7 @@ export function SummaryStep({ cellarName, itemsAdded, importResult = null, isAdm
             <Warehouse size={18} className="text-primary shrink-0" />
             <span className="text-sm text-left">
               {cellarName
-                ? t('onboarding.summary.cellarCreated', { name: cellarName })
+                ? t(cellarCreatedHere ? 'onboarding.summary.cellarCreated' : 'onboarding.summary.yourCellar', { name: cellarName })
                 : t('onboarding.summary.noCellar')}
             </span>
           </div>
@@ -59,7 +77,9 @@ export function SummaryStep({ cellarName, itemsAdded, importResult = null, isAdm
             <span className="text-sm text-left">
               {itemsAdded > 0
                 ? t('onboarding.summary.itemsAdded', { count: itemsAdded })
-                : t('onboarding.summary.noItems')}
+                : held
+                  ? t('onboarding.summary.inInventory', { what: held })
+                  : t('onboarding.summary.noItems')}
             </span>
           </div>
         )}
@@ -123,7 +143,7 @@ export function SummaryStep({ cellarName, itemsAdded, importResult = null, isAdm
         fullWidth
         className="max-w-sm"
         isLoading={isFinishing}
-        onPress={onFinish}
+        onPress={goToCellar}
       >
         {t('onboarding.summary.finishButton')}
       </Button>
