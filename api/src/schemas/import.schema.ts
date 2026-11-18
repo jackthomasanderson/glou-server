@@ -52,6 +52,42 @@ export function toPurchaseDay(v: unknown): unknown {
   return date.toISOString().slice(0, 10);
 }
 
+/**
+ * #1035: a non-vintage wine as other cellar software writes it — "NV", "N.V.",
+ * "SA", "S.A.", "non vintage" (any case) — and CellarTracker's own 1001: no
+ * vintage, as the add form's "leave empty if non-vintage".
+ */
+const NON_VINTAGE_TOKENS = new Set(['nv', 'sa', 'nonvintage', '1001']);
+
+const toVintage = (v: unknown): unknown => {
+  const cell = emptyToUndefined(v);
+  if (typeof cell !== 'string') return cell;
+  return NON_VINTAGE_TOKENS.has(normalizeToken(cell)) ? undefined : Number(cell);
+};
+
+/**
+ * #1035: words of a wine-type cell from other cellar software that only say
+ * "a wine" (CellarTracker's "Dry", "Sweet/Dessert", "Fortified"; Vivino's
+ * "Dessert Wine"). Read in the category column only: the shared category
+ * words stay those of the label scan.
+ */
+const WINE_STYLE_WORDS = new Set(['dry', 'sweet', 'dessert', 'fortified', 'port', 'sherry']);
+
+/**
+ * The category a cell names: a known word ("Rouge", "Bulles"), else its words
+ * one by one — "White - Sparkling" is sparkling, "Red Wine" or "Red -
+ * Fortified" a wine. Anything else is left for the schema to refuse.
+ */
+const toImportedCategory = (v: unknown): unknown => {
+  if (typeof v !== 'string') return v;
+  const whole = toCategory(v);
+  if (whole) return whole;
+  const words = v.split(/[\s,;/|+&()-]+/).map((word) => (WINE_STYLE_WORDS.has(normalizeToken(word)) ? 'wine' : toCategory(word)));
+  const found = words.filter((word) => word !== null);
+  if (found.includes('sparkling')) return 'sparkling';
+  return found[0] ?? v.trim().toLowerCase();
+};
+
 /** FEAT-95: "à l'unité" (or "single") in the box-size column. */
 const SINGLE_CIGAR_TOKENS = new Set(['alunite', 'unite', 'unitaire', 'single', 'singles', 'unit', 'loose']);
 
@@ -192,12 +228,10 @@ const rawFamilyFields = Object.fromEntries(
 
 export const csvRawRowSchema = z.object({
   ...rawFamilyFields,
-  name: z.string().trim().min(1, 'NAME_REQUIRED').max(200, 'NAME_TOO_LONG'),
-  producer: z.string().trim().min(1, 'PRODUCER_REQUIRED').max(200, 'PRODUCER_TOO_LONG'),
-  category: z.preprocess(
-    (v) => (typeof v === 'string' ? toCategory(v) ?? v.trim().toLowerCase() : v),
-    z.enum(CATEGORY_VALUES, { error: 'INVALID_CATEGORY' }),
-  ),
+  // #1035: a missing cell is named by its code too, never by the validator's own English text.
+  name: z.string({ error: 'NAME_REQUIRED' }).trim().min(1, 'NAME_REQUIRED').max(200, 'NAME_TOO_LONG'),
+  producer: z.string({ error: 'PRODUCER_REQUIRED' }).trim().min(1, 'PRODUCER_REQUIRED').max(200, 'PRODUCER_TOO_LONG'),
+  category: z.preprocess(toImportedCategory, z.enum(CATEGORY_VALUES, { error: 'INVALID_CATEGORY' })),
   // #510: optional columns, so an import is not reduced to four fields.
   purchasePrice: z.preprocess(
     toNumber,
@@ -213,7 +247,7 @@ export const csvRawRowSchema = z.object({
     z.coerce.number({ error: 'INVALID_ABV' }).min(0, 'INVALID_ABV').max(100, 'INVALID_ABV').optional(),
   ),
   vintage: z.preprocess(
-    (v) => { const cell = emptyToUndefined(v); return cell === undefined ? cell : Number(cell); },
+    toVintage,
     vintageSchema('INVALID_VINTAGE').optional(),
   ),
   // #471 (FEAT-99): the cellar (created when unknown), the purchase day, the

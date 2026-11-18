@@ -169,9 +169,34 @@ export const CSV_OPENED_VALUE: Record<CsvExportLang, string> = { en: 'yes', fr: 
 export interface CsvImportError {
   /** 1-based row number as a spreadsheet shows it (header = row 1). */
   row: number;
-  /** Error code, e.g. INVALID_CATEGORY. */
-  reason: string;
+  /** Error code, one of {@link CSV_IMPORT_ERROR_CODES}. */
+  reason: CsvImportErrorCode;
+  /** #1035: the file's own header of the column at fault, when the error is about one cell. */
+  column?: string;
+  /** #1035: the wine's name on that row, when it has one. */
+  name?: string;
 }
+
+/**
+ * #1035: every reason the preview may give, each translated by the web app
+ * (`onboarding.csv.errorCodes`); a refusal the importer does not name is
+ * INVALID_ROW, never a validator's own text.
+ */
+export const CSV_IMPORT_ERROR_CODES = [
+  // The file as a whole (row 1, the header line).
+  'INVALID_ENCODING', 'UNRECOGNIZED_COLUMNS', 'MISSING_COLUMNS',
+  // One row.
+  'NAME_REQUIRED', 'NAME_TOO_LONG', 'PRODUCER_REQUIRED', 'PRODUCER_TOO_LONG', 'INVALID_CATEGORY', 'INVALID_VINTAGE',
+  'INVALID_PRICE', 'INVALID_QUANTITY', 'INVALID_ABV', 'REGION_TOO_LONG', 'CELLAR_TOO_LONG', 'INVALID_PURCHASE_DATE',
+  'BOTTLE_SIZE_TOO_LONG', 'FORMAT_TOO_LONG', 'INVALID_BOX_SIZE', 'INVALID_OPENED', 'INVALID_FILL_LEVEL',
+  'INVALID_CIGARS_LEFT', 'CIGARS_LEFT_ABOVE_BOX', 'INVALID_OPENED_DATE', 'PURCHASE_PLACE_TOO_LONG', 'LOCATION_TOO_LONG',
+  'INVALID_ESTIMATED_VALUE', 'INVALID_NEEDS_REVIEW', 'INVALID_ROW',
+] as const;
+
+export type CsvImportErrorCode = (typeof CSV_IMPORT_ERROR_CODES)[number];
+
+/** #1035: the columns without which no row can be read. */
+export const CSV_REQUIRED_COLUMNS = ['name', 'producer', 'category'] as const satisfies readonly CsvExportColumn[];
 
 /**
  * #471 (FEAT-99): one group the import would create or complete — the
@@ -207,6 +232,10 @@ export interface CsvImportPreview {
   lines: CsvImportLine[];
   /** Cellars named by the file that do not exist yet, as first written. */
   newCellars: string[];
+  /** #1035: required columns ({@link CSV_REQUIRED_COLUMNS}) the file lacks; no row is then read. */
+  missingColumns: string[];
+  /** #1035: the file's headers the import does not read, as written: their cells are left out. */
+  unrecognizedColumns: string[];
 }
 
 /**

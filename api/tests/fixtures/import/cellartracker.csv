@@ -1,0 +1,5 @@
+iWine,Type,Color,Category,Size,Currency,Price,Valuation,StoreName,Location,Bin,Vintage,Wine,Locale,Producer,Varietal,Designation,Vineyard,Country,Region,SubRegion,Appellation,BeginConsume,EndConsume,Quantity,Pending
+1234567,Red,Red,Dry,750ml,EUR,45.00,60.00,Lavinia,Home,A1,2015,Château Talbot,"France, Bordeaux, Médoc, Saint-Julien",Château Talbot,Cabernet Sauvignon Blend,Unknown,Unknown,France,Bordeaux,Médoc,Saint-Julien,2022,2035,3,0
+2345678,White - Sparkling,White,Sparkling,750ml,EUR,38.50,,,Home,B2,NV,Bollinger Champagne Brut Special Cuvée,"France, Champagne",Bollinger,Champagne Blend,Special Cuvée,Unknown,France,Champagne,,Champagne,,,2,0
+3456789,Red - Fortified,Red,Fortified,750ml,EUR,32,,,Offsite,,1001,Taylor Fladgate 10 Year Old Tawny Port,"Portugal, Douro, Porto",Taylor Fladgate,Port Blend,10 Year Old Tawny,Unknown,Portugal,Douro,,Porto,,,1,0
+4567890,White - Sweet/Dessert,White,Sweet/Dessert,375ml,EUR,120,150,,Home,C3,2001,Château d'Yquem,"France, Bordeaux, Sauternes",Château d'Yquem,Sémillon-Sauvignon Blanc Blend,Unknown,Unknown,France,Bordeaux,Sauternais,Sauternes,2010,2060,1,0

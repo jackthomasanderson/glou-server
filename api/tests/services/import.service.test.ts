@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 /**
  * #471 (FEAT-99): an in-memory stand-in for the few tables the import reads
@@ -89,7 +91,7 @@ vi.mock('../../src/lib/prisma', () => ({
 }));
 
 import { importService } from '../../src/services/import.service';
-import { csvLineKey, type CsvImportRow } from '../../../shared/import';
+import { CSV_IMPORT_ERROR_CODES, csvLineKey, type CsvImportRow } from '../../../shared/import';
 
 const csv = (text: string) => Buffer.from(text, 'utf-8');
 
@@ -162,8 +164,8 @@ describe('ImportService.previewCsv', () => {
     );
     expect(result.valid).toEqual([]);
     expect(result.errors).toEqual([
-      { row: 2, reason: 'NAME_REQUIRED' },
-      { row: 3, reason: 'INVALID_CATEGORY' },
+      { row: 2, reason: 'NAME_REQUIRED', column: 'name' },
+      { row: 3, reason: 'INVALID_CATEGORY', column: 'category', name: 'Lagavulin' },
     ]);
   });
 
@@ -187,7 +189,7 @@ describe('ImportService.previewCsv', () => {
 
   it('rejects an out-of-range ABV with its own code', () => {
     const result = importService.previewCsv(csv('name,producer,category,abv\nX,Y,spirit,140\n'));
-    expect(result.errors).toEqual([{ row: 2, reason: 'INVALID_ABV' }]);
+    expect(result.errors).toEqual([{ row: 2, reason: 'INVALID_ABV', column: 'abv', name: 'X' }]);
   });
 
   // FEAT-91 (#641): rows past 500 used to be dropped without a word; the
@@ -198,8 +200,10 @@ describe('ImportService.previewCsv', () => {
   });
 
   it('returns an empty preview for an empty file', async () => {
-    expect(importService.previewCsv(csv(''))).toEqual({ valid: [], errors: [] });
-    expect(await importService.preview(csv(''))).toEqual({ valid: [], errors: [], lines: [], newCellars: [] });
+    expect(importService.previewCsv(csv(''))).toEqual({ valid: [], errors: [], missingColumns: [], unrecognizedColumns: [] });
+    expect(await importService.preview(csv(''))).toEqual({
+      valid: [], errors: [], lines: [], newCellars: [], missingColumns: [], unrecognizedColumns: [],
+    });
   });
 });
 
@@ -223,7 +227,10 @@ describe('ImportService.previewCsv — group columns', () => {
 
   it('refuses a day that does not exist and a box size that is not a number', () => {
     const result = importService.previewCsv(csv('name,producer,category,purchase date,box size\nA,B,wine,31/02/2024,\nC,D,cigar,,many\n'));
-    expect(result.errors).toEqual([{ row: 2, reason: 'INVALID_PURCHASE_DATE' }, { row: 3, reason: 'INVALID_BOX_SIZE' }]);
+    expect(result.errors).toEqual([
+      { row: 2, reason: 'INVALID_PURCHASE_DATE', column: 'purchase date', name: 'A' },
+      { row: 3, reason: 'INVALID_BOX_SIZE', column: 'box size', name: 'C' },
+    ]);
   });
 });
 
@@ -497,7 +504,11 @@ describe('opened bottles and boxes (FEAT-99 export)', () => {
       'B,P,cigar,,yes,,30,20',
       'C,P,wine,3,yes,50,,',
     ].join('\n')));
-    expect(errors).toEqual([{ row: 2, reason: 'INVALID_FILL_LEVEL' }, { row: 3, reason: 'CIGARS_LEFT_ABOVE_BOX' }, { row: 4, reason: 'INVALID_QUANTITY' }]);
+    expect(errors).toEqual([
+      { row: 2, reason: 'INVALID_FILL_LEVEL', column: 'fill level', name: 'A' },
+      { row: 3, reason: 'CIGARS_LEFT_ABOVE_BOX', column: 'cigars left', name: 'B' },
+      { row: 4, reason: 'INVALID_QUANTITY', column: 'quantity', name: 'C' },
+    ]);
   });
 
   it('gives back a text cell that the export prefixed against a formula', () => {
@@ -712,3 +723,125 @@ describe('FEAT-99 export: nothing lost on the way back', () => {
   });
 });
 
+
+// #1035: a CellarTracker or Vivino export imported nothing — its headers were
+// not known, each row came back with the validator's English text, and a
+// non-vintage wine was refused.
+describe('exports of other cellar software (#1035)', () => {
+  const fixture = (file: string) => readFileSync(join(__dirname, '../fixtures/import', file));
+
+  it('imports a CellarTracker export: its wine, type, varietal, location and bin columns', () => {
+    const { valid, errors, missingColumns, unrecognizedColumns } = importService.previewCsv(fixture('cellartracker.csv'));
+    expect(errors).toEqual([]);
+    expect(missingColumns).toEqual([]);
+    expect(unrecognizedColumns).toEqual(['iWine', 'Currency', 'Locale', 'Vineyard', 'SubRegion', 'Pending']);
+    expect(valid).toEqual([
+      {
+        name: 'Château Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2015, quantity: 3, purchasePrice: 45,
+        estimatedValue: 60, purchasePlace: 'Lavinia', cellar: 'Home', location: 'A1', bottleSize: '750ml', region: 'Bordeaux',
+        color: 'red', appellation: 'Saint-Julien', grapeVarieties: ['Cabernet Sauvignon Blend'], peakMaturityFrom: 2022, peakMaturityTo: 2035,
+      },
+      {
+        name: 'Bollinger Champagne Brut Special Cuvée', producer: 'Bollinger', category: 'sparkling', quantity: 2, purchasePrice: 38.5,
+        cellar: 'Home', location: 'B2', bottleSize: '750ml', region: 'Champagne', color: 'white', appellation: 'Champagne',
+        grapeVarieties: ['Champagne Blend'],
+      },
+      // CellarTracker writes a non-vintage wine 1001.
+      {
+        name: 'Taylor Fladgate 10 Year Old Tawny Port', producer: 'Taylor Fladgate', category: 'wine', quantity: 1, purchasePrice: 32,
+        cellar: 'Offsite', bottleSize: '750ml', region: 'Douro', color: 'red', appellation: 'Porto', grapeVarieties: ['Port Blend'],
+      },
+      {
+        name: 'Château d\'Yquem', producer: 'Château d\'Yquem', category: 'wine', vintage: 2001, quantity: 1, purchasePrice: 120,
+        estimatedValue: 150, cellar: 'Home', location: 'C3', bottleSize: '375ml', region: 'Bordeaux', color: 'white',
+        appellation: 'Sauternes', grapeVarieties: ['Sémillon-Sauvignon Blanc Blend'], peakMaturityFrom: 2010, peakMaturityTo: 2060,
+      },
+    ]);
+  });
+
+  it('imports the CellarTracker-like file of the report, whatever its column order', () => {
+    const { valid, errors, unrecognizedColumns } = importService.previewCsv(fixture('cellartracker-short.csv'));
+    expect(errors).toEqual([]);
+    expect(valid).toHaveLength(8);
+    expect(unrecognizedColumns).toEqual(['iWine', 'Pending', 'Currency', 'SubRegion']);
+    expect(valid[2]).toEqual({
+      name: 'Cuvée spéciale n°9', producer: 'Domaine de la Romanée-Conti', category: 'wine', vintage: 1999, quantity: 11,
+      purchasePrice: 98.1, estimatedValue: 98.1, cellar: 'Cave', location: 'A1', bottleSize: '750ml', region: 'Rhône',
+    });
+  });
+
+  it('imports a Vivino export: winery, wine name, wine type, price, cellar count; the country when no region', () => {
+    const { valid, errors, unrecognizedColumns } = importService.previewCsv(fixture('vivino.csv'));
+    expect(errors).toEqual([]);
+    expect(unrecognizedColumns).toEqual(['Regional wine style', 'Average rating', 'Scan date', 'Your rating', 'Your review', 'Link to wine', 'Label image']);
+    expect(valid).toEqual([
+      { name: 'Bandol Rouge', producer: 'Domaine Tempier', category: 'wine', vintage: 2018, region: 'Bandol', purchasePrice: 32, quantity: 2, notes: 'Open in 2026' },
+      { name: 'Grande Cuvée', producer: 'Krug', category: 'sparkling', region: 'Champagne', purchasePrice: 180, quantity: 1 },
+      { name: '10 Year Old Tawny Port', producer: 'Graham\'s', category: 'wine', region: 'Portugal', purchasePrice: 25, quantity: 1 },
+      { name: 'Sauvignon Blanc', producer: 'Cloudy Bay', category: 'wine', vintage: 2023, region: 'Marlborough' },
+    ]);
+  });
+
+  it('matches headers whatever their case and accents', () => {
+    const { valid, errors } = importService.previewCsv(csv('WINE;WINERY;WINE TYPE;VARIÉTAL;MILLÉSIME\nA;P;Red;Syrah;2019\n'));
+    expect(errors).toEqual([]);
+    expect(valid).toEqual([{ name: 'A', producer: 'P', category: 'wine', grapeVarieties: ['Syrah'], vintage: 2019 }]);
+  });
+
+  it('keeps a file\'s own Location column when it has a cellar column, and its region before its country', () => {
+    const { valid } = importService.previewCsv(csv('name,producer,category,cellar,location,bin,country,region\nA,P,wine,Garage,Rack 2,A1,France,Loire\n'));
+    expect(valid).toEqual([{ name: 'A', producer: 'P', category: 'wine', cellar: 'Garage', location: 'Rack 2', region: 'Loire' }]);
+  });
+
+  it('says once which required column is missing, with the columns it did not recognize', () => {
+    const result = importService.previewCsv(csv('Wine,Winery,Colour,Score,Drinking window\nA,P,red,92,2020-2030\nB,P,white,90,\n'));
+    expect(result.valid).toEqual([]);
+    expect(result.errors).toEqual([{ row: 1, reason: 'MISSING_COLUMNS' }]);
+    expect(result.missingColumns).toEqual(['category']);
+    expect(result.unrecognizedColumns).toEqual(['Score', 'Drinking window']);
+  });
+
+  it('names the column at fault, by the file\'s own header, and the wine of the row', () => {
+    const { errors } = importService.previewCsv(csv('Wine,Producer,Type,Vintage,Quantity\nTalbot,Château Talbot,Red,15,1\n,Bollinger,Sparkling,NV,1\nKrug,Krug,Beer,,1\n'));
+    expect(errors).toEqual([
+      { row: 2, reason: 'INVALID_VINTAGE', column: 'Vintage', name: 'Talbot' },
+      { row: 3, reason: 'NAME_REQUIRED', column: 'Wine' },
+      { row: 4, reason: 'INVALID_CATEGORY', column: 'Type', name: 'Krug' },
+    ]);
+  });
+
+  // The French file of the report imports exactly as before #1035 — but its "NV" line, now read as non-vintage.
+  it('imports a French Glou-style file as before', () => {
+    const { valid, errors, missingColumns, unrecognizedColumns } = importService.previewCsv(fixture('glou-fr.csv'));
+    expect(missingColumns).toEqual([]);
+    expect(unrecognizedColumns).toEqual([]);
+    expect(valid).toHaveLength(10);
+    expect(valid[0]).toEqual({
+      name: 'Grand Vin', producer: 'Château Léoville-Las Cases', category: 'cigar', purchasePrice: 273.6, region: 'Bordeaux',
+      quantity: 4, cellar: 'Cave 1', purchasedAt: '2012-07-14',
+    });
+    expect(valid[2]).toEqual({
+      name: 'Cuvée spéciale n°9', producer: 'Domaine de la Romanée-Conti', category: 'wine', purchasePrice: 98.1, region: 'Rhône',
+      quantity: 11, vintage: 1999, cellar: 'Cave 1', purchasedAt: '2016-10-19',
+    });
+    expect(valid[8]).toEqual({ name: 'Vin millésime NV', producer: 'Dom Y', category: 'sparkling', purchasePrice: 10, region: 'Champagne', quantity: 1 });
+    expect(errors.map(({ row, reason, column }) => [row, reason, column])).toEqual([
+      [10, 'NAME_REQUIRED', 'Nom'],
+      [11, 'PRODUCER_REQUIRED', 'Producteur'],
+      [12, 'INVALID_CATEGORY', 'Catégorie'],
+      [13, 'INVALID_VINTAGE', 'Millésime'],
+      [14, 'INVALID_PRICE', "Prix d'achat"],
+      [15, 'INVALID_PRICE', "Prix d'achat"],
+      [16, 'INVALID_QUANTITY', 'Quantité'],
+      [17, 'INVALID_QUANTITY', 'Quantité'],
+      [18, 'NAME_TOO_LONG', 'Nom'],
+      [19, 'INVALID_PURCHASE_DATE', "Date d'achat"],
+    ]);
+    expect(errors[1].name).toBe('Vin sans producteur');
+  });
+
+  it('gives only reasons the web app translates', () => {
+    const { errors } = importService.previewCsv(fixture('glou-fr.csv'));
+    for (const error of errors) expect(CSV_IMPORT_ERROR_CODES).toContain(error.reason);
+  });
+});

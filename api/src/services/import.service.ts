@@ -1,7 +1,7 @@
 import type { CellarType, Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { IN_STOCK_ITEM_FILTER, itemUnits, productKey } from '../lib/finished-item';
-import { parseCsv } from '../lib/csv';
+import { parseCsvTable } from '../lib/csv';
 import { lockFamilies, purchaseDayToDate, todayAsPurchaseDate } from '../lib/product-fields';
 import { csvRawRowSchema, toOpened } from '../schemas/import.schema';
 import { normalizeToken } from '../lib/category';
@@ -18,7 +18,10 @@ import {
   groupCsvRows,
   type CsvImportChoice,
   type CsvFamilyFields,
+  CSV_IMPORT_ERROR_CODES,
+  CSV_REQUIRED_COLUMNS,
   type CsvImportError,
+  type CsvImportErrorCode,
   type CsvImportLine,
   type CsvImportPreview,
   type CsvImportResult,
@@ -31,14 +34,21 @@ import {
 // normalizeToken (no case, accents, spaces or punctuation). English and
 // French, so a French spreadsheet ("Nom; Producteur; Catégorie; Millésime")
 // imports as is.
+//
+// #1035: and the usual names of other cellar software's exports —
+// CellarTracker ("Wine", "Type", "Varietal", "Bin", "Valuation", "StoreName",
+// "BeginConsume") and Vivino ("Wine name", "Winery", "Wine type", "Wine price",
+// "User cellar count", "Personal Note").
 export const HEADER_ALIASES: Record<string, string> = {
-  name: 'name', nom: 'name', cuvee: 'name', designation: 'name', libelle: 'name',
+  name: 'name', nom: 'name', cuvee: 'name', libelle: 'name', wine: 'name', winename: 'name', nomduvin: 'name',
   producer: 'producer', producteur: 'producer', domaine: 'producer', maison: 'producer', distillerie: 'producer', marque: 'producer',
-  category: 'category', categorie: 'category',
+  winery: 'producer', manufacturer: 'producer', brand: 'producer',
+  category: 'category', categorie: 'category', type: 'category', winetype: 'category', typedevin: 'category',
   vintage: 'vintage', millesime: 'vintage', annee: 'vintage', year: 'vintage',
   price: 'purchasePrice', purchaseprice: 'purchasePrice', prix: 'purchasePrice', prixdachat: 'purchasePrice', prixachat: 'purchasePrice',
+  wineprice: 'purchasePrice', cost: 'purchasePrice',
   region: 'region',
-  quantity: 'quantity', quantite: 'quantity', qte: 'quantity', qty: 'quantity',
+  quantity: 'quantity', quantite: 'quantity', qte: 'quantity', qty: 'quantity', usercellarcount: 'quantity', bottles: 'quantity',
   // #471 (FEAT-99): what tells a group apart, and a cigar's vitola and box.
   cellar: 'cellar', cave: 'cellar', cellier: 'cellar',
   purchasedat: 'purchasedAt', purchasedate: 'purchasedAt', dateofpurchase: 'purchasedAt', datedachat: 'purchasedAt', dateachat: 'purchasedAt',
@@ -53,18 +63,21 @@ export const HEADER_ALIASES: Record<string, string> = {
   cigarsleft: 'cigarsLeft', cigaresrestants: 'cigarsLeft',
   openedon: 'openedAt', openedat: 'openedAt', dateouverture: 'openedAt', datedouverture: 'openedAt',
   purchaseplace: 'purchasePlace', placeofpurchase: 'purchasePlace', lieudachat: 'purchasePlace', lieuachat: 'purchasePlace',
-  location: 'location', emplacement: 'location',
-  estimatedvalue: 'estimatedValue', valeurestimee: 'estimatedValue',
+  storename: 'purchasePlace', store: 'purchasePlace',
+  location: 'location', emplacement: 'location', bin: 'location',
+  estimatedvalue: 'estimatedValue', valeurestimee: 'estimatedValue', valuation: 'estimatedValue',
   needsreview: 'needsReview', tocheck: 'needsReview', averifier: 'needsReview',
   // The family's description.
   color: 'color', colour: 'color', couleur: 'color',
   appellation: 'appellation', classification: 'classification',
   grapes: 'grapeVarieties', grapevarieties: 'grapeVarieties', cepages: 'grapeVarieties', cepage: 'grapeVarieties',
+  grape: 'grapeVarieties', varietal: 'grapeVarieties', varietals: 'grapeVarieties', variety: 'grapeVarieties',
   tags: 'tags', etiquettes: 'tags', notes: 'notes', collection: 'collection',
+  note: 'notes', personalnote: 'notes', privatenote: 'notes', mynotes: 'notes', commentaire: 'notes', commentaires: 'notes',
   servicetemperature: 'serviceTemp', servicetemp: 'serviceTemp', temperaturedeservice: 'serviceTemp',
   lotnumber: 'lotNumber', numerodelot: 'lotNumber',
-  drinkfrom: 'peakMaturityFrom', aboireapartirde: 'peakMaturityFrom',
-  drinkuntil: 'peakMaturityTo', aboirejusquen: 'peakMaturityTo',
+  drinkfrom: 'peakMaturityFrom', aboireapartirde: 'peakMaturityFrom', beginconsume: 'peakMaturityFrom',
+  drinkuntil: 'peakMaturityTo', aboirejusquen: 'peakMaturityTo', endconsume: 'peakMaturityTo',
   needsaeration: 'needsAeration', aeration: 'needsAeration',
   sparklingtype: 'sparklingType', typedebulles: 'sparklingType',
   sugarlevel: 'sugarLevel', dosage: 'sugarLevel',
@@ -89,6 +102,54 @@ export const HEADER_ALIASES: Record<string, string> = {
 };
 
 /**
+ * #1035: names read only for a row whose own column is empty or absent —
+ * the country when no region is given, a designation when no name is.
+ */
+export const HEADER_FALLBACKS: Record<string, string> = {
+  country: 'region', pays: 'region',
+  designation: 'name',
+};
+
+/**
+ * Where each column of the importer is read in a file: its headers, the main
+ * names first, each in file order. A row takes the first non-empty cell.
+ */
+interface ColumnMap {
+  sources: Map<string, string[]>;
+  /** Headers that feed no column, as the file writes them. */
+  unrecognized: string[];
+  /** Each column's first header, as the file writes it: what a message about it quotes. */
+  label: Map<string, string>;
+}
+
+function mapColumns(header: readonly string[]): ColumnMap {
+  const tokens = header.map(normalizeToken);
+  // CellarTracker names a storage place "Location" and a slot in it "Bin": a
+  // file with a Bin column and no cellar column means its Location as the cellar.
+  const storagePlace = tokens.includes('bin') && !tokens.some((token) => HEADER_ALIASES[token] === 'cellar');
+  const aliasOf = (token: string) => (storagePlace && token === 'location' ? 'cellar' : HEADER_ALIASES[token]);
+  const main: Array<[string, number]> = [];
+  const fallback: Array<[string, number]> = [];
+  const unrecognized: string[] = [];
+  header.forEach((name, index) => {
+    const token = tokens[index];
+    const column = aliasOf(token);
+    if (column) main.push([column, index]);
+    else if (HEADER_FALLBACKS[token]) fallback.push([HEADER_FALLBACKS[token], index]);
+    else if (name !== '') unrecognized.push(name);
+  });
+  const sources = new Map<string, string[]>();
+  const label = new Map<string, string>();
+  for (const [column, index] of [...main, ...fallback]) {
+    sources.set(column, [...(sources.get(column) ?? []), header[index].toLowerCase()]);
+    if (!label.has(column)) label.set(column, header[index]);
+  }
+  return { sources, unrecognized, label };
+}
+
+const isErrorCode = (reason: string): reason is CsvImportErrorCode => (CSV_IMPORT_ERROR_CODES as readonly string[]).includes(reason);
+
+/**
  * The export writes `'` before a text cell starting with `=`, `+`, `-` or `@`
  * (a spreadsheet would run it as a formula); reading it back removes that
  * mark, so an export imports as written. Numbers are never prefixed.
@@ -105,11 +166,11 @@ const OPENED_ONLY_COLUMNS = ['fillLevel', 'cigarsLeft', 'openedAt'] as const;
  * columns are dropped. A level, cigars left or opening day on a row that is
  * not opened is ignored, whatever it holds.
  */
-function canonicalRecord(record: Record<string, string>): Record<string, string> {
+function canonicalRecord(record: Record<string, string>, columns: ColumnMap): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(record)) {
-    const column = HEADER_ALIASES[normalizeToken(key)];
-    if (column && !(column in out)) out[column] = unneutralize(value);
+  for (const [column, keys] of columns.sources) {
+    const cells = keys.map((key) => record[key] ?? '');
+    out[column] = unneutralize(cells.find((cell) => cell.trim() !== '') ?? cells[0]);
   }
   if (toOpened(out.opened) !== true) for (const column of OPENED_ONLY_COLUMNS) delete out[column];
   return out;
@@ -127,6 +188,9 @@ const CSV_IMPORT_LOCK_KEY = 5_770_641;
 export interface CsvParseResult {
   valid: CsvImportRow[];
   errors: CsvImportError[];
+  /** #1035: what {@link CsvImportPreview} says of the header line. */
+  missingColumns: string[];
+  unrecognizedColumns: string[];
 }
 
 const normalizeName = (value: string) => value.trim().toLowerCase();
@@ -193,43 +257,52 @@ export class ImportService {
     // UTF-8 silently turns every accented byte into U+FFFD rather than
     // failing — the only sign is the replacement character itself (#397).
     if (text.includes('�')) {
-      return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }] };
+      return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }], missingColumns: [], unrecognizedColumns: [] };
     }
 
     // FEAT-91 (#641): every row is read, so the screen can say when the file
     // goes over CSV_IMPORT_MAX_ROWS instead of dropping the rest unseen.
     // The upload itself is capped at 2 MB (upload.middleware.ts).
-    const records = parseCsv(text).map(canonicalRecord);
+    const { header, records } = parseCsvTable(text);
+    const columns = mapColumns(header);
+    const unrecognizedColumns = columns.unrecognized;
 
     const valid: CsvImportRow[] = [];
     const errors: CsvImportError[] = [];
+    if (records.length === 0) return { valid, errors, missingColumns: [], unrecognizedColumns };
 
     // If a file carries none of the known columns, its header line was almost
     // certainly not understood (unsupported delimiter, missing header row,
     // wrong file) — reporting that once is far more useful than one
-    // NAME_REQUIRED per data row.
-    if (records.length > 0) {
-      if (Object.keys(records[0]).length === 0) {
-        // Row 1 = the header line itself, which is what is actually wrong.
-        return { valid, errors: [{ row: 1, reason: 'UNRECOGNIZED_COLUMNS' }] };
-      }
+    // NAME_REQUIRED per data row. #1035: so is a required column missing —
+    // said once, with the headers the import did not recognize.
+    const missingColumns = CSV_REQUIRED_COLUMNS.filter((column) => !columns.sources.has(column));
+    if (missingColumns.length > 0) {
+      // Row 1 = the header line itself, which is what is actually wrong.
+      const reason = columns.sources.size === 0 ? 'UNRECOGNIZED_COLUMNS' : 'MISSING_COLUMNS';
+      return { valid, errors: [{ row: 1, reason }], missingColumns, unrecognizedColumns };
     }
 
-    records.forEach((record, index) => {
+    records.forEach((raw, index) => {
       const rowNumber = index + 2; // +1 for the header row, +1 for 1-based numbering
+      const record = canonicalRecord(raw, columns);
       const result = csvRawRowSchema.safeParse(record);
       if (result.success) {
         valid.push(result.data);
       } else {
         // A single machine-readable code (e.g. 'NAME_REQUIRED') — the
-        // frontend maps it to a localized message; falls back to the raw
-        // code if a row somehow fails validation in an unmapped way.
-        const reason = result.error.issues[0]?.message ?? 'INVALID_ROW';
-        errors.push({ row: rowNumber, reason });
+        // frontend maps it to a localized message — with the column it is
+        // about and the wine's name (#1035); a refusal in an unmapped way is
+        // INVALID_ROW, never the validator's own text.
+        const issue = result.error.issues[0];
+        const reason = issue && isErrorCode(issue.message) ? issue.message : 'INVALID_ROW';
+        const column = typeof issue?.path[0] === 'string' ? columns.label.get(issue.path[0]) : undefined;
+        const name = record.name?.trim();
+        errors.push({ row: rowNumber, reason, ...(column ? { column } : {}), ...(name ? { name } : {}) });
       }
     });
 
-    return { valid, errors };
+    return { valid, errors, missingColumns: [], unrecognizedColumns };
   }
 
   /**
@@ -239,8 +312,8 @@ export class ImportService {
    * (QP3). Never writes.
    */
   async preview(buffer: Buffer): Promise<CsvImportPreview> {
-    const { valid, errors } = this.previewCsv(buffer);
-    if (valid.length === 0) return { valid, errors, lines: [], newCellars: [] };
+    const { valid, errors, missingColumns, unrecognizedColumns } = this.previewCsv(buffer);
+    if (valid.length === 0) return { valid, errors, lines: [], newCellars: [], missingColumns, unrecognizedColumns };
     const drafts = groupCsvRows(valid);
     const families = await familiesOf(prisma, drafts);
     const stock = await stockOf(prisma, idsOf(families));
@@ -256,7 +329,7 @@ export class ImportService {
       if (newCellar && inStock === 0 && !newCellars.has(normalizeName(cellar))) newCellars.set(normalizeName(cellar), cellar.trim());
       return { ...draft, inStock, newCellar, tooLarge: draft.count > MAX_COPIES };
     });
-    return { valid, errors, lines, newCellars: [...newCellars.values()] };
+    return { valid, errors, lines, newCellars: [...newCellars.values()], missingColumns, unrecognizedColumns };
   }
 
   /**
