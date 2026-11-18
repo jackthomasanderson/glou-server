@@ -14,10 +14,16 @@
  * for good, and every later window opened from the keyboard never took the
  * focus: it stayed on the card, outside the open drawer.
  *
- * This stops a `transitioncancel` at its own element, so it only reaches the
- * listeners of the element whose transition was cancelled. Nothing in the
- * app listens for a child's cancelled transition. Installed once when the app
- * starts, in the capture phase, before any element's own listener runs.
+ * This stops a `transitioncancel` at its own element, so it no longer bubbles
+ * to its parents' listeners. Capture-phase listeners still hear it, but React
+ * delegates `onTransitionCancel` to its root container in the bubble phase:
+ * with this guard, no `onTransitionCancel` prop ever fires (only
+ * `onTransitionCancelCapture` does). Nothing in the app uses it. Installed
+ * once when the app starts, in the capture phase.
+ *
+ * The cause is upstream, in react-aria's `runAfterTransition` (still there in
+ * react-aria 3.53.1): remove this guard once it ignores a `transitioncancel`
+ * whose target is not the element it was registered on.
  */
 
 const stopAtTarget = (e: Event) => e.stopPropagation();
