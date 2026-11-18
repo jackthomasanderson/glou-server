@@ -249,13 +249,18 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
     const until = Date.now() + SYNC_WAIT_MS;
     const onItsWay = (change: Awaited<ReturnType<typeof stateOf>>) => !!change && (change.status === 'pending' || change.status === 'syncing');
     let sending = await stateOf();
-    for (let tries = 0; tries < SYNC_TRIES && onItsWay(sending) && Date.now() < until; tries += 1) {
-      setSyncing(true);
-      if (tries > 0) await new Promise((resolve) => setTimeout(resolve, SYNC_POLL_MS));
-      await flushQueue(queryClient);
-      sending = await stateOf();
+    try {
+      for (let tries = 0; tries < SYNC_TRIES && onItsWay(sending) && Date.now() < until; tries += 1) {
+        setSyncing(true);
+        if (tries > 0) await new Promise((resolve) => setTimeout(resolve, SYNC_POLL_MS));
+        // A replay that threw (its own matter, told elsewhere) leaves the tasting to go on the line.
+        await flushQueue(queryClient).catch(() => {});
+        sending = await stateOf();
+      }
+    } finally {
+      // Never left on "Synchronisation…": the save goes on, or says it failed.
+      setSyncing(false);
     }
-    setSyncing(false);
     // Still queued (no network, in conflict, refused): no copy of its own to go on.
     const stalled = sending !== undefined;
     const items = queryClient.getQueryData<ProductDetailView>(qk.products.detail(copy.item.productId))?.items;

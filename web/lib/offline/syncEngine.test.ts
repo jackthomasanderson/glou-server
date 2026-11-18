@@ -664,12 +664,16 @@ describe('FEAT-108 — shown at once, sent once', () => {
     const first = flushQueue(qc);
     let secondDone = false;
     const second = flushQueue(qc).then(() => { secondDone = true; });
-    await Promise.resolve();
-    // The replay is waiting for the server: the second caller waits with it.
-    expect(secondDone).toBe(false);
-    expect(store.size).toBe(1);
+    try {
+      await Promise.resolve();
+      // The replay is waiting for the server: the second caller waits with it.
+      expect(secondDone).toBe(false);
+      expect(store.size).toBe(1);
+    } finally {
+      // Always let the held request go: a flush left pending would leak into the next tests.
+      answer();
+    }
 
-    answer();
     await Promise.all([first, second]);
     expect(secondDone).toBe(true);
     expect(store.size).toBe(0);

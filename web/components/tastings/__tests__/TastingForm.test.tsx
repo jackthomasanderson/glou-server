@@ -854,6 +854,25 @@ describe('a tasting right after drinking a bottle (#1036)', () => {
     expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'srv' }));
   });
 
+  // Fourth review of #1053: a replay that threw must not leave the save silent, nor the button on "Synchronisation…".
+  it('a replay that fails: the tasting is still saved, on the line it was taken from', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    queued = [{ id: 'm1', status: 'pending' }];
+    flushQueue.mockRejectedValue(new Error('offline'));
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'g3' }));
+    expect(screen.queryByRole('button', { name: 'tastings.syncingDrink' })).toBeNull();
+  });
+
   // Still waiting (no network): the line it was taken from, as before — the save fails anyway.
   it('saved while the drink still waits for the network: the line it was taken from', async () => {
     const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
