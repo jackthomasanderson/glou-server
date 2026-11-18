@@ -1,7 +1,6 @@
 'use client';
 import React from 'react';
-import { Button, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@heroui/react';
-import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 export interface TrashDeleteDialogProps {
   /** What is about to be deleted for good; null when closed. */
@@ -9,7 +8,6 @@ export interface TrashDeleteDialogProps {
   onConfirm: () => void;
   onClose: () => void;
   isPending: boolean;
-  t: (key: string, options?: Record<string, unknown>) => string;
 }
 
 /**
@@ -17,26 +15,18 @@ export interface TrashDeleteDialogProps {
  * is confirmed first — the question names what goes, the note says it
  * cannot be undone; the confirming button is the solid danger one.
  */
-export function TrashDeleteDialog({ confirmation, onConfirm, onClose, isPending, t }: TrashDeleteDialogProps) {
+export function TrashDeleteDialog({ confirmation, onConfirm, onClose, isPending }: TrashDeleteDialogProps) {
   return (
-    <ResponsiveModal isOpen={!!confirmation} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center">
-      <ModalContent>
-        {() => confirmation && (
-          <>
-            <ModalHeader>{confirmation.title}</ModalHeader>
-            <ModalBody className="gap-2">
-              <p className="text-sm">{confirmation.question}</p>
-              <p className="text-xs text-foreground-500">{confirmation.note}</p>
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
-              <Button color="danger" variant="solid" onPress={onConfirm} isLoading={isPending} isDisabled={isPending}>
-                {confirmation.action}
-              </Button>
-            </ModalFooter>
-          </>
-        )}
-      </ModalContent>
-    </ResponsiveModal>
+    <ConfirmDialog
+      isOpen={!!confirmation}
+      onClose={onClose}
+      onConfirm={onConfirm}
+      isPending={isPending}
+      title={confirmation?.title}
+      message={confirmation?.question}
+      confirmLabel={confirmation?.action}
+    >
+      <p className="text-xs text-foreground-500">{confirmation?.note}</p>
+    </ConfirmDialog>
   );
 }

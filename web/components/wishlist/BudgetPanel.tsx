@@ -6,6 +6,7 @@ import {
   Button, Input, Card, CardHeader, CardBody, Progress, Skeleton, Spinner,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Plus, Wallet } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CreateAction } from '@/components/ui/PageHeader';
@@ -238,24 +239,15 @@ export function BudgetPanel() {
       </ResponsiveModal>
 
       {/* Delete confirm */}
-      <ResponsiveModal isOpen={!!deleting} onClose={() => setDeleting(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
-        <ModalContent>
-          {() => (
-            <>
-              <ModalHeader>{t('budget.deleteTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-600">{t('budget.deleteConfirm')}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="default" variant="light" onPress={() => setDeleting(null)}>{t('actions.cancel')}</Button>
-                <Button color="danger" variant="solid" isLoading={deleteMutation.isPending} onPress={handleDelete}>
-                  {t('actions.delete')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+      <ConfirmDialog
+        isOpen={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={handleDelete}
+        isPending={deleteMutation.isPending}
+        title={t('budget.deleteTitle')}
+        message={t('budget.deleteConfirm')}
+        confirmLabel={t('actions.delete')}
+      />
     </div>
   );
 }

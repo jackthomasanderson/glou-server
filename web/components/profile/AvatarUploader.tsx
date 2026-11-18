@@ -1,10 +1,9 @@
 'use client';
 import React, { useRef, useState } from 'react';
 import {
-  Avatar, Button, CircularProgress,
-  ModalContent, ModalHeader, ModalBody, ModalFooter,
-} from '@heroui/react';
-import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+  Avatar, CircularProgress,
+  } from '@heroui/react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Camera, Trash2 } from 'lucide-react';
 import { useUploadAvatar, useDeleteAvatar, PublicUser } from '@/hooks/useAuth';
 import { useTranslation } from 'react-i18next';
@@ -122,39 +121,15 @@ export function AvatarUploader({ user }: { user: PublicUser }) {
         accept="image/jpeg,image/png,image/webp,image/gif"
       />
 
-      <ResponsiveModal
+      <ConfirmDialog
         isOpen={confirmingDelete}
         onClose={() => setConfirmingDelete(false)}
-        size="sm"
-        radius="lg"
-        backdrop="opaque"
-        placement="center"
-      >
-        <ModalContent>
-          {() => (
-            <>
-              <ModalHeader>{t('profile.deleteAvatar')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-600">{t('profile.deleteAvatarConfirm')}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="default" variant="light" onPress={() => setConfirmingDelete(false)}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button
-                  color="danger"
-                  variant="solid"
-                  onPress={handleDelete}
-                  isLoading={deleteAvatar.isPending}
-                  isDisabled={deleteAvatar.isPending}
-                >
-                  {t('actions.delete')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+        onConfirm={handleDelete}
+        isPending={deleteAvatar.isPending}
+        title={t('profile.deleteAvatar')}
+        message={t('profile.deleteAvatarConfirm')}
+        confirmLabel={t('actions.delete')}
+      />
     </div>
   );
 }

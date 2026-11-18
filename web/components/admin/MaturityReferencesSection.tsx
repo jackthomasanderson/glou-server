@@ -8,6 +8,7 @@ import {
 } from '@heroui/react';
 import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Plus, Pencil, Trash2, Clock, CalendarDays, ArrowUp, ArrowDown, Info } from 'lucide-react';
 import { FilterChip } from '@/components/ui/FilterControls';
 import { CATEGORY_VALUES } from '@/lib/inventory/types';
@@ -349,7 +350,7 @@ function FormDialog({ open, editing, onClose }: FormDialogProps) {
 export function MaturityReferencesSection() {
   const { t } = useTranslation();
   const { data: refs, isLoading } = useMaturityReferences();
-  const { mutate: deleteRef } = useDeleteMaturityReference();
+  const { mutate: deleteRef, isPending: isDeleting } = useDeleteMaturityReference();
   const { mutate: reorderRefs, isPending: isReordering } = useReorderMaturityReferences();
   // #698: on a phone the rules are cards, not an 8-column table scrolled sideways.
   const isMobile = useIsMobile();
@@ -545,22 +546,15 @@ export function MaturityReferencesSection() {
         onClose={() => setDialogOpen(false)}
       />
 
-      <ResponsiveModal isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader>{t('admin.maturityRefs.deleteConfirmTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm">{t('admin.maturityRefs.deleteConfirmBody', { name: deleteTarget?.name })}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="danger" variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
-                <Button color="danger" variant="solid" onPress={confirmDelete}>{t('actions.delete')}</Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        isPending={isDeleting}
+        title={t('admin.maturityRefs.deleteConfirmTitle')}
+        message={t('admin.maturityRefs.deleteConfirmBody', { name: deleteTarget?.name })}
+        confirmLabel={t('actions.delete')}
+      />
     </>
   );
 }

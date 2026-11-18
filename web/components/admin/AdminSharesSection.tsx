@@ -1,10 +1,10 @@
 'use client';
 import React from 'react';
 import { LoadingRegion } from '@/components/ui/LoadingRegion';
-import { Button, Skeleton, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Button, Skeleton } from '@heroui/react';
 import { Link2, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useAdminShares, useRevokeAdminShare, type AdminGuestShare } from '@/hooks/useAdmin';
 import { useHasMounted } from '@/hooks/useHasMounted';
 import { formatDate } from '@/lib/format';
@@ -104,24 +104,15 @@ export function AdminSharesSection() {
         </ul>
       )}
 
-      <ResponsiveModal isOpen={!!target} onClose={() => !isRevoking && setTarget(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader>{t('admin.shares.revokeTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm">
-                  {target && t('admin.shares.revokeBody', { label: title(target), owner: ownerName(target) })}
-                </p>
-              </ModalBody>
-              <ModalFooter>
-                <Button variant="light" onPress={onClose} isDisabled={isRevoking}>{t('actions.cancel')}</Button>
-                <Button color="danger" variant="solid" onPress={confirmRevoke} isLoading={isRevoking}>{t('shares.revoke')}</Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+      <ConfirmDialog
+        isOpen={!!target}
+        onClose={() => setTarget(null)}
+        onConfirm={confirmRevoke}
+        isPending={isRevoking}
+        title={t('admin.shares.revokeTitle')}
+        message={target && t('admin.shares.revokeBody', { label: title(target), owner: ownerName(target) })}
+        confirmLabel={t('shares.revoke')}
+      />
     </div>
   );
 }

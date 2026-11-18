@@ -1,10 +1,10 @@
 'use client';
 import React, { useState } from 'react';
-import { Button, Input, Chip, ModalContent, ModalHeader, ModalBody, ModalFooter } from '@heroui/react';
+import { Button, Input, Chip } from '@heroui/react';
 import { Clock, PlayCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { lowersRetention } from '@shared/admin-config';
 import { configClient, type AdminReauth, type MaintenanceRunEntry, type SystemConfigPublic } from '@/lib/config/client';
 import { useAdminStepUp } from '@/components/admin/AdminStepUpDialog';
@@ -135,22 +135,15 @@ export function RetentionCard({ config }: { config: SystemConfigPublic }) {
       </div>
 
       {/* Run-now confirmation (irreversible action) */}
-      <ResponsiveModal isOpen={isRunConfirmOpen} onClose={() => !running && setIsRunConfirmOpen(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="text-danger">{t('adminConfig.retention.runNow.confirmTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-500">{t('adminConfig.retention.runNow.confirmDescription')}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="danger" variant="light" onPress={onClose} isDisabled={running}>{t('actions.cancel')}</Button>
-                <Button color="danger" variant="solid" onPress={runNow} isLoading={running}>{t('actions.confirm')}</Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+      <ConfirmDialog
+        isOpen={isRunConfirmOpen}
+        onClose={() => setIsRunConfirmOpen(false)}
+        onConfirm={runNow}
+        isPending={running}
+        title={<span className="text-danger">{t('adminConfig.retention.runNow.confirmTitle')}</span>}
+        message={t('adminConfig.retention.runNow.confirmDescription')}
+        confirmLabel={t('actions.confirm')}
+      />
       {stepUp.dialog}
     </ConfigCard>
   );

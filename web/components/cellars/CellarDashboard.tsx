@@ -47,6 +47,7 @@ import { useExpertMode } from '@/hooks/useExpertMode';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { DiscardChangesDialog } from '@/components/ui/DiscardChangesDialog';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import { SingleSelect } from '@/components/ui/SingleSelect';
@@ -751,39 +752,15 @@ export const CellarDashboard: React.FC = () => {
       />
 
       {/* Delete confirm */}
-      <ResponsiveModal
+      <ConfirmDialog
         isOpen={!!deletingCellar}
         onClose={() => setDeletingCellar(null)}
-        size="sm"
-        radius="lg"
-        backdrop="opaque"
-        placement="center"
-      >
-        <ModalContent>
-          {() => (
-            <>
-              <ModalHeader>{t('cellars.deleteTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-600">{cellarDeleteConfirmText(deletingShown, t)}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="default" variant="light" onPress={() => setDeletingCellar(null)}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button
-                  color="danger"
-                  variant="solid"
-                  onPress={confirmDelete}
-                  isLoading={deleteMutation.isPending}
-                  isDisabled={deleteMutation.isPending}
-                >
-                  {t('actions.delete')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+        onConfirm={confirmDelete}
+        isPending={deleteMutation.isPending}
+        title={t('cellars.deleteTitle')}
+        message={cellarDeleteConfirmText(deletingShown, t)}
+        confirmLabel={t('actions.delete')}
+      />
     </div>
   );
 };

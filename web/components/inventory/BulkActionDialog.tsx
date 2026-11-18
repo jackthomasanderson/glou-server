@@ -5,6 +5,7 @@ import {
   Button, Checkbox, Chip, Divider, Input, Select, SelectItem,
 } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { FilterChip } from '@/components/ui/FilterControls';
 import { Save, Trash2 } from 'lucide-react';
 import { InventoryItem } from '@/lib/inventory/types';
@@ -408,42 +409,18 @@ export function BulkActionDialog({
     {/* Delete preset confirm — was a bare click-to-delete with no
         confirmation, inconsistent with every other destructive action in
         the app. Sibling of the main dialog, not nested inside it. */}
-    <ResponsiveModal
+    <ConfirmDialog
       isOpen={!!deletingPresetId}
       onClose={() => setDeletingPresetId(null)}
-      size="sm"
-      radius="lg"
-      backdrop="opaque"
-      placement="center"
-    >
-      <ModalContent>
-        {() => (
-          <>
-            <ModalHeader>{t('bulk.deletePreset')}</ModalHeader>
-            <ModalBody>
-              <p className="text-sm text-foreground-600">{t('bulk.deletePresetConfirm')}</p>
-            </ModalBody>
-            <ModalFooter>
-              <Button color="default" variant="light" onPress={() => setDeletingPresetId(null)}>
-                {t('actions.cancel')}
-              </Button>
-              <Button
-                color="danger"
-                variant="solid"
-                onPress={() => {
-                  if (deletingPresetId) deletePresetMutation.mutate(deletingPresetId);
-                  setDeletingPresetId(null);
-                }}
-                isLoading={deletePresetMutation.isPending}
-                isDisabled={deletePresetMutation.isPending}
-              >
-                {t('actions.delete')}
-              </Button>
-            </ModalFooter>
-          </>
-        )}
-      </ModalContent>
-    </ResponsiveModal>
+      onConfirm={() => {
+        if (deletingPresetId) deletePresetMutation.mutate(deletingPresetId);
+        setDeletingPresetId(null);
+      }}
+      isPending={deletePresetMutation.isPending}
+      title={t('bulk.deletePreset')}
+      message={t('bulk.deletePresetConfirm')}
+      confirmLabel={t('actions.delete')}
+    />
     </>
   );
 }

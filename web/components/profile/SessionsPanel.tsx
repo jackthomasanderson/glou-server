@@ -1,8 +1,8 @@
 'use client';
 import React, { useState } from 'react';
 import { LoadingRegion } from '@/components/ui/LoadingRegion';
-import { Button, ModalContent, ModalHeader, ModalBody, ModalFooter, Skeleton } from '@heroui/react';
-import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { Button, Skeleton } from '@heroui/react';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Monitor, MapPin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSessions, useRevokeSession, useRevokeOtherSessions, SessionInfo } from '@/hooks/useAuth';
@@ -146,65 +146,32 @@ export function SessionsPanel() {
       )}
 
       {/* Revoke confirmation modal */}
-      <ResponsiveModal isOpen={!!sessionToRevoke} onClose={() => setSessionToRevoke(null)} size="sm" radius="lg" backdrop="opaque" placement="center">
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader>{t('profile.sessions.revokeConfirmTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-600">{t('profile.sessions.revokeConfirmBody')}</p>
-                {sessionToRevoke && (
-                  <>
-                    <p className="text-sm font-medium mt-2">{formatDevice(sessionToRevoke.device)}</p>
-                    <p className="text-xs text-foreground-500">{signedInOn(sessionToRevoke)}</p>
-                  </>
-                )}
-              </ModalBody>
-              <ModalFooter>
-                <Button color="danger" variant="light" onPress={onClose} isDisabled={revokeSession.isPending}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button
-                  color="danger"
-                  variant="solid"
-                  onPress={handleConfirmRevoke}
-                  isLoading={revokeSession.isPending}
-                  isDisabled={revokeSession.isPending}
-                >
-                  {t('profile.sessions.revoke')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+      <ConfirmDialog
+        isOpen={!!sessionToRevoke}
+        onClose={() => setSessionToRevoke(null)}
+        onConfirm={handleConfirmRevoke}
+        isPending={revokeSession.isPending}
+        title={t('profile.sessions.revokeConfirmTitle')}
+        message={t('profile.sessions.revokeConfirmBody')}
+        confirmLabel={t('profile.sessions.revoke')}
+      >
+        {sessionToRevoke && (
+          <>
+            <p className="text-sm font-medium mt-2">{formatDevice(sessionToRevoke.device)}</p>
+            <p className="text-xs text-foreground-500">{signedInOn(sessionToRevoke)}</p>
+          </>
+        )}
+      </ConfirmDialog>
 
-      <ResponsiveModal isOpen={confirmRevokeOthers} onClose={() => setConfirmRevokeOthers(false)} size="sm" radius="lg" backdrop="opaque" placement="center">
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader>{t('profile.sessions.revokeOthersConfirmTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-600">{t('profile.sessions.revokeOthersConfirmBody')}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="danger" variant="light" onPress={onClose} isDisabled={revokeOthers.isPending}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button
-                  color="danger"
-                  variant="solid"
-                  onPress={handleConfirmRevokeOthers}
-                  isLoading={revokeOthers.isPending}
-                  isDisabled={revokeOthers.isPending}
-                >
-                  {t('profile.sessions.revokeOthers')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+      <ConfirmDialog
+        isOpen={confirmRevokeOthers}
+        onClose={() => setConfirmRevokeOthers(false)}
+        onConfirm={handleConfirmRevokeOthers}
+        isPending={revokeOthers.isPending}
+        title={t('profile.sessions.revokeOthersConfirmTitle')}
+        message={t('profile.sessions.revokeOthersConfirmBody')}
+        confirmLabel={t('profile.sessions.revokeOthers')}
+      />
     </div>
   );
 }

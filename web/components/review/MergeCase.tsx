@@ -1,10 +1,10 @@
 'use client';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Chip, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup } from '@heroui/react';
+import { Button, Chip, Radio, RadioGroup } from '@heroui/react';
 import { Combine } from 'lucide-react';
 import type { MergeOverLimits, ReviewField } from '@shared/review';
-import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useKeepApart, useMergeFamilies } from '@/hooks/useReview';
 import { formatDate } from '@/lib/format';
 import { historyFieldLabel } from '@/lib/inventory/history-format';
@@ -137,28 +137,16 @@ export function MergeCase({ merge, onMerged }: MergeCaseProps) {
         </OfflineBlockedButton>
       </div>
 
-      <ResponsiveModal isOpen={confirming} onClose={() => !mergeMutation.isPending && setConfirming(false)} size="sm" placement="center">
-        <ModalContent>
-          {() => (
-            <>
-              <ModalHeader>{t('review.merges.confirmTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm">
-                  {t('review.merges.confirm', { context: kind, count: merge.units, wines: merge.products.length })}
-                </p>
-              </ModalBody>
-              <ModalFooter className="flex gap-2">
-                <Button variant="light" onPress={() => setConfirming(false)} isDisabled={mergeMutation.isPending} className="flex-1">
-                  {t('actions.cancel')}
-                </Button>
-                <Button color="primary" onPress={confirm} isLoading={mergeMutation.isPending} className="flex-1">
-                  {t('review.merges.merge')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+      <ConfirmDialog
+        isOpen={confirming}
+        onClose={() => setConfirming(false)}
+        onConfirm={confirm}
+        isPending={mergeMutation.isPending}
+        danger={false}
+        title={t('review.merges.confirmTitle')}
+        message={t('review.merges.confirm', { context: kind, count: merge.units, wines: merge.products.length })}
+        confirmLabel={t('review.merges.merge')}
+      />
     </article>
   );
 }
