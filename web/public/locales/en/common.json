@@ -498,6 +498,13 @@
     "count": {
       "scanError": "Couldn't confirm the bottle",
       "scanError_cigar": "Couldn't confirm the cigar",
+      "closed_one": "Session closed: {{count}} item found of {{expected}} expected. {{corrections}}",
+      "closed_other": "Session closed: {{count}} items found of {{expected}} expected. {{corrections}}",
+      "closedNoList_one": "Session closed: {{count}} item confirmed. {{corrections}}",
+      "closedNoList_other": "Session closed: {{count}} items confirmed. {{corrections}}",
+      "applied_one": "{{count}} correction applied to the stock.",
+      "applied_other": "{{count}} corrections applied to the stock.",
+      "appliedNone": "Stock unchanged.",
       "skipped_one": "Session closed: {{count}} correction couldn't be applied (the bottle changed meanwhile).",
       "skipped_other": "Session closed: {{count}} corrections couldn't be applied (the bottles changed meanwhile)."
     },
@@ -1646,7 +1653,8 @@
       "times": "×{{number}}",
       "howMany": "How many did you find?",
       "howManyAria": "{{name}}: how many did you find?",
-      "saveCount": "Save"
+      "saveCount": "Save",
+      "offlineNotice": "Offline: the stock check needs the connection. You can save your answers once it is back."
     },
     "status": {
       "confirmed": "Confirmed",
@@ -1664,6 +1672,15 @@
       "close": "Close session",
       "closeWithCorrections": "Close and apply ({{count}})",
       "completedNotice": "This session is closed.",
+      "confirmClose": {
+        "title": "Close the stock check session?",
+        "found_one": "{{count}} item found of {{expected}} expected.",
+        "found_other": "{{count}} items found of {{expected}} expected.",
+        "corrections_one": "{{count}} correction will be applied to the stock.",
+        "corrections_other": "{{count}} corrections will be applied to the stock.",
+        "noCorrections": "No corrections: the stock does not change.",
+        "final": "A closed session cannot be resumed."
+      },
       "surplus": "Extra",
       "foundOf": "{{found}} / {{expected}}",
       "missingOf_one": "{{count}} missing out of {{expected}}",
@@ -1707,7 +1724,10 @@
       "VALIDATION_ERROR": "Please check the information you entered.",
       "UNEXPECTED_ERROR": "An unexpected error occurred.",
       "QUANTITY_TOO_LARGE": "A group cannot hold more than 1,000 items.",
-      "PRODUCT_IN_TRASH": "This wine is in the trash: restore it before adding items to it."
+      "PRODUCT_IN_TRASH": "This wine is in the trash: restore it before adding items to it.",
+      "offline": "No connection: the stock check needs the network, nothing was saved. Try again once it is back.",
+      "rateLimited_one": "Too many requests in a row: nothing was saved. Wait {{count}} minute, then carry on counting.",
+      "rateLimited_other": "Too many requests in a row: nothing was saved. Wait {{count}} minutes, then carry on counting."
     }
   },
   "analytics": {
@@ -2766,11 +2786,22 @@
       "yourAction": "Your action:",
       "line": "This line:",
       "lineThenNow": "×{{then}} when you acted, ×{{now}} now",
+      "lineThenNoneLeft": "×{{then}} when you acted, no longer in stock now",
+      "lineGone": "This line no longer exists: it was deleted or merged from another device.",
+      "keptLocal": {
+        "sent": "Your version was kept and saved: {{what}}.",
+        "pending": "Your version was kept: {{what}}. It will be sent when the connection is back.",
+        "soon": "Your version was kept: {{what}}. It will be sent in a moment.",
+        "changedAgain": "The line changed again meanwhile: {{what}}. Check the new value, then choose.",
+        "failed": "Your version could not be saved: {{what}}. See the details in the pending changes."
+      },
       "actionHint": "“Keep my version” applies your action to the line as it is now; “Keep server version” drops it.",
       "maybeRecorded": "The connection may have dropped while it was being sent: your action may already be recorded. If so, keep the server version."
     },
     "blocked": "Available when the connection is back",
     "undoTooLate": "Already being sent: it can no longer be undone from here.",
+    "synced_one": "{{count}} change made offline has been sent.",
+    "synced_other": "{{count}} changes made offline have been sent.",
     "actions": {
       "correct": "Number corrected: {{from}} → {{to}}"
     },

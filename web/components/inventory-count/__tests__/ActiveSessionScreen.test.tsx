@@ -28,6 +28,8 @@ let inventory: ({ id: string; name: string; producer: string } & Record<string, 
 let inventoryTruncated = false;
 vi.mock('@/hooks/useInventory', () => ({ useInventory: () => ({ data: inventory }), useInventoryTruncated: () => inventoryTruncated }));
 vi.mock('../RecordFoundItemModal', () => ({ RecordFoundItemModal: () => null }));
+let reachable: boolean | null = true;
+vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => reachable }));
 
 import { ActiveSessionScreen } from '../ActiveSessionScreen';
 
@@ -51,6 +53,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   inventory = [];
   inventoryTruncated = false;
+  reachable = true;
 });
 
 /** Types in the quick search and picks the first result. */
@@ -179,5 +182,94 @@ describe('ActiveSessionScreen — a cut inventory', () => {
     withLines([line('g1', {})]);
     render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
     expect(screen.queryByText(/inventoryCount\.session\.searchTruncated/)).toBeNull();
+  });
+});
+
+// #1038: the stock check needs the network (ux-ui §10.8 lists only open,
+// drink, smoke and "Corriger le nombre" as possible offline). Offline, its
+// answers are shown unavailable with the reason — not a generic error.
+describe('ActiveSessionScreen — without network (#1038)', () => {
+  it('says the count needs the connection, and « Valider » is unavailable with the reason', () => {
+    reachable = false;
+    withLines([line('g1', {})]);
+    render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    expect(screen.getByText('inventoryCount.session.offlineNotice')).toBeInTheDocument();
+    const validate = screen.getByRole('button', { name: 'inventoryCount.session.saveCount' });
+    expect(validate).toHaveAttribute('aria-disabled', 'true');
+    expect(validate).toHaveAccessibleDescription('offline.blocked');
+
+    fireEvent.click(validate);
+    fireEvent.submit(screen.getByRole('spinbutton', { name: 'inventoryCount.session.howManyAria|Wine g1' }));
+    expect(scan).not.toHaveBeenCalled();
+  });
+
+  it('« Confirmer » on a single bottle too', () => {
+    reachable = false;
+    withLines([line('o1', { isGroup: false, expectedQuantity: 1, missingQuantity: 1 })]);
+    render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    const confirm = screen.getByRole('button', { name: 'inventoryCount.session.confirmTap' });
+    expect(confirm).toHaveAttribute('aria-disabled', 'true');
+    fireEvent.click(confirm);
+    expect(scan).not.toHaveBeenCalled();
+  });
+
+  it('online, no notice', () => {
+    withLines([line('g1', {})]);
+    render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+    expect(screen.queryByText('inventoryCount.session.offlineNotice')).toBeNull();
+  });
+});
+
+// #1038: a line answered moves below those still to count, so the next one
+// to count stays at the top, under the thumb.
+describe('ActiveSessionScreen — the lines still to count come first (#1038)', () => {
+  it('puts the answered lines after the others, each part in name order', () => {
+    withLines([
+      line('a', { foundQuantity: 6, missingQuantity: 0 }),
+      line('b', {}),
+      line('c', { foundQuantity: 4, missingQuantity: 2 }),
+      line('d', {}),
+    ]);
+    render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    const names = screen.getAllByRole('listitem').map((row) => row.textContent?.match(/Wine \w/)?.[0]);
+    expect(names).toEqual(['Wine b', 'Wine d', 'Wine a', 'Wine c']);
+  });
+});
+
+// Review of #1054 (B2): a line that moves away as soon as it is answered
+// slides the next « Confirmer » under the finger — a second tap would
+// confirm a bottle nobody checked. The order holds while counting.
+describe('ActiveSessionScreen — the order holds while counting (review of #1054)', () => {
+  const single = (id: string, extra: Partial<CountLine> = {}) => line(id, { isGroup: false, expectedQuantity: 1, missingQuantity: 1, ...extra });
+  const order = () => screen.getAllByRole('listitem').map((row) => row.textContent?.match(/Wine \w/)?.[0]);
+
+  it('confirming the first line leaves every line where it was', () => {
+    withLines([single('a'), single('b'), single('c')]);
+    const { rerender } = render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+    fireEvent.click(screen.getAllByRole('button', { name: 'inventoryCount.session.confirmTap' })[0]);
+    expect(scan).toHaveBeenCalledWith({ itemId: 'a', foundQuantity: undefined });
+
+    // The report comes back with the answer.
+    withLines([single('a', { foundQuantity: 1, missingQuantity: 0 }), single('b'), single('c')]);
+    rerender(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    expect(order()).toEqual(['Wine a', 'Wine b', 'Wine c']);
+    // No « Confirmer » took its place: the first one left is the second line's.
+    expect(screen.getAllByRole('button', { name: 'inventoryCount.session.confirmTap' })).toHaveLength(2);
+  });
+
+  it('a search brings the order up to date: the lines answered go last', () => {
+    withLines([single('a'), single('b'), single('c')]);
+    inventory = [{ id: 'c', name: 'Wine c', producer: 'Domaine' }];
+    const { rerender } = render(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+    withLines([single('a', { foundQuantity: 1, missingQuantity: 0 }), single('b'), single('c')]);
+    rerender(<ActiveSessionScreen session={session} onOpenSummary={() => {}} />);
+
+    pickFromSearch('Wine');
+
+    expect(order()).toEqual(['Wine b', 'Wine c', 'Wine a']);
   });
 });

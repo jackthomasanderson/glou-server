@@ -2,6 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { inventoryCountClient } from '@/lib/inventory-count/client';
 import { notifyError } from '@/lib/toast';
+import { isNetworkFailure, minutesToWait } from '@/lib/auth/error-message';
+import { TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
 import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
 import {
   CountSession,
@@ -91,7 +93,19 @@ export function useScanItem(sessionId: string) {
     meta: { handlesError: true },
     mutationFn: ({ itemId, foundQuantity }: ScanInput) => inventoryCountClient.scan(sessionId, itemId, foundQuantity),
     // #873: a cigar is not told "the bottle".
-    onError: (_error, { itemId }) => {
+    onError: (error, { itemId }) => {
+      // #1038: the count needs the network (ux-ui §10.8) — said, not a generic failure.
+      if (isNetworkFailure(error)) {
+        notifyError('inventoryCount.errors.offline');
+        return;
+      }
+      // Review of #1054: pointing many bottles in a row can hit the API's
+      // rate limit (#640) — how long to wait, not "couldn't confirm".
+      // TODO(#1039/#1050): use `rateLimitedNotice` once it is on dev.
+      if (error.message === TOO_MANY_REQUESTS_ERROR) {
+        notifyError('inventoryCount.errors.rateLimited', { count: minutesToWait(error) });
+        return;
+      }
       const line = queryClient.getQueryData<SessionReport>(reportKey(sessionId))?.expected.find((candidate) => candidate.id === itemId);
       if (line?.category === 'cigar') notifyError('toast.count.scanError', { context: 'cigar' });
       else notifyError('toast.count.scanError');

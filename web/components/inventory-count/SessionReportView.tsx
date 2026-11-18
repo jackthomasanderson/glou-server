@@ -1,6 +1,6 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { Card, CardHeader, CardBody, Button, Checkbox, CircularProgress, Chip, RadioGroup, Radio } from '@heroui/react';
+import { Card, CardHeader, CardBody, Checkbox, CircularProgress, Chip, RadioGroup, Radio } from '@heroui/react';
 import { CheckCircle2, AlertTriangle, HelpCircle, PlusCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { CountSession, CountLine, CountUnexpectedItem } from '@/lib/inventory-count/types';
@@ -8,6 +8,11 @@ import {
   buildCorrections, defaultFindChoice, missingChoices, type FindChoice, type MissingChoice,
 } from '@/lib/inventory-count/corrections';
 import { useSessionReport, useCompleteCountSession } from '@/hooks/useInventoryCount';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
+import { isNetworkFailure, minutesToWait } from '@/lib/auth/error-message';
+import { TOO_MANY_REQUESTS_ERROR } from '@shared/auth';
+import { notifySuccess } from '@/lib/toast';
 
 interface SessionReportViewProps {
   session: CountSession;
@@ -46,6 +51,9 @@ export function SessionReportView({ session }: SessionReportViewProps) {
   // whole point of "ajouter au stock", see types.ts#CountUnexpectedItem).
   const [finds, setFinds] = useState<Record<string, FindChoice>>({});
   const [error, setError] = useState<string | null>(null);
+  // #1038: closing is final — asked first, with what it will record.
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const offline = useOfflineBlocked();
 
   const findChoice = (find: CountUnexpectedItem): FindChoice => finds[find.entryId] ?? defaultFindChoice(find);
   // From the latest state, never from the render's closure (a control may keep its first handler).
@@ -61,12 +69,34 @@ export function SessionReportView({ session }: SessionReportViewProps) {
   const handleClose = async () => {
     setError(null);
     try {
-      await completeMutation.mutateAsync(corrections);
+      const result = await completeMutation.mutateAsync(corrections);
+      setIsConfirmOpen(false);
+      // #1038: what the session validated, said once it is closed.
+      const applied = result.appliedCount > 0
+        ? t('toast.count.applied', { count: result.appliedCount })
+        : t('toast.count.appliedNone');
+      // A free-label scope has no theoretical list: nothing to count against.
+      const expected = report?.counts.expected ?? 0;
+      notifySuccess(expected ? 'toast.count.closed' : 'toast.count.closedNoList', {
+        count: report?.counts.confirmed ?? 0,
+        ...(expected ? { expected } : {}),
+        corrections: applied,
+      });
       setMissing({});
       setSurplus(new Set());
       setMove(new Set());
       setFinds({});
     } catch (err) {
+      setIsConfirmOpen(false);
+      if (isNetworkFailure(err)) {
+        setError(t('inventoryCount.errors.offline'));
+        return;
+      }
+      // Review of #1054: the same rate limit as a scan (#640).
+      if (err instanceof Error && err.message === TOO_MANY_REQUESTS_ERROR) {
+        setError(t('inventoryCount.errors.rateLimited', { count: minutesToWait(err) }));
+        return;
+      }
       const code = err instanceof Error ? err.message : 'UNEXPECTED_ERROR';
       const key = `inventoryCount.errors.${code}`;
       const translated = t(key);
@@ -83,6 +113,9 @@ export function SessionReportView({ session }: SessionReportViewProps) {
   }
 
   const isCompleted = session.status === 'completed';
+  const closeLabel = corrections.length > 0
+    ? t('inventoryCount.report.closeWithCorrections', { count: corrections.length })
+    : t('inventoryCount.report.close');
   const lineTitle = (line: Pick<CountLine, 'name' | 'producer'>) => (
     <>
       <p className="text-sm font-medium truncate">{line.name}</p>
@@ -283,13 +316,33 @@ export function SessionReportView({ session }: SessionReportViewProps) {
         </div>
       ) : (
         <div className="flex justify-end">
-          <Button color="primary" size="md" isLoading={completeMutation.isPending} onPress={handleClose}>
-            {corrections.length > 0
-              ? t('inventoryCount.report.closeWithCorrections', { count: corrections.length })
-              : t('inventoryCount.report.close')}
-          </Button>
+          <OfflineBlockedButton blocked={offline} color="primary" size="md" isLoading={completeMutation.isPending} onPress={() => setIsConfirmOpen(true)}>
+            {closeLabel}
+          </OfflineBlockedButton>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={() => { void handleClose(); }}
+        title={t('inventoryCount.report.confirmClose.title')}
+        confirmLabel={closeLabel}
+        isPending={completeMutation.isPending}
+        danger={false}
+      >
+        <ul className="text-sm text-foreground-600 list-disc pl-5 flex flex-col gap-1">
+          {report.counts.expected > 0 && (
+            <li>{t('inventoryCount.report.confirmClose.found', { count: report.counts.confirmed, expected: report.counts.expected })}</li>
+          )}
+          <li>
+            {corrections.length > 0
+              ? t('inventoryCount.report.confirmClose.corrections', { count: corrections.length })
+              : t('inventoryCount.report.confirmClose.noCorrections')}
+          </li>
+          <li>{t('inventoryCount.report.confirmClose.final')}</li>
+        </ul>
+      </ConfirmDialog>
     </div>
   );
 }

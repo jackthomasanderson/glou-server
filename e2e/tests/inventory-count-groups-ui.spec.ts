@@ -42,7 +42,7 @@ test.afterEach(async ({ page }) => {
   cellarId = '';
 });
 
-test('a group is counted in one answer, its gaps corrected, a find of 6 makes a group ×6 (#471, FEAT-100)', async ({ page }) => {
+test('a group is counted in one answer, its gaps corrected, a find of 6 makes a group ×6 (#471, FEAT-100)', async ({ page, context }) => {
   test.setTimeout(120_000);
   const api = page.request;
   const id = stamp();
@@ -68,6 +68,17 @@ test('a group is counted in one answer, its gaps corrected, a find of 6 makes a 
   await expect(missingRow.getByText('×6')).toBeVisible();
   const missingAnswer = page.getByRole('spinbutton', { name: `${missingName} : combien en avez-vous trouvé ?` });
   await expect(missingAnswer).toHaveValue('6');
+
+  // #1038: without network the count says it needs the connection, and
+  // « Valider » is unavailable with the reason (ux-ui §10.8), never a
+  // generic failure.
+  await context.setOffline(true);
+  await page.evaluate(() => window.dispatchEvent(new Event('offline')));
+  await expect(page.getByText('Hors ligne : le comptage a besoin de la connexion.', { exact: false })).toBeVisible();
+  await expect(missingRow.getByRole('button', { name: 'Valider' })).toHaveAttribute('aria-disabled', 'true');
+  await context.setOffline(false);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(missingRow.getByRole('button', { name: 'Valider' })).not.toHaveAttribute('aria-disabled', 'true');
 
   // c2 / c3: 4 found of one, 8 of the other.
   await missingAnswer.fill('4');
@@ -102,6 +113,10 @@ test('a group is counted in one answer, its gaps corrected, a find of 6 makes a 
   await addFind.dispatchEvent('click');
   await expect(addFind).toBeChecked();
   await page.getByRole('button', { name: 'Clôturer et appliquer (3)' }).click();
+  // #1038: asked first, with what will be applied.
+  const confirmClose = page.getByRole('dialog').filter({ hasText: 'Clôturer la session de comptage ?' });
+  await expect(confirmClose).toContainText('3 corrections seront appliquées au stock.');
+  await confirmClose.getByRole('button', { name: 'Clôturer et appliquer (3)' }).click();
   // Closed: the screen offers to start the next count.
   await expect(page.getByText("Démarrer une session de comptage").first()).toBeVisible();
   sessionId = null;

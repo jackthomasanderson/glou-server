@@ -79,6 +79,8 @@ export const qk = {
   },
   wishlist: ['wishlist'],
   collections: ['collections'],
+  /** #1038: the line of an offline conflict as the server has it now, per queued change. */
+  offlineConflictUnit: (mutationId: string) => ['offline', 'conflict-unit', mutationId],
   inventoryCount: {
     all: ['inventory-count'],
     active: ['inventory-count', 'active'],

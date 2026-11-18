@@ -498,6 +498,13 @@
     "count": {
       "scanError": "Impossible de confirmer la bouteille",
       "scanError_cigar": "Impossible de confirmer le cigare",
+      "closed_one": "Session clôturée : {{count}} exemplaire trouvé sur {{expected}} attendus. {{corrections}}",
+      "closed_other": "Session clôturée : {{count}} exemplaires trouvés sur {{expected}} attendus. {{corrections}}",
+      "closedNoList_one": "Session clôturée : {{count}} exemplaire confirmé. {{corrections}}",
+      "closedNoList_other": "Session clôturée : {{count}} exemplaires confirmés. {{corrections}}",
+      "applied_one": "{{count}} correction appliquée au stock.",
+      "applied_other": "{{count}} corrections appliquées au stock.",
+      "appliedNone": "Stock inchangé.",
       "skipped_one": "Session clôturée : {{count}} correction n'a pas pu être appliquée (la bouteille a changé entre-temps).",
       "skipped_other": "Session clôturée : {{count}} corrections n'ont pas pu être appliquées (les bouteilles ont changé entre-temps)."
     },
@@ -1648,7 +1655,8 @@
       "times": "×{{number}}",
       "howMany": "Combien en avez-vous trouvé ?",
       "howManyAria": "{{name}} : combien en avez-vous trouvé ?",
-      "saveCount": "Valider"
+      "saveCount": "Valider",
+      "offlineNotice": "Hors ligne : le comptage a besoin de la connexion. Vous pourrez valider vos réponses à son retour."
     },
     "status": {
       "confirmed": "Confirmé",
@@ -1666,6 +1674,15 @@
       "close": "Clôturer la session",
       "closeWithCorrections": "Clôturer et appliquer ({{count}})",
       "completedNotice": "Cette session est clôturée.",
+      "confirmClose": {
+        "title": "Clôturer la session de comptage ?",
+        "found_one": "{{count}} exemplaire trouvé sur {{expected}} attendus.",
+        "found_other": "{{count}} exemplaires trouvés sur {{expected}} attendus.",
+        "corrections_one": "{{count}} correction sera appliquée au stock.",
+        "corrections_other": "{{count}} corrections seront appliquées au stock.",
+        "noCorrections": "Aucune correction : le stock ne change pas.",
+        "final": "Une session clôturée ne se reprend pas."
+      },
       "surplus": "En plus",
       "foundOf": "{{found}} / {{expected}}",
       "missingOf_one": "{{count}} manquante sur {{expected}}",
@@ -1709,7 +1726,10 @@
       "VALIDATION_ERROR": "Veuillez vérifier les informations saisies.",
       "UNEXPECTED_ERROR": "Une erreur inattendue est survenue.",
       "QUANTITY_TOO_LARGE": "Un groupe ne peut pas dépasser 1 000 exemplaires.",
-      "PRODUCT_IN_TRASH": "Ce vin est dans la corbeille : restaurez-le avant d'y ajouter des exemplaires."
+      "PRODUCT_IN_TRASH": "Ce vin est dans la corbeille : restaurez-le avant d'y ajouter des exemplaires.",
+      "offline": "Pas de connexion : le comptage a besoin du réseau, rien n'a été enregistré. Réessayez à son retour.",
+      "rateLimited_one": "Trop de demandes d'affilée : rien n'a été enregistré. Attendez {{count}} minute, puis reprenez le comptage.",
+      "rateLimited_other": "Trop de demandes d'affilée : rien n'a été enregistré. Attendez {{count}} minutes, puis reprenez le comptage."
     }
   },
   "analytics": {
@@ -2768,11 +2788,22 @@
       "yourAction": "Votre action :",
       "line": "Cette ligne :",
       "lineThenNow": "×{{then}} quand vous avez agi, ×{{now}} maintenant",
+      "lineThenNoneLeft": "×{{then}} quand vous avez agi, plus en stock maintenant",
+      "lineGone": "Cette ligne n'existe plus : elle a été supprimée ou regroupée depuis un autre appareil.",
+      "keptLocal": {
+        "sent": "Votre version est gardée et enregistrée : {{what}}.",
+        "pending": "Votre version est gardée : {{what}}. Elle sera envoyée au retour de la connexion.",
+        "soon": "Votre version est gardée : {{what}}. Elle sera envoyée dans un instant.",
+        "changedAgain": "La ligne a encore changé entre-temps : {{what}}. Vérifiez la nouvelle valeur, puis choisissez.",
+        "failed": "Votre version n'a pas pu être enregistrée : {{what}}. Voyez le détail dans les modifications en attente."
+      },
       "actionHint": "« Garder ma version » applique votre action à la ligne telle qu'elle est maintenant ; « Garder la version serveur » l'abandonne.",
       "maybeRecorded": "La connexion a peut-être coupé pendant l'envoi : votre action est peut-être déjà enregistrée. Dans ce cas, gardez la version du serveur."
     },
     "blocked": "Disponible au retour de la connexion",
     "undoTooLate": "Déjà en cours d'envoi : elle ne peut plus être annulée d'ici.",
+    "synced_one": "{{count}} modification faite hors ligne a été envoyée.",
+    "synced_other": "{{count}} modifications faites hors ligne ont été envoyées.",
     "actions": {
       "correct": "Nombre corrigé : {{from}} → {{to}}"
     },

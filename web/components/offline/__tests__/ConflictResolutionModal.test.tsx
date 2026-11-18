@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import type { QueuedMutation } from '@/lib/offline/db';
 import fr from '@/public/locales/fr/common.json';
+import { notifyError, notifySuccess } from '@/lib/toast';
+import { cancelSyncRetry } from '@/lib/offline/syncEngine';
 
 // #585: the conflict dialog listed every key of the queued change (ids,
 // dates, "[object Object]", "Cellar: — / —") in English fallback labels, and
@@ -96,6 +98,7 @@ function page() {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   store.clear();
   window.sessionStorage.clear();
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ online: true }) })));
@@ -239,5 +242,228 @@ describe('PendingChangesList (FEAT-108)', () => {
     expect(await screen.findByText('Nombre corrigé : 6 → 5')).toBeInTheDocument();
     expect(document.body).toHaveTextContent(fr.toast.tastingsOnBottle);
     expect(screen.queryByText(/: TASTINGS_ON_ITEM$/)).toBeNull();
+  });
+});
+
+// #1038: the dialog showed "×1 maintenant" for a line already finished on
+// the server (the value kept since the conflict came back), and « Garder ma
+// version » closed it without a word.
+describe('ConflictResolutionModal — the server\'s line as it is now (#1038)', () => {
+  const drinkConflict = (stored: Record<string, unknown>) => ({
+    ...conflict('A', 't1', { isOpened: true, fillLevel: 0 }),
+    before: { quantity: 6 },
+    conflictServerItem: { ...serverItem, isOpened: false, fillLevel: 100, ...stored } as unknown as QueuedMutation['conflictServerItem'],
+  });
+  /** The API: GET /api/inventory/A answers `unit` (404 when null); anything else is the connectivity probe. */
+  function serverHas(unit: Record<string, unknown> | null) {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/inventory/A')) {
+        return unit ? { ok: true, status: 200, json: async () => ({ data: unit }) } : { ok: false, status: 404, json: async () => ({ error: 'NOT_FOUND' }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ online: true }) };
+    }));
+  }
+
+  it('reads the line again from the server: ×4 now, not the ×3 kept with the conflict', async () => {
+    store.set('A', drinkConflict({ quantity: 3 }));
+    serverHas({ ...serverItem, isOpened: false, fillLevel: 100, quantity: 4 });
+    page();
+    const action = await screen.findByTestId('conflict-action');
+    await waitFor(() => expect(action).toHaveTextContent('×6 quand vous avez agi, ×4 maintenant'));
+  });
+
+  it('a line finished on the server is said to be no longer in stock, not "×1 maintenant"', async () => {
+    store.set('A', { ...drinkConflict({ quantity: 1 }), before: { quantity: 1 } });
+    serverHas({ ...serverItem, quantity: 1, isOpened: true, fillLevel: 0 });
+    page();
+    const action = await screen.findByTestId('conflict-action');
+    await waitFor(() => expect(action).toHaveTextContent('×1 quand vous avez agi, plus en stock maintenant'));
+    expect(action).not.toHaveTextContent('×1 maintenant');
+  });
+
+  it('a line that no longer exists on the server is said so', async () => {
+    store.set('A', drinkConflict({ quantity: 3 }));
+    serverHas(null);
+    page();
+    expect(await screen.findByTestId('conflict-line-gone')).toHaveTextContent(fr.offline.conflict.lineGone);
+    expect(screen.getByTestId('conflict-action')).not.toHaveTextContent('quand vous avez agi');
+  });
+
+  it('without an answer from the server, keeps the line as it came back with the conflict', async () => {
+    store.set('A', drinkConflict({ quantity: 3 }));
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/inventory/A')) throw new TypeError('Failed to fetch');
+      return { ok: true, status: 200, json: async () => ({ online: true }) };
+    }));
+    page();
+    expect(await screen.findByTestId('conflict-action')).toHaveTextContent('×6 quand vous avez agi, ×3 maintenant');
+  });
+});
+
+/** « Garder ma version », once the line has been read again (it waits for it). */
+async function pressKeepLocal(dialog: HTMLElement) {
+  const keep = within(dialog).getByRole('button', { name: fr.offline.conflict.keepLocal });
+  await waitFor(() => expect(keep).toBeEnabled());
+  fireEvent.click(keep);
+}
+
+describe('ConflictResolutionModal — « Garder ma version » says what was kept (#1038)', () => {
+  it('sent: says the action kept and that it is recorded', async () => {
+    store.set('A', {
+      ...conflict('A', 't1', { isOpened: true, fillLevel: 0 }),
+      before: { quantity: 6 },
+      conflictServerItem: { ...serverItem, isOpened: false, fillLevel: 100, quantity: 4 } as unknown as QueuedMutation['conflictServerItem'],
+    });
+    page();
+    const dialog = await screen.findByRole('dialog');
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (init?.method === 'PATCH'
+      ? { ok: true, status: 200, json: async () => ({ data: { id: 'A', updatedAt: 'v9' }, changed: [], removedIds: [] }) }
+      : { ok: true, status: 200, json: async () => ({ online: true }) })));
+
+    await pressKeepLocal(dialog);
+
+    await waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('offline.conflict.keptLocal.sent', { what: "J'en bois une — Château Test" }));
+    expect(notifySuccess).not.toHaveBeenCalledWith('offline.synced', expect.anything());
+  });
+
+  it('still offline: says it is kept and will be sent when the connection is back', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    page();
+    const dialog = await screen.findByRole('dialog');
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+
+    await pressKeepLocal(dialog);
+
+    await waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('offline.conflict.keptLocal.pending', { what: 'Château Test' }));
+    vi.restoreAllMocks();
+  });
+
+  it('online but the server asks to wait (503): says it will be sent in a moment, not "when the connection is back"', async () => {
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    page();
+    const dialog = await screen.findByRole('dialog');
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (init?.method === 'PATCH'
+      ? { ok: false, status: 503, json: async () => ({ error: 'SERVICE_UNAVAILABLE' }) }
+      : { ok: true, status: 200, json: async () => ({ online: true }) })));
+
+    await pressKeepLocal(dialog);
+
+    await waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('offline.conflict.keptLocal.soon', { what: 'Château Test' }));
+    cancelSyncRetry();
+  });
+
+  it('the line changed once more: says so, and the dialog shows it again', async () => {
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    page();
+    const dialog = await screen.findByRole('dialog');
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (init?.method === 'PATCH'
+      ? { ok: false, status: 409, json: async () => ({ error: 'CONFLICT', data: { ...serverItem, id: 'A', updatedAt: '2026-04-03T10:00:00.000Z' } }) }
+      : { ok: true, status: 200, json: async () => ({ online: true }) })));
+
+    await pressKeepLocal(dialog);
+
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('offline.conflict.keptLocal.changedAgain', { what: 'Château Test' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('refused by the server: says it could not be recorded', async () => {
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    page();
+    const dialog = await screen.findByRole('dialog');
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (init?.method === 'PATCH'
+      ? { ok: false, status: 404, json: async () => ({ error: 'ITEM_NOT_FOUND' }) }
+      : { ok: true, status: 200, json: async () => ({ online: true }) })));
+
+    await pressKeepLocal(dialog);
+
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('offline.conflict.keptLocal.failed', { what: 'Château Test' }));
+  });
+});
+
+// Review of #1054.
+describe('ConflictResolutionModal — what is shown is what is applied (review of #1054)', () => {
+  function serverHas(unit: Record<string, unknown> | null) {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/inventory/A')) {
+        return unit ? { ok: true, status: 200, json: async () => ({ data: unit }) } : { ok: false, status: 404, json: async () => ({ error: 'ITEM_NOT_FOUND' }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ online: true }) };
+    }));
+  }
+
+  it('B1: a line changed again since the conflict: the version read now becomes the one « Garder ma version » applies against', async () => {
+    store.set('A', { ...conflict('A', 't1', { isOpened: true, fillLevel: 0 }), before: { quantity: 6 } });
+    serverHas({ ...serverItem, quantity: 3, isOpened: false, fillLevel: 100, updatedAt: '2026-04-05T10:00:00.000Z' });
+    page();
+
+    await waitFor(() => expect(store.get('A')?.conflictServerItem).toMatchObject({ quantity: 3, updatedAt: '2026-04-05T10:00:00.000Z' }));
+  });
+
+  it('the actions wait for the line to be read again (no tap on a value about to change)', async () => {
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+    page();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepLocal })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepServer })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: fr.offline.conflict.decideLater })).toBeEnabled();
+  });
+
+  it('a line that no longer exists offers no « Garder ma version »: keeping the server\'s version comes first', async () => {
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    serverHas(null);
+    page();
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByTestId('conflict-line-gone');
+    expect(within(dialog).queryByRole('button', { name: fr.offline.conflict.keepLocal })).toBeNull();
+    expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepServer })).toHaveAttribute('data-primary', 'true');
+  });
+});
+
+// Second review of #1054 (C1): a query is paused while the browser is
+// offline, so tying the choices to "the line is being read" left the member
+// stuck in a dialog that cannot be dismissed — offline is the whole point
+// of this screen.
+describe('ConflictResolutionModal — offline, the conflict can still be resolved (review of #1054)', () => {
+  afterEach(() => onlineManager.setOnline(true));
+
+  it('both choices stay usable with no answer from the server', async () => {
+    onlineManager.setOnline(false);
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    page();
+
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepLocal })).toBeEnabled());
+    expect(within(dialog).getByRole('button', { name: fr.offline.conflict.keepServer })).toBeEnabled();
+  });
+
+  it('« Garder ma version » offline keeps it and says it waits for the connection', async () => {
+    onlineManager.setOnline(false);
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    page();
+    const dialog = await screen.findByRole('dialog');
+
+    await pressKeepLocal(dialog);
+
+    await waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('offline.conflict.keptLocal.pending', { what: 'Château Test' }));
+    vi.restoreAllMocks();
+  });
+
+  it('« Garder la version serveur » offline drops the change: it needs no network', async () => {
+    onlineManager.setOnline(false);
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+    page();
+    const dialog = await screen.findByRole('dialog');
+    const keepServer = within(dialog).getByRole('button', { name: fr.offline.conflict.keepServer });
+    await waitFor(() => expect(keepServer).toBeEnabled());
+
+    fireEvent.click(keepServer);
+
+    await waitFor(() => expect(store.size).toBe(0));
   });
 });
