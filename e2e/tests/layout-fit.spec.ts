@@ -186,7 +186,7 @@ test.describe('Layout fits its width (recette n°5 ter of #847)', () => {
     try {
       await page.setViewportSize({ width: 390, height: 664 });
       await page.goto('/wishlist-budget');
-      const card = page.getByTestId('wishlist-item').first();
+      const card = page.getByTestId('wishlist-item').filter({ hasText: 'E2E 1041 Vacqueyras' });
       for (const name of ['Marquer un prix observé', 'Modifier', "Basculer vers l'inventaire", 'Supprimer']) {
         const box = await card.getByRole('button', { name }).boundingBox();
         expect(box, name).not.toBeNull();
