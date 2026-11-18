@@ -48,6 +48,11 @@ cd web && npm ci && npm run dev
 - Keep PRs focused. One logical change per PR.
 - Use a descriptive branch name, e.g. `fix/world-map-basemap` or `feat/csv-import`.
 - Fill in the PR template checklist.
+- Answer **How to verify** and **Same pattern elsewhere** in the PR body. These two are the ones a
+  reviewer cannot reconstruct on their own: the first says how to see the linked issue is really
+  resolved (a command, a test, a journey), the second says where else you looked for the same
+  problem and what you found. They are required even when you supply the body yourself with
+  `gh pr create --body` or `--body-file`, which skips the template altogether (#465).
 
 ## Versioning
 
