@@ -65,8 +65,8 @@ vi.mock('../steps/ManualIngestionStep', () => ({
 vi.mock('../steps/CsvImportStep', () => ({ CsvImportStep: () => <div /> }));
 vi.mock('../steps/ScanIngestionStep', () => ({ ScanIngestionStep: () => <div /> }));
 vi.mock('../steps/SummaryStep', () => ({
-  SummaryStep: (p: { cellarName: string | null; cellarId: string | null; bottleCount: number; cigarCount: number }) => (
-    <div>{`summary: ${p.cellarName}/${p.cellarId}/${p.bottleCount}/${p.cigarCount}`}</div>
+  SummaryStep: (p: { cellarName: string | null; cellarId: string | null; bottleCount: number; cigarCount: number; cellarCreatedHere: boolean }) => (
+    <div>{`summary: ${p.cellarName}/${p.cellarId}/${p.bottleCount}/${p.cigarCount}/${p.cellarCreatedHere}`}</div>
   ),
 }));
 
@@ -116,10 +116,19 @@ describe('OnboardingWizard resume (#574, #685)', () => {
     expect(screen.getByText('cellar step: Cave à vin')).toBeInTheDocument();
   });
 
-  it('keeps its former behaviour when reopened from the profile: no cellar preselected', () => {
+  it('preselects the cellar when reopened from the profile, and still offers a new one on Back (#1047)', () => {
     onboardingState = { ...EMPTY, wizardCellar: { id: 'c1', name: 'Cave à vin' }, cellarCount: 1 };
     render(<OnboardingWizard forced onClose={onClose} />);
     expect(screen.getByText('ingestion-choice')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'choose manual' }));
+    expect(screen.getByText('manual into: c1')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'manual done' }));
+    expect(screen.getByText('summary: Cave à vin/c1/0/0/false')).toBeInTheDocument();
+  });
+
+  it('on Back, a reopened wizard offers the creation form', () => {
+    onboardingState = { ...EMPTY, wizardCellar: { id: 'c1', name: 'Cave à vin' }, cellarCount: 1 };
+    render(<OnboardingWizard forced onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: 'choice back' }));
     expect(screen.getByText('cellar step: create')).toBeInTheDocument();
   });
@@ -209,6 +218,6 @@ describe('OnboardingWizard cellar and summary (#1047)', () => {
     onboardingState = { ...EMPTY, wizardCellar: { id: 'c1', name: 'Cave à vin' }, cellarCount: 1, bottleCount: 12, cigarCount: 3 };
     render(<OnboardingWizard forced onClose={onClose} />);
     fireEvent.click(screen.getByRole('button', { name: 'choice skip' }));
-    expect(screen.getByText('summary: Cave à vin/c1/12/3')).toBeInTheDocument();
+    expect(screen.getByText('summary: Cave à vin/c1/12/3/false')).toBeInTheDocument();
   });
 });

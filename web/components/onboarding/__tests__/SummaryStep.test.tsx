@@ -82,6 +82,11 @@ describe('SummaryStep hand-off and real counts (#1047)', () => {
     expect(screen.queryByText('onboarding.summary.noItems')).toBeNull();
   });
 
+  it('says "your cellar" when the cellar was not created in this run', () => {
+    render(<SummaryStep cellarName="Cave" cellarCreatedHere={false} itemsAdded={0} isAdmin={false} isFinishing={false} onFinish={() => {}} />);
+    expect(screen.getByText('onboarding.summary.yourCellar|Cave')).toBeInTheDocument();
+  });
+
   it('keeps "nothing added" on an empty instance', () => {
     renderSummary(null);
     expect(screen.getByText('onboarding.summary.noItems')).toBeInTheDocument();

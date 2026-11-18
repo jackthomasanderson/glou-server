@@ -2581,6 +2581,7 @@
       "title": "All set!",
       "subtitle": "Here's a recap of your initial setup.",
       "cellarCreated": "Cellar created: {{name}}",
+      "yourCellar": "Your cellar: {{name}}",
       "noCellar": "No cellar created yet",
       "itemsAdded_one": "{{count}} bottle or cigar added to your inventory",
       "itemsAdded_other": "{{count}} bottles or cigars added to your inventory",

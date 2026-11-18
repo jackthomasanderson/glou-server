@@ -2583,6 +2583,7 @@
       "title": "Tout est prêt !",
       "subtitle": "Voici un résumé de votre configuration initiale.",
       "cellarCreated": "Cave créée : {{name}}",
+      "yourCellar": "Votre cave : {{name}}",
       "noCellar": "Aucune cave créée pour l'instant",
       "itemsAdded_one": "{{count}} bouteille ou cigare ajouté à votre inventaire",
       "itemsAdded_other": "{{count}} bouteilles ou cigares ajoutés à votre inventaire",
