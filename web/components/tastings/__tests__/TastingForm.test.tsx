@@ -29,7 +29,14 @@ let cachedDetail: { items: unknown[] } | undefined;
 vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ getQueryData: () => cachedDetail }) }));
 // #1036: the server copy a queued drink produced, once sent from this tab.
 const sentCopies = new Map<string, string>();
-vi.mock('@/lib/offline/syncEngine', () => ({ sentCopyOf: (id: string) => sentCopies.get(id) }));
+// The queue as the form reads it, and what its replay does when the form waits for it.
+let queued: Array<{ id: string; status: string }> = [];
+const flushQueue = vi.fn(async () => {});
+vi.mock('@/lib/offline/syncEngine', () => ({
+  sentCopyOf: (id: string) => sentCopies.get(id),
+  getQueuedMutations: async () => queued,
+  flushQueue: () => flushQueue(),
+}));
 
 vi.mock('@/hooks/useTastings', () => ({
   useCreateTasting: () => ({ mutateAsync: createMutateAsync, isPending: false, error: null }),
@@ -192,6 +199,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   cachedDetail = undefined;
   sentCopies.clear();
+  queued = [];
+  flushQueue.mockReset();
+  flushQueue.mockImplementation(async () => {});
   products = undefined;
   inventory = [item({ id: 'wine-1', category: 'wine' })];
   lookedUp = inventory;
@@ -791,6 +801,48 @@ describe('a tasting right after drinking a bottle (#1036)', () => {
     expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'srv' }));
     expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
     expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  // Second review of #1053: saved while the queued drink is being sent — the
+  // tasting waits for its answer instead of landing on the bottles left.
+  it('saved while the queued drink is in flight: waits for the answer, then the server copy', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    queued = [{ id: 'm1', status: 'syncing' }];
+    // The replay answers while the tasting is being saved: the copy lands then.
+    flushQueue.mockImplementation(async () => {
+      queued = [];
+      sentCopies.set('offline:m1', 'srv');
+      cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), drunkLine('srv', { parentItemId: 'g3' })] };
+    });
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(flushQueue).toHaveBeenCalledTimes(1);
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'srv' }));
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  // Still waiting (no network): the line it was taken from, as before — the save fails anyway.
+  it('saved while the drink still waits for the network: the line it was taken from', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    queued = [{ id: 'm1', status: 'pending' }];
+    flushQueue.mockImplementation(async () => {});
+    render(<TastingForm open onClose={vi.fn()} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'g3' })));
   });
 
   it('another bottle picked instead: its stock is asked about as usual', async () => {

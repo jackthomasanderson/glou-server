@@ -24,8 +24,8 @@ import {
 } from '@/lib/tastings/onWine';
 import { useQueryClient } from '@tanstack/react-query';
 import { qk } from '@/lib/queryKeys';
-import { isProvisional } from '@/lib/offline/optimistic';
-import { sentCopyOf } from '@/lib/offline/syncEngine';
+import { changeIdOfProvisional, isProvisional } from '@/lib/offline/optimistic';
+import { flushQueue, getQueuedMutations, sentCopyOf } from '@/lib/offline/syncEngine';
 import type { ProductDetailView } from '@/lib/products/types';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
@@ -199,7 +199,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
       } else {
         // #1036: the copy just drunk, saved on the bottle the server knows (its line while still waiting for the network).
         const isDrunk = !!drunkCopy && values.itemId === drunkCopy.id;
-        if (isDrunk && drunk) values = { ...values, itemId: drunkLink(drunk) };
+        if (isDrunk && drunk) values = { ...values, itemId: await drunkLink(drunk) };
         const note = await createMutation.mutateAsync(tastingPayload(values, naming
           ? { kind: 'named' }
           // A wine whose lines are not known (list not loaded): the bottle given stays.
@@ -224,11 +224,21 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
    * #1036: the bottle a tasting of the copy drunk is saved on, read when
    * saved — opened while the drink waited for the network, the queue may
    * have sent it since: the copy the server made, not the line it came from.
+   * Second review of #1053: while that drink is on its way, the answer says
+   * which copy, so the tasting waits for the replay (one at a time across
+   * the tabs, `flushQueue`) instead of falling back to the line. Still
+   * waiting without network, or refused: the line, as before.
    */
-  const drunkLink = (copy: DrunkCopy): string => {
+  const drunkLink = async (copy: DrunkCopy): Promise<string> => {
     if (!copy.taken || !isProvisional(copy.item)) return copy.linkId;
+    const changeId = changeIdOfProvisional(copy.taken.copyId);
+    const stateOf = async () => (changeId ? (await getQueuedMutations()).find((change) => change.id === changeId) : undefined);
+    const sending = await stateOf();
+    if (sending && (sending.status === 'pending' || sending.status === 'syncing')) await flushQueue(queryClient);
+    // Still queued (no network, in conflict, refused): no copy of its own to go on.
+    const stalled = (await stateOf()) !== undefined;
     const items = queryClient.getQueryData<ProductDetailView>(qk.products.detail(copy.item.productId))?.items;
-    return (items && drunkCopyOf(items, copy.taken, sentCopyOf(copy.taken.copyId))?.linkId) ?? copy.linkId;
+    return (items && drunkCopyOf(items, copy.taken, { id: sentCopyOf(copy.taken.copyId), stalled })?.linkId) ?? copy.linkId;
   };
 
   const handleStockChoice = async (choice: StockChoice, cell?: SlotChoiceFields) => {

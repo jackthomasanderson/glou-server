@@ -121,7 +121,9 @@ describe('drunkCopyOf', () => {
     const items = [group('g3', 2), finished('older', { parentItemId: 'g3' }), finished('sent', { parentItemId: 'g3' })];
     expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen: ['g3', 'older'] })).toEqual({ item: items[2], linkId: 'sent' });
     // Another member's copy of that line sent meanwhile: the copy this drink made, when known.
-    expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] }, 'sent')).toEqual({ item: items[2], linkId: 'sent' });
+    expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] }, { id: 'sent' })).toEqual({ item: items[2], linkId: 'sent' });
+    // Second review of #1053: the move never went through (conflict, refused, dropped) — no guess at all.
+    expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] }, { stalled: true })).toBeUndefined();
     // Dropped instead ("Abandonner"): no copy of its own.
     expect(drunkCopyOf(items.slice(0, 2), { lineId: 'g3', copyId: 'offline:m1', seen: ['g3', 'older'] })).toBeUndefined();
   });

@@ -265,7 +265,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   // A copy still waiting for the network (FEAT-108) has no id on the server yet.
   // Opened from a cell of the plan: the cell says which bottle (decision 77, recette n°5 7.1).
   // #1036: right after "J'en bois une" ("J'en fume un"), the copy just taken — even the last one.
-  const drunkNow = lastMove && lastMove.move !== 'open' ? drunkCopyOf(product?.items ?? [], lastMove, sentCopyOf(lastMove.copyId)) : undefined;
+  const drunkNow = lastMove && lastMove.move !== 'open' ? drunkCopyOf(product?.items ?? [], lastMove, { id: sentCopyOf(lastMove.copyId) }) : undefined;
   const drunk = drunkNow && lastMove ? { ...drunkNow, taken: lastMove } : undefined;
   const tastingLines = lines.inCellar.filter((item) => !isProvisional(item));
   const tastingPreset = (cell ? tastingLines.find((item) => item.id === slotLine?.id) : undefined)
