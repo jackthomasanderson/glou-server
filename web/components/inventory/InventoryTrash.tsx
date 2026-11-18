@@ -203,7 +203,6 @@ export function InventoryTrash({ t, lockedCategories }: InventoryTrashProps) {
       onConfirm={confirm}
       onClose={close}
       isPending={emptyMutation.isPending || deleteWineMutation.isPending || deleteItemMutation.isPending}
-      t={t}
     />
     {wines.length > 0 && (
       <section aria-label={winesHeading}>

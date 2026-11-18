@@ -1,10 +1,9 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import {
-  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Spinner, Input,
 } from '@heroui/react';
-import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Plus, Wine, Search } from 'lucide-react';
 import { useTastings, useDeleteTasting } from '@/hooks/useTastings';
 import { TastingNote, TastingFormValues } from '@/lib/tastings/types';
@@ -193,39 +192,15 @@ export function TastingsDashboard() {
       />
 
       {/* Delete confirm */}
-      <ResponsiveModal
+      <ConfirmDialog
         isOpen={!!deleting}
         onClose={() => setDeleting(null)}
-        size="sm"
-        radius="lg"
-        backdrop="opaque"
-        placement="center"
-      >
-        <ModalContent>
-          {() => (
-            <>
-              <ModalHeader>{t('tastings.deleteTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-600">{t('tastings.deleteConfirm')}</p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="default" variant="light" onPress={() => setDeleting(null)}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button
-                  color="danger"
-                  variant="solid"
-                  onPress={handleDelete}
-                  isLoading={deleteMutation.isPending}
-                  isDisabled={deleteMutation.isPending}
-                >
-                  {t('actions.delete')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+        onConfirm={handleDelete}
+        isPending={deleteMutation.isPending}
+        title={t('tastings.deleteTitle')}
+        message={t('tastings.deleteConfirm')}
+        confirmLabel={t('actions.delete')}
+      />
     </div>
   );
 }

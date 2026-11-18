@@ -1,8 +1,7 @@
 'use client';
 import React from 'react';
-import { Button, ModalBody, ModalContent, ModalFooter, ModalHeader } from '@heroui/react';
 import { AlertTriangle } from 'lucide-react';
-import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useProductDetail } from '@/hooks/useProducts';
 import { describeStock, wineName } from '@/lib/products/stock';
 import type { Product } from '@/lib/products/types';
@@ -33,37 +32,25 @@ export function TrashWineDialog({ product, onConfirm, onClose, isPending, t }: T
     : t(stock.kind === 'cigar' ? 'familyList.trash.confirmCigars' : 'familyList.trash.confirmBottles', { name, count: stock.units });
 
   return (
-    <ResponsiveModal isOpen={!!product} onClose={onClose} size="sm" radius="lg" backdrop="opaque" placement="center">
-      <ModalContent>
-        {() => (
-          <>
-            <ModalHeader>{t('familyList.trash.title')}</ModalHeader>
-            <ModalBody className="gap-2">
-              <p className="text-sm" data-testid="trash-wine-question">{question}</p>
-              <p className="text-xs text-foreground-500">{t('familyList.trash.restoreHint', { count: TRASH_RETENTION_DAYS })}</p>
-              {tastings > 0 && (
-                <p role="note" className="flex items-start gap-1.5 text-xs text-warning-700">
-                  <AlertTriangle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
-                  {t('familyList.trash.tastingsWarning', { count: tastings })}
-                </p>
-              )}
-            </ModalBody>
-            <ModalFooter>
-              <Button variant="light" onPress={onClose}>{t('actions.cancel')}</Button>
-              <Button
-                color="danger"
-                onPress={() => product && onConfirm(product)}
-                isLoading={isPending}
-                // Not before knowing whether its tastings would go with it
-                // (a failed read lets the user go on, without the warning).
-                isDisabled={isPending || (!detailReady && !detailFailed)}
-              >
-                {t('familyList.trash.action')}
-              </Button>
-            </ModalFooter>
-          </>
-        )}
-      </ModalContent>
-    </ResponsiveModal>
+    <ConfirmDialog
+      isOpen={!!product}
+      onClose={onClose}
+      onConfirm={() => product && onConfirm(product)}
+      isPending={isPending}
+      // Not before knowing whether its tastings would go with it
+      // (a failed read lets the user go on, without the warning).
+      isConfirmDisabled={!detailReady && !detailFailed}
+      title={t('familyList.trash.title')}
+      message={<span data-testid="trash-wine-question">{question}</span>}
+      confirmLabel={t('familyList.trash.action')}
+    >
+      <p className="text-xs text-foreground-500">{t('familyList.trash.restoreHint', { count: TRASH_RETENTION_DAYS })}</p>
+      {tastings > 0 && (
+        <p role="note" className="flex items-start gap-1.5 text-xs text-warning-700">
+          <AlertTriangle size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
+          {t('familyList.trash.tastingsWarning', { count: tastings })}
+        </p>
+      )}
+    </ConfirmDialog>
   );
 }

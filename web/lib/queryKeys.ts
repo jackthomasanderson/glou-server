@@ -12,6 +12,11 @@ import { hashKey, type QueryClient, type QueryKey } from '@tanstack/react-query'
  * under `inventory`.
  */
 export const qk = {
+  /** Server suggestions while typing a wine's name or producer in the bottle form. */
+  suggestions: {
+    products: (category: string, lang: string, text: string) => ['suggestions', 'products', category, lang, text],
+    producers: (category: string, lang: string, text: string) => ['suggestions', 'producers', category, lang, text],
+  },
   inventory: {
     /** Prefix of every query read from the stock rows (see the list in {@link invalidateAfterInventoryChange}). */
     all: ['inventory'],

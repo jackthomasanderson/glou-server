@@ -1,10 +1,9 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import {
-  ModalContent, ModalHeader, ModalBody, ModalFooter,
   Button, Spinner,
 } from '@heroui/react';
-import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Plus, BookMarked } from 'lucide-react';
 import { useCollections, useCreateCollection, useUpdateCollection, useDeleteCollection } from '@/hooks/useCollections';
 import { Collection, CollectionFormValues } from '@/lib/collections/types';
@@ -162,41 +161,15 @@ export function CollectionsDashboard() {
       />
 
       {/* Delete confirm */}
-      <ResponsiveModal
+      <ConfirmDialog
         isOpen={!!deleting}
         onClose={() => setDeleting(null)}
-        size="sm"
-        radius="lg"
-        backdrop="opaque"
-        placement="center"
-      >
-        <ModalContent>
-          {() => (
-            <>
-              <ModalHeader>{t('collections.deleteTitle')}</ModalHeader>
-              <ModalBody>
-                <p className="text-sm text-foreground-600">
-                  {t('collections.deleteConfirm', { name: deleting?.name ?? '' })}
-                </p>
-              </ModalBody>
-              <ModalFooter>
-                <Button color="default" variant="light" onPress={() => setDeleting(null)}>
-                  {t('actions.cancel')}
-                </Button>
-                <Button
-                  color="danger"
-                  variant="solid"
-                  onPress={handleDelete}
-                  isLoading={deleteMutation.isPending}
-                  isDisabled={deleteMutation.isPending}
-                >
-                  {t('actions.delete')}
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </ResponsiveModal>
+        onConfirm={handleDelete}
+        isPending={deleteMutation.isPending}
+        title={t('collections.deleteTitle')}
+        message={t('collections.deleteConfirm', { name: deleting?.name ?? '' })}
+        confirmLabel={t('actions.delete')}
+      />
     </div>
   );
 }

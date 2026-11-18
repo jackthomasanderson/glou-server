@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { useConnectivity } from './useConnectivity';
 import { glouKey, safeReadStorage, safeRemoveStorage, safeWriteStorage } from '@/lib/safe-storage';
 
+const DISMISSED_EVENT = 'glou:connectivity-warning-dismissed';
+
 export function useConnectivityWarning(featureKey: string) {
   const isOnline = useConnectivity();
   const key = glouKey(`connectivity-warned:${featureKey}`);
@@ -21,10 +23,20 @@ export function useConnectivityWarning(featureKey: string) {
     }
   }, [isOnline, key]);
 
+  // Several fields share one notice: dismissing it in one dismisses it in all, live.
+  useEffect(() => {
+    const onDismissed = (e: Event) => {
+      if ((e as CustomEvent<string>).detail === key) setDismissed(true);
+    };
+    window.addEventListener(DISMISSED_EVENT, onDismissed);
+    return () => window.removeEventListener(DISMISSED_EVENT, onDismissed);
+  }, [key]);
+
   const shouldWarn = isOnline === false && !dismissed;
   const dismiss = () => {
     safeWriteStorage('session', key, '1');
     setDismissed(true);
+    window.dispatchEvent(new CustomEvent(DISMISSED_EVENT, { detail: key }));
   };
 
   return { shouldWarn, dismiss };
