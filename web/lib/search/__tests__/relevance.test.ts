@@ -17,6 +17,14 @@ describe('isAboutItem (#862)', () => {
     expect(isAboutItem('Domaine Petit Cuvée cigar', 'Petit Cuvée', 'Domaine')).toBe(false);
   });
 
+  // #1049: "Dom V" / "ZV Test" got a Dom Pérignon photo (the word "Dom" matched).
+  it('needs the name, not only a short producer word', () => {
+    expect(isAboutItem('Dom Pérignon Vintage Champagne, 2 bottles', 'ZV Test', 'Dom V')).toBe(false);
+    expect(isAboutItem('ZV Test by Dom V wine bottle', 'ZV Test', 'Dom V')).toBe(true);
+    expect(isAboutItem('Château Lafite Rothschild 2015', 'Lafite', 'Château Lafite Rothschild')).toBe(true);
+    expect(isAboutItem('Cuvée Solstice, a red', 'Cuvée Solstice', 'Domaine Rives')).toBe(false);
+  });
+
   it('ignores short words and parts of words', () => {
     expect(isAboutItem('Le XY de la plage', 'Le XY', 'de')).toBe(false);
     expect(isAboutItem('Margaux wines', 'Margaux', '')).toBe(true);

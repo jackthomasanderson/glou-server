@@ -176,11 +176,12 @@ export function AdminClient() {
 
       <BackupWarning problems={problems} failure={backupHealth?.lastFailure} onOpenBackups={() => openConfigTab('data')} />
 
-      <nav aria-label={t('admin.sections.navLabel')} className="flex flex-wrap gap-2 mb-4">
+      <nav aria-label={t('admin.sections.navLabel')} className="flex gap-2 mb-4 overflow-x-auto">
         {SECTIONS.map(({ key, labelKey, icon: Icon }) => (
           <Button
             key={key}
             size="md" radius="md"
+            className="shrink-0"
             variant={section === key ? 'flat' : 'light'}
             color={section === key ? 'primary' : 'default'}
             aria-current={section === key ? 'true' : undefined}
