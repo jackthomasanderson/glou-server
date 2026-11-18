@@ -12,6 +12,9 @@ export function useRestoreFocus(): void {
     const previous = document.activeElement as HTMLElement | null;
     return () => {
       setTimeout(() => {
+        // The page may be gone by then (a test environment torn down, a tab
+        // closing): nothing to hand the focus back to.
+        if (typeof document === 'undefined') return;
         if (previous && previous !== document.body && document.contains(previous)) previous.focus();
       }, 0);
     };
