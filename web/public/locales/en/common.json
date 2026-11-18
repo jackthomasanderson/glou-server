@@ -2531,7 +2531,8 @@
       "errorReasonNamedColumn": "Row {{row}} ({{name}}), column \"{{column}}\": {{reason}}",
       "unrecognizedColumns_one": "Unrecognised column, left out: {{columns}}",
       "unrecognizedColumns_other": "Unrecognised columns, left out: {{columns}}",
-      "unrecognizedColumnsMore": "Unrecognised columns, left out: {{columns}} and {{more}} more",
+      "unrecognizedColumnsMore_one": "Unrecognised columns, left out: {{columns}} and {{count}} more",
+      "unrecognizedColumnsMore_other": "Unrecognised columns, left out: {{columns}} and {{count}} more",
       "outOfStockRows_one": "{{count}} wine with no bottle left in this file, left out",
       "outOfStockRows_other": "{{count}} wines with no bottle left in this file, left out",
       "requiredColumns": {

@@ -229,7 +229,7 @@ describe('CsvImportStep refused rows and columns (#1035)', () => {
 
   it('says how many headers it did not list', () => {
     pickFile([wine('Talbot')], { preview: { unrecognizedColumns: ['A', 'B'], unrecognizedCount: 35 } });
-    expect(screen.getByText('onboarding.csv.unrecognizedColumnsMore|35|A, B|33')).toBeInTheDocument();
+    expect(screen.getByText('onboarding.csv.unrecognizedColumnsMore|33|A, B')).toBeInTheDocument();
   });
 
   it('says how many wines of the file had no bottle left', () => {

@@ -2533,7 +2533,8 @@
       "errorReasonNamedColumn": "Ligne {{row}} ({{name}}), colonne « {{column}} » : {{reason}}",
       "unrecognizedColumns_one": "Colonne non reconnue, laissée de côté : {{columns}}",
       "unrecognizedColumns_other": "Colonnes non reconnues, laissées de côté : {{columns}}",
-      "unrecognizedColumnsMore": "Colonnes non reconnues, laissées de côté : {{columns}} et {{more}} autres",
+      "unrecognizedColumnsMore_one": "Colonnes non reconnues, laissées de côté : {{columns}} et {{count}} autre",
+      "unrecognizedColumnsMore_other": "Colonnes non reconnues, laissées de côté : {{columns}} et {{count}} autres",
       "outOfStockRows_one": "{{count}} vin sans bouteille restante dans ce fichier, laissé de côté",
       "outOfStockRows_other": "{{count}} vins sans bouteille restante dans ce fichier, laissés de côté",
       "requiredColumns": {

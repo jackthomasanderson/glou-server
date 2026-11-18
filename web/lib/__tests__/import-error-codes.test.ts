@@ -20,3 +20,30 @@ describe('CSV import reasons (#1035)', () => {
     });
   }
 });
+
+// Second review of #1051: the wording itself, as the screen renders it.
+describe('CSV import counters, in words (#1035)', () => {
+  const instance = async (lng: 'en' | 'fr') => {
+    const i = i18next.createInstance();
+    await i.init({ lng, resources: { [lng]: { common: lng === 'fr' ? fr : en } }, defaultNS: 'common', interpolation: { escapeValue: false } });
+    return i;
+  };
+
+  it('tells refused rows apart from rows already in the cellar', async () => {
+    const f = await instance('fr');
+    expect(f.t('onboarding.csv.errorRows', { count: 1 })).toBe('1 ligne en erreur');
+    expect(f.t('onboarding.csv.errorRows', { count: 3 })).toBe('3 lignes en erreur');
+    expect(f.t('onboarding.csv.skippedRows', { count: 3 })).toBe('3 lignes déjà en cave, ignorées');
+    const e = await instance('en');
+    expect(e.t('onboarding.csv.errorRows', { count: 3 })).toBe('3 rows with errors');
+    expect(e.t('onboarding.csv.skippedRows', { count: 1 })).toBe('1 row already in the cellar, skipped');
+  });
+
+  it('says "and 1 more" / "et 1 autre" in the singular', async () => {
+    const f = await instance('fr');
+    expect(f.t('onboarding.csv.unrecognizedColumnsMore', { count: 1, columns: 'A, B' })).toBe('Colonnes non reconnues, laissées de côté : A, B et 1 autre');
+    expect(f.t('onboarding.csv.unrecognizedColumnsMore', { count: 5, columns: 'A, B' })).toBe('Colonnes non reconnues, laissées de côté : A, B et 5 autres');
+    const e = await instance('en');
+    expect(e.t('onboarding.csv.unrecognizedColumnsMore', { count: 1, columns: 'A' })).toBe('Unrecognised columns, left out: A and 1 more');
+  });
+});

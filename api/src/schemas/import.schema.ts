@@ -73,6 +73,9 @@ const toVintage = (v: unknown): unknown => {
  */
 const WINE_STYLE_WORDS = new Set(['dry', 'sweet', 'dessert', 'fortified', 'port', 'sherry']);
 
+/** #1035: CellarTracker's category of a spirit. */
+const SPIRIT_STYLE_WORDS = new Set(['distilled']);
+
 /**
  * The category a cell names: a known word ("Rouge", "Bulles"), else its words
  * one by one — "White - Sparkling" is sparkling, "Red Wine" or "Red -
@@ -82,11 +85,18 @@ const toImportedCategory = (v: unknown): unknown => {
   if (typeof v !== 'string') return v;
   const whole = toCategory(v);
   if (whole) return whole;
-  const words = v.split(/[\s,;/|+&()-]+/).map((word) => (WINE_STYLE_WORDS.has(normalizeToken(word)) ? 'wine' : toCategory(word)));
+  const words = v.split(/[\s,;/|+&()-]+/).map((word) => {
+    const token = normalizeToken(word);
+    if (WINE_STYLE_WORDS.has(token)) return 'wine';
+    return SPIRIT_STYLE_WORDS.has(token) ? 'spirit' : toCategory(word);
+  });
   const found = words.filter((word) => word !== null);
   if (found.includes('sparkling')) return 'sparkling';
   return found[0] ?? v.trim().toLowerCase();
 };
+
+/** #1035: a category cell the importer can read (else another header for the category may say it). */
+export const isCategory = (cell: string): boolean => (CATEGORY_VALUES as readonly unknown[]).includes(toImportedCategory(cell));
 
 /** FEAT-95: "à l'unité" (or "single") in the box-size column. */
 const SINGLE_CIGAR_TOKENS = new Set(['alunite', 'unite', 'unitaire', 'single', 'singles', 'unit', 'loose']);

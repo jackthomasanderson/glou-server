@@ -231,7 +231,7 @@ export function CsvImportStep({ cellarId, onImported, onBack, backLabel }: CsvIm
                 <p className="text-xs text-foreground-500 text-center break-words">
                   {unrecognizedCount > unrecognizedColumns.length
                     ? t('onboarding.csv.unrecognizedColumnsMore', {
-                      count: unrecognizedCount, columns: unrecognizedColumns.join(', '), more: unrecognizedCount - unrecognizedColumns.length,
+                      count: unrecognizedCount - unrecognizedColumns.length, columns: unrecognizedColumns.join(', '),
                     })
                     : t('onboarding.csv.unrecognizedColumns', { count: unrecognizedColumns.length, columns: unrecognizedColumns.join(', ') })}
                 </p>

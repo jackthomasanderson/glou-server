@@ -733,8 +733,8 @@ describe('exports of other cellar software (#1035)', () => {
     const { valid, errors, missingColumns, unrecognizedColumns } = importService.previewCsv(fixture('cellartracker.csv'));
     expect(errors).toEqual([]);
     expect(missingColumns).toEqual([]);
-    // Its "Type" repeats its "Category", which wins as Glou's own name.
-    expect(unrecognizedColumns).toEqual(['iWine', 'Type', 'Currency', 'Locale', 'Vineyard', 'SubRegion', 'Pending']);
+    // Its "Category" is read first, as Glou's own name; its "Type" when the Category cell says nothing.
+    expect(unrecognizedColumns).toEqual(['iWine', 'Currency', 'Locale', 'Vineyard', 'SubRegion', 'Pending']);
     expect(valid).toEqual([
       {
         name: 'Château Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2015, quantity: 3, purchasePrice: 45,
@@ -808,7 +808,47 @@ describe('exports of other cellar software (#1035)', () => {
     expect(valid.map((row) => [row.name, row.category, row.notes])).toEqual([
       ['Brut Réserve', 'sparkling', undefined], ['Lagavulin 16', 'spirit', undefined], ['Bandol', 'wine', undefined], ['Behike 52', 'cigar', undefined],
     ]);
-    expect(unrecognizedColumns).toEqual(['Type', 'Wine', 'Note']);
+    expect(unrecognizedColumns).toEqual(['Note']);
+  });
+
+  // Second review of #1051: CellarTracker's Category of a spirit is "Distilled", and a Category cell may be empty.
+  it('reads a CellarTracker spirit, and its Type when the Category cell is empty or unreadable', () => {
+    const { valid, errors } = importService.previewCsv(csv([
+      'iWine,Type,Color,Category,Vintage,Wine,Producer,Quantity',
+      '1,Spirits,,Distilled,1001,Lagavulin 16,Lagavulin,1',
+      '2,Red,Red,,2015,Talbot,Talbot,1',
+      '3,White - Sparkling,White,Sparkling,1001,Krug,Krug,1',
+      '4,Rosé,Rosé,Dry,2020,Tavel,X,1',
+      '5,Red,Red,Whatever,2015,Gloria,Gloria,1',
+    ].join('\n')));
+    expect(errors).toEqual([]);
+    expect(valid.map((row) => [row.name, row.category])).toEqual([
+      ['Lagavulin 16', 'spirit'], ['Talbot', 'wine'], ['Krug', 'sparkling'], ['Tavel', 'wine'], ['Gloria', 'wine'],
+    ]);
+  });
+
+  it('still refuses an impossible purchase day in a file that is not from CellarTracker or Vivino', () => {
+    const { valid, errors } = importService.previewCsv(csv([
+      'Nom;Producteur;Catégorie;Date d\'achat;Commentaire',
+      'A;P;Vin;31/02/2019;x',
+      'B;P;Vin;11/15/2019;',
+    ].join('\n')));
+    expect(valid).toEqual([]);
+    expect(errors.map((error) => error.reason)).toEqual(['INVALID_PURCHASE_DATE', 'INVALID_PURCHASE_DATE']);
+  });
+
+  it('reads Remaining over Quantity in a CellarTracker file only', () => {
+    const { valid, errors, outOfStockRows } = importService.previewCsv(csv('Name,Producer,Category,Quantity,Remaining\nA,P,wine,6,0\n'));
+    expect(errors).toEqual([]);
+    expect(outOfStockRows).toBe(0);
+    expect(valid).toEqual([{ name: 'A', producer: 'P', category: 'wine', quantity: 6 }]);
+  });
+
+  it('leaves out a Vivino wine whose cellar count is a decimal zero', () => {
+    const { valid, errors, outOfStockRows } = importService.previewCsv(csv('Winery,Wine name,Wine type,User cellar count\nP,A,Red,0.0\nP,B,Red,1\n'));
+    expect(errors).toEqual([]);
+    expect(outOfStockRows).toBe(1);
+    expect(valid.map((row) => row.name)).toEqual(['B']);
   });
 
   it('never refuses a CellarTracker row for its purchase day: month first, an unreadable one left out', () => {

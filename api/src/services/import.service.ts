@@ -3,7 +3,7 @@ import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { IN_STOCK_ITEM_FILTER, itemUnits, productKey } from '../lib/finished-item';
 import { parseCsvTable } from '../lib/csv';
 import { lockFamilies, purchaseDayToDate, todayAsPurchaseDate } from '../lib/product-fields';
-import { csvRawRowSchema, isPurchaseDay, toOpened } from '../schemas/import.schema';
+import { csvRawRowSchema, isCategory, isPurchaseDay, toOpened } from '../schemas/import.schema';
 import { normalizeToken } from '../lib/category';
 import { MAX_COPIES } from '../schemas/stock.schema';
 import { familyAlertStatus } from './alert.service';
@@ -95,8 +95,9 @@ export const HEADER_ALIASES: Record<string, string> = {
  * #1035: the usual names of other cellar software's exports — CellarTracker
  * ("Wine", "Type", "Varietal", "Bin", "Valuation", "StoreName", "BeginConsume",
  * "Remaining") and Vivino ("Wine name", "Winery", "Wine type", "Wine price",
- * "User cellar count", "Personal Note"). Read only for a column the file has
- * none of the names above for: a "Type" next to a "Catégorie" never replaces it.
+ * "User cellar count", "Personal Note"). Read after the names above, for a row
+ * whose cell under Glou's own name is empty (or, for the category, unreadable):
+ * a "Type" next to a filled "Catégorie" never replaces it.
  */
 export const THIRD_PARTY_HEADER_ALIASES: Record<string, string> = {
   wine: 'name', winename: 'name', nomduvin: 'name',
@@ -140,7 +141,7 @@ interface ColumnMap {
   unrecognized: string[];
   /** Each column's first header, as the file writes it: what a message about it quotes. */
   label: Map<string, string>;
-  /** A file from other software: its dates and quantities are read as that software writes them. */
+  /** A CellarTracker or Vivino export: a purchase day it writes that cannot be read is left out, not a refusal. */
   thirdParty: boolean;
   /** A CellarTracker export (its `iWine` column): month-first dates. */
   cellarTracker: boolean;
@@ -156,8 +157,9 @@ function mapColumns(header: readonly string[]): ColumnMap {
   // CellarTracker names a storage place "Location" and a slot in it "Bin": a
   // file with a Bin column and no cellar column means its Location as the cellar.
   const storagePlace = tokens.includes('bin') && !tokens.some((token) => own(token) === 'cellar');
+  const cellarTracker = tokens.includes('iwine');
   // CellarTracker's purchases export counts drunk bottles in Quantity; Remaining is what is left.
-  const remaining = tokens.includes('remaining');
+  const remaining = cellarTracker && tokens.includes('remaining');
   const ownOf = (token: string) => {
     if (storagePlace && token === 'location') return 'cellar';
     if (remaining && own(token) === 'quantity') return undefined;
@@ -165,14 +167,13 @@ function mapColumns(header: readonly string[]): ColumnMap {
   };
   const ranked: Array<[string, number, number]> = [];
   const unrecognized: string[] = [];
-  const ownColumns = new Set(tokens.map(ownOf).filter((column) => column !== undefined));
-  let thirdParty = tokens.includes('iwine');
+  const thirdParty = cellarTracker || tokens.includes('usercellarcount') || tokens.includes('winename');
   header.forEach((name, index) => {
     const token = tokens[index];
     const column = ownOf(token);
-    const other = THIRD_PARTY_HEADER_ALIASES[token];
+    const other = remaining || token !== 'remaining' ? THIRD_PARTY_HEADER_ALIASES[token] : undefined;
     if (column) ranked.push([column, 0, index]);
-    else if (other && !ownColumns.has(other)) { ranked.push([other, 1, index]); thirdParty = true; }
+    else if (other) ranked.push([other, 1, index]);
     else if (HEADER_FALLBACKS[token]) ranked.push([HEADER_FALLBACKS[token], 2, index]);
     else if (name !== '' && !(remaining && own(token) === 'quantity')) unrecognized.push(name);
   });
@@ -185,7 +186,7 @@ function mapColumns(header: readonly string[]): ColumnMap {
   }
   const quantityTokens = ranked.filter(([column]) => column === 'quantity').map(([, , index]) => tokens[index]);
   const countLeft = quantityTokens.length > 0 && quantityTokens.every((token) => token === 'remaining' || token === 'usercellarcount');
-  return { sources, unrecognized, label, thirdParty, cellarTracker: tokens.includes('iwine'), storagePlace, countLeft };
+  return { sources, unrecognized, label, thirdParty, cellarTracker, storagePlace, countLeft };
 }
 
 /** CellarTracker's `3/14/2019` (month first, maybe with a time) as `2019-03-14`. */
@@ -216,8 +217,11 @@ const OPENED_ONLY_COLUMNS = ['fillLevel', 'cigarsLeft', 'openedAt'] as const;
 function canonicalRecord(record: Record<string, string>, columns: ColumnMap): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [column, keys] of columns.sources) {
-    const cells = keys.map((key) => record[key] ?? '');
-    out[column] = unneutralize(cells.find((cell) => cell.trim() !== '') ?? cells[0]);
+    const cells = keys.map((key) => unneutralize(record[key] ?? ''));
+    const filled = cells.filter((cell) => cell.trim() !== '');
+    // The category: the first cell that names one (CellarTracker's Type when its Category says nothing).
+    const readable = column === 'category' ? filled.find(isCategory) : undefined;
+    out[column] = readable ?? filled[0] ?? cells[0];
   }
   if (toOpened(out.opened) !== true) for (const column of OPENED_ONLY_COLUMNS) delete out[column];
   // #1035: another software's file is never refused for its purchase day:
@@ -350,7 +354,8 @@ export class ImportService {
       const rowNumber = index + 2; // +1 for the header row, +1 for 1-based numbering
       const record = canonicalRecord(raw, columns);
       // #1035: a wine another software lists with no bottle left (Vivino's cellar count, CellarTracker's Remaining at 0).
-      if (columns.countLeft && /^0+$/.test(record.quantity?.trim() ?? '')) {
+      const left = record.quantity?.trim().replace(',', '.') ?? '';
+      if (columns.countLeft && left !== '' && Number(left) === 0) {
         outOfStockRows += 1;
         return;
       }
