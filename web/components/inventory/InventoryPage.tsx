@@ -1,7 +1,7 @@
 'use client';
-import { useState, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button, Tab } from '@heroui/react';
 import { ClipboardCheck, Leaf, Wine } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +34,12 @@ function InventoryPageContent({ lockedCategories }: { lockedCategories: string[]
   const isCigarPage = lockedCategories.includes('cigar');
   // #503: the heading follows the category tab, like the breadcrumb does.
   const category = useSearchParams().get('category');
+  // #1042: cigars live on their own page; a typed `/bottles?category=cigar` goes there instead of an empty list.
+  const router = useRouter();
+  const wrongPage = !isCigarPage && category === 'cigar';
+  useEffect(() => {
+    if (wrongPage) router.replace('/cigars');
+  }, [wrongPage, router]);
   const bottlesTitle = t((category && CATEGORY_TITLES[category]) || 'nav.bottles');
 
   return (

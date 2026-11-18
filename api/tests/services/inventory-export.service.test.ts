@@ -98,6 +98,17 @@ describe('InventoryExportService.exportCsv', () => {
     }
   });
 
+  it('writes the category as a word of the file language, which the import reads back (#1042)', async () => {
+    units.push(
+      unit({ name: 'A' }), unit({ category: 'sparkling', name: 'B' }),
+      unit({ category: 'spirit', name: 'C', vintage: null }), unit({ category: 'cigar', name: 'D', vintage: null, format: 'Robusto' }),
+    );
+    const fr = parseCsv((await inventoryExportService.exportCsv('fr')).csv);
+    expect(fr.map((r) => r['catégorie'] ?? r['Catégorie'])).toEqual(['Cigare', 'Bulles', 'Spiritueux', 'Vin']);
+    const en = parseCsv((await inventoryExportService.exportCsv('en')).csv);
+    expect(en.map((r) => r.category)).toEqual(['Cigar', 'Sparkling', 'Spirit', 'Wine']);
+  });
+
   it('neutralises a formula in a name in the file itself', async () => {
     units.push(unit({ name: '=1+1' }));
     expect((await inventoryExportService.exportCsv('en')).csv).toContain("'=1+1");

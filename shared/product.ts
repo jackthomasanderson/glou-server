@@ -373,6 +373,9 @@ export interface UnitWriteResult<TData = ItemView, TUnit = ItemView> {
  */
 export const CORRECTION_REASONS = ['input_error', 'written_off'] as const;
 
+/** Longest name or producer the API takes (the form tells before sending, #1042). */
+export const NAME_MAX_LENGTH = 200;
+
 /** Copies one write may add, or one group may count (and one count answer may say). */
 export const MAX_COPIES = 1000;
 export type CorrectionReason = (typeof CORRECTION_REASONS)[number];

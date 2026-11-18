@@ -4,6 +4,7 @@ import { purchaseDayOf } from '../lib/product-fields';
 import { toCsv } from '../lib/csv';
 import { LISTED_PRODUCT_FILTER } from './product.service';
 import {
+  CSV_CATEGORY_LABELS,
   CSV_EXPORT_COLUMNS,
   CSV_EXPORT_HEADERS,
   CSV_FAMILY_COLUMNS,
@@ -13,6 +14,7 @@ import {
   type CsvExportColumn,
   type CsvExportLang,
 } from '../../../shared/import';
+import type { InventoryCategory } from '../../../shared/inventory';
 
 type Cell = string | number | null;
 
@@ -94,7 +96,7 @@ export class InventoryExportService {
         if (a.opened !== b.opened) return a.opened ? 1 : -1;
         return String(a.row.purchasedAt ?? '').localeCompare(String(b.row.purchasedAt ?? '')) || a.unit.id.localeCompare(b.unit.id);
       })
-      .map(({ row }) => CSV_EXPORT_COLUMNS.map((column) => (lang === 'fr' && typeof row[column] === 'number' ? String(row[column]).replace('.', ',') : row[column])));
+      .map(({ row }) => CSV_EXPORT_COLUMNS.map((column) => (column === 'category' ? CSV_CATEGORY_LABELS[lang][row.category as InventoryCategory] : lang === 'fr' && typeof row[column] === 'number' ? String(row[column]).replace('.', ',') : row[column])));
     const header = CSV_EXPORT_COLUMNS.map((column) => CSV_EXPORT_HEADERS[lang][column]);
     return { csv: toCsv(header, lines, lang === 'fr' ? ';' : ','), rows: lines.length };
   }

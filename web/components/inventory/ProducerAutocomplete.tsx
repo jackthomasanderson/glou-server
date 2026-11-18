@@ -14,6 +14,8 @@ interface Props {
   placeholder?: string;
   required?: boolean;
   isInvalid?: boolean;
+  /** Said under the field when it is invalid; "required" when absent. */
+  errorMessage?: string;
 }
 
 interface ProducerOption extends SuggestionOption {
@@ -23,7 +25,7 @@ interface ProducerOption extends SuggestionOption {
 const sameProducer = (external: ProducerOption, internal: ProducerOption[]) =>
   internal.some((i) => i.label.toLowerCase() === external.label.toLowerCase());
 
-export function ProducerAutocomplete({ value, onChange, category, label, placeholder, required, isInvalid }: Props) {
+export function ProducerAutocomplete({ value, onChange, category, label, placeholder, required, isInvalid, errorMessage }: Props) {
   const { t, i18n } = useTranslation();
   const { data: inventoryItems } = useInventory();
 
@@ -69,7 +71,7 @@ export function ProducerAutocomplete({ value, onChange, category, label, placeho
       inputProps={{
         isRequired: required,
         isInvalid,
-        errorMessage: isInvalid ? t('inventory.validation.required') : undefined,
+        errorMessage: isInvalid ? errorMessage ?? t('inventory.validation.required') : undefined,
         label,
         placeholder,
       }}

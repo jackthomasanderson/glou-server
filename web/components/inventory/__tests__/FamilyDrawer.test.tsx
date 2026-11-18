@@ -344,6 +344,17 @@ describe('FamilyDrawer — review of W2a', () => {
     expect(screen.getAllByTestId('field-source-import_csv').length).toBeGreaterThan(0);
   });
 
+  it('puts no block inside a paragraph, whatever the source marks shown (#1042, React hydration warning)', () => {
+    detail = detailOf({
+      notes: 'Rich', producer: 'Domaine', region: 'Bourgogne',
+      fieldSources: { name: 'import_csv', producer: 'ocr', region: 'ocr', notes: 'import_csv', purchasePrice: 'import_csv' },
+      items: [unit({ quantity: 2, purchasePrice: 20, fieldSources: { purchasePrice: 'import_csv' } })],
+    });
+    const { container } = render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    expect(screen.getAllByTestId('field-source-import_csv').length).toBeGreaterThan(1);
+    expect(container.querySelectorAll('p div, p p, p table, p ul')).toHaveLength(0);
+  });
+
   it('the history tells a corrected number: "Nombre corrigé : 2 → 1"', () => {
     detail = detailOf({
       items: [unit({ id: 'g', quantity: 1 })],

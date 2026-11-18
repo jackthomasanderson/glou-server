@@ -16,9 +16,11 @@ interface Props {
   suggestions?: boolean;
   autoFocus?: boolean;
   isInvalid?: boolean;
+  /** Said under the field when it is invalid; "required" when absent. */
+  errorMessage?: string;
 }
 
-export function ProductAutocomplete({ value, onChange, onSelect, category, suggestions = true, autoFocus, isInvalid }: Props) {
+export function ProductAutocomplete({ value, onChange, onSelect, category, suggestions = true, autoFocus, isInvalid, errorMessage }: Props) {
   const { t, i18n } = useTranslation();
   const { data: inventoryItems } = useInventory();
 
@@ -78,7 +80,7 @@ export function ProductAutocomplete({ value, onChange, onSelect, category, sugge
       inputProps={{
         isRequired: true,
         isInvalid,
-        errorMessage: isInvalid ? t('inventory.validation.required') : undefined,
+        errorMessage: isInvalid ? errorMessage ?? t('inventory.validation.required') : undefined,
         label: t('inventory.fields.name'),
         // #701: like the producer field, an example of what goes here.
         placeholder: t(`inventory.fields.namePlaceholder.${category}`),

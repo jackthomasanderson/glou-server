@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 
 // #206 — the registration fields looked optional.
 
@@ -19,5 +19,16 @@ describe('RegisterForm required fields (#206)', () => {
     for (const input of inputs) {
       expect(input.required || input.getAttribute('aria-required') === 'true').toBe(true);
     }
+  });
+});
+
+describe('RegisterForm invalid email (#1042)', () => {
+  it('says so on the email field, not with the generic "check your entries"', async () => {
+    const { container } = render(<RegisterForm />);
+    const email = container.querySelector('input[type="email"]') as HTMLInputElement;
+    fireEvent.change(email, { target: { value: 'not-an-email' } });
+    fireEvent.submit(container.querySelector('form') as HTMLFormElement);
+    expect(await screen.findByText('auth.errors.EMAIL_INVALID')).toBeInTheDocument();
+    expect(screen.queryByText('auth.errors.VALIDATION_ERROR')).toBeNull();
   });
 });

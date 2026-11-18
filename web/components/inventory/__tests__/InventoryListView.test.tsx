@@ -86,6 +86,13 @@ describe('InventoryListView rows are wines', () => {
     expect(within(row()).getByTestId('family-stock-line').textContent).toContain('familyList.stock.bottles:2');
   });
 
+  it('a single bottle reads as a phrase with its unit, not a bare "1" (#1042)', () => {
+    const single = product({ id: 'b1', name: 'Château Test', items: [unit({ cellarId: 'c1', quantity: 1 })] });
+    render(view({ items: [single] }));
+    const visible = within(row()).getByTestId('family-stock-line').querySelector('span[aria-hidden="true"]');
+    expect(visible?.textContent).toBe('familyList.stock.spoken.bottles:1');
+  });
+
   it('a wine without any bottle record can be edited and opens its drawer', () => {
     const opened: string[] = [];
     const known = product({ id: 'b1', name: 'Château Test', items: [] });

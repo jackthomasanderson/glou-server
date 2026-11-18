@@ -40,7 +40,7 @@ const currentHashId = () => {
 const SCROLL_SETTLE_MS = 600;
 
 export function ProfileClient() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: user, isLoading: isLoadingUser } = useMe();
   const logout = useLogout();
   // One mutation per form, so each Save button spins for its own form only.
@@ -114,7 +114,11 @@ export function ProfileClient() {
     const newPrefs = { ...prefsData, [field]: value };
     setPrefsData(newPrefs);
     updatePrefs.mutate(newPrefs, {
-      onSuccess: () => notifySuccess('profile.saveSuccess'),
+      // #1042: the confirmation is worded in the language just chosen, not the one the screen is leaving.
+      onSuccess: async () => {
+        if (field === 'language') await i18n.changeLanguage(value.toLowerCase());
+        notifySuccess('profile.saveSuccess');
+      },
     });
   };
 

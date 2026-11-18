@@ -55,12 +55,14 @@ const parseInteger = (text: string) => (text.trim() === '' ? undefined : Number(
 
 // Digits with at most one separator, either "," or ".": "24,05", "24.", ",5".
 const DECIMAL_TEXT = /^\d*[.,]?\d*$/;
+// A field with a range also takes a leading "-": typed, "-5" is told out of range instead of being dropped.
+const SIGNED_DECIMAL_TEXT = /^-?\d*[.,]?\d*$/;
 const parseDecimal = (text: string) => {
   const n = Number(text.trim().replace(',', '.'));
   return text.trim() === '' || Number.isNaN(n) ? undefined : n;
 };
 
-type RangeProps = Pick<InputProps, 'min' | 'max' | 'isInvalid' | 'onBlur'> & { value: NumberValue };
+type RangeProps = Pick<InputProps, 'min' | 'max' | 'isInvalid' | 'errorMessage' | 'onBlur'> & { value: NumberValue };
 
 /**
  * A number field with a range (a vintage from 1800 to this year) and no error
@@ -72,13 +74,20 @@ type RangeProps = Pick<InputProps, 'min' | 'max' | 'isInvalid' | 'onBlur'> & { v
  * the field is typed in again (ux-ui.md §5.3). The browser still refuses to
  * send the form while the value is out of range.
  */
-function useRangeCheck({ min, max, isInvalid, onBlur, value }: RangeProps, t: (key: string, values?: Record<string, unknown>) => string) {
+function useRangeCheck({ min, max, isInvalid, errorMessage, onBlur, value, type }: RangeProps & { type?: string }, t: (key: string, values?: Record<string, unknown>) => string) {
   const [shown, setShown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const checks = (min != null || max != null) && isInvalid === undefined;
+  // A field that also has its own rule (isInvalid, e.g. required) keeps its message until the range is broken.
+  const checks = min != null || max != null;
+  const outOfRange = value != null && !Number.isNaN(value) && ((min != null && value < Number(min)) || (max != null && value > Number(max)));
+  const key = min != null && max != null ? 'inventory.validation.range' : min != null ? 'inventory.validation.atLeast' : 'inventory.validation.atMost';
+  const message = checks ? t(key, { min, max }) : '';
   useEffect(() => {
     const input = inputRef.current;
     if (!checks || !input) return;
+    // A text field (a price, a degree) has no native range: its out-of-range value is made invalid
+    // here, so the form is refused like with a number field.
+    if (type === 'text') input.setCustomValidity(outOfRange ? message : '');
     // The form was sent with this value out of range: our message, not the browser's bubble.
     const refused = (event: Event) => {
       event.preventDefault();
@@ -87,17 +96,15 @@ function useRangeCheck({ min, max, isInvalid, onBlur, value }: RangeProps, t: (k
     };
     input.addEventListener('invalid', refused);
     return () => input.removeEventListener('invalid', refused);
-  }, [checks]);
+  }, [checks, type, outOfRange, message]);
   if (!checks) return { typed: () => {}, props: {} };
-  const outOfRange = value != null && !Number.isNaN(value) && ((min != null && value < Number(min)) || (max != null && value > Number(max)));
-  const key = min != null && max != null ? 'inventory.validation.range' : min != null ? 'inventory.validation.atLeast' : 'inventory.validation.atMost';
   return {
     typed: () => setShown(false),
     props: {
       inputRef,
       validationBehavior: 'aria' as const,
-      isInvalid: shown,
-      errorMessage: t(key, { min, max }),
+      isInvalid: shown || Boolean(isInvalid),
+      errorMessage: shown ? message : errorMessage,
       onBlur: (event: React.FocusEvent<HTMLInputElement>) => {
         setShown(outOfRange);
         onBlur?.(event);
@@ -124,7 +131,7 @@ type NumberInputProps = Omit<ParsedInputProps<NumberValue>, 'format' | 'parse' |
 export function ParsedNumberInput({ onValueChange, decimal = false, ...props }: NumberInputProps) {
   const { t, i18n } = useTranslation();
   const separator = decimalSeparator(i18n.language);
-  const range = useRangeCheck(props, t);
+  const range = useRangeCheck({ ...props, type: decimal ? 'text' : 'number' }, t);
   const emit = (v: NumberValue) => {
     range.typed();
     onValueChange(v ?? undefined);
@@ -140,7 +147,7 @@ export function ParsedNumberInput({ onValueChange, decimal = false, ...props }: 
       type="text"
       format={(n) => formatInteger(n).replace('.', separator)}
       parse={parseDecimal}
-      allowText={(text) => DECIMAL_TEXT.test(text.trim())}
+      allowText={(text) => (props.min != null ? SIGNED_DECIMAL_TEXT : DECIMAL_TEXT).test(text.trim())}
       onValueChange={emit}
     />
   );
