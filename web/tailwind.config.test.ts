@@ -24,7 +24,7 @@ const HEROUI_WINDOW = Math.min(
 );
 const HEROUI_TOASTS = zIndexOf(toastRegion().base());
 
-const scale = config.theme?.extend?.zIndex as Record<'overlay' | 'wizard' | 'lock', string>;
+const scale = config.theme?.extend?.zIndex as Record<'overlay' | 'wizard' | 'blocking' | 'lock', string>;
 const level = (name: keyof typeof scale) => Number(scale[name]);
 
 describe('stacking order (#574)', () => {
@@ -35,6 +35,19 @@ describe('stacking order (#574)', () => {
   it('opens HeroUI windows and toasts above the onboarding wizard', () => {
     expect(level('wizard')).toBeLessThan(HEROUI_WINDOW);
     expect(level('wizard')).toBeLessThan(HEROUI_TOASTS);
+  });
+
+  // #1059: the messages are the one layer HeroUI paints over a window, and
+  // « 1 bouteille bue · Annuler » lay over the sync conflict dialog's
+  // description. A dialog that must be read and answered goes above them —
+  // and still under the lock screen.
+  it('opens a blocking dialog above HeroUI\'s windows and toasts', () => {
+    expect(level('blocking')).toBeGreaterThan(HEROUI_WINDOW);
+    expect(level('blocking')).toBeGreaterThan(HEROUI_TOASTS);
+  });
+
+  it('keeps a blocking dialog under the lock screen', () => {
+    expect(level('blocking')).toBeLessThan(level('lock'));
   });
 
   it('keeps the lock screen above an open window and its toasts', () => {

@@ -2797,6 +2797,10 @@
         "changedAgain": "La ligne a encore changé entre-temps : {{what}}. Vérifiez la nouvelle valeur, puis choisissez.",
         "failed": "Votre version n'a pas pu être enregistrée : {{what}}. Voyez le détail dans les modifications en attente."
       },
+      "keptServer": {
+        "kept": "La version du serveur est gardée : {{what}}. Votre action a été abandonnée.",
+        "gone": "Cette ligne n'existe plus : votre action a été abandonnée."
+      },
       "actionHint": "« Garder ma version » applique votre action à la ligne telle qu'elle est maintenant ; « Garder la version serveur » l'abandonne.",
       "maybeRecorded": "La connexion a peut-être coupé pendant l'envoi : votre action est peut-être déjà enregistrée. Dans ce cas, gardez la version du serveur."
     },

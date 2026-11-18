@@ -14,6 +14,10 @@ import { changeLabel, mayAlreadyBeRecorded } from '@/lib/offline/describe';
 import { adoptConflictServerUnit, fetchServerUnit } from '@/lib/offline/syncEngine';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { qk } from '@/lib/queryKeys';
+import { useGiveWayToModalOnTop } from '@/hooks/useGiveWayToModalOnTop';
+
+/** Marks this dialog in the page, so it is not taken for "another modal" (#1059). */
+const SELF_ATTR = 'data-conflict-dialog';
 
 // ─── FEAT-16/23 — offline sync conflict resolution ─────────────────────────
 // Surfaces whenever a queued offline mutation comes back from the server
@@ -36,7 +40,16 @@ export function ConflictResolutionModal() {
   // stays queued and flagged by the connectivity indicator.
   const pending = conflictMutations.filter((m) => !deferredConflictIds.includes(m.id));
   const current = pending[0];
-  const isOpen = Boolean(current);
+  // #1059: shown over the page or the drawer it lands on, as before — but it
+  // gives way to a window opened over it afterwards (the tasting form, from
+  // the drink's « Noter une dégustation »). Two modals share one z-index and
+  // one focus trap, so this one was left under it, its buttons receiving
+  // nothing, and Escape — the only way out — closed the form and lost what
+  // was being typed. Nothing is lost: the change stays queued, flagged by
+  // the connectivity indicator, and the question is asked again as soon as
+  // that window is closed.
+  const givesWay = useGiveWayToModalOnTop(`[${SELF_ATTR}]`, Boolean(current));
+  const isOpen = Boolean(current) && !givesWay;
   // #1038: the line read again from the server each time a conflict is
   // shown — the version kept with the conflict can be old (left for later,
   // finished meanwhile). Review of #1054 (B1): that version becomes the one
@@ -49,7 +62,7 @@ export function ConflictResolutionModal() {
   const { data: fresh, isPending: isReading, refetch } = useQuery({
     queryKey: qk.offlineConflictUnit(current?.id ?? ''),
     queryFn: () => fetchServerUnit(current?.itemId ?? ''),
-    enabled: Boolean(current),
+    enabled: isOpen,
     networkMode: 'always',
     staleTime: 0,
     gcTime: 0,
@@ -65,7 +78,7 @@ export function ConflictResolutionModal() {
   // Decided again the next time a conflict is shown (the dialog is never unmounted).
   if (!isOpen && firstChoice) setFirstChoice(null);
 
-  if (!current) return null;
+  if (!isOpen || !current) return null;
 
   const lineGone = fresh?.unit === null;
   const serverItem = (fresh?.unit ?? current.conflictServerItem) as Record<string, unknown> | undefined;
@@ -126,6 +139,10 @@ export function ConflictResolutionModal() {
     setIsResolving(true);
     try {
       await resolveKeepServer(current.id);
+      // #1059: said, like « Garder ma version » (#1038) — the choice ended
+      // in silence, and nothing on screen told the member the change had
+      // been dropped.
+      notifySuccess(lineGone ? 'offline.conflict.keptServer.gone' : 'offline.conflict.keptServer.kept', { what: kept });
     } finally {
       setIsResolving(false);
     }
@@ -141,8 +158,17 @@ export function ConflictResolutionModal() {
       radius="lg"
       backdrop="opaque"
       placement="center"
+      // #1059: above the messages' own layer, which is the one thing in the
+      // app that paints over a modal: « 1 bouteille bue · Annuler » lay over
+      // this dialog's description on a phone, and the member decided without
+      // reading what had changed. The `blocking` level of the app's stacking
+      // order (tailwind.config.ts), whose place above HeroUI's own levels is
+      // checked there, against HeroUI's real styles. Written as the value
+      // because tailwind-merge only drops the theme's own `z-50` for a plain
+      // one, and the test of this dialog holds the two together.
+      classNames={{ wrapper: 'z-[110]', backdrop: 'z-[110]' }}
     >
-      <ModalContent>
+      <ModalContent {...{ [SELF_ATTR]: true }}>
         <ModalHeader className="flex items-center gap-2">
           <AlertTriangle size={18} className="text-warning" />
           {t('offline.conflict.title')}
