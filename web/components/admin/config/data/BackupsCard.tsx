@@ -15,6 +15,7 @@ import { formatDateTime, formatNumber } from '@/lib/format';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { ConfigCard, QueryList, SaveBar, configErrorKey, useConfigForm, useConfigSaved } from '../shared';
 import { useGuardedSave } from '../useGuardedSave';
+import { backupFailureInfo } from '../../backupFailure';
 
 /**
  * Restore refusals the dialog explains (nothing was restored): the safety copy
@@ -48,6 +49,21 @@ export function formatBytes(bytes: number | null, lang: string | undefined): str
     unitIndex += 1;
   }
   return `${formatNumber(value, lang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${units[unitIndex]}`;
+}
+
+/** #1048: a failed run says what happened and what to do; the code the API recorded is a detail. */
+function FailedRunMessage({ error }: { error: string }) {
+  const { t } = useTranslation();
+  const info = backupFailureInfo(error);
+  return (
+    <div className="text-xs text-danger">
+      <p>{t(info.messageKey)}</p>
+      <details>
+        <summary className="cursor-pointer text-foreground-500">{t('adminConfig.backup.failure.details')}</summary>
+        <code className="block mt-1 break-all text-foreground-500">{info.raw}</code>
+      </details>
+    </div>
+  );
 }
 
 /** FEAT-18: scheduled backups, a manual one, and the history with download and restore. */
@@ -96,7 +112,7 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
     try {
       const run = await configClient.runBackupNow();
       if (run.success) notifySuccess('adminConfig.backup.runNow.success');
-      else notifyError('adminConfig.backup.runNow.error', { error: run.error ?? '' });
+      else notifyError('adminConfig.backup.runNow.error', { error: t(backupFailureInfo(run.error).messageKey) });
     } catch (err) {
       // #748: the server goes on with the backup; the history will show it.
       notifyError(isTimeout(err) ? 'adminConfig.backup.runNow.timeout' : configErrorKey(err));
@@ -227,7 +243,7 @@ export function BackupsCard({ config }: { config: SystemConfigPublic }) {
                     {run.success ? (
                       <p className="text-xs text-foreground-500 truncate">{formatBytes(run.fileSizeBytes, i18n.language)}</p>
                     ) : run.error ? (
-                      <p className="text-xs text-danger truncate">{run.error}</p>
+                      <FailedRunMessage error={run.error} />
                     ) : null}
                   </div>
                   <div className="text-right shrink-0 flex flex-col items-end gap-1">

@@ -20,7 +20,7 @@ vi.mock('@heroui/react', () => ({
   ),
 }));
 
-import { BackupWarning, BackupMarker, LastBackupNote, backupAlerts, backupProblems } from '../BackupWarning';
+import { BackupWarning, BackupMarker, LastBackupNote, backupAlerts, backupProblems, backupWarningProblems } from '../BackupWarning';
 
 beforeAll(async () => {
   i18n = i18next.createInstance();
@@ -80,10 +80,26 @@ describe('BackupWarning (#756)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Glou cannot write to the backups folder');
   });
 
-  it('warns that the last backup failed, and that none succeeded for two days (#671)', () => {
+  it('warns that the last backup failed (#671), and that none succeeded for two days only when it did not fail', () => {
     render(<BackupWarning problems={['failed', 'overdue']} onOpenBackups={() => {}} />);
     expect(screen.getByRole('alert')).toHaveTextContent('The last backup failed');
-    expect(screen.getByRole('alert')).toHaveTextContent('No backup has succeeded for more than two days');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('No backup has succeeded for more than two days');
+    render(<BackupWarning problems={['overdue']} onOpenBackups={() => {}} />);
+    expect(screen.getAllByRole('alert')[1]).toHaveTextContent('No backup has succeeded for more than two days');
+  });
+
+  // #1048: one clear message, the raw code only as a detail.
+  it('says one thing when the last backup failed, explains it, and keeps the raw code in a disclosure', () => {
+    const problems = backupProblems(health({ lastRunFailed: true, lastSuccessAt: null }));
+    expect(problems).toEqual(['failed', 'noBackup']);
+    expect(backupWarningProblems(problems)).toEqual(['failed']);
+    render(<BackupWarning problems={problems} failure={{ id: 'r1', at: '2026-11-18T03:00:00Z', error: 'PG_DUMP_SPAWN_FAILED: spawn pg_dump ENOENT' }} onOpenBackups={() => {}} />);
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('The last backup failed.');
+    expect(alert).toHaveTextContent('The pg_dump tool could not be started');
+    expect(alert).not.toHaveTextContent('No backup has ever succeeded');
+    const code = screen.getByText('PG_DUMP_SPAWN_FAILED: spawn pg_dump ENOENT');
+    expect(code.closest('details')).not.toBeNull();
   });
 
   it('shows nothing when backups are fine', () => {

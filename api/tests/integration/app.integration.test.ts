@@ -736,7 +736,7 @@ describe('GET /api/admin/backups/health', () => {
       .mockResolvedValueOnce({ success: true } as never);
     const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: false, lastSuccessAt: '2026-11-01T03:00:00.000Z', lastRunFailed: false, overdue: false } });
+    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: false, lastSuccessAt: '2026-11-01T03:00:00.000Z', lastRunFailed: false, lastFailure: null, overdue: false } });
     expect(vi.mocked(prisma.backupRun.findFirst).mock.calls[0][0]?.where).toEqual({ success: true });
   });
 
@@ -756,7 +756,7 @@ describe('GET /api/admin/backups/health', () => {
     vi.mocked(prisma.systemConfig.findUnique).mockResolvedValue(null as never);
     vi.mocked(prisma.backupRun.findFirst).mockResolvedValue(null as never);
     const res = await request(app).get('/api/admin/backups/health').set('Authorization', `Bearer ${authToken()}`);
-    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: true, lastSuccessAt: null, lastRunFailed: false, overdue: false } });
+    expect(res.body).toEqual({ data: { directoryWritable: true, backupEnabled: true, lastSuccessAt: null, lastRunFailed: false, lastFailure: null, overdue: false } });
   });
 });
 
