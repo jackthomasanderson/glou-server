@@ -10,6 +10,7 @@ import { movesFor, type StockMove } from '@/lib/products/openDrink';
 import { footerMoves } from '@/lib/products/openedReminder';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { useStockMoveFlow } from './StockMoveFlow';
+import type { MoveDone } from '@/hooks/useStockMove';
 import { isProvisional } from '@/lib/offline/optimistic';
 
 const ICONS: Record<StockMove, React.ReactElement> = {
@@ -30,6 +31,8 @@ interface StockMoveActionsProps {
    * a copy of `line`: the moves take that very copy.
    */
   cell?: { line: ProductItem; slotId: string } | null;
+  /** #1036: each move written, then `null` once undone. */
+  onDone?: (done: MoveDone | null) => void;
 }
 
 /** What the footer offers from a cell: the line's own moves, the opened bottle finished first. */
@@ -49,9 +52,9 @@ type CellMove = StockMove | 'finish';
  * "Quelles bouteilles ?" nor "De quelle case ?". The cell of an opened
  * bottle offers "Finir l'entamée" first, then opening another one as usual.
  */
-export function StockMoveActions({ product, ctx, viewedCellarIds, onFinishOpened, cell }: StockMoveActionsProps) {
+export function StockMoveActions({ product, ctx, viewedCellarIds, onFinishOpened, cell, onDone }: StockMoveActionsProps) {
   const { t } = useTranslation();
-  const { start, startFromCell, dialogs, isPending } = useStockMoveFlow({ wine: wineName(product), ctx, viewedCellarIds, onFinishOpened });
+  const { start, startFromCell, dialogs, isPending } = useStockMoveFlow({ wine: wineName(product), ctx, viewedCellarIds, onFinishOpened, onDone });
   // FEAT-108: a copy still waiting for the network is not acted on.
   const items = product.items.filter((item) => !isProvisional(item));
   if (cell && !isProvisional(cell.line)) {

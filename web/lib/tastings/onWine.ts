@@ -1,5 +1,6 @@
 import { isIntactItem } from '@shared/units';
 import type { Product, ProductItem } from '@/lib/products/types';
+import { isProvisional } from '@/lib/offline/optimistic';
 import type { TastedWine, TastingFormValues, TastingNote } from './types';
 
 // #471 (FEAT-107): a tasting is of a wine (the family) — of one of its
@@ -25,6 +26,58 @@ export function tastingLinePreset(inCellar: readonly ProductItem[], itemId?: str
   return inCellar.find((item) => item.id === itemId)
     ?? inCellar.find((item) => !isIntactItem(item))
     ?? (inCellar.length === 1 ? inCellar[0] : undefined);
+}
+
+/** A copy just taken off a line of the drawer ("J'en bois une", "J'en fume un"), #1036. */
+export interface TakenCopy {
+  /** The line it was taken from (a server id). */
+  lineId: string;
+  /** The copy written: the line itself (a line of one), a copy taken off it, or a provisional copy (offline). */
+  copyId: string;
+  /** The wine's copies before the move: its copy is none of them. */
+  seen: readonly string[];
+}
+
+/** The copy a tasting noted right after is of, and the bottle the tasting is saved on. */
+export interface DrunkCopy {
+  item: ProductItem;
+  linkId: string;
+  /** The move, to find its copy again when the tasting is saved (the queue may have sent it since). */
+  taken?: TakenCopy;
+}
+
+/**
+ * #1036: the copy just drunk (smoked), as the wine's copies show it now —
+ * what a tasting noted right after is of, even the last bottle, never
+ * another one of the cellar. Without network (FEAT-108) the copy is first
+ * provisional (no id on the server): the tasting goes on the line it was
+ * taken from; once the queue has sent it, on the copy the server made.
+ * Nothing when it was taken back ("Annuler"). `sent.id`: the copy the
+ * server made for that queued move, when this tab sent it — else the
+ * newest copy of that line, which another member's drink may also be.
+ * `sent.stalled`: the move never went through (in conflict, refused,
+ * dropped), so only a copy known to be its own is taken, never a guess.
+ */
+export function drunkCopyOf(
+  items: readonly ProductItem[],
+  taken: TakenCopy | null | undefined,
+  sent?: { id?: string; stalled?: boolean },
+): DrunkCopy | undefined {
+  if (!taken) return undefined;
+  const present = items.filter((item) => item.deletedAt == null);
+  const copy = present.find((item) => item.id === taken.copyId);
+  if (copy) {
+    if (isProvisional(copy)) return present.some((item) => item.id === taken.lineId) ? { item: copy, linkId: taken.lineId } : undefined;
+    // Put back intact since (its line of one, from another screen): no longer the copy drunk.
+    return isIntactItem(copy) ? undefined : { item: copy, linkId: copy.id };
+  }
+  if (!isProvisional({ id: taken.copyId })) return undefined;
+  // The queued move sent: the copy the server took off that line.
+  const written = (sent?.id ? present.find((item) => item.id === sent.id) : undefined)
+    ?? (sent?.stalled
+      ? undefined
+      : present.find((item) => item.parentItemId === taken.lineId && !isIntactItem(item) && !taken.seen.includes(item.id)));
+  return written ? { item: written, linkId: written.id } : undefined;
 }
 
 /** How the wine of a new tasting is given. */

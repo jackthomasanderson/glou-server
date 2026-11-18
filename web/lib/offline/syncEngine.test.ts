@@ -47,7 +47,7 @@ import { QueryClient } from '@tanstack/react-query';
 import {
   flushQueue, cancelSyncRetry, deferConflict, undeferConflict, getDeferredConflictIds,
   overlayQueuedChanges, MAX_TEMPORARY_FAILURES, enqueueMutation, discardQueuedMutation,
-  resolveConflictKeepLocal, SYNC_LOCK_NAME, removeQueuedMutation,
+  resolveConflictKeepLocal, SYNC_LOCK_NAME, removeQueuedMutation, sentCopyOf,
 } from './syncEngine';
 import { provisionalIdOf } from './optimistic';
 import { refusalKey } from './describe';
@@ -646,6 +646,50 @@ describe('FEAT-108 — shown at once, sent once', () => {
       expect(lines(shown)).toEqual([['g', 5, false], ['s-2', 1, true]]);
       expect(shown.find((u) => u.id === 'g')?.updatedAt).toBe('g-2');
     }
+  });
+
+  // Third review of #1053: a flush asked for while one is running hands back
+  // that replay — a tasting waiting for its drink to be sent really waits.
+  it('a second flush during a replay resolves only once that replay is done', async () => {
+    const { qc } = wineCaches();
+    await enqueueMutation(qc, 'g', { isOpened: true, fillLevel: 0 }, 'g-1', { productId: 'p1' });
+    let answer: () => void = () => {};
+    const held = new Promise<void>((resolve) => { answer = resolve; });
+    const server = groupServer(6);
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      await held;
+      return server.fetchMock(url, init);
+    }));
+
+    const first = flushQueue(qc);
+    let secondDone = false;
+    const second = flushQueue(qc).then(() => { secondDone = true; });
+    try {
+      await Promise.resolve();
+      // The replay is waiting for the server: the second caller waits with it.
+      expect(secondDone).toBe(false);
+      expect(store.size).toBe(1);
+    } finally {
+      // Always let the held request go: a flush left pending would leak into the next tests.
+      answer();
+    }
+
+    await Promise.all([first, second]);
+    expect(secondDone).toBe(true);
+    expect(store.size).toBe(0);
+  });
+
+  // #1036: a tasting noted on the provisional copy goes on the copy the server made for that very change.
+  it('remembers the server copy each change sent produced, by its provisional copy', async () => {
+    const { qc } = wineCaches();
+    const first = await enqueueMutation(qc, 'g', { isOpened: true, fillLevel: 0 }, 'g-1', { productId: 'p1' });
+    const second = await enqueueMutation(qc, 'g', { isOpened: true, fillLevel: 0 }, 'g-1', { productId: 'p1' });
+    vi.stubGlobal('fetch', groupServer(6).fetchMock);
+
+    await flushQueue(qc);
+
+    expect(sentCopyOf(provisionalIdOf(first.id))).toBe('s-2');
+    expect(sentCopyOf(provisionalIdOf(second.id))).toBe('s-3');
   });
 
   it('review of K: two "J\'en ouvre une" on a ×6 replay against the GROUP\'s version — ×4, no conflict', async () => {

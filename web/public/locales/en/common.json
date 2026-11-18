@@ -1420,6 +1420,7 @@
     "create": "New tasting",
     "edit": "Edit tasting",
     "logTasting": "Log tasting",
+    "syncingDrink": "Syncing…",
     "empty": "No tastings recorded yet",
     "emptyHint": "Start documenting your tasting experiences.",
     "deleteTitle": "Delete tasting",

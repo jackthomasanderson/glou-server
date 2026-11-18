@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button, Dropdown, DropdownItem, DropdownMenu, DropdownTrigger } from '@heroui/react';
 import { ArrowRightLeft, Euro, Flame, GlassWater, Hash, MoreVertical, Pencil, Trash2, Undo2, Wine } from 'lucide-react';
 import { isIntactItem } from '@shared/units';
-import { useStockMove } from '@/hooks/useStockMove';
+import { useStockMove, type MoveDone } from '@/hooks/useStockMove';
 import { hasOwnLevel, type LineContext } from '@/lib/products/lines';
 import { movesFor, type StockMove } from '@/lib/products/openDrink';
 import { wineName } from '@/lib/products/stock';
@@ -65,20 +65,22 @@ const ICONS: Record<LineAction, React.ReactElement> = {
  * other action opens its own dialog, mounted only while open so it always
  * starts from the line as shown.
  */
-export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
+export function StockLineMenu({ item, ctx, product, onFinishOpened, onDone }: {
   item: ProductItem;
   ctx: LineContext;
   /** The wine: its other copies (an opened bottle to remind of) and its name. */
   product?: ProductDetailView;
   /** "Finir l'entamée": leads to the opened bottle in the drawer. */
   onFinishOpened?: (item: ProductItem) => void;
+  /** #1036: each move written, then `null` once undone. */
+  onDone?: (done: MoveDone | null) => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState<DialogAction | null>(null);
   // #844: the trash reached from "Corriger le nombre" (down to 0) does not send back to it.
   const [trashFromCorrect, setTrashFromCorrect] = useState(false);
   const { run } = useStockMove();
-  const flow = useStockMoveFlow({ wine: product ? wineName(product) : '', ctx, onFinishOpened });
+  const flow = useStockMoveFlow({ wine: product ? wineName(product) : '', ctx, onFinishOpened, onDone });
   const putBack = usePutBackOpened(ctx);
   const head = headActions(item, ctx.kind);
   const actions: readonly LineAction[] = [...head, ...(isIntactItem(item) ? GROUP_ACTIONS : OPENED_ACTIONS)];
@@ -89,8 +91,8 @@ export function StockLineMenu({ item, ctx, product, onFinishOpened }: {
   const choose = (action: LineAction) => {
     if (action === 'putBack') void putBack.putBack(item);
     // An opened copy: finished, or a cigar smoked out of it — no question.
-    else if (action === 'finish') void run(item, 'drink', ctx.kind);
-    else if (isMove(action) && !isIntactItem(item)) void run(item, action, ctx.kind);
+    else if (action === 'finish') void run(item, 'drink', ctx.kind, { onDone });
+    else if (isMove(action) && !isIntactItem(item)) void run(item, action, ctx.kind, { onDone });
     else if (isMove(action)) flow.start(action, product?.items ?? [item], item);
     else {
       setTrashFromCorrect(false);

@@ -26,7 +26,9 @@ vi.mock('@/hooks/useProducts', () => ({
 }));
 // ResponsiveModal (the history's restore confirmation) reads window.matchMedia.
 vi.mock('@/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
-vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn(), notifyUndoable: vi.fn() }));
+// #1036: an "Annuler" message, and what closes it without undoing.
+const { closeMessage } = vi.hoisted(() => ({ closeMessage: vi.fn() }));
+vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn(), notifyUndoable: vi.fn(() => closeMessage) }));
 const removeSlot = vi.fn<(vars: { slotId: string }) => Promise<void>>(async () => undefined);
 vi.mock('@/hooks/useCellars', () => ({
   useCellars: () => ({ data: [{ id: 'garage', name: 'Garage' }] }),
@@ -43,10 +45,15 @@ const connectivity = vi.hoisted(() => ({ online: true as boolean | null }));
 vi.mock('@/hooks/useConnectivity', () => ({ useConnectivity: () => connectivity.online }));
 vi.mock('@/components/collections/CollectionPickerInline', () => ({ CollectionPickerInline: () => null }));
 const tastingFromCell: { value?: { itemId: string; slotId: string } } = {};
+const tastingDrunk: { value?: { item: { id: string }; linkId: string }; open?: boolean } = {};
 vi.mock('@/components/tastings/TastingForm', () => ({
-  TastingForm: ({ initialItemId, fromCell }: { initialItemId?: string; fromCell?: { itemId: string; slotId: string } }) => {
+  TastingForm: ({ open, initialItemId, fromCell, drunk }: {
+    open: boolean; initialItemId?: string; fromCell?: { itemId: string; slotId: string }; drunk?: { item: { id: string }; linkId: string };
+  }) => {
     tastingPreset.id = initialItemId;
     tastingFromCell.value = fromCell;
+    tastingDrunk.value = drunk;
+    tastingDrunk.open = open;
     return null;
   },
 }));
@@ -629,3 +636,88 @@ describe('FamilyDrawer — opened from a cell of the plan (FEAT-93)', () => {
   });
 });
 
+// #1036: "J'en bois une", then "Noter une dégustation".
+describe('FamilyDrawer — a tasting right after drinking a bottle (#1036)', () => {
+  let notifyUndoable: ReturnType<typeof vi.fn>;
+  beforeEach(async () => {
+    notifyUndoable = vi.mocked((await import('@/lib/toast')).notifyUndoable) as unknown as ReturnType<typeof vi.fn>;
+    notifyUndoable.mockClear();
+    closeMessage.mockClear();
+  });
+
+  const finished = (id: string, over: Partial<ProductDetailView['items'][number]> = {}) =>
+    unit({ id, isOpened: true, fillLevel: 0, updatedAt: '2026-11-18T10:00:00.000Z', ...over });
+  const drinkThen = async (after: ProductDetailView['items'], written: { id: string }) => {
+    mutate.mockImplementationOnce(async () => ({ ...written, productId: 'p1', updatedAt: '2026-11-18T10:00:00.000Z' }));
+    queryClient.setQueryData(['inventory', 'product', 'p1'], detail);
+    const view = render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+    await waitFor(() => expect(notifyUndoable).toHaveBeenCalledTimes(1));
+    // The drawer as the write left it (D8: the copy taken off its line).
+    detail = detailOf({ items: after });
+    view.rerender(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dégustation' }));
+  };
+
+  it('several bottles left: the tasting is preset on the copy just drunk, not on the bottles left', async () => {
+    detail = detailOf({ items: [unit({ id: 'g3', quantity: 3 })] });
+    await drinkThen([unit({ id: 'g3', quantity: 2 }), finished('copy', { parentItemId: 'g3' })], { id: 'copy' });
+
+    await waitFor(() => expect(tastingDrunk.open).toBe(true));
+    expect(tastingPreset.id).toBe('copy');
+    expect(tastingDrunk.value).toMatchObject({ item: { id: 'copy' }, linkId: 'copy' });
+  });
+
+  it('the last bottle: the tasting is still of it', async () => {
+    detail = detailOf({ items: [unit({ id: 'only', quantity: 1 })] });
+    await drinkThen([finished('only')], { id: 'only' });
+
+    await waitFor(() => expect(tastingDrunk.open).toBe(true));
+    expect(tastingPreset.id).toBe('only');
+    expect(tastingDrunk.value).toMatchObject({ item: { id: 'only' }, linkId: 'only' });
+  });
+
+  it('drunk without network (FEAT-108): its provisional copy, the tasting saved on the line it was taken from', async () => {
+    const { markQueuedResult } = await import('@/lib/offline/syncEngine');
+    detail = detailOf({ items: [unit({ id: 'g3', quantity: 3 })] });
+    mutate.mockImplementationOnce(async () => markQueuedResult({ id: 'offline:m1', productId: 'p1' }, 'm1'));
+    queryClient.setQueryData(['inventory', 'product', 'p1'], detail);
+    const view = render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+    await waitFor(() => expect(notifyUndoable).toHaveBeenCalledWith('openDrink.queued.drink', undefined, expect.any(Function)));
+    detail = detailOf({ items: [unit({ id: 'g3', quantity: 2 }), finished('offline:m1', { parentItemId: 'g3' })] });
+    view.rerender(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dégustation' }));
+
+    await waitFor(() => expect(tastingDrunk.open).toBe(true));
+    expect(tastingPreset.id).toBe('offline:m1');
+    expect(tastingDrunk.value).toMatchObject({ item: { id: 'offline:m1' }, linkId: 'g3' });
+    expect(closeMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('the drink\'s "Annuler" message is closed, not undone, when the tasting form opens over it', async () => {
+    detail = detailOf({ items: [unit({ id: 'g3', quantity: 3 })] });
+    await drinkThen([unit({ id: 'g3', quantity: 2 }), finished('copy', { parentItemId: 'g3' })], { id: 'copy' });
+
+    await waitFor(() => expect(closeMessage).toHaveBeenCalledTimes(1));
+    expect(mutate).toHaveBeenCalledTimes(1);
+  });
+
+  it('undone: the tasting is no longer preset on that copy', async () => {
+    detail = detailOf({ items: [unit({ id: 'g3', quantity: 3 })] });
+    mutate.mockImplementationOnce(async () => ({ id: 'copy', productId: 'p1', updatedAt: '2026-11-18T10:00:00.000Z' }));
+    queryClient.setQueryData(['inventory', 'product', 'p1'], detail);
+    const view = render(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    fireEvent.click(screen.getByTestId('stock-move-drink'));
+    await waitFor(() => expect(notifyUndoable).toHaveBeenCalledTimes(1));
+    const onUndo = notifyUndoable.mock.calls[0][2] as () => void;
+    onUndo();
+    detail = detailOf({ items: [unit({ id: 'g3', quantity: 3 })] });
+    view.rerender(<FamilyDrawer productId="p1" onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Dégustation' }));
+
+    await waitFor(() => expect(tastingDrunk.open).toBe(true));
+    expect(tastingDrunk.value).toBeUndefined();
+    expect(tastingPreset.id).toBe('g3');
+  });
+});

@@ -13,6 +13,7 @@ import { movePatch, restorePatch, undoPatch, type StockMove } from '@/lib/produc
 import { cellAskOf, type CellAsk } from '@/lib/products/cells';
 import type { InventoryItem, InventoryItemPatch } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
+import type { TakenCopy } from '@/lib/tastings/onWine';
 
 /**
  * FEAT-93: the cell this write gave back — the cell chosen for a copy taken
@@ -46,6 +47,18 @@ export interface MoveOptions {
    * Without it, the refusal is only told.
    */
   onAskCell?: (ask: CellAsk) => void;
+  /**
+   * #1036: the move written (or queued), then `null` once taken back by
+   * "Annuler" — what a tasting noted right after is of.
+   */
+  onDone?: (done: MoveDone | null) => void;
+}
+
+/** A move written from a wine's drawer (#1036). */
+export interface MoveDone extends TakenCopy {
+  move: StockMove;
+  /** Closes its "Annuler" message (a dialog opened over it), the move kept. */
+  closeMessage: () => void;
 }
 
 /** Refusals answered by a question ("De quelle case ?"), not a toast of the mutation. */
@@ -101,6 +114,8 @@ export function useStockMove() {
     // The line as known now: its version, and its level to put back on "Annuler".
     const before = latest(item) ?? item;
     const sent = before.updatedAt as string;
+    // #1036: the wine's copies before the move, to tell its copy once the queue has sent it.
+    const seen = queryClient.getQueryData<ProductDetailView>(qk.products.detail(item.productId))?.items.map((unit) => unit.id) ?? [];
     let written: InventoryItem;
     try {
       written = await mutateAsync({
@@ -124,19 +139,26 @@ export function useStockMove() {
     // already shown ("en attente"): "Annuler" drops it from the queue and
     // puts the copy back on screen — nothing was written on the server.
     const queued = queuedMutationOf(written);
+    const done = (closeMessage: () => void): MoveDone => ({ move, lineId: item.id, copyId: written.id, seen, closeMessage });
     if (queued) {
-      notifyUndoable(`openDrink.queued.${move}`, undefined, () => {
+      const closeMessage = notifyUndoable(`openDrink.queued.${move}`, undefined, () => {
+        options.onDone?.(null);
         void discardQueuedMutation(queued, queryClient).then((dropped) => {
           // Already being sent: it is taken back like any other ("Annuler l'ouverture").
           if (!dropped) notifyError('offline.undoTooLate');
         });
       });
+      options.onDone?.(done(closeMessage));
       return true;
     }
     // FEAT-93: a copy finished in its cell gave it back (#573) — a line of
     // one, or a copy taken from the cell chosen; "Annuler" puts it back in
     // that cell, if nobody took it since (`placeAt`, else it comes back unplaced).
-    notifyUndoable(message, undefined, () => { void undo(written, before, kind, cellGivenBack(before, written, options.choice, kind)); });
+    const closeMessage = notifyUndoable(message, undefined, () => {
+      options.onDone?.(null);
+      void undo(written, before, kind, cellGivenBack(before, written, options.choice, kind));
+    });
+    options.onDone?.(done(closeMessage));
     return true;
   }, [latest, mutateAsync, queryClient, undo]);
 

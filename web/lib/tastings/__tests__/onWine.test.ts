@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { ProductItem } from '@/lib/products/types';
-import { isTastedElsewhere, isValidVintage, parseYear, tastedWineTitle, tastingLinePreset, tastingPayload, wineOptionLabel } from '../onWine';
+import { drunkCopyOf, isTastedElsewhere, isValidVintage, parseYear, tastedWineTitle, tastingLinePreset, tastingPayload, wineOptionLabel } from '../onWine';
 
 const line = (id: string, fields: Partial<ProductItem> = {}) =>
   ({ id, isOpened: false, fillLevel: null, cigarsLeft: null, ...fields }) as ProductItem;
@@ -87,5 +87,44 @@ describe('labels', () => {
     expect(parseYear(' 2020 ')).toBe(2020);
     expect(parseYear('20')).toBeNull();
     expect(parseYear('')).toBeNull();
+  });
+});
+
+// #1036: a tasting noted right after "J'en bois une" is of the bottle just drunk.
+describe('drunkCopyOf', () => {
+  const finished = (id: string, fields: Partial<ProductItem> = {}) => line(id, { isOpened: true, fillLevel: 0, deletedAt: null, ...fields });
+  const group = (id: string, quantity: number) => line(id, { quantity, deletedAt: null, parentItemId: null });
+  const seen = ['g3'];
+
+  it('the copy taken off a group of several, never the bottles left', () => {
+    const items = [group('g3', 2), finished('copy', { parentItemId: 'g3' })];
+    expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'copy', seen })).toEqual({ item: items[1], linkId: 'copy' });
+  });
+
+  it('the last bottle, finished in place', () => {
+    const items = [finished('only')];
+    expect(drunkCopyOf(items, { lineId: 'only', copyId: 'only', seen: ['only'] })).toEqual({ item: items[0], linkId: 'only' });
+  });
+
+  it('nothing once put back intact, or gone', () => {
+    expect(drunkCopyOf([group('only', 1)], { lineId: 'only', copyId: 'only', seen: ['only'] })).toBeUndefined();
+    expect(drunkCopyOf([group('g3', 3)], { lineId: 'g3', copyId: 'copy', seen })).toBeUndefined();
+    expect(drunkCopyOf([group('g3', 3)], null)).toBeUndefined();
+  });
+
+  it('offline (FEAT-108): shown as its provisional copy, saved on the line it was taken from', () => {
+    const items = [group('g3', 2), finished('offline:m1', { parentItemId: 'g3' })];
+    expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen })).toEqual({ item: items[1], linkId: 'g3' });
+  });
+
+  it('once the queue sent it: the copy the server took off that line, not an older one', () => {
+    const items = [group('g3', 2), finished('older', { parentItemId: 'g3' }), finished('sent', { parentItemId: 'g3' })];
+    expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen: ['g3', 'older'] })).toEqual({ item: items[2], linkId: 'sent' });
+    // Another member's copy of that line sent meanwhile: the copy this drink made, when known.
+    expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] }, { id: 'sent' })).toEqual({ item: items[2], linkId: 'sent' });
+    // Second review of #1053: the move never went through (conflict, refused, dropped) — no guess at all.
+    expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] }, { stalled: true })).toBeUndefined();
+    // Dropped instead ("Abandonner"): no copy of its own.
+    expect(drunkCopyOf(items.slice(0, 2), { lineId: 'g3', copyId: 'offline:m1', seen: ['g3', 'older'] })).toBeUndefined();
   });
 });

@@ -24,6 +24,20 @@ const inventoryUpdate = vi.fn();
 let lookedUp: InventoryItem[] = [];
 const lookUpItem = vi.fn(async (id: string) => lookedUp.find((i) => i.id === id));
 
+// #1036: the wine's drawer as the cache holds it when the tasting is saved.
+let cachedDetail: { items: unknown[] } | undefined;
+vi.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({ getQueryData: () => cachedDetail }) }));
+// #1036: the server copy a queued drink produced, once sent from this tab.
+const sentCopies = new Map<string, string>();
+// The queue as the form reads it, and what its replay does when the form waits for it.
+let queued: Array<{ id: string; status: string }> = [];
+const flushQueue = vi.fn(async () => {});
+vi.mock('@/lib/offline/syncEngine', () => ({
+  sentCopyOf: (id: string) => sentCopies.get(id),
+  getQueuedMutations: async () => queued,
+  flushQueue: () => flushQueue(),
+}));
+
 vi.mock('@/hooks/useTastings', () => ({
   useCreateTasting: () => ({ mutateAsync: createMutateAsync, isPending: false, error: null }),
   useUpdateTasting: () => ({ mutateAsync: updateMutateAsync, isPending: false, error: null }),
@@ -183,6 +197,11 @@ const field = (label: string) => screen.getByLabelText(label);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  cachedDetail = undefined;
+  sentCopies.clear();
+  queued = [];
+  flushQueue.mockReset();
+  flushQueue.mockImplementation(async () => {});
   products = undefined;
   inventory = [item({ id: 'wine-1', category: 'wine' })];
   lookedUp = inventory;
@@ -692,3 +711,195 @@ describe('stock question on a line placed on the plan (FEAT-93)', () => {
   });
 });
 
+// #1036: "J'en bois une", then "Noter une dégustation" from the drawer — the
+// remaining bottles were offered, "Bue" took a second one out, and the last
+// bottle drunk left the tasting "Goûté ailleurs".
+describe('a tasting right after drinking a bottle (#1036)', () => {
+  const line = (fields: Record<string, unknown>) => ({
+    cellarId: 'c1', deletedAt: null, writtenOffAt: null, isOpened: false, fillLevel: null, cigarsLeft: null, cigarsPerBox: null,
+    quantity: 1, purchasedAt: '2026-01-15', purchasePrice: 20, createdAt: '2026-01-15', updatedAt: '2026-11-18', productId: 'talbot', ...fields,
+  });
+  const drunkLine = (id: string, fields: Record<string, unknown> = {}) =>
+    line({ id, isOpened: true, fillLevel: 0, ...fields }) as unknown as Product['items'][number];
+  const talbot = (lines: Record<string, unknown>[]) =>
+    ({ id: 'talbot', name: 'Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2015, format: null, items: lines }) as unknown as Product;
+  const save = () => fireEvent.click(screen.getByRole('button', { name: 'actions.save' }));
+
+  beforeEach(() => {
+    createMutateAsync.mockImplementation(async (values: { itemId?: string; productId?: string }) => ({
+      ...expertTasting, id: 'new-note', itemId: values.itemId ?? null, productId: values.productId ?? 'created',
+    }));
+  });
+
+  it('several bottles left: the tasting is of the bottle just drunk, and the stock is not asked about', async () => {
+    const copy = drunkLine('copy', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 2 })])];
+    // The stock question would offer "Bue" on the ×2 left.
+    lookedUp = [item({ id: 'g3', category: 'wine', quantity: 2, isOpened: false })];
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="copy" drunk={{ item: copy, linkId: 'copy' }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('copy'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'copy' }));
+    expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  it('the last bottle: still a bottle of the cellar, never "Goûté ailleurs"', async () => {
+    const only = drunkLine('only');
+    products = [talbot([])];
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="only" drunk={{ item: only, linkId: 'only' }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('only'));
+    expect(screen.getByRole('radio', { name: 'tastingWine.yes' })).toBeChecked();
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'only' }));
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  it('drunk without network: shown as its copy, saved on the line it was taken from, no stock question', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    // The server does not know the drink yet: its line still counts 3.
+    lookedUp = [item({ id: 'g3', category: 'wine', quantity: 3, isOpened: false })];
+    const onClose = vi.fn();
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'g3' }));
+    expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  // Review of #1053: opened offline, saved once the queue sent the drink — the server's copy, never the bottles left.
+  it('opened while the drink waited for the network, saved after it was sent: on the copy the server made', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3', 'older'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    // The queue sends the drink: the provisional copy gives way to the server's (another member's copy too).
+    cachedDetail = { items: [line({ id: 'g3', quantity: 1 }), drunkLine('other', { parentItemId: 'g3' }), drunkLine('srv', { parentItemId: 'g3' })] };
+    sentCopies.set('offline:m1', 'srv');
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'srv' }));
+    expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  // Second review of #1053: saved while the queued drink is being sent — the
+  // tasting waits for its answer instead of landing on the bottles left.
+  it('saved while the queued drink is in flight: waits for the answer, then the server copy', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    queued = [{ id: 'm1', status: 'syncing' }];
+    // The replay answers while the tasting is being saved: the copy lands then.
+    flushQueue.mockImplementation(async () => {
+      queued = [];
+      sentCopies.set('offline:m1', 'srv');
+      cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), drunkLine('srv', { parentItemId: 'g3' })] };
+    });
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(flushQueue).toHaveBeenCalledTimes(1);
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'srv' }));
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  // Third review of #1053: the first flush came back with the change still on
+  // its way (a replay of this tab that had already started): the save waits on.
+  it('a flush that comes back with the drink still being sent: waits again, then the server copy', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    queued = [{ id: 'm1', status: 'syncing' }];
+    flushQueue.mockImplementationOnce(async () => {});
+    flushQueue.mockImplementationOnce(async () => {
+      queued = [];
+      sentCopies.set('offline:m1', 'srv');
+      cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), drunkLine('srv', { parentItemId: 'g3' })] };
+    });
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    expect(flushQueue.mock.calls.length).toBeGreaterThan(1);
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'srv' }));
+  });
+
+  // Fourth review of #1053: a replay that threw must not leave the save silent, nor the button on "Synchronisation…".
+  it('a replay that fails: the tasting is still saved, on the line it was taken from', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    queued = [{ id: 'm1', status: 'pending' }];
+    flushQueue.mockRejectedValue(new Error('offline'));
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'g3' }));
+    expect(screen.queryByRole('button', { name: 'tastings.syncingDrink' })).toBeNull();
+  });
+
+  // Still waiting (no network): the line it was taken from, as before — the save fails anyway.
+  it('saved while the drink still waits for the network: the line it was taken from', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    queued = [{ id: 'm1', status: 'pending' }];
+    flushQueue.mockImplementation(async () => {});
+    render(<TastingForm open onClose={vi.fn()} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'g3' })));
+  });
+
+  it('another bottle picked instead: its stock is asked about as usual', async () => {
+    const copy = drunkLine('copy', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 2 })])];
+    lookedUp = [item({ id: 'g3', category: 'wine', quantity: 2, isOpened: false })];
+    render(<TastingForm open onClose={vi.fn()} initialProductId="talbot" initialItemId="copy" drunk={{ item: copy, linkId: 'copy' }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('copy'));
+
+    fireEvent.change(field('tastingWine.whichBottle *'), { target: { value: 'g3' } });
+    save();
+
+    expect(await screen.findByText('tastings.stockUpdate.title')).toBeInTheDocument();
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'g3' }));
+  });
+});

@@ -17,9 +17,16 @@ import { useTranslation } from 'react-i18next';
 import { InventoryCategory, InventoryItem } from '@/lib/inventory/types';
 import { CATEGORY_VALUES } from '@shared/inventory';
 import { unitKind } from '@shared/units';
-import { familyLines, formatPurchaseDay, lineParts, type LineContext } from '@/lib/products/lines';
+import { familyLines, formatPurchaseDay, goneParts, lineParts, type LineContext } from '@/lib/products/lines';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { isValidVintage, parseYear, tastingLinePreset, tastingPayload, wineOptionLabel } from '@/lib/tastings/onWine';
+import {
+  drunkCopyOf, isValidVintage, parseYear, tastingLinePreset, tastingPayload, wineOptionLabel, type DrunkCopy,
+} from '@/lib/tastings/onWine';
+import { useQueryClient } from '@tanstack/react-query';
+import { qk } from '@/lib/queryKeys';
+import { changeIdOfProvisional, isProvisional } from '@/lib/offline/optimistic';
+import { flushQueue, getQueuedMutations, sentCopyOf } from '@/lib/offline/syncEngine';
+import type { ProductDetailView } from '@/lib/products/types';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
@@ -36,6 +43,14 @@ import { SingleSelect } from '@/components/ui/SingleSelect';
 import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
+/**
+ * #1036: how long a tasting waits for the drink it is of to reach the
+ * server — a replay already running is waited for, then at most a couple of
+ * tries of its own, so a save without network is not held back either.
+ */
+const SYNC_TRIES = 3;
+const SYNC_WAIT_MS = 15000;
+const SYNC_POLL_MS = 150;
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
 
 interface TastingFormProps {
@@ -55,9 +70,15 @@ interface TastingFormProps {
    * bottle of that cell, without asking "De quelle case ?" (decision 77).
    */
   fromCell?: { itemId: string; slotId: string };
+  /**
+   * #1036: the copy just drunk (smoked) from the wine's drawer — offered and
+   * preset even when it was the last one, and never asked about the stock
+   * again: it is already out of it.
+   */
+  drunk?: DrunkCopy;
 }
 
-export function TastingForm({ open, onClose, initialItemId, initialProductId, initialFoodPairing, editNote, fromCell }: TastingFormProps) {
+export function TastingForm({ open, onClose, initialItemId, initialProductId, initialFoodPairing, editNote, fromCell, drunk }: TastingFormProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const { data: products } = useProducts({ enabled: open });
@@ -66,6 +87,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
   const updateMutation = useUpdateTasting();
   const updateInventory = useUpdateInventoryItem();
   const lookUpItem = useInventoryItemLookup();
+  const queryClient = useQueryClient();
   const isExpert = useExpertMode();
   // The tasted item as it was when the stock question was asked, and the
   // tasting it was noted with (it follows a bottle taken off its group).
@@ -76,6 +98,8 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
   // whether the tasting is of a bottle of the cellar.
   const [naming, setNaming] = useState(false);
   const [onBottle, setOnBottle] = useState(true);
+  // #1036: the save is waiting for the drink of this tasting to be sent.
+  const [syncing, setSyncing] = useState(false);
   // The vintage as typed: "20" on the way to "2020" stays on screen.
   const [vintageText, setVintageText] = useState('');
   // What its rule checks: react-hook-form keeps the rule of the field's first
@@ -142,10 +166,16 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
   }), [product?.category, t, cellarName, lang]);
   const lines = useMemo(() => familyLines(product?.items ?? [], cellarName), [product?.items, cellarName]);
+  // The bottles a tasting can be of: those in the cellar, and the one just drunk (#1036).
+  const drunkCopy = drunk && drunk.item.productId === product?.id ? drunk.item : undefined;
+  const bottles = useMemo(
+    () => (drunkCopy && !lines.inCellar.some((line) => line.id === drunkCopy.id) ? [...lines.inCellar, drunkCopy] : lines.inCellar),
+    [lines.inCellar, drunkCopy],
+  );
   // A wine with no bottle in the cellar is tasted elsewhere: nothing to ask.
-  const asksBottle = !editNote && !naming && lines.inCellar.length > 0;
+  const asksBottle = !editNote && !naming && bottles.length > 0;
   const tastesBottle = asksBottle && onBottle;
-  const preset = tastingLinePreset(lines.inCellar, watchedItemId);
+  const preset = tastingLinePreset(bottles, watchedItemId);
   useEffect(() => {
     // The line preset when the wine has one obvious line (an opened bottle, a single line).
     if (asksBottle && preset && preset.id !== watchedItemId) setValue('itemId', preset.id);
@@ -177,6 +207,9 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
         await updateMutation.mutateAsync({ id: editNote.id, data: tastingPayload(values, { kind: 'edit', itemId: editNote.values.itemId }) });
         onClose();
       } else {
+        // #1036: the copy just drunk, saved on the bottle the server knows (its line while still waiting for the network).
+        const isDrunk = !!drunkCopy && values.itemId === drunkCopy.id;
+        if (isDrunk && drunk) values = { ...values, itemId: await drunkLink(drunk) };
         const note = await createMutation.mutateAsync(tastingPayload(values, naming
           ? { kind: 'named' }
           // A wine whose lines are not known (list not loaded): the bottle given stays.
@@ -184,7 +217,8 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
         // The stock question is skipped for an item with nothing to update
         // (empty box, finished bottle) or whose stock could not be read. A
         // wine tasted without a bottle (FEAT-87) has no item to ask about.
-        const tastedItem = note.itemId ? await lookUpItem(note.itemId) : undefined;
+        // The copy just drunk is out of the stock already: nothing to ask (#1036).
+        const tastedItem = note.itemId && !isDrunk ? await lookUpItem(note.itemId) : undefined;
         if (note.itemId && tastedItem && stockChoicesFor(tastedItem).length > 0) {
           setStockQuestion({ itemId: note.itemId, item: tastedItem, tastingId: note.id });
         } else {
@@ -194,6 +228,43 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
     } catch {
       // error displayed via mutation.error below
     }
+  };
+
+  /**
+   * #1036: the bottle a tasting of the copy drunk is saved on, read when
+   * saved — opened while the drink waited for the network, the queue may
+   * have sent it since: the copy the server made, not the line it came from.
+   * Second review of #1053: while that drink is on its way, the answer says
+   * which copy, so the tasting waits for the replay (one at a time across
+   * the tabs, `flushQueue`) instead of falling back to the line. Still
+   * waiting without network, or refused: the line, as before.
+   */
+  const drunkLink = async (copy: DrunkCopy): Promise<string> => {
+    if (!copy.taken || !isProvisional(copy.item)) return copy.linkId;
+    const changeId = changeIdOfProvisional(copy.taken.copyId);
+    const stateOf = async () => (changeId ? (await getQueuedMutations()).find((change) => change.id === changeId) : undefined);
+    // A replay already running is waited for; one that ended without sending
+    // this change (it started before it was made) is run again, up to
+    // SYNC_WAIT_MS — then the line, as without network.
+    const until = Date.now() + SYNC_WAIT_MS;
+    const onItsWay = (change: Awaited<ReturnType<typeof stateOf>>) => !!change && (change.status === 'pending' || change.status === 'syncing');
+    let sending = await stateOf();
+    try {
+      for (let tries = 0; tries < SYNC_TRIES && onItsWay(sending) && Date.now() < until; tries += 1) {
+        setSyncing(true);
+        if (tries > 0) await new Promise((resolve) => setTimeout(resolve, SYNC_POLL_MS));
+        // A replay that threw (its own matter, told elsewhere) leaves the tasting to go on the line.
+        await flushQueue(queryClient).catch(() => {});
+        sending = await stateOf();
+      }
+    } finally {
+      // Never left on "Synchronisation…": the save goes on, or says it failed.
+      setSyncing(false);
+    }
+    // Still queued (no network, in conflict, refused): no copy of its own to go on.
+    const stalled = sending !== undefined;
+    const items = queryClient.getQueryData<ProductDetailView>(qk.products.detail(copy.item.productId))?.items;
+    return (items && drunkCopyOf(items, copy.taken, { id: sentCopyOf(copy.taken.copyId), stalled })?.linkId) ?? copy.linkId;
   };
 
   const handleStockChoice = async (choice: StockChoice, cell?: SlotChoiceFields) => {
@@ -429,8 +500,10 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                         errorMessage={errors.itemId?.message}
                         variant="bordered"
                       >
-                        {lines.inCellar.map((line) => (
-                          <SelectItem key={line.id}>{lineParts(line, lineCtx).join(' · ')}</SelectItem>
+                        {bottles.map((line) => (
+                          <SelectItem key={line.id}>
+                            {(line.id === drunkCopy?.id && !lines.inCellar.includes(line) ? goneParts(line, lineCtx) : lineParts(line, lineCtx)).join(' · ')}
+                          </SelectItem>
                         ))}
                       </SingleSelect>
                     )}
@@ -640,7 +713,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                   isLoading={isSaving}
                   isDisabled={isSaving}
                 >
-                  {isSaving ? t('actions.saving') : t('actions.save')}
+                  {syncing ? t('tastings.syncingDrink') : isSaving ? t('actions.saving') : t('actions.save')}
                 </Button>
               </ModalFooter>
             </form>
