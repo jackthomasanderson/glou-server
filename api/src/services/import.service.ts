@@ -3,7 +3,7 @@ import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { IN_STOCK_ITEM_FILTER, itemUnits, productKey } from '../lib/finished-item';
 import { parseCsvTable } from '../lib/csv';
 import { lockFamilies, purchaseDayToDate, todayAsPurchaseDate } from '../lib/product-fields';
-import { csvRawRowSchema, toOpened } from '../schemas/import.schema';
+import { csvRawRowSchema, isPurchaseDay, toOpened } from '../schemas/import.schema';
 import { normalizeToken } from '../lib/category';
 import { MAX_COPIES } from '../schemas/stock.schema';
 import { familyAlertStatus } from './alert.service';
@@ -34,21 +34,14 @@ import {
 // normalizeToken (no case, accents, spaces or punctuation). English and
 // French, so a French spreadsheet ("Nom; Producteur; Catégorie; Millésime")
 // imports as is.
-//
-// #1035: and the usual names of other cellar software's exports —
-// CellarTracker ("Wine", "Type", "Varietal", "Bin", "Valuation", "StoreName",
-// "BeginConsume") and Vivino ("Wine name", "Winery", "Wine type", "Wine price",
-// "User cellar count", "Personal Note").
 export const HEADER_ALIASES: Record<string, string> = {
-  name: 'name', nom: 'name', cuvee: 'name', libelle: 'name', wine: 'name', winename: 'name', nomduvin: 'name',
+  name: 'name', nom: 'name', cuvee: 'name', libelle: 'name',
   producer: 'producer', producteur: 'producer', domaine: 'producer', maison: 'producer', distillerie: 'producer', marque: 'producer',
-  winery: 'producer', manufacturer: 'producer', brand: 'producer',
-  category: 'category', categorie: 'category', type: 'category', winetype: 'category', typedevin: 'category',
+  category: 'category', categorie: 'category',
   vintage: 'vintage', millesime: 'vintage', annee: 'vintage', year: 'vintage',
   price: 'purchasePrice', purchaseprice: 'purchasePrice', prix: 'purchasePrice', prixdachat: 'purchasePrice', prixachat: 'purchasePrice',
-  wineprice: 'purchasePrice', cost: 'purchasePrice',
   region: 'region',
-  quantity: 'quantity', quantite: 'quantity', qte: 'quantity', qty: 'quantity', usercellarcount: 'quantity', bottles: 'quantity',
+  quantity: 'quantity', quantite: 'quantity', qte: 'quantity', qty: 'quantity',
   // #471 (FEAT-99): what tells a group apart, and a cigar's vitola and box.
   cellar: 'cellar', cave: 'cellar', cellier: 'cellar',
   purchasedat: 'purchasedAt', purchasedate: 'purchasedAt', dateofpurchase: 'purchasedAt', datedachat: 'purchasedAt', dateachat: 'purchasedAt',
@@ -63,21 +56,18 @@ export const HEADER_ALIASES: Record<string, string> = {
   cigarsleft: 'cigarsLeft', cigaresrestants: 'cigarsLeft',
   openedon: 'openedAt', openedat: 'openedAt', dateouverture: 'openedAt', datedouverture: 'openedAt',
   purchaseplace: 'purchasePlace', placeofpurchase: 'purchasePlace', lieudachat: 'purchasePlace', lieuachat: 'purchasePlace',
-  storename: 'purchasePlace', store: 'purchasePlace',
-  location: 'location', emplacement: 'location', bin: 'location',
-  estimatedvalue: 'estimatedValue', valeurestimee: 'estimatedValue', valuation: 'estimatedValue',
+  location: 'location', emplacement: 'location',
+  estimatedvalue: 'estimatedValue', valeurestimee: 'estimatedValue',
   needsreview: 'needsReview', tocheck: 'needsReview', averifier: 'needsReview',
   // The family's description.
   color: 'color', colour: 'color', couleur: 'color',
   appellation: 'appellation', classification: 'classification',
   grapes: 'grapeVarieties', grapevarieties: 'grapeVarieties', cepages: 'grapeVarieties', cepage: 'grapeVarieties',
-  grape: 'grapeVarieties', varietal: 'grapeVarieties', varietals: 'grapeVarieties', variety: 'grapeVarieties',
   tags: 'tags', etiquettes: 'tags', notes: 'notes', collection: 'collection',
-  note: 'notes', personalnote: 'notes', privatenote: 'notes', mynotes: 'notes', commentaire: 'notes', commentaires: 'notes',
   servicetemperature: 'serviceTemp', servicetemp: 'serviceTemp', temperaturedeservice: 'serviceTemp',
   lotnumber: 'lotNumber', numerodelot: 'lotNumber',
-  drinkfrom: 'peakMaturityFrom', aboireapartirde: 'peakMaturityFrom', beginconsume: 'peakMaturityFrom',
-  drinkuntil: 'peakMaturityTo', aboirejusquen: 'peakMaturityTo', endconsume: 'peakMaturityTo',
+  drinkfrom: 'peakMaturityFrom', aboireapartirde: 'peakMaturityFrom',
+  drinkuntil: 'peakMaturityTo', aboirejusquen: 'peakMaturityTo',
   needsaeration: 'needsAeration', aeration: 'needsAeration',
   sparklingtype: 'sparklingType', typedebulles: 'sparklingType',
   sugarlevel: 'sugarLevel', dosage: 'sugarLevel',
@@ -102,6 +92,28 @@ export const HEADER_ALIASES: Record<string, string> = {
 };
 
 /**
+ * #1035: the usual names of other cellar software's exports — CellarTracker
+ * ("Wine", "Type", "Varietal", "Bin", "Valuation", "StoreName", "BeginConsume",
+ * "Remaining") and Vivino ("Wine name", "Winery", "Wine type", "Wine price",
+ * "User cellar count", "Personal Note"). Read only for a column the file has
+ * none of the names above for: a "Type" next to a "Catégorie" never replaces it.
+ */
+export const THIRD_PARTY_HEADER_ALIASES: Record<string, string> = {
+  wine: 'name', winename: 'name', nomduvin: 'name',
+  winery: 'producer', manufacturer: 'producer', brand: 'producer',
+  type: 'category', winetype: 'category', typedevin: 'category',
+  cost: 'purchasePrice',
+  // Vivino's price is the market price it shows, not what was paid.
+  wineprice: 'estimatedValue', valuation: 'estimatedValue',
+  usercellarcount: 'quantity', remaining: 'quantity', bottles: 'quantity',
+  storename: 'purchasePlace', store: 'purchasePlace',
+  bin: 'location',
+  grape: 'grapeVarieties', varietal: 'grapeVarieties', varietals: 'grapeVarieties', variety: 'grapeVarieties',
+  personalnote: 'notes', privatenote: 'notes', mynotes: 'notes', commentaire: 'notes', commentaires: 'notes',
+  beginconsume: 'peakMaturityFrom', endconsume: 'peakMaturityTo',
+};
+
+/**
  * #1035: names read only for a row whose own column is empty or absent —
  * the country when no region is given, a designation when no name is.
  */
@@ -110,9 +122,17 @@ export const HEADER_FALLBACKS: Record<string, string> = {
   designation: 'name',
 };
 
+/** #1035: the longest cell, header or list a preview echoes back. */
+const ECHO_MAX_CHARS = 100;
+const ECHO_MAX_COLUMNS = 30;
+const CELLAR_NAME_MAX = 100;
+const clip = (text: string) => (text.length > ECHO_MAX_CHARS ? `${text.slice(0, ECHO_MAX_CHARS - 1)}…` : text);
+
 /**
- * Where each column of the importer is read in a file: its headers, the main
- * names first, each in file order. A row takes the first non-empty cell.
+ * Where each column of the importer is read in a file: its headers, Glou's
+ * own names first, then another software's (only when the file has none of
+ * Glou's), then the fallbacks — whatever their order in the file. A row
+ * takes the first non-empty cell.
  */
 interface ColumnMap {
   sources: Map<string, string[]>;
@@ -120,31 +140,58 @@ interface ColumnMap {
   unrecognized: string[];
   /** Each column's first header, as the file writes it: what a message about it quotes. */
   label: Map<string, string>;
+  /** A file from other software: its dates and quantities are read as that software writes them. */
+  thirdParty: boolean;
+  /** A CellarTracker export (its `iWine` column): month-first dates. */
+  cellarTracker: boolean;
+  /** Its Location column names the cellar (CellarTracker's Location + Bin). */
+  storagePlace: boolean;
+  /** The quantity is another software's count of bottles left: 0 means none left, not an error. */
+  countLeft: boolean;
 }
 
 function mapColumns(header: readonly string[]): ColumnMap {
   const tokens = header.map(normalizeToken);
+  const own = (token: string) => HEADER_ALIASES[token];
   // CellarTracker names a storage place "Location" and a slot in it "Bin": a
   // file with a Bin column and no cellar column means its Location as the cellar.
-  const storagePlace = tokens.includes('bin') && !tokens.some((token) => HEADER_ALIASES[token] === 'cellar');
-  const aliasOf = (token: string) => (storagePlace && token === 'location' ? 'cellar' : HEADER_ALIASES[token]);
-  const main: Array<[string, number]> = [];
-  const fallback: Array<[string, number]> = [];
+  const storagePlace = tokens.includes('bin') && !tokens.some((token) => own(token) === 'cellar');
+  // CellarTracker's purchases export counts drunk bottles in Quantity; Remaining is what is left.
+  const remaining = tokens.includes('remaining');
+  const ownOf = (token: string) => {
+    if (storagePlace && token === 'location') return 'cellar';
+    if (remaining && own(token) === 'quantity') return undefined;
+    return own(token);
+  };
+  const ranked: Array<[string, number, number]> = [];
   const unrecognized: string[] = [];
+  const ownColumns = new Set(tokens.map(ownOf).filter((column) => column !== undefined));
+  let thirdParty = tokens.includes('iwine');
   header.forEach((name, index) => {
     const token = tokens[index];
-    const column = aliasOf(token);
-    if (column) main.push([column, index]);
-    else if (HEADER_FALLBACKS[token]) fallback.push([HEADER_FALLBACKS[token], index]);
-    else if (name !== '') unrecognized.push(name);
+    const column = ownOf(token);
+    const other = THIRD_PARTY_HEADER_ALIASES[token];
+    if (column) ranked.push([column, 0, index]);
+    else if (other && !ownColumns.has(other)) { ranked.push([other, 1, index]); thirdParty = true; }
+    else if (HEADER_FALLBACKS[token]) ranked.push([HEADER_FALLBACKS[token], 2, index]);
+    else if (name !== '' && !(remaining && own(token) === 'quantity')) unrecognized.push(name);
   });
+  ranked.sort((a, b) => a[1] - b[1] || a[2] - b[2]);
   const sources = new Map<string, string[]>();
   const label = new Map<string, string>();
-  for (const [column, index] of [...main, ...fallback]) {
+  for (const [column, , index] of ranked) {
     sources.set(column, [...(sources.get(column) ?? []), header[index].toLowerCase()]);
     if (!label.has(column)) label.set(column, header[index]);
   }
-  return { sources, unrecognized, label };
+  const quantityTokens = ranked.filter(([column]) => column === 'quantity').map(([, , index]) => tokens[index]);
+  const countLeft = quantityTokens.length > 0 && quantityTokens.every((token) => token === 'remaining' || token === 'usercellarcount');
+  return { sources, unrecognized, label, thirdParty, cellarTracker: tokens.includes('iwine'), storagePlace, countLeft };
+}
+
+/** CellarTracker's `3/14/2019` (month first, maybe with a time) as `2019-03-14`. */
+function monthFirstDay(cell: string): string {
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s.*)?$/.exec(cell.trim());
+  return match ? `${match[3]}-${match[1]}-${match[2]}` : cell;
 }
 
 const isErrorCode = (reason: string): reason is CsvImportErrorCode => (CSV_IMPORT_ERROR_CODES as readonly string[]).includes(reason);
@@ -173,6 +220,14 @@ function canonicalRecord(record: Record<string, string>, columns: ColumnMap): Re
     out[column] = unneutralize(cells.find((cell) => cell.trim() !== '') ?? cells[0]);
   }
   if (toOpened(out.opened) !== true) for (const column of OPENED_ONLY_COLUMNS) delete out[column];
+  // #1035: another software's file is never refused for its purchase day:
+  // CellarTracker's is month first, and one that cannot be read is left out.
+  if (columns.thirdParty && out.purchasedAt !== undefined) {
+    const day = columns.cellarTracker ? monthFirstDay(out.purchasedAt) : out.purchasedAt;
+    out.purchasedAt = isPurchaseDay(day) ? day : '';
+  }
+  // A storage place used as the cellar keeps to a cellar name's length.
+  if (columns.storagePlace && out.cellar !== undefined) out.cellar = out.cellar.trim().slice(0, CELLAR_NAME_MAX);
   return out;
 }
 
@@ -188,9 +243,11 @@ const CSV_IMPORT_LOCK_KEY = 5_770_641;
 export interface CsvParseResult {
   valid: CsvImportRow[];
   errors: CsvImportError[];
-  /** #1035: what {@link CsvImportPreview} says of the header line. */
+  /** #1035: what {@link CsvImportPreview} says of the header line, and of the rows left out quietly. */
   missingColumns: string[];
   unrecognizedColumns: string[];
+  unrecognizedCount: number;
+  outOfStockRows: number;
 }
 
 const normalizeName = (value: string) => value.trim().toLowerCase();
@@ -257,7 +314,7 @@ export class ImportService {
     // UTF-8 silently turns every accented byte into U+FFFD rather than
     // failing — the only sign is the replacement character itself (#397).
     if (text.includes('�')) {
-      return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }], missingColumns: [], unrecognizedColumns: [] };
+      return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }], missingColumns: [], unrecognizedColumns: [], unrecognizedCount: 0, outOfStockRows: 0 };
     }
 
     // FEAT-91 (#641): every row is read, so the screen can say when the file
@@ -265,11 +322,12 @@ export class ImportService {
     // The upload itself is capped at 2 MB (upload.middleware.ts).
     const { header, records } = parseCsvTable(text);
     const columns = mapColumns(header);
-    const unrecognizedColumns = columns.unrecognized;
+    const unrecognizedColumns = columns.unrecognized.slice(0, ECHO_MAX_COLUMNS).map(clip);
+    const unrecognizedCount = columns.unrecognized.length;
 
     const valid: CsvImportRow[] = [];
     const errors: CsvImportError[] = [];
-    if (records.length === 0) return { valid, errors, missingColumns: [], unrecognizedColumns };
+    if (records.length === 0) return { valid, errors, missingColumns: [], unrecognizedColumns, unrecognizedCount, outOfStockRows: 0 };
 
     // If a file carries none of the known columns, its header line was almost
     // certainly not understood (unsupported delimiter, missing header row,
@@ -279,13 +337,23 @@ export class ImportService {
     const missingColumns = CSV_REQUIRED_COLUMNS.filter((column) => !columns.sources.has(column));
     if (missingColumns.length > 0) {
       // Row 1 = the header line itself, which is what is actually wrong.
-      const reason = columns.sources.size === 0 ? 'UNRECOGNIZED_COLUMNS' : 'MISSING_COLUMNS';
-      return { valid, errors: [{ row: 1, reason }], missingColumns, unrecognizedColumns };
+      // Nothing recognized: one message, the header was not understood.
+      if (columns.sources.size === 0) {
+        return { valid, errors: [{ row: 1, reason: 'UNRECOGNIZED_COLUMNS' }], missingColumns: [], unrecognizedColumns, unrecognizedCount, outOfStockRows: 0 };
+      }
+      return { valid, errors: [{ row: 1, reason: 'MISSING_COLUMNS' }], missingColumns, unrecognizedColumns, unrecognizedCount, outOfStockRows: 0 };
     }
+
+    let outOfStockRows = 0;
 
     records.forEach((raw, index) => {
       const rowNumber = index + 2; // +1 for the header row, +1 for 1-based numbering
       const record = canonicalRecord(raw, columns);
+      // #1035: a wine another software lists with no bottle left (Vivino's cellar count, CellarTracker's Remaining at 0).
+      if (columns.countLeft && /^0+$/.test(record.quantity?.trim() ?? '')) {
+        outOfStockRows += 1;
+        return;
+      }
       const result = csvRawRowSchema.safeParse(record);
       if (result.success) {
         valid.push(result.data);
@@ -296,13 +364,14 @@ export class ImportService {
         // INVALID_ROW, never the validator's own text.
         const issue = result.error.issues[0];
         const reason = issue && isErrorCode(issue.message) ? issue.message : 'INVALID_ROW';
-        const column = typeof issue?.path[0] === 'string' ? columns.label.get(issue.path[0]) : undefined;
-        const name = record.name?.trim();
+        const label = typeof issue?.path[0] === 'string' ? columns.label.get(issue.path[0]) : undefined;
+        const column = label ? clip(label) : undefined;
+        const name = record.name?.trim() ? clip(record.name.trim()) : undefined;
         errors.push({ row: rowNumber, reason, ...(column ? { column } : {}), ...(name ? { name } : {}) });
       }
     });
 
-    return { valid, errors, missingColumns: [], unrecognizedColumns };
+    return { valid, errors, missingColumns: [], unrecognizedColumns, unrecognizedCount, outOfStockRows };
   }
 
   /**
@@ -312,8 +381,8 @@ export class ImportService {
    * (QP3). Never writes.
    */
   async preview(buffer: Buffer): Promise<CsvImportPreview> {
-    const { valid, errors, missingColumns, unrecognizedColumns } = this.previewCsv(buffer);
-    if (valid.length === 0) return { valid, errors, lines: [], newCellars: [], missingColumns, unrecognizedColumns };
+    const { valid, errors, ...file } = this.previewCsv(buffer);
+    if (valid.length === 0) return { valid, errors, lines: [], newCellars: [], ...file };
     const drafts = groupCsvRows(valid);
     const families = await familiesOf(prisma, drafts);
     const stock = await stockOf(prisma, idsOf(families));
@@ -329,7 +398,7 @@ export class ImportService {
       if (newCellar && inStock === 0 && !newCellars.has(normalizeName(cellar))) newCellars.set(normalizeName(cellar), cellar.trim());
       return { ...draft, inStock, newCellar, tooLarge: draft.count > MAX_COPIES };
     });
-    return { valid, errors, lines, newCellars: [...newCellars.values()], missingColumns, unrecognizedColumns };
+    return { valid, errors, lines, newCellars: [...newCellars.values()], ...file };
   }
 
   /**

@@ -51,7 +51,7 @@ describe('plural forms (#220)', () => {
     const t = (await instance('en')).t;
     expect(t('shares.cellarCount', { count: 1 })).toBe('1 cellar');
     expect(t('shares.cellarCount', { count: 3 })).toBe('3 cellars');
-    expect(t('onboarding.csv.errorRows', { count: 1 })).toBe('1 skipped row');
+    expect(t('onboarding.csv.errorRows', { count: 1 })).toBe('1 row with errors');
   });
 
   it('French: 0 and 1 are singular, agreement follows the noun', async () => {

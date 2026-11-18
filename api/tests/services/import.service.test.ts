@@ -200,10 +200,9 @@ describe('ImportService.previewCsv', () => {
   });
 
   it('returns an empty preview for an empty file', async () => {
-    expect(importService.previewCsv(csv(''))).toEqual({ valid: [], errors: [], missingColumns: [], unrecognizedColumns: [] });
-    expect(await importService.preview(csv(''))).toEqual({
-      valid: [], errors: [], lines: [], newCellars: [], missingColumns: [], unrecognizedColumns: [],
-    });
+    const file = { missingColumns: [], unrecognizedColumns: [], unrecognizedCount: 0, outOfStockRows: 0 };
+    expect(importService.previewCsv(csv(''))).toEqual({ valid: [], errors: [], ...file });
+    expect(await importService.preview(csv(''))).toEqual({ valid: [], errors: [], lines: [], newCellars: [], ...file });
   });
 });
 
@@ -730,20 +729,21 @@ describe('FEAT-99 export: nothing lost on the way back', () => {
 describe('exports of other cellar software (#1035)', () => {
   const fixture = (file: string) => readFileSync(join(__dirname, '../fixtures/import', file));
 
-  it('imports a CellarTracker export: its wine, type, varietal, location and bin columns', () => {
+  it('imports a CellarTracker export: its wine, category, varietal, location and bin columns, its month-first dates', () => {
     const { valid, errors, missingColumns, unrecognizedColumns } = importService.previewCsv(fixture('cellartracker.csv'));
     expect(errors).toEqual([]);
     expect(missingColumns).toEqual([]);
-    expect(unrecognizedColumns).toEqual(['iWine', 'Currency', 'Locale', 'Vineyard', 'SubRegion', 'Pending']);
+    // Its "Type" repeats its "Category", which wins as Glou's own name.
+    expect(unrecognizedColumns).toEqual(['iWine', 'Type', 'Currency', 'Locale', 'Vineyard', 'SubRegion', 'Pending']);
     expect(valid).toEqual([
       {
         name: 'Château Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2015, quantity: 3, purchasePrice: 45,
-        estimatedValue: 60, purchasePlace: 'Lavinia', cellar: 'Home', location: 'A1', bottleSize: '750ml', region: 'Bordeaux',
+        estimatedValue: 60, purchasePlace: 'Lavinia', purchasedAt: '2019-03-04', cellar: 'Home', location: 'A1', bottleSize: '750ml', region: 'Bordeaux',
         color: 'red', appellation: 'Saint-Julien', grapeVarieties: ['Cabernet Sauvignon Blend'], peakMaturityFrom: 2022, peakMaturityTo: 2035,
       },
       {
         name: 'Bollinger Champagne Brut Special Cuvée', producer: 'Bollinger', category: 'sparkling', quantity: 2, purchasePrice: 38.5,
-        cellar: 'Home', location: 'B2', bottleSize: '750ml', region: 'Champagne', color: 'white', appellation: 'Champagne',
+        purchasedAt: '2019-11-15', cellar: 'Home', location: 'B2', bottleSize: '750ml', region: 'Champagne', color: 'white', appellation: 'Champagne',
         grapeVarieties: ['Champagne Blend'],
       },
       // CellarTracker writes a non-vintage wine 1001.
@@ -770,14 +770,16 @@ describe('exports of other cellar software (#1035)', () => {
     });
   });
 
-  it('imports a Vivino export: winery, wine name, wine type, price, cellar count; the country when no region', () => {
-    const { valid, errors, unrecognizedColumns } = importService.previewCsv(fixture('vivino.csv'));
+  it('imports a Vivino export: winery, wine name, wine type, market price, cellar count; the country when no region', () => {
+    const { valid, errors, unrecognizedColumns, outOfStockRows } = importService.previewCsv(fixture('vivino.csv'));
     expect(errors).toEqual([]);
+    // A wine with a cellar count of 0 is no longer in the cellar: left out quietly.
+    expect(outOfStockRows).toBe(1);
     expect(unrecognizedColumns).toEqual(['Regional wine style', 'Average rating', 'Scan date', 'Your rating', 'Your review', 'Link to wine', 'Label image']);
     expect(valid).toEqual([
-      { name: 'Bandol Rouge', producer: 'Domaine Tempier', category: 'wine', vintage: 2018, region: 'Bandol', purchasePrice: 32, quantity: 2, notes: 'Open in 2026' },
-      { name: 'Grande Cuvée', producer: 'Krug', category: 'sparkling', region: 'Champagne', purchasePrice: 180, quantity: 1 },
-      { name: '10 Year Old Tawny Port', producer: 'Graham\'s', category: 'wine', region: 'Portugal', purchasePrice: 25, quantity: 1 },
+      { name: 'Bandol Rouge', producer: 'Domaine Tempier', category: 'wine', vintage: 2018, region: 'Bandol', estimatedValue: 32, quantity: 2, notes: 'Open in 2026' },
+      { name: 'Grande Cuvée', producer: 'Krug', category: 'sparkling', region: 'Champagne', estimatedValue: 180, quantity: 1 },
+      { name: '10 Year Old Tawny Port', producer: 'Graham\'s', category: 'wine', region: 'Portugal', estimatedValue: 25, quantity: 1 },
       { name: 'Sauvignon Blanc', producer: 'Cloudy Bay', category: 'wine', vintage: 2023, region: 'Marlborough' },
     ]);
   });
@@ -791,6 +793,74 @@ describe('exports of other cellar software (#1035)', () => {
   it('keeps a file\'s own Location column when it has a cellar column, and its region before its country', () => {
     const { valid } = importService.previewCsv(csv('name,producer,category,cellar,location,bin,country,region\nA,P,wine,Garage,Rack 2,A1,France,Loire\n'));
     expect(valid).toEqual([{ name: 'A', producer: 'P', category: 'wine', cellar: 'Garage', location: 'Rack 2', region: 'Loire' }]);
+  });
+
+  // Review of #1051: a "Type" left of "Catégorie" took its place, file order deciding.
+  it('reads Glou\'s own column before another software\'s name for it, whatever their order', () => {
+    const { valid, errors, unrecognizedColumns } = importService.previewCsv(csv([
+      'Type;Nom;Producteur;Catégorie;Wine;Note',
+      'Blanc;Brut Réserve;Billecart-Salmon;Champagne;X;17/20',
+      'Single Malt;Lagavulin 16;Lagavulin;Spiritueux;X;',
+      'Tranquille;Bandol;Tempier;Vin;X;',
+      'Robusto;Behike 52;Cohiba;Cigare;X;',
+    ].join('\n')));
+    expect(errors).toEqual([]);
+    expect(valid.map((row) => [row.name, row.category, row.notes])).toEqual([
+      ['Brut Réserve', 'sparkling', undefined], ['Lagavulin 16', 'spirit', undefined], ['Bandol', 'wine', undefined], ['Behike 52', 'cigar', undefined],
+    ]);
+    expect(unrecognizedColumns).toEqual(['Type', 'Wine', 'Note']);
+  });
+
+  it('never refuses a CellarTracker row for its purchase day: month first, an unreadable one left out', () => {
+    const { valid, errors } = importService.previewCsv(csv([
+      'iWine,Wine,Producer,Category,PurchaseDate,Quantity',
+      '1,A,P,Dry,3/4/2019,1',
+      '2,B,P,Dry,11/15/2019 12:00:00 AM,1',
+      '3,C,P,Dry,someday,1',
+      '4,D,P,Dry,2/30/2019,1',
+    ].join('\n')));
+    expect(errors).toEqual([]);
+    expect(valid.map((row) => row.purchasedAt)).toEqual(['2019-03-04', '2019-11-15', undefined, undefined]);
+  });
+
+  it('reads CellarTracker\'s Remaining as the quantity, and leaves out a wine with none left', () => {
+    const { valid, errors, outOfStockRows, unrecognizedColumns } = importService.previewCsv(csv([
+      'iWine,Wine,Producer,Category,Quantity,Remaining',
+      '1,A,P,Dry,6,2',
+      '2,B,P,Dry,3,0',
+    ].join('\n')));
+    expect(errors).toEqual([]);
+    expect(valid).toEqual([{ name: 'A', producer: 'P', category: 'wine', quantity: 2 }]);
+    expect(outOfStockRows).toBe(1);
+    expect(unrecognizedColumns).toEqual(['iWine']);
+  });
+
+  it('still refuses a quantity of 0 in Glou\'s own Quantity column', () => {
+    expect(importService.previewCsv(csv('name,producer,category,quantity\nA,P,wine,0\n')).errors)
+      .toEqual([{ row: 2, reason: 'INVALID_QUANTITY', column: 'quantity', name: 'A' }]);
+  });
+
+  it('keeps a long CellarTracker Location used as the cellar to a cellar name\'s length', () => {
+    const place = 'L'.repeat(150);
+    const { valid, errors } = importService.previewCsv(csv(`Wine,Producer,Category,Location,Bin\nA,P,Dry,${place},A1\n`));
+    expect(errors).toEqual([]);
+    expect(valid[0].cellar).toBe('L'.repeat(100));
+    expect(valid[0].location).toBe('A1');
+  });
+
+  it('cuts what it echoes back: a name or header to 100 characters, the unknown headers to 30', () => {
+    const extra = Array.from({ length: 40 }, (_, i) => `Extra ${i}`);
+    const long = 'N'.repeat(300);
+    const result = importService.previewCsv(csv(`name,producer,category,${extra.join(',')}\n${long},P,beer${',x'.repeat(40)}\n`));
+    expect(result.errors[0].name).toHaveLength(100);
+    expect(result.unrecognizedColumns).toHaveLength(30);
+    expect(result.unrecognizedCount).toBe(40);
+  });
+
+  it('says only that the header was not understood when no column is recognized', () => {
+    const result = importService.previewCsv(csv('foo,bar\n1,2\n'));
+    expect(result.errors).toEqual([{ row: 1, reason: 'UNRECOGNIZED_COLUMNS' }]);
+    expect(result.missingColumns).toEqual([]);
   });
 
   it('says once which required column is missing, with the columns it did not recognize', () => {

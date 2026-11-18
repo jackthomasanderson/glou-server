@@ -234,8 +234,12 @@ export interface CsvImportPreview {
   newCellars: string[];
   /** #1035: required columns ({@link CSV_REQUIRED_COLUMNS}) the file lacks; no row is then read. */
   missingColumns: string[];
-  /** #1035: the file's headers the import does not read, as written: their cells are left out. */
+  /** #1035: the file's headers the import does not read, as written (the first 30): their cells are left out. */
   unrecognizedColumns: string[];
+  /** #1035: how many headers the import does not read, all of them. */
+  unrecognizedCount: number;
+  /** #1035: rows another software lists with no bottle left (a cellar count of 0): left out quietly. */
+  outOfStockRows: number;
 }
 
 /**

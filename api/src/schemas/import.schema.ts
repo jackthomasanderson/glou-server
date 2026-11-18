@@ -98,6 +98,12 @@ const toBoxSize = (v: unknown): unknown => {
 };
 
 const purchaseDay = z.iso.date().refine(inPurchaseYears, 'INVALID_PURCHASE_DATE');
+
+/** #1035: a purchase-day cell the importer can read (a third-party file's other ones are left out, not refused). */
+export const isPurchaseDay = (cell: string): boolean => {
+  const day = toPurchaseDay(cell);
+  return typeof day === 'string' && purchaseDay.safeParse(day).success;
+};
 const boxSize = z.union([z.number().int().min(1).max(MAX_COPIES), z.literal(CSV_SINGLE_CIGARS)]);
 
 

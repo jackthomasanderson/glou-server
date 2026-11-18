@@ -7,6 +7,9 @@ import { CSV_IMPORT_MAX_COPIES, CSV_IMPORT_MAX_ROWS } from '@shared/import';
 import { useCsvConfirm, useCsvPreview } from '@/hooks/useImport';
 import { CsvImportError, CsvImportLine, CsvImportResult, CsvImportRow } from '@/lib/import/types';
 
+/** #1035: reasons about the whole file (row 1, the header line), not about one row. */
+const FILE_ERRORS = new Set(['INVALID_ENCODING', 'UNRECOGNIZED_COLUMNS', 'MISSING_COLUMNS']);
+
 /** Refusals of the uploaded file that get their own explanation (FEAT-91, #641). */
 const EXPLAINED_UPLOAD_ERRORS = new Set(['FILE_TOO_LARGE', 'INVALID_FILE_TYPE']);
 
@@ -44,6 +47,8 @@ export function CsvImportStep({ cellarId, onImported, onBack, backLabel }: CsvIm
   // #1035: what the header line lacked, and the headers left out.
   const [missingColumns, setMissingColumns] = useState<string[]>([]);
   const [unrecognizedColumns, setUnrecognizedColumns] = useState<string[]>([]);
+  const [unrecognizedCount, setUnrecognizedCount] = useState(0);
+  const [outOfStockRows, setOutOfStockRows] = useState(0);
   /** Keys of the lines of a wine already in the cellar that the member chose to add. */
   const [added, setAdded] = useState<ReadonlySet<string>>(new Set());
   // A second click before the first one's answer must not send the import twice.
@@ -71,6 +76,8 @@ export function CsvImportStep({ cellarId, onImported, onBack, backLabel }: CsvIm
     setErrors([]);
     setMissingColumns([]);
     setUnrecognizedColumns([]);
+    setUnrecognizedCount(0);
+    setOutOfStockRows(0);
     setAdded(new Set());
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -85,8 +92,12 @@ export function CsvImportStep({ cellarId, onImported, onBack, backLabel }: CsvIm
         setErrors(data.errors);
         setMissingColumns(data.missingColumns ?? []);
         setUnrecognizedColumns(data.unrecognizedColumns ?? []);
+        setUnrecognizedCount(data.unrecognizedCount ?? data.unrecognizedColumns?.length ?? 0);
+        setOutOfStockRows(data.outOfStockRows ?? 0);
       },
-      onError: () => { setRows([]); setLines([]); setErrors([]); setMissingColumns([]); setUnrecognizedColumns([]); },
+      onError: () => {
+        setRows([]); setLines([]); setErrors([]); setMissingColumns([]); setUnrecognizedColumns([]); setUnrecognizedCount(0); setOutOfStockRows(0);
+      },
     });
   };
 
@@ -113,8 +124,10 @@ export function CsvImportStep({ cellarId, onImported, onBack, backLabel }: CsvIm
     if (name) return t('onboarding.csv.errorReasonNamed', { row, name, reason: text });
     return t('onboarding.csv.errorReason', { row, reason: text });
   };
-  // A file whose header lacks a required column is said once, above the list, not as a row.
-  const rowErrors = errors.filter((e) => e.reason !== 'MISSING_COLUMNS');
+  // What is wrong with the file itself (its encoding, its header line) is said
+  // once, above the list — not as a row, nor counted as one.
+  const fileErrors = errors.filter((e) => FILE_ERRORS.has(e.reason));
+  const rowErrors = errors.filter((e) => !FILE_ERRORS.has(e.reason));
 
   const handleConfirm = () => {
     if (sending.current) return;
@@ -182,7 +195,7 @@ export function CsvImportStep({ cellarId, onImported, onBack, backLabel }: CsvIm
             </p>
           )}
 
-          {!preview.isPending && (rows.length > 0 || errors.length > 0 || unrecognizedColumns.length > 0) && (
+          {!preview.isPending && (rows.length > 0 || errors.length > 0 || unrecognizedColumns.length > 0 || outOfStockRows > 0) && (
             <div className="flex flex-col gap-3">
               <div className="flex gap-2 justify-center flex-wrap">
                 <Chip color={overLimit ? 'danger' : 'success'} variant="flat" size="sm" startContent={<CheckCircle2 size={14} />}>
@@ -203,21 +216,29 @@ export function CsvImportStep({ cellarId, onImported, onBack, backLabel }: CsvIm
                     {t('onboarding.csv.skippedRows', { count: skippedRows })}
                   </Chip>
                 )}
-                {errors.length > 0 && (
+                {rowErrors.length > 0 && (
                   <Chip color="warning" variant="flat" size="sm" startContent={<XCircle size={14} />}>
-                    {t('onboarding.csv.errorRows', { count: errors.length })}
+                    {t('onboarding.csv.errorRows', { count: rowErrors.length })}
                   </Chip>
                 )}
               </div>
 
-              {missingColumns.length > 0 && (
-                <p role="alert" className="text-sm text-danger text-center">{reasonText('MISSING_COLUMNS')}</p>
-              )}
+              {fileErrors.map((e) => (
+                <p key={e.reason} role="alert" className="text-sm text-danger text-center">{reasonText(e.reason)}</p>
+              ))}
 
               {unrecognizedColumns.length > 0 && (
                 <p className="text-xs text-foreground-500 text-center break-words">
-                  {t('onboarding.csv.unrecognizedColumns', { count: unrecognizedColumns.length, columns: unrecognizedColumns.join(', ') })}
+                  {unrecognizedCount > unrecognizedColumns.length
+                    ? t('onboarding.csv.unrecognizedColumnsMore', {
+                      count: unrecognizedCount, columns: unrecognizedColumns.join(', '), more: unrecognizedCount - unrecognizedColumns.length,
+                    })
+                    : t('onboarding.csv.unrecognizedColumns', { count: unrecognizedColumns.length, columns: unrecognizedColumns.join(', ') })}
                 </p>
+              )}
+
+              {outOfStockRows > 0 && (
+                <p className="text-xs text-foreground-500 text-center">{t('onboarding.csv.outOfStockRows', { count: outOfStockRows })}</p>
               )}
 
               {newCellars.length > 0 && (

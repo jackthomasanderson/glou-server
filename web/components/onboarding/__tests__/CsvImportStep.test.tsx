@@ -14,7 +14,8 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-let previewResult: CsvImportPreview = { valid: [], errors: [], lines: [], newCellars: [], missingColumns: [], unrecognizedColumns: [] };
+const FILE = { missingColumns: [], unrecognizedColumns: [], unrecognizedCount: 0, outOfStockRows: 0 };
+let previewResult: CsvImportPreview = { valid: [], errors: [], lines: [], newCellars: [], ...FILE };
 let previewError: Error | null = null;
 const confirmMutate = vi.fn();
 vi.mock('@/hooks/useImport', () => ({
@@ -44,7 +45,7 @@ function pickFile(rows: CsvImportRow[], options: { inStock?: Record<string, numb
     newCellar: line.row.cellar !== undefined && (options.newCellars ?? []).includes(line.row.cellar),
     tooLarge: line.count > 1000,
   }));
-  previewResult = { valid: rows, errors: [], lines, newCellars: options.newCellars ?? [], missingColumns: [], unrecognizedColumns: [], ...options.preview };
+  previewResult = { valid: rows, errors: [], lines, newCellars: options.newCellars ?? [], ...FILE, ...options.preview };
   const onImported = vi.fn();
   const { container } = render(<CsvImportStep cellarId="c1" onImported={onImported} onBack={() => {}} />);
   const input = container.querySelector('input[type="file"]') as HTMLInputElement;
@@ -201,19 +202,45 @@ describe('CsvImportStep refused rows and columns (#1035)', () => {
 
   it('says once which required column is missing, and which columns were not recognized', () => {
     pickFile([], {
-      preview: { errors: [{ row: 1, reason: 'MISSING_COLUMNS' }], missingColumns: ['category'], unrecognizedColumns: ['iWine', 'Score'] },
+      preview: { errors: [{ row: 1, reason: 'MISSING_COLUMNS' }], missingColumns: ['category'], unrecognizedColumns: ['iWine', 'Score'], unrecognizedCount: 2 },
     });
 
     expect(screen.getByRole('alert')).toHaveTextContent('onboarding.csv.errorCodes.MISSING_COLUMNS|1|onboarding.csv.requiredColumns.category');
     expect(screen.getByText('onboarding.csv.unrecognizedColumns|2|iWine, Score')).toBeInTheDocument();
     expect(screen.queryByText(/onboarding\.csv\.errorReason/)).toBeNull();
+    // The header line is not a row: no "1 row with errors".
+    expect(screen.queryByText(/onboarding\.csv\.errorRows/)).toBeNull();
     expect(confirmButton()).toBeDisabled();
   });
 
-  it('lists the columns left out of a file that imports', () => {
-    pickFile([wine('Talbot')], { preview: { unrecognizedColumns: ['iWine'] } });
+  it('says once that the header was not understood, as a message about the file, not a row', () => {
+    pickFile([], { preview: { errors: [{ row: 1, reason: 'UNRECOGNIZED_COLUMNS' }], unrecognizedColumns: ['foo'], unrecognizedCount: 1 } });
 
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('onboarding.csv.errorCodes.UNRECOGNIZED_COLUMNS');
+    expect(screen.queryByText(/onboarding\.csv\.errorReason/)).toBeNull();
+    expect(screen.queryByText(/onboarding\.csv\.errorRows/)).toBeNull();
+  });
+
+  it('lists the columns left out of a file that imports, and how many more', () => {
+    pickFile([wine('Talbot')], { preview: { unrecognizedColumns: ['iWine'], unrecognizedCount: 1 } });
     expect(screen.getByText('onboarding.csv.unrecognizedColumns|1|iWine')).toBeInTheDocument();
+  });
+
+  it('says how many headers it did not list', () => {
+    pickFile([wine('Talbot')], { preview: { unrecognizedColumns: ['A', 'B'], unrecognizedCount: 35 } });
+    expect(screen.getByText('onboarding.csv.unrecognizedColumnsMore|35|A, B|33')).toBeInTheDocument();
+  });
+
+  it('says how many wines of the file had no bottle left', () => {
+    pickFile([wine('Talbot')], { preview: { outOfStockRows: 2 } });
+    expect(screen.getByText('onboarding.csv.outOfStockRows|2')).toBeInTheDocument();
+  });
+
+  it('counts the refused rows apart from the rows already in the cellar', () => {
+    pickFile([wine('Talbot')], { inStock: { Talbot: 1 }, preview: { errors: [{ row: 3, reason: 'INVALID_ROW' }] } });
+    expect(screen.getByText('onboarding.csv.errorRows|1')).toBeInTheDocument();
+    expect(screen.getByText('onboarding.csv.skippedRows|1')).toBeInTheDocument();
   });
 });
 
