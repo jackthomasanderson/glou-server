@@ -15,6 +15,9 @@ vi.mock('@/lib/inventory-count/client', () => ({
 }));
 
 import { qk } from '@/lib/queryKeys';
+import { inventoryCountClient } from '@/lib/inventory-count/client';
+import { NetworkError } from '@/lib/network-error';
+import { ApiError } from '@/lib/api';
 import { notifyError } from '@/lib/toast';
 import { useCompleteCountSession, useScanItem } from './useInventoryCount';
 
@@ -58,5 +61,37 @@ describe('useScanItem', () => {
     result.current.mutate({ itemId: 'i1' });
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(notifyError).toHaveBeenCalledWith('toast.count.scanError');
+  });
+});
+
+// #1038: offline, « Valider » said "Impossible de confirmer la bouteille",
+// with no word about the network.
+describe('useScanItem — no answer from the server (#1038)', () => {
+  it('says the count needs the connection', async () => {
+    vi.mocked(inventoryCountClient.scan).mockRejectedValueOnce(new NetworkError(new TypeError('Failed to fetch')));
+    const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    const { result } = renderHook(() => useScanItem('s1'), { wrapper });
+
+    result.current.mutate({ itemId: 'i1' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(notifyError).toHaveBeenCalledWith('inventoryCount.errors.offline');
+  });
+});
+
+// Review of #1054: scanning many bottles in a row can hit the API's rate
+// limit; "Impossible de confirmer la bouteille" says nothing useful.
+describe('useScanItem — too many scans in a row', () => {
+  it('says how long to wait', async () => {
+    vi.mocked(inventoryCountClient.scan).mockRejectedValueOnce(new ApiError('TOO_MANY_REQUESTS', 429, 90));
+    const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+    const { result } = renderHook(() => useScanItem('s1'), { wrapper });
+
+    result.current.mutate({ itemId: 'i1' });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(notifyError).toHaveBeenCalledWith('inventoryCount.errors.rateLimited', { count: 2 });
   });
 });

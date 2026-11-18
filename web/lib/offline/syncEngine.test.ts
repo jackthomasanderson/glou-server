@@ -43,12 +43,16 @@ vi.mock('./db', () => ({
   }),
 }));
 
+vi.mock('@/lib/toast', () => ({ notifySuccess: vi.fn(), notifyError: vi.fn() }));
+
 import { QueryClient } from '@tanstack/react-query';
+import { notifySuccess } from '@/lib/toast';
 import {
   flushQueue, cancelSyncRetry, deferConflict, undeferConflict, getDeferredConflictIds,
   overlayQueuedChanges, MAX_TEMPORARY_FAILURES, enqueueMutation, discardQueuedMutation,
-  resolveConflictKeepLocal, SYNC_LOCK_NAME, removeQueuedMutation, sentCopyOf,
+  resolveConflictKeepLocal, SYNC_LOCK_NAME, removeQueuedMutation, sentCopyOf, adoptConflictServerUnit,
 } from './syncEngine';
+import { getAllQueuedMutations } from './db';
 import { provisionalIdOf } from './optimistic';
 import { refusalKey } from './describe';
 import type { InventoryItem } from '@/lib/inventory/types';
@@ -993,5 +997,154 @@ describe('FEAT-108 — one replay at a time across tabs (review of #753)', () =>
     await Promise.all([otherTab, thisTab]);
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('#1038 — the member is told when the changes made offline have been sent', () => {
+  it('says once, after the replay, how many changes reached the server', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: '2026-01-01T00:00:01.000Z' });
+    queue({ id: 'm2', itemId: 'B', createdAt: '2026-01-01T00:00:02.000Z' });
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => okResponse({ id: url.split('/').pop(), updatedAt: 'x' })));
+
+    await flushQueue(fakeQueryClient());
+
+    expect(notifySuccess).toHaveBeenCalledTimes(1);
+    expect(notifySuccess).toHaveBeenCalledWith('offline.synced', { count: 2 });
+  });
+
+  it('says nothing when nothing reached the server (still offline)', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: '2026-01-01T00:00:01.000Z' });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+
+    await flushQueue(fakeQueryClient());
+
+    expect(notifySuccess).not.toHaveBeenCalled();
+  });
+
+  it('says nothing when the change came back as a conflict (the conflict dialog speaks)', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: '2026-01-01T00:00:01.000Z' });
+    vi.stubGlobal('fetch', vi.fn(async () => errResponse(409, { data: { id: 'A', updatedAt: 'v9' } })));
+
+    await flushQueue(fakeQueryClient());
+
+    expect(notifySuccess).not.toHaveBeenCalled();
+  });
+
+  it('« Garder ma version » answers whether the change went through, and leaves the message to the dialog', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
+    const server = groupServer(6);
+    server.bump(3);
+    vi.stubGlobal('fetch', server.fetchMock);
+    await flushQueue(qc);
+
+    await expect(resolveConflictKeepLocal(m.id, qc)).resolves.toBe('sent');
+    expect(notifySuccess).not.toHaveBeenCalled();
+  });
+
+  it('« Garder ma version » without network: the change waits, and says so', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
+    const server = groupServer(6);
+    server.bump(3);
+    vi.stubGlobal('fetch', server.fetchMock);
+    await flushQueue(qc);
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
+
+    await expect(resolveConflictKeepLocal(m.id, qc)).resolves.toBe('pending');
+  });
+});
+
+// Review of #1054 (B1): the dialog shows the line as it is now; « Garder ma
+// version » must then apply against that very version — one tap, not a
+// silent 409 and a second tap.
+describe('#1038 — « Garder ma version » against the line shown', () => {
+  it('a conflict left for later, the line changed again: the version read now is adopted, one tap applies it', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
+    const server = groupServer(6);
+    server.bump(4);
+    vi.stubGlobal('fetch', server.fetchMock);
+    await flushQueue(qc);
+    server.bump(3); // changed again while the conflict waited
+
+    await adoptConflictServerUnit(m.id, server.group() as unknown as InventoryItem);
+
+    expect(store.get(m.id)?.conflictServerItem).toMatchObject({ quantity: 3, updatedAt: server.group().updatedAt });
+    await expect(resolveConflictKeepLocal(m.id, qc)).resolves.toBe('sent');
+    expect(server.group().quantity).toBe(2);
+  });
+
+  it('a change no longer in conflict is left alone', async () => {
+    queue({ id: 'm1', itemId: 'A', createdAt: 't1' });
+    await adoptConflictServerUnit('m1', { id: 'A', updatedAt: 'v9' } as unknown as InventoryItem);
+    expect(store.get('m1')?.conflictServerItem).toBeUndefined();
+  });
+
+  it('pressed while another replay runs: waits for it, then sends — never left waiting while online', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
+    const server = groupServer(6);
+    server.bump(4);
+    vi.stubGlobal('fetch', server.fetchMock);
+    await flushQueue(qc);
+    // Another change, on another line, being sent slowly.
+    queue({ id: 'other', itemId: 'B', createdAt: '2099-01-01T00:00:00.000Z' });
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/inventory/B')) { await gate; return okResponse({ id: 'B', updatedAt: 'x' }); }
+      return server.fetchMock(url, init);
+    }));
+    const running = flushQueue(qc);
+
+    const kept = resolveConflictKeepLocal(m.id, qc);
+    release();
+
+    await expect(kept).resolves.toBe('sent');
+    await running;
+    expect(server.group().quantity).toBe(3);
+  });
+
+  it('a replay the member did not start failing does not break « Garder ma version » (second review of #1054)', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
+    const server = groupServer(6);
+    server.bump(4);
+    vi.stubGlobal('fetch', server.fetchMock);
+    await flushQueue(qc);
+    // A replay already running, which fails on its own (IndexedDB closed by
+    // the browser, a tab going away…).
+    let breakIt: (reason: Error) => void = () => {};
+    vi.mocked(getAllQueuedMutations).mockImplementationOnce(() => new Promise((_, reject) => { breakIt = reject; }));
+    const running = flushQueue(qc);
+    const failed = expect(running).rejects.toThrow('IndexedDB closed');
+
+    const kept = resolveConflictKeepLocal(m.id, qc);
+    // Once « Garder ma version » is waiting for that replay.
+    await new Promise((resolve) => { setTimeout(resolve, 20); });
+    breakIt(new Error('IndexedDB closed'));
+
+    await failed;
+    await expect(kept).resolves.toBe('sent');
+    expect(server.group().quantity).toBe(3);
+  });
+
+  it('announces the other changes its replay sends, not the one kept (said by the dialog)', async () => {
+    const { qc } = wineCaches();
+    const m = await enqueueMutation(qc, 'g', OPEN, 'g-1', { productId: 'p1' });
+    const server = groupServer(6);
+    server.bump(4);
+    vi.stubGlobal('fetch', server.fetchMock);
+    await flushQueue(qc);
+    queue({ id: 'other', itemId: 'B', createdAt: '2099-01-01T00:00:00.000Z' });
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => (url.endsWith('/inventory/B')
+      ? okResponse({ id: 'B', updatedAt: 'x' }) : server.fetchMock(url, init))));
+    vi.mocked(notifySuccess).mockClear();
+
+    await resolveConflictKeepLocal(m.id, qc);
+
+    expect(notifySuccess).toHaveBeenCalledTimes(1);
+    expect(notifySuccess).toHaveBeenCalledWith('offline.synced', { count: 1 });
   });
 });

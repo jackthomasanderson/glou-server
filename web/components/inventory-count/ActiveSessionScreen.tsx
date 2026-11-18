@@ -12,6 +12,7 @@ import { useInventory, useInventoryTruncated } from '@/hooks/useInventory';
 import { inStockItems } from '@/lib/inventory/inStock';
 import { useComboboxKeys, optionDomId } from '@/hooks/useComboboxKeys';
 import { RecordFoundItemModal } from './RecordFoundItemModal';
+import { OfflineBlockedButton, useOfflineBlocked } from '@/components/offline/OfflineBlockedButton';
 import { MAX_COPIES } from '@shared/product';
 import { INVENTORY_LIST_LIMIT } from '@shared/inventory';
 
@@ -35,6 +36,9 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   const searchCut = useInventoryTruncated();
   const scanMutation = useScanItem(session.id);
   const pauseMutation = usePauseCountSession();
+  // #1038: the count needs the network (ux-ui §10.8 lists only open, drink,
+  // smoke and "Corriger le nombre" as possible offline).
+  const offline = useOfflineBlocked();
 
   const [query, setQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -44,6 +48,14 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
   // #471 (FEAT-100): the group line a scan or a search pointed at, whose
   // "Combien en avez-vous trouvé ?" takes the focus.
   const [focusedLineId, setFocusedLineId] = useState<string | null>(null);
+  // Review of #1054: the lines already answered when the list was last put
+  // in order. A line answered since keeps its place until the next search
+  // or scan — answering must never slide the next line's identical button
+  // under the finger. Null until the first report arrives.
+  const [countedWhenSorted, setCountedWhenSorted] = useState<Set<string> | null>(null);
+  const countedNow = () => new Set(
+    (report?.expected ?? []).concat(report?.confirmed ?? []).filter((line) => line.foundQuantity != null).map((line) => line.id),
+  );
 
   /**
    * A group of several copies is never confirmed whole by a scan or a pick
@@ -51,6 +63,8 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
    * brought forward instead. Anything else is confirmed as before.
    */
   const pointAt = (itemId: string) => {
+    // A new line is pointed at: the lines answered so far go below.
+    setCountedWhenSorted(countedNow());
     const line = report?.expected.find((candidate) => candidate.id === itemId);
     if (line && line.isGroup && line.expectedQuantity > 1) {
       setFocusedLineId(itemId);
@@ -126,14 +140,20 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
       ? Math.round((report.counts.confirmed / report.counts.expected) * 100)
       : 0;
 
+  // The order of the lines as first shown, kept while the member counts
+  // (adjusted during render, React's documented pattern).
+  if (report && countedWhenSorted === null) setCountedWhenSorted(countedNow());
+
   // #471 (FEAT-100): one line per group of the theoretical list, plus what
   // was confirmed outside it (a free-label scope has no theoretical list).
+  // #1038: the lines still to count first, so the next one stays at the top.
   const checklist = useMemo(() => {
     const expected = report?.expected ?? [];
     const listed = new Set(expected.map((line) => line.id));
     const extra = (report?.confirmed ?? []).filter((line) => !listed.has(line.id));
-    return [...expected, ...extra].sort((a, b) => a.name.localeCompare(b.name));
-  }, [report]);
+    const answered = (line: CountLine) => (countedWhenSorted?.has(line.id) ? 1 : 0);
+    return [...expected, ...extra].sort((a, b) => answered(a) - answered(b) || a.name.localeCompare(b.name));
+  }, [report, countedWhenSorted]);
 
   const isActive = session.status === 'active';
 
@@ -142,6 +162,11 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
       {!isActive && (
         <div className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
           {t('inventoryCount.session.pausedNotice')}
+        </div>
+      )}
+      {isActive && offline && (
+        <div role="status" className="rounded-xl border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
+          {t('inventoryCount.session.offlineNotice')}
         </div>
       )}
 
@@ -297,6 +322,7 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
                   key={line.id}
                   line={line}
                   isActive={isActive}
+                  offline={offline}
                   isFocused={focusedLineId === line.id}
                   isPending={scanMutation.isPending && scanMutation.variables?.itemId === line.id}
                   onConfirm={(foundQuantity) => scanMutation.mutate({ itemId: line.id, foundQuantity })}
@@ -313,6 +339,8 @@ export function ActiveSessionScreen({ session, onOpenSummary }: ActiveSessionScr
 interface CountRowProps {
   line: CountLine;
   isActive: boolean;
+  /** No network: the answer cannot be recorded (#1038). */
+  offline: boolean;
   /** A scan or a search pointed at this group: its question takes the focus. */
   isFocused: boolean;
   isPending: boolean;
@@ -324,7 +352,7 @@ interface CountRowProps {
  * en avez-vous trouvé ?", prefilled with the number expected — and a single
  * bottle (or an opened one) is confirmed in one tap, as before.
  */
-function CountRow({ line, isActive, isFocused, isPending, onConfirm }: CountRowProps) {
+function CountRow({ line, isActive, offline, isFocused, isPending, onConfirm }: CountRowProps) {
   const { t } = useTranslation();
   const isGroup = line.isGroup && line.expectedQuantity > 1;
   const found = line.foundQuantity;
@@ -373,7 +401,7 @@ function CountRow({ line, isActive, isFocused, isPending, onConfirm }: CountRowP
           className="flex items-center gap-2"
           onSubmit={(event) => {
             event.preventDefault();
-            if (isValid) onConfirm(parsed);
+            if (isValid && !offline) onConfirm(parsed);
           }}
         >
           <span className="text-xs text-foreground-500 self-center" aria-hidden="true">
@@ -395,15 +423,15 @@ function CountRow({ line, isActive, isFocused, isPending, onConfirm }: CountRowP
             isInvalid={!isValid}
             isDisabled={!isActive}
           />
-          <Button type="submit" size="sm" variant="flat" color="primary" isDisabled={!isActive || !isValid} isLoading={isPending}>
+          <OfflineBlockedButton blocked={offline} type="submit" size="sm" variant="flat" color="primary" isDisabled={!isActive || !isValid} isLoading={isPending}>
             {t('inventoryCount.session.saveCount')}
-          </Button>
+          </OfflineBlockedButton>
         </form>
       ) : (
         found == null && (
-          <Button size="sm" variant="light" color="primary" isDisabled={!isActive} isLoading={isPending} onPress={() => onConfirm()}>
+          <OfflineBlockedButton blocked={offline} size="sm" variant="light" color="primary" isDisabled={!isActive} isLoading={isPending} onPress={() => onConfirm()}>
             {t('inventoryCount.session.confirmTap')}
-          </Button>
+          </OfflineBlockedButton>
         )
       )}
     </li>

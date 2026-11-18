@@ -4,6 +4,7 @@ import { randomId } from '@/lib/uuid';
 import { request } from '@/lib/api';
 import type { InventoryItem } from '@/lib/inventory/types';
 import { invalidateAfterInventoryChange, qk } from '@/lib/queryKeys';
+import { notifySuccess } from '@/lib/toast';
 import {
   type QueuedMutation,
   getAllQueuedMutations,
@@ -43,7 +44,10 @@ const PRODUCT_DETAIL_PREFIX = qk.products.details;
  */
 export const SYNC_LOCK_NAME = 'glou-sync';
 
-let flushing: Promise<void> | null = null;
+/** The replay running in this tab, if any (one at a time). */
+let runningFlush: Promise<void> | null = null;
+/** Changes whose outcome their own caller says: left out of the count announced. */
+const quietIds = new Set<string>();
 const listeners = new Set<() => void>();
 
 // #585: a temporary server failure (API restarting, database unavailable,
@@ -510,28 +514,44 @@ async function applyServerWrite(queryClient: QueryClient, done: QueuedMutation, 
  * sent (a tasting of the bottle just drunk) really waits for the answer.
  * Nothing inside the replay awaits it, so it cannot wait on itself.
  */
-export function flushQueue(queryClient: QueryClient): Promise<void> {
-  if (flushing) return flushing;
-  const run = async () => {
-    const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
-    if (locks && typeof locks.request === 'function') {
-      await locks.request(SYNC_LOCK_NAME, () => replayQueue(queryClient));
-    } else {
-      await replayQueue(queryClient);
-    }
-  };
-  flushing = run().finally(() => { flushing = null; });
-  return flushing;
+export function flushQueue(queryClient: QueryClient, { quiet }: FlushOptions = {}): Promise<void> {
+  // Noted before the replay is handed back, so a caller joining one already
+  // running is not announced its own change either.
+  if (quiet) quietIds.add(quiet);
+  if (runningFlush) return runningFlush;
+  const run = flushOnce(queryClient).finally(() => {
+    runningFlush = null;
+    quietIds.clear();
+  });
+  runningFlush = run;
+  return run;
 }
 
-async function replayQueue(queryClient: QueryClient): Promise<void> {
+interface FlushOptions {
+  /** A change whose outcome the caller says itself (« Garder ma version »): left out of the count announced. */
+  quiet?: string;
+}
+
+async function flushOnce(queryClient: QueryClient): Promise<void> {
+  const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
+  const synced = locks && typeof locks.request === 'function'
+    ? await locks.request(SYNC_LOCK_NAME, () => replayQueue(queryClient))
+    : await replayQueue(queryClient);
+  // #1038: the member is told the changes made without network went
+  // through, rather than seeing the badge disappear in silence.
+  if (synced > 0) notifySuccess('offline.synced', { count: synced });
+}
+
+/** Replays the queue; answers how many changes reached the server ({@link quietIds} left out). */
+async function replayQueue(queryClient: QueryClient): Promise<number> {
+  let synced = 0;
   let anySynced = false;
   try {
     const queued = await getAllQueuedMutations();
     // A mutation can be left in `syncing` if the tab closed or the network
     // dropped mid-request (the previous flush never got to record success,
     // conflict or failure). Only one flush ever runs at a time (the lock
-    // shared by the tabs, the running replay without it), so a `syncing` row here
+    // shared by the tabs, `runningFlush` without it), so a `syncing` row here
     // is always stale — reset it to `pending` so the queue self-heals
     // instead of leaving it, and everything queued after it, stuck forever.
     for (const mutation of queued) {
@@ -570,6 +590,7 @@ async function replayQueue(queryClient: QueryClient): Promise<void> {
         const write = outcome.kind === 'success' ? outcome.write : (already as ServerWrite);
         await deleteQueuedMutation(mutation.id);
         anySynced = true;
+        if (!quietIds.has(mutation.id)) synced += 1;
         if (typeof write.data?.id === 'string') sentCopies.set(provisionalIdOf(current.id), write.data.id);
         const target = [write.data, ...write.changed].find((unit) => unit?.id === current.itemId);
         if (typeof target?.updatedAt === 'string') await rebaseLaterMutations(current, target.updatedAt);
@@ -609,6 +630,7 @@ async function replayQueue(queryClient: QueryClient): Promise<void> {
     // derives from the stock (goal, bell, counters…) follows too (#621).
     if (anySynced) invalidateAfterInventoryChange(queryClient);
   }
+  return synced;
 }
 
 /**
@@ -640,9 +662,9 @@ async function rebaseLaterMutations(done: QueuedMutation, newUpdatedAt: string):
  *  - `keepServer`: drop the local mutation entirely and let the normal
  *    inventory refetch pull in the server's version.
  */
-export async function resolveConflictKeepLocal(mutationId: string, queryClient: QueryClient): Promise<void> {
+export async function resolveConflictKeepLocal(mutationId: string, queryClient: QueryClient): Promise<KeepLocalOutcome | undefined> {
   const mutation = await getQueuedMutation(mutationId);
-  if (!mutation || !mutation.conflictServerItem) return;
+  if (!mutation || !mutation.conflictServerItem) return undefined;
   const requeued: QueuedMutation = {
     ...mutation,
     status: 'pending',
@@ -653,8 +675,51 @@ export async function resolveConflictKeepLocal(mutationId: string, queryClient: 
   // Shown again, on the server's version, while it waits.
   await updateUnitCaches(queryClient, (units) => applyChange(units, requeued));
   notifyListeners();
-  await flushQueue(queryClient);
+  // Review of #1054: a replay already running (another line being sent)
+  // does not hold this change; it is sent right after, never left waiting
+  // while online. A failure of that replay — which the member did not
+  // start — is not this change's business: its own flush follows.
+  while (runningFlush) await runningFlush.catch(() => undefined);
+  await flushQueue(queryClient, { quiet: mutationId });
+  // #1038: what became of it, for the dialog to say.
+  return (await getQueuedMutation(mutationId))?.status ?? 'sent';
 }
+
+/**
+ * Review of #1054 (B1): the line as read again for the conflict dialog
+ * becomes the version « Garder ma version » applies against — what the
+ * member sees is what the action is checked with. Left alone when the
+ * change is no longer in conflict, or the version is the same.
+ */
+export async function adoptConflictServerUnit(mutationId: string, unit: InventoryItem): Promise<void> {
+  const mutation = await getQueuedMutation(mutationId);
+  if (!mutation || mutation.status !== 'conflict' || !mutation.conflictServerItem) return;
+  const known = mutation.conflictServerItem.updatedAt;
+  if (known === unit.updatedAt || sameInstant(known, unit.updatedAt)) return;
+  await putQueuedMutation({ ...mutation, conflictServerItem: unit });
+  notifyListeners();
+}
+
+/**
+ * #1038: the unit as the server has it right now, for the conflict dialog —
+ * the one that came back with the conflict may be old (a conflict left for
+ * later, a line finished meanwhile). `{ unit: null }`: it no longer exists;
+ * null: no answer, nothing better is known.
+ */
+export async function fetchServerUnit(itemId: string): Promise<{ unit: InventoryItem | null } | null> {
+  try {
+    const res = await request(`/inventory/${encodeURIComponent(itemId)}`);
+    if (res.status === 404) return { unit: null };
+    if (!res.ok) return null;
+    const body = (await res.json().catch(() => null)) as { data?: InventoryItem } | null;
+    return body?.data ? { unit: body.data } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** After « Garder ma version »: sent, or still queued with its status (waiting for the network, in conflict again, refused). */
+export type KeepLocalOutcome = 'sent' | QueuedMutation['status'];
 
 export async function resolveConflictKeepServer(mutationId: string, queryClient: QueryClient): Promise<void> {
   await deleteQueuedMutation(mutationId);
