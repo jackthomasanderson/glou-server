@@ -2584,6 +2584,7 @@
       "noCellar": "No cellar created yet",
       "itemsAdded_one": "{{count}} bottle or cigar added to your inventory",
       "itemsAdded_other": "{{count}} bottles or cigars added to your inventory",
+      "inInventory": "In your inventory: {{what}}",
       "noItems": "No bottle or cigar added yet",
       "imported": "Imported: {{what}}",
       "nothingImported": "No bottle imported",

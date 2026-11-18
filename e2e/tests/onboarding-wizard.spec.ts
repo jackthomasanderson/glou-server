@@ -137,6 +137,8 @@ test('first-run wizard: an error toast, the add form and "Vous avez déjà ce vi
     await expect(wizard.getByText('2 bouteilles ou cigares ajoutés à votre inventaire')).toBeVisible();
     await wizard.getByRole('button', { name: 'Voir ma cave' }).click();
     await expect(wizard).toBeHidden();
+    // #1047: "Voir ma cave" opens the member's cellar, not the page it came from.
+    await expect(page).toHaveURL(new RegExp(`/cellars/${cellarId}`));
   } finally {
     if (productId) await page.request.delete(`/api/products/${productId}`);
     else if (itemId) await page.request.delete(`/api/inventory/${itemId}`);

@@ -14,10 +14,11 @@ let stateLoading = false;
 let onboardingState: OnboardingState | undefined = EMPTY;
 const completeOnboarding = vi.fn();
 const postpone = vi.fn();
+const refetchState = vi.fn();
 vi.mock('@/hooks/useAuth', () => ({
   useMe: () => ({ data: { onboardingCompletedAt: null, isAdmin: false } }),
   useCompleteOnboarding: () => ({ mutate: completeOnboarding, isPending: false }),
-  useOnboardingState: () => ({ data: onboardingState, isLoading: stateLoading }),
+  useOnboardingState: () => ({ data: onboardingState, isLoading: stateLoading, refetch: refetchState }),
   usePostponeOnboarding: () => ({ mutate: postpone }),
 }));
 
@@ -28,8 +29,11 @@ vi.mock('../steps/WelcomeStep', () => ({
   ),
 }));
 vi.mock('../steps/CellarStep', () => ({
-  CellarStep: ({ existingCellar }: { existingCellar?: { name: string } | null }) => (
-    <div>{existingCellar ? `cellar step: ${existingCellar.name}` : 'cellar step: create'}</div>
+  CellarStep: ({ existingCellar, onCreated }: { existingCellar?: { name: string } | null; onCreated: (c: unknown) => void }) => (
+    <div>
+      {existingCellar ? `cellar step: ${existingCellar.name}` : 'cellar step: create'}
+      <button type="button" onClick={() => onCreated({ id: 'new-cellar', name: 'Nouvelle cave' })}>create cellar</button>
+    </div>
   ),
 }));
 vi.mock('../steps/JoiningStep', () => ({
@@ -44,14 +48,27 @@ vi.mock('../steps/JoiningStep', () => ({
   ),
 }));
 vi.mock('../steps/IngestionChoiceStep', () => ({
-  IngestionChoiceStep: ({ onBack }: { onBack: () => void }) => (
-    <div>ingestion-choice<button type="button" onClick={onBack}>choice back</button></div>
+  IngestionChoiceStep: ({ onBack, onChoose, onSkip }: { onBack: () => void; onChoose: (m: 'manual') => void; onSkip: () => void }) => (
+    <div>
+      ingestion-choice
+      <button type="button" onClick={onBack}>choice back</button>
+      <button type="button" onClick={() => onChoose('manual')}>choose manual</button>
+      <button type="button" onClick={onSkip}>choice skip</button>
+    </div>
   ),
 }));
-vi.mock('../steps/ManualIngestionStep', () => ({ ManualIngestionStep: () => <div /> }));
+vi.mock('../steps/ManualIngestionStep', () => ({
+  ManualIngestionStep: ({ cellarId, onDone }: { cellarId: string | null; onDone: () => void }) => (
+    <div>manual into: {String(cellarId)}<button type="button" onClick={onDone}>manual done</button></div>
+  ),
+}));
 vi.mock('../steps/CsvImportStep', () => ({ CsvImportStep: () => <div /> }));
 vi.mock('../steps/ScanIngestionStep', () => ({ ScanIngestionStep: () => <div /> }));
-vi.mock('../steps/SummaryStep', () => ({ SummaryStep: () => <div>summary</div> }));
+vi.mock('../steps/SummaryStep', () => ({
+  SummaryStep: (p: { cellarName: string | null; cellarId: string | null; bottleCount: number; cigarCount: number }) => (
+    <div>{`summary: ${p.cellarName}/${p.cellarId}/${p.bottleCount}/${p.cigarCount}`}</div>
+  ),
+}));
 
 import { OnboardingWizard } from '../OnboardingWizard';
 
@@ -167,5 +184,31 @@ describe('OnboardingWizard exits (FEAT-90)', () => {
     expect(screen.queryByRole('button', { name: 'onboarding.dontShowAgain' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'actions.close' }));
     expect(onClose).toHaveBeenCalledOnce();
+  });
+});
+
+// #1047: the wizard's cellar is where the bottles go, and what the summary
+// shows comes from the server, so a reopened wizard does not start from zero.
+describe('OnboardingWizard cellar and summary (#1047)', () => {
+  it('hands the cellar it just created to the add step', () => {
+    render(<OnboardingWizard onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'welcome' }));
+    fireEvent.click(screen.getByRole('button', { name: 'create cellar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'choose manual' }));
+    expect(screen.getByText('manual into: new-cellar')).toBeInTheDocument();
+  });
+
+  it('refreshes the server counts when the summary opens', () => {
+    onboardingState = { ...EMPTY, wizardCellar: { id: 'c1', name: 'Cave à vin' }, cellarCount: 1 };
+    render(<OnboardingWizard onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'choice skip' }));
+    expect(refetchState).toHaveBeenCalled();
+  });
+
+  it('gives the summary the real cellar and counts when reopened from the profile', () => {
+    onboardingState = { ...EMPTY, wizardCellar: { id: 'c1', name: 'Cave à vin' }, cellarCount: 1, bottleCount: 12, cigarCount: 3 };
+    render(<OnboardingWizard forced onClose={onClose} />);
+    fireEvent.click(screen.getByRole('button', { name: 'choice skip' }));
+    expect(screen.getByText('summary: Cave à vin/c1/12/3')).toBeInTheDocument();
   });
 });

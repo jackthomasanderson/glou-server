@@ -2586,6 +2586,7 @@
       "noCellar": "Aucune cave créée pour l'instant",
       "itemsAdded_one": "{{count}} bouteille ou cigare ajouté à votre inventaire",
       "itemsAdded_other": "{{count}} bouteilles ou cigares ajoutés à votre inventaire",
+      "inInventory": "Dans votre inventaire : {{what}}",
       "noItems": "Aucune bouteille ni aucun cigare ajouté pour le moment",
       "imported": "Importé : {{what}}",
       "nothingImported": "Aucune bouteille importée",

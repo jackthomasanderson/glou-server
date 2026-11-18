@@ -50,7 +50,7 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
   // behind is `inert` (AuthGuard), so Tab can only move within the wizard (#200).
   const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => { dialogRef.current?.focus(); }, []);
-  const { data: state, isLoading: stateLoading } = useOnboardingState(true);
+  const { data: state, isLoading: stateLoading, refetch: refetchState } = useOnboardingState(true);
   const { data: user } = useMe();
   const completeOnboarding = useCompleteOnboarding();
   const postpone = usePostponeOnboarding();
@@ -88,6 +88,12 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
     setStep(resumeAtMethods && !joiningPath ? 'ingestion-choice' : 'welcome');
     setResumed(true);
   }
+
+  // #1047: the summary tells what the instance holds now, not what this visit
+  // counted: the state fetched on opening is stale once bottles were added.
+  useEffect(() => {
+    if (step === 'summary') void refetchState();
+  }, [step, refetchState]);
 
   const steps: readonly Step[] = joining ? JOINING_STEPS : INSTALLER_STEPS;
   const stepIndex = steps.indexOf(step);
@@ -250,7 +256,10 @@ export function OnboardingWizard({ forced = false, onClose }: OnboardingWizardPr
 
         {step === 'summary' && (
           <SummaryStep
-            cellarName={cellarName}
+            cellarName={cellarName ?? state?.wizardCellar?.name ?? null}
+            cellarId={cellarId ?? state?.wizardCellar?.id ?? null}
+            bottleCount={state?.bottleCount ?? 0}
+            cigarCount={state?.cigarCount ?? 0}
             itemsAdded={itemsAdded}
             importResult={importResult}
             isAdmin={user?.isAdmin ?? false}
