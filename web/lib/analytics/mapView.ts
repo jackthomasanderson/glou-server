@@ -176,7 +176,7 @@ function spreadSlots(count: number, pitch: number): { slots: Slot[]; single: boo
   const slots = lattice
     .sort((a, b) => Math.hypot(...a) - Math.hypot(...b) || a[1] - b[1] || a[0] - b[0])
     .slice(0, count);
-  if (Math.max(...slots.map((slot) => Math.hypot(...slot))) >= singleRadius) {
+  if (Math.max(...slots.map((slot) => Math.hypot(...slot))) >= singleRadius - 1e-6) {
     return { slots: ringSlots(count, singleRadius), single: true };
   }
   return { slots, single: false };

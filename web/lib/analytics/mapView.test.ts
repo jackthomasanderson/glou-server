@@ -323,7 +323,14 @@ describe('layoutMarkers (groups below the maximum zoom, spread at it)', () => {
       expect(check(30, () => 25)).toBeLessThanOrEqual(65);
     });
 
-    it('keeps 91 regions far closer to their place than the single ring did (300 px)', () => {
+    it('keeps the ring for exactly 6 markers at one point: 6 seats, none at the centre', () => {
+      const six = Array.from({ length: 6 }, (_, i) => at(`R${i}`, BOURGOGNE, 4));
+      const pitch = 2 * markerRadius(4) + 2;
+      const layout = layoutMarkers(six, MAP_MAX_ZOOM);
+      for (const m of layout.markers) expect(Math.hypot(m.dx, m.dy)).toBeCloseTo(pitch / (2 * Math.sin(Math.PI / 6)), 6);
+    });
+
+    it('keeps 91 regions closer to their place than the single ring did (173 px with this fixture)', () => {
       expect(check(Math.min(91, french.length))).toBeLessThanOrEqual(130);
     });
   });
