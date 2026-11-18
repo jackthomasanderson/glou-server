@@ -49,8 +49,15 @@ tmp/
 # --- Database dumps from the host bind mount (ISSUE_020) ---
 /backups/
 
+# --- Claude Code local settings (may contain secrets) ---
+# Claude Code `allow` rules can contain a secret (lab issue #151).
+# Kept outside the personal block: mirror-visibility.sh must never expose
+# them, even in mirror mode where the rest of .claude/ is pushed.
+.claude/settings.local.json
+.claude/.credentials.json
+
 # >>> pipeline-vibecoding : bloc personnel (voir .claude/hooks/mirror-visibility.sh) >>>
-# --- Pipeline vibecoding : personnel. Dépôt GitHub public (régime par défaut)
+# --- Pipeline SDD : personnel. Dépôt GitHub public (régime par défaut)
 # : les chemins listés ci-dessous restent locaux, jamais poussés. Dépôt GitHub
 # privé : .claude/hooks/mirror-visibility.sh les retire de ce fichier au
 # démarrage de session, dossier local et dépôt passent en miroir (ce
