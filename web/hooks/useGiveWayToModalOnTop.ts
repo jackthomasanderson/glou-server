@@ -9,6 +9,14 @@ const MODAL_SELECTOR = '[aria-modal="true"]';
  * does — the store {@link useGiveWayToModalOnTop} listens to. A count would
  * not do: a window closing while another one opens leaves it unchanged, and
  * `useSyncExternalStore` would then never re-render to look again.
+ *
+ * It follows that a window is only ever noticed through this list: one that
+ * dropped `aria-modal` while staying in the page would already be out of it,
+ * so its later removal would change nothing and a dialog waiting for it would
+ * not be brought back. Nothing does that today — HeroUI keeps `aria-modal`
+ * through the exit animation and drops only `data-open` — and a layer that
+ * toggles it on a node that stays (the full-screen map) is rendered in the
+ * tree, so it is never the one covering a portalled dialog.
  */
 let version = 0;
 let known: Element[] = [];
@@ -63,7 +71,7 @@ function modalOver(selfSelector: string): Element | null {
  * A window that may appear on its own — the sync conflict dialog, raised by
  * the replay of a queued change — is usable as long as it is the last one
  * opened, over the drawer or the page it lands on. But another window opened
- * afterwards (the tasting form, from the drink's « Noter une dégustation »)
+ * afterwards (the tasting form, from « Dégustation » on the wine's details)
  * covers it: its buttons then receive nothing and the only way out is
  * Escape, which goes to the form and loses what was being typed. So it steps
  * aside instead, and comes back as soon as **that** window is gone — not
