@@ -26,13 +26,22 @@ const MAX_CSV_CHARS = 5_000_000;
 const SUPPORTED_DELIMITERS = [',', ';'] as const;
 
 export function parseCsv(text: string): Record<string, string>[] {
+  return parseCsvTable(text).records;
+}
+
+/**
+ * {@link parseCsv}, with the header line as the file writes it (trimmed, case
+ * kept): what a message about a column can quote back (#1035).
+ */
+export function parseCsvTable(text: string): { header: string[]; records: Record<string, string>[] } {
   if (text.length > MAX_CSV_CHARS) {
     throw new Error('CSV_TOO_LARGE');
   }
   const rows = parseCsvRows(stripBom(text));
-  if (rows.length === 0) return [];
+  if (rows.length === 0) return { header: [], records: [] };
 
-  const header = rows[0].map((h) => h.trim().toLowerCase());
+  const original = rows[0].map((h) => h.trim());
+  const header = original.map((h) => h.toLowerCase());
   const records: Record<string, string>[] = [];
 
   for (let i = 1; i < rows.length; i++) {
@@ -47,7 +56,7 @@ export function parseCsv(text: string): Record<string, string>[] {
     records.push(record);
   }
 
-  return records;
+  return { header: original, records };
 }
 
 /**

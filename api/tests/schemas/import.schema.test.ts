@@ -36,6 +36,26 @@ describe('csvRawRowSchema (raw CSV cells, all strings)', () => {
     if (!res.success) expect(res.error.issues[0].message).toBe('NAME_REQUIRED');
   });
 
+  // #1035: a missing cell (its column absent) used to come back as Zod's own English text.
+  it('names a missing name or producer cell by its code, not the validator\'s text', () => {
+    expect(csvRawRowSchema.safeParse({ producer: 'Y', category: 'wine' }).error?.issues[0].message).toBe('NAME_REQUIRED');
+    expect(csvRawRowSchema.safeParse({ name: 'X', category: 'wine' }).error?.issues[0].message).toBe('PRODUCER_REQUIRED');
+  });
+
+  // #1035: the wine types of CellarTracker ("White - Sparkling", "Dry") and Vivino ("Red Wine").
+  it.each([
+    ['Red', 'wine'], ['White - Sparkling', 'sparkling'], ['Rosé - Sparkling', 'sparkling'], ['Red - Fortified', 'wine'],
+    ['White - Sweet/Dessert', 'wine'], ['White - Off-dry', 'wine'], ['Dry', 'wine'], ['Sweet/Dessert', 'wine'],
+    ['Red Wine', 'wine'], ['Dessert Wine', 'wine'], ['Fortified Wine', 'wine'], ['Sparkling', 'sparkling'],
+    ['Vin effervescent', 'sparkling'], ['Spiritueux', 'spirit'], ['Cigare', 'cigar'],
+  ])('reads the wine type %j as the category %j', (cell, category) => {
+    expect(csvRawRowSchema.parse({ name: 'X', producer: 'Y', category: cell }).category).toBe(category);
+  });
+
+  it.each(['Orangé', 'beer', 'Bière blonde'])('still refuses the category %j', (cell) => {
+    expect(csvRawRowSchema.safeParse({ name: 'X', producer: 'Y', category: cell }).error?.issues[0].message).toBe('INVALID_CATEGORY');
+  });
+
   it('rejects an unknown category and an out-of-range vintage', () => {
     expect(csvRawRowSchema.safeParse({ name: 'X', producer: 'Y', category: 'beer' }).success).toBe(false);
     expect(
@@ -59,8 +79,13 @@ describe('csvRawRowSchema vintage and years (#624)', () => {
     'still reads %j as %j', (cell, vintage) => expect(vintageOf(cell)).toBe(vintage),
   );
 
-  it.each(['1799', String(year + 1), '2015.5', 'deux mille', 'NV'])('still refuses %j with INVALID_VINTAGE', (cell) => {
+  it.each(['1799', String(year + 1), '2015.5', 'deux mille', 'NVV', '1000'])('still refuses %j with INVALID_VINTAGE', (cell) => {
     expect(vintageOf(cell)).toBe('INVALID_VINTAGE');
+  });
+
+  // #1035: Champagne and spirits exports write a non-vintage wine this way; it was refused, the whole row lost.
+  it.each(['NV', 'nv', 'N.V.', 'n.v.', 'SA', 'S.A.', 's.a.', 'non vintage', 'Non-Vintage', '1001'])('reads %j as non-vintage', (cell) => {
+    expect(vintageOf(cell)).toBeUndefined();
   });
 
   it('keeps a base and a manufacture year in bounds, and leaves an unreadable one out', () => {

@@ -223,7 +223,7 @@ test('first-run wizard on a phone: every step can be scrolled to its buttons, up
     await wizard.locator('input[type="file"]').setInputFiles({
       name: 'cave.csv', mimeType: 'text/csv', buffer: Buffer.from(csv, 'utf-8'),
     });
-    await expect(wizard.getByText('6 lignes valides')).toBeVisible();
+    await expect(wizard.getByText('6 lignes à importer')).toBeVisible();
     expect(
       await wizard.evaluate((el) => el.scrollHeight > el.clientHeight),
       'the preview fits the screen, so this check would not go through scrolling',

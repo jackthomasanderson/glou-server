@@ -1,9 +1,9 @@
 import type { CellarType, Product } from '@prisma/client';
 import { prisma, type PrismaClientOrTx } from '../lib/prisma';
 import { IN_STOCK_ITEM_FILTER, itemUnits, productKey } from '../lib/finished-item';
-import { parseCsv } from '../lib/csv';
+import { parseCsvTable } from '../lib/csv';
 import { lockFamilies, purchaseDayToDate, todayAsPurchaseDate } from '../lib/product-fields';
-import { csvRawRowSchema, toOpened } from '../schemas/import.schema';
+import { csvRawRowSchema, isCategory, isPurchaseDay, toOpened } from '../schemas/import.schema';
 import { normalizeToken } from '../lib/category';
 import { MAX_COPIES } from '../schemas/stock.schema';
 import { familyAlertStatus } from './alert.service';
@@ -18,7 +18,10 @@ import {
   groupCsvRows,
   type CsvImportChoice,
   type CsvFamilyFields,
+  CSV_IMPORT_ERROR_CODES,
+  CSV_REQUIRED_COLUMNS,
   type CsvImportError,
+  type CsvImportErrorCode,
   type CsvImportLine,
   type CsvImportPreview,
   type CsvImportResult,
@@ -32,7 +35,7 @@ import {
 // French, so a French spreadsheet ("Nom; Producteur; Catégorie; Millésime")
 // imports as is.
 export const HEADER_ALIASES: Record<string, string> = {
-  name: 'name', nom: 'name', cuvee: 'name', designation: 'name', libelle: 'name',
+  name: 'name', nom: 'name', cuvee: 'name', libelle: 'name',
   producer: 'producer', producteur: 'producer', domaine: 'producer', maison: 'producer', distillerie: 'producer', marque: 'producer',
   category: 'category', categorie: 'category',
   vintage: 'vintage', millesime: 'vintage', annee: 'vintage', year: 'vintage',
@@ -89,6 +92,127 @@ export const HEADER_ALIASES: Record<string, string> = {
 };
 
 /**
+ * #1035: the usual names of other cellar software's exports — CellarTracker
+ * ("Wine", "Type", "Varietal", "Bin", "Valuation", "StoreName", "BeginConsume",
+ * "Remaining") and Vivino ("Wine name", "Winery", "Wine type", "Wine price",
+ * "User cellar count", "Personal Note"). Read after the names above, for a row
+ * whose cell under Glou's own name is empty (or, for the category, unreadable):
+ * a "Type" next to a filled "Catégorie" never replaces it.
+ */
+export const THIRD_PARTY_HEADER_ALIASES: Record<string, string> = {
+  wine: 'name', winename: 'name', nomduvin: 'name',
+  winery: 'producer', manufacturer: 'producer', brand: 'producer',
+  type: 'category', winetype: 'category', typedevin: 'category',
+  cost: 'purchasePrice',
+  // Vivino's price is the market price it shows, not what was paid.
+  wineprice: 'estimatedValue', valuation: 'estimatedValue',
+  usercellarcount: 'quantity', remaining: 'quantity', bottles: 'quantity',
+  storename: 'purchasePlace', store: 'purchasePlace',
+  bin: 'location',
+  grape: 'grapeVarieties', varietal: 'grapeVarieties', varietals: 'grapeVarieties', variety: 'grapeVarieties',
+  personalnote: 'notes', privatenote: 'notes', mynotes: 'notes', commentaire: 'notes', commentaires: 'notes',
+  beginconsume: 'peakMaturityFrom', endconsume: 'peakMaturityTo',
+};
+
+/**
+ * #1035: names read only for a row whose own column is empty or absent —
+ * the country when no region is given, a designation when no name is.
+ */
+export const HEADER_FALLBACKS: Record<string, string> = {
+  country: 'region', pays: 'region',
+  designation: 'name',
+};
+
+/** #1035: the longest cell, header or list a preview echoes back. */
+const ECHO_MAX_CHARS = 100;
+const ECHO_MAX_COLUMNS = 30;
+const CELLAR_NAME_MAX = 100;
+const clip = (text: string) => (text.length > ECHO_MAX_CHARS ? `${text.slice(0, ECHO_MAX_CHARS - 1)}…` : text);
+
+/**
+ * Where each column of the importer is read in a file: its headers, Glou's
+ * own names first, then another software's, then the fallbacks — whatever
+ * their order in the file. A row takes the first non-empty cell.
+ *
+ * A lower-ranked header is kept beside one of Glou's own names, as a cell
+ * the row falls back to, only in a CellarTracker or Vivino export: elsewhere
+ * a file's own column stands alone, right or wrong, as before #1035. A
+ * column Glou has no name of its own for in the file is read in any file.
+ */
+interface ColumnMap {
+  sources: Map<string, string[]>;
+  /** Headers that feed no column, as the file writes them. */
+  unrecognized: string[];
+  /** Each column's first header, as the file writes it: what a message about it quotes. */
+  label: Map<string, string>;
+  /** Every header as the file writes it, by the key a parsed row holds it under. */
+  original: Map<string, string>;
+  /** A CellarTracker or Vivino export: a purchase day it writes that cannot be read is left out, not a refusal. */
+  thirdParty: boolean;
+  /** A CellarTracker export (its `iWine` column): month-first dates. */
+  cellarTracker: boolean;
+  /** Its Location column names the cellar (CellarTracker's Location + Bin). */
+  storagePlace: boolean;
+  /** The quantity is another software's count of bottles left: 0 means none left, not an error. */
+  countLeft: boolean;
+}
+
+function mapColumns(header: readonly string[]): ColumnMap {
+  const tokens = header.map(normalizeToken);
+  const own = (token: string) => HEADER_ALIASES[token];
+  // CellarTracker names a storage place "Location" and a slot in it "Bin": a
+  // file with a Bin column and no cellar column means its Location as the cellar.
+  const storagePlace = tokens.includes('bin') && !tokens.some((token) => own(token) === 'cellar');
+  const cellarTracker = tokens.includes('iwine');
+  // CellarTracker's purchases export counts drunk bottles in Quantity; Remaining is what is left.
+  const remaining = cellarTracker && tokens.includes('remaining');
+  const ownOf = (token: string) => {
+    if (storagePlace && token === 'location') return 'cellar';
+    if (remaining && own(token) === 'quantity') return undefined;
+    return own(token);
+  };
+  const thirdParty = cellarTracker || tokens.includes('usercellarcount') || tokens.includes('winename');
+  const ranked: Array<[string, number, number]> = [];
+  const dropped: number[] = [];
+  header.forEach((name, index) => {
+    const token = tokens[index];
+    const column = ownOf(token);
+    const other = remaining || token !== 'remaining' ? THIRD_PARTY_HEADER_ALIASES[token] : undefined;
+    if (column) ranked.push([column, 0, index]);
+    else if (other) ranked.push([other, 1, index]);
+    else if (HEADER_FALLBACKS[token]) ranked.push([HEADER_FALLBACKS[token], 2, index]);
+    else if (name !== '' && !(remaining && own(token) === 'quantity')) dropped.push(index);
+  });
+  ranked.sort((a, b) => a[1] - b[1] || a[2] - b[2]);
+  // Outside a CellarTracker or Vivino export, a column Glou has a name of its
+  // own for in this file is read there and nowhere else.
+  const ownColumns = new Set(ranked.filter(([, rank]) => rank === 0).map(([column]) => column));
+  const kept = thirdParty ? ranked : ranked.filter(([column, rank]) => rank === 0 || !ownColumns.has(column));
+  const keptIndexes = new Set(kept.map(([, , index]) => index));
+  for (const [, , index] of ranked) if (!keptIndexes.has(index)) dropped.push(index);
+  const sources = new Map<string, string[]>();
+  const label = new Map<string, string>();
+  const original = new Map<string, string>();
+  for (const name of header) original.set(name.toLowerCase(), name);
+  for (const [column, , index] of kept) {
+    sources.set(column, [...(sources.get(column) ?? []), header[index].toLowerCase()]);
+    if (!label.has(column)) label.set(column, header[index]);
+  }
+  const unrecognized = [...new Set(dropped)].sort((a, b) => a - b).map((index) => header[index]);
+  const quantityTokens = kept.filter(([column]) => column === 'quantity').map(([, , index]) => tokens[index]);
+  const countLeft = quantityTokens.length > 0 && quantityTokens.every((token) => token === 'remaining' || token === 'usercellarcount');
+  return { sources, unrecognized, label, original, thirdParty, cellarTracker, storagePlace, countLeft };
+}
+
+/** CellarTracker's `3/14/2019` (month first, maybe with a time) as `2019-03-14`. */
+function monthFirstDay(cell: string): string {
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s.*)?$/.exec(cell.trim());
+  return match ? `${match[3]}-${match[1]}-${match[2]}` : cell;
+}
+
+const isErrorCode = (reason: string): reason is CsvImportErrorCode => (CSV_IMPORT_ERROR_CODES as readonly string[]).includes(reason);
+
+/**
  * The export writes `'` before a text cell starting with `=`, `+`, `-` or `@`
  * (a spreadsheet would run it as a formula); reading it back removes that
  * mark, so an export imports as written. Numbers are never prefixed.
@@ -105,14 +229,29 @@ const OPENED_ONLY_COLUMNS = ['fillLevel', 'cigarsLeft', 'openedAt'] as const;
  * columns are dropped. A level, cigars left or opening day on a row that is
  * not opened is ignored, whatever it holds.
  */
-function canonicalRecord(record: Record<string, string>): Record<string, string> {
+function canonicalRecord(record: Record<string, string>, columns: ColumnMap): { row: Record<string, string>; from: Map<string, string> } {
   const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(record)) {
-    const column = HEADER_ALIASES[normalizeToken(key)];
-    if (column && !(column in out)) out[column] = unneutralize(value);
+  // The header each cell was read under, so a refusal names the column it is really in.
+  const from = new Map<string, string>();
+  for (const [column, keys] of columns.sources) {
+    const cells = keys.map((key) => [key, unneutralize(record[key] ?? '')] as const);
+    const filled = cells.filter(([, cell]) => cell.trim() !== '');
+    // The category: the first cell that names one (CellarTracker's Type when its Category says nothing).
+    const readable = column === 'category' ? filled.find(([, cell]) => isCategory(cell)) : undefined;
+    const [key, cell] = readable ?? filled[0] ?? cells[0];
+    out[column] = cell;
+    from.set(column, key);
   }
   if (toOpened(out.opened) !== true) for (const column of OPENED_ONLY_COLUMNS) delete out[column];
-  return out;
+  // #1035: another software's file is never refused for its purchase day:
+  // CellarTracker's is month first, and one that cannot be read is left out.
+  if (columns.thirdParty && out.purchasedAt !== undefined) {
+    const day = columns.cellarTracker ? monthFirstDay(out.purchasedAt) : out.purchasedAt;
+    out.purchasedAt = isPurchaseDay(day) ? day : '';
+  }
+  // A storage place used as the cellar keeps to a cellar name's length.
+  if (columns.storagePlace && out.cellar !== undefined) out.cellar = out.cellar.trim().slice(0, CELLAR_NAME_MAX);
+  return { row: out, from };
 }
 
 /** The family description a row carries (FEAT-99), undefined cells left out. */
@@ -127,6 +266,11 @@ const CSV_IMPORT_LOCK_KEY = 5_770_641;
 export interface CsvParseResult {
   valid: CsvImportRow[];
   errors: CsvImportError[];
+  /** #1035: what {@link CsvImportPreview} says of the header line, and of the rows left out quietly. */
+  missingColumns: string[];
+  unrecognizedColumns: string[];
+  unrecognizedCount: number;
+  outOfStockRows: number;
 }
 
 const normalizeName = (value: string) => value.trim().toLowerCase();
@@ -193,43 +337,67 @@ export class ImportService {
     // UTF-8 silently turns every accented byte into U+FFFD rather than
     // failing — the only sign is the replacement character itself (#397).
     if (text.includes('�')) {
-      return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }] };
+      return { valid: [], errors: [{ row: 1, reason: 'INVALID_ENCODING' }], missingColumns: [], unrecognizedColumns: [], unrecognizedCount: 0, outOfStockRows: 0 };
     }
 
     // FEAT-91 (#641): every row is read, so the screen can say when the file
     // goes over CSV_IMPORT_MAX_ROWS instead of dropping the rest unseen.
     // The upload itself is capped at 2 MB (upload.middleware.ts).
-    const records = parseCsv(text).map(canonicalRecord);
+    const { header, records } = parseCsvTable(text);
+    const columns = mapColumns(header);
+    const unrecognizedColumns = columns.unrecognized.slice(0, ECHO_MAX_COLUMNS).map(clip);
+    const unrecognizedCount = columns.unrecognized.length;
 
     const valid: CsvImportRow[] = [];
     const errors: CsvImportError[] = [];
+    if (records.length === 0) return { valid, errors, missingColumns: [], unrecognizedColumns, unrecognizedCount, outOfStockRows: 0 };
 
     // If a file carries none of the known columns, its header line was almost
     // certainly not understood (unsupported delimiter, missing header row,
     // wrong file) — reporting that once is far more useful than one
-    // NAME_REQUIRED per data row.
-    if (records.length > 0) {
-      if (Object.keys(records[0]).length === 0) {
-        // Row 1 = the header line itself, which is what is actually wrong.
-        return { valid, errors: [{ row: 1, reason: 'UNRECOGNIZED_COLUMNS' }] };
+    // NAME_REQUIRED per data row. #1035: so is a required column missing —
+    // said once, with the headers the import did not recognize.
+    const missingColumns = CSV_REQUIRED_COLUMNS.filter((column) => !columns.sources.has(column));
+    if (missingColumns.length > 0) {
+      // Row 1 = the header line itself, which is what is actually wrong.
+      // Nothing recognized: one message, the header was not understood.
+      if (columns.sources.size === 0) {
+        return { valid, errors: [{ row: 1, reason: 'UNRECOGNIZED_COLUMNS' }], missingColumns: [], unrecognizedColumns, unrecognizedCount, outOfStockRows: 0 };
       }
+      return { valid, errors: [{ row: 1, reason: 'MISSING_COLUMNS' }], missingColumns, unrecognizedColumns, unrecognizedCount, outOfStockRows: 0 };
     }
 
-    records.forEach((record, index) => {
+    let outOfStockRows = 0;
+
+    records.forEach((raw, index) => {
       const rowNumber = index + 2; // +1 for the header row, +1 for 1-based numbering
+      const { row: record, from } = canonicalRecord(raw, columns);
+      // #1035: a wine another software lists with no bottle left (Vivino's cellar count, CellarTracker's Remaining at 0).
+      const left = record.quantity?.trim().replace(',', '.') ?? '';
+      if (columns.countLeft && left !== '' && Number(left) === 0) {
+        outOfStockRows += 1;
+        return;
+      }
       const result = csvRawRowSchema.safeParse(record);
       if (result.success) {
         valid.push(result.data);
       } else {
         // A single machine-readable code (e.g. 'NAME_REQUIRED') — the
-        // frontend maps it to a localized message; falls back to the raw
-        // code if a row somehow fails validation in an unmapped way.
-        const reason = result.error.issues[0]?.message ?? 'INVALID_ROW';
-        errors.push({ row: rowNumber, reason });
+        // frontend maps it to a localized message — with the column it is
+        // about and the wine's name (#1035); a refusal in an unmapped way is
+        // INVALID_ROW, never the validator's own text.
+        const issue = result.error.issues[0];
+        const reason = issue && isErrorCode(issue.message) ? issue.message : 'INVALID_ROW';
+        const column0 = typeof issue?.path[0] === 'string' ? issue.path[0] : undefined;
+        const read = column0 ? from.get(column0) : undefined;
+        const label = (read ? columns.original.get(read) : undefined) ?? (column0 ? columns.label.get(column0) : undefined);
+        const column = label ? clip(label) : undefined;
+        const name = record.name?.trim() ? clip(record.name.trim()) : undefined;
+        errors.push({ row: rowNumber, reason, ...(column ? { column } : {}), ...(name ? { name } : {}) });
       }
     });
 
-    return { valid, errors };
+    return { valid, errors, missingColumns: [], unrecognizedColumns, unrecognizedCount, outOfStockRows };
   }
 
   /**
@@ -239,8 +407,8 @@ export class ImportService {
    * (QP3). Never writes.
    */
   async preview(buffer: Buffer): Promise<CsvImportPreview> {
-    const { valid, errors } = this.previewCsv(buffer);
-    if (valid.length === 0) return { valid, errors, lines: [], newCellars: [] };
+    const { valid, errors, ...file } = this.previewCsv(buffer);
+    if (valid.length === 0) return { valid, errors, lines: [], newCellars: [], ...file };
     const drafts = groupCsvRows(valid);
     const families = await familiesOf(prisma, drafts);
     const stock = await stockOf(prisma, idsOf(families));
@@ -256,7 +424,7 @@ export class ImportService {
       if (newCellar && inStock === 0 && !newCellars.has(normalizeName(cellar))) newCellars.set(normalizeName(cellar), cellar.trim());
       return { ...draft, inStock, newCellar, tooLarge: draft.count > MAX_COPIES };
     });
-    return { valid, errors, lines, newCellars: [...newCellars.values()] };
+    return { valid, errors, lines, newCellars: [...newCellars.values()], ...file };
   }
 
   /**

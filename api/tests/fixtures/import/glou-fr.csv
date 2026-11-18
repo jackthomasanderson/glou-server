@@ -1,0 +1,21 @@
+﻿Nom;Producteur;Catégorie;Millésime;Prix d'achat;Quantité;Région;Cave;Date d'achat
+Grand Vin;Château Léoville-Las Cases;Cigare;;273,6;4;Bordeaux;Cave 1;14/07/2012
+Grand Vin;Domaine Zind-Humbrecht;Rouge;;178,2;1;Cuba;;13/01/2017
+Cuvée spéciale n°9;Domaine de la Romanée-Conti;Blanc;1999;98,1;11;Rhône;Cave 1;19/10/2016
+Cuvée « Tradition »;Henri Bonneau, Père & Fils;Rouge;1993;206,7;7;Provence;Cave du bas;19/08/2021
+"Côte-Rôtie ""La Mouline""";Domaine Tempier;Rouge;2009;108,3;8;Loire;;03/02/2023
+12 ans d'âge;E. Guigal;Bulles;1992;171,0;6;Provence;Cellier;20/08/2024
+12 ans d'âge;Château d'Yquem;Spiritueux;;197,0;11;Speyside;Cellier;23/07/2021
+Les Terrasses, Réserve;Château Margaux;Cigare;;91,9;12;Alsace;Cave du bas;13/08/2012
+;Domaine X;Rouge;2015;12,5;1;Loire;;
+Vin sans producteur;;Rouge;2015;12,5;1;Loire;;
+Vin cat bizarre;Dom Y;Orangé;2015;12,5;1;Loire;;
+Vin futur;Dom Y;Rouge;2100;12,5;1;Loire;;
+Vin ancien;Dom Y;Rouge;1800;-5;1;Loire;;
+Vin prix texte;Dom Y;Rouge;2015;douze euros;1;Loire;;
+Vin qté zéro;Dom Y;Rouge;2015;10;0;Loire;;
+Vin qté 1,5;Dom Y;Rouge;2015;10;1,5;Loire;;
+NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN;Dom Y;Rouge;2015;10;1;Loire;;
+Vin date foireuse;Dom Y;Rouge;2015;10;1;Loire;;31/02/2020
+Vin millésime NV;Dom Y;Bulles;NV;10;1;Champagne;;
+Vin 1 colonne manquante;Dom Y;Rouge
