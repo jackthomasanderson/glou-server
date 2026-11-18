@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, Button, Tooltip } from '@heroui/react';
 import { ACCESSIBLE_POPOVER } from './accessiblePopover';
-import { Search, Lock } from 'lucide-react';
+import { Search, Lock, House } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useBrowserTabTitle } from '@/hooks/useBrowserTabTitle';
 import { Sidebar } from './Sidebar';
@@ -75,9 +75,11 @@ function PageBreadcrumb({ appName, crumb }: { appName: string; crumb?: string })
   useBrowserTabTitle(crumb ?? pageTitle?.label);
 
   return (
-    <span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase flex items-center gap-1">
-      <Link href="/" className="shrink-0 text-foreground-500 hover:text-foreground transition-colors">
-        {appName}
+    <span className="min-w-0 max-sm:flex-1 text-xs font-bold tracking-[.1rem] uppercase flex items-center gap-1">
+      {/* #1049: on a phone a house icon replaces the app name (16 px instead of ~40) so the page names fit; still a link home with the name for screen readers (#913). */}
+      <Link href="/" className="shrink-0 max-sm:p-1.5 max-sm:-m-1.5 text-foreground-500 hover:text-foreground transition-colors">
+        {pageTitle && <House size={16} aria-hidden="true" className="sm:hidden" />}
+        <span className={pageTitle ? 'max-sm:sr-only' : undefined}>{appName}</span>
       </Link>
       {pageTitle && (
         <>
@@ -154,7 +156,8 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
             <PageBreadcrumb appName={user?.appName || 'Glou'} crumb={crumb} />
           </Suspense>
 
-          <div className="flex-1" />
+          {/* Below `sm` the breadcrumb takes the free room itself: no empty item, so no extra gap. */}
+          <div className="flex-1 max-sm:hidden" />
           <GlobalSearch />
           {/* Mobile search trigger */}
           <Button

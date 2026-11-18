@@ -77,11 +77,12 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
         >
           <Link
             href="/"
-            className="block font-extrabold text-lg tracking-[.15rem] text-secondary no-underline leading-tight whitespace-nowrap"
+            className="block font-extrabold text-lg tracking-[.15rem] text-secondary no-underline leading-tight break-words"
           >
             {user?.appName || 'GLOU'}
           </Link>
-          <span className="block text-xs tracking-[.08rem] uppercase text-foreground-500 mt-0.5 whitespace-nowrap">
+          {/* #1049: the slogan wraps rather than being cut off at the toggle. */}
+          <span className="block text-xs tracking-[.08rem] uppercase text-foreground-500 mt-0.5 leading-tight break-words">
             {user?.appSlogan || t('app.tagline')}
           </span>
         </div>
@@ -217,9 +218,10 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
 
       {/* FEAT-115 (#990): the installed version and the What's New? link, administrators only. */}
       {user?.isAdmin && whatsNew && (
-        <div className={`shrink-0 flex items-center pb-2 ${expanded ? 'px-3 gap-2' : 'justify-center'}`}>
+        <div className={`shrink-0 flex items-center pb-2 ${expanded ? 'flex-wrap px-3 gap-x-2' : 'justify-center'}`}>
           {expanded && whatsNew.version && (
-            <span className="text-xs text-foreground-500 font-mono truncate">{whatsNew.version}</span>
+            // #1049: the whole version, the link going to the next line when both do not fit.
+            <span className="text-xs text-foreground-500 font-mono break-all">{whatsNew.version}</span>
           )}
           <Tooltip {...ACCESSIBLE_POPOVER} content={t('whatsNew.open')} placement="right" delay={500} isDisabled={expanded}>
             <Button
@@ -242,7 +244,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
       <Divider className="shrink-0" />
       <div
         className={`flex shrink-0 py-3 transition-all duration-200 ${
-          expanded ? 'px-3 items-center gap-2' : 'px-0 flex-col items-center gap-2'
+          expanded ? 'px-2 items-center gap-1.5' : 'px-0 flex-col items-center gap-2'
         }`}
       >
         <ThemeToggle />
@@ -274,7 +276,7 @@ function SidebarContent({ expanded, onToggle }: SidebarContentProps) {
               <p className="text-xs font-semibold leading-tight truncate whitespace-nowrap">
                 {user?.username}
               </p>
-              <p className="text-xs text-foreground-500 leading-tight truncate whitespace-nowrap">
+              <p className="text-xs text-foreground-500 leading-tight">
                 {user?.isAdmin ? t('nav.roleAdmin') : t('nav.roleUser')}
               </p>
             </div>

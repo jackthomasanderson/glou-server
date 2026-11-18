@@ -17,6 +17,21 @@ describe('isAboutItem (#862)', () => {
     expect(isAboutItem('Domaine Petit Cuvée cigar', 'Petit Cuvée', 'Domaine')).toBe(false);
   });
 
+  // #1049: "Dom V" / "ZV Test" got a Dom Pérignon photo (the word "Dom" matched).
+  it('rejects a title that shares only a short producer word', () => {
+    expect(isAboutItem('Dom Pérignon Vintage Champagne, 2 bottles', 'ZV Test', 'Dom V')).toBe(false);
+    expect(isAboutItem('ZV Test by Dom V wine bottle', 'ZV Test', 'Dom V')).toBe(true);
+  });
+
+  // The right photo of the right wine, whatever the title leaves out.
+  it('keeps the photo of the wine when the title omits or abbreviates the producer', () => {
+    expect(isAboutItem('Cuvée Solstice, a red', 'Cuvée Solstice', 'Domaine Rives')).toBe(true);
+    expect(isAboutItem('La Tâche Grand Cru bottle', 'La Tâche', 'Domaine de la Romanée-Conti')).toBe(true);
+    expect(isAboutItem('Château Lafite Rothschild 2015', 'Lafite 2015 Magnum', 'Château Lafite Rothschild')).toBe(true);
+    expect(isAboutItem('Saint-Emilion Grand Cru Classé', 'St-Émilion Grand Cru', 'Château Figeac')).toBe(true);
+    expect(isAboutItem('Cohiba Siglo VI box of 25', 'Siglo VI Box', 'Cohiba')).toBe(true);
+  });
+
   it('ignores short words and parts of words', () => {
     expect(isAboutItem('Le XY de la plage', 'Le XY', 'de')).toBe(false);
     expect(isAboutItem('Margaux wines', 'Margaux', '')).toBe(true);

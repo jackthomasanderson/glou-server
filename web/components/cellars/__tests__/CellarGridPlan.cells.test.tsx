@@ -124,6 +124,14 @@ describe('CellarGridPlan, an opened bottle on the plan (recette n°5 of #847)', 
   });
 });
 
+describe('CellarGridPlan, the name on a cell (#1049)', () => {
+  it('writes the whole name and vintage, not its first letters', () => {
+    const long = { ...data, items: [{ ...data.items[0], name: 'Château Margaux Grand Cru' }] } as unknown as CellarGridData;
+    renderGrid(long);
+    expect(cellAt(1, 1)).toHaveTextContent('Château Margaux Grand Cru 2015');
+  });
+});
+
 describe('CellarGridPlan, the tooltip of a cell (recette n°5 of #847)', () => {
   it('opens beside its cell from its top edge, with an arrow: never over the row above or the counter', () => {
     renderGrid(withOpened);

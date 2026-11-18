@@ -124,20 +124,24 @@ function CopiesBadge({ item }: { item: GridItem }) {
 
 interface BottleVisualProps {
   item: GridItem;
-  size?: 'sm' | 'md';
+  /** The width of the cell it was lifted from, so the preview matches it. */
+  width?: number;
 }
 
-function BottleVisual({ item }: BottleVisualProps) {
-  const label = item.vintage ? `${item.name.slice(0, 6)} ${item.vintage}` : item.name.slice(0, 8);
+/** #1049: the whole name (the cell clips it to two lines), no longer its first 6-8 letters. */
+const cellLabel = (item: GridItem) => (item.vintage ? `${item.name} ${item.vintage}` : item.name);
+
+function BottleVisual({ item, width }: BottleVisualProps) {
+  const label = cellLabel(item);
 
   return (
     <div
-      className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center"
-      style={cellBackground(item)}
+      className="relative w-11 h-7 sm:h-9 md:h-11 rounded flex items-center justify-center"
+      style={{ ...cellBackground(item), ...(width ? { width } : {}) }}
     >
       <CopiesBadge item={item} />
       <span
-        className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
+        className="text-[11px] text-white font-semibold leading-tight text-center px-0.5 line-clamp-2 break-words max-w-full pointer-events-none"
         style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
       >
         {label}
@@ -219,7 +223,7 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = 
             onOpenSlot(item);
           }
         }}
-        className="relative w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        className="relative w-full h-full rounded flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-focus"
         style={{
           ...cellBackground(item),
           cursor: isDragging ? 'grabbing' : 'grab',
@@ -231,10 +235,10 @@ function DraggableBottle({ item, fromCol, fromRow, zone, onOpenSlot, disabled = 
       >
         <CopiesBadge item={item} />
         <span
-          className="text-xs text-white font-semibold leading-none text-center px-0.5 overflow-hidden text-ellipsis whitespace-nowrap max-w-full pointer-events-none"
+          className="text-[11px] text-white font-semibold leading-tight text-center px-0.5 line-clamp-2 break-words max-w-full pointer-events-none"
           style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
         >
-          {item.vintage ? `${item.name.slice(0, 6)} ${item.vintage}` : item.name.slice(0, 8)}
+          {cellLabel(item)}
         </span>
       </div>
     </Tooltip>
@@ -272,7 +276,7 @@ function DroppableSlot({ col, row, zone, item, onClickEmpty, onOpenSlot, wording
     <div
       ref={setNodeRef}
       data-slot={`${col}:${row}`}
-      className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded relative"
+      className="h-7 sm:h-9 md:h-11 rounded relative"
       style={{
         backgroundColor: item ? 'transparent' : ZONE_BG[zone],
         border: item ? 'none' : `1.5px dashed ${borderColor}`,
@@ -640,7 +644,7 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
   // the server; offline the plan is read only, and says so.
   const offline = useOfflineBlocked();
   const offlineReasonId = useId();
-  const [activeDrag, setActiveDrag] = useState<{ item: GridCell; fromCol: number; fromRow: number } | null>(null);
+  const [activeDrag, setActiveDrag] = useState<{ item: GridCell; fromCol: number; fromRow: number; width?: number } | null>(null);
 
   const cols = cellar.columns ?? 0;
   const rows = cellar.rows ?? 0;
@@ -711,7 +715,7 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { item, fromCol, fromRow } = event.active.data.current as { item: GridCell; fromCol: number; fromRow: number };
-    setActiveDrag({ item, fromCol, fromRow });
+    setActiveDrag({ item, fromCol, fromRow, width: event.active.rect.current.initial?.width });
     stopFollowingPointer();
     releasedOn.set(undefined);
     // The keyboard has no pointer: dnd-kit's own target is right for it.
@@ -837,11 +841,11 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
         <div className="overflow-x-auto pt-2 pr-2 pb-1">
           <div
             ref={gridRef}
-            className="inline-grid"
-            style={{
-              gridTemplateColumns: `repeat(${cols}, auto)`,
-              gap: '4px',
-            }}
+            // #1049: the cells share the page width (up to 8rem each, so a
+            // plan of three columns is not stretched) and never fall under
+            // their old fixed size; a very wide plan still scrolls sideways.
+            className="grid w-full grid-cols-[repeat(var(--plan-cols),minmax(1.75rem,8rem))] sm:grid-cols-[repeat(var(--plan-cols),minmax(2.25rem,8rem))] md:grid-cols-[repeat(var(--plan-cols),minmax(2.75rem,8rem))]"
+            style={{ '--plan-cols': cols, gap: '4px' } as React.CSSProperties}
           >
             {Array.from({ length: rows }, (_, rowIdx) => {
               const row = rowIdx + 1;
@@ -875,7 +879,7 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
               className="rounded shadow-lg opacity-95 cursor-grabbing"
               style={{ transform: 'scale(1.12)' }}
             >
-              <BottleVisual item={activeDrag.item} />
+              <BottleVisual item={activeDrag.item} width={activeDrag.width} />
             </div>
           )}
         </DragOverlay>

@@ -1,7 +1,8 @@
 'use client';
 import React, { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { LoadingRegion } from '@/components/ui/LoadingRegion';
-import { Skeleton, Tabs, Tab } from '@heroui/react';
+import { Skeleton, Tab } from '@heroui/react';
+import { PageTabs } from '@/components/ui/PageHeader';
 import { Settings, Bell, DoorOpen, Database, Server, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useSystemConfig } from '@/hooks/useAdmin';
@@ -91,18 +92,15 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
           isRetrying={configQuery.isFetching}
         />
       ) : (
-        <Tabs
-          variant="underlined"
-          color="primary"
-          size="md"
+        <PageTabs
           aria-label={t('adminConfig.tabsAriaLabel')}
           selectedKey={selectedTab}
           onSelectionChange={onTabChange ? (key) => onTabChange(String(key) as ConfigTab) : undefined}
           // #759: each card keeps its own form; a tab left stays mounted (hidden,
           // inert), so what was typed there is still there on return.
           destroyInactiveTabPanel={false}
-          // #698: on a phone the tabs wrap instead of scrolling out of sight.
-          classNames={{ base: 'w-full min-w-0', tabList: 'w-full flex-wrap gap-y-1 overflow-visible', panel: 'px-0' }}
+          // #1049: the page's tab style — in a row, scrolling sideways on a phone.
+          classNames={{ base: 'w-full min-w-0', panel: 'px-0' }}
         >
           <Tab key="notifications" title={tabTitle('notifications', Bell)}>
             {panel('notifications', <>
@@ -132,7 +130,7 @@ export function SystemConfigSection({ hasBackupProblem = false, selectedTab, onT
               <ConfigHistoryCard />
             </>)}
           </Tab>
-        </Tabs>
+        </PageTabs>
       )}
     </div>
   );

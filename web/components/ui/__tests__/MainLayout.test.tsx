@@ -6,7 +6,7 @@ let pathname = '/bottles';
 // #203 (skip link) and #195 (connectivity indicator reachable on every screen size).
 
 vi.mock('next/navigation', () => ({ usePathname: () => pathname, useSearchParams: () => new URLSearchParams() }));
-vi.mock('next/link', () => ({ default: ({ children, href }: { children?: ReactNode; href: string }) => <a href={href}>{children}</a> }));
+vi.mock('next/link', () => ({ default: ({ children, href, className }: { children?: ReactNode; href: string; className?: string }) => <a href={href} className={className}>{children}</a> }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@heroui/react', () => ({
   Avatar: () => <span />,
@@ -78,6 +78,19 @@ describe('MainLayout', () => {
     render(<MainLayout protected={false}><p>page</p></MainLayout>);
     const root = within(screen.getByRole('banner')).getByRole('link', { name: 'Glou' });
     expect(root.getAttribute('href')).toBe('/');
+  });
+
+  // #1049: jsdom has no layout, so the guard is on the markup: on a phone a
+  // house icon stands in for the name (16 px instead of ~40, measured in a
+  // browser: "Caves > Cave A" then fits at 390 px), and the name stays for
+  // screen readers; from `sm` up the text shows.
+  it('keeps the breadcrumb root a link on a phone, as an icon, when a page name follows (#913, #1049)', () => {
+    pathname = '/admin';
+    render(<MainLayout protected={false}><p>page</p></MainLayout>);
+    const root = within(screen.getByRole('banner')).getByRole('link', { name: 'Glou' });
+    expect(root.querySelector('svg')).toHaveClass('sm:hidden');
+    expect(root.querySelector('span')).toHaveClass('max-sm:sr-only');
+    expect(root.className).not.toMatch(/(^|\s)hidden(\s|$)/);
   });
 
   // #671: on an install without email or Gotify, a failing nightly backup was
