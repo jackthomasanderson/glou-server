@@ -58,7 +58,7 @@ export function ConnectivityIndicator() {
         type="button"
         onClick={() => setPanelOpen(true)}
         aria-label={tooltipContent}
-        className="relative inline-flex items-center gap-1 flex-shrink-0 rounded-full px-1 py-1 text-foreground-500 outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        className="relative inline-flex items-center justify-center gap-1 flex-shrink-0 rounded-full px-1 py-1 max-sm:min-h-11 max-sm:min-w-11 max-sm:-mx-3 max-sm:-my-3 text-foreground-500 outline-none focus-visible:ring-2 focus-visible:ring-focus"
       >
         {offline ? (
           <WifiOff size={14} className="text-warning" aria-hidden="true" />

@@ -12,6 +12,7 @@ import { BottomNav } from './BottomNav';
 import { GlobalSearch, MobileSearch } from './GlobalSearch';
 import { NotificationBell } from './NotificationBell';
 import { ConnectivityIndicator } from './ConnectivityIndicator';
+import { PHONE_ICON_BUTTON } from './touchTarget';
 import { AuthGuard } from '../auth/AuthGuard';
 import { ConflictResolutionModal } from '../offline/ConflictResolutionModal';
 import { BackupAlertBanner } from '../admin/BackupAlertBanner';
@@ -118,6 +119,7 @@ function QuickLockButton() {
         radius="full"
         onPress={lockNow}
         aria-label={t('lock.buttonLabel')}
+        className={PHONE_ICON_BUTTON}
       >
         <Lock size={18} />
       </Button>
@@ -162,7 +164,7 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
             radius="full"
             onClick={() => setMobileSearchOpen(true)}
             aria-label={t('nav.openSearch')}
-            className="sm:hidden"
+            className={`sm:hidden ${PHONE_ICON_BUTTON}`}
           >
             <Search size={18} />
           </Button>
@@ -171,18 +173,21 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children, protected: isP
           <ConnectivityIndicator />
           <NotificationBell />
           {/* Mobile: quick profile access */}
-          <Avatar
-            as={Link}
+          <Link
             href="/profile"
             aria-label={t('nav.profile')}
-            src={user?.avatarUrl || undefined}
-            name={(!user?.avatarUrl && (user?.username || '?')[0].toUpperCase()) || undefined}
-            size="sm"
-            radius="full"
-            isBordered
-            color="secondary"
-            className="md:hidden shrink-0 cursor-pointer"
-          />
+            className="md:hidden shrink-0 rounded-full max-sm:p-1.5 max-sm:-m-1.5"
+          >
+            <Avatar
+              src={user?.avatarUrl || undefined}
+              name={(!user?.avatarUrl && (user?.username || '?')[0].toUpperCase()) || undefined}
+              size="sm"
+              radius="full"
+              isBordered
+              color="secondary"
+              className="cursor-pointer"
+            />
+          </Link>
         </header>
 
         {/* #671: a failing backup, told to administrators on every page. */}

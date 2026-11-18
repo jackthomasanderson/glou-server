@@ -14,6 +14,7 @@ import { todayLocalIso } from '@/lib/format';
 import { alertUrgency } from '@/lib/inventory/types';
 import { leaveThen } from '@/lib/leaveGuard';
 import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
+import { PHONE_ICON_BUTTON } from '@/components/ui/touchTarget';
 
 const STATUS_COLOR: Record<string, 'danger' | 'success' | 'primary' | 'default'> = {
   past: 'danger',
@@ -70,7 +71,7 @@ export function NotificationBell() {
   // Avoid hydration mismatch — render plain button until mounted
   if (!hasMounted) {
     return (
-      <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')}>
+      <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')} className={PHONE_ICON_BUTTON}>
         <Bell size={18} />
       </Button>
     );
@@ -84,7 +85,7 @@ export function NotificationBell() {
   return (
     <Popover {...ACCESSIBLE_POPOVER} placement="bottom-end" isOpen={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger>
-        <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')} className="overflow-visible">
+        <Button isIconOnly size="sm" variant="light" radius="full" aria-label={t('inventory.alerts.title')} className={`overflow-visible ${PHONE_ICON_BUTTON}`}>
           {count > 0 ? (
             <Badge content={count} color="danger" size="sm" placement="top-right">
               <Bell size={18} />

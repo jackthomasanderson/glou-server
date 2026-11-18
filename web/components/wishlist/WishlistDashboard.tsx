@@ -34,6 +34,9 @@ import { cigarGroupInput, cigarPriceKey, draftFrom, isCigarGroupValid, type Ciga
 import type { Product } from '@/lib/products/types';
 import { SingleSelect } from '@/components/ui/SingleSelect';
 
+/** The card's actions are 44 px high on a phone (ux-ui.md §5.4). */
+const ACTION_PHONE = 'max-sm:h-11';
+
 /** A vintage a bottle may carry (the API's rule, #624). */
 const isVintage = (year: number) => Number.isInteger(year) && year >= VINTAGE_MIN && year <= new Date().getFullYear();
 
@@ -298,23 +301,24 @@ export function WishlistDashboard() {
                     )}
                   </div>
                 </div>
+                {/* #1041: full width and wrapping on a phone; the row used to run past the card, its last buttons out of reach. */}
                 {item.status === 'active' && (
-                  <div className="flex gap-2 flex-wrap shrink-0">
-                    <Button size="sm" variant="light" color="default" onPress={() => openPriceSeen(item)}>
+                  <div className="flex gap-2 flex-wrap max-sm:w-full sm:shrink-0">
+                    <Button size="sm" className={ACTION_PHONE} variant="light" color="default" onPress={() => openPriceSeen(item)}>
                       {t('wishlist.priceSeen.title')}
                     </Button>
-                    <Button size="sm" variant="bordered" color="primary" onPress={() => openEdit(item)}>
+                    <Button size="sm" className={ACTION_PHONE} variant="bordered" color="primary" onPress={() => openEdit(item)}>
                       {t('actions.edit')}
                     </Button>
                     <Button
-                      size="sm" variant="solid" color="primary"
+                      size="sm" className={ACTION_PHONE} variant="solid" color="primary"
                       startContent={<ArrowRightCircle size={14} />}
                       onPress={() => openConvert(item)}
                       data-testid="wishlist-convert-button"
                     >
                       {t('wishlist.convert.action')}
                     </Button>
-                    <Button size="sm" variant="light" color="danger" onPress={() => setDeleting(item)}>
+                    <Button size="sm" className={ACTION_PHONE} variant="light" color="danger" onPress={() => setDeleting(item)}>
                       {t('actions.delete')}
                     </Button>
                   </div>
@@ -366,6 +370,7 @@ export function WishlistDashboard() {
                   <ParsedNumberInput
                     min={VINTAGE_MIN} max={new Date().getFullYear()}
                     label={t('wishlist.form.vintage')}
+                    placeholder={t('wishlist.form.vintagePlaceholder')}
                     value={form.vintage}
                     onValueChange={(v) => setForm((f) => ({ ...f, vintage: v ?? null }))}
                     variant="bordered" size="md" radius="md" labelPlacement="outside"
@@ -381,6 +386,7 @@ export function WishlistDashboard() {
                 <ParsedNumberInput
                   decimal
                   label={t('wishlist.form.maxPrice')}
+                  placeholder={t('wishlist.form.maxPricePlaceholder')}
                   description={t('wishlist.form.maxPriceHint')}
                   min={0}
                   value={form.maxPrice}

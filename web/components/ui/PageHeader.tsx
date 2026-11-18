@@ -109,7 +109,8 @@ export function PageTabs<T extends object>({ classNames, ...props }: TabsProps<T
       variant="underlined"
       color="primary"
       size="md"
-      classNames={{ base: 'max-w-full', ...classNames }}
+      // #1041: tabs wider than a phone scroll sideways; the shade says so.
+      classNames={{ base: 'max-w-full', tabList: 'scroll-cue-x', ...classNames }}
       {...props}
     />
   );

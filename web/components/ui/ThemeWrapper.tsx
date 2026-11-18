@@ -135,7 +135,9 @@ export function ThemeWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeModeProvider>
-      <HeroUIProvider disableAnimation={prefersReducedMotion}>
+      {/* `locale`: the strings react-aria writes itself ("Show suggestions",
+          "Dismiss") follow the app's language, not the browser's. */}
+      <HeroUIProvider locale={i18n.language} disableAnimation={prefersReducedMotion}>
         {children}
       </HeroUIProvider>
     </ThemeModeProvider>

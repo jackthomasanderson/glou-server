@@ -2690,13 +2690,15 @@
     },
     "form": {
       "name": "Nom",
-      "namePlaceholder": "Ex. : Château Margaux",
+      "namePlaceholder": "Ex. : Cuvée du Marquis",
       "producer": "Producteur",
-      "producerPlaceholder": "Ex. : Château Margaux",
+      "producerPlaceholder": "Ex. : Domaine Montirius",
       "category": "Catégorie",
       "vintage": "Millésime",
+      "vintagePlaceholder": "Ex. : 2019",
       "targetQuantity": "Quantité cible",
       "maxPrice": "Prix plafond",
+      "maxPricePlaceholder": "Ex. : 25",
       "maxPriceHint": "Un prix observé inférieur ou égal à ce plafond est signalé dans la liste.",
       "notes": "Notes"
     },

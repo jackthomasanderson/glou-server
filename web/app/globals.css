@@ -85,3 +85,20 @@ html {
     box-shadow: none !important;
   }
 }
+
+/* #1041: a row that scrolls sideways (page tabs on a phone) shows it. A
+ * shade on the side where more is hidden, drawn behind the content: the
+ * `local` layers are page-coloured covers that scroll with the content and
+ * hide the shade once that end is reached, so no script is needed. Only for a
+ * row on the page background. */
+@utility scroll-cue-x {
+  background-image:
+    linear-gradient(to right, hsl(var(--heroui-background)) 30%, transparent),
+    linear-gradient(to left, hsl(var(--heroui-background)) 30%, transparent),
+    radial-gradient(farthest-side at 0 50%, hsl(var(--heroui-foreground) / 0.25), transparent),
+    radial-gradient(farthest-side at 100% 50%, hsl(var(--heroui-foreground) / 0.25), transparent);
+  background-position: 0 0, 100% 0, 0 0, 100% 0;
+  background-repeat: no-repeat;
+  background-size: 2.5rem 100%, 2.5rem 100%, 0.75rem 100%, 0.75rem 100%;
+  background-attachment: local, local, scroll, scroll;
+}
