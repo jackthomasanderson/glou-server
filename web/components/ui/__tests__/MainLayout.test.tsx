@@ -80,14 +80,17 @@ describe('MainLayout', () => {
     expect(root.getAttribute('href')).toBe('/');
   });
 
-  // #1049: jsdom ignores Tailwind, so the guard is on the classes: on a phone
-  // the link shrinks (never `hidden`), it is not removed.
-  it('keeps the breadcrumb root visible on a phone, shrunk, when a page name follows (#913, #1049)', () => {
+  // #1049: jsdom has no layout, so the guard is on the markup: on a phone a
+  // house icon stands in for the name (16 px instead of ~40, measured in a
+  // browser: "Caves > Cave A" then fits at 390 px), and the name stays for
+  // screen readers; from `sm` up the text shows.
+  it('keeps the breadcrumb root a link on a phone, as an icon, when a page name follows (#913, #1049)', () => {
     pathname = '/admin';
     render(<MainLayout protected={false}><p>page</p></MainLayout>);
     const root = within(screen.getByRole('banner')).getByRole('link', { name: 'Glou' });
-    expect(root.className).not.toMatch(/(^|\s)(max-sm:|sm:)?hidden(\s|$)/);
-    expect(root.className).toContain('max-sm:max-w-');
+    expect(root.querySelector('svg')).toHaveClass('sm:hidden');
+    expect(root.querySelector('span')).toHaveClass('max-sm:sr-only');
+    expect(root.className).not.toMatch(/(^|\s)hidden(\s|$)/);
   });
 
   // #671: on an install without email or Gotify, a failing nightly backup was
