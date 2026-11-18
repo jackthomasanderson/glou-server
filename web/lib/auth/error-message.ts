@@ -58,7 +58,7 @@ export function loadErrorMessage(t: Translate, err: unknown, fallback: string): 
 /** Whole minutes left before a throttled form accepts a new attempt (#640). */
 export function minutesToWait(err: unknown): number {
   const seconds = (err as { retryAfter?: unknown } | null)?.retryAfter;
-  return typeof seconds === 'number' && seconds > 0 ? Math.ceil(seconds / 60) : AUTH_RATE_LIMIT_WINDOW_MINUTES;
+  return typeof seconds === 'number' && seconds > 0 && seconds <= MAX_WAIT_SECONDS ? Math.ceil(seconds / 60) : AUTH_RATE_LIMIT_WINDOW_MINUTES;
 }
 
 /**

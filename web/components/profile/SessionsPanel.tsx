@@ -30,9 +30,9 @@ export function SessionsPanel() {
         setConfirmRevokeOthers(false);
         notifySuccess('profile.sessions.revokeOthersSuccess');
       },
-      onError: () => {
+      onError: (err) => {
         setConfirmRevokeOthers(false);
-        notifyError('profile.sessions.revokeOthersError');
+        notifyError('profile.sessions.revokeOthersError', undefined, err);
       },
     });
   };

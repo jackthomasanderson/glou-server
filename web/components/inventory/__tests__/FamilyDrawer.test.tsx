@@ -540,7 +540,7 @@ describe('FamilyDrawer — opened from a cell of the plan (FEAT-93)', () => {
     detail = detailOf({ items: [placed()] });
     render(<FamilyDrawer productId="p1" onClose={() => {}} slotContext={slotContext} />);
     fireEvent.click(within(screen.getByTestId('slot-context')).getByRole('button', { name: 'Retirer de la case' }));
-    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('cellars.grid.slotNotFound'));
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('cellars.grid.slotNotFound', undefined, expect.anything()));
   });
 
   it('closed, then opened again without a cell: no line is led to any more (review of #855)', async () => {

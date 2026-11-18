@@ -120,7 +120,7 @@ export function GuestFamilyCard({ family, token, meta, onNoteTasting, onLinkGone
 
   const refused = (error: unknown) => {
     if (isLinkGone(error)) onLinkGone();
-    notifyError(refusalKey(error));
+    notifyError(refusalKey(error), undefined, error);
   };
 
   /**

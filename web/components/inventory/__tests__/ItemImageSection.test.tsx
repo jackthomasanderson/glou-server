@@ -42,7 +42,7 @@ function deferFetch() {
 }
 
 async function expectRefusedWith(messageKey: string) {
-  await waitFor(() => expect(notifyError).toHaveBeenCalledWith(messageKey));
+  await waitFor(() => expect(notifyError).toHaveBeenCalledWith(messageKey, undefined, expect.anything()));
   await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
   expect(onPhotoChange).not.toHaveBeenCalled();
   expect(document.querySelector('img')?.getAttribute('src')).toBe(PREVIOUS_PHOTO);

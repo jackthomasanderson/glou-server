@@ -89,6 +89,17 @@ describe('useUpdateCellar', () => {
     act(() => result.current.mutate({ id: 'cellar-1', data: { rows: 4 } }));
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(notifyError).toHaveBeenCalledWith('toast.cellar.updateError');
+    expect(notifyError).toHaveBeenCalledWith('toast.cellar.updateError', undefined, expect.anything());
+  });
+
+  // #1039: saving a cellar refused by the rate limit hands the failure to the message.
+  it('passes a 429 to the failure message', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Too many requests', { status: 429, headers: { 'Retry-After': '90' } })));
+    const { result } = renderHook(() => useUpdateCellar(), { wrapper });
+
+    act(() => result.current.mutate({ id: 'cellar-1', data: { rows: 4 } }));
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(notifyError).toHaveBeenCalledWith('toast.cellar.updateError', undefined, expect.objectContaining({ status: 429, retryAfter: 90 }));
   });
 });

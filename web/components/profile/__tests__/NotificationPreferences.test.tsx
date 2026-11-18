@@ -271,7 +271,7 @@ describe('NotificationPreferences when loading fails (#615)', () => {
 
     fireEvent.click(email);
 
-    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('notifications.saveError'));
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('notifications.saveError', undefined, expect.anything()));
     expect(updateNotifPrefs).toHaveBeenCalledWith({ notifEmail: false });
     expect(screen.getByRole('switch', { name: 'notifications.channels.email' })).toBeChecked();
   });

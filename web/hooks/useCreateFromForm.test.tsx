@@ -79,6 +79,6 @@ describe('useCreateFromForm', () => {
     await act(async () => { created = await result.current.create({ ...CHABLIS }, ['col-1', 'col-2']); });
     expect(created).toMatchObject({ id: 'new-1' });
     await waitFor(() => expect(notifyError).toHaveBeenCalledOnce());
-    expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError');
+    expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError', undefined, expect.anything());
   });
 });

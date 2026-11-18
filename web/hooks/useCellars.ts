@@ -103,7 +103,7 @@ export function useUpdateCellar() {
         }
         return;
       }
-      notifyError('toast.cellar.updateError');
+      notifyError('toast.cellar.updateError', undefined, error);
     },
   });
 }

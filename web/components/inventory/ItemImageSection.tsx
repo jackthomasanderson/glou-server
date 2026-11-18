@@ -75,7 +75,7 @@ export function ItemImageSection({
     try {
       local = await save();
     } catch (err) {
-      notifyError(photoErrorKey(err));
+      notifyError(photoErrorKey(err), undefined, err);
       return false;
     } finally {
       setSaving(false);

@@ -41,6 +41,6 @@ describe('CollectionPickerInline, failure after it closed (#887)', () => {
     unmount();
     await act(async () => { fail!(new Error('COLLECTION_NOT_FOUND')); });
     await waitFor(() => expect(notifyError).toHaveBeenCalledTimes(1));
-    expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError');
+    expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError', undefined, expect.anything());
   });
 });
