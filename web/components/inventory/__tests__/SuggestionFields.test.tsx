@@ -77,3 +77,28 @@ describe.each([
     if (_label === 'Producer') expect(options.filter((o) => o.includes('Cellar Estate'))).toHaveLength(1);
   });
 });
+
+describe('lookups only follow typing (privacy)', () => {
+  it('sends nothing for a pre-filled value, nor for a value changed by the form', async () => {
+    vi.useFakeTimers();
+    get.mockResolvedValue({ data: [] });
+    function Prefilled() {
+      const [v, setV] = useState('Existing bottle');
+      return (
+        <>
+          <button onClick={() => setV('Set by the form')}>fill</button>
+          <ProductAutocomplete value={v} onChange={setV} onSelect={() => {}} category="wine" />
+        </>
+      );
+    }
+    renderField(<Prefilled />);
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    expect(get).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText('fill'));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    expect(get).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId('inventory-name-input'), { target: { value: 'typed' } });
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+});

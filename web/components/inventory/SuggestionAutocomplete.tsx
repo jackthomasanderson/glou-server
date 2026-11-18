@@ -57,11 +57,12 @@ export function SuggestionAutocomplete<T extends SuggestionOption>({
   const { shouldWarn, dismiss } = useConnectivityWarning('autocomplete');
   const listId = useId();
   const [isOpen, setIsOpen] = useState(false);
-  const [picked, setPicked] = useState<string | null>(null);
+  // Only what the user typed is looked up: a value set by the form (edit, scan, a picked
+  // suggestion filling other fields) must not leave for the server (privacy).
+  const [typed, setTyped] = useState('');
 
-  const debounced = useDebouncedValue(value.trim(), SUGGESTION_DELAY_MS);
-  // Not for the text just picked from the list: nothing left to suggest.
-  const lookupEnabled = suggestions && isOnline !== false && debounced !== '' && debounced !== picked;
+  const debounced = useDebouncedValue(typed.trim(), SUGGESTION_DELAY_MS);
+  const lookupEnabled = suggestions && isOnline !== false && debounced !== '';
   const { data: serverOptions, isFetching } = useQuery({
     queryKey: queryKey(debounced),
     queryFn: () => fetchSuggestions(debounced),
@@ -80,7 +81,7 @@ export function SuggestionAutocomplete<T extends SuggestionOption>({
 
   const handleSelect = (option: T) => {
     onChange(getText(option));
-    setPicked(getText(option).trim());
+    setTyped('');
     setIsOpen(false);
     onSelect(option);
   };
@@ -118,6 +119,7 @@ export function SuggestionAutocomplete<T extends SuggestionOption>({
         } : {})}
         onValueChange={(v) => {
           onChange(v);
+          setTyped(v);
           if (suggestions) setIsOpen(true);
           keys.resetActive();
         }}

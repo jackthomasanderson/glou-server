@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { ModalContent, ModalHeader, ModalBody, ModalFooter, Button } from '@heroui/react';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +35,13 @@ export function ConfirmDialog({
   isPending = false, isConfirmDisabled = false, danger = true, confirmTestId,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
+  // Callers build the text from the item being acted on and clear it when closing:
+  // keep what was last shown so the dialog does not go blank while it fades out.
+  const lastShown = useRef({ title, message, children, confirmLabel });
+  useEffect(() => {
+    if (isOpen) lastShown.current = { title, message, children, confirmLabel };
+  });
+  const shown = isOpen ? { title, message, children, confirmLabel } : lastShown.current;
 
   return (
     <ResponsiveModal
@@ -48,10 +55,10 @@ export function ConfirmDialog({
       <ModalContent>
         {() => (
           <>
-            <ModalHeader>{title}</ModalHeader>
+            <ModalHeader>{shown.title}</ModalHeader>
             <ModalBody className="gap-2">
-              {message != null && <p className="text-sm text-foreground-600">{message}</p>}
-              {children}
+              {shown.message != null && <p className="text-sm text-foreground-600">{shown.message}</p>}
+              {shown.children}
             </ModalBody>
             <ModalFooter>
               <Button color="danger" variant="light" onPress={onClose} isDisabled={isPending}>
@@ -65,7 +72,7 @@ export function ConfirmDialog({
                 isDisabled={isPending || isConfirmDisabled}
                 data-testid={confirmTestId}
               >
-                {confirmLabel}
+                {shown.confirmLabel}
               </Button>
             </ModalFooter>
           </>

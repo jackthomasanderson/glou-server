@@ -72,3 +72,4 @@ describe('ConfirmDialog (#630)', () => {
     expect(screen.getByText('Two tastings go too.')).toBeTruthy();
   });
 });
+
