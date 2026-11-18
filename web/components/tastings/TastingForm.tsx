@@ -43,6 +43,14 @@ import { SingleSelect } from '@/components/ui/SingleSelect';
 import { ACCESSIBLE_POPOVER } from '@/components/ui/accessiblePopover';
 
 const CONTEXTS = ['solo', 'amis', 'restaurant', 'dégustation', 'cadeau'];
+/**
+ * #1036: how long a tasting waits for the drink it is of to reach the
+ * server — a replay already running is waited for, then at most a couple of
+ * tries of its own, so a save without network is not held back either.
+ */
+const SYNC_TRIES = 3;
+const SYNC_WAIT_MS = 15000;
+const SYNC_POLL_MS = 150;
 const READINESS_VALUES: TastingReadiness[] = ['TOO_YOUNG', 'PERFECT', 'PEAK', 'PAST'];
 
 interface TastingFormProps {
@@ -90,6 +98,8 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
   // whether the tasting is of a bottle of the cellar.
   const [naming, setNaming] = useState(false);
   const [onBottle, setOnBottle] = useState(true);
+  // #1036: the save is waiting for the drink of this tasting to be sent.
+  const [syncing, setSyncing] = useState(false);
   // The vintage as typed: "20" on the way to "2020" stays on screen.
   const [vintageText, setVintageText] = useState('');
   // What its rule checks: react-hook-form keeps the rule of the field's first
@@ -233,10 +243,21 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
     if (!copy.taken || !isProvisional(copy.item)) return copy.linkId;
     const changeId = changeIdOfProvisional(copy.taken.copyId);
     const stateOf = async () => (changeId ? (await getQueuedMutations()).find((change) => change.id === changeId) : undefined);
-    const sending = await stateOf();
-    if (sending && (sending.status === 'pending' || sending.status === 'syncing')) await flushQueue(queryClient);
+    // A replay already running is waited for; one that ended without sending
+    // this change (it started before it was made) is run again, up to
+    // SYNC_WAIT_MS — then the line, as without network.
+    const until = Date.now() + SYNC_WAIT_MS;
+    const onItsWay = (change: Awaited<ReturnType<typeof stateOf>>) => !!change && (change.status === 'pending' || change.status === 'syncing');
+    let sending = await stateOf();
+    for (let tries = 0; tries < SYNC_TRIES && onItsWay(sending) && Date.now() < until; tries += 1) {
+      setSyncing(true);
+      if (tries > 0) await new Promise((resolve) => setTimeout(resolve, SYNC_POLL_MS));
+      await flushQueue(queryClient);
+      sending = await stateOf();
+    }
+    setSyncing(false);
     // Still queued (no network, in conflict, refused): no copy of its own to go on.
-    const stalled = (await stateOf()) !== undefined;
+    const stalled = sending !== undefined;
     const items = queryClient.getQueryData<ProductDetailView>(qk.products.detail(copy.item.productId))?.items;
     return (items && drunkCopyOf(items, copy.taken, { id: sentCopyOf(copy.taken.copyId), stalled })?.linkId) ?? copy.linkId;
   };
@@ -687,7 +708,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                   isLoading={isSaving}
                   isDisabled={isSaving}
                 >
-                  {isSaving ? t('actions.saving') : t('actions.save')}
+                  {syncing ? t('tastings.syncingDrink') : isSaving ? t('actions.saving') : t('actions.save')}
                 </Button>
               </ModalFooter>
             </form>

@@ -43,7 +43,7 @@ const PRODUCT_DETAIL_PREFIX = qk.products.details;
  */
 export const SYNC_LOCK_NAME = 'glou-sync';
 
-let isFlushing = false;
+let flushing: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 
 // #585: a temporary server failure (API restarting, database unavailable,
@@ -503,20 +503,25 @@ async function applyServerWrite(queryClient: QueryClient, done: QueuedMutation, 
  * against the group, and a change replayed once more is refused (409)
  * rather than taking one more copy. One replay at a time across the tabs
  * ({@link SYNC_LOCK_NAME}).
+ *
+ * One replay at a time in this tab too, and awaitable (#1036, third review
+ * of #1053): called while one is running, it hands back that very replay
+ * instead of returning at once, so a caller waiting for its change to be
+ * sent (a tasting of the bottle just drunk) really waits for the answer.
+ * Nothing inside the replay awaits it, so it cannot wait on itself.
  */
-export async function flushQueue(queryClient: QueryClient): Promise<void> {
-  if (isFlushing) return;
-  isFlushing = true;
-  try {
+export function flushQueue(queryClient: QueryClient): Promise<void> {
+  if (flushing) return flushing;
+  const run = async () => {
     const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
     if (locks && typeof locks.request === 'function') {
       await locks.request(SYNC_LOCK_NAME, () => replayQueue(queryClient));
     } else {
       await replayQueue(queryClient);
     }
-  } finally {
-    isFlushing = false;
-  }
+  };
+  flushing = run().finally(() => { flushing = null; });
+  return flushing;
 }
 
 async function replayQueue(queryClient: QueryClient): Promise<void> {
@@ -526,7 +531,7 @@ async function replayQueue(queryClient: QueryClient): Promise<void> {
     // A mutation can be left in `syncing` if the tab closed or the network
     // dropped mid-request (the previous flush never got to record success,
     // conflict or failure). Only one flush ever runs at a time (the lock
-    // shared by the tabs, `isFlushing` without it), so a `syncing` row here
+    // shared by the tabs, the running replay without it), so a `syncing` row here
     // is always stale — reset it to `pending` so the queue self-heals
     // instead of leaving it, and everything queued after it, stuck forever.
     for (const mutation of queued) {

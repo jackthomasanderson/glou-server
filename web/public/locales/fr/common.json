@@ -1422,6 +1422,7 @@
     "create": "Nouvelle dégustation",
     "edit": "Modifier la dégustation",
     "logTasting": "Dégustation",
+    "syncingDrink": "Synchronisation…",
     "empty": "Aucune dégustation enregistrée",
     "emptyHint": "Commencez à documenter vos expériences de dégustation.",
     "deleteTitle": "Supprimer la dégustation",

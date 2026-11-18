@@ -829,6 +829,31 @@ describe('a tasting right after drinking a bottle (#1036)', () => {
     expect(inventoryUpdate).not.toHaveBeenCalled();
   });
 
+  // Third review of #1053: the first flush came back with the change still on
+  // its way (a replay of this tab that had already started): the save waits on.
+  it('a flush that comes back with the drink still being sent: waits again, then the server copy', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    const taken = { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] };
+    cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), pending] };
+    queued = [{ id: 'm1', status: 'syncing' }];
+    flushQueue.mockImplementationOnce(async () => {});
+    flushQueue.mockImplementationOnce(async () => {
+      queued = [];
+      sentCopies.set('offline:m1', 'srv');
+      cachedDetail = { items: [line({ id: 'g3', quantity: 2 }), drunkLine('srv', { parentItemId: 'g3' })] };
+    });
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3', taken }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    expect(flushQueue.mock.calls.length).toBeGreaterThan(1);
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'srv' }));
+  });
+
   // Still waiting (no network): the line it was taken from, as before — the save fails anyway.
   it('saved while the drink still waits for the network: the line it was taken from', async () => {
     const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
