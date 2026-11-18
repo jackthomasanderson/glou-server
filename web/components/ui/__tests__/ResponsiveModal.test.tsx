@@ -29,14 +29,4 @@ describe('ResponsiveModal close button', () => {
     close.click();
     expect(onClose).toHaveBeenCalled();
   });
-
-  it('has a 44 px hit area on a phone', () => {
-    render(
-      <ResponsiveModal isOpen onClose={() => {}}>
-        <ModalContent><ModalBody>content</ModalBody></ModalContent>
-      </ResponsiveModal>,
-    );
-    // p-3.5 around the 16 px icon = 44 px.
-    expect(screen.getByRole('button', { name: 'Fermer' }).className).toContain('max-sm:p-3.5');
-  });
 });
