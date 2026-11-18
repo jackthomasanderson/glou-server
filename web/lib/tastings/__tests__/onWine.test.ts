@@ -120,6 +120,8 @@ describe('drunkCopyOf', () => {
   it('once the queue sent it: the copy the server took off that line, not an older one', () => {
     const items = [group('g3', 2), finished('older', { parentItemId: 'g3' }), finished('sent', { parentItemId: 'g3' })];
     expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen: ['g3', 'older'] })).toEqual({ item: items[2], linkId: 'sent' });
+    // Another member's copy of that line sent meanwhile: the copy this drink made, when known.
+    expect(drunkCopyOf(items, { lineId: 'g3', copyId: 'offline:m1', seen: ['g3'] }, 'sent')).toEqual({ item: items[2], linkId: 'sent' });
     // Dropped instead ("Abandonner"): no copy of its own.
     expect(drunkCopyOf(items.slice(0, 2), { lineId: 'g3', copyId: 'offline:m1', seen: ['g3', 'older'] })).toBeUndefined();
   });

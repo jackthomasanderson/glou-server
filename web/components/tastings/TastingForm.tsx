@@ -20,8 +20,13 @@ import { unitKind } from '@shared/units';
 import { familyLines, formatPurchaseDay, goneParts, lineParts, type LineContext } from '@/lib/products/lines';
 import { formatCurrency, formatDate } from '@/lib/format';
 import {
-  isValidVintage, parseYear, tastingLinePreset, tastingPayload, wineOptionLabel, type DrunkCopy,
+  drunkCopyOf, isValidVintage, parseYear, tastingLinePreset, tastingPayload, wineOptionLabel, type DrunkCopy,
 } from '@/lib/tastings/onWine';
+import { useQueryClient } from '@tanstack/react-query';
+import { qk } from '@/lib/queryKeys';
+import { isProvisional } from '@/lib/offline/optimistic';
+import { sentCopyOf } from '@/lib/offline/syncEngine';
+import type { ProductDetailView } from '@/lib/products/types';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
@@ -74,6 +79,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
   const updateMutation = useUpdateTasting();
   const updateInventory = useUpdateInventoryItem();
   const lookUpItem = useInventoryItemLookup();
+  const queryClient = useQueryClient();
   const isExpert = useExpertMode();
   // The tasted item as it was when the stock question was asked, and the
   // tasting it was noted with (it follows a bottle taken off its group).
@@ -193,7 +199,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
       } else {
         // #1036: the copy just drunk, saved on the bottle the server knows (its line while still waiting for the network).
         const isDrunk = !!drunkCopy && values.itemId === drunkCopy.id;
-        if (isDrunk && drunk) values = { ...values, itemId: drunk.linkId };
+        if (isDrunk && drunk) values = { ...values, itemId: drunkLink(drunk) };
         const note = await createMutation.mutateAsync(tastingPayload(values, naming
           ? { kind: 'named' }
           // A wine whose lines are not known (list not loaded): the bottle given stays.
@@ -212,6 +218,17 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
     } catch {
       // error displayed via mutation.error below
     }
+  };
+
+  /**
+   * #1036: the bottle a tasting of the copy drunk is saved on, read when
+   * saved — opened while the drink waited for the network, the queue may
+   * have sent it since: the copy the server made, not the line it came from.
+   */
+  const drunkLink = (copy: DrunkCopy): string => {
+    if (!copy.taken || !isProvisional(copy.item)) return copy.linkId;
+    const items = queryClient.getQueryData<ProductDetailView>(qk.products.detail(copy.item.productId))?.items;
+    return (items && drunkCopyOf(items, copy.taken, sentCopyOf(copy.taken.copyId))?.linkId) ?? copy.linkId;
   };
 
   const handleStockChoice = async (choice: StockChoice, cell?: SlotChoiceFields) => {

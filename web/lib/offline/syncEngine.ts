@@ -267,6 +267,13 @@ export function shownAfter<T extends { id: string }>(unit: T, mutation: QueuedMu
 // the caller must not write it into the caches again (they already show it).
 const queuedResults = new WeakMap<object, string>();
 
+// #1036: the unit the server wrote for each change sent from this tab, by
+// the provisional copy it showed — a tasting noted on that copy goes there.
+const sentCopies = new Map<string, string>();
+
+/** The server's copy for the provisional copy `provisionalId`, once sent from this tab. */
+export const sentCopyOf = (provisionalId: string): string | undefined => sentCopies.get(provisionalId);
+
 /** Marks `result` as shown from the queued change `mutationId`. */
 export function markQueuedResult<T extends object>(result: T, mutationId: string): T {
   queuedResults.set(result, mutationId);
@@ -558,6 +565,7 @@ async function replayQueue(queryClient: QueryClient): Promise<void> {
         const write = outcome.kind === 'success' ? outcome.write : (already as ServerWrite);
         await deleteQueuedMutation(mutation.id);
         anySynced = true;
+        if (typeof write.data?.id === 'string') sentCopies.set(provisionalIdOf(current.id), write.data.id);
         const target = [write.data, ...write.changed].find((unit) => unit?.id === current.itemId);
         if (typeof target?.updatedAt === 'string') await rebaseLaterMutations(current, target.updatedAt);
         await applyServerWrite(queryClient, current, write);

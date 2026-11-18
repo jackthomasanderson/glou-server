@@ -22,6 +22,7 @@ import { TastingForm } from '@/components/tastings/TastingForm';
 import { guestSignature } from '@/lib/shares/guestSignature';
 import { drunkCopyOf, isTastedElsewhere, type DrunkCopy } from '@/lib/tastings/onWine';
 import type { MoveDone } from '@/hooks/useStockMove';
+import { sentCopyOf } from '@/lib/offline/syncEngine';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { DEFAULT_CURVE_SHAPE, curveShapeDescriptionKey, curveShapeLabelKey } from '@/lib/maturity-references/curve';
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
@@ -264,7 +265,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   // A copy still waiting for the network (FEAT-108) has no id on the server yet.
   // Opened from a cell of the plan: the cell says which bottle (decision 77, recette n°5 7.1).
   // #1036: right after "J'en bois une" ("J'en fume un"), the copy just taken — even the last one.
-  const drunk = lastMove && lastMove.move !== 'open' ? drunkCopyOf(product?.items ?? [], lastMove) : undefined;
+  const drunkNow = lastMove && lastMove.move !== 'open' ? drunkCopyOf(product?.items ?? [], lastMove, sentCopyOf(lastMove.copyId)) : undefined;
+  const drunk = drunkNow && lastMove ? { ...drunkNow, taken: lastMove } : undefined;
   const tastingLines = lines.inCellar.filter((item) => !isProvisional(item));
   const tastingPreset = (cell ? tastingLines.find((item) => item.id === slotLine?.id) : undefined)
     ?? tastingLines.find((item) => !isIntactItem(item))

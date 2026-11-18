@@ -42,6 +42,8 @@ export interface TakenCopy {
 export interface DrunkCopy {
   item: ProductItem;
   linkId: string;
+  /** The move, to find its copy again when the tasting is saved (the queue may have sent it since). */
+  taken?: TakenCopy;
 }
 
 /**
@@ -50,9 +52,15 @@ export interface DrunkCopy {
  * another one of the cellar. Without network (FEAT-108) the copy is first
  * provisional (no id on the server): the tasting goes on the line it was
  * taken from; once the queue has sent it, on the copy the server made.
- * Nothing when it was taken back ("Annuler").
+ * Nothing when it was taken back ("Annuler"). `sentId`: the copy the
+ * server made for that queued move, when this tab sent it — else the
+ * newest copy of that line, which another member's drink may also be.
  */
-export function drunkCopyOf(items: readonly ProductItem[], taken: TakenCopy | null | undefined): DrunkCopy | undefined {
+export function drunkCopyOf(
+  items: readonly ProductItem[],
+  taken: TakenCopy | null | undefined,
+  sentId?: string,
+): DrunkCopy | undefined {
   if (!taken) return undefined;
   const present = items.filter((item) => item.deletedAt == null);
   const copy = present.find((item) => item.id === taken.copyId);
@@ -63,7 +71,8 @@ export function drunkCopyOf(items: readonly ProductItem[], taken: TakenCopy | nu
   }
   if (!isProvisional({ id: taken.copyId })) return undefined;
   // The queued move sent: the copy the server took off that line.
-  const sent = present.find((item) => item.parentItemId === taken.lineId && !isIntactItem(item) && !taken.seen.includes(item.id));
+  const sent = (sentId ? present.find((item) => item.id === sentId) : undefined)
+    ?? present.find((item) => item.parentItemId === taken.lineId && !isIntactItem(item) && !taken.seen.includes(item.id));
   return sent ? { item: sent, linkId: sent.id } : undefined;
 }
 
