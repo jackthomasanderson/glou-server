@@ -174,7 +174,7 @@ export function AdminClient() {
       {/* #701: the shared page header; the breadcrumb and the menu lead back. */}
       <PageHeader icon={ShieldCheck} title={t('admin.title')} />
 
-      <BackupWarning problems={problems} onOpenBackups={() => openConfigTab('data')} />
+      <BackupWarning problems={problems} failure={backupHealth?.lastFailure} onOpenBackups={() => openConfigTab('data')} />
 
       <nav aria-label={t('admin.sections.navLabel')} className="flex flex-wrap gap-2 mb-4">
         {SECTIONS.map(({ key, labelKey, icon: Icon }) => (

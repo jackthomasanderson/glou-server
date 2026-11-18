@@ -208,6 +208,9 @@ async function execPsqlRestore(conn: DbConnParams, srcPath: string): Promise<voi
   });
 }
 
+/** #1048: pg_dump's stderr is unbounded; the health answer, read on every admin page, carries a few hundred characters. */
+const MAX_FAILURE_ERROR_LENGTH = 300;
+
 export const backupService = {
   /**
    * #756: whether automatic backups are on (the schema's default, true, until
@@ -216,12 +219,13 @@ export const backupService = {
    * #671: also whether the last run of any trigger failed, and whether the last
    * success is overdue (older than ALERT_AFTER_MS while backups are on): what
    * the banner shown to administrators on every page reports.
+   * #1048: and, for a failed last run, its id, date and error.
    */
-  async getStatus(): Promise<{ backupEnabled: boolean; lastSuccessAt: Date | null; lastRunFailed: boolean; overdue: boolean }> {
+  async getStatus(): Promise<{ backupEnabled: boolean; lastSuccessAt: Date | null; lastRunFailed: boolean; lastFailure: { id: string; at: Date; error: string | null } | null; overdue: boolean }> {
     const [config, lastOk, lastRun] = await Promise.all([
       prisma.systemConfig.findUnique({ where: { id: 'singleton' }, select: { backupEnabled: true } }),
       prisma.backupRun.findFirst({ where: { success: true }, orderBy: { runAt: 'desc' }, select: { runAt: true } }),
-      prisma.backupRun.findFirst({ orderBy: { runAt: 'desc' }, select: { success: true } }),
+      prisma.backupRun.findFirst({ orderBy: { runAt: 'desc' }, select: { id: true, runAt: true, error: true, success: true } }),
     ]);
     const backupEnabled = config?.backupEnabled ?? true;
     const lastSuccessAt = lastOk?.runAt ?? null;
@@ -229,6 +233,8 @@ export const backupService = {
       backupEnabled,
       lastSuccessAt,
       lastRunFailed: lastRun ? !lastRun.success : false,
+      // #1048: which run failed — the banner stays dismissed until another one does.
+      lastFailure: lastRun && !lastRun.success ? { id: lastRun.id, at: lastRun.runAt, error: lastRun.error?.slice(0, MAX_FAILURE_ERROR_LENGTH) ?? null } : null,
       overdue: backupEnabled && lastSuccessAt !== null && Date.now() - lastSuccessAt.getTime() > ALERT_AFTER_MS,
     };
   },

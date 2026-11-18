@@ -1242,7 +1242,7 @@
     },
     "backupWarning": {
       "notWritable": "Glou cannot write to the backups folder: every backup fails.",
-      "failed": "The last backup failed: check the disk space and the API logs, then run one again.",
+      "failed": "The last backup failed: open the backups to see why and what to do.",
       "overdue": "No backup has succeeded for more than two days: the data is no longer being copied.",
       "disabled": "Automatic backups are switched off: no copy of the data is taken each night.",
       "noBackup": "No backup has ever succeeded: after a disk failure or a wrong move, nothing could be restored.",
@@ -2380,6 +2380,23 @@
         "success": "Backup completed successfully.",
         "error": "Backup failed: {{error}}",
         "timeout": "The backup is taking longer than expected and is still running on the server. Wait a few minutes, then reload the page and check the backup history."
+      },
+      "failure": {
+        "title": "The last backup failed.",
+        "details": "Technical details",
+        "dismiss": "Hide this warning until the next backup problem",
+        "codes": {
+          "PG_DUMP_SPAWN_FAILED": "The pg_dump tool could not be started: it is missing from the API image or install. Use the official Glou image, or install the PostgreSQL client tools where the API runs, then back up again.",
+          "PG_DUMP_FAILED": "pg_dump started, but the database refused or interrupted the copy. Check that the database is running and that the API can reach it with the right credentials (the API logs have the details), then back up again.",
+          "PG_DUMP_TIMED_OUT": "The backup took too long and was stopped. Check that the database responds and that the disk is not saturated, then back up again.",
+          "PG_DUMP_OUTPUT_FAILED": "The copy was interrupted while it was being written. Check the free disk space and the API logs, then back up again.",
+          "DUMP_STREAM_FAILED": "The copy was interrupted while it was being written. Check the free disk space and the API logs, then back up again.",
+          "WRITE_FAILED": "The backup file could not be written. Check the free disk space and that the API can write to the backups folder, then back up again.",
+          "GZIP_FAILED": "The backup could not be compressed. Check the free disk space and the API logs, then back up again.",
+          "FILTER_FAILED": "The backup could not be prepared. Check the API logs, then back up again.",
+          "DATABASE_URL_NOT_SET": "The API does not know where the database is (DATABASE_URL is not set). Fix the API's configuration and restart it."
+        },
+        "unknown": "The backup failed for a reason Glou does not recognise. Check the free disk space and the API logs, then back up again."
       },
       "history": {
         "title": "Backup history",

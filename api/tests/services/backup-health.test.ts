@@ -22,7 +22,7 @@ const NOW = new Date('2026-11-10T12:00:00Z');
 const hoursAgo = (h: number) => new Date(NOW.getTime() - h * HOUR);
 
 /** The last successful run and the last run of any outcome, as the two queries ask for them. */
-function history({ lastSuccess, lastRun }: { lastSuccess: Date | null; lastRun: { success: boolean } | null }) {
+function history({ lastSuccess, lastRun }: { lastSuccess: Date | null; lastRun: { id?: string; runAt?: Date; error?: string | null; success: boolean } | null }) {
   findFirst.mockImplementation(async (args: { where?: { success?: boolean } }) =>
     args?.where?.success ? (lastSuccess ? { runAt: lastSuccess } : null) : lastRun);
 }
@@ -39,13 +39,29 @@ describe('backupService.getStatus — the backup alert (#671)', () => {
   it('raises nothing after a recent successful backup', async () => {
     history({ lastSuccess: hoursAgo(5), lastRun: { success: true } });
     expect(await backupService.getStatus()).toEqual({
-      backupEnabled: true, lastSuccessAt: hoursAgo(5), lastRunFailed: false, overdue: false,
+      backupEnabled: true, lastSuccessAt: hoursAgo(5), lastRunFailed: false, lastFailure: null, overdue: false,
     });
   });
 
   it('flags a last run that failed, even right after an earlier success', async () => {
     history({ lastSuccess: hoursAgo(5), lastRun: { success: false } });
     expect(await backupService.getStatus()).toMatchObject({ lastRunFailed: true, overdue: false });
+  });
+
+  it('says which run failed, so the banner can be dismissed until the next failure (#1048)', async () => {
+    const runAt = hoursAgo(1);
+    history({ lastSuccess: null, lastRun: { id: 'run-9', runAt, error: 'PG_DUMP_SPAWN_FAILED: spawn pg_dump ENOENT', success: false } });
+    expect(await backupService.getStatus()).toMatchObject({
+      lastRunFailed: true,
+      lastFailure: { id: 'run-9', at: runAt, error: 'PG_DUMP_SPAWN_FAILED: spawn pg_dump ENOENT' },
+    });
+  });
+
+  it('caps a long error (pg_dump stderr) in the health answer', async () => {
+    history({ lastSuccess: null, lastRun: { id: 'r', runAt: hoursAgo(1), error: `PG_DUMP_FAILED (exit 1): ${'x'.repeat(5000)}`, success: false } });
+    const status = await backupService.getStatus();
+    expect(status.lastFailure?.error).toHaveLength(300);
+    expect(status.lastFailure?.error).toMatch(/^PG_DUMP_FAILED/);
   });
 
   it('flags a last success older than 48 hours', async () => {
@@ -73,7 +89,7 @@ describe('backupService.getStatus — the backup alert (#671)', () => {
   it('raises nothing before any backup ran (the admin page says "no backup yet")', async () => {
     history({ lastSuccess: null, lastRun: null });
     expect(await backupService.getStatus()).toEqual({
-      backupEnabled: true, lastSuccessAt: null, lastRunFailed: false, overdue: false,
+      backupEnabled: true, lastSuccessAt: null, lastRunFailed: false, lastFailure: null, overdue: false,
     });
   });
 });

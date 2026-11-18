@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { BackupHealth } from '@shared/maintenance';
 import { formatDateTime } from '@/lib/format';
+import { backupFailureInfo } from './backupFailure';
 
 /**
  * #756: what leaves the instance without a recovery point — a backups folder
@@ -37,15 +38,41 @@ export function backupAlerts(health: BackupHealth | null | undefined): BackupPro
   return backupProblems(health).filter((problem) => ALERTS.has(problem));
 }
 
+/**
+ * #1048: one message when the last backup failed — that already says nothing
+ * has been copied, so "never succeeded" and "overdue" are not stacked on it.
+ */
+export function backupWarningProblems(problems: BackupProblem[]): BackupProblem[] {
+  return problems.includes('failed') ? problems.filter((problem) => problem !== 'noBackup' && problem !== 'overdue') : problems;
+}
+
 /** #756: the warning at the top of the admin page, with the way to the Backups tab. */
-export function BackupWarning({ problems, onOpenBackups }: { problems: BackupProblem[]; onOpenBackups: () => void }) {
+export function BackupWarning({ problems, failure, onOpenBackups }: {
+  problems: BackupProblem[];
+  /** The last failed run, to explain it (#1048). */
+  failure?: BackupHealth['lastFailure'];
+  onOpenBackups: () => void;
+}) {
   const { t } = useTranslation();
-  if (problems.length === 0) return null;
+  const shown = backupWarningProblems(problems);
+  if (shown.length === 0) return null;
+  const info = backupFailureInfo(failure?.error);
   return (
     <div role="alert" className="flex flex-col sm:flex-row sm:items-center gap-3 bg-warning-50 border border-warning-200 text-warning-800 rounded-2xl px-4 py-3 mb-4">
       <AlertTriangle size={18} className="shrink-0" aria-hidden="true" />
       <div className="flex-1 text-sm flex flex-col gap-1">
-        {problems.map((problem) => <p key={problem}>{t(`admin.backupWarning.${problem}`)}</p>)}
+        {shown.map((problem) => problem === 'failed' && failure ? (
+          <div key={problem} className="flex flex-col gap-1">
+            <p className="font-medium">{t('adminConfig.backup.failure.title')}</p>
+            <p>{t(info.messageKey)}</p>
+            {info.raw && (
+              <details className="text-xs">
+                <summary className="cursor-pointer">{t('adminConfig.backup.failure.details')}</summary>
+                <code className="block mt-1 break-all">{info.raw}</code>
+              </details>
+            )}
+          </div>
+        ) : <p key={problem}>{t(`admin.backupWarning.${problem}`)}</p>)}
       </div>
       <Button size="md" color="warning" variant="bordered" className="shrink-0 text-warning-800" onPress={onOpenBackups}>
         {t('admin.backupWarning.open')}

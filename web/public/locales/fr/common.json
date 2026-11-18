@@ -1244,7 +1244,7 @@
     },
     "backupWarning": {
       "notWritable": "Glou ne peut pas écrire dans le dossier des sauvegardes : chaque sauvegarde échoue.",
-      "failed": "La dernière sauvegarde a échoué : vérifiez l'espace disque et les journaux de l'API, puis relancez-en une.",
+      "failed": "La dernière sauvegarde a échoué : ouvrez les sauvegardes pour voir pourquoi et que faire.",
       "overdue": "Aucune sauvegarde n'a réussi depuis plus de deux jours : les données ne sont plus copiées.",
       "disabled": "Les sauvegardes automatiques sont désactivées : aucune copie des données n'est faite chaque nuit.",
       "noBackup": "Aucune sauvegarde n'a jamais réussi : en cas de panne du disque ou de mauvaise manipulation, rien ne pourra être restauré.",
@@ -2382,6 +2382,23 @@
         "success": "Sauvegarde exécutée avec succès.",
         "error": "La sauvegarde a échoué : {{error}}",
         "timeout": "La sauvegarde prend plus de temps que prévu et se poursuit sur le serveur. Patientez quelques minutes, puis rechargez la page et consultez l'historique des sauvegardes."
+      },
+      "failure": {
+        "title": "La dernière sauvegarde a échoué.",
+        "details": "Détails techniques",
+        "dismiss": "Masquer cet avertissement jusqu'au prochain problème de sauvegarde",
+        "codes": {
+          "PG_DUMP_SPAWN_FAILED": "L'outil pg_dump n'a pas pu démarrer : il manque dans l'image ou l'installation de l'API. Utilisez l'image officielle de Glou, ou installez les outils clients PostgreSQL là où tourne l'API, puis relancez une sauvegarde.",
+          "PG_DUMP_FAILED": "pg_dump a démarré, mais la base a refusé ou interrompu la copie. Vérifiez que la base tourne et que l'API peut l'atteindre avec les bons identifiants (les journaux de l'API donnent le détail), puis relancez une sauvegarde.",
+          "PG_DUMP_TIMED_OUT": "La sauvegarde a pris trop de temps et a été arrêtée. Vérifiez que la base répond et que le disque n'est pas saturé, puis relancez une sauvegarde.",
+          "PG_DUMP_OUTPUT_FAILED": "La copie a été interrompue pendant son écriture. Vérifiez l'espace disque libre et les journaux de l'API, puis relancez une sauvegarde.",
+          "DUMP_STREAM_FAILED": "La copie a été interrompue pendant son écriture. Vérifiez l'espace disque libre et les journaux de l'API, puis relancez une sauvegarde.",
+          "WRITE_FAILED": "Le fichier de sauvegarde n'a pas pu être écrit. Vérifiez l'espace disque libre et que l'API peut écrire dans le dossier des sauvegardes, puis relancez une sauvegarde.",
+          "GZIP_FAILED": "La sauvegarde n'a pas pu être compressée. Vérifiez l'espace disque libre et les journaux de l'API, puis relancez une sauvegarde.",
+          "FILTER_FAILED": "La sauvegarde n'a pas pu être préparée. Vérifiez les journaux de l'API, puis relancez une sauvegarde.",
+          "DATABASE_URL_NOT_SET": "L'API ne sait pas où se trouve la base (DATABASE_URL n'est pas défini). Corrigez la configuration de l'API et redémarrez-la."
+        },
+        "unknown": "La sauvegarde a échoué pour une raison que Glou ne reconnaît pas. Vérifiez l'espace disque libre et les journaux de l'API, puis relancez une sauvegarde."
       },
       "history": {
         "title": "Historique des sauvegardes",

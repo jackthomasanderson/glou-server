@@ -25,6 +25,8 @@ export interface BackupHealth {
   lastSuccessAt?: string | Date | null;
   /** Whether the last backup run, any trigger, failed (#671). Absent when it could not be read. */
   lastRunFailed?: boolean;
+  /** The last run when it failed: which one (to keep a dismissed banner dismissed), when, and the error it recorded (#1048). Null when it did not fail, absent when it could not be read. */
+  lastFailure?: { id: string; at: string | Date; error: string | null } | null;
   /** Whether backups are on and the last success is more than 48 h old (#671). Absent when it could not be read. */
   overdue?: boolean;
 }
