@@ -101,6 +101,14 @@ describe('ThemeWrapper', () => {
     expect(container.querySelector('[data-testid="app-boot-placeholder"]')).toBeNull();
   });
 
+  // #1041: react-aria's own strings ("Show suggestions", "Dismiss") follow the
+  // app's language, not the browser's.
+  it("gives HeroUI the app's language as its locale (#1041)", () => {
+    mockI18nLanguage = 'fr';
+    mount(<span>content</span>);
+    expect(lastHeroUIProps.locale).toBe('fr');
+  });
+
   it('renders its children without crashing', () => {
     mount(<span>Hello</span>);
     expect(container.textContent).toBe('Hello');

@@ -7,6 +7,7 @@ import { expertRows } from '@/lib/tastings/expertGrid';
 import { useTranslation } from 'react-i18next';
 import { isTastedElsewhere, tastedPhoto, tastedWineTitle } from '@/lib/tastings/onWine';
 import { useHasMounted } from '@/hooks/useHasMounted';
+import { PHONE_ICON_ALONE } from '@/components/ui/touchTarget';
 import { formatDate } from '@/lib/format';
 import { guestSignature } from '@/lib/shares/guestSignature';
 
@@ -55,7 +56,7 @@ export function TastingDetailDrawer({ note, open, onClose, onEdit }: TastingDeta
             </h2>
             <button
               onClick={onClose}
-              className="shrink-0 p-1 rounded-lg hover:bg-default-100 transition-colors"
+              className={`shrink-0 p-1 rounded-lg hover:bg-default-100 transition-colors ${PHONE_ICON_ALONE}`}
               aria-label={t('actions.close')}
             >
               <X size={18} />

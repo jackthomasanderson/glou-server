@@ -31,6 +31,7 @@ import { familyLines, formatPurchaseDay, hasOwnLevel, tastingBottleLabel, type L
 import type { InventoryCategory } from '@/lib/inventory/types';
 import type { ProductDetailView, ProductItem } from '@/lib/products/types';
 import { QrCodeModal } from './QrCodeModal';
+import { PHONE_ICON_END, PHONE_ICON_START } from '@/components/ui/touchTarget';
 import { formatHistoryValue, historyFieldLabel } from '@/lib/inventory/history-format';
 import { FieldSourceBadge } from './FieldSourceBadge';
 import { FamilyStockLines } from './FamilyStockLines';
@@ -500,12 +501,12 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                 <div className="flex items-center gap-1 shrink-0">
                   {product && (
                     <Tooltip {...ACCESSIBLE_POPOVER} delay={500} content={t('qr.title')} size="sm" placement="bottom">
-                      <button onClick={() => setQrOpen(true)} className="p-1 rounded-lg hover:bg-default-100 transition-colors" aria-label={t('qr.title')}>
+                      <button onClick={() => setQrOpen(true)} className={`p-1 rounded-lg hover:bg-default-100 transition-colors ${PHONE_ICON_START}`} aria-label={t('qr.title')}>
                         <QrCode size={16} />
                       </button>
                     </Tooltip>
                   )}
-                  <button onClick={onClose} className="p-1 rounded-lg hover:bg-default-100 transition-colors" aria-label={t('actions.close')}>
+                  <button onClick={onClose} className={`p-1 rounded-lg hover:bg-default-100 transition-colors ${PHONE_ICON_END}`} aria-label={t('actions.close')}>
                     <X size={16} />
                   </button>
                 </div>

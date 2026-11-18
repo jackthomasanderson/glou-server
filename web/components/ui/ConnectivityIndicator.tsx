@@ -51,14 +51,15 @@ export function ConnectivityIndicator() {
     : 'bg-warning text-warning-foreground';
   const offline = isOnline === false;
 
+  // max-sm:mx-2: the dot's 44 px hit area reaches 14 px past it, its neighbours' 6 px; with the header's 12 px gap, 8 px of margin each side makes 20.
   return (
-    <span className="inline-flex items-center flex-shrink-0">
+    <span className="inline-flex items-center flex-shrink-0 max-sm:mx-2">
     <Tooltip {...ACCESSIBLE_POPOVER} content={tooltipContent} color="foreground" delay={500}>
       <button
         type="button"
         onClick={() => setPanelOpen(true)}
         aria-label={tooltipContent}
-        className="relative inline-flex items-center gap-1 flex-shrink-0 rounded-full px-1 py-1 text-foreground-500 outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        className="relative inline-flex items-center justify-center gap-1 flex-shrink-0 rounded-full px-1 py-1 text-foreground-500 outline-none focus-visible:ring-2 focus-visible:ring-focus max-sm:after:absolute max-sm:after:-inset-3.5 max-sm:after:content-['']"
       >
         {offline ? (
           <WifiOff size={14} className="text-warning" aria-hidden="true" />

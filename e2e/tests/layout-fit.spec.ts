@@ -177,4 +177,35 @@ test.describe('Layout fits its width (recette n°5 ter of #847)', () => {
       await api.delete(`/api/products/${bottle.productId}`);
     }
   });
+  // #1041: at 390 px the actions of a wish ran past its card ("Supprimer" out of the screen).
+  test('every action of a wish is on screen at 390 px (#1041)', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E 1041 Vacqueyras Cuvée du Marquis ${stamp()}`;
+    const item = await okData<{ id: string }>(await api.post('/api/wishlist/items', {
+      data: { name, producer: 'Domaine Montirius', category: 'wine', vintage: 2019 },
+    }));
+    try {
+      await page.setViewportSize({ width: 390, height: 664 });
+      await page.goto('/wishlist-budget');
+      const card = page.getByTestId('wishlist-item').filter({ hasText: name });
+      for (const name of ['Marquer un prix observé', 'Modifier', "Basculer vers l'inventaire", 'Supprimer']) {
+        const box = await card.getByRole('button', { name }).boundingBox();
+        expect(box, name).not.toBeNull();
+        expect(box!.x, `${name} left edge`).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width, `${name} right edge`).toBeLessThanOrEqual(390);
+      }
+      // The header's controls each own their whole 44 px square: the point at the edge of one does not belong to its neighbour.
+      for (const name of ['Verrouiller', 'Connecté au serveur', 'Rappels à consommer']) {
+        const hits = await page.getByRole('button', { name: new RegExp(`^${name}`) }).first().evaluate((button) => {
+          const r = button.getBoundingClientRect();
+          const cx = r.x + r.width / 2, cy = r.y + r.height / 2;
+          const owns = (x: number, y: number) => button.contains(document.elementFromPoint(x, y));
+          return [owns(cx - 21, cy), owns(cx + 21, cy), owns(cx, cy - 21), owns(cx, cy + 21)];
+        });
+        expect(hits, `${name}: left, right, top, bottom of its 44 px square`).toEqual([true, true, true, true]);
+      }
+    } finally {
+      await api.delete(`/api/wishlist/items/${item.id}`);
+    }
+  });
 });
