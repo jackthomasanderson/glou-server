@@ -29,7 +29,7 @@ beforeEach(() => {
 describe('ReviewBanner', () => {
   it('counts every point left and links to the review screen', () => {
     renderBanner();
-    expect(screen.getByTestId('review-banner')).toHaveTextContent('6 points à vérifier après la mise à jour');
+    expect(screen.getByTestId('review-banner')).toHaveTextContent('6 points à vérifier');
     expect(screen.getByText('Voir').closest('a')).toHaveAttribute('href', '/review');
   });
 
@@ -56,12 +56,12 @@ describe('ReviewBanner', () => {
     // Signed in again (useAuth clears it): back while points are left.
     resetReviewBanner();
     renderBanner();
-    expect(screen.getByTestId('review-banner')).toHaveTextContent('6 points à vérifier après la mise à jour');
+    expect(screen.getByTestId('review-banner')).toHaveTextContent('6 points à vérifier');
   });
 
   it('says one point in the singular', () => {
     cases = some(0, 1);
     renderBanner();
-    expect(screen.getByTestId('review-banner')).toHaveTextContent('1 point à vérifier après la mise à jour');
+    expect(screen.getByTestId('review-banner')).toHaveTextContent('1 point à vérifier');
   });
 });

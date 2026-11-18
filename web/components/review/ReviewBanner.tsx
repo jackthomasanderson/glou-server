@@ -8,7 +8,7 @@ import { isReviewBannerPostponed, postponeReviewBanner } from '@/lib/review/bann
 import { reviewPointCount } from '@/lib/review/cases';
 
 /**
- * ux-ui.md §10.7: "6 points à vérifier après la mise à jour" with "Voir",
+ * ux-ui.md §10.7: "6 points à vérifier" with "Voir",
  * above the list. Information, not an error: no red, nothing blocking.
  * "Plus tard" hides it until the next sign-in (decision #471, QP5); it
  * disappears by itself once everything is settled.

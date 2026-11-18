@@ -125,7 +125,7 @@ export function AddUnitsForm({ product, onDone, onCancel = onDone, onAdded, star
         <span className="text-sm font-normal text-foreground-500">{wineName(product)}</span>
       </ModalHeader>
       <ModalBody>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {isCigar ? (
             <CigarGroupFields draft={cigars} onChange={changeCigars} submitted={submitted} t={t} autoFocus />
           ) : (

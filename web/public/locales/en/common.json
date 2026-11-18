@@ -3318,13 +3318,13 @@
     }
   },
   "review": {
-    "title": "To check after the update",
-    "intro": "What Glou could not settle on its own during the update. A point settled by one member disappears for everyone.",
+    "title": "To check",
+    "intro": "What Glou could not settle on its own: wines of the same name to merge, numbers guessed during an update. A point settled by one member disappears for everyone.",
     "loading": "Loading the points to check",
     "empty": "Nothing to check",
-    "emptyHint": "The update left nothing to settle.",
-    "banner_one": "{{count}} point to check after the update",
-    "banner_other": "{{count}} points to check after the update",
+    "emptyHint": "Nothing is left to settle.",
+    "banner_one": "{{count}} point to check",
+    "banner_other": "{{count}} points to check",
     "bannerView": "View",
     "bannerLater": "Later",
     "merges": {

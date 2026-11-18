@@ -98,6 +98,58 @@ test.describe('Layout fits its width (recette n°5 ter of #847)', () => {
     }
   });
 
+  test('the add form scrolls as a whole and shows the known-wine banner at 390 x 664 (#1037)', async ({ page }) => {
+    const api = page.request;
+    const name = `E2E 1037 Chinon Les Picasses Vieilles Vignes ${stamp()}`;
+    const producer = 'Domaine Olga Raffault Et Fils';
+    const { productId } = await okData<Unit>(await api.post('/api/inventory', {
+      data: { category: 'wine', name, producer, vintage: 2020, quantity: 2 },
+    }));
+    try {
+      await page.setViewportSize({ width: 390, height: 664 });
+      await page.goto('/bottles');
+      await page.getByTestId('inventory-add-button').click();
+      const form = page.getByRole('dialog').filter({ has: page.getByTestId('inventory-form-submit') });
+      await expect(form.getByTestId('inventory-name-input')).toBeVisible();
+
+      // The photo panel is part of the scrolled area: the sheet's body itself
+      // scrolls (not only the fields beside a fixed photo, ~280 px high).
+      const scroller = await form.getByTestId('inventory-name-input').evaluate((input) => {
+        let node = input.parentElement;
+        while (node && !['auto', 'scroll'].includes(getComputedStyle(node).overflowY)) node = node.parentElement;
+        return node ? { overflowY: getComputedStyle(node).overflowY, height: node.clientHeight, scrolls: node.scrollHeight > node.clientHeight } : null;
+      });
+      expect(scroller, 'a scroll container around the fields').not.toBeNull();
+      expect(scroller!.height).toBeGreaterThan(450);
+      expect(scroller!.scrolls).toBe(true);
+
+      // The banner appears under the name fields and is scrolled into view.
+      await form.getByTestId('inventory-name-input').fill(name);
+      await form.getByTestId('inventory-producer-input').fill(producer);
+      await form.getByTestId('inventory-vintage-input').fill('2020');
+      const banner = form.getByTestId('known-wine-banner');
+      await expect(banner).toBeVisible();
+      await expect(async () => {
+        const box = await banner.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.y).toBeGreaterThanOrEqual(0);
+        expect(box!.y + box!.height).toBeLessThanOrEqual(664);
+      }).toPass();
+      // The wine's name wraps instead of being cut with an ellipsis.
+      const cut = await banner.getByTestId('known-wine-match').locator('p').first()
+        .evaluate((p) => p.scrollWidth > p.clientWidth);
+      expect(cut).toBe(false);
+
+      // The join dialog: its labels stay on one line.
+      await banner.getByTestId('known-wine-add').click();
+      const join = page.getByRole('dialog').filter({ has: page.getByTestId('add-units-quantity') });
+      await expect(join).toBeVisible();
+      expect(await wrappedLabels(join)).toEqual([]);
+    } finally {
+      await api.delete(`/api/products/${productId}`);
+    }
+  });
+
   test('a long tasting title is shown whole in the journal', async ({ page }) => {
     const api = page.request;
     const name = `E2E 5ter Cuvée Une au nom vraiment très long ${stamp()}`;

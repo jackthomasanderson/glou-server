@@ -62,7 +62,7 @@ export function KnownWineBanner({ matches, onAdd, onDistinct, isDisabled = false
           return (
             <li key={product.id} data-testid="known-wine-match" className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 text-sm">
-                <p className="font-medium truncate">{label}</p>
+                <p className="font-medium break-words">{label}</p>
                 <p data-testid="known-wine-stock" className="text-foreground-600">{stockText}</p>
               </div>
               <Button
