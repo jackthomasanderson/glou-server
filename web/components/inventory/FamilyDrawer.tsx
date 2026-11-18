@@ -398,10 +398,11 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
 
           {p.notes && (
             <div className="p-3 bg-default-50 rounded-xl mt-3 border border-divider">
-              <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground-500 mb-1">
+              {/* A div: the source mark is a block (a <p> cannot hold it, #1042). */}
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-foreground-500 mb-1">
                 {isCigar ? t('inventory.detail.tastingNotes') : t('inventory.detail.sommelierNotes')}
                 <FieldSourceBadge source={p.fieldSources?.notes} t={t} />
-              </p>
+              </div>
               <p className="text-sm text-foreground-500 italic leading-relaxed whitespace-pre-wrap">{p.notes}</p>
             </div>
           )}
@@ -510,7 +511,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                 </div>
               </div>
               {product && (
-                <p className="flex items-center gap-1.5 flex-wrap text-xs text-foreground-500 mt-1">
+                <div className="flex items-center gap-1.5 flex-wrap text-xs text-foreground-500 mt-1">
                   {(['producer', 'vintage', 'region'] as const)
                     .filter((field) => product[field] != null && product[field] !== '')
                     .map((field, index) => (
@@ -520,7 +521,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                         <FieldSourceBadge source={product.fieldSources?.[field]} t={t} />
                       </React.Fragment>
                     ))}
-                </p>
+                </div>
               )}
               <p role="status" aria-live="polite" className="sr-only" data-testid="slot-removed">{removedNotice}</p>
               {/* FEAT-93: the cell of the plan this drawer was opened from, kept in sight above the lines. */}

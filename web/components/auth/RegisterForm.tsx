@@ -19,7 +19,7 @@ const createRegisterSchema = (t: (key: string) => string) =>
       .string()
       .min(3, t('auth.errors.USERNAME_TOO_SHORT'))
       .regex(/^[a-zA-Z0-9_-]+$/, t('auth.errors.USERNAME_INVALID_CHARS')),
-    email: z.string().email(t('auth.errors.VALIDATION_ERROR')),
+    email: z.string().email(t('auth.errors.EMAIL_INVALID')),
     password: z.string().min(PASSWORD_MIN_LENGTH, t('auth.errors.PASSWORD_TOO_SHORT')),
     confirmPassword: z.string(),
   }).refine((data) => data.password === data.confirmPassword, {

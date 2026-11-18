@@ -86,6 +86,7 @@ export function RepriceDialog({ item, ctx, isOpen, onClose }: RepriceDialogProps
         isInvalid={!isPrice(price)}
         errorMessage={t('stockLine.priceInvalid')}
         data-testid="reprice-price-input"
+        min={0}
       />
       {cells.needed > 0 && (
         <SlotPicker

@@ -23,7 +23,7 @@ beforeAll(async () => {
 const draw = (items: ProductItem[], props: Partial<React.ComponentProps<typeof FamilyStockLines>> = {}) =>
   render(<FamilyStockLines lines={familyLines(items, ctx.cellarName)} ctx={ctx} {...props} />);
 
-const lineTexts = () => screen.getAllByTestId('family-line').map((line) => line.querySelector('p')?.textContent);
+const lineTexts = () => screen.getAllByTestId('family-line').map((line) => line.querySelector('[data-testid="line-text"]')?.textContent);
 
 describe('FamilyStockLines', () => {
   it('lists the groups by cellar then purchase day, then the opened bottle', () => {

@@ -154,6 +154,12 @@ export const CSV_EXPORT_HEADERS: Record<CsvExportLang, Record<CsvExportColumn, s
   },
 };
 
+/** The "category" cell of an export line, per language (the import reads these words and the raw values alike). */
+export const CSV_CATEGORY_LABELS: Record<CsvExportLang, Record<InventoryCategory, string>> = {
+  en: { wine: 'Wine', sparkling: 'Sparkling', spirit: 'Spirit', cigar: 'Cigar' },
+  fr: { wine: 'Vin', sparkling: 'Bulles', spirit: 'Spiritueux', cigar: 'Cigare' },
+};
+
 /** Separator of a list cell (grapes, tags). */
 export const CSV_LIST_SEPARATOR = '|';
 

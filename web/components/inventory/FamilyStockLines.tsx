@@ -215,7 +215,7 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
                   className={`px-3 py-2 rounded-xl border outline-none data-[ringed=true]:ring-2 ring-primary ${opened ? 'border-warning-300 bg-warning-50/40' : 'border-divider'}`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium leading-snug">
+                    <div className="text-sm font-medium leading-snug" data-testid="line-text">
                       {join(lineParts(item, ctx))}
                       {item.purchasePrice != null && (
                         <span className="ml-1.5 inline-flex align-middle">
@@ -223,7 +223,7 @@ export function FamilyStockLines({ lines, ctx, onLevelCommit, lineActions, revie
                         </span>
                       )}
                       {isPending(item) && <PendingMark t={t} />}
-                    </p>
+                    </div>
                     {!provisional && lineActions?.(item)}
                   </div>
                   {/* FEAT-93: where its copies are on the plan — in a cellar without a plan, nothing. */}

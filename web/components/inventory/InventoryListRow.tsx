@@ -115,11 +115,13 @@ export function InventoryListRow({
 
         // §10.2: the same short stock line as the card; a part never breaks
         // inside, the line only wraps between parts (ux-ui.md, stock line).
+        // #1042: a single bottle has no part (the card's photo badge says it); here, with no photo, the
+        // whole phrase ("1 bouteille") stands in, not a bare "1".
         <TableCell key="stock" className="min-w-28 whitespace-normal">
           <p className="text-sm text-foreground-500" data-testid="family-stock-line">
             <span className="sr-only">{stock.spoken}</span>
             <span aria-hidden="true">
-              {(stock.parts.length > 0 ? stock.parts : [stock.badge ?? '']).map((part, index) => (
+              {(stock.parts.length > 0 ? stock.parts : [stock.spoken || stock.badge || '']).map((part, index) => (
                 <React.Fragment key={index}>
                   {index > 0 && ' · '}
                   <span className="whitespace-nowrap">{keepNumbersWhole(part)}</span>

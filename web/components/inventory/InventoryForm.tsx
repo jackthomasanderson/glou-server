@@ -41,7 +41,7 @@ import {
   CURVE_SHAPES, DEFAULT_CURVE_SHAPE, curveShapeLabelKey, curveShapeDescriptionKey,
 } from '@/lib/maturity-references/curve';
 import { MANUFACTURE_YEAR_MIN, SPARKLING_TYPES, SUGAR_LEVELS, VINTAGE_MIN, WINE_COLORS } from '@shared/inventory';
-import { MAX_COPIES } from '@shared/product';
+import { MAX_COPIES, NAME_MAX_LENGTH } from '@shared/product';
 import { DESCRIPTION_LIMITS } from '@shared/review';
 import { CigarGroupFields } from './CigarGroupFields';
 import { KnownWineBanner } from './KnownWineBanner';
@@ -104,6 +104,10 @@ interface InventoryFormProps {
    */
   onJoined?: (write: UnitWrite, product: Product) => void;
 }
+
+// Mirrors the API (alcoholDegree in api/src/schemas/inventory.schema.ts): a percentage.
+const ABV_MIN = 0;
+const ABV_MAX = 100;
 
 const EMPTY_FORM: Partial<InventoryItem> = {
   category: 'wine',
@@ -289,6 +293,9 @@ export function InventoryForm({
 
   const missingName = !values.name?.trim();
   const missingProducer = !values.producer?.trim();
+  // #1042: as long as the API takes, told on the field instead of by a refused save.
+  const nameTooLong = (values.name?.length ?? 0) > NAME_MAX_LENGTH;
+  const producerTooLong = (values.producer?.length ?? 0) > NAME_MAX_LENGTH;
   const missingAlcoholDegree = values.category === 'spirit' && (values.alcoholDegree == null || Number.isNaN(values.alcoholDegree));
   // #471 (FEAT-95): N closed boxes of M cigars, or N single cigars; one box
   // only may be stored opened, with the cigars left in it.
@@ -311,7 +318,7 @@ export function InventoryForm({
     || (values.tags ?? []).some((tag) => tag.length > DESCRIPTION_LIMITS.tagLength);
   const missingRequired = !values.category || missingName || missingProducer || missingAlcoholDegree || missingQuantity || invalidBottleCount;
   const tagLimits = { max: DESCRIPTION_LIMITS.tags, length: DESCRIPTION_LIMITS.tagLength };
-  const canSave = !missingRequired && !peakWindowReversed && !invalidTags;
+  const canSave = !missingRequired && !peakWindowReversed && !invalidTags && !nameTooLong && !producerTooLong;
   // #657: the message goes once the fields are right or the form is closed.
   const notifyInvalid = useValidationNotice(canSave || !open);
 
@@ -332,7 +339,8 @@ export function InventoryForm({
       setSubmitAttempted(true);
       setPeakWindowChecked(true);
       notifyInvalid(missingRequired ? 'inventory.validation.missingFields'
-        : invalidTags ? 'inventory.validation.tags' : 'inventory.validation.peakWindowOrder', tagLimits);
+        : nameTooLong || producerTooLong ? 'inventory.validation.tooLong'
+          : invalidTags ? 'inventory.validation.tags' : 'inventory.validation.peakWindowOrder', nameTooLong || producerTooLong ? { max: NAME_MAX_LENGTH } : tagLimits);
       if (!missingRequired && invalidTags) {
         flushSync(() => setShowOptionals(true));
         tagsInput.current?.focus();
@@ -534,7 +542,8 @@ export function InventoryForm({
                         // overwrite the producer, vintage and region of the bottle.
                         suggestions={!isEditing}
                         autoFocus={!isEditing}
-                        isInvalid={submitAttempted && missingName}
+                        isInvalid={(submitAttempted && missingName) || nameTooLong}
+                        errorMessage={nameTooLong ? t('inventory.validation.tooLong', { max: NAME_MAX_LENGTH }) : undefined}
                       />
                       <ProducerAutocomplete
                         value={values.producer ?? ''}
@@ -543,7 +552,8 @@ export function InventoryForm({
                         label={t('inventory.fields.producer')}
                         placeholder={t(`inventory.fields.producerPlaceholder.${category}`)}
                         required
-                        isInvalid={submitAttempted && missingProducer}
+                        isInvalid={(submitAttempted && missingProducer) || producerTooLong}
+                        errorMessage={producerTooLong ? t('inventory.validation.tooLong', { max: NAME_MAX_LENGTH }) : undefined}
                       />
                       {showsBottle && (
                       <SingleSelect
@@ -622,6 +632,7 @@ export function InventoryForm({
                           size="sm"
                           value={values.purchasePrice}
                           onValueChange={(v) => setField('purchasePrice', v)}
+                          min={0}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
                         />
                         {/* D6: a day, kept as the YYYY-MM-DD text of the field, never a local Date. */}
@@ -661,6 +672,7 @@ export function InventoryForm({
                           size="sm"
                           value={values.purchasePrice}
                           onValueChange={(v) => setField('purchasePrice', v)}
+                          min={0}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
                         />
                         <Input
@@ -721,6 +733,7 @@ export function InventoryForm({
                             size="sm"
                             value={values.alcoholDegree}
                             onValueChange={(v) => setField('alcoholDegree', v)}
+                            min={ABV_MIN} max={ABV_MAX}
                           />
                         </>
                       )}
@@ -817,6 +830,7 @@ export function InventoryForm({
                               errorMessage={t('inventory.validation.required')}
                               value={values.alcoholDegree}
                               onValueChange={(v) => setField('alcoholDegree', v)}
+                              min={ABV_MIN} max={ABV_MAX}
                             />
                           </div>
                           <div className="col-span-2">
@@ -1082,6 +1096,7 @@ export function InventoryForm({
                           size="sm"
                           value={values.estimatedValue}
                           onValueChange={(v) => setField('estimatedValue', v)}
+                          min={0}
                           endContent={<span className="text-xs text-foreground-500">{currencySymbol(i18n.language)}</span>}
                         />
                         </>)}

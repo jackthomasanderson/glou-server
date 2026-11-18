@@ -3,7 +3,7 @@ import { CURVE_SHAPES } from '../lib/maturity-curve';
 import { categorySchema } from '../lib/category';
 import { manufactureYearSchema, vintageSchema } from '../lib/years';
 import { ALERT_STATUSES, SPARKLING_TYPES, SUGAR_LEVELS, WINE_COLORS } from '../../../shared/inventory';
-import { MAX_COPIES } from '../../../shared/product';
+import { MAX_COPIES, NAME_MAX_LENGTH } from '../../../shared/product';
 import { unitPrice } from './stock.schema';
 import { slotCellSchema } from './cellar.schema';
 
@@ -12,8 +12,8 @@ import { slotCellSchema } from './cellar.schema';
 // #624: the patch schema below is written flat, field by field; a rule both
 // write is built once (here or in lib/years.ts), and a test
 // (tests/inventory.schema.test.ts) fails when a field's rule differs.
-const nameSchema = z.string().min(1, 'Name is required').max(200);
-const producerSchema = z.string().min(1, 'Producer is required').max(200);
+const nameSchema = z.string().min(1, 'Name is required').max(NAME_MAX_LENGTH);
+const producerSchema = z.string().min(1, 'Producer is required').max(NAME_MAX_LENGTH);
 
 /**
  * #471 (lot Z): FEAT-87's `isOwned` is gone — a reference is a wine without

@@ -16,7 +16,9 @@ vi.mock('@/components/ui/MainLayout', () => ({
   ),
 }));
 let mockCategory: string | null = null;
+const replace = vi.fn();
 vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace }),
   useSearchParams: () => new URLSearchParams(mockCategory ? `category=${mockCategory}` : ''),
 }));
 vi.mock('../InventoryDashboard', () => ({ InventoryDashboard: () => <div data-testid="dashboard" /> }));
@@ -56,4 +58,19 @@ describe('InventoryPage (#701)', () => {
       expect(screen.getByRole('heading', { level: 1, name: t(key) })).toBeInTheDocument();
     },
   );
+
+  it('#1042: /bottles?category=cigar goes to the cigars page', () => {
+    mockCategory = 'cigar';
+    render(<InventoryPage lockedCategories={['wine', 'sparkling', 'spirit']} />);
+    mockCategory = null;
+    expect(replace).toHaveBeenCalledWith('/cigars');
+  });
+
+  it('#1042: the cigars page itself does not redirect', () => {
+    replace.mockClear();
+    mockCategory = 'cigar';
+    render(<InventoryPage lockedCategories={['cigar']} />);
+    mockCategory = null;
+    expect(replace).not.toHaveBeenCalled();
+  });
 });
