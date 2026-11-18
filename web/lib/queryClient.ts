@@ -1,5 +1,5 @@
 import { MutationCache, QueryClient } from '@tanstack/react-query';
-import { isNetworkFailure, isServerUnavailable } from './auth/error-message';
+import { isNetworkFailure, isRateLimited, isServerUnavailable, rateLimitedNotice } from './auth/error-message';
 import { notifyError } from './toast';
 
 declare module '@tanstack/react-query' {
@@ -38,13 +38,20 @@ export function createQueryClient(): QueryClient {
         if (mutation.meta?.handlesError) return;
         // #619: no answer, a deadline passed or a proxy's error page alike.
         // #467: a 503 is the database restarting: retry in a moment.
+        // #1039: a 429 is "too many requests, wait N seconds", never a connection problem.
+        if (isRateLimited(error)) {
+          const { key, values } = rateLimitedNotice(error);
+          notifyError(key, values);
+          return;
+        }
         notifyError(isNetworkFailure(error) ? 'status.serverUnreachable'
           : isServerUnavailable(error) ? 'status.serverUnavailable' : 'status.error');
       },
     }),
     defaultOptions: {
       queries: {
-        retry: 2,
+        // A throttled request is not retried: it would drain the shared budget faster (#1039).
+        retry: (failureCount, error) => !isRateLimited(error) && failureCount < 2,
         staleTime: 1000 * 30,
       },
       mutations: {

@@ -37,7 +37,7 @@ describe('useCsvConfirm', () => {
     result.current.mutate({ rows, cellarId: null });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(notifyError).toHaveBeenCalledWith('onboarding.csv.confirmError');
+    expect(notifyError).toHaveBeenCalledWith('onboarding.csv.confirmError', undefined, expect.anything());
   });
 
   it.each(['LINE_TOO_LARGE', 'QUANTITY_TOO_LARGE'])('explains a refusal %s', async (code) => {
@@ -47,7 +47,7 @@ describe('useCsvConfirm', () => {
     result.current.mutate({ rows, cellarId: null });
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(notifyError).toHaveBeenCalledWith(`onboarding.csv.confirmErrors.${code}`);
+    expect(notifyError).toHaveBeenCalledWith(`onboarding.csv.confirmErrors.${code}`, undefined, expect.anything());
   });
 
   it('waits for the server to finish the import, not just the usual 15 s', async () => {

@@ -2,6 +2,7 @@
 import { createElement, useEffect, useState, type ReactNode } from 'react';
 import { addToast, Button, closeToast } from '@heroui/react';
 import i18n from '@/lib/i18n';
+import { isRateLimited, rateLimitedNotice } from '@/lib/auth/error-message';
 
 /**
  * Centralised action feedback (ux-ui.md 5.3 "Feedback d'interaction" and 9.4
@@ -69,10 +70,18 @@ export function notifySuccess(messageKey: string, values?: Record<string, unknow
   });
 }
 
-/** Returns the message's key, for a caller that must close it itself (hooks/useValidationNotice.ts). */
-export function notifyError(messageKey: string, values?: Record<string, unknown>): string | null {
+/**
+ * Returns the message's key, for a caller that must close it itself (hooks/useValidationNotice.ts).
+ * `error`: the failure behind the message. When the server throttled the
+ * request (429), the reason and the wait come under the action's own
+ * message: "Impossible d'ajouter la bouteille / Trop de demandes… Réessayez
+ * dans 15 minutes." (#1039).
+ */
+export function notifyError(messageKey: string, values?: Record<string, unknown>, error?: unknown): string | null {
+  const notice = isRateLimited(error) ? rateLimitedNotice(error) : null;
   return addToast({
     title: translate(messageKey, values),
+    ...(notice ? { description: translate(notice.key, notice.values) } : {}),
     color: 'danger',
     timeout: PERSISTENT_TIMEOUT,
   });

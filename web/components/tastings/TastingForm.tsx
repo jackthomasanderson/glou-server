@@ -227,7 +227,7 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
               return;
             }
             // A refusal with its own message (a cigar already smoked…) was told by the mutation.
-            if (!(error instanceof Error && error.message in REATTACH_REFUSALS)) notifyError('tastings.stockUpdate.error');
+            if (!(error instanceof Error && error.message in REATTACH_REFUSALS)) notifyError('tastings.stockUpdate.error', undefined, error);
           },
           cell,
         )

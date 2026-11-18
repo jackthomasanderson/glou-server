@@ -47,7 +47,7 @@ export function CollectionPickerInline({ productId, currentCollections }: Collec
 
   // On the promise, not `mutate`'s callback: React Query drops that one once
   // the drawer is closed, and the failure went unsaid (#887).
-  const reportFailure = () => { notifyError('toast.collection.updateError'); };
+  const reportFailure = (err: unknown) => { notifyError('toast.collection.updateError', undefined, err); };
 
   const handleRemove = (col: { id: string; name: string }) => {
     removeMutation.mutateAsync({ id: col.id, productId }).catch(reportFailure);

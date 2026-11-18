@@ -92,3 +92,30 @@ describe('createQueryClient — shared failure message', () => {
     expect(notifyError).not.toHaveBeenCalled();
   });
 });
+
+// #1039: a throttled action says "wait N seconds", not "cannot reach the server".
+describe('createQueryClient — rate-limited action', () => {
+  it('says how long to wait, with and without a Retry-After', async () => {
+    const run = async (retryAfter?: number) => {
+      const observer = new MutationObserver(createQueryClient(), {
+        mutationFn: async () => { throw new ApiError('TOO_MANY_REQUESTS', 429, retryAfter); },
+      });
+      await expect(observer.mutate()).rejects.toThrow('TOO_MANY_REQUESTS');
+    };
+    await run(30);
+    expect(notifyError).toHaveBeenLastCalledWith('status.rateLimitedSeconds', { count: 30 });
+    await run(undefined);
+    expect(notifyError).toHaveBeenLastCalledWith('status.rateLimited', undefined);
+    expect(notifyError).not.toHaveBeenCalledWith('status.serverUnreachable');
+  });
+});
+
+// #1039: retrying a throttled request would only drain the shared budget faster.
+describe('createQueryClient — retries', () => {
+  it('does not retry a 429, and still retries other failures', () => {
+    const retry = createQueryClient().getDefaultOptions().queries?.retry as (n: number, e: unknown) => boolean;
+    expect(retry(0, new ApiError('TOO_MANY_REQUESTS', 429, 10))).toBe(false);
+    expect(retry(0, new ApiError('HTTP 500', 500))).toBe(true);
+    expect(retry(2, new ApiError('HTTP 500', 500))).toBe(false);
+  });
+});

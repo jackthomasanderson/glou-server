@@ -32,7 +32,7 @@ export function useCreateCollection() {
       );
       notifySuccess('toast.collection.createSuccess');
     },
-    onError: () => notifyError('toast.collection.createError'),
+    onError: (error) => notifyError('toast.collection.createError', undefined, error),
     onSettled: () => refreshCollections(queryClient),
   });
 }
@@ -43,7 +43,7 @@ export function useUpdateCollection() {
     meta: { handlesError: true },
     mutationFn: ({ id, data }) => collectionsClient.update(id, data),
     onSuccess: () => notifySuccess('toast.collection.updateSuccess'),
-    onError: () => notifyError('toast.collection.updateError'),
+    onError: (error) => notifyError('toast.collection.updateError', undefined, error),
     onSettled: () => void queryClient.invalidateQueries({ queryKey: COLLECTIONS_KEY }),
   });
 }
@@ -59,7 +59,7 @@ export function useDeleteCollection() {
       );
       notifySuccess('toast.collection.deleteSuccess');
     },
-    onError: () => notifyError('toast.collection.deleteError'),
+    onError: (error) => notifyError('toast.collection.deleteError', undefined, error),
     onSettled: () => {
       refreshCollections(queryClient);
       void queryClient.invalidateQueries({ queryKey: qk.inventory.all });

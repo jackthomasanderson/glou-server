@@ -52,6 +52,6 @@ describe('useDeleteBulkPreset', () => {
     act(() => result.current.mutate('p1'));
 
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(notifyError).toHaveBeenCalledWith('toast.bulkPreset.deleteError');
+    expect(notifyError).toHaveBeenCalledWith('toast.bulkPreset.deleteError', undefined, expect.anything());
   });
 });

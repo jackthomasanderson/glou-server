@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { CONFIG_HISTORY_KEY, SYSTEM_CONFIG_KEY } from '@/hooks/useAdmin';
-import { isNetworkFailure, isServerUnavailable } from '@/lib/auth/error-message';
+import { isNetworkFailure, isRateLimited, isServerUnavailable } from '@/lib/auth/error-message';
 import { isFormDirty } from '@/lib/forms/dirtyState';
 import type { SystemConfigPublic } from '@/lib/config/client';
 
@@ -21,6 +21,8 @@ const CONFIG_ERRORS = new Set([
 export function configErrorKey(err: unknown): string {
   if (isNetworkFailure(err)) return 'status.serverUnreachable';
   if (isServerUnavailable(err)) return 'status.serverUnavailable';
+  // #1039: said without the wait (a key only): "try again in a moment".
+  if (isRateLimited(err)) return 'status.rateLimited';
   const code = err instanceof Error ? err.message : '';
   return CONFIG_ERRORS.has(code) ? `adminConfig.errors.${code}` : 'adminConfig.errors.UNEXPECTED_ERROR';
 }

@@ -765,11 +765,11 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
       if (action === 'move') await client.patch(`/slots/${draggedItem.slotId}`, { column: toCol, row: toRow });
       else await client.post(`/cellars/${cellar.id}/swap-slots`, { slotAId: draggedItem.slotId, slotBId: (targetItem as GridCell).slotId });
       invalidateGrid();
-    } catch {
+    } catch (err) {
       // A refusal (cell taken or slot changed on another device): the server's plan, and why.
       setLocalItems(prevItems);
       invalidateGrid();
-      notifyError('cellars.grid.moveError');
+      notifyError('cellars.grid.moveError', undefined, err);
     }
   }, [localItems, slotMap, invalidateGrid, cellar.id, stopFollowingPointer, releasedOn]);
 

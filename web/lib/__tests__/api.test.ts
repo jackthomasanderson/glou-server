@@ -70,6 +70,33 @@ describe('apiErrorFrom', () => {
     expect(await apiErrorFrom(res)).toMatchObject({ message: 'TOO_MANY_REQUESTS', retryAfter: 120 });
   });
 
+  // #1039: express-rate-limit's draft-6 headers, or a proxy's HTTP date.
+  it('falls back to RateLimit-Reset, then reads a Retry-After date', async () => {
+    const plain = (headers: Record<string, string>) => ({
+      ok: false, status: 429, headers: new Headers(headers), json: () => Promise.reject(new SyntaxError('text')),
+    }) as unknown as Response;
+    expect(await apiErrorFrom(plain({ 'RateLimit-Reset': '42' }))).toMatchObject({ message: 'TOO_MANY_REQUESTS', retryAfter: 42 });
+    const inTwoMinutes = new Date(Date.now() + 120_000).toUTCString();
+    const err = await apiErrorFrom(plain({ 'Retry-After': inTwoMinutes }));
+    expect(err.retryAfter).toBeGreaterThan(100);
+    expect(err.retryAfter).toBeLessThanOrEqual(120);
+  });
+
+  it('reads RateLimit-Reset when Retry-After is garbage, and ignores both on other statuses', async () => {
+    const answer = (status: number, headers: Record<string, string>) => ({
+      ok: false, status, headers: new Headers(headers), json: () => Promise.reject(new SyntaxError('text')),
+    }) as unknown as Response;
+    expect(await apiErrorFrom(answer(429, { 'Retry-After': 'soon', 'RateLimit-Reset': '30' }))).toMatchObject({ retryAfter: 30 });
+    expect((await apiErrorFrom(answer(500, { 'RateLimit-Reset': '30', 'Retry-After': '30' }))).retryAfter).toBeUndefined();
+  });
+
+  it('reads a 429 with no header as TOO_MANY_REQUESTS without a wait', async () => {
+    const res = { ok: false, status: 429, headers: new Headers(), json: () => Promise.reject(new SyntaxError('text')) } as unknown as Response;
+    const err = await apiErrorFrom(res);
+    expect(err).toMatchObject({ message: 'TOO_MANY_REQUESTS', status: 429 });
+    expect(err.retryAfter).toBeUndefined();
+  });
+
   // FEAT-93: the cells a 409 asks about come with it; other details (debug data) never do.
   it('keeps the details of a question about cells, and only those', async () => {
     const details = { slots: [{ id: 's1', column: 1, row: 1 }], unplaced: 1 };

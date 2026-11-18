@@ -144,7 +144,7 @@ describe('SessionsPanel: approximate location, sign-in date, sign out the others
     render(<SessionsPanel />);
     fireEvent.click(screen.getByRole('button', { name: 'profile.sessions.revokeOthers' }));
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'profile.sessions.revokeOthers' }));
-    expect(notifyError).toHaveBeenCalledWith('profile.sessions.revokeOthersError');
+    expect(notifyError).toHaveBeenCalledWith('profile.sessions.revokeOthersError', undefined, expect.anything());
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 

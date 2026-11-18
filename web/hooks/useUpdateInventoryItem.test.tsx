@@ -66,7 +66,7 @@ describe('useUpdateInventoryItem (#572)', () => {
     update.mockRejectedValue(new Error('UNEXPECTED_ERROR'));
     const { result } = setup();
     await expect(result.current.mutateAsync({ id: 'A', patch: { purchasePrice: 25 } })).rejects.toThrow();
-    expect(notifyError).toHaveBeenCalledWith('toast.updateError');
+    expect(notifyError).toHaveBeenCalledWith('toast.updateError', undefined, expect.anything());
   });
 
   it('offline, queues the change against the version the form started from', async () => {
@@ -147,7 +147,7 @@ describe('useUpdateInventoryItem — the wine\'s drawer (#471, W2)', () => {
     update.mockRejectedValue(new Error(code));
     const { result } = setup();
     await expect(result.current.mutateAsync({ id: 's', patch: { fillLevel: 100, isOpened: false } })).rejects.toThrow(code);
-    expect(notifyError).toHaveBeenCalledWith(message);
+    expect(notifyError).toHaveBeenCalledWith(message, undefined, expect.anything());
     expect(notifyError).not.toHaveBeenCalledWith('toast.updateError');
   });
 });

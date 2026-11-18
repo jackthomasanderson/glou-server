@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { configClient } from '@/lib/config/client';
+import { isRateLimited } from '@/lib/auth/error-message';
 import { qk } from '@/lib/queryKeys';
 
 const APP_VERSION_KEY = qk.appVersion;
@@ -36,6 +37,6 @@ export function usePublicUrl(enabled = true) {
     // show: the request runs (the service worker may answer it) or fails fast,
     // and the modal falls back to the browser's address.
     networkMode: 'always',
-    retry: 1,
+    retry: (failureCount, error) => !isRateLimited(error) && failureCount < 1,
   });
 }

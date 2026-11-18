@@ -41,7 +41,7 @@ export function useMemberChanges() {
     } catch (err) {
       if (isStepUpRefusal(err)) throw err;
       const code = err instanceof Error ? err.message : '';
-      notifyError(OWN_MESSAGES[code] ?? errorKey);
+      notifyError(OWN_MESSAGES[code] ?? errorKey, undefined, err);
     }
   };
 

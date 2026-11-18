@@ -107,10 +107,10 @@ export function NotificationPreferences() {
     try {
       await configClient.updateNotifPrefs(patch);
       notifySuccess('notifications.saved');
-    } catch {
+    } catch (err) {
       // Only the settings of this save go back, not a later one's.
       update(Object.fromEntries(Object.keys(patch).map((k) => [k, before[k as keyof NotificationPrefs]])));
-      notifyError('notifications.saveError');
+      notifyError('notifications.saveError', undefined, err);
     } finally {
       setSaving(false);
     }

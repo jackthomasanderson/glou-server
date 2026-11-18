@@ -115,7 +115,7 @@ describe('a guest on a cellar shared with write access (FEAT-109)', () => {
 
     (toast.notifyUndoable.mock.calls[0][2] as () => void)();
 
-    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('shares.guest.errors.undo'));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('shares.guest.errors.undo', undefined, expect.anything()));
   });
 
   // Decision #471 point 70: the bottle just drunk, even the last one.
@@ -137,7 +137,7 @@ describe('a guest on a cellar shared with write access (FEAT-109)', () => {
 
     fireEvent.click(screen.getByTestId('guest-move-open'));
 
-    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('shares.guest.expired'));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('shares.guest.expired', undefined, expect.anything()));
     expect(onLinkGone).toHaveBeenCalled();
   });
 
@@ -203,7 +203,19 @@ describe('a guest on a cellar shared with write access (FEAT-109)', () => {
 
     fireEvent.click(screen.getByTestId('guest-move-open'));
 
-    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('shares.guest.errors.finished'));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('shares.guest.errors.finished', undefined, expect.anything()));
+  });
+
+  // #1039: a guest behind a shared connection learns why the write failed.
+  it('says the wait when the write was throttled (429)', async () => {
+    answer = () => ({ status: 429, body: { error: 'TOO_MANY_REQUESTS', retryAfter: 40 } });
+    draw([copy({ id: 'g', quantity: 6 })]);
+
+    fireEvent.click(screen.getByTestId('guest-move-open'));
+
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith(
+      expect.any(String), undefined, expect.objectContaining({ status: 429, retryAfter: 40 }),
+    ));
   });
 
   it('c3: « Noter une dégustation » on the opened bottle when there is one, else on the wine', () => {

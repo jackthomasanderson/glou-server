@@ -37,6 +37,6 @@ describe('useRestoreProduct wording', () => {
     const { qc, result } = setup();
     qc.setQueryData(['inventory', 'products-trash'], [{ id: 's1', category: 'spirit' }]);
     result.current.mutate('s1');
-    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('toast.product.restoreError', { context: 'spirit' }));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('toast.product.restoreError', { context: 'spirit' }, expect.anything()));
   });
 });

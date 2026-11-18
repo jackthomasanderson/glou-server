@@ -4,7 +4,7 @@ import en from '../../public/locales/en/common.json';
 import fr from '../../public/locales/fr/common.json';
 import { ApiError } from '../api';
 import { NetworkError } from '../network-error';
-import { authErrorMessage } from './error-message';
+import { authErrorMessage, isRateLimited, loadErrorMessage, rateLimitedNotice } from './error-message';
 
 // #640 / #652 / #582: auth failures read as sentences in the member's language.
 
@@ -75,5 +75,42 @@ describe('authErrorMessage', () => {
     await i18n.changeLanguage('fr');
     expect(authErrorMessage(t, new ApiError('DATABASE_UNAVAILABLE', 503), 'forgotPassword.errors'))
       .toBe('Le serveur est momentanément indisponible. Vos données sont intactes : réessayez dans un instant.');
+  });
+});
+
+// #1039: a throttled request is "wait", never "check your connection".
+describe('rate-limited requests', () => {
+  it('recognises a 429 by status or code, and nothing else', () => {
+    expect(isRateLimited(new ApiError('TOO_MANY_REQUESTS', 429))).toBe(true);
+    expect(isRateLimited(new ApiError('HTTP 429', 429))).toBe(true);
+    expect(isRateLimited(new ApiError('HTTP 500', 500))).toBe(false);
+    expect(isRateLimited(new NetworkError(new Error('x')))).toBe(false);
+  });
+
+  it('says the wait in seconds up to 90 s, then in minutes, in both languages', async () => {
+    const err = (s?: number) => new ApiError('TOO_MANY_REQUESTS', 429, s);
+    await i18n.changeLanguage('en');
+    expect(loadErrorMessage(t, err(1), 'x')).toBe('Too many requests in a short time. Try again in 1 second.');
+    expect(loadErrorMessage(t, err(45), 'x')).toBe('Too many requests in a short time. Try again in 45 seconds.');
+    expect(loadErrorMessage(t, err(91), 'x')).toBe('Too many requests in a short time. Try again in 2 minutes.');
+    await i18n.changeLanguage('fr');
+    expect(loadErrorMessage(t, err(45), 'x')).toBe('Trop de demandes en peu de temps. Réessayez dans 45 secondes.');
+    expect(loadErrorMessage(t, err(600), 'x')).toBe('Trop de demandes en peu de temps. Réessayez dans 10 minutes.');
+  });
+
+  it('without a Retry-After, says "in a moment" rather than guessing', async () => {
+    await i18n.changeLanguage('en');
+    expect(rateLimitedNotice(new ApiError('TOO_MANY_REQUESTS', 429))).toEqual({ key: 'status.rateLimited' });
+    expect(loadErrorMessage(t, new ApiError('TOO_MANY_REQUESTS', 429), 'x')).toBe('Too many requests in a short time. Try again in a moment.');
+  });
+
+  it('says "in a moment" for a wait over a day, never "1440 minutes"', () => {
+    expect(rateLimitedNotice(new ApiError('TOO_MANY_REQUESTS', 429, 86_400))).toMatchObject({ key: 'status.rateLimitedMinutes' });
+    expect(rateLimitedNotice(new ApiError('TOO_MANY_REQUESTS', 429, 86_401))).toEqual({ key: 'status.rateLimited' });
+    expect(rateLimitedNotice(new ApiError('TOO_MANY_REQUESTS', 429, 1e20))).toEqual({ key: 'status.rateLimited' });
+  });
+
+  it('leaves other failures to the screen own wording', () => {
+    expect(loadErrorMessage(t, new ApiError('HTTP 500', 500), 'fallback')).toBe('fallback');
   });
 });

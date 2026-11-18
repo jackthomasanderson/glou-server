@@ -16,9 +16,23 @@ export class ApiError extends Error {
   }
 }
 
+/** Seconds from a header holding a number of seconds or an HTTP date; undefined when it is neither. */
+function waitFrom(raw: string | null | undefined): number | undefined {
+  if (raw === null || raw === undefined || raw.trim() === '') return undefined;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds)) return seconds > 0 ? seconds : undefined;
+  const untilDate = Math.ceil((Date.parse(raw) - Date.now()) / 1000);
+  return untilDate > 0 ? untilDate : undefined;
+}
+
+/**
+ * How long a throttled (429) client waits, in seconds: `Retry-After`, or when
+ * that is missing or unreadable the rate limiter's `RateLimit-Reset` (#1039).
+ * Only a 429 reads them: `RateLimit-Reset` comes with every answer.
+ */
 function retryAfterHeader(res: Response): number | undefined {
-  const seconds = Number(res.headers?.get('Retry-After'));
-  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
+  if (res.status !== 429) return undefined;
+  return waitFrom(res.headers?.get('Retry-After')) ?? waitFrom(res.headers?.get('RateLimit-Reset'));
 }
 
 /**

@@ -1,9 +1,9 @@
 import { ApiError, client, requestJson } from '../api';
 import { CreatedGuestShare, GuestInventoryUpdatePayload, GuestShare, GuestShareMeta, GuestTastingPayload, ShareFormValues } from './types';
 
-/** Carries the HTTP status so callers can tell an invalid link from a transient failure. */
+/** Carries the HTTP status (and, throttled, the wait in seconds: #1039) so callers can tell an invalid link from a transient failure. */
 export class GuestRequestError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(message: string, public readonly status: number, public readonly retryAfter?: number) {
     super(message);
     this.name = 'GuestRequestError';
   }
@@ -35,7 +35,7 @@ async function guestRequest<T>(path: string, init: { method?: string; body?: unk
   try {
     return (await requestJson<{ data: T }>(path, init)).data;
   } catch (err) {
-    if (err instanceof ApiError) throw new GuestRequestError(err.message, err.status);
+    if (err instanceof ApiError) throw new GuestRequestError(err.message, err.status, err.retryAfter);
     throw err;
   }
 }

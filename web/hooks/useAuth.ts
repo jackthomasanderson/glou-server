@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { clearOfflineData } from '@/lib/offline/db';
 import { apiErrorFrom, client, request } from '@/lib/api';
-import { isNetworkFailure } from '@/lib/auth/error-message';
+import { isNetworkFailure, isRateLimited } from '@/lib/auth/error-message';
 import { notifyError, notifySuccess } from '@/lib/toast';
 import { clearQuickLock } from '@/lib/quick-lock-storage';
 import { resetReviewBanner } from '@/lib/review/banner';
@@ -53,7 +53,7 @@ export function useMe() {
     },
     // #619: a server that does not answer is said after one deadline (15 s),
     // not three; a 5xx is still tried again.
-    retry: (failureCount, error) => !isNetworkFailure(error) && failureCount < 2,
+    retry: (failureCount, error) => !isNetworkFailure(error) && !isRateLimited(error) && failureCount < 2,
     staleTime: Infinity,
   });
 }
@@ -181,7 +181,7 @@ export function useUpdateProfile() {
     },
     // Success is already acknowledged inline by the profile page; only the
     // failure path was silent (ISSUE_120).
-    onError: () => notifyError('profile.saveError'),
+    onError: (error) => notifyError('profile.saveError', undefined, error),
   });
 }
 
@@ -207,7 +207,7 @@ export function useUploadAvatar() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
-    onError: (err) => notifyError(AVATAR_ERROR_KEYS[err.message] ?? 'profile.avatarError'),
+    onError: (err) => notifyError(AVATAR_ERROR_KEYS[err.message] ?? 'profile.avatarError', undefined, err),
   });
 }
 
@@ -222,7 +222,7 @@ export function useDeleteAvatar() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
-    onError: () => notifyError('profile.deleteAvatarError'),
+    onError: (error) => notifyError('profile.deleteAvatarError', undefined, error),
   });
 }
 // ─── useUpdateEmail ──────────────────────────────────────────────────────────
@@ -298,7 +298,7 @@ export function useUpdatePreferences() {
     onSuccess: (updatedUser) => {
       queryClient.setQueryData<PublicUser | null>(ME_KEY, updatedUser);
     },
-    onError: () => notifyError('profile.saveError'),
+    onError: (error) => notifyError('profile.saveError', undefined, error),
   });
 }
 
@@ -546,7 +546,7 @@ export function useCompleteOnboarding() {
       // rather than at the call site: the wizard has already closed by now.
       if (variables.skipped) notifySuccess('onboarding.dontShowAgainToast');
     },
-    onError: () => notifyError('toast.onboarding.completeError'),
+    onError: (error) => notifyError('toast.onboarding.completeError', undefined, error),
   });
 }
 
@@ -573,6 +573,6 @@ export function usePostponeOnboarding() {
     onSuccess: () => {
       queryClient.setQueryData<OnboardingState>(ONBOARDING_STATE_KEY, (old) => (old ? { ...old, postponed: true } : old));
     },
-    onError: () => notifyError('toast.onboarding.postponeError'),
+    onError: (error) => notifyError('toast.onboarding.postponeError', undefined, error),
   });
 }

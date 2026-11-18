@@ -344,7 +344,7 @@ export function useRevokeAdminShare() {
     return useMutation({
         meta: { handlesError: true },
         mutationFn: async (id: string) => (await api.delete<{ id: string; revokedAt: string }>(`/admin/shares/${id}`)).data,
-        onError: () => notifyError('admin.shares.revokeError'),
+        onError: (error) => notifyError('admin.shares.revokeError', undefined, error),
         onSuccess: () => notifySuccess('admin.shares.revoked'),
         onSettled: () => queryClient.invalidateQueries({ queryKey: qk.admin.shares }),
     });

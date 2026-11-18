@@ -36,7 +36,7 @@ function notifyRefusal(error: Error) {
     notifyError('review.errors.offline');
     return;
   }
-  notifyError(REFUSALS[error.message] ?? 'review.errors.failed');
+  notifyError(REFUSALS[error.message] ?? 'review.errors.failed', undefined, error);
 }
 
 /** Everything a review action may change: the list, the wines, the drawers, cellars and counters. */

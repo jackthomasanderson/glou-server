@@ -196,7 +196,7 @@ describe('BulkWinesDialog (FEAT-111)', () => {
     answer = { status: code === 'UNEXPECTED_ERROR' ? 500 : 400, body: { error: code } };
     const onDone = open('trash', ['a']);
     fireEvent.click(confirmButton('Mettre à la corbeille'));
-    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith(message));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith(message, undefined, expect.anything()));
     expect(onDone).not.toHaveBeenCalled();
     expect(t(message)).toMatch(/Rien n'a été modifié\.$/);
   });

@@ -39,7 +39,7 @@ describe('CollectionPickerInline failures', () => {
     fireEvent.click(screen.getByRole('button', { name: 'remove chip' }));
 
     expect(failingMutate).toHaveBeenCalledWith({ id: 'c1', productId: 'p1' });
-    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError'));
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError', undefined, expect.anything()));
   });
 
   it('says so when adding the bottle to a collection fails', async () => {
@@ -49,6 +49,6 @@ describe('CollectionPickerInline failures', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Fêtes' }));
 
     expect(failingMutate).toHaveBeenCalledWith({ id: 'c2', productIds: ['p1'] });
-    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError'));
+    await waitFor(() => expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError', undefined, expect.anything()));
   });
 });

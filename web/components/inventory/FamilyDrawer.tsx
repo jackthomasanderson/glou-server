@@ -198,7 +198,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
         : undefined;
       setRemovedNotice(t('cellars.grid.removedFromSlot', { context }));
     } catch (error) {
-      notifyError(error instanceof Error && error.message === 'SLOT_NOT_FOUND' ? 'cellars.grid.slotNotFound' : 'status.error');
+      notifyError(error instanceof Error && error.message === 'SLOT_NOT_FOUND' ? 'cellars.grid.slotNotFound' : 'status.error', undefined, error);
     }
   };
 

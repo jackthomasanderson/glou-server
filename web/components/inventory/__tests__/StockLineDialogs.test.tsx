@@ -183,7 +183,7 @@ describe('CorrectQuantityDialog (FEAT-92 c3, §10.4.5)', () => {
     typeNumber(numberField('correct-quantity-input'), '4');
     fireEvent.click(screen.getByRole('radio', { name: /Erreur de saisie/ }));
     fireEvent.click(confirmButton('Corriger'));
-    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('stockLine.errors.conflict'));
+    await waitFor(() => expect(toast.notifyError).toHaveBeenCalledWith('stockLine.errors.conflict', undefined, expect.anything()));
     expect(onClose).not.toHaveBeenCalled();
   });
 });
@@ -458,7 +458,7 @@ describe('the cells a dialog names (FEAT-93 c4)', () => {
     fireEvent.click(confirmButton('Corriger'));
 
     await waitFor(() => expect(screen.getByTestId('slot-picker')).toBeInTheDocument());
-    expect(toast.notifyError).toHaveBeenCalledWith('stockLine.errors.slotsToFree');
+    expect(toast.notifyError).toHaveBeenCalledWith('stockLine.errors.slotsToFree', undefined, expect.anything());
     answer = { status: 200, body: { data: {}, changed: [], removedIds: [] } };
     pick(2, 3);
     fireEvent.click(confirmButton('Corriger'));

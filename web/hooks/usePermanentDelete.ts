@@ -32,7 +32,7 @@ function usePermanentDelete<V>(mutationFn: (variables: V) => Promise<TrashDeleti
       dropDeleted(queryClient, deleted);
       notifySuccess(success, undefined);
     },
-    onError: () => notifyError(error, undefined),
+    onError: (err) => notifyError(error, undefined, err),
     onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }

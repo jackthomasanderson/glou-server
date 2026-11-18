@@ -65,7 +65,7 @@ export function GuestPageContent({ token }: { token: string }) {
       await noteTasting.mutateAsync({ productId: target.productId, ...(target.itemId ? { itemId: target.itemId } : {}), ...payload });
     } catch (error) {
       if (isLinkGone(error)) linkGone();
-      notifyError(refusalKey(error));
+      notifyError(refusalKey(error), undefined, error);
       return;
     }
     notifySuccess('shares.guest.tasting.done');

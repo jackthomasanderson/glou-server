@@ -19,7 +19,7 @@ describe('applyCollectionChanges', () => {
     ])).rejects.toThrow('COLLECTION_NOT_FOUND');
 
     expect(notifyError).toHaveBeenCalledTimes(1);
-    expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError');
+    expect(notifyError).toHaveBeenCalledWith('toast.collection.updateError', undefined, expect.anything());
   });
 
   it('says nothing when every change succeeds', async () => {

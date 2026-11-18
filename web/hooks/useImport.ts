@@ -31,6 +31,8 @@ export function useCsvConfirm() {
     // #471 (FEAT-99): a group the import would push past 1,000 copies gets its own explanation.
     onError: (error) => notifyError(
       EXPLAINED_CONFIRM_ERRORS.has(error.message) ? `onboarding.csv.confirmErrors.${error.message}` : 'onboarding.csv.confirmError',
+      undefined,
+      error,
     ),
   });
 }

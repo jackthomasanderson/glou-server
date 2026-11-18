@@ -191,7 +191,7 @@ export function useTrashProduct() {
     onSuccess: (_result, id) => {
       queryClient.setQueryData<Product[]>(PRODUCTS_KEY, (old) => old?.filter((product) => product.id !== id));
     },
-    onError: (_error, id) => notifyError('toast.product.deleteError', productCtx(queryClient, id)),
+    onError: (error, id) => notifyError('toast.product.deleteError', productCtx(queryClient, id), error),
     onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
@@ -202,7 +202,7 @@ export function useRestoreProduct() {
     meta: { handlesError: true },
     mutationFn: productsClient.restore,
     onSuccess: (product) => notifySuccess('toast.product.restoreSuccess', productCtx(queryClient, product.id, product.category)),
-    onError: (_error, id) => notifyError('toast.product.restoreError', productCtx(queryClient, id)),
+    onError: (error, id) => notifyError('toast.product.restoreError', productCtx(queryClient, id), error),
     onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
@@ -220,7 +220,7 @@ export function useBulkWines() {
     // A refusal the dialog can name (a wine with fewer bottles left, a line
     // over the maximum, a cellar deleted meanwhile); any other one is generic.
     onError: (error) => notifyError((BULK_WINES_ERRORS as readonly string[]).includes(error.message)
-      ? `bulkWines.errors.${error.message}` : 'bulkWines.error'),
+      ? `bulkWines.errors.${error.message}` : 'bulkWines.error', undefined, error),
     onSettled: () => invalidateAfterInventoryChange(queryClient),
   });
 }
@@ -254,7 +254,7 @@ export function useUpdateProduct() {
         notifyError('familyDrawer.form.conflict', context);
         return;
       }
-      notifyError(error.message === 'VALIDATION_ERROR' ? 'familyDrawer.form.rejected' : 'familyDrawer.form.error', context);
+      notifyError(error.message === 'VALIDATION_ERROR' ? 'familyDrawer.form.rejected' : 'familyDrawer.form.error', context, error);
     },
     // Its drawer (history), the flat bottles (they carry the description too),
     // reminders in the bell and badges, regions in the analytics… follow.
@@ -306,7 +306,7 @@ export function useAddUnits() {
         notifyError(`addUnits.errors.offline${of}`);
         return;
       }
-      notifyError(`${ADD_UNITS_REFUSALS[error.message] ?? 'addUnits.errors.failed'}${of}`);
+      notifyError(`${ADD_UNITS_REFUSALS[error.message] ?? 'addUnits.errors.failed'}${of}`, undefined, error);
     },
     // The drawer's history, the flat bottles, the cellars, counters, spending… follow.
     onSettled: (_write, error) => invalidateAfterInventoryChange(queryClient, { alreadyWritten: error ? [] : [PRODUCTS_KEY] }),

@@ -9,7 +9,7 @@ export async function applyCollectionChanges(changes: Promise<unknown>[]): Promi
   try {
     await Promise.all(changes);
   } catch (err) {
-    notifyError('toast.collection.updateError');
+    notifyError('toast.collection.updateError', undefined, err);
     throw err;
   }
 }

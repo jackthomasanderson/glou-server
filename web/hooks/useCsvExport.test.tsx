@@ -46,7 +46,7 @@ describe('useCsvExport (FEAT-99)', () => {
 
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(fetchMock).toHaveBeenCalledWith('/api/inventory/export.csv?lang=en', expect.objectContaining({ credentials: 'include', signal: expect.any(AbortSignal) }));
-    expect(notifyError).toHaveBeenCalledWith('gdpr.csvError');
+    expect(notifyError).toHaveBeenCalledWith('gdpr.csvError', undefined, expect.anything());
   });
 
   it('warns when the file is longer than one import takes', async () => {

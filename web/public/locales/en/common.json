@@ -65,6 +65,11 @@
     "error": "An error occurred",
     "serverUnreachable": "Cannot reach the server. Check your connection and try again.",
     "serverUnavailable": "The server is temporarily unavailable. Your data is safe: try again in a moment.",
+    "rateLimited": "Too many requests in a short time. Try again in a moment.",
+    "rateLimitedSeconds_one": "Too many requests in a short time. Try again in {{count}} second.",
+    "rateLimitedSeconds_other": "Too many requests in a short time. Try again in {{count}} seconds.",
+    "rateLimitedMinutes_one": "Too many requests in a short time. Try again in {{count}} minute.",
+    "rateLimitedMinutes_other": "Too many requests in a short time. Try again in {{count}} minutes.",
     "retry": "Retry",
     "empty": "No items"
   },

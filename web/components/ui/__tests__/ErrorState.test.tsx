@@ -33,6 +33,14 @@ vi.mock('react-i18next', () => ({
 }));
 
 describe('ErrorState', () => {
+  // #1039: a 429 is "too many requests, wait", not the screen's "could not load".
+  it('says how long to wait when the failure is a 429', () => {
+    render(<ErrorState message="Could not load cellars" error={new ApiError('TOO_MANY_REQUESTS', 429, 30)} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('status.rateLimitedSeconds');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('Could not load cellars');
+    expect(screen.getByRole('alert')).not.toHaveTextContent('serverUnreachable');
+  });
+
   // #467: whatever the screen, a database restart reads as "temporarily
   // unavailable, retry", not as "could not load…".
   it('says the server is temporarily unavailable when the failure is a 503', () => {
