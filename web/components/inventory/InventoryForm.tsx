@@ -232,7 +232,13 @@ export function InventoryForm({
   const knownWineRef = useRef<HTMLDivElement>(null);
   const hasKnownWine = knownWines.length > 0;
   useEffect(() => {
-    if (hasKnownWine) knownWineRef.current?.scrollIntoView?.({ block: 'nearest' });
+    const banner = knownWineRef.current;
+    if (!hasKnownWine || !banner) return;
+    // The field being typed first, then the banner: when both fit in the scroll
+    // area they stay visible, otherwise the banner wins. Focus does not move.
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && banner.closest('form')?.contains(focused)) focused.scrollIntoView?.({ block: 'nearest' });
+    banner.scrollIntoView?.({ block: 'nearest' });
   }, [hasKnownWine]);
   const finishJoin = () => {
     setJoining(null);

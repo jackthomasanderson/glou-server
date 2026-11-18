@@ -119,6 +119,12 @@ test.describe('Layout fits its width (recette n°5 ter of #847)', () => {
         while (node && !['auto', 'scroll'].includes(getComputedStyle(node).overflowY)) node = node.parentElement;
         return node ? { overflowY: getComputedStyle(node).overflowY, height: node.clientHeight, scrolls: node.scrollHeight > node.clientHeight } : null;
       });
+      const scrollerBox = () => form.getByTestId('inventory-name-input').evaluate((input) => {
+        let node = input.parentElement;
+        while (node && !['auto', 'scroll'].includes(getComputedStyle(node).overflowY)) node = node.parentElement;
+        const r = node!.getBoundingClientRect();
+        return { y: r.y, height: r.height };
+      });
       expect(scroller, 'a scroll container around the fields').not.toBeNull();
       expect(scroller!.height).toBeGreaterThan(450);
       expect(scroller!.scrolls).toBe(true);
@@ -126,14 +132,16 @@ test.describe('Layout fits its width (recette n°5 ter of #847)', () => {
       // The banner appears under the name fields and is scrolled into view.
       await form.getByTestId('inventory-name-input').fill(name);
       await form.getByTestId('inventory-producer-input').fill(producer);
-      await form.getByTestId('inventory-vintage-input').fill('2020');
+      await form.getByTestId('inventory-vintage-input').pressSequentially('2020', { delay: 50 });
       const banner = form.getByTestId('known-wine-banner');
       await expect(banner).toBeVisible();
       await expect(async () => {
+        // Inside the scroll area's own box, not just the viewport: the header and the fixed footer cover the rest.
         const box = await banner.boundingBox();
+        const area = await scrollerBox();
         expect(box).not.toBeNull();
-        expect(box!.y).toBeGreaterThanOrEqual(0);
-        expect(box!.y + box!.height).toBeLessThanOrEqual(664);
+        expect(box!.y).toBeGreaterThanOrEqual(area.y - 1);
+        expect(box!.y + box!.height).toBeLessThanOrEqual(area.y + area.height + 1);
       }).toPass();
       // The wine's name wraps instead of being cut with an ellipsis.
       const cut = await banner.getByTestId('known-wine-match').locator('p').first()

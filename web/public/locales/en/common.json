@@ -3329,7 +3329,7 @@
     "bannerLater": "Later",
     "merges": {
       "title": "Merge?",
-      "hint": "Wines of the same name kept apart because their descriptions contradicted each other. For each field, tick the value to keep: the most recent wine is ticked in advance.",
+      "hint": "Wines of the same name saved separately. If their descriptions differ, tick the value to keep for each field: the most recent wine is ticked in advance.",
       "addedOn": "added on {{date}}",
       "noDisagreement": "No field in disagreement: nothing to choose before merging.",
       "disagreement": "In disagreement",

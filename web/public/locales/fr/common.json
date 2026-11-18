@@ -3331,7 +3331,7 @@
     "bannerLater": "Plus tard",
     "merges": {
       "title": "À regrouper ?",
-      "hint": "Vins de même nom restés séparés parce que leurs descriptions se contredisaient. Pour chaque champ, cochez la valeur à garder : le vin le plus récent est coché d'avance.",
+      "hint": "Vins de même nom enregistrés séparément. Si leurs descriptions diffèrent, cochez pour chaque champ la valeur à garder : le vin le plus récent est coché d'avance.",
       "addedOn": "ajoutée le {{date}}",
       "noDisagreement": "Aucun champ en désaccord : rien à choisir avant de regrouper.",
       "disagreement": "En désaccord",
