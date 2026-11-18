@@ -467,3 +467,49 @@ describe('ConflictResolutionModal — offline, the conflict can still be resolve
     await waitFor(() => expect(store.size).toBe(0));
   });
 });
+
+// #1059: « Garder la version serveur » ended in silence, while « Garder ma
+// version » says what became of the change (#1038).
+describe('ConflictResolutionModal — « Garder la version serveur » says what was kept (#1059)', () => {
+  function serverHas(unit: Record<string, unknown> | null) {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      if (url.endsWith('/inventory/A')) {
+        return unit ? { ok: true, status: 200, json: async () => ({ data: unit }) } : { ok: false, status: 404, json: async () => ({ error: 'ITEM_NOT_FOUND' }) };
+      }
+      return { ok: true, status: 200, json: async () => ({ online: true }) };
+    }));
+  }
+
+  /** « Garder la version serveur », once the line has been read again. */
+  async function pressKeepServer(dialog: HTMLElement) {
+    const keep = within(dialog).getByRole('button', { name: fr.offline.conflict.keepServer });
+    await waitFor(() => expect(keep).toBeEnabled());
+    fireEvent.click(keep);
+  }
+
+  it('says the version kept and that the action was dropped', async () => {
+    store.set('A', {
+      ...conflict('A', 't1', { isOpened: true, fillLevel: 0 }),
+      before: { quantity: 6 },
+    });
+    serverHas({ ...serverItem, isOpened: false, fillLevel: 100, quantity: 4 });
+    page();
+    const dialog = await screen.findByRole('dialog');
+
+    await pressKeepServer(dialog);
+
+    await waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('offline.conflict.keptServer.kept', { what: "J'en bois une — Château Test" }));
+  });
+
+  it('a line that no longer exists: says so rather than "the server version was kept"', async () => {
+    store.set('A', conflict('A', 't1', { region: 'Loire' }));
+    serverHas(null);
+    page();
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByTestId('conflict-line-gone');
+
+    await pressKeepServer(dialog);
+
+    await waitFor(() => expect(notifySuccess).toHaveBeenCalledWith('offline.conflict.keptServer.gone', { what: 'Château Test' }));
+  });
+});

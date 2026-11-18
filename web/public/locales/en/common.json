@@ -2795,6 +2795,10 @@
         "changedAgain": "The line changed again meanwhile: {{what}}. Check the new value, then choose.",
         "failed": "Your version could not be saved: {{what}}. See the details in the pending changes."
       },
+      "keptServer": {
+        "kept": "The server version was kept: {{what}}. Your action was dropped.",
+        "gone": "This line no longer exists: your action was dropped."
+      },
       "actionHint": "“Keep my version” applies your action to the line as it is now; “Keep server version” drops it.",
       "maybeRecorded": "The connection may have dropped while it was being sent: your action may already be recorded. If so, keep the server version."
     },
