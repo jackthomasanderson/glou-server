@@ -227,6 +227,19 @@ export function InventoryForm({
   const knownWines = sameName.filter((product) => !distinctFrom.includes(product.id));
   // "C'est un autre vin", for the wine still typed: sent with the entry (c5).
   const toldApart = sameName.filter((product) => distinctFrom.includes(product.id)).map((product) => product.id);
+  // #1037: the banner sits under the name fields; bring it into view when it
+  // appears, so it is not missed below the fold (the live region announces it).
+  const knownWineRef = useRef<HTMLDivElement>(null);
+  const hasKnownWine = knownWines.length > 0;
+  useEffect(() => {
+    const banner = knownWineRef.current;
+    if (!hasKnownWine || !banner) return;
+    // The field being typed first, then the banner: when both fit in the scroll
+    // area they stay visible, otherwise the banner wins. Focus does not move.
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && banner.closest('form')?.contains(focused)) focused.scrollIntoView?.({ block: 'nearest' });
+    banner.scrollIntoView?.({ block: 'nearest' });
+  }, [hasKnownWine]);
   const finishJoin = () => {
     setJoining(null);
     onClose();
@@ -436,12 +449,13 @@ export function InventoryForm({
               </div>
             </div>
 
-            <ModalBody className="p-0 flex flex-col sm:flex-row items-stretch gap-0 min-h-0 overflow-hidden flex-1">
+            <ModalBody className="p-0 flex flex-col sm:flex-row items-stretch gap-0 min-h-0 overflow-y-auto sm:overflow-hidden flex-1">
               {/* Image panel — used to be `hidden sm:block`, i.e. entirely
                   unreachable on mobile (no way to edit/upload a photo at
                   all below the sm breakpoint). Now stacks on top, centered,
                   same compact size as the desktop column, instead of being
-                  hidden. */}
+                  hidden. On a phone the whole body scrolls, photo included
+                  (#1037): a fixed panel left ~280 px of 664 for the fields. */}
               <div className="w-[170px] mx-auto sm:mx-0 shrink-0 border-b sm:border-b-0 sm:border-r border-divider px-4 py-5">
                 <ItemImageSection
                   photoUrl={values.photoUrl ?? ''}
@@ -460,7 +474,7 @@ export function InventoryForm({
               </div>
 
               {/* Right form fields */}
-              <div className="flex-1 min-w-0 min-h-0 px-6 py-5 overflow-y-auto">
+              <div className="flex-1 min-w-0 sm:min-h-0 px-6 py-5 sm:overflow-y-auto">
                 <div className="flex flex-col gap-6">
 
                   {descriptionOf && (
@@ -555,7 +569,7 @@ export function InventoryForm({
 
                     {/* #471 (FEAT-97, ux-ui.md §10.4.1): under the name fields, never covering them. */}
                     {knownWines.length > 0 && (
-                      <div className="mt-3">
+                      <div className="mt-3" ref={knownWineRef}>
                         <KnownWineBanner
                           matches={knownWines}
                           onAdd={setJoining}

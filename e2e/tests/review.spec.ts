@@ -151,10 +151,10 @@ test.describe('review after the update (#471, FEAT-102)', () => {
 
     await page.goto('/bottles');
     const banner = page.getByTestId('review-banner');
-    await expect(banner).toContainText('à vérifier après la mise à jour');
+    await expect(banner).toContainText('à vérifier');
     await banner.getByText('Voir').click();
     await expect(page).toHaveURL(/\/review$/);
-    await expect(page.getByRole('heading', { name: 'À vérifier après la mise à jour' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'À vérifier', exact: true })).toBeVisible();
 
     const card = page.getByTestId('review-merge-case').filter({ has: page.getByRole('heading', { name: `${name} 2020` }) });
     await expect(card).toBeVisible();
