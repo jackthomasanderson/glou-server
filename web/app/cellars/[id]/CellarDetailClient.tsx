@@ -26,7 +26,7 @@ import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
 import { useCellarProducts, useProducts, useProductsTruncated } from '@/hooks/useProducts';
 import { segmentClass } from '@/components/ui/segmentClass';
 import { useExpertMode } from '@/hooks/useExpertMode';
-import { isServerUnavailable } from '@/lib/auth/error-message';
+import { loadErrorMessage } from '@/lib/auth/error-message';
 
 type DetailView = 'grid' | 'list' | 'map';
 
@@ -169,7 +169,7 @@ export function CellarDetailClient() {
     return (
       <MainLayout>
         <div className="max-w-6xl mx-auto px-4 mt-8">
-          <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t(isServerUnavailable(cellarLoadError) ? 'status.serverUnavailable' : 'status.error')}</div>
+          <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{loadErrorMessage(t, cellarLoadError, t('status.error'))}</div>
         </div>
       </MainLayout>
     );
@@ -318,7 +318,7 @@ export function CellarDetailClient() {
           ) : gridData ? (
             <CellarGridPlan data={gridData} onOpenSlot={openSlot} onAddHere={() => setAdding(true)} />
           ) : (
-            <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{t(isServerUnavailable(gridLoadError) ? 'status.serverUnavailable' : 'status.error')}</div>
+            <div role="alert" className="bg-danger-50 border border-danger-200 text-danger text-sm rounded-xl px-4 py-3">{loadErrorMessage(t, gridLoadError, t('status.error'))}</div>
           )
         )}
 

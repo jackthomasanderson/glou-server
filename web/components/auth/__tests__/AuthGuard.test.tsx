@@ -171,12 +171,16 @@ describe('AuthGuard and the wizard\'s "Later" (FEAT-90)', () => {
     expect(screen.queryByText('wizard')).toBeNull();
   });
 
-  it('still shows the wizard when its state cannot be loaded', () => {
+  // #1039 / #1040: a 429 or a network failure on GET /user/onboarding is not
+  // "not postponed": the wizard must not reopen for a member who said "Later".
+  it('keeps the wizard closed when its state cannot be loaded (429, network)', () => {
     onboarding.data = undefined;
     onboarding.isSuccess = false;
     onboarding.isError = true;
     render(<AuthGuard><button data-testid="app">inventory</button></AuthGuard>);
-    expect(screen.getByText('wizard')).toBeTruthy();
+    expect(screen.queryByText('wizard')).toBeNull();
+    expect(appWrapper().hasAttribute('inert')).toBe(false);
+    expect(whatsNewBlocked.at(-1)).toBe(false);
   });
 
   it('closes the wizard for this visit as soon as the member leaves it, whatever the server says', () => {

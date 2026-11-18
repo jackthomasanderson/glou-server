@@ -92,3 +92,20 @@ describe('createQueryClient — shared failure message', () => {
     expect(notifyError).not.toHaveBeenCalled();
   });
 });
+
+// #1039: a throttled action says "wait N seconds", not "cannot reach the server".
+describe('createQueryClient — rate-limited action', () => {
+  it('says how long to wait, with and without a Retry-After', async () => {
+    const run = async (retryAfter?: number) => {
+      const observer = new MutationObserver(createQueryClient(), {
+        mutationFn: async () => { throw new ApiError('TOO_MANY_REQUESTS', 429, retryAfter); },
+      });
+      await expect(observer.mutate()).rejects.toThrow('TOO_MANY_REQUESTS');
+    };
+    await run(30);
+    expect(notifyError).toHaveBeenLastCalledWith('status.rateLimitedSeconds', { count: 30 });
+    await run(undefined);
+    expect(notifyError).toHaveBeenLastCalledWith('status.rateLimited', undefined);
+    expect(notifyError).not.toHaveBeenCalledWith('status.serverUnreachable');
+  });
+});

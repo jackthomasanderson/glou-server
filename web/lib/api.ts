@@ -16,9 +16,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * How long to wait, in seconds, from `Retry-After` (seconds or an HTTP date)
+ * or, failing that, the rate limiter's `RateLimit-Reset` (#1039).
+ */
 function retryAfterHeader(res: Response): number | undefined {
-  const seconds = Number(res.headers?.get('Retry-After'));
-  return Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
+  const raw = res.headers?.get('Retry-After') ?? res.headers?.get('RateLimit-Reset');
+  if (raw === null || raw === undefined) return undefined;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds)) return seconds > 0 ? seconds : undefined;
+  const untilDate = Math.ceil((Date.parse(raw) - Date.now()) / 1000);
+  return untilDate > 0 ? untilDate : undefined;
 }
 
 /**

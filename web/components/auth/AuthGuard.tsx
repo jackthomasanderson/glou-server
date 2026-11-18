@@ -93,10 +93,14 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
   const showForcedPasswordChange = !isLocked && !!user?.mustChangePassword;
   const onboardingPending = !!user && user.onboardingCompletedAt == null;
   // FEAT-90: "Later" keeps the wizard closed for this sign-in. Wait for that
-  // answer before showing it; if it cannot be had, show the wizard as before.
+  // answer before showing it; if it cannot be had, keep it closed (#1040).
   const onboardingState = useOnboardingState(onboardingPending && !forcedOnboarding);
   const postponed = onboardingState.data?.postponed ?? false;
-  const stateKnown = onboardingState.isSuccess || onboardingState.isError;
+  // #1039/#1040: a failed answer (429, network) is not "not postponed": the
+  // wizard would reopen for a member who had said "Later". It stays closed
+  // until the state is known; the query is retried and comes back with the
+  // next visit or focus.
+  const stateKnown = onboardingState.isSuccess;
   // Any way out closes the wizard for this visit at once, whether or not the
   // server saved the choice: a failed save must never leave the member stuck
   // in front of it (FEAT-90). It comes back at the next sign-in.
@@ -142,7 +146,7 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
   // FEAT-115 (#990): the administrators' What's New? window opens last, once
   // none of these covers the app — nor may cover it in a moment: while the
   // wizard's state is loading, it is not known yet whether the wizard opens.
-  const onboardingUndecided = onboardingPending && !stateKnown;
+  const onboardingUndecided = onboardingPending && !stateKnown && !onboardingState.isError;
   return (
     <WhatsNewProvider blocked={covered || onboardingUndecided}>
       <div ref={appRef} style={{ display: 'contents' }}>
