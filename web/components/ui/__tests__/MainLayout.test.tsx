@@ -6,7 +6,7 @@ let pathname = '/bottles';
 // #203 (skip link) and #195 (connectivity indicator reachable on every screen size).
 
 vi.mock('next/navigation', () => ({ usePathname: () => pathname, useSearchParams: () => new URLSearchParams() }));
-vi.mock('next/link', () => ({ default: ({ children, href }: { children?: ReactNode; href: string }) => <a href={href}>{children}</a> }));
+vi.mock('next/link', () => ({ default: ({ children, href, className }: { children?: ReactNode; href: string; className?: string }) => <a href={href} className={className}>{children}</a> }));
 vi.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
 vi.mock('@heroui/react', () => ({
   Avatar: () => <span />,
@@ -78,6 +78,16 @@ describe('MainLayout', () => {
     render(<MainLayout protected={false}><p>page</p></MainLayout>);
     const root = within(screen.getByRole('banner')).getByRole('link', { name: 'Glou' });
     expect(root.getAttribute('href')).toBe('/');
+  });
+
+  // #1049: jsdom ignores Tailwind, so the guard is on the classes: on a phone
+  // the link shrinks (never `hidden`), it is not removed.
+  it('keeps the breadcrumb root visible on a phone, shrunk, when a page name follows (#913, #1049)', () => {
+    pathname = '/admin';
+    render(<MainLayout protected={false}><p>page</p></MainLayout>);
+    const root = within(screen.getByRole('banner')).getByRole('link', { name: 'Glou' });
+    expect(root.className).not.toMatch(/(^|\s)(max-sm:|sm:)?hidden(\s|$)/);
+    expect(root.className).toContain('max-sm:max-w-');
   });
 
   // #671: on an install without email or Gotify, a failing nightly backup was

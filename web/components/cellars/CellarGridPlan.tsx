@@ -124,19 +124,20 @@ function CopiesBadge({ item }: { item: GridItem }) {
 
 interface BottleVisualProps {
   item: GridItem;
-  size?: 'sm' | 'md';
+  /** The width of the cell it was lifted from, so the preview matches it. */
+  width?: number;
 }
 
 /** #1049: the whole name (the cell clips it to two lines), no longer its first 6-8 letters. */
 const cellLabel = (item: GridItem) => (item.vintage ? `${item.name} ${item.vintage}` : item.name);
 
-function BottleVisual({ item }: BottleVisualProps) {
+function BottleVisual({ item, width }: BottleVisualProps) {
   const label = cellLabel(item);
 
   return (
     <div
       className="relative w-11 h-7 sm:h-9 md:h-11 rounded flex items-center justify-center"
-      style={cellBackground(item)}
+      style={{ ...cellBackground(item), ...(width ? { width } : {}) }}
     >
       <CopiesBadge item={item} />
       <span
@@ -643,7 +644,7 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
   // the server; offline the plan is read only, and says so.
   const offline = useOfflineBlocked();
   const offlineReasonId = useId();
-  const [activeDrag, setActiveDrag] = useState<{ item: GridCell; fromCol: number; fromRow: number } | null>(null);
+  const [activeDrag, setActiveDrag] = useState<{ item: GridCell; fromCol: number; fromRow: number; width?: number } | null>(null);
 
   const cols = cellar.columns ?? 0;
   const rows = cellar.rows ?? 0;
@@ -714,7 +715,7 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const { item, fromCol, fromRow } = event.active.data.current as { item: GridCell; fromCol: number; fromRow: number };
-    setActiveDrag({ item, fromCol, fromRow });
+    setActiveDrag({ item, fromCol, fromRow, width: event.active.rect.current.initial?.width });
     stopFollowingPointer();
     releasedOn.set(undefined);
     // The keyboard has no pointer: dnd-kit's own target is right for it.
@@ -878,7 +879,7 @@ export function CellarGridPlan({ data, onOpenSlot, onAddHere }: CellarGridPlanPr
               className="rounded shadow-lg opacity-95 cursor-grabbing"
               style={{ transform: 'scale(1.12)' }}
             >
-              <BottleVisual item={activeDrag.item} />
+              <BottleVisual item={activeDrag.item} width={activeDrag.width} />
             </div>
           )}
         </DragOverlay>

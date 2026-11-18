@@ -76,13 +76,13 @@ function PageBreadcrumb({ appName, crumb }: { appName: string; crumb?: string })
 
   return (
     <span className="min-w-0 text-xs font-bold tracking-[.1rem] uppercase flex items-center gap-1">
-      {/* #1049: on a phone the app name gives its room to the page names ("GLOU > C.. > CAV…"). */}
-      <Link href="/" className={`shrink-0 text-foreground-500 hover:text-foreground transition-colors ${pageTitle ? 'hidden sm:inline' : ''}`}>
+      {/* #1049: on a phone the app name shrinks to give its room to the page names, but stays a link home (#913). */}
+      <Link href="/" className={`shrink-0 text-foreground-500 hover:text-foreground transition-colors ${pageTitle ? 'max-sm:max-w-[3.5rem] truncate' : ''}`}>
         {appName}
       </Link>
       {pageTitle && (
         <>
-          <span className="hidden sm:inline shrink-0 text-foreground-400">&gt;</span>
+          <span className="shrink-0 text-foreground-400">&gt;</span>
           {pageTitle.href !== pathname ? (
             <Link href={pageTitle.href} className="truncate text-foreground-500 hover:text-foreground transition-colors">
               {pageTitle.label}
