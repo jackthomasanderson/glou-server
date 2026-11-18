@@ -17,9 +17,11 @@ import { useTranslation } from 'react-i18next';
 import { InventoryCategory, InventoryItem } from '@/lib/inventory/types';
 import { CATEGORY_VALUES } from '@shared/inventory';
 import { unitKind } from '@shared/units';
-import { familyLines, formatPurchaseDay, lineParts, type LineContext } from '@/lib/products/lines';
+import { familyLines, formatPurchaseDay, goneParts, lineParts, type LineContext } from '@/lib/products/lines';
 import { formatCurrency, formatDate } from '@/lib/format';
-import { isValidVintage, parseYear, tastingLinePreset, tastingPayload, wineOptionLabel } from '@/lib/tastings/onWine';
+import {
+  isValidVintage, parseYear, tastingLinePreset, tastingPayload, wineOptionLabel, type DrunkCopy,
+} from '@/lib/tastings/onWine';
 import { useExpertMode } from '@/hooks/useExpertMode';
 import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
 import { ResponsiveModal } from '@/components/ui/ResponsiveModal';
@@ -55,9 +57,15 @@ interface TastingFormProps {
    * bottle of that cell, without asking "De quelle case ?" (decision 77).
    */
   fromCell?: { itemId: string; slotId: string };
+  /**
+   * #1036: the copy just drunk (smoked) from the wine's drawer — offered and
+   * preset even when it was the last one, and never asked about the stock
+   * again: it is already out of it.
+   */
+  drunk?: DrunkCopy;
 }
 
-export function TastingForm({ open, onClose, initialItemId, initialProductId, initialFoodPairing, editNote, fromCell }: TastingFormProps) {
+export function TastingForm({ open, onClose, initialItemId, initialProductId, initialFoodPairing, editNote, fromCell, drunk }: TastingFormProps) {
   const { t, i18n } = useTranslation();
   const lang = i18n.language;
   const { data: products } = useProducts({ enabled: open });
@@ -142,10 +150,16 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
     formatDate: (iso) => formatDate(iso, lang, { day: 'numeric', month: 'short', year: 'numeric' }),
   }), [product?.category, t, cellarName, lang]);
   const lines = useMemo(() => familyLines(product?.items ?? [], cellarName), [product?.items, cellarName]);
+  // The bottles a tasting can be of: those in the cellar, and the one just drunk (#1036).
+  const drunkCopy = drunk && drunk.item.productId === product?.id ? drunk.item : undefined;
+  const bottles = useMemo(
+    () => (drunkCopy && !lines.inCellar.some((line) => line.id === drunkCopy.id) ? [...lines.inCellar, drunkCopy] : lines.inCellar),
+    [lines.inCellar, drunkCopy],
+  );
   // A wine with no bottle in the cellar is tasted elsewhere: nothing to ask.
-  const asksBottle = !editNote && !naming && lines.inCellar.length > 0;
+  const asksBottle = !editNote && !naming && bottles.length > 0;
   const tastesBottle = asksBottle && onBottle;
-  const preset = tastingLinePreset(lines.inCellar, watchedItemId);
+  const preset = tastingLinePreset(bottles, watchedItemId);
   useEffect(() => {
     // The line preset when the wine has one obvious line (an opened bottle, a single line).
     if (asksBottle && preset && preset.id !== watchedItemId) setValue('itemId', preset.id);
@@ -177,6 +191,9 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
         await updateMutation.mutateAsync({ id: editNote.id, data: tastingPayload(values, { kind: 'edit', itemId: editNote.values.itemId }) });
         onClose();
       } else {
+        // #1036: the copy just drunk, saved on the bottle the server knows (its line while still waiting for the network).
+        const isDrunk = !!drunkCopy && values.itemId === drunkCopy.id;
+        if (isDrunk && drunk) values = { ...values, itemId: drunk.linkId };
         const note = await createMutation.mutateAsync(tastingPayload(values, naming
           ? { kind: 'named' }
           // A wine whose lines are not known (list not loaded): the bottle given stays.
@@ -184,7 +201,8 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
         // The stock question is skipped for an item with nothing to update
         // (empty box, finished bottle) or whose stock could not be read. A
         // wine tasted without a bottle (FEAT-87) has no item to ask about.
-        const tastedItem = note.itemId ? await lookUpItem(note.itemId) : undefined;
+        // The copy just drunk is out of the stock already: nothing to ask (#1036).
+        const tastedItem = note.itemId && !isDrunk ? await lookUpItem(note.itemId) : undefined;
         if (note.itemId && tastedItem && stockChoicesFor(tastedItem).length > 0) {
           setStockQuestion({ itemId: note.itemId, item: tastedItem, tastingId: note.id });
         } else {
@@ -429,8 +447,10 @@ export function TastingForm({ open, onClose, initialItemId, initialProductId, in
                         errorMessage={errors.itemId?.message}
                         variant="bordered"
                       >
-                        {lines.inCellar.map((line) => (
-                          <SelectItem key={line.id}>{lineParts(line, lineCtx).join(' · ')}</SelectItem>
+                        {bottles.map((line) => (
+                          <SelectItem key={line.id}>
+                            {(line.id === drunkCopy?.id && !lines.inCellar.includes(line) ? goneParts(line, lineCtx) : lineParts(line, lineCtx)).join(' · ')}
+                          </SelectItem>
                         ))}
                       </SingleSelect>
                     )}

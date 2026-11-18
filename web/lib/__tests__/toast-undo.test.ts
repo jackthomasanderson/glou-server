@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 type ToastOptions = { timeout?: number; title?: string; description?: unknown; endContent?: unknown };
 const addToast = vi.fn<(options: ToastOptions) => string>(() => 'toast-1');
+const closeToast = vi.fn();
 vi.mock('@heroui/react', () => ({
   addToast: (options: ToastOptions) => addToast(options),
-  closeToast: vi.fn(),
+  closeToast: (key: string) => closeToast(key),
   Button: () => null,
 }));
 vi.mock('@/lib/i18n', () => ({ default: { t: (key: string) => key } }));
@@ -12,7 +13,7 @@ vi.mock('@/lib/i18n', () => ({ default: { t: (key: string) => key } }));
 import { notifyUndoable, UNDO_TIMEOUT_MS } from '@/lib/toast';
 
 describe('notifyUndoable (decision #471 point 71)', () => {
-  beforeEach(() => addToast.mockClear());
+  beforeEach(() => { addToast.mockClear(); closeToast.mockClear(); });
 
   // The countdown itself (8 s, paused on hover and keyboard focus, #651) is
   // checked on the rendered message in toast-undo-timing.test.tsx.
@@ -35,5 +36,16 @@ describe('notifyUndoable (decision #471 point 71)', () => {
   it('keeps a lone « Annuler » beside the message', () => {
     notifyUndoable('stockMove.opened', undefined, () => {});
     expect(addToast.mock.calls[0][0].endContent).toBeDefined();
+  });
+
+  // #1036: a dialog opened right after (a tasting) closes the message, the move kept.
+  it('returns what closes the message without undoing, once', () => {
+    const onUndo = vi.fn();
+    const close = notifyUndoable('openDrink.done.drink', undefined, onUndo);
+    close();
+    close();
+    expect(closeToast).toHaveBeenCalledTimes(1);
+    expect(closeToast).toHaveBeenCalledWith('toast-1');
+    expect(onUndo).not.toHaveBeenCalled();
   });
 });

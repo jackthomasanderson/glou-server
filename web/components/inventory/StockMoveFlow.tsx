@@ -3,7 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SlotChoiceFields } from '@shared/product';
 import { openableGroups, preselectGroup } from '@shared/stock-choice';
-import { useStockMove } from '@/hooks/useStockMove';
+import { useStockMove, type MoveDone } from '@/hooks/useStockMove';
 import { lineParts, type LineContext } from '@/lib/products/lines';
 import { cellChoiceFor, type CellAsk } from '@/lib/products/cells';
 import type { StockMove } from '@/lib/products/openDrink';
@@ -26,6 +26,8 @@ interface StockMoveFlowOptions {
   viewedCellarIds?: readonly string[];
   /** "Finir l'entamée": leads to that opened bottle in the drawer (its level, "Je la finis"). */
   onFinishOpened?: (item: ProductItem) => void;
+  /** #1036: each move written, then `null` once undone (MoveOptions.onDone). */
+  onDone?: (done: MoveDone | null) => void;
 }
 
 /**
@@ -42,15 +44,15 @@ interface StockMoveFlowOptions {
  * line's menu. `startFromCell(move, line, slotId)`: the cell of the plan
  * touched says which copy (decision #471 point 77) — no question. Render `dialogs`.
  */
-export function useStockMoveFlow({ wine, ctx, viewedCellarIds, onFinishOpened }: StockMoveFlowOptions) {
+export function useStockMoveFlow({ wine, ctx, viewedCellarIds, onFinishOpened, onDone }: StockMoveFlowOptions) {
   const { t } = useTranslation();
   const { run, isPending } = useStockMove();
   const [asking, setAsking] = useState<Asking | null>(null);
 
   /** The write, and "De quelle case ?" again if the API asks it (the line changed meanwhile). */
   const write = useCallback((line: ProductItem, move: StockMove, choice?: SlotChoiceFields) =>
-    run(line, move, ctx.kind, { choice, onAskCell: (ask) => setAsking({ step: 'cell', move, line, ask }) }),
-  [ctx.kind, run]);
+    run(line, move, ctx.kind, { choice, onDone, onAskCell: (ask) => setAsking({ step: 'cell', move, line, ask }) }),
+  [ctx.kind, run, onDone]);
 
   /** A line chosen: "De quelle case ?" when it matters, else the write. False when not written (yet). */
   const take = useCallback(async (line: ProductItem, move: StockMove): Promise<boolean> => {
@@ -115,7 +117,7 @@ export function useStockMoveFlow({ wine, ctx, viewedCellarIds, onFinishOpened }:
             onFinishOpened?.(item);
             return;
           }
-          if (await run(item, move, ctx.kind)) close();
+          if (await run(item, move, ctx.kind, { onDone })) close();
         }}
         onNew={() => {
           // The full lines, as known when the reminder was asked.

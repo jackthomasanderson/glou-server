@@ -211,14 +211,15 @@ function undoToastOf(id: string): Element | null {
  * open drawer without closing it. Pressing "Annuler" closes the message and
  * calls `onUndo` once. `extra`, a second action of the same message
  * (FEAT-109: « Noter une dégustation » after « J'en bois une »), also closes
- * it.
+ * it. Returns what closes the message without undoing anything (#1036: the
+ * member moved on to a dialog it would cover).
  */
 export function notifyUndoable(
   messageKey: string,
   values: Record<string, unknown> | undefined,
   onUndo: () => void,
   extra?: { labelKey: string; onPress: () => void },
-): void {
+): () => void {
   let done = false;
   const id = `undo-${++undoSeq}`;
   const close = () => {
@@ -246,4 +247,7 @@ export function notifyUndoable(
       ? { description: createElement(UndoActions, { id, onExpire: close, className: 'flex flex-wrap gap-1 mt-1' }, button(translate(extra.labelKey), once(extra.onPress)), undo) }
       : { endContent: createElement(UndoActions, { id, onExpire: close }, undo) }),
   });
+  return () => {
+    if (!done) close();
+  };
 }

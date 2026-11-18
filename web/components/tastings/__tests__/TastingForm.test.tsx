@@ -692,3 +692,86 @@ describe('stock question on a line placed on the plan (FEAT-93)', () => {
   });
 });
 
+// #1036: "J'en bois une", then "Noter une dégustation" from the drawer — the
+// remaining bottles were offered, "Bue" took a second one out, and the last
+// bottle drunk left the tasting "Goûté ailleurs".
+describe('a tasting right after drinking a bottle (#1036)', () => {
+  const line = (fields: Record<string, unknown>) => ({
+    cellarId: 'c1', deletedAt: null, writtenOffAt: null, isOpened: false, fillLevel: null, cigarsLeft: null, cigarsPerBox: null,
+    quantity: 1, purchasedAt: '2026-01-15', purchasePrice: 20, createdAt: '2026-01-15', updatedAt: '2026-11-18', productId: 'talbot', ...fields,
+  });
+  const drunkLine = (id: string, fields: Record<string, unknown> = {}) =>
+    line({ id, isOpened: true, fillLevel: 0, ...fields }) as unknown as Product['items'][number];
+  const talbot = (lines: Record<string, unknown>[]) =>
+    ({ id: 'talbot', name: 'Talbot', producer: 'Château Talbot', category: 'wine', vintage: 2015, format: null, items: lines }) as unknown as Product;
+  const save = () => fireEvent.click(screen.getByRole('button', { name: 'actions.save' }));
+
+  beforeEach(() => {
+    createMutateAsync.mockImplementation(async (values: { itemId?: string; productId?: string }) => ({
+      ...expertTasting, id: 'new-note', itemId: values.itemId ?? null, productId: values.productId ?? 'created',
+    }));
+  });
+
+  it('several bottles left: the tasting is of the bottle just drunk, and the stock is not asked about', async () => {
+    const copy = drunkLine('copy', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 2 })])];
+    // The stock question would offer "Bue" on the ×2 left.
+    lookedUp = [item({ id: 'g3', category: 'wine', quantity: 2, isOpened: false })];
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="copy" drunk={{ item: copy, linkId: 'copy' }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('copy'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'copy' }));
+    expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  it('the last bottle: still a bottle of the cellar, never "Goûté ailleurs"', async () => {
+    const only = drunkLine('only');
+    products = [talbot([])];
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="only" drunk={{ item: only, linkId: 'only' }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('only'));
+    expect(screen.getByRole('radio', { name: 'tastingWine.yes' })).toBeChecked();
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'only' }));
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  it('drunk without network: shown as its copy, saved on the line it was taken from, no stock question', async () => {
+    const pending = drunkLine('offline:m1', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 3 })])];
+    // The server does not know the drink yet: its line still counts 3.
+    lookedUp = [item({ id: 'g3', category: 'wine', quantity: 3, isOpened: false })];
+    const onClose = vi.fn();
+    render(<TastingForm open onClose={onClose} initialProductId="talbot" initialItemId="offline:m1" drunk={{ item: pending, linkId: 'g3' }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('offline:m1'));
+
+    save();
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ productId: 'talbot', itemId: 'g3' }));
+    expect(screen.queryByText('tastings.stockUpdate.title')).toBeNull();
+    expect(inventoryUpdate).not.toHaveBeenCalled();
+  });
+
+  it('another bottle picked instead: its stock is asked about as usual', async () => {
+    const copy = drunkLine('copy', { parentItemId: 'g3' });
+    products = [talbot([line({ id: 'g3', quantity: 2 })])];
+    lookedUp = [item({ id: 'g3', category: 'wine', quantity: 2, isOpened: false })];
+    render(<TastingForm open onClose={vi.fn()} initialProductId="talbot" initialItemId="copy" drunk={{ item: copy, linkId: 'copy' }} />);
+    await waitFor(() => expect(field('tastingWine.whichBottle *')).toHaveValue('copy'));
+
+    fireEvent.change(field('tastingWine.whichBottle *'), { target: { value: 'g3' } });
+    save();
+
+    expect(await screen.findByText('tastings.stockUpdate.title')).toBeInTheDocument();
+    expect(createMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'g3' }));
+  });
+});

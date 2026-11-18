@@ -20,7 +20,8 @@ import { CurveGlyph } from '@/components/ui/CurveGlyph';
 import { CollectionPickerInline } from '@/components/collections/CollectionPickerInline';
 import { TastingForm } from '@/components/tastings/TastingForm';
 import { guestSignature } from '@/lib/shares/guestSignature';
-import { isTastedElsewhere } from '@/lib/tastings/onWine';
+import { drunkCopyOf, isTastedElsewhere, type DrunkCopy } from '@/lib/tastings/onWine';
+import type { MoveDone } from '@/hooks/useStockMove';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { DEFAULT_CURVE_SHAPE, curveShapeDescriptionKey, curveShapeLabelKey } from '@/lib/maturity-references/curve';
 import { getCategoryPlaceholderGradient } from '@/lib/analytics/categoryColors';
@@ -156,6 +157,11 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   const queryClient = useQueryClient();
   const togglePause = useToggleAlertPause();
   const [tastingOpen, setTastingOpen] = useState(false);
+  // #1036: the last move made from this drawer, kept until undone.
+  const [lastMove, setLastMove] = useState<MoveDone | null>(null);
+  // The copy the tasting being noted is of, read when the form opens: the
+  // queue sending it meanwhile does not start the form again.
+  const [tastingDrunk, setTastingDrunk] = useState<DrunkCopy | undefined>(undefined);
   const [qrOpen, setQrOpen] = useState(false);
   // The line led to: "Finir l'entamée" (FEAT-105 c2), or the line of the cell touched (FEAT-93).
   // The nonce only grows, so leading to the same line again focuses it again.
@@ -172,6 +178,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   if (opening !== prevOpening) {
     setPrevOpening(opening);
     setRemovedNotice('');
+    setLastMove(null);
     setLead((previous) => ({ id: opening && slotContext ? slotContext.itemId : null, nonce: previous.nonce + 1 }));
   }
   // The cell, while it still holds a bottle (not once taken out or drunk): of
@@ -256,6 +263,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
   // one chosen for them, which a "Bue" answer would then detach.
   // A copy still waiting for the network (FEAT-108) has no id on the server yet.
   // Opened from a cell of the plan: the cell says which bottle (decision 77, recette n°5 7.1).
+  // #1036: right after "J'en bois une" ("J'en fume un"), the copy just taken — even the last one.
+  const drunk = lastMove && lastMove.move !== 'open' ? drunkCopyOf(product?.items ?? [], lastMove) : undefined;
   const tastingLines = lines.inCellar.filter((item) => !isProvisional(item));
   const tastingPreset = (cell ? tastingLines.find((item) => item.id === slotLine?.id) : undefined)
     ?? tastingLines.find((item) => !isIntactItem(item))
@@ -305,7 +314,7 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
           onLevelCommit={handleLevel}
           lineActions={(item) => (lineActions
             ? lineActions(item, p)
-            : <StockLineMenu item={item} ctx={ctx} product={p} onFinishOpened={finishOpened} />)}
+            : <StockLineMenu item={item} ctx={ctx} product={p} onFinishOpened={finishOpened} onDone={setLastMove} />)}
           reviewActions={(item) => <ReviewLineActions item={item} ctx={ctx} />}
           focus={focusLine}
           pendingIds={pendingIds}
@@ -568,13 +577,19 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
                   viewedCellarIds={viewedCellarIds}
                   onFinishOpened={finishOpened}
                   cell={cell && slotLine ? { line: slotLine, slotId: cell.slotId } : null}
+                  onDone={setLastMove}
                 />
                 {primaryAction?.(product)}
                 <Button
                   variant="bordered"
                   color="secondary"
                   startContent={<Wine size={15} />}
-                  onPress={() => setTastingOpen(true)}
+                  onPress={() => {
+                    // #1036: its "Annuler" message would lie over the form; the move is kept.
+                    lastMove?.closeMessage();
+                    setTastingDrunk(drunk);
+                    setTastingOpen(true);
+                  }}
                   size="sm"
                 >
                   {t('tastings.logTasting')}
@@ -598,7 +613,8 @@ export function FamilyDrawer({ productId, onClose, onEdit, lineActions, primaryA
         open={tastingOpen}
         onClose={() => setTastingOpen(false)}
         initialProductId={product?.id}
-        initialItemId={tastingPreset?.id}
+        initialItemId={tastingDrunk?.item.id ?? tastingPreset?.id}
+        drunk={tastingDrunk}
         // FEAT-93 (decision 77): opened from a cell, the cell says which bottle — no "De quelle case ?" again.
         fromCell={cell && slotLine ? { itemId: slotLine.id, slotId: cell.slotId } : undefined}
       />
