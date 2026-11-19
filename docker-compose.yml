@@ -27,7 +27,7 @@ services:
         max-file: "3"
 
   api:
-    image: ghcr.io/jackthomasanderson/glou-server-api:latest
+    image: ghcr.io/jackthomasanderson/glou-server-api:latest@sha256:1079673da11a0fd15b75ad013c067ee1c33784d07a7095066c1f01f5540ef6af
     restart: unless-stopped
     depends_on:
       db:
@@ -91,7 +91,7 @@ services:
       start_period: 30s
 
   web:
-    image: ghcr.io/jackthomasanderson/glou-server-web:latest
+    image: ghcr.io/jackthomasanderson/glou-server-web:latest@sha256:a6bbb99e89be9d8fe5f6f542eb0a25468df131570f77f5102ae5db1ddb95768e
     restart: unless-stopped
     depends_on:
       api:
@@ -123,7 +123,7 @@ services:
   # ~3 GB of RAM. Enable with: docker compose --profile scan up -d
   ollama:
     profiles: ["scan"]
-    image: ollama/ollama:0.40.16  # pinned (#540); Renovate proposes updates
+    image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592  # pinned (#540); Renovate proposes updates
     restart: unless-stopped
     mem_limit: 4g
     environment:
@@ -146,7 +146,7 @@ services:
   # One-shot: downloads the model (~1.7 GB) into ollama_data, then exits (0).
   ollama-pull:
     profiles: ["scan"]
-    image: ollama/ollama:0.40.16  # pinned (#540); Renovate proposes updates
+    image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592  # pinned (#540); Renovate proposes updates
     restart: "no"
     depends_on:
       ollama:
