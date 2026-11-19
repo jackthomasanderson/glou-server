@@ -26,7 +26,7 @@ services:
         max-file: "3"
 
   api:
-    image: ghcr.io/jackthomasanderson/glou-server-api:beta
+    image: ghcr.io/jackthomasanderson/glou-server-api:beta@sha256:b7609ca75530f28bf94f5210a75eb5f6d093fd6279756095ec52ad00f6ab4da2
     restart: unless-stopped
     depends_on:
       db:
@@ -58,7 +58,7 @@ services:
     logging: *logging
 
   web:
-    image: ghcr.io/jackthomasanderson/glou-server-web:beta
+    image: ghcr.io/jackthomasanderson/glou-server-web:beta@sha256:2334125a414f15d6e21fd4c8f4177dbe01ec00271254a360173f3a9958d601be
     restart: unless-stopped
     depends_on:
       - api
@@ -74,7 +74,7 @@ services:
   # Optional label scan: docker compose -f docker-compose.dev.yml --profile scan up -d
   ollama:
     profiles: ["scan"]
-    image: ollama/ollama:0.40.16
+    image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
     restart: unless-stopped
     mem_limit: 4g
     environment:
@@ -95,7 +95,7 @@ services:
 
   ollama-pull:
     profiles: ["scan"]
-    image: ollama/ollama:0.40.16
+    image: ollama/ollama:0.40.16@sha256:910d0d8107b538fb0894e63163eb195de0cc7aefcbc666dc62d3b18f71124592
     restart: "no"
     depends_on:
       ollama:
